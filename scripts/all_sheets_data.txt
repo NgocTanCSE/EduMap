@@ -1,0 +1,856 @@
+
+=========================================
+SHEET: 1. Tổng Quan Dự Án (Rows: 15, Cols: 3)
+=========================================
+Row 1: Hạng mục | Nội dung chi tiết | Ghi chú
+Row 2: 📋 Tên dự án | EduMap – Bản đồ học tập mở | Nền tảng EdTech cộng đồng
+Row 3: 🎯 Tầm nhìn | Xây dựng hệ sinh thái giáo dục mở, kết nối tri thức, cơ hội học tập công bằng cho mọi người thông qua công nghệ AI và bản đồ số thông minh | Hướng tới scale toàn quốc
+Row 4: 🚀 Sứ mệnh | Số hóa giáo dục cộng đồng, thu hẹp khoảng cách giáo dục giữa các vùng miền, kết nối sinh viên tình nguyện với học sinh vùng khó khăn | Gắn với SDG 4, 10, 17
+Row 5: 🏆 Mục tiêu | 1) Bản đồ hóa toàn bộ tài nguyên giáo dục
+2) Kết nối 10,000+ sinh viên tình nguyện
+3) Hỗ trợ 50,000+ học sinh vùng khó khăn
+4) Xây dựng kho học liệu mở 100,000+ tài liệu | Mục tiêu 3 năm
+Row 6: 💎 Giá trị cốt lõi | 1) Lan tỏa tri thức
+2) Kết nối cộng đồng
+3) Hỗ trợ giáo dục vùng khó khăn
+4) Giáo dục xanh & chuyển đổi số
+5) Công bằng giáo dục | 
+Row 7: 👥 Đối tượng người dùng | Học sinh THPT, Sinh viên, Giáo viên, Mentor, Volunteer, Trường học, Đại học, Doanh nghiệp, Nhà tài trợ, Cộng đồng | 12 loại vai trò
+Row 8: ⭐ Điểm nổi bật | 1) Bản đồ giáo dục thông minh AI
+2) Student Opportunity Map (Google Maps cho sinh viên)
+3) Green Campus
+4) Gamification
+5) Kết nối liên trường Đồng Nai
+6) STEM Lab & Innovation
+7) Kho học liệu offline | Unique selling points
+Row 9: 🔄 Mô hình hoạt động | Nền tảng mở (Freemium) + Tài trợ doanh nghiệp + Hợp tác trường học + Quỹ giáo dục + Quảng cáo giáo dục | Hybrid revenue model
+Row 10: 🏗️ Kiến trúc tổng quan | Frontend: NextJS + Flutter
+Backend: NestJS + FastAPI (AI)
+DB: PostgreSQL + MongoDB + Redis
+Map: Mapbox + Google Maps
+AI: Python + LLM
+Cloud: AWS/GCP + Firebase | Microservice Architecture
+Row 11: 🧭 Định hướng mở rộng | Phase 1: Đồng Nai → Phase 2: Đông Nam Bộ → Phase 3: Toàn quốc → Phase 4: ASEAN | Chiến lược mở rộng theo vùng
+Row 12: 📅 Roadmap | MVP (3 tháng) → Phase 1 (6 tháng) → Phase 2 (12 tháng) → Phase 3 (18 tháng) → Scale (24 tháng) | Timeline tổng quan
+Row 13: 💰 Mô hình doanh thu | 1) Freemium cho người dùng cá nhân
+2) Gói doanh nghiệp tài trợ
+3) Hợp tác trường học (SaaS)
+4) Quỹ giáo dục quốc tế
+5) Workshop/Event phí | Đa nguồn thu
+Row 14: 📊 KPI chính | MAU: 50K+ (Y1), DAU: 10K+, Tài liệu: 100K+, Volunteer: 10K+, Trường hợp tác: 100+, Workshop: 500+/năm | Đo lường hàng quý
+Row 15: 🔗 SDG liên quan | SDG 4 (Giáo dục chất lượng), SDG 10 (Giảm bất bình đẳng), SDG 17 (Quan hệ đối tác), SDG 9 (Công nghiệp & Đổi mới), SDG 13 (Hành động khí hậu) | UN Sustainable Development Goals
+
+=========================================
+SHEET: 2. Danh Sách Module (Rows: 30, Cols: 12)
+=========================================
+Row 1: # | Mã Module | Tên Module | Mô tả | Chức năng chính | Đối tượng sử dụng | Priority | Độ khó | Estimated Time | Công nghệ chính | Dependencies | Phase
+Row 2: 1 | MOD-MAP | Bản đồ giáo dục thông minh | Hiển thị toàn bộ tài nguyên giáo dục trên bản đồ số: trường học, thư viện, điểm wifi, lab, không gian xanh | Hiển thị marker, filter, search, clustering, heatmap, geolocation, AI recommendation theo khu vực | Tất cả user | 🔴 Critical | ⭐⭐⭐⭐⭐ | 8 tuần | Mapbox/Google Maps, NextJS, PostgreSQL+PostGIS | MOD-AUTH | MVP
+Row 3: 2 | MOD-AI | AI Chatbot & Hỗ trợ học tập | Chatbot AI giải đáp thắc mắc, gợi ý tài liệu, cá nhân hóa học tập, phân tích dữ liệu giáo dục | Chat AI, gợi ý tài liệu, phân tích learning path, AI mentor matching, career recommendation | Student, Teacher | 🔴 Critical | ⭐⭐⭐⭐⭐ | 10 tuần | Python, FastAPI, LLM (GPT/Gemini), Vector DB, LangChain | MOD-LIB, MOD-AUTH | Phase 1
+Row 4: 3 | MOD-LIB | Kho học liệu mở | Kho tài liệu miễn phí: video, PDF, đề thi, khóa học, STEM, hướng nghiệp, kỹ năng mềm, lập trình | Upload, download, search, filter, rating, bookmark, offline sync, AI recommendation | Student, Teacher, Mentor | 🔴 Critical | ⭐⭐⭐⭐ | 6 tuần | NextJS, NestJS, PostgreSQL, MinIO/S3, Elasticsearch | MOD-AUTH | MVP
+Row 5: 4 | MOD-WS | Workshop & Sự kiện | Quản lý workshop, seminar, hackathon, coding camp, STEM camp, trại hè khoa học | Tạo/đăng ký sự kiện, lịch, reminder, check-in, feedback, certificate | Tất cả user | 🟠 High | ⭐⭐⭐⭐ | 5 tuần | NextJS, NestJS, PostgreSQL, Firebase Cloud Messaging | MOD-AUTH, MOD-MAP | MVP
+Row 6: 5 | MOD-OPP | Student Opportunity Map | Google Maps cho cơ hội sinh viên: học bổng, cuộc thi, internship, nghiên cứu KH | Hiển thị cơ hội trên map, filter ngành/khu vực, deadline tracking, team finding | Student | 🟠 High | ⭐⭐⭐⭐ | 6 tuần | Mapbox, NextJS, NestJS, PostgreSQL | MOD-MAP, MOD-AUTH | Phase 1
+Row 7: 6 | MOD-GREEN | Green Campus | Bản đồ không gian xanh, hoạt động môi trường, điểm tái chế, thử thách sống xanh | Map xanh, challenge môi trường, tracking carbon, campaign, leaderboard xanh | Student, School | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, Mapbox, PostgreSQL | MOD-MAP, MOD-GAME | Phase 1
+Row 8: 7 | MOD-GAME | Gamification | Huy hiệu, tích điểm, leaderboard, chứng nhận điện tử, lịch sử hoạt động | Badge system, points, levels, achievements, certificates, streaks | Tất cả user | 🟠 High | ⭐⭐⭐⭐ | 5 tuần | NextJS, NestJS, Redis, PostgreSQL | MOD-AUTH | Phase 1
+Row 9: 8 | MOD-DASH | Dashboard dữ liệu | Heatmap giáo dục, thống kê hoạt động, số liệu hỗ trợ, khu vực ưu tiên | Charts, heatmap, analytics, reports, export, realtime stats | Admin, School, Sponsor | 🟠 High | ⭐⭐⭐⭐ | 5 tuần | NextJS, D3.js/Chart.js, NestJS, PostgreSQL | MOD-MAP, MOD-AUTH | Phase 1
+Row 10: 9 | MOD-MENTOR | Hệ thống Mentor | Kết nối mentor-mentee, lịch tư vấn, đánh giá, theo dõi tiến trình | Matching AI, booking, video call, feedback, progress tracking | Mentor, Student | 🟡 Medium | ⭐⭐⭐⭐ | 6 tuần | NextJS, NestJS, WebRTC, PostgreSQL, AI matching | MOD-AI, MOD-AUTH | Phase 2
+Row 11: 10 | MOD-VOL | Hệ thống Volunteer | Quản lý tình nguyện viên, chiến dịch, theo dõi giờ hoạt động, chứng nhận | Đăng ký, assign, tracking hours, campaign management, certificates | Volunteer, Admin | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL | MOD-AUTH, MOD-GAME | Phase 1
+Row 12: 11 | MOD-BIZ | Kết nối doanh nghiệp | Doanh nghiệp tài trợ học bổng, workshop, internship, đồng hành giáo dục | Company profile, sponsorship, internship posting, partnership | Business, Sponsor | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL | MOD-AUTH, MOD-OPP | Phase 2
+Row 13: 12 | MOD-SURVEY | Khảo sát giáo dục | Thu thập nhu cầu học tập, điều kiện học online, khó khăn giáo dục | Tạo survey, thu thập, phân tích, báo cáo, export | Admin, School, Teacher | 🟡 Medium | ⭐⭐⭐ | 3 tuần | NextJS, NestJS, PostgreSQL | MOD-AUTH | Phase 2
+Row 14: 13 | MOD-DONATE | Quyên góp & Hỗ trợ | Quyên góp sách, laptop, thiết bị, tài trợ học bổng, matching người cần | Donate form, matching, tracking, transparency report | Sponsor, Volunteer | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL, Payment gateway | MOD-AUTH, MOD-MAP | Phase 2
+Row 15: 14 | MOD-CAREER | Roadmap nghề nghiệp | Định hướng nghề nghiệp, roadmap kỹ năng, chia sẻ kinh nghiệm | Career paths, skill roadmap, mentor stories, AI career suggestion | Student | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL, AI | MOD-AI, MOD-AUTH | Phase 2
+Row 16: 15 | MOD-COMMUNITY | Cộng đồng học tập | Nhóm học tập, đăng bài, Q&A, challenge học tập, kết nối CLB | Groups, posts, comments, Q&A, challenges, CLB directory | Student, Teacher | 🟠 High | ⭐⭐⭐⭐ | 6 tuần | NextJS, NestJS, PostgreSQL, WebSocket | MOD-AUTH | Phase 1
+Row 17: 16 | MOD-WIFI | Wifi Map | Bản đồ wifi miễn phí, phòng máy tính công cộng, điểm hỗ trợ học online | Map markers, speed test, user reviews, crowdsourced data | Tất cả user | 🟢 Low | ⭐⭐ | 2 tuần | Mapbox, NextJS, NestJS | MOD-MAP | Phase 2
+Row 18: 17 | MOD-STEM | STEM Lab & Innovation | Quản lý workshop STEM, coding camp, robotics, AI camp, phòng lab | Lab directory, workshop management, equipment booking, STEM content | Student, Teacher, School | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL, Mapbox | MOD-MAP, MOD-WS | Phase 2
+Row 19: 18 | MOD-SCHOLAR | Scholarship Map | Bản đồ học bổng: trong nước, quốc tế, theo ngành, theo khu vực | Search, filter, deadline alert, eligibility check, application tracking | Student | 🟠 High | ⭐⭐⭐ | 3 tuần | Mapbox, NextJS, NestJS, PostgreSQL | MOD-MAP, MOD-OPP | Phase 1
+Row 20: 19 | MOD-INTERN | Internship Map | Bản đồ thực tập: vị trí, công ty, ngành, khu vực, deadline | Search, filter, apply, tracking, company reviews | Student | 🟡 Medium | ⭐⭐⭐ | 3 tuần | Mapbox, NextJS, NestJS, PostgreSQL | MOD-MAP, MOD-BIZ | Phase 2
+Row 21: 20 | MOD-HACK | Challenge & Hackathon | Bản đồ hackathon, cuộc thi khởi nghiệp, AI challenge, STEM challenge | Event listing, team finding, submission, judging, results | Student | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL | MOD-OPP, MOD-GAME | Phase 2
+Row 22: 21 | MOD-INTL | Quốc tế hóa | Workshop quốc tế, exchange, học bổng QT, giao lưu, seminar chuyên gia | International events, exchange programs, global opportunities | Student | 🟢 Low | ⭐⭐⭐ | 3 tuần | NextJS, NestJS, i18n | MOD-OPP, MOD-SCHOLAR | Phase 3
+Row 23: 22 | MOD-CERT | Chứng nhận điện tử | Cấp chứng nhận hoàn thành khóa học, workshop, tình nguyện | Generate cert, verify, blockchain optional, portfolio | Student, Volunteer | 🟡 Medium | ⭐⭐⭐ | 3 tuần | NextJS, NestJS, PDF generation, QR code | MOD-GAME, MOD-AUTH | Phase 2
+Row 24: 23 | MOD-LEARN | Community Learning Map | Bản đồ quán cà phê học tập, thư viện, phòng tự học, không gian nhóm | Map markers, reviews, photos, check-in, availability | Student | 🟢 Low | ⭐⭐ | 2 tuần | Mapbox, NextJS, NestJS | MOD-MAP | Phase 2
+Row 25: 24 | MOD-AUTH | Authentication & Authorization | Đăng ký, đăng nhập, phân quyền, OAuth, JWT, RBAC | Register, login, OAuth, JWT, RBAC, profile management | Tất cả user | 🔴 Critical | ⭐⭐⭐⭐ | 4 tuần | NestJS, PostgreSQL, Firebase Auth, JWT | Không | MVP
+Row 26: 25 | MOD-NOTIFY | Notification System | Thông báo push, email, in-app, realtime | Push notification, email, SMS, in-app, preferences | Tất cả user | 🟠 High | ⭐⭐⭐ | 3 tuần | Firebase FCM, NestJS, WebSocket, Redis | MOD-AUTH | MVP
+Row 27: 26 | MOD-MOBILE | Tri thức lưu động | Thư viện lưu động, lớp học lưu động, xe công nghệ đến vùng khó | Route planning, schedule, tracking, resource management | Admin, Volunteer | 🟢 Low | ⭐⭐⭐ | 4 tuần | Flutter, NestJS, Mapbox, PostgreSQL | MOD-MAP, MOD-VOL | Phase 3
+Row 28: 27 | MOD-SUMMER | Mùa hè xanh | Quản lý chiến dịch tình nguyện mùa hè, kết nối đội, theo dõi hoạt động | Campaign management, team connect, activity tracking, reports | Volunteer, Admin | 🟢 Low | ⭐⭐ | 3 tuần | NextJS, NestJS, PostgreSQL | MOD-VOL, MOD-MAP | Phase 3
+Row 29: 28 | MOD-SHARE | Chia sẻ sách & tài liệu | Chia sẻ giáo trình cũ, tặng sách, quyên góp tập vở | Post items, request, matching, delivery tracking | Student, Volunteer | 🟢 Low | ⭐⭐ | 2 tuần | NextJS, NestJS, PostgreSQL | MOD-AUTH, MOD-MAP | Phase 2
+Row 30: 29 | MOD-HS | Kết nối HS THPT - ĐH | Hướng nghiệp, tư vấn tuyển sinh, mentor, trải nghiệm đại học | Counseling, campus tour, mentor matching, STEM activities | Student, Teacher, University | 🟡 Medium | ⭐⭐⭐ | 4 tuần | NextJS, NestJS, PostgreSQL | MOD-MENTOR, MOD-CAREER | Phase 2
+
+=========================================
+SHEET: 3. Chi Tiết Chức Năng (Rows: 21, Cols: 27)
+=========================================
+Row 1: # | Module | Tên chức năng | Mô tả chi tiết | Ai sử dụng | Quy trình hoạt động | Input | Output | Logic xử lý | API liên quan | DB liên quan | Frontend xử lý | Backend xử lý | AI xử lý | Notification | Role | Priority | Độ khó | Realtime? | Offline? | Cache? | AI Rec? | Map? | Analytics? | Security | Validation | Error Handling
+Row 2: 1 | MOD-MAP | Hiển thị bản đồ giáo dục | Hiển thị tất cả điểm giáo dục (trường, thư viện, lab, wifi) trên bản đồ tương tác với marker, popup info | Tất cả | 1.Mở app→2.Load map→3.Fetch markers→4.Render→5.User tương tác | GPS location, filters, zoom level | Map với markers, popup info, cluster | Load tile map→Fetch POI từ DB→Cluster markers→Render popup→Track interaction | GET /api/map/points, GET /api/map/clusters | map_points, map_categories, map_reviews | Mapbox GL JS, marker rendering, popup, filter UI, responsive | Query PostGIS, geo-filter, pagination, caching | Phát hiện khu vực thiếu giáo dục, gợi ý điểm gần | Không | Tất cả | 🔴 Critical | ⭐⭐⭐⭐⭐ | Có | Có (cache tiles) | Có (Redis) | Có | Có | Có | Rate limit, input sanitize | Validate lat/lng range, filter params | Map load fail→fallback, No data→empty state
+Row 3: 2 | MOD-MAP | Tìm kiếm trên bản đồ | Search trường học, thư viện, wifi... theo tên, loại, khu vực | Tất cả | 1.Nhập keyword→2.Gợi ý autocomplete→3.Chọn→4.Fly to location | Search keyword, filters | Danh sách kết quả + map focus | Full-text search Elasticsearch→Geo filter→Rank results→Return | GET /api/map/search?q=&type=&radius= | map_points, search_logs | Search bar, autocomplete dropdown, result list | Elasticsearch query, geo-distance sort | Smart search: hiểu intent, sửa lỗi chính tả | Không | Tất cả | 🔴 Critical | ⭐⭐⭐⭐ | Không | Có (recent searches) | Có | Có | Có | Có | Input sanitize | Min 2 chars, max 100, XSS filter | No results→suggest alternatives
+Row 4: 3 | MOD-MAP | Heatmap giáo dục | Hiển thị heatmap mật độ giáo dục, vùng thiếu hụt, khu vực cần hỗ trợ | Admin, School, Sponsor | 1.Chọn layer→2.Load data→3.Render heatmap→4.Phân tích | Layer type, region, time range | Heatmap overlay trên map | Aggregate data theo region→Tính density→Generate heatmap layer→Render | GET /api/map/heatmap?type=&region= | map_analytics, education_stats | Heatmap layer overlay, legend, opacity control | Aggregate PostGIS data, cache heavy queries | AI phát hiện anomaly, predict xu hướng | Không | ⚙️ Admin, 🏫 School | 🟠 High | ⭐⭐⭐⭐⭐ | Không | Không | Có (30min) | Có | Có | Có | Admin auth required | Valid layer type, region | Heavy load→progressive render
+Row 5: 4 | MOD-MAP | Thêm điểm giáo dục mới | User đóng góp thêm điểm mới lên bản đồ (crowdsource) | Student, Teacher, Volunteer | 1.Click map→2.Chọn loại→3.Điền info→4.Upload ảnh→5.Submit→6.Review→7.Publish | Lat/lng, name, type, description, photos | Marker mới trên bản đồ (sau review) | Validate input→Save draft→Admin review→Approve/Reject→Publish to map | POST /api/map/points, PUT /api/map/points/:id/approve | map_points, map_reviews, media | Form wizard, image upload, map picker | Validate, save, notify admin, process images | Auto-categorize, detect duplicate | Notify admin để review; notify user khi approved | 🎓 Student, 👩‍🏫 Teacher, 🤝 Volunteer, ⚙️ Admin | 🟡 Medium | ⭐⭐⭐ | Không | Không | Không | Không | Có | Có | Auth required, file validation | Required fields, image size/type, coordinate range | Duplicate detection→merge suggestion
+Row 6: 5 | MOD-AI | Chat AI học tập | Chatbot AI giải đáp thắc mắc học tập, gợi ý tài liệu phù hợp | Student, Teacher | 1.Mở chat→2.Nhập câu hỏi→3.AI xử lý→4.Trả lời→5.Gợi ý follow-up | Tin nhắn text, context, user profile | Câu trả lời AI + gợi ý tài liệu + follow-up questions | Parse intent→RAG từ knowledge base→Generate response→Attach relevant docs→Log | POST /api/ai/chat, GET /api/ai/suggestions | ai_conversations, ai_messages, learning_materials | Chat UI, markdown render, typing indicator, suggestion chips | Route to AI service, manage context window, rate limit | LLM + RAG: retrieve relevant docs → augment prompt → generate response | Không | 🎓 Student, 👩‍🏫 Teacher | 🔴 Critical | ⭐⭐⭐⭐⭐ | Có (streaming) | Không | Có (session) | Có | Không | Có | Rate limit 20/min, content filter | Non-empty message, max 2000 chars | AI fail→fallback response, timeout→retry
+Row 7: 6 | MOD-AI | Cá nhân hóa học tập | AI phân tích hành vi học tập → gợi ý lộ trình và tài liệu phù hợp | Student | 1.Track behavior→2.Analyze patterns→3.Build profile→4.Generate recommendations | Learning history, interests, level, goals | Personalized dashboard, recommended materials | Collect interactions→Compute embeddings→Collaborative filtering→Content-based rec→Rank | GET /api/ai/recommendations, GET /api/ai/learning-path | user_learning_history, user_preferences, recommendations | Recommendation cards, progress visualization | Batch processing, real-time scoring, A/B test | Embedding model + recommendation engine + personalization | Weekly summary notification | 🎓 Student | 🟠 High | ⭐⭐⭐⭐⭐ | Không | Không | Có (1h) | Có | Không | Có | Privacy: user consent required | Valid user profile | Cold start→popular items fallback
+Row 8: 7 | MOD-AI | AI phân tích dữ liệu giáo dục | AI phân tích xu hướng giáo dục, dự đoán nhu cầu, phát hiện vùng thiếu hụt | Admin, School | 1.Collect data→2.Process→3.Train model→4.Generate insights→5.Dashboard | Education statistics, survey data, map data | Insights, predictions, reports, visualizations | ETL pipeline→Feature engineering→ML models→Prediction→Visualization | GET /api/ai/analytics, GET /api/ai/predictions | education_stats, ai_models, predictions | Dashboard charts, insight cards, prediction graphs | Scheduled jobs, model serving, data pipeline | Time series forecasting, clustering, anomaly detection | Alert khi phát hiện anomaly | ⚙️ Admin | 🟡 Medium | ⭐⭐⭐⭐⭐ | Không | Không | Có (6h) | Có | Có | Có | Admin only, data anonymization | Valid date range, region | Model fail→use cached predictions
+Row 9: 8 | MOD-AI | AI Career Recommendation | AI gợi ý nghề nghiệp dựa trên sở thích, kỹ năng, xu hướng thị trường | Student | 1.Làm quiz→2.AI phân tích→3.Match careers→4.Show roadmap→5.Connect mentor | Quiz answers, skills, interests, academic record | Career suggestions + skill gaps + learning roadmap | Analyze profile→Match with career database→Identify skill gaps→Generate roadmap | POST /api/ai/career-quiz, GET /api/ai/career-recommendations | career_paths, skill_matrix, user_profiles | Quiz UI, career cards, roadmap visualization, skill radar chart | Process quiz, run matching algorithm, cache results | NLP analysis + career matching model + market trend data | Kết quả career suggestion | 🎓 Student | 🟡 Medium | ⭐⭐⭐⭐ | Không | Không | Có (24h) | Có | Không | Có | Auth required | Complete quiz required | No match→broaden criteria
+Row 10: 9 | MOD-LIB | Upload tài liệu | Upload video, PDF, đề thi vào kho học liệu | Teacher, Mentor, Admin | 1.Chọn file→2.Điền metadata→3.Upload→4.Process→5.Review→6.Publish | File + metadata (title, subject, grade, tags) | Tài liệu trong kho, searchable | Validate file→Upload to S3→Process (thumbnail, extract text)→Index→Review | POST /api/library/upload, POST /api/library/materials | learning_materials, material_categories, media_files | Drag-drop upload, progress bar, metadata form | File processing, virus scan, thumbnail gen, text extraction, index | Auto-tag, auto-categorize, quality score | Notify admin review; notify user approved | 👩‍🏫 Teacher, 🧑‍🏫 Mentor, ⚙️ Admin | 🔴 Critical | ⭐⭐⭐⭐ | Không | Không | Không | Có | Không | Có | File scan, size limit 100MB, type whitelist | Required metadata, valid file type | Upload fail→resume, virus detected→reject
+Row 11: 10 | MOD-LIB | Tìm kiếm học liệu | Full-text search tài liệu theo tên, chủ đề, lớp, tags | Tất cả | 1.Nhập keyword→2.Filter→3.Search→4.Sort→5.View results | Keyword, filters (subject, grade, type, rating) | Danh sách tài liệu sorted by relevance | Elasticsearch full-text→Filter→Boost by rating/recency→Paginate | GET /api/library/search?q=&subject=&grade= | learning_materials, material_ratings | Search bar, filter sidebar, result grid/list, sort dropdown | Elasticsearch query with boosting, faceted search | Smart search: synonyms, typo correction, intent | Không | Tất cả | 🔴 Critical | ⭐⭐⭐ | Không | Có (recent) | Có (5min) | Có | Không | Có | Public access OK | Min 1 char search | No results→suggest related
+Row 12: 11 | MOD-LIB | Offline sync tài liệu | Tải tài liệu để đọc offline, hỗ trợ mạng yếu | Student | 1.Bookmark→2.Download→3.Store locally→4.Read offline→5.Sync khi online | Material IDs to download | Local cached materials | Service Worker cache→IndexedDB storage→Background sync | GET /api/library/materials/:id/download | learning_materials, user_downloads | PWA offline indicator, download manager, offline reader | Serve file with range support, track downloads | Không | Download complete notification | 🎓 Student | 🟠 High | ⭐⭐⭐⭐ | Không | Có | Có (local) | Không | Không | Có | Encrypted local storage | Max 50 offline items, valid material ID | Storage full→alert user, sync fail→retry
+Row 13: 12 | MOD-WS | Tạo workshop/sự kiện | Tạo và quản lý workshop, seminar, hackathon, coding camp | Teacher, School, University, Admin | 1.Chọn loại→2.Điền info→3.Set location→4.Upload banner→5.Publish | Event details, location, schedule, capacity, banner | Event page, registration form, map pin | Validate→Save→Geocode address→Create map point→Publish→Index | POST /api/events, PUT /api/events/:id | events, event_categories, event_locations | Event creation wizard, rich text editor, map picker, date picker | Validation, geocoding, notification scheduling | Auto-suggest tags, detect similar events | Notify followers in area | 👩‍🏫 Teacher, 🏫 School, ⚙️ Admin | 🟠 High | ⭐⭐⭐ | Không | Không | Không | Có | Có | Có | Auth, ownership validation | Required fields, future date, valid capacity | Geocode fail→manual pin
+Row 14: 13 | MOD-WS | Đăng ký workshop | Đăng ký tham gia workshop, nhận ticket, reminder | Student, Teacher | 1.View event→2.Register→3.Confirm email→4.Get ticket→5.Reminder→6.Check-in→7.Feedback | User info, event ID | Ticket QR code, calendar event, reminders | Check capacity→Reserve slot→Send confirmation→Schedule reminders→Generate QR | POST /api/events/:id/register | event_registrations, tickets | Register button, ticket view, QR code, add-to-calendar | Capacity management, QR generation, email sending | Recommend related events | Confirmation, reminder 1d before, 1h before | 🎓 Student, 👩‍🏫 Teacher | 🟠 High | ⭐⭐⭐ | Không | Có (ticket) | Có | Có | Không | Có | Auth required, prevent double register | Valid event, not past deadline, not full | Full→waitlist, payment fail→retry
+Row 15: 14 | MOD-GAME | Hệ thống huy hiệu | Cấp huy hiệu khi hoàn thành nhiệm vụ: học, tình nguyện, mentor | Tất cả | 1.Complete action→2.Check badge rules→3.Award badge→4.Notify→5.Display | User actions, badge rules | Badge earned notification, profile update | Event-driven: action triggers→check rules engine→award if match→update points | POST /api/gamification/check-badge, GET /api/gamification/badges | badges, user_badges, badge_rules, points | Badge collection UI, notification popup, profile badge shelf | Rules engine, event processing, anti-cheat | Không | Badge earned notification | Tất cả | 🟠 High | ⭐⭐⭐ | Có | Không | Có | Không | Không | Có | Anti-cheat validation | Valid action, no duplicate award | Rule check fail→log and skip
+Row 16: 15 | MOD-GAME | Bảng xếp hạng | Leaderboard điểm cộng đồng: tuần, tháng, all-time | Tất cả | 1.Accumulate points→2.Rank→3.Display leaderboard→4.Award top users | Time range, category | Ranked list with scores, user info | Redis sorted set→Aggregate points→Rank→Paginate | GET /api/gamification/leaderboard?period=&category= | user_points, leaderboard_cache | Leaderboard table, rank cards, animations, filter tabs | Redis sorted sets, periodic recalculation | Không | Weekly top notification | Tất cả | 🟡 Medium | ⭐⭐⭐ | Có | Không | Có (5min Redis) | Không | Không | Có | Anti-manipulation | Valid period, valid category | Cache miss→recalculate
+Row 17: 16 | MOD-OPP | Hiển thị cơ hội trên map | Hiển thị học bổng, cuộc thi, internship, workshop trên bản đồ | Student | 1.Load map→2.Filter opportunities→3.Cluster→4.Click marker→5.View detail | Filters: type, field, region, deadline | Map with opportunity markers + detail popup | Geo-query opportunities→Filter→Cluster→Render markers | GET /api/opportunities?type=&field=&bounds= | opportunities, opportunity_categories | Opportunity markers (color-coded by type), filter panel, detail modal | PostGIS geo-query, filter, paginate | Recommend based on profile | Deadline approaching notification | 🎓 Student | 🟠 High | ⭐⭐⭐⭐ | Không | Không | Có (15min) | Có | Có | Có | Public + auth for apply | Valid bounds, valid filter values | No opportunities→expand area
+Row 18: 17 | MOD-GREEN | Challenge sống xanh | Tạo và tham gia thử thách môi trường: giảm giấy, trồng cây, tái chế | Student, School | 1.Browse challenges→2.Join→3.Log activities→4.Upload proof→5.Earn points→6.Leaderboard | Challenge ID, activity proof (photo) | Points, badges, leaderboard position | Join challenge→Log daily→Upload proof→Verify→Award points→Update leaderboard | POST /api/green/challenges/:id/join, POST /api/green/activities | green_challenges, green_activities, green_leaderboard | Challenge cards, activity log, photo upload, progress bar | Activity tracking, proof verification, leaderboard update | Auto-verify photos (image classification) | Daily reminder, milestone achieved | 🎓 Student | 🟡 Medium | ⭐⭐⭐ | Không | Không | Không | Không | Có (map activities) | Có | Auth, proof validation | Valid proof image, daily limit | Verify fail→manual review
+Row 19: 18 | MOD-COMMUNITY | Đăng bài & thảo luận | Tạo bài đăng, bình luận, like, share trong cộng đồng học tập | Student, Teacher, Mentor | 1.Chọn group→2.Viết bài→3.Attach media→4.Post→5.Others interact | Text, images, tags, group ID | Post visible in group feed | Validate content→Save→Notify group members→Index for search→Update feed | POST /api/community/posts, POST /api/community/posts/:id/comments | posts, comments, likes, post_media | Rich text editor, image upload, comment thread, like/share buttons | Content moderation, notification fanout, feed generation | AI content moderation, auto-tag, spam detection | New comment/like notification | 🎓 Student, 👩‍🏫 Teacher, 🧑‍🏫 Mentor | 🟠 High | ⭐⭐⭐ | Có (new posts) | Không | Có (feed) | Không | Không | Có | Content moderation, XSS prevention | Non-empty content, max 5000 chars, valid media | Spam detected→hold for review
+Row 20: 19 | MOD-MENTOR | Đặt lịch mentor | Đặt lịch tư vấn với mentor, video call, đánh giá | Student | 1.Browse mentors→2.View profile→3.Book slot→4.Confirm→5.Video call→6.Feedback | Mentor ID, time slot, topic | Booking confirmation, calendar invite, video link | Check availability→Reserve slot→Notify mentor→Send calendar→Generate video link | POST /api/mentoring/bookings, GET /api/mentoring/mentors/:id/slots | mentors, mentor_slots, bookings, booking_reviews | Mentor cards, calendar picker, video call UI, feedback form | Slot management, conflict detection, video room creation | AI match mentor-student based on skills & needs | Booking confirmed, reminder 1h before | 🎓 Student, 🧑‍🏫 Mentor | 🟡 Medium | ⭐⭐⭐⭐ | Có (video call) | Không | Không | Có | Không | Có | Auth, rate limit bookings | Valid slot, not conflicting, max 3 active bookings | Mentor unavailable→suggest alternatives
+Row 21: 20 | MOD-DONATE | Quyên góp trực tuyến | Quyên góp tiền, sách, thiết bị cho học sinh vùng khó khăn | Sponsor, Volunteer, Business | 1.Chọn campaign→2.Chọn hình thức→3.Donate→4.Confirm→5.Track→6.Report | Amount/items, payment info, campaign ID | Receipt, tracking ID, transparency report | Validate→Process payment→Record→Update campaign progress→Send receipt→Report | POST /api/donations, GET /api/donations/campaigns | donations, donation_campaigns, donation_items | Campaign cards, donation form, progress bar, impact counter | Payment gateway integration, receipt generation, reporting | Recommend campaigns based on interests | Donation confirmed, campaign milestone, impact report | 💎 Sponsor, 🤝 Volunteer, 🏢 Business | 🟡 Medium | ⭐⭐⭐⭐ | Không | Không | Không | Có | Có (map campaigns) | Có | PCI compliance, encryption, audit log | Valid amount min 10K VND, valid payment | Payment fail→retry, refund flow
+
+=========================================
+SHEET: 4. Vai Trò & Phân Quyền (Rows: 13, Cols: 11)
+=========================================
+Row 1: Vai trò | Mô tả | Xem | Tạo | Sửa | Xóa | Quản trị | Chức năng chính | Giới hạn | Security Level | Flow hoạt động
+Row 2: 👤 Guest | Khách chưa đăng nhập | Bản đồ, học liệu public, sự kiện public | Không | Không | Không | Không | Xem bản đồ, tìm kiếm, xem tài liệu miễn phí | Không chat AI, không join group, không đăng ký event | 🟢 Low | Vào app→Xem map→Tìm kiếm→Xem tài liệu→Đăng ký tài khoản
+Row 3: 🎓 Student | Học sinh/Sinh viên - người dùng chính | Tất cả public + personalized | Bài đăng, comment, bookmark, đăng ký event | Profile, settings, bookmarks | Bài đăng/comment của mình | Không | Chat AI, học liệu, community, gamification, opportunity map, career roadmap, đặt mentor, đăng ký event/workshop | Không upload tài liệu chính thức, không quản lý event | 🟡 Medium | Đăng ký→Xác thực→Setup profile→Explore map→Học tập→Tham gia community→Earn badges
+Row 4: 🧑‍🏫 Mentor | Người hướng dẫn, tư vấn | Tất cả + mentee data | Lịch mentor, tài liệu, bài đăng, session | Profile, lịch, tài liệu mình upload | Session/tài liệu mình tạo | Không | Mentoring, video call, gợi ý career, đánh giá mentee, tạo content | Không quản trị hệ thống, giới hạn 20 mentee | 🟡 Medium | Đăng ký mentor→Verify→Set availability→Nhận booking→Video call→Đánh giá→Certificates
+Row 5: 🤝 Volunteer | Tình nguyện viên | Tất cả public + volunteer dashboard | Hoạt động TN, campaign, bài đăng | Profile, hoạt động mình tạo | Hoạt động mình tạo | Không | Dạy học TN, tham gia campaign, track giờ, nhận chứng nhận, donate, share sách | Không quản trị, cần approve cho campaign lớn | 🟡 Medium | Đăng ký→Verify→Tham gia campaign→Log hours→Earn certificates→Leaderboard
+Row 6: 👩‍🏫 Teacher | Giáo viên | Tất cả + class management | Tài liệu, đề thi, lớp học, workshop, khảo sát | Content mình tạo, lớp mình quản lý | Content/lớp mình tạo | Quản lý lớp mình | Upload học liệu chính thức, tạo lớp, tạo workshop, khảo sát, STEM lab | Không quản trị toàn hệ thống | 🟡 Medium | Đăng ký→Verify trường→Upload tài liệu→Tạo lớp/workshop→Quản lý học sinh→Analytics
+Row 7: 🏫 School | Trường THPT | Dashboard trường, học sinh, giáo viên | Sự kiện trường, tài liệu, campaign | Thông tin trường, sự kiện trường | Sự kiện trường đã tạo | Quản lý trường mình | Dashboard trường, quản lý GV, sự kiện, kết nối ĐH, STEM lab, green campus | Chỉ quản lý trong scope trường | 🟠 High | Đăng ký→Verify→Setup trường→Thêm GV→Tạo sự kiện→Dashboard→Analytics
+Row 8: 🎓 University | Đại học | Dashboard ĐH, sinh viên, khoa | Chương trình, workshop, mentoring, internship | Thông tin ĐH, chương trình | Chương trình mình tạo | Quản lý ĐH mình | Quản lý sinh viên, mentor program, workshop ĐH, kết nối DN, internship, STEM lab | Chỉ quản lý trong scope ĐH | 🟠 High | Đăng ký→Verify→Setup ĐH→Kết nối khoa→Tạo chương trình→Dashboard→Scale
+Row 9: 🏢 Business | Doanh nghiệp | Dashboard DN, internship, sponsorship | Internship, sponsorship, workshop DN | Thông tin DN, posting mình tạo | Posting mình tạo | Quản lý trang DN | Đăng internship, tài trợ học bổng, workshop, career fair, kết nối sinh viên | Cần verify DN, nội dung được review | 🟠 High | Đăng ký→Verify DN→Setup profile→Post internship/scholarship→Tài trợ→Analytics
+Row 10: 💎 Sponsor | Nhà tài trợ | Dashboard sponsor, impact report | Campaign quyên góp, tài trợ | Campaign mình tạo | Campaign mình tạo | Quản lý campaign | Tạo campaign, donate, theo dõi impact, nhận report, badge nhà tài trợ | Cần verify, donation audit | 🟠 High | Đăng ký→Verify→Tạo campaign→Donate→Track impact→Nhận report
+Row 11: 🔧 Moderator | Người kiểm duyệt | Tất cả content | Report, warning | Approve/reject content, user status | Hide/remove vi phạm | Kiểm duyệt nội dung | Review content, xử lý report, ban user, approve tài liệu, moderate community | Không quản trị system, không xem finance | 🟠 High | Nhận queue review→Check content→Approve/Reject→Handle reports→Escalate
+Row 12: ⚙️ Admin | Quản trị viên | Toàn bộ hệ thống | Users, roles, settings, reports | Tất cả | Soft delete tất cả | Quản trị full (trừ super) | User management, system settings, analytics, reports, content moderation, support | Không đổi super admin settings, không xóa hard | 🔴 Critical | Login→Dashboard→Manage users→Monitor system→Handle issues→Generate reports
+Row 13: 👑 Super Admin | Quản trị cao nhất | Toàn bộ + system logs + billing | Tất cả + admin accounts | Tất cả + system config | Hard delete, system reset | Full control | Toàn bộ + system config, billing, deployment, DB management, API keys, security settings | Không giới hạn | 🔴 Critical | Full system access→Config→Deploy→Monitor→Security audit→Backup
+
+=========================================
+SHEET: 5. Database Design (Rows: 41, Cols: 12)
+=========================================
+Row 1: # | Tên bảng | Mục đích | Các field chính | Primary Key | Foreign Keys | Indexes | Constraints | Relationships | Soft Delete | Audit Log | Scaling
+Row 2: 1 | users | Lưu thông tin người dùng | id UUID, email, password_hash, full_name, phone, avatar_url, role_id, status, email_verified, provider, provider_id, bio, location POINT, created_at, updated_at, deleted_at | id (UUID v4) | role_id→roles.id | email (unique), phone, role_id, location (GIST), status | email UNIQUE NOT NULL, password min 8 chars | 1-N: posts, bookmarks, badges, donations, registrations | Có (deleted_at) | Có | Partition by created_at
+Row 3: 2 | roles | Định nghĩa vai trò | id, name, display_name, description, level, is_system, created_at | id (SERIAL) | Không | name (unique) | name UNIQUE NOT NULL | 1-N: users, role_permissions | Không | Có | Không cần
+Row 4: 3 | permissions | Quyền hệ thống | id, name, resource, action (CRUD), description, created_at | id (SERIAL) | Không | name (unique), resource | name UNIQUE | N-N: roles (qua role_permissions) | Không | Không | Không cần
+Row 5: 4 | role_permissions | Mapping role-permission | id, role_id, permission_id, created_at | id | role_id→roles.id, permission_id→permissions.id | (role_id, permission_id) unique | UNIQUE(role_id, permission_id) | Bảng junction roles↔permissions | Không | Có | Không cần
+Row 6: 5 | map_points | Điểm trên bản đồ | id UUID, name, description, type_id, location GEOGRAPHY(POINT), address, city, district, province, photos[], rating_avg, rating_count, status, created_by, verified, created_at, updated_at, deleted_at | id (UUID) | type_id→map_categories.id, created_by→users.id | location (GIST), type_id, status, province, city | name NOT NULL, valid coordinates | N-1: map_categories, 1-N: map_reviews | Có | Có | PostGIS partition by province
+Row 7: 6 | map_categories | Loại điểm bản đồ | id, name, icon, color, parent_id, display_order, is_active | id (SERIAL) | parent_id→map_categories.id (self-ref) | name, parent_id | name UNIQUE per level | Self-referencing tree, 1-N: map_points | Không | Không | Không cần
+Row 8: 7 | map_reviews | Đánh giá điểm bản đồ | id, point_id, user_id, rating (1-5), comment, photos[], helpful_count, created_at | id (UUID) | point_id→map_points.id, user_id→users.id | point_id, user_id, created_at | rating 1-5, UNIQUE(point_id, user_id) | N-1: map_points, users | Có | Không | Partition by created_at
+Row 9: 8 | learning_materials | Tài liệu học tập | id UUID, title, description, type (video/pdf/course), subject, grade, tags[], file_url, file_size, thumbnail_url, download_count, view_count, rating_avg, status (draft/review/published), author_id, is_offline_available, search_vector TSVECTOR, created_at, updated_at, deleted_at | id (UUID) | author_id→users.id | search_vector (GIN), subject, grade, type, status, tags (GIN) | title NOT NULL, valid type enum | N-1: users, 1-N: material_ratings, downloads | Có | Có | Partition by type, Elasticsearch index
+Row 10: 9 | material_ratings | Đánh giá tài liệu | id, material_id, user_id, rating, review, created_at | id (UUID) | material_id→learning_materials.id, user_id→users.id | material_id, user_id | rating 1-5, UNIQUE(material_id, user_id) | N-1: learning_materials, users | Không | Không | Không cần
+Row 11: 10 | events | Workshop/sự kiện | id UUID, title, description, type (workshop/hackathon/seminar/camp), location POINT, address, start_date, end_date, capacity, registered_count, banner_url, organizer_id, status, tags[], is_online, meeting_url, price, created_at, updated_at, deleted_at | id (UUID) | organizer_id→users.id | start_date, type, status, location (GIST), tags (GIN) | title NOT NULL, end>start, capacity>0 | 1-N: event_registrations, N-1: users | Có | Có | Partition by start_date
+Row 12: 11 | event_registrations | Đăng ký sự kiện | id, event_id, user_id, status (registered/attended/cancelled), ticket_code, checked_in_at, feedback_rating, feedback_text, created_at | id (UUID) | event_id→events.id, user_id→users.id | event_id, user_id, ticket_code (unique) | UNIQUE(event_id, user_id) | N-1: events, users | Không | Có | Partition by created_at
+Row 13: 12 | opportunities | Cơ hội sinh viên | id UUID, title, description, type (scholarship/internship/hackathon/research), organization, location POINT, deadline, requirements, benefits, url, field_tags[], region, status, created_by, created_at, updated_at, deleted_at | id (UUID) | created_by→users.id | type, deadline, location (GIST), field_tags (GIN), region | title NOT NULL, deadline future | 1-N: opportunity_applications | Có | Có | Elasticsearch + PostGIS
+Row 14: 13 | ai_conversations | Hội thoại AI | id UUID, user_id, title, model, total_tokens, context_summary, created_at, updated_at | id (UUID) | user_id→users.id | user_id, created_at | Không | 1-N: ai_messages, N-1: users | Có | Không | Partition by created_at, TTL 90 days
+Row 15: 14 | ai_messages | Tin nhắn AI | id UUID, conversation_id, role (user/assistant), content, tokens_used, sources[], created_at | id (UUID) | conversation_id→ai_conversations.id | conversation_id, created_at | content NOT NULL | N-1: ai_conversations | Không | Không | Partition by created_at
+Row 16: 15 | badges | Huy hiệu | id, name, description, icon_url, category, points, criteria_json, rarity (common/rare/epic/legendary), created_at | id (SERIAL) | Không | category, rarity | name UNIQUE | 1-N: user_badges | Không | Không | Không cần
+Row 17: 16 | user_badges | Huy hiệu người dùng | id, user_id, badge_id, earned_at, source_action | id (UUID) | user_id→users.id, badge_id→badges.id | user_id, badge_id | UNIQUE(user_id, badge_id) | N-1: users, badges | Không | Không | Partition by earned_at
+Row 18: 17 | user_points | Điểm người dùng | id, user_id, points, action, source_type, source_id, created_at | id (UUID) | user_id→users.id | user_id, created_at | points>0 | N-1: users | Không | Không | Partition by created_at
+Row 19: 18 | posts | Bài đăng cộng đồng | id UUID, author_id, group_id, title, content, media_urls[], tags[], like_count, comment_count, status, pinned, search_vector TSVECTOR, created_at, updated_at, deleted_at | id (UUID) | author_id→users.id, group_id→groups.id | author_id, group_id, search_vector (GIN), created_at | content NOT NULL | 1-N: comments, likes; N-1: users, groups | Có | Có | Partition by created_at
+Row 20: 19 | comments | Bình luận | id UUID, post_id, author_id, parent_id, content, like_count, created_at, updated_at, deleted_at | id (UUID) | post_id→posts.id, author_id→users.id, parent_id→comments.id | post_id, author_id, parent_id | content NOT NULL, max 2000 chars | N-1: posts, users; self-ref (replies) | Có | Không | Partition by created_at
+Row 21: 20 | groups | Nhóm cộng đồng | id UUID, name, description, avatar_url, cover_url, type (study/club/project), member_count, privacy (public/private), owner_id, created_at, deleted_at | id (UUID) | owner_id→users.id | name, type, privacy | name NOT NULL | 1-N: posts, group_members; N-1: users | Có | Có | Không cần
+Row 22: 21 | mentors | Thông tin mentor | id UUID, user_id, specialties[], bio, experience_years, rating_avg, total_sessions, hourly_rate, availability_json, is_verified, created_at | id (UUID) | user_id→users.id | user_id (unique), specialties (GIN) | UNIQUE(user_id) | 1-N: mentor_slots, bookings; N-1: users | Không | Có | Không cần
+Row 23: 22 | bookings | Đặt lịch mentor | id UUID, mentor_id, student_id, slot_start, slot_end, status (pending/confirmed/completed/cancelled), meeting_url, notes, rating, feedback, created_at | id (UUID) | mentor_id→mentors.id, student_id→users.id | mentor_id, student_id, status, slot_start | no overlap for same mentor | N-1: mentors, users | Không | Có | Partition by slot_start
+Row 24: 23 | donations | Quyên góp | id UUID, donor_id, campaign_id, amount, currency, payment_method, payment_status, transaction_id, message, is_anonymous, receipt_url, created_at | id (UUID) | donor_id→users.id, campaign_id→donation_campaigns.id | donor_id, campaign_id, payment_status | amount>0 | N-1: users, donation_campaigns | Không | Có (bắt buộc) | Partition by created_at
+Row 25: 24 | donation_campaigns | Chiến dịch quyên góp | id UUID, title, description, goal_amount, current_amount, organizer_id, location POINT, status, start_date, end_date, images[], created_at, updated_at | id (UUID) | organizer_id→users.id | status, location (GIST), organizer_id | goal>0, end>start | 1-N: donations; N-1: users | Có | Có | PostGIS index
+Row 26: 25 | volunteer_activities | Hoạt động tình nguyện | id UUID, volunteer_id, campaign_name, description, hours, location POINT, date, proof_urls[], status (pending/verified), verified_by, created_at | id (UUID) | volunteer_id→users.id, verified_by→users.id | volunteer_id, date, status | hours>0, hours<24 | N-1: users | Không | Có | Partition by date
+Row 27: 26 | certificates | Chứng nhận | id UUID, user_id, type (workshop/volunteer/course/badge), title, description, issued_at, issuer, verify_code, qr_url, pdf_url, metadata_json, created_at | id (UUID) | user_id→users.id | user_id, verify_code (unique), type | verify_code UNIQUE | N-1: users | Không | Không | Không cần
+Row 28: 27 | surveys | Khảo sát | id UUID, title, description, questions_json, created_by, status, response_count, start_date, end_date, target_roles[], created_at | id (UUID) | created_by→users.id | status, created_by | title NOT NULL | 1-N: survey_responses; N-1: users | Có | Có | Không cần
+Row 29: 28 | survey_responses | Trả lời khảo sát | id UUID, survey_id, user_id, answers_json, completed_at, created_at | id (UUID) | survey_id→surveys.id, user_id→users.id | survey_id, user_id | UNIQUE(survey_id, user_id) | N-1: surveys, users | Không | Không | Partition by created_at
+Row 30: 29 | notifications | Thông báo | id UUID, user_id, type, title, body, data_json, is_read, channel (push/email/in_app), sent_at, read_at, created_at | id (UUID) | user_id→users.id | user_id, is_read, created_at, type | Không | N-1: users | Không | Không | Partition by created_at, TTL 30 days
+Row 31: 30 | green_challenges | Thử thách xanh | id UUID, title, description, type (recycle/plant/save), start_date, end_date, points_reward, participant_count, created_by, status, created_at | id (UUID) | created_by→users.id | status, type, start_date | title NOT NULL, end>start | 1-N: green_activities | Có | Có | Không cần
+Row 32: 31 | green_activities | Hoạt động xanh | id UUID, user_id, challenge_id, description, proof_url, carbon_saved_kg, points_earned, status, verified_at, created_at | id (UUID) | user_id→users.id, challenge_id→green_challenges.id | user_id, challenge_id, status | carbon_saved>=0 | N-1: users, green_challenges | Không | Không | Partition by created_at
+Row 33: 32 | career_paths | Lộ trình nghề nghiệp | id, field, title, description, skills_required[], roadmap_json, salary_range, demand_level, resources[], created_at, updated_at | id (SERIAL) | Không | field, title | title UNIQUE per field | 1-N: career_recommendations | Không | Không | Không cần
+Row 34: 33 | wifi_locations | Điểm wifi | id UUID, name, location POINT, address, speed_mbps, is_free, password_hint, provider, rating_avg, verified, reported_by, created_at, updated_at | id (UUID) | reported_by→users.id | location (GIST), is_free, verified | valid coordinates | N-1: users | Có | Không | PostGIS
+Row 35: 34 | stem_labs | Phòng lab STEM | id UUID, name, school_id, description, equipment[], location POINT, capacity, booking_available, photos[], contact, created_at, updated_at | id (UUID) | school_id→users.id | location (GIST), school_id, booking_available | name NOT NULL | N-1: users (school) | Có | Có | PostGIS
+Row 36: 35 | chat_messages | Tin nhắn chat | id UUID, sender_id, receiver_id, group_id, content, media_url, type (text/image/file), is_read, created_at | id (UUID) | sender_id→users.id, receiver_id→users.id, group_id→groups.id | sender_id, receiver_id, group_id, created_at | content NOT NULL | N-1: users, groups | Không | Không | Partition by created_at, TTL
+Row 37: 36 | audit_logs | Nhật ký hoạt động | id UUID, user_id, action, resource, resource_id, old_data JSONB, new_data JSONB, ip_address, user_agent, created_at | id (UUID) | user_id→users.id | user_id, action, resource, created_at | Không | N-1: users | Không (immutable) | N/A | Partition by month, archive after 1 year
+Row 38: 37 | education_stats | Thống kê giáo dục | id, region, province, district, metric_type, value, year, source, created_at, updated_at | id (SERIAL) | Không | region, province, metric_type, year | Không | Standalone analytics | Không | Không | Partition by year
+Row 39: 38 | user_learning_history | Lịch sử học tập | id UUID, user_id, material_id, action (view/download/complete), progress_pct, time_spent_sec, created_at | id (UUID) | user_id→users.id, material_id→learning_materials.id | user_id, material_id, created_at | progress 0-100 | N-1: users, learning_materials | Không | Không | Partition by created_at
+Row 40: 39 | support_tickets | Phiếu hỗ trợ | id UUID, user_id, subject, description, category, priority, status (open/in_progress/resolved/closed), assigned_to, created_at, updated_at, resolved_at | id (UUID) | user_id→users.id, assigned_to→users.id | user_id, status, priority, assigned_to | subject NOT NULL | N-1: users | Không | Có | Partition by created_at
+Row 41: 40 | internships | Thực tập | id UUID, company_id, title, description, field, location POINT, salary_range, duration, requirements, benefits, deadline, application_count, status, created_at, updated_at | id (UUID) | company_id→users.id | company_id, field, location (GIST), deadline | title NOT NULL, deadline future | N-1: users (business) | Có | Có | PostGIS + Elasticsearch
+
+=========================================
+SHEET: 6. API Design (Rows: 69, Cols: 15)
+=========================================
+Row 1: # | Module | Method | Endpoint | Mô tả | Request Body | Response | Auth | Roles | Validation | Middleware | Rate Limit | Cache | Status Codes | Error Codes
+Row 2: 1 | Auth | POST | /api/auth/register | Đăng ký tài khoản | {email,password,full_name,role} | {user,token,refresh_token} | Không | Public | email format, password 8+ chars, valid role | validate, sanitize | 10/min/IP | Không | 201,400,409 | REG_001: Email exists, REG_002: Invalid role
+Row 3: 2 | Auth | POST | /api/auth/login | Đăng nhập | {email,password} | {user,token,refresh_token} | Không | Public | email required, password required | validate, bruteForce | 5/min/IP | Không | 200,401,403 | AUTH_001: Invalid credentials, AUTH_002: Account locked
+Row 4: 3 | Auth | POST | /api/auth/oauth/:provider | OAuth login (Google/Facebook) | {provider_token} | {user,token} | Không | Public | valid provider token | validate | 10/min/IP | Không | 200,401 | OAUTH_001: Invalid token
+Row 5: 4 | Auth | POST | /api/auth/refresh | Refresh token | {refresh_token} | {token,refresh_token} | Không | Public | valid refresh token | validate | 10/min | Không | 200,401 | TOKEN_001: Expired
+Row 6: 5 | Auth | POST | /api/auth/forgot-password | Quên mật khẩu | {email} | {message} | Không | Public | valid email | validate, rateLimit | 3/hour/email | Không | 200,404 | PWD_001: Email not found
+Row 7: 6 | Users | GET | /api/users/me | Lấy profile hiện tại | Không | {user_profile} | JWT | All authenticated | Không | auth | 100/min | 5min | 200,401 | USR_001: Not found
+Row 8: 7 | Users | PUT | /api/users/me | Cập nhật profile | {full_name,bio,avatar,phone,location} | {updated_user} | JWT | All authenticated | valid fields, avatar max 5MB | auth, upload | 30/min | Invalidate | 200,400,401 | USR_002: Invalid field
+Row 9: 8 | Users | GET | /api/users/:id/public | Xem profile công khai | Không | {public_profile} | Optional | Public | valid UUID | cache | 100/min | 15min | 200,404 | USR_003: User not found
+Row 10: 9 | Map | GET | /api/map/points | Lấy điểm bản đồ | ?bounds=&type=&status= | {points[],total,clusters[]} | Optional | Public | valid bounds, valid type | cache, geoValidate | 200/min | 5min | 200,400 | MAP_001: Invalid bounds
+Row 11: 10 | Map | GET | /api/map/points/:id | Chi tiết điểm | Không | {point,reviews[],nearby[]} | Optional | Public | valid UUID | cache | 200/min | 10min | 200,404 | MAP_002: Point not found
+Row 12: 11 | Map | POST | /api/map/points | Thêm điểm mới | {name,type_id,location,description,photos[]} | {point} | JWT | Student,Teacher,Volunteer | required fields, valid coords, photos max 5 | auth, upload, validate | 10/min | Không | 201,400,401 | MAP_003: Duplicate location
+Row 13: 12 | Map | GET | /api/map/search | Tìm kiếm trên map | ?q=&type=&radius=&lat=&lng= | {results[],total} | Optional | Public | q min 2 chars, valid radius | cache, validate | 100/min | 2min | 200,400 | MAP_004: No results
+Row 14: 13 | Map | GET | /api/map/heatmap | Lấy dữ liệu heatmap | ?type=&region=&year= | {heatmap_data[]} | JWT | Admin,School | valid type, valid region | auth, cache | 30/min | 30min | 200,400,403 | MAP_005: Invalid region
+Row 15: 14 | Map | GET | /api/map/clusters | Lấy clusters | ?bounds=&zoom=&type= | {clusters[]} | Optional | Public | valid bounds, zoom 1-20 | cache | 200/min | 5min | 200,400 | MAP_006: Invalid zoom
+Row 16: 15 | Library | GET | /api/library/materials | Danh sách tài liệu | ?q=&subject=&grade=&type=&page=&limit= | {materials[],total,facets} | Optional | Public | valid filters, page>0, limit 1-50 | cache, validate | 100/min | 5min | 200,400 | LIB_001: Invalid filter
+Row 17: 16 | Library | GET | /api/library/materials/:id | Chi tiết tài liệu | Không | {material,related[],reviews[]} | Optional | Public | valid UUID | cache | 200/min | 10min | 200,404 | LIB_002: Not found
+Row 18: 17 | Library | POST | /api/library/upload | Upload tài liệu | multipart: file, title, subject, grade, tags[] | {material} | JWT | Teacher,Mentor,Admin | file max 100MB, valid type (pdf/mp4/doc), required metadata | auth, upload, virusScan | 5/min | Không | 201,400,413 | LIB_003: File too large, LIB_004: Invalid type
+Row 19: 18 | Library | GET | /api/library/materials/:id/download | Download tài liệu | Không | File stream | JWT | Student+ | valid UUID, has access | auth, downloadTrack | 20/min | Không | 200,404,403 | LIB_005: Access denied
+Row 20: 19 | AI | POST | /api/ai/chat | Chat với AI | {message,conversation_id?,context?} | {reply,sources[],suggestions[]} | JWT | Student,Teacher | message 1-2000 chars, valid conversation_id | auth, aiRateLimit, contentFilter | 20/min | Không (streaming) | 200,400,429 | AI_001: Rate limited, AI_002: Content filtered
+Row 21: 20 | AI | GET | /api/ai/recommendations | Gợi ý AI | ?type=&limit= | {recommendations[]} | JWT | Student | valid type | auth, cache | 30/min | 1hour | 200,401 | AI_003: No data
+Row 22: 21 | AI | POST | /api/ai/career-quiz | Quiz nghề nghiệp | {answers[]} | {career_paths[],skill_gaps[],roadmap} | JWT | Student | complete quiz answers | auth, validate | 5/min | Không | 200,400 | AI_004: Incomplete quiz
+Row 23: 22 | AI | GET | /api/ai/learning-path | Lộ trình học tập | ?goal= | {path[],milestones[],materials[]} | JWT | Student | valid goal | auth, cache | 20/min | 6hour | 200,401 | AI_005: No path found
+Row 24: 23 | Events | GET | /api/events | Danh sách sự kiện | ?type=&date=&location=&page= | {events[],total} | Optional | Public | valid filters | cache | 100/min | 5min | 200,400 | EVT_001: Invalid filter
+Row 25: 24 | Events | POST | /api/events | Tạo sự kiện | {title,type,description,location,dates,capacity,banner} | {event} | JWT | Teacher,School,University,Admin | required fields, future dates, capacity>0 | auth, upload, geocode | 10/min | Không | 201,400,403 | EVT_002: Invalid dates
+Row 26: 25 | Events | POST | /api/events/:id/register | Đăng ký sự kiện | {} | {registration,ticket} | JWT | Student,Teacher | not full, not registered, not past | auth, capacityCheck | 10/min | Không | 201,400,409 | EVT_003: Full, EVT_004: Already registered
+Row 27: 26 | Events | POST | /api/events/:id/checkin | Check-in sự kiện | {ticket_code} | {status} | JWT | Admin,Teacher | valid ticket, event active | auth, validate | 30/min | Không | 200,400,404 | EVT_005: Invalid ticket
+Row 28: 27 | Community | GET | /api/community/posts | Danh sách bài đăng | ?group_id=&page=&sort= | {posts[],total} | JWT | All authenticated | valid group, page>0 | auth, cache | 100/min | 2min | 200,400 | COM_001: Group not found
+Row 29: 28 | Community | POST | /api/community/posts | Tạo bài đăng | {group_id,title,content,media[],tags[]} | {post} | JWT | Student,Teacher,Mentor | content 1-5000 chars, media max 10 | auth, upload, moderate | 20/min | Không | 201,400 | COM_002: Content violation
+Row 30: 29 | Community | POST | /api/community/posts/:id/comments | Bình luận | {content,parent_id?} | {comment} | JWT | All authenticated | content 1-2000 chars | auth, moderate | 30/min | Không | 201,400 | COM_003: Post not found
+Row 31: 30 | Gamification | GET | /api/gamification/badges | Danh sách huy hiệu | ?category= | {badges[]} | Optional | Public | valid category | cache | 100/min | 1hour | 200 | Không
+Row 32: 31 | Gamification | GET | /api/gamification/my-badges | Huy hiệu của tôi | Không | {badges[],points,level} | JWT | All authenticated | Không | auth, cache | 100/min | 5min | 200,401 | Không
+Row 33: 32 | Gamification | GET | /api/gamification/leaderboard | Bảng xếp hạng | ?period=&category=&page= | {rankings[],my_rank} | Optional | Public | valid period (week/month/all) | cache | 100/min | 5min (Redis) | 200,400 | GAM_001: Invalid period
+Row 34: 33 | Mentor | GET | /api/mentoring/mentors | Danh sách mentor | ?specialty=&rating=&page= | {mentors[],total} | JWT | Student | valid filters | auth, cache | 100/min | 10min | 200,400 | MNT_001: Invalid filter
+Row 35: 34 | Mentor | GET | /api/mentoring/mentors/:id/slots | Lịch trống mentor | ?date_from=&date_to= | {slots[]} | JWT | Student | valid dates, future only | auth, cache | 50/min | 5min | 200,404 | MNT_002: Mentor not found
+Row 36: 35 | Mentor | POST | /api/mentoring/bookings | Đặt lịch | {mentor_id,slot_start,slot_end,topic} | {booking,meeting_url} | JWT | Student | valid slot, no conflict, max 3 active | auth, conflictCheck | 10/min | Không | 201,400,409 | MNT_003: Slot taken
+Row 37: 36 | Donate | GET | /api/donations/campaigns | Danh sách chiến dịch | ?status=&location=&page= | {campaigns[],total} | Optional | Public | valid filters | cache | 100/min | 10min | 200 | Không
+Row 38: 37 | Donate | POST | /api/donations | Quyên góp | {campaign_id,amount,payment_method,message?} | {donation,receipt} | JWT | All authenticated | amount>=10000 VND, valid campaign | auth, payment, audit | 5/min | Không | 201,400,402 | DON_001: Payment failed
+Row 39: 38 | Volunteer | GET | /api/volunteers/activities | Hoạt động TN | ?status=&date=&page= | {activities[],total_hours} | JWT | Volunteer | valid filters | auth | 100/min | 5min | 200,401 | Không
+Row 40: 39 | Volunteer | POST | /api/volunteers/activities | Log hoạt động | {campaign,description,hours,date,proof} | {activity} | JWT | Volunteer | hours 0.5-16, proof required, valid date | auth, upload | 10/min | Không | 201,400 | VOL_001: Invalid hours
+Row 41: 40 | Survey | GET | /api/surveys | Danh sách khảo sát | ?status=&page= | {surveys[],total} | JWT | All authenticated | valid status | auth, cache | 100/min | 10min | 200 | Không
+Row 42: 41 | Survey | POST | /api/surveys | Tạo khảo sát | {title,description,questions[],target_roles[],dates} | {survey} | JWT | Admin,Teacher,School | valid questions schema, future dates | auth, validate | 5/min | Không | 201,400,403 | SRV_001: Invalid schema
+Row 43: 42 | Survey | POST | /api/surveys/:id/respond | Trả lời khảo sát | {answers[]} | {response} | JWT | Targeted roles | complete answers, within deadline | auth, validate | 10/min | Không | 201,400,409 | SRV_002: Already responded
+Row 44: 43 | Notify | GET | /api/notifications | Thông báo của tôi | ?is_read=&page= | {notifications[],unread_count} | JWT | All authenticated | valid filters | auth | 100/min | Không | 200,401 | Không
+Row 45: 44 | Notify | PUT | /api/notifications/:id/read | Đánh dấu đã đọc | {} | {notification} | JWT | All authenticated | valid UUID, own notification | auth | 100/min | Không | 200,404 | NTF_001: Not found
+Row 46: 45 | Green | GET | /api/green/challenges | Thử thách xanh | ?status=&type=&page= | {challenges[],total} | Optional | Public | valid filters | cache | 100/min | 10min | 200 | Không
+Row 47: 46 | Green | POST | /api/green/challenges/:id/join | Tham gia thử thách | {} | {participation} | JWT | Student | not joined, active challenge | auth | 10/min | Không | 201,409 | GRN_001: Already joined
+Row 48: 47 | Green | POST | /api/green/activities | Log hoạt động xanh | {challenge_id,description,proof,carbon_saved} | {activity,points} | JWT | Student | valid challenge, proof required | auth, upload, verify | 10/min | Không | 201,400 | GRN_002: Invalid proof
+Row 49: 48 | Career | GET | /api/careers/paths | Lộ trình nghề nghiệp | ?field= | {paths[]} | Optional | Public | valid field | cache | 100/min | 1hour | 200 | Không
+Row 50: 49 | Wifi | GET | /api/wifi/locations | Điểm wifi | ?bounds=&is_free= | {locations[]} | Optional | Public | valid bounds | cache | 100/min | 15min | 200,400 | Không
+Row 51: 50 | Wifi | POST | /api/wifi/locations | Báo cáo điểm wifi | {name,location,is_free,speed} | {wifi_point} | JWT | All authenticated | valid coords, name required | auth, geoValidate | 5/min | Không | 201,400 | WIFI_001: Duplicate
+Row 52: 51 | STEM | GET | /api/stem/labs | Danh sách lab | ?bounds=&school= | {labs[]} | Optional | Public | valid filters | cache | 100/min | 15min | 200 | Không
+Row 53: 52 | Admin | GET | /api/admin/dashboard | Dashboard admin | ?period= | {stats,charts,alerts} | JWT | Admin,SuperAdmin | valid period | auth, adminOnly | 30/min | 5min | 200,403 | Không
+Row 54: 53 | Admin | GET | /api/admin/users | Quản lý users | ?role=&status=&q=&page= | {users[],total} | JWT | Admin,SuperAdmin | valid filters | auth, adminOnly | 50/min | 2min | 200,403 | Không
+Row 55: 54 | Admin | PUT | /api/admin/users/:id/status | Đổi trạng thái user | {status,reason} | {user} | JWT | Admin,SuperAdmin | valid status enum | auth, adminOnly, audit | 10/min | Không | 200,400,404 | ADM_001: Cannot modify super admin
+Row 56: 55 | Admin | GET | /api/admin/content/pending | Nội dung chờ duyệt | ?type=&page= | {items[],total} | JWT | Admin,Moderator | valid type | auth, modOnly | 50/min | Không | 200,403 | Không
+Row 57: 56 | MOD-OPP | GET | /api/opportunities | F-16: Hiển thị cơ hội (Thực tập, Học bổng, Cuộc thi) trên map | None | Opportunity[] | Có | Student, Teacher | bounds, type | validateBounds | 60/min | Có (15min) | 200,400 | OPP_001: Invalid bounds
+Row 58: 57 | MOD-OPP | POST | /api/opportunities | Đăng tải cơ hội học tập/thực tập mới | {title, type, field, description, lat, lng, deadline} | Opportunity | Có | Student, Teacher, Sponsor, Business, University | valid fields, deadline in future | validate, sanitize | 20/min | Không | 201,400,401 | OPP_002: Validation failed
+Row 59: 58 | MOD-OPP | GET | /api/opportunities/:id | Lấy thông tin chi tiết một cơ hội | None | OpportunityDetail | Không | Public | valid uuid | validate | 100/min | Có (5min) | 200,404 | OPP_003: Not found
+Row 60: 59 | MOD-OPP | POST | /api/opportunities/:id/team-finding | Bật/Tắt tìm đồng đội tham gia cơ hội | None | {team_finding: boolean} | Có | Student | valid opportunity ID | validate, auth | 10/min | Không | 200,401,404 | OPP_004: Not found
+Row 61: 60 | MOD-MAP | PUT | /api/map/points/:id/approve | Duyệt/từ chối điểm bản đồ crowdsource | {status: 'approved' | 'rejected'} | MapPoint | Có | Admin, Moderator | valid status | validate, adminAuth | 30/min | Không | 200,400,403 | MAP_004: Forbidden
+Row 62: 61 | MOD-AI | GET | /api/ai/suggestions | Lấy gợi ý từ trợ lý AI | None | AISuggestion[] | Có | Student, Teacher | None | validate, auth | 60/min | Có (5min) | 200,401 | AI_003: AI Service Error
+Row 63: 62 | MOD-AI | GET | /api/ai/analytics | AI phân tích dữ liệu giáo dục và mật độ địa lý | None | AIAnalyticsReport | Có | Admin, School, University | None | validate, adminAuth | 10/min | Có (6h) | 200,401,403 | AI_004: Forbidden
+Row 64: 63 | MOD-AI | GET | /api/ai/predictions | AI dự báo xu hướng giáo dục và mật độ nhu cầu | None | AIPredictionResult | Có | Admin, School, University | None | validate, adminAuth | 10/min | Có (6h) | 200,401,403 | AI_005: Forbidden
+Row 65: 64 | MOD-AI | GET | /api/ai/career-recommendations | Nhận kết quả gợi ý nghề nghiệp từ AI | None | AICareerRecommendation[] | Có | Student | None | validate, auth | 30/min | Có (24h) | 200,401 | AI_006: AI Service Error
+Row 66: 65 | MOD-LIB | POST | /api/library/materials | Đăng ký xuất bản tài liệu mới lên thư viện | {title, type, url, category_id, tags} | Material | Có | Teacher, Mentor, Admin | valid details | validate, auth | 30/min | Không | 201,400,401 | LIB_004: Forbidden
+Row 67: 66 | MOD-LIB | GET | /api/library/search | Tìm kiếm tài liệu nâng cao | None | MaterialSearchResult | Không | Public | q, subject, grade | validate | 100/min | Có (5min) | 200,400 | LIB_005: Bad Request
+Row 68: 67 | MOD-WS | PUT | /api/events/:id | Cập nhật thông tin workshop/sự kiện | {title, description, capacity, schedule} | Event | Có | Teacher, School, University, Admin | future dates | validate, auth, ownerCheck | 20/min | Không | 200,400,403 | EVT_004: Forbidden
+Row 69: 68 | MOD-GAME | POST | /api/gamification/check-badge | Kiểm tra và cập nhật huy hiệu cho user | None | BadgeAwardResult[] | Có | Student, Teacher, Volunteer, Mentor | None | validate, auth | 10/min | Không | 200,401 | GAM_003: Rule check fail
+
+=========================================
+SHEET: 7. Màn Hình UI-UX (Rows: 24, Cols: 13)
+=========================================
+Row 1: # | Tên màn hình | Mục đích | Thành phần UI chính | API gọi | DB liên quan | Chức năng | Loading State | Empty State | Error State | Responsive | Animation | Dark Mode
+Row 2: 1 | 🏠 Home Page | Landing page, giới thiệu EduMap | Hero banner, feature cards, stats counter, map preview, testimonials, CTA buttons, footer | GET /api/stats/overview, GET /api/map/points (preview) | education_stats | Giới thiệu, navigate to features, quick search | Skeleton cards, shimmer effect | N/A (luôn có content) | Retry banner | Mobile: stack cards, hide map preview | Parallax scroll, counter animation, fade-in sections | Có
+Row 3: 2 | 🗺️ Map Page | Bản đồ giáo dục chính | Full-screen map, sidebar filters, search bar, marker popups, layer toggle, legend, zoom controls | GET /api/map/points, /clusters, /search, /heatmap | map_points, map_categories | Xem map, search, filter, view details, add point | Map tile loading, markers shimmer | No results in area → zoom out suggestion | Map fail → static fallback | Mobile: bottom sheet filters, collapsed sidebar | Marker bounce, popup slide, smooth fly-to | Có (dark map tiles)
+Row 4: 3 | 🔐 Login/Register | Đăng nhập & đăng ký | Login form, register form, OAuth buttons, forgot password link, role selector | POST /api/auth/login, /register, /oauth | users, roles | Auth flow, role selection | Button spinner | N/A | Inline field errors, toast | Mobile: full-width form | Form transition, button ripple | Có
+Row 5: 4 | 📚 Library Page | Kho học liệu | Search bar, filter sidebar (subject, grade, type), material grid/list, pagination, sort | GET /api/library/materials, /search | learning_materials | Browse, search, filter, download, bookmark | Grid skeleton | No materials found → suggest upload | Search error → retry | Mobile: bottom sheet filter, 1-col grid | Card hover scale, filter slide | Có
+Row 6: 5 | 📄 Material Detail | Chi tiết tài liệu | Preview (PDF/video player), metadata, ratings, related, download button, bookmark, share | GET /api/library/materials/:id | learning_materials, material_ratings | View, rate, download, share, bookmark | Content spinner, related shimmer | N/A | 404 page, viewer error → download link | Mobile: full-width viewer | Rating animation, share popup slide | Có
+Row 7: 6 | 🤖 AI Chat Page | Chat với AI | Chat window, message bubbles, suggestion chips, sidebar history, new chat button | POST /api/ai/chat, GET /api/ai/suggestions | ai_conversations, ai_messages | Chat, get suggestions, view history | Typing indicator, streaming text | Welcome screen + starter prompts | AI error → retry button + fallback | Mobile: full-screen chat, hide sidebar | Message slide-in, typing dots, streaming | Có
+Row 8: 7 | 🎯 Opportunity Map | Bản đồ cơ hội sinh viên | Map view, opportunity cards, filter panel (type, field, deadline), detail modal | GET /api/opportunities, /api/map/points | opportunities | Browse opportunities on map, filter, apply | Map + cards skeleton | No opportunities → expand search | Load fail → list fallback | Mobile: swipeable cards overlay | Card flip, marker pulse, modal slide | Có
+Row 9: 8 | 🌿 Green Campus | Giáo dục xanh | Challenge cards, leaderboard, activity feed, green map, carbon tracker | GET /api/green/challenges, /activities, /leaderboard | green_challenges, green_activities | Join challenges, log activities, view leaderboard | Cards skeleton | No challenges → coming soon | Submit fail → retry | Mobile: tab navigation | Progress bar animation, confetti on achievement | Có
+Row 10: 9 | 🎮 Gamification Hub | Huy hiệu & xếp hạng | Badge collection, leaderboard, points history, level progress, achievements | GET /api/gamification/badges, /leaderboard, /my-badges | badges, user_badges, user_points | View badges, check rank, track progress | Badge grid skeleton | New user → starter quests | Load fail → cached data | Mobile: horizontal badge scroll | Badge unlock animation, level-up effect | Có
+Row 11: 10 | 📊 Dashboard | Dashboard quản trị/phân tích | Stats cards, charts (line/bar/pie), heatmap, recent activity, alerts, export | GET /api/admin/dashboard, /api/ai/analytics | education_stats, audit_logs | View stats, analyze data, export reports | Chart skeleton, number counter | No data yet → setup guide | Chart fail → data table fallback | Mobile: stack charts, swipeable cards | Counter animation, chart draw, alert pulse | Có
+Row 12: 11 | 👤 User Profile | Trang cá nhân | Avatar, info card, badges, activity timeline, settings, portfolio | GET /api/users/me, /gamification/my-badges | users, user_badges, user_points | View/edit profile, view achievements | Profile skeleton | New user → complete profile prompt | Update fail → retry toast | Mobile: tab layout | Badge showcase animation | Có
+Row 13: 12 | 🎓 Workshop Page | Danh sách workshop | Event cards, calendar view, filter (type, date, location), map view toggle | GET /api/events | events, event_registrations | Browse, filter, register workshops | Card grid skeleton | No events → suggest creating | Load fail → retry | Mobile: list view, swipeable cards | Card hover, calendar transition | Có
+Row 14: 13 | 📋 Workshop Detail | Chi tiết workshop | Banner, info section, schedule, speaker cards, register button, related events, map location | GET /api/events/:id | events, event_registrations | View details, register, add to calendar | Content skeleton | N/A | 404 → explore other events | Mobile: sticky register button | Register confetti, countdown timer | Có
+Row 15: 14 | 🧑‍🏫 Mentor Page | Tìm mentor | Mentor cards, filter (specialty, rating), search, availability calendar | GET /api/mentoring/mentors | mentors, bookings | Browse, filter, book mentor | Card skeleton | No mentors → become a mentor CTA | Search fail → retry | Mobile: list view | Card hover, calendar slide | Có
+Row 16: 15 | 💬 Community Page | Cộng đồng | Feed, group list, post composer, comment threads, trending tags | GET /api/community/posts, /groups | posts, comments, groups | Browse feed, post, comment, join groups | Feed skeleton | Empty feed → explore groups | Post fail → save draft | Mobile: tab (feed/groups/trending) | Post slide-in, like animation | Có
+Row 17: 16 | 💝 Donate Page | Quyên góp | Campaign cards, progress bars, donate form, impact counter, transparency report | GET /api/donations/campaigns | donations, donation_campaigns | Browse campaigns, donate, track impact | Cards skeleton | No campaigns → volunteer CTA | Payment fail → retry | Mobile: stack layout | Progress bar fill, impact counter | Có
+Row 18: 17 | 📡 Wifi Map | Bản đồ wifi | Map with wifi markers, speed indicator, filter (free/paid), add location | GET /api/wifi/locations | wifi_locations | Find wifi, report new, review | Map skeleton | No wifi nearby → expand area | Map fail → list fallback | Mobile: bottom sheet | Marker pulse, speed indicator | Có
+Row 19: 18 | 🔬 STEM Lab Page | Phòng lab STEM | Lab cards, map view, equipment list, booking calendar | GET /api/stem/labs | stem_labs | Browse labs, view equipment, book | Cards skeleton | No labs → suggest partner | Load fail → retry | Mobile: list + map toggle | Card hover, map fly-to | Có
+Row 20: 19 | 🛡️ Admin Dashboard | Quản trị hệ thống | Stats overview, user management, content moderation queue, system health, logs | GET /api/admin/dashboard, /users, /content/pending | audit_logs, users, all tables | Manage users, moderate content, view analytics | Dashboard skeleton | No pending items → all clear | System error → status page | Desktop only (sidebar layout) | Chart animation, alert pulse | Có
+Row 21: 20 | 🔔 Notification Center | Trung tâm thông báo | Notification list, filter (type, read/unread), mark all read, settings | GET /api/notifications | notifications | View, mark read, configure preferences | List skeleton | No notifications → all caught up | Load fail → retry | Mobile: full-screen list | Slide-in, read fade | Có
+Row 22: 21 | 📈 Career Roadmap | Lộ trình nghề nghiệp | Career path visualization, skill radar, quiz, mentor suggestions, resources | GET /api/careers/paths, /api/ai/career-quiz | career_paths, user_profiles | Take quiz, view roadmap, find mentor | Path skeleton | No result → take quiz first | Quiz fail → retry | Mobile: vertical roadmap | Path draw animation, skill radar spin | Có
+Row 23: 22 | 📋 Survey Page | Khảo sát | Survey list, form builder (admin), response form, results charts | GET /api/surveys | surveys, survey_responses | Take/create surveys, view results | Form skeleton | No surveys → check back later | Submit fail → save locally | Mobile: full-width form | Progress bar, submit animation | Có
+Row 24: 23 | 🎒 Scholarship Map | Bản đồ học bổng | Map + scholarship cards, filter (field, amount, deadline), detail modal | GET /api/opportunities?type=scholarship | opportunities | Browse, filter, view details, apply | Map + cards skeleton | No scholarships → expand filters | Load fail → list fallback | Mobile: cards + map toggle | Marker cluster, card slide | Có
+
+=========================================
+SHEET: 8. Cấu Trúc Code (Rows: 74, Cols: 5)
+=========================================
+Row 1: # | Thư mục/File | Mục đích | Công nghệ | Ghi chú
+Row 2: 1 | 📁 frontend/ | NextJS web application | NextJS 14, React 18, TypeScript | App Router, SSR/SSG
+Row 3: 2 |   📁 src/app/ | App Router pages & layouts | NextJS | File-based routing
+Row 4: 3 |     📁 (auth)/login/page.tsx | Trang đăng nhập | React, NextAuth | Server component
+Row 5: 4 |     📁 (auth)/register/page.tsx | Trang đăng ký | React | Multi-step form
+Row 6: 5 |     📁 (main)/page.tsx | Home page | React | Landing page
+Row 7: 6 |     📁 (main)/map/page.tsx | Trang bản đồ | Mapbox GL JS | Dynamic import (no SSR)
+Row 8: 7 |     📁 (main)/library/page.tsx | Kho học liệu | React | SSR + client filter
+Row 9: 8 |     📁 (main)/opportunities/page.tsx | Bản đồ cơ hội | Mapbox | Client-side rendering
+Row 10: 9 |     📁 (main)/community/page.tsx | Cộng đồng | React | Realtime WebSocket
+Row 11: 10 |     📁 (main)/ai-chat/page.tsx | AI Chat | React | Streaming response
+Row 12: 11 |     📁 (main)/green/page.tsx | Green Campus | React, Mapbox | Gamification integration
+Row 13: 12 |     📁 (main)/workshops/page.tsx | Workshops | React | Calendar integration
+Row 14: 13 |     📁 (main)/mentoring/page.tsx | Mentoring | React, WebRTC | Video call integration
+Row 15: 14 |     📁 (main)/donate/page.tsx | Quyên góp | React | Payment integration
+Row 16: 15 |     📁 (main)/career/page.tsx | Career Roadmap | React, D3.js | Interactive visualization
+Row 17: 16 |     📁 (admin)/dashboard/page.tsx | Admin Dashboard | React, Chart.js | Protected route
+Row 18: 17 |     📁 layout.tsx | Root layout | NextJS | Navbar, Footer, Providers
+Row 19: 18 |   📁 src/components/ | Reusable components | React | Atomic design pattern
+Row 20: 19 |     📁 ui/ | Base UI (Button, Input, Modal, Card) | React, CSS Modules | Design system
+Row 21: 20 |     📁 map/ | Map components (MapView, Marker, Popup) | Mapbox GL JS | Lazy loaded
+Row 22: 21 |     📁 ai/ | AI Chat components | React | Streaming support
+Row 23: 22 |     📁 gamification/ | Badge, Leaderboard, Points | React | Animations
+Row 24: 23 |     📁 layout/ | Navbar, Sidebar, Footer | React | Responsive
+Row 25: 24 |   📁 src/hooks/ | Custom React hooks | TypeScript | useMap, useAuth, useAI, useRealtime
+Row 26: 25 |   📁 src/services/ | API service layer | Axios/Fetch | apiClient, mapService, aiService
+Row 27: 26 |   📁 src/stores/ | State management | Zustand | authStore, mapStore, uiStore
+Row 28: 27 |   📁 src/styles/ | Global styles & design tokens | CSS Modules, CSS Variables | Dark mode, responsive
+Row 29: 28 |   📁 src/utils/ | Utility functions | TypeScript | formatDate, validators, constants
+Row 30: 29 |   📁 src/types/ | TypeScript type definitions | TypeScript | API types, model types
+Row 31: 30 |   📁 public/ | Static assets | N/A | Images, icons, fonts
+Row 32: 31 |  |  |  | 
+Row 33: 32 | 📁 backend/ | NestJS API server | NestJS, TypeScript | Modular architecture
+Row 34: 33 |   📁 src/modules/auth/ | Authentication module | NestJS, Passport, JWT | Guards, strategies
+Row 35: 34 |   📁 src/modules/users/ | User management | NestJS, TypeORM | CRUD, profile, roles
+Row 36: 35 |   📁 src/modules/map/ | Map & geolocation | NestJS, PostGIS | Geo queries, clustering
+Row 37: 36 |   📁 src/modules/library/ | Learning materials | NestJS, Multer, S3 | Upload, search, download
+Row 38: 37 |   📁 src/modules/events/ | Events & workshops | NestJS | CRUD, registration, tickets
+Row 39: 38 |   📁 src/modules/community/ | Community features | NestJS, WebSocket | Posts, comments, groups
+Row 40: 39 |   📁 src/modules/gamification/ | Gamification system | NestJS, Redis | Badges, points, leaderboard
+Row 41: 40 |   📁 src/modules/mentoring/ | Mentor system | NestJS, WebRTC | Matching, booking, video
+Row 42: 41 |   📁 src/modules/donations/ | Donation system | NestJS | Campaigns, payments, reports
+Row 43: 42 |   📁 src/modules/surveys/ | Survey system | NestJS | Create, respond, analyze
+Row 44: 43 |   📁 src/modules/notifications/ | Notification system | NestJS, FCM, WebSocket | Push, email, in-app
+Row 45: 44 |   📁 src/modules/admin/ | Admin panel API | NestJS | Dashboard, moderation
+Row 46: 45 |   📁 src/modules/green/ | Green Campus | NestJS | Challenges, activities
+Row 47: 46 |   📁 src/modules/careers/ | Career & roadmap | NestJS | Paths, quiz, recommendations
+Row 48: 47 |   📁 src/common/ | Shared utilities | NestJS | Guards, pipes, filters, interceptors, decorators
+Row 49: 48 |   📁 src/config/ | Configuration | NestJS | Database, auth, storage, AI, map configs
+Row 50: 49 |   📁 src/database/ | Database setup | TypeORM, PostgreSQL | Migrations, seeds, entities
+Row 51: 50 |  |  |  | 
+Row 52: 51 | 📁 ai-service/ | AI microservice | Python, FastAPI | Separate service
+Row 53: 52 |   📁 app/routers/ | API routes | FastAPI | chat, recommend, analyze, career
+Row 54: 53 |   📁 app/services/ | Business logic | Python | LLM service, embedding, RAG
+Row 55: 54 |   📁 app/models/ | ML models | PyTorch/TF | Recommendation, classification
+Row 56: 55 |   📁 app/core/ | Core utilities | Python | Config, security, logging
+Row 57: 56 |   📁 app/vectordb/ | Vector database | ChromaDB/Pinecone | Document embeddings
+Row 58: 57 |  |  |  | 
+Row 59: 58 | 📁 mobile/ | Flutter mobile app | Flutter, Dart | iOS + Android
+Row 60: 59 |   📁 lib/screens/ | Screen widgets | Flutter | All app screens
+Row 61: 60 |   📁 lib/widgets/ | Reusable widgets | Flutter | Custom components
+Row 62: 61 |   📁 lib/services/ | API services | Dart | HTTP client, WebSocket
+Row 63: 62 |   📁 lib/providers/ | State management | Riverpod | App state
+Row 64: 63 |  |  |  | 
+Row 65: 64 | 📁 infrastructure/ | DevOps & deployment | Docker, K8s | IaC
+Row 66: 65 |   📁 docker/ | Dockerfiles | Docker | frontend, backend, ai, nginx
+Row 67: 66 |   📁 k8s/ | Kubernetes manifests | K8s | Deployments, services, ingress
+Row 68: 67 |   📁 terraform/ | Infrastructure as Code | Terraform | AWS/GCP resources
+Row 69: 68 |   📁 ci-cd/ | CI/CD pipelines | GitHub Actions | Build, test, deploy
+Row 70: 69 |   📁 monitoring/ | Monitoring setup | Prometheus, Grafana | Metrics, alerts, dashboards
+Row 71: 70 |  |  |  | 
+Row 72: 71 | 📁 docs/ | Documentation | Markdown | API docs, architecture, guides
+Row 73: 72 | 📁 scripts/ | Utility scripts | Bash, Python | Setup, seed, migrate, backup
+Row 74: 73 | 📁 tests/ | Test suites | Jest, Pytest, Cypress | Unit, integration, E2E
+
+=========================================
+SHEET: 9. Kiến Trúc Hệ Thống (Rows: 23, Cols: 11)
+=========================================
+Row 1: # | Thành phần | Mô tả | Công nghệ | Vì sao dùng | Ưu điểm | Nhược điểm | Module phù hợp | Scalability | Security | Cost
+Row 2: 1 | Frontend Web | Single Page Application với SSR | NextJS 14 + TypeScript | App Router, SSR/SSG tốt cho SEO, React ecosystem lớn | SEO tốt, performance, DX tốt, ecosystem | Learning curve, build time | Tất cả module web | Horizontal scale qua Vercel/CDN | CSP, CORS, XSS prevention | Free tier Vercel, ~$20/month pro
+Row 3: 2 | Frontend Mobile | Cross-platform mobile app | Flutter 3 + Dart | Single codebase iOS+Android, UI đẹp native-like, offline support | 1 codebase, performance native-like, rich UI | Bundle size, limited web support | Map, offline library, notification, chat | App store distribution | Certificate pinning, secure storage | Free (open source)
+Row 4: 3 | Backend API | RESTful API server chính | NestJS + TypeScript | Modular architecture, TypeScript, decorator pattern, microservice ready | Clean architecture, testable, scalable, TypeScript | Verbose, decorator complexity | Tất cả backend logic | Horizontal scale, microservice split | Helmet, CORS, rate limit, validation | $10-50/month VPS
+Row 5: 4 | AI Service | AI/ML microservice | Python + FastAPI | Python ML ecosystem, FastAPI performance, async support | Fast, async, ML libraries, auto docs | Separate service, Python GIL | AI chat, recommendation, analytics, career | GPU scaling, model serving | API key, content filter, rate limit | $50-200/month (GPU)
+Row 6: 5 | Primary Database | Relational database chính | PostgreSQL 16 + PostGIS | ACID compliance, PostGIS geospatial, JSON support, mature | Reliable, PostGIS, JSONB, extensions | Vertical scaling limit | Users, events, materials, opportunities | Read replicas, partitioning | Encryption at rest, SSL, RBAC | $15-100/month managed
+Row 7: 6 | Document Store | Flexible data storage | MongoDB | Schema flexibility cho AI logs, survey responses, dynamic content | Flexible schema, horizontal scale | No ACID across collections | AI logs, surveys, analytics, chat | Sharding, replica sets | Encryption, auth | $0-57/month Atlas
+Row 8: 7 | Cache Layer | In-memory caching & realtime | Redis 7 | Sub-ms latency, pub/sub, sorted sets cho leaderboard | Blazing fast, versatile data structures | Memory limited, no persistence default | Leaderboard, session, cache, realtime counters | Redis Cluster | ACL, encryption in transit | $0-25/month
+Row 9: 8 | Search Engine | Full-text search | Elasticsearch 8 | Fast full-text search, fuzzy matching, faceted search | Fast search, relevance scoring, aggregations | Resource heavy, complex ops | Library search, map search, opportunity search | Horizontal scale | API security, field-level | $30-100/month
+Row 10: 9 | Object Storage | File & media storage | MinIO / AWS S3 | Scalable file storage, CDN integration, presigned URLs | Unlimited storage, cheap, CDN | Egress costs, eventual consistency | Materials, avatars, proofs, certificates | Unlimited | IAM, encryption, presigned URLs | $5-50/month
+Row 11: 10 | Map Service | Map tiles & geocoding | Mapbox GL JS + Google Maps API | Vector tiles performance, custom styling, geocoding accuracy | Beautiful maps, fast rendering, customizable | Cost at scale, internet required | Bản đồ, opportunities, green, wifi, STEM | CDN distributed | API key restrictions | Free 50K loads, then $0.5/1000
+Row 12: 11 | Auth Service | Authentication & authorization | Firebase Auth + JWT + Passport | OAuth providers, phone auth, email verification | Easy OAuth, mobile SDK, free tier | Vendor lock-in | Auth module | Firebase auto-scale | MFA, token rotation | Free up to 50K MAU
+Row 13: 12 | Notification | Push & email notifications | Firebase FCM + SendGrid + WebSocket | Multi-channel push, reliable email, realtime | Cross-platform push, templates | Cost at scale | Notifications module | FCM auto-scale | Encrypted, rate limit | FCM free, SendGrid $15/month
+Row 14: 13 | Vector Database | AI embeddings storage | ChromaDB / Pinecone | Similarity search cho RAG, recommendation | Fast similarity search, managed | Additional infra | AI RAG, recommendations, smart search | Horizontal (Pinecone) | API key, namespace isolation | ChromaDB free, Pinecone $70/month
+Row 15: 14 | Message Queue | Async job processing | RabbitMQ / BullMQ | Reliable message delivery, job scheduling, retry logic | Reliable, DLQ, scheduling | Additional complexity | Email, notification, AI batch, data pipeline | Clustering | TLS, auth | $0-15/month
+Row 16: 15 | Realtime | WebSocket connections | Socket.IO + Redis adapter | Bidirectional communication, room support, fallback | Easy API, rooms, namespaces, auto-reconnect | Memory per connection | Chat, notifications, community feed, live events | Redis adapter for multi-node | JWT auth per connection | Included in backend cost
+Row 17: 16 | CI/CD | Continuous integration/deployment | GitHub Actions + Docker | Native GitHub integration, Docker workflows, free for public | Free, extensive marketplace | Minutes limit private repos | All deployment | Parallel jobs | Secrets management | Free public, $4/user private
+Row 18: 17 | Container Runtime | Application containerization | Docker + Docker Compose | Consistent environments, easy deployment, isolation | Portable, reproducible | Learning curve, overhead | All services | Kubernetes orchestration | Image scanning, non-root | Free (open source)
+Row 19: 18 | Orchestration | Container orchestration | Kubernetes (K3s/EKS) | Auto-scaling, self-healing, service discovery | Auto-scale, resilient, declarative | Complex setup, learning curve | Production deployment | Horizontal pod autoscaler | RBAC, network policies, secrets | K3s free, EKS $72/month
+Row 20: 19 | Monitoring | System monitoring | Prometheus + Grafana | Metrics collection, alerting, beautiful dashboards | Open source, extensible, alerts | Storage for metrics | All services | Federation | Auth, RBAC | Free (self-hosted)
+Row 21: 20 | Logging | Centralized logging | ELK Stack (Elasticsearch, Logstash, Kibana) | Log aggregation, search, visualization | Powerful search, visualization | Resource intensive | All services, audit | Index lifecycle | Access control | $30-100/month
+Row 22: 21 | CDN | Content delivery network | Cloudflare / AWS CloudFront | Global edge caching, DDoS protection, SSL | Fast delivery, DDoS protection, free SSL | Cache invalidation complexity | Static assets, API caching | Global edge network | WAF, DDoS, bot protection | Free tier, Pro $20/month
+Row 23: 22 | API Gateway | API routing & management | Nginx / Kong | Load balancing, rate limiting, SSL termination | High performance, flexible | Config complexity | All API traffic | Horizontal | Rate limit, WAF, SSL | Free (Nginx)
+
+=========================================
+SHEET: 10. AI Features Chi Tiết (Rows: 9, Cols: 14)
+=========================================
+Row 1: # | AI Feature | Mô tả | Model đề xuất | Workflow | Training Data | Inference | Prompt/Pipeline | Vector DB | LLM Architecture | API | Cost Optimization | Security | Scalability
+Row 2: 1 | 🤖 AI Chatbot học tập | Chatbot giải đáp thắc mắc học tập, gợi ý tài liệu, hỗ trợ 24/7 | GPT-4o-mini (chi phí thấp) hoặc Gemini 1.5 Flash
+Fallback: Gemini 1.5 Pro cho complex queries | User input→Intent classification→RAG retrieval→Context assembly→LLM generation→Post-process→Response | Curriculum data VN, textbooks, FAQ, past conversations, learning materials database | Streaming response, avg 2-5s, context window 8K tokens, session management | System prompt (education expert VN) → User query → Retrieved context (top 5 docs) → Generate → Safety filter → Stream | ChromaDB: index 100K+ documents, chunk size 512 tokens, overlap 50, embedding model: text-embedding-3-small | RAG (Retrieval Augmented Generation)
+Router: simple→direct, complex→RAG
+Fallback chain: fast model → full model | POST /api/ai/chat (streaming)
+GET /api/ai/history
+DELETE /api/ai/conversations/:id | Cache frequent queries (Redis)
+Use mini model for simple queries
+Batch embeddings
+Estimate: $50-100/month for 10K DAU | Content filtering (profanity, harmful)
+Rate limit 20 req/min
+No PII in logs
+Prompt injection prevention | Horizontal: multiple FastAPI workers
+Model: auto-switch based on load
+Queue: heavy queries async
+Row 3: 2 | 📚 Recommendation Engine | Gợi ý tài liệu, cơ hội, mentor phù hợp cá nhân hóa | Collaborative Filtering: Implicit ALS
+Content-based: TF-IDF + Cosine Similarity
+Hybrid: weighted ensemble | Collect interactions→Build user profile→Generate embeddings→Similarity matching→Rank→Filter→Serve | User interactions (views, downloads, ratings, time spent), material metadata, user profiles, 50K+ interactions needed | Batch: daily model retrain
+Real-time: online scoring from pre-computed embeddings, <100ms response | Pipeline:
+1. User embedding (behavior)
+2. Item embedding (content)
+3. ANN search (FAISS)
+4. Re-ranking (freshness, diversity)
+5. Business rules filter | Pinecone/ChromaDB: material embeddings (768d), user embeddings (128d), ANN index | Hybrid Recommender:
+- Collaborative: matrix factorization
+- Content: BERT embeddings
+- Context: location, time, grade
+- Cold start: popular + content-based | GET /api/ai/recommendations?type=materials
+GET /api/ai/recommendations?type=opportunities
+GET /api/ai/recommendations?type=mentors | Pre-compute embeddings offline
+Cache recommendations 1h
+Use approximate NN (FAISS)
+Estimate: $30-50/month | User consent for data collection
+Anonymize training data
+No sensitive attributes in features
+Bias monitoring | Incremental model updates
+A/B testing framework
+Feature store for real-time features
+Row 4: 3 | 🔍 Smart Search | Tìm kiếm thông minh: hiểu intent, sửa lỗi chính tả, gợi ý, đồng nghĩa | Elasticsearch + Vietnamese NLP
+Optional: Semantic search with embeddings | Query→Spell check→Intent detection→Query expansion (synonyms)→Elasticsearch→Re-rank→Respond | Search logs, Vietnamese dictionary, educational taxonomy, click-through data | <200ms avg, Elasticsearch query + optional semantic re-ranking | Query preprocessing:
+1. Vietnamese tokenization (underthesea)
+2. Spell correction
+3. Synonym expansion
+4. Entity extraction
+5. Multi-field search with boosting | Optional: semantic search embeddings for zero-result queries | Elasticsearch BM25 + Vietnamese analyzer
+Optional semantic: bi-encoder for query+doc embedding
+Hybrid: BM25 + semantic score fusion | GET /api/search?q=&scope=all
+GET /api/search/suggestions?q= | Vietnamese analyzer in Elasticsearch (free)
+Semantic only as fallback
+Cache popular queries
+Estimate: $20-30/month | Input sanitization
+Query length limit
+Rate limiting
+No query logging PII | Elasticsearch horizontal scaling
+Query caching layer
+Index optimization
+Row 5: 4 | 🎯 Personalized Learning Path | AI phân tích hành vi → đề xuất lộ trình học tập cá nhân | Knowledge Graph + Rule-based + ML
+Skill gap analysis: classification model | Assess current level→Identify goals→Map skill gaps→Generate path→Recommend materials→Track progress→Adapt | Curriculum standards, skill taxonomies, career requirements, user learning history, assessment results | Batch: path generation (5-10s)
+Real-time: progress tracking & adaptive suggestions | 1. Skill assessment quiz
+2. Goal setting
+3. Knowledge graph traversal
+4. Gap analysis
+5. Path optimization (topological sort)
+6. Material mapping
+7. Schedule optimization | Skill/topic embeddings for similarity matching and prerequisite detection | Knowledge Graph:
+- Nodes: skills, topics, materials
+- Edges: prerequisites, related, teaches
+- Algorithm: topological sort + shortest path | GET /api/ai/learning-path?goal=
+POST /api/ai/assess-skill
+GET /api/ai/progress | Pre-compute common paths
+Cache path templates
+Rule-based for common scenarios
+Estimate: $20-40/month | Data privacy: learning data is personal
+Opt-in tracking
+Right to delete learning history | Microservice architecture
+Path caching
+Incremental updates
+Row 6: 5 | 🧑‍🏫 AI Mentor Matching | AI ghép mentor-mentee dựa trên kỹ năng, mục tiêu, personality | Multi-criteria matching: weighted scoring
+Optional: ML ranking model (LambdaMART) | Student profile→Mentor profiles→Feature extraction→Similarity scoring→Constraint filtering→Ranking→Top-K→Present | Mentor profiles (skills, experience, availability, rating), student goals, past matching success rates, feedback | Real-time scoring, <500ms for top 10 results | 1. Extract student features (goals, level, personality)
+2. Extract mentor features (skills, style, availability)
+3. Multi-dimensional similarity
+4. Constraint satisfaction (schedule, location)
+5. Diversity promotion
+6. Ranking | Mentor embeddings for fast ANN retrieval | Matching Algorithm:
+- Feature vectors: skills (TF-IDF), goals (embedding), schedule (binary)
+- Score = Σ(weight_i × similarity_i)
+- Constraints: availability, capacity, location | GET /api/ai/mentor-match?student_id=
+GET /api/ai/mentor-match/explain | Simple weighted scoring first
+ML model only after enough data (1000+ matches)
+Cache mentor embeddings
+Estimate: $10-20/month | Consent for matching
+No discriminatory features
+Fairness monitoring
+Mentor can opt-out | Update embeddings on profile change
+Batch recalculation nightly
+Row 7: 6 | 📊 AI Education Analytics | Phân tích xu hướng giáo dục, dự đoán nhu cầu, phát hiện khu vực thiếu hụt | Time Series: Prophet/ARIMA
+Clustering: K-Means/DBSCAN
+Anomaly: Isolation Forest | Data collection→ETL→Feature engineering→Model training→Prediction→Visualization→Alert | Government education stats, EduMap usage data, survey results, geographic data, economic indicators | Batch processing: daily/weekly
+Dashboard: cached results, <2s load | ETL Pipeline:
+1. Data ingestion (CSV, API, DB)
+2. Cleaning & normalization
+3. Feature engineering (spatial, temporal)
+4. Model training (scheduled)
+5. Prediction & scoring
+6. Dashboard update | Geographic embeddings for region similarity analysis | Analytics Stack:
+- Descriptive: SQL aggregations
+- Predictive: Prophet (time series)
+- Clustering: K-Means (region grouping)
+- Anomaly: Isolation Forest
+- Spatial: GeoPandas + PostGIS | GET /api/ai/analytics/education-stats
+GET /api/ai/analytics/predictions
+GET /api/ai/analytics/anomalies | Batch processing (not real-time)
+Scikit-learn (free, no GPU)
+Cache dashboard data
+Estimate: $10-30/month | Anonymize all data
+No individual-level predictions public
+Admin-only access
+Audit log | Incremental learning
+Partitioned by region
+Scheduled retraining
+Row 8: 7 | 🛡️ AI Content Moderation | Tự động kiểm duyệt nội dung: spam, vi phạm, harmful content | Text: fine-tuned BERT Vietnamese
+Image: pre-trained classification
+Spam: heuristic + ML | Content submitted→Pre-filter (regex)→ML classification→Confidence check→Auto/Manual decision→Log | Labeled Vietnamese content (spam/clean/harmful), community reports, moderator decisions, 10K+ labeled samples | Real-time: <500ms per item, confidence threshold 0.85 for auto-action | 1. Regex pre-filter (URLs, phone, known patterns)
+2. Vietnamese text classification (BERT)
+3. Sentiment analysis
+4. Image classification (if media)
+5. Confidence routing: high→auto, medium→queue, low→pass | Không cần | BERT Vietnamese (phobert-base)
+Fine-tuned for:
+- Spam detection
+- Toxicity detection
+- Off-topic detection
+Fallback: keyword blacklist | Internal service (called by backend)
+Webhook: POST /api/ai/moderate | Use phobert-base (small, fast)
+CPU inference OK
+Batch processing for non-urgent
+Estimate: $10-20/month | No content stored in AI logs
+False positive review queue
+Appeal mechanism
+Transparency report | Queue-based processing
+Horizontal workers
+Model versioning
+Row 9: 8 | 🗺️ AI Geo-Education Analysis | Phát hiện khu vực thiếu giáo dục, gợi ý theo khu vực, heatmap thông minh | Spatial Analysis: GeoPandas + Scikit-learn
+Prediction: Gradient Boosting | Geographic data→Feature extraction→Spatial clustering→Gap analysis→Priority scoring→Map visualization | School locations, population density, economic data, internet coverage, education outcomes, geographic features | Batch: weekly recalculation
+Serving: pre-computed results, <1s | 1. Spatial data ingestion
+2. Feature engineering (density, accessibility, quality)
+3. Gap detection (areas without schools within 5km)
+4. Need scoring (multi-criteria)
+5. Priority ranking
+6. Heatmap generation
+7. Recommendation by region | Geographic embeddings for area similarity | Spatial ML Pipeline:
+- PostGIS for geo queries
+- GeoPandas for analysis
+- Scikit-learn for clustering
+- Folium/Deck.gl for visualization | GET /api/ai/geo/education-gaps
+GET /api/ai/geo/heatmap
+GET /api/ai/geo/recommendations?lat=&lng= | Pre-compute heatmaps
+Cache by region
+No GPU needed
+Estimate: $10-20/month | Anonymize location data
+No individual tracking
+Aggregate data only | Region-based partitioning
+Incremental updates
+CDN for map tiles
+
+=========================================
+SHEET: 11. Roadmap Phát Triển (Rows: 6, Cols: 11)
+=========================================
+Row 1: Phase | Timeline | Mục tiêu | Module triển khai | Team Size | Tech Stack chính | Estimated Budget | Risk | Dependencies | Priority | Deliverables
+Row 2: 🏁 MVP | Tháng 1-3
+(12 tuần) | Xây dựng core features, chứng minh concept, demo cho cuộc thi | MOD-AUTH: Authentication
+MOD-MAP: Bản đồ cơ bản (Đồng Nai)
+MOD-LIB: Kho học liệu (upload/search)
+MOD-WS: Workshop listing
+MOD-NOTIFY: Basic notifications | 3-4 người
+1 Fullstack Lead
+1 Frontend
+1 Backend
+1 Designer (part-time) | NextJS, NestJS, PostgreSQL+PostGIS, Mapbox, Firebase Auth | $500-1,000
+(chủ yếu hosting + map API) | Thấp
+- Scope creep
+- Map data quality
+- Team availability | Không có external dependency
+Cần data trường học Đồng Nai | 🔴 Critical | ✅ Web app responsive
+✅ Bản đồ Đồng Nai
+✅ Upload/search tài liệu
+✅ Đăng ký workshop
+✅ Auth (email + Google)
+Row 3: 📦 Phase 1 | Tháng 4-6
+(12 tuần) | Mở rộng features, build community, AI cơ bản | MOD-AI: AI Chatbot cơ bản
+MOD-OPP: Student Opportunity Map
+MOD-GAME: Gamification
+MOD-COMMUNITY: Cộng đồng
+MOD-GREEN: Green Campus cơ bản
+MOD-VOL: Volunteer tracking
+MOD-SCHOLAR: Scholarship map | 5-6 người
++ 1 AI/ML Engineer
++ 1 Mobile (Flutter) | + FastAPI, Python, LLM API, Redis, WebSocket, Flutter | $1,500-3,000
+(+ AI API cost
++ thêm nhân sự) | Trung bình
+- AI cost management
+- Content moderation
+- User adoption | MVP hoàn thành
+AI API key
+Community guidelines | 🟠 High | ✅ AI chat cơ bản
+✅ Opportunity map
+✅ Badge system
+✅ Community feed
+✅ Green challenges
+✅ Mobile app v1
+✅ Volunteer hours tracking
+Row 4: 🚀 Phase 2 | Tháng 7-12
+(24 tuần) | Scale features, mở rộng khu vực, nâng cao AI, monetize | MOD-MENTOR: Mentor system
+MOD-BIZ: Business connection
+MOD-DONATE: Quyên góp
+MOD-SURVEY: Khảo sát
+MOD-CAREER: Career roadmap
+MOD-CERT: Chứng nhận
+MOD-INTERN: Internship map
+MOD-HACK: Challenge/Hackathon
+MOD-STEM: STEM Lab
+MOD-SHARE: Chia sẻ sách
+MOD-HS: Kết nối HS-ĐH | 8-10 người
++ 1 DevOps
++ 1 QA
++ 1 Product Manager | + MongoDB, Elasticsearch, Docker, K8s, WebRTC, Payment gateway | $5,000-10,000/tháng
+(infra + team
++ AI + marketing) | Cao
+- Payment security
+- Video call reliability
+- Content quality
+- User retention | Phase 1 complete
+Partnership trường
+Payment provider
+Mentor recruitment | 🟠 High | ✅ Mentoring + video call
+✅ Donation system
+✅ Survey tool
+✅ Career roadmap AI
+✅ Certificate generation
+✅ Internship map
+✅ STEM lab directory
+✅ Mở rộng TP.HCM
+Row 5: 📈 Phase 3 | Tháng 13-18
+(24 tuần) | Scale toàn quốc, advanced AI, quốc tế hóa, analytics | MOD-INTL: Quốc tế hóa
+MOD-MOBILE: Tri thức lưu động
+MOD-SUMMER: Mùa hè xanh
+MOD-WIFI: Wifi map full
+MOD-LEARN: Community learning map
+Advanced AI features
+Advanced analytics dashboard | 12-15 người
++ Data Engineer
++ ML Engineer senior
++ Marketing team | + Kafka, Kubernetes full, Terraform, Grafana, Prometheus | $15,000-25,000/tháng | Cao
+- Operational complexity
+- Data governance
+- Competition
+- Funding | Phase 2 stable
+National partnerships
+Funding secured
+Data collection mature | 🟡 Medium | ✅ i18n (EN, others)
+✅ Mobile knowledge truck
+✅ Summer campaign mgmt
+✅ Nationwide map data
+✅ Advanced AI analytics
+✅ Education prediction
+Row 6: 🌏 Scale | Tháng 19-24+
+(ongoing) | Platform mature, ASEAN expansion, sustainable revenue | All modules enhanced
+B2B SaaS cho trường học
+Government integration
+ASEAN localization
+Advanced ML pipeline | 20+ người
+Full engineering team
++ BD team
++ Support team | Full production stack
++ Multi-region deployment
++ Data warehouse | $30,000-50,000/tháng | Rất cao
+- International regulations
+- Multi-language content
+- Competition from big EdTech | Phase 3 stable
+Revenue > costs
+Legal in target countries
+Local partnerships | 🟢 Low | ✅ ASEAN expansion
+✅ SaaS product
+✅ Government contracts
+✅ Self-sustaining revenue
+✅ 1M+ users
+
+=========================================
+SHEET: 12. Bảo Mật (Rows: 21, Cols: 7)
+=========================================
+Row 1: # | Hạng mục | Mô tả chi tiết | Giải pháp | Công nghệ | Priority | Phase
+Row 2: 1 | 🔐 JWT Authentication | Token-based auth, access + refresh token | Access token 15min, refresh 7d, rotation on use, blacklist on logout | jsonwebtoken, Passport JWT | 🔴 Critical | MVP
+Row 3: 2 | 🔑 OAuth2 | Social login Google, Facebook, GitHub | OAuth2 flow with PKCE, secure token exchange, account linking | Passport OAuth, Firebase Auth | 🔴 Critical | MVP
+Row 4: 3 | 👥 RBAC | Role-based access control, permission matrix | 12 roles, granular permissions, middleware guards, dynamic permission check | NestJS Guards, Casl | 🔴 Critical | MVP
+Row 5: 4 | 🔒 Encryption | Data encryption at rest and in transit | TLS 1.3 for transit, AES-256 for sensitive fields, bcrypt for passwords | SSL/TLS, bcrypt, crypto | 🔴 Critical | MVP
+Row 6: 5 | ⏱️ Rate Limiting | Prevent abuse and DDoS | Per-endpoint limits, sliding window, IP + user-based, progressive backoff | express-rate-limit, Redis | 🔴 Critical | MVP
+Row 7: 6 | 🚫 Anti-Spam | Prevent spam content and accounts | Honeypot fields, CAPTCHA, email verification, phone verification, content analysis | reCAPTCHA v3, AI moderation | 🟠 High | Phase 1
+Row 8: 7 | 🤖 Anti-Bot | Prevent automated attacks | Browser fingerprinting, behavior analysis, CAPTCHA challenge, rate limiting | Cloudflare Bot Management | 🟠 High | Phase 1
+Row 9: 8 | 🛡️ DDoS Protection | Distributed denial of service prevention | CDN-level protection, rate limiting, geographic filtering, auto-scaling | Cloudflare, AWS Shield | 🟠 High | Phase 1
+Row 10: 9 | 🧠 AI Content Moderation | Auto-detect harmful content | ML-based text classification, image analysis, real-time filtering, manual review queue | PhoBERT, image classification | 🟠 High | Phase 1
+Row 11: 10 | 📤 Secure Upload | Prevent malicious file uploads | File type whitelist, virus scanning, size limits, sanitize filenames, isolated storage | ClamAV, Multer, S3 | 🔴 Critical | MVP
+Row 12: 11 | 🕸️ XSS Prevention | Cross-site scripting protection | Input sanitization, output encoding, CSP headers, HTML purification | DOMPurify, Helmet CSP | 🔴 Critical | MVP
+Row 13: 12 | 🔄 CSRF Protection | Cross-site request forgery | CSRF tokens, SameSite cookies, origin validation | csurf, SameSite cookies | 🔴 Critical | MVP
+Row 14: 13 | 💉 SQL Injection | Prevent SQL injection attacks | Parameterized queries (TypeORM), input validation, WAF rules | TypeORM, Joi validation | 🔴 Critical | MVP
+Row 15: 14 | 📝 Audit Log | Track all system actions | Immutable audit trail, user actions, admin actions, security events, IP logging | Custom middleware, PostgreSQL | 🟠 High | Phase 1
+Row 16: 15 | 🔐 Admin Security | Protect admin accounts | MFA required, IP whitelist, session timeout 30min, action confirmation, separate auth flow | TOTP, IP filter | 🔴 Critical | MVP
+Row 17: 16 | 🗝️ Permission Control | Fine-grained access control | Resource-level permissions, field-level access, row-level security, dynamic policies | Casl, PostgreSQL RLS | 🟠 High | Phase 1
+Row 18: 17 | 📱 Mobile Security | Secure mobile app | Certificate pinning, secure storage, jailbreak detection, code obfuscation | Flutter secure_storage | 🟠 High | Phase 1
+Row 19: 18 | 🔍 Vulnerability Scanning | Regular security audits | Automated dependency scanning, SAST, DAST, penetration testing quarterly | Snyk, OWASP ZAP, npm audit | 🟡 Medium | Phase 2
+Row 20: 19 | 🗄️ Data Privacy (PDPA) | Personal data protection | Data minimization, consent management, right to delete, data portability, privacy policy | Custom consent system | 🟡 Medium | Phase 2
+Row 21: 20 | 🔐 Secret Management | Secure secrets handling | Environment variables, vault for production, rotation policy, no hardcoded secrets | HashiCorp Vault, dotenv | 🔴 Critical | MVP
+
+=========================================
+SHEET: 13. DevOps & Triển Khai (Rows: 15, Cols: 7)
+=========================================
+Row 1: # | Hạng mục | Mô tả | Công nghệ | Chi tiết cấu hình | Phase | Cost/tháng
+Row 2: 1 | 🐳 Docker | Container hóa tất cả services | Docker, Docker Compose | Dockerfile cho: frontend (multi-stage, nginx), backend (NestJS), ai-service (Python), PostgreSQL, Redis, Elasticsearch
+Docker Compose cho dev environment | MVP | Free
+Row 3: 2 | 🔄 CI/CD | Tự động build, test, deploy | GitHub Actions | Workflows: lint→test→build→push image→deploy
+Branches: main (prod), develop (staging), feature/*
+Automatic rollback on failure | MVP | Free (public)
+Row 4: 3 | 📦 Git Strategy | Quản lý code versioning | Git, GitHub | GitFlow: main, develop, feature/*, release/*, hotfix/*
+PR required, 1 reviewer minimum
+Conventional commits, semantic versioning | MVP | Free
+Row 5: 4 | 🌍 Environments | Tách biệt môi trường | Docker, .env | Development (local Docker Compose)
+Staging (cloud, auto-deploy from develop)
+Production (cloud, manual approve from main)
+Each has separate DB, API keys, configs | MVP | Staging: $30
+Row 6: 5 | ☁️ Cloud Hosting | Production hosting | Railway / Render / AWS | MVP: Railway (simple, cheap)
+Phase 2: AWS ECS or GCP Cloud Run
+Phase 3: Kubernetes (EKS/GKE)
+Auto-scaling policies | MVP→Scale | $20→$500+
+Row 7: 6 | 🔥 Firebase | Auth, push notification, hosting | Firebase | Auth: email + OAuth (free 50K MAU)
+FCM: push notifications (free)
+Hosting: static assets (free tier)
+Firestore: optional for realtime features | MVP | Free→$25
+Row 8: 7 | ▲ Vercel | Frontend hosting & CDN | Vercel | NextJS optimized hosting
+Automatic preview deployments
+Edge functions
+Analytics | MVP | Free→$20
+Row 9: 8 | 📊 Monitoring | System health monitoring | Prometheus + Grafana | Metrics: CPU, memory, request latency, error rate, DB connections
+Dashboards: system overview, per-service, business metrics
+Alerts: Slack/email on threshold breach | Phase 1 | Free (self-hosted)
+Row 10: 9 | 📝 Logging | Centralized log management | ELK Stack / Loki | Structured JSON logging
+Log levels: error, warn, info, debug
+Log rotation: 30 days
+Search & analyze in Kibana/Grafana | Phase 1 | $30-100
+Row 11: 10 | 💾 Backup | Data backup strategy | pg_dump, S3 | PostgreSQL: daily full backup, hourly WAL archiving
+MongoDB: daily mongodump
+S3: versioned storage
+Retention: 30 daily, 12 monthly
+Disaster recovery: RTO 1h, RPO 15min | MVP | $5-20
+Row 12: 11 | 📈 Auto Scaling | Tự động scale theo tải | Kubernetes HPA / Cloud auto-scale | CPU threshold: scale up >70%, scale down <30%
+Min replicas: 2, Max: 10
+Cool-down: 5min
+Database: read replicas on demand | Phase 2 | Included in hosting
+Row 13: 12 | 🌐 CDN | Content delivery network | Cloudflare | Free tier: DDoS protection, SSL, caching
+Pro ($20): WAF, image optimization, analytics
+Cache: static assets 30d, API 5min
+Purge on deploy | MVP | Free→$20
+Row 14: 13 | 🔒 SSL | HTTPS certificates | Let's Encrypt / Cloudflare | Auto-renewal, wildcard cert for subdomains
+HSTS enabled, TLS 1.3
+Certificate monitoring | MVP | Free
+Row 15: 14 | 🌐 Domain | Domain management | Cloudflare DNS | edumap.vn (primary)
+api.edumap.vn (backend)
+ai.edumap.vn (AI service)
+Admin: admin.edumap.vn | MVP | $10/year
+
+=========================================
+SHEET: 14. Ước Tính Chi Phí (Rows: 20, Cols: 8)
+=========================================
+Row 1: # | Hạng mục | MVP (tháng 1-3) | Phase 1 (tháng 4-6) | Phase 2 (tháng 7-12) | Phase 3 (tháng 13-18) | Scale (tháng 19+) | Ghi chú
+Row 2: 1 | ☁️ Hosting (Backend) | $20/tháng
+Railway free→starter | $50/tháng
+Railway pro | $150/tháng
+AWS ECS | $500/tháng
+Kubernetes | $1,500/tháng
+Multi-region | Auto-scale theo traffic
+Row 3: 2 | ▲ Frontend Hosting | $0
+Vercel free | $20/tháng
+Vercel pro | $20/tháng | $20/tháng | $50/tháng
+Enterprise | CDN included
+Row 4: 3 | 🗄️ Database (PostgreSQL) | $0-15/tháng
+Railway/Supabase free | $25/tháng
+Managed | $100/tháng
++ read replica | $300/tháng
+HA setup | $800/tháng
+Multi-region | Supabase free tier ban đầu
+Row 5: 4 | 📦 MongoDB | $0
+Atlas free | $0
+Atlas free | $57/tháng
+Atlas M10 | $100/tháng | $300/tháng | Cho AI logs, surveys
+Row 6: 5 | ⚡ Redis | $0
+Upstash free | $10/tháng | $25/tháng | $50/tháng | $100/tháng | Cache + leaderboard
+Row 7: 6 | 🤖 AI/LLM API | $0
+Gemini free tier | $50-100/tháng
+GPT-4o-mini | $150-300/tháng | $300-500/tháng | $1,000/tháng | Tối ưu bằng caching
+Row 8: 7 | 🗺️ Map API | $0
+Mapbox free 50K | $0-50/tháng | $100/tháng | $200/tháng | $500/tháng | Mapbox pricing tiers
+Row 9: 8 | 📁 Storage (S3) | $1/tháng | $5/tháng | $20/tháng | $50/tháng | $200/tháng | Tài liệu, media
+Row 10: 9 | 🔔 Notification | $0
+FCM free | $15/tháng
++ SendGrid | $30/tháng | $50/tháng | $100/tháng | FCM free, email có phí
+Row 11: 10 | 🌐 CDN (Cloudflare) | $0
+Free tier | $0 | $20/tháng
+Pro | $20/tháng | $200/tháng
+Business | DDoS protection included
+Row 12: 11 | 🔍 Elasticsearch | $0
+Basic self-hosted | $30/tháng | $60/tháng | $100/tháng | $300/tháng | Search optimization
+Row 13: 12 | 🔧 Monitoring | $0
+Free tools | $0
+Self-hosted | $30/tháng | $50/tháng | $100/tháng | Prometheus + Grafana
+Row 14: 13 | 💻 Dev Team | $0
+Student team | $500-1,000
+Part-time | $3,000-5,000
+Mixed | $8,000-15,000 | $20,000-30,000 | Lương/phụ cấp Việt Nam
+Row 15: 14 | 📢 Marketing | $0 | $100/tháng | $300/tháng | $1,000/tháng | $3,000/tháng | Social media, events
+Row 16: 15 | 🔐 Domain + SSL | $10/năm | $10/năm | $10/năm | $10/năm | $50/năm | Cloudflare included
+Row 17: 16 | ⚖️ Pháp lý | $0 | $0 | $200 (1 lần) | $100/tháng | $500/tháng | Đăng ký kinh doanh, PDPA
+Row 19: 17 | 💰 TỔNG/THÁNG | ~$30-50 | ~$800-1,400 | ~$4,000-6,500 | ~$10,500-17,000 | ~$27,000-37,000 | Ước tính VND×25,000
+Row 20: 18 | 💰 TỔNG VND/THÁNG | ~750K-1.2M | ~20-35M | ~100-162M | ~262-425M | ~675M-925M | Chưa tính lương fulltime
+
+=========================================
+SHEET: 15. Luồng Hoạt Động (Rows: 13, Cols: 8)
+=========================================
+Row 1: # | Tên Flow | Actors | Các bước chi tiết | Trigger | Kết quả | Error Cases | Modules liên quan
+Row 2: 1 | 🔐 User Registration Flow | Guest → Student/Teacher/Mentor | 1. Guest truy cập app → 2. Click 'Đăng ký' → 3. Chọn vai trò → 4. Điền form (email, password, full_name) hoặc OAuth → 5. Validate input → 6. Check email unique → 7. Hash password → 8. Create user record → 9. Send verification email → 10. User click link verify → 11. Update email_verified=true → 12. Redirect to onboarding → 13. Setup profile (avatar, bio, interests) → 14. Show welcome tour | Click 'Đăng ký' button | Tài khoản mới + profile setup + welcome badges | Email exists→show login link; Invalid input→inline errors; Email not delivered→resend option; OAuth fail→retry/email fallback | MOD-AUTH, MOD-NOTIFY, MOD-GAME
+Row 3: 2 | 🗺️ Map Exploration Flow | All Users | 1. Mở trang Map → 2. Load map tiles (Mapbox) → 3. Get user location (GPS) → 4. Fetch nearby points (PostGIS query) → 5. Render markers với clustering → 6. User zoom/pan → 7. Recalculate visible bounds → 8. Refetch points in new bounds → 9. Click marker → 10. Show popup with details → 11. Click 'Xem chi tiết' → 12. Load full detail + reviews + nearby → 13. User can rate/review → 14. User can report incorrect info | Mở trang /map | Map tương tác với tất cả điểm giáo dục trong vùng nhìn thấy | GPS denied→default to Đồng Nai center; No points→suggest zoom out; Slow connection→progressive load; Map fail→static image fallback | MOD-MAP, MOD-AUTH
+Row 4: 3 | 📚 Learning Flow | Student | 1. Browse/search tài liệu → 2. Filter (môn, lớp, loại) → 3. View results → 4. Click tài liệu → 5. View preview (PDF viewer/video player) → 6. Rate & review → 7. Bookmark → 8. Download for offline → 9. AI gợi ý tài liệu liên quan → 10. Track learning history → 11. Update progress → 12. Earn points/badges → 13. AI suggest next material | Truy cập Library page | Kiến thức mới + points + history tracked + personalized recommendations | No results→AI suggest alternatives; Download fail→retry; Offline sync fail→queue; Large file→progressive download | MOD-LIB, MOD-AI, MOD-GAME
+Row 5: 4 | 🤖 AI Chat Flow | Student, Teacher | 1. Open AI chat → 2. Show welcome + starter prompts → 3. User type question → 4. Frontend send to API (streaming) → 5. Backend: classify intent → 6. RAG: search relevant docs in vector DB → 7. Assemble context (system prompt + user query + retrieved docs) → 8. Call LLM API (streaming) → 9. Stream response tokens to frontend → 10. Render markdown response → 11. Show source references → 12. Show follow-up suggestions → 13. User can continue conversation → 14. Save to conversation history → 15. Track tokens used | Click AI chat icon / type message | Câu trả lời AI + tài liệu tham khảo + gợi ý follow-up | AI timeout→retry with simpler prompt; Rate limited→show cooldown; Content filtered→explain policy; LLM down→fallback cached FAQs | MOD-AI, MOD-LIB
+Row 6: 5 | 🎓 Workshop Registration Flow | Student → Organizer → Admin | 1. Browse workshop list → 2. Filter by type/date/location → 3. Click workshop → 4. View details (speaker, schedule, location on map) → 5. Click 'Đăng ký' → 6. Check capacity → 7. Fill registration form → 8. Submit → 9. Backend: create registration, decrement capacity → 10. Generate QR ticket → 11. Send confirmation email + calendar invite → 12. Reminder notification 1 day before → 13. Reminder 1 hour before → 14. Day of: show QR for check-in → 15. Organizer scan QR → 16. Mark attended → 17. Post-event: send feedback form → 18. Submit feedback → 19. Generate certificate → 20. Award badge/points | Click 'Đăng ký' on workshop | Ticket + calendar + reminders + attendance + certificate + badge | Full capacity→join waitlist; Payment fail→retry; Already registered→show ticket; Past deadline→show similar events; Check-in fail→manual override | MOD-WS, MOD-NOTIFY, MOD-GAME, MOD-CERT
+Row 7: 6 | 🧑‍🏫 Mentor Booking Flow | Student → Mentor | 1. Student browse mentors → 2. Filter by specialty/rating → 3. AI suggest matching mentors → 4. View mentor profile → 5. Check available slots (calendar) → 6. Select slot + write topic → 7. Submit booking → 8. Backend: check conflict, reserve slot → 9. Notify mentor → 10. Mentor confirm/reject → 11. If confirmed: generate video call link → 12. Send calendar invites to both → 13. Reminder 1h before → 14. Start video call (WebRTC) → 15. Complete session → 16. Both rate & feedback → 17. Update mentor stats → 18. Award points/badges | Click 'Đặt lịch' on mentor | Video call session + feedback + points | Slot taken→suggest alternatives; Mentor busy→show next available; Video fail→fallback to chat; No-show→auto-cancel after 15min | MOD-MENTOR, MOD-AI, MOD-NOTIFY, MOD-GAME
+Row 8: 7 | 💝 Donation Flow | Sponsor/Volunteer → Campaign → Beneficiary | 1. Browse campaigns on map → 2. Filter by type/region → 3. Click campaign → 4. View details + progress + impact → 5. Choose donation type (money/items) → 6. For money: enter amount + payment method → 7. Process payment (gateway) → 8. Verify transaction → 9. Record donation → 10. Update campaign progress → 11. Send receipt email → 12. For items: fill item details + photos → 13. Match with needs → 14. Arrange delivery → 15. Confirm receipt → 16. Update impact metrics → 17. Generate transparency report → 18. Award donor badge/points | Click 'Quyên góp' on campaign | Donation recorded + receipt + impact update + badge | Payment fail→retry/alternative method; Campaign closed→suggest similar; Item mismatch→notify donor; Fraud detection→hold & review | MOD-DONATE, MOD-MAP, MOD-NOTIFY, MOD-GAME
+Row 9: 8 | 🌿 Green Challenge Flow | Student | 1. Browse green challenges → 2. View challenge details → 3. Click 'Tham gia' → 4. Daily: log activity → 5. Upload proof photo → 6. AI verify photo (image classification) → 7. If valid: award points, update carbon tracker → 8. If invalid: flag for manual review → 9. View personal progress → 10. Compare on leaderboard → 11. Complete challenge → 12. Earn badge + certificate → 13. Share achievement | Click 'Tham gia' on challenge | Points + carbon tracking + badge + certificate + community recognition | Photo rejected→retry with guidelines; Challenge expired→archive; Cheat detected→warning + point deduction | MOD-GREEN, MOD-GAME, MOD-AI, MOD-CERT
+Row 10: 9 | 📊 Admin Moderation Flow | User → Moderator → Admin | 1. User submit content (post/material/point) → 2. Auto-moderation: AI scan content → 3. If safe (confidence>85%): auto-publish → 4. If suspicious (50-85%): add to review queue → 5. If harmful (<50%): auto-reject + notify user → 6. Moderator reviews queue → 7. Approve/reject with reason → 8. If rejected: notify user with reason + appeal option → 9. User can appeal → 10. Admin reviews appeal → 11. Final decision → 12. Update content status → 13. Log all actions in audit trail | Content submission | Content published/rejected + audit trail | False positive→appeal→admin review; Mod disagree→escalate to admin; Spam flood→auto-ban + rate limit | MOD-AI, MOD-COMMUNITY, MOD-LIB
+Row 11: 10 | 🎮 Gamification Flow | All Users | 1. User performs action (learn, volunteer, upload, attend) → 2. Event published to gamification service → 3. Check badge rules engine → 4. If badge criteria met: award badge → 5. Calculate points → 6. Update user level → 7. Check streak (daily login, weekly activity) → 8. Update leaderboard (Redis sorted set) → 9. Send notification → 10. Display toast/popup animation → 11. Update profile badge shelf → 12. Check milestone (100 points, 10 badges, etc) → 13. If milestone: extra reward + notification | Any tracked user action | Badges + points + level up + leaderboard position + notifications | Duplicate action→ignore; Anti-cheat: verify action authenticity; System error→queue for retry | MOD-GAME, MOD-NOTIFY
+Row 12: 11 | 🔔 Notification Flow | System → User | 1. Event triggers notification (registration, badge, reminder, etc) → 2. Backend creates notification record → 3. Determine channels (push, email, in-app) based on user preferences → 4. For push: send via FCM → 5. For email: queue in BullMQ → send via SendGrid → 6. For in-app: emit WebSocket event → 7. Frontend receives → show toast/badge → 8. User clicks notification → navigate to relevant page → 9. Mark as read → 10. Update unread count | System events | Multi-channel notification delivered + read tracking | Push fail→fallback email; User offline→store for next login; Email bounce→disable email channel; Notification flood→batch & throttle | MOD-NOTIFY
+Row 13: 12 | 🏫 School Onboarding Flow | School Admin | 1. School registers with institutional email → 2. Admin verifies institution → 3. Approve school account → 4. School admin setup: profile, logo, description → 5. Add teachers → 6. Upload school data (facilities, programs) → 7. Pin school on map → 8. Create first event/workshop → 9. Invite students → 10. Access school dashboard → 11. View analytics | School registration request | Verified school account + dashboard + map presence | Verification fail→request more docs; Duplicate school→merge suggestion; Data incomplete→progressive setup wizard | MOD-AUTH, MOD-MAP, MOD-DASH
+
+=========================================
+SHEET: 16. Bản Đồ & Geo Analysis (Rows: 11, Cols: 9)
+=========================================
+Row 1: # | Tính năng | Mô tả chi tiết | Công nghệ | Logic xử lý | Data source | AI Integration | Output | Use case
+Row 2: 1 | 🗺️ Bản đồ giáo dục cơ bản | Hiển thị tất cả điểm giáo dục trên map tương tác: trường, thư viện, lab, wifi, không gian xanh | Mapbox GL JS + PostGIS | 1. Load vector tiles → 2. Fetch POI trong viewport (PostGIS ST_Within) → 3. Client-side clustering (Supercluster) → 4. Render markers theo category → 5. Popup on click → 6. Fly-to on select | Database map_points + map_categories
+Crowdsourced data
+Government open data | Không (Phase MVP) | Interactive map với markers, popups, clusters, layer toggles | Tìm trường gần nhất, thư viện, điểm học tập
+Row 3: 2 | 🔥 Heatmap giáo dục | Hiển thị mật độ tài nguyên giáo dục theo vùng, phát hiện khu vực thiếu hụt | Mapbox heatmap layer + PostGIS + D3.js | 1. Aggregate điểm theo grid (H3 hexagonal) → 2. Tính density per hex → 3. Normalize scores → 4. Render heatmap layer → 5. Color scale: đỏ (thiếu) → xanh (đủ) → 6. Tooltip với stats | map_points aggregated
+education_stats
+population data | AI phát hiện anomaly: khu vực population cao nhưng density giáo dục thấp → flag priority | Heatmap overlay với legend, selectable layers (trường, thư viện, wifi, overall) | Admin phân tích vùng thiếu hụt, nhà tài trợ chọn nơi đầu tư
+Row 4: 3 | 📍 Geolocation & Navigation | Xác định vị trí user, tìm đường đến điểm gần nhất, thông báo gần vị trí | Browser Geolocation API + Mapbox Directions | 1. Request GPS permission → 2. Get coordinates → 3. Reverse geocode (Mapbox) → 4. Find nearest K points (PostGIS KNN) → 5. Calculate route → 6. Show directions | User GPS
+map_points
+Mapbox Directions API | Gợi ý điểm phù hợp theo profile + location | User position marker, nearest points list, route directions | Student tìm thư viện gần nhất, wifi gần nhất
+Row 5: 4 | 🔍 Map Filtering & Search | Lọc điểm theo loại, khoảng cách, đánh giá, trạng thái; search theo tên | Mapbox + PostGIS + Elasticsearch | 1. User chọn filters → 2. Build PostGIS query with ST_DWithin + type filter → 3. Elasticsearch for text search → 4. Intersect results → 5. Re-render markers → 6. Update count badge | map_points + map_categories
+Elasticsearch index | Smart search: sửa typo, gợi ý, hiểu intent (ví dụ: 'chỗ học gần đây' → lọc study spaces nearby) | Filtered map view, search results list, active filter chips | Tìm trường THPT quận X, tìm wifi miễn phí gần đây
+Row 6: 5 | 🫧 Map Clustering | Gom nhóm markers khi zoom out, hiển thị số lượng, expand khi click | Mapbox + Supercluster | 1. Load all points in viewport → 2. Supercluster algorithm (zoom-dependent) → 3. Render cluster circles (size = count) → 4. Click cluster → zoom in → 5. At max zoom → show individual markers → 6. Spider-fy overlapping markers | map_points (coordinates + category) | Không | Clustered map view, smooth zoom transitions, spider markers | Tránh visual clutter khi có nhiều điểm
+Row 7: 6 | 🤖 AI Recommendation theo khu vực | AI gợi ý điểm học tập, cơ hội, mentor phù hợp theo vị trí user | PostGIS + Python AI service | 1. Get user location → 2. Fetch nearby opportunities (PostGIS radius) → 3. Filter by user profile (interests, grade) → 4. AI rank by relevance → 5. Return top 10 → 6. Show on map + list | map_points + opportunities + user_preferences
+Interaction history | Recommendation engine: collaborative + content-based + geo-context filtering | Personalized map pins (highlighted), recommendation cards overlay | Student mở app → thấy ngay cơ hội phù hợp gần mình
+Row 8: 7 | 🔴 Phát hiện khu vực thiếu giáo dục | AI phân tích dữ liệu → xác định vùng trắng giáo dục, vùng cần ưu tiên | PostGIS + GeoPandas + Scikit-learn | 1. Grid hóa bản đồ (H3 hexagons) → 2. Count education points per hex → 3. Get population density per hex → 4. Calculate education access score = points/population → 5. Classify: sufficient/moderate/critical → 6. Spatial clustering (DBSCAN) → 7. Generate priority regions → 8. Alert admin | map_points + census data + government education data | K-Means clustering để nhóm vùng tương tự
+Anomaly detection cho outliers
+Prediction: xu hướng tương lai | Priority map overlay (red zones), report with recommendations, admin alerts | Sở GD&ĐT xác định vùng cần hỗ trợ, nhà tài trợ chọn nơi đầu tư
+Row 9: 8 | 📊 Education Data Analytics Map | Dashboard bản đồ phân tích dữ liệu giáo dục: tỷ lệ đi học, kết quả, giáo viên | Mapbox + D3.js + PostGIS | 1. Select metric (enrollment, teachers, results) → 2. Choropleth map by district → 3. Click district → drill down to schools → 4. Compare metrics over time → 5. Trend charts → 6. Export report | education_stats + government data + EduMap collected data | AI prediction: dự đoán xu hướng giáo dục 1-3 năm tới
+Correlation analysis giữa metrics | Choropleth map, drill-down, time-series charts, comparison tool, PDF report export | Nhà quản lý giáo dục phân tích, báo cáo, ra quyết định
+Row 10: 9 | 🏘️ Community Support Mapping | Bản đồ nhu cầu cộng đồng: nơi cần sách, thiết bị, giáo viên, wifi | Mapbox + PostGIS + crowdsource | 1. Community report needs (form + map pin) → 2. Admin verify → 3. Display on map (need type icons) → 4. Donors/volunteers browse needs → 5. Match support → 6. Track fulfillment → 7. Update status → 8. Impact visualization | survey_responses + community reports + donation_campaigns | AI matching: tự động ghép người hỗ trợ phù hợp nhất với nhu cầu | Need pins on map (color by type), matching dashboard, impact tracker | Cộng đồng báo cáo nhu cầu → volunteer/sponsor hỗ trợ đúng nơi cần
+Row 11: 10 | 📡 Realtime Location | Tracking vị trí realtime cho xe tri thức lưu động, đội tình nguyện | Mapbox + WebSocket + GPS | 1. Mobile app track GPS → 2. Send location via WebSocket → 3. Backend update position → 4. Broadcast to viewers → 5. Render moving marker → 6. Show route trail → 7. ETA calculation | GPS from mobile devices
+WebSocket connections | Không | Live moving markers, route trail, ETA, status updates | Theo dõi xe thư viện lưu động, đội tình nguyện mùa hè xanh
+
+=========================================
+SHEET: 17. So Sánh Công Nghệ (Rows: 16, Cols: 10)
+=========================================
+Row 1: # | Công nghệ | Vai trò trong EduMap | Vì sao chọn | Ưu điểm | Nhược điểm | Module sử dụng | Alternatives | Scalability | Cost
+Row 2: 1 | NextJS 14 | Frontend web framework | App Router + SSR/SSG cho SEO, React ecosystem, performance tốt | SEO (SSR), fast (RSC), DX tốt, Image optimization, middleware, TypeScript native | Build time chậm cho app lớn, learning curve App Router, hosting cần Node.js | Tất cả web frontend | Nuxt (Vue), Remix, SvelteKit | Excellent: Vercel edge, ISR, static export | Free→$20/month Vercel
+Row 3: 2 | React 18 | UI library | Component-based, virtual DOM, hooks, massive ecosystem | Ecosystem lớn nhất, jobs nhiều, Concurrent features, Suspense | Bundle size, JSX learning curve, too many choices | Tất cả UI components | Vue 3, Svelte, Angular | N/A (library level) | Free
+Row 4: 3 | Flutter 3 | Mobile framework | Single codebase iOS+Android, native-like performance, offline support | 1 codebase, Dart performance, rich widgets, offline, hot reload | Bundle size 10MB+, platform-specific plugins limited, web support beta | Mobile app: map, chat, library, offline | React Native, Kotlin/Swift native | Good: isolates for heavy computation | Free
+Row 5: 4 | NestJS | Backend framework | Enterprise-grade Node.js, modular architecture, TypeScript, decorator pattern | Clean architecture, DI container, guards/pipes, microservice ready, testing | Verbose (decorators), opinionated, learning curve | Tất cả backend API | Express.js, Fastify, Hono | Excellent: horizontal scale, microservice | Free
+Row 6: 5 | FastAPI | AI microservice | Python ML ecosystem access, async performance, auto-docs | Fastest Python framework, async, auto Swagger, type hints | Python GIL (multi-threading limited), separate service needed | AI chat, recommendation, analytics, moderation | Flask, Django REST, gRPC | Good: async workers, GPU scaling | Free
+Row 7: 6 | PostgreSQL 16 | Primary database | ACID, PostGIS geospatial, JSONB, mature, extensions | Reliable, PostGIS, JSONB, full-text search, partitioning, RLS | Vertical scaling primarily, complex queries can be slow | Core data: users, events, materials, map_points | MySQL, CockroachDB, Supabase | Good: read replicas, partitioning | Free→$15-100/month
+Row 8: 7 | MongoDB | Document store | Flexible schema cho AI logs, surveys, dynamic content | Schema flexibility, horizontal scale (sharding), aggregation pipeline | No ACID across collections, memory hungry, query complexity | AI logs, surveys, analytics, flexible content | DynamoDB, Firebase Firestore, CouchDB | Excellent: auto-sharding | Free→$57/month Atlas
+Row 9: 8 | Redis 7 | Cache & realtime | Sub-millisecond reads, pub/sub, sorted sets cho leaderboard, session | Blazing fast, versatile data structures, pub/sub, Lua scripting | Memory limited, persistence complex, no complex queries | Cache, session, leaderboard, rate limit, realtime counters | Memcached, KeyDB, Dragonfly | Good: Redis Cluster | Free→$25/month
+Row 10: 9 | Firebase | Auth + notifications | Easy OAuth integration, FCM push, free tier generous | Quick setup, multi-platform SDK, free tier 50K MAU, FCM free | Vendor lock-in, limited queries, pricing unpredictable at scale | Auth, push notifications, optional Firestore | Auth0, Supabase Auth, AWS Cognito | Excellent: Google infrastructure | Free→$25/month
+Row 11: 10 | Mapbox GL JS | Map rendering | Vector tiles (fast), custom styling, 3D terrain, clustering support | Beautiful, fast rendering, customizable, good free tier, self-host tiles option | Pricing at scale, internet required, learning curve | Map module, opportunity map, green map, wifi map | Google Maps JS, Leaflet, OpenLayers | Excellent: CDN tiles | Free 50K→$0.5/1000
+Row 12: 11 | Google Maps API | Geocoding + Places | Accurate geocoding, Places API, Directions, well-documented | Most accurate geocoding, rich data, reliable | Expensive at scale, less customizable map style | Geocoding, places search, directions | Mapbox Geocoding, Nominatim (free), HERE | Excellent: Google infrastructure | $200 free credit→pay per use
+Row 13: 12 | Elasticsearch 8 | Full-text search | Fast search, fuzzy matching, Vietnamese analyzer, aggregations | Sub-second search, relevance scoring, faceted search, scalable | Memory intensive (JVM), operational complexity, cost | Library search, map search, opportunity search | Meilisearch, Typesense, PostgreSQL FTS | Excellent: horizontal | $30-100/month
+Row 14: 13 | Python + LLMs | AI/ML processing | Rich ML ecosystem, LLM integration, data science libraries | NumPy, Pandas, scikit-learn, PyTorch, LangChain, transformers | GIL, deployment complexity, model size | All AI features | Node.js AI (limited), R (analytics only) | Good with proper architecture | Model-dependent
+Row 15: 14 | Docker | Containerization | Consistent environments, isolated services, easy deployment | Portable, reproducible, isolation, ecosystem | Learning curve, slight performance overhead, storage | All services | Podman, containerd | Foundation for K8s | Free
+Row 16: 15 | Kubernetes | Orchestration | Auto-scaling, self-healing, service discovery, rolling updates | Production-grade orchestration, declarative, ecosystem | Complex setup, resource overhead, learning curve steep | Production deployment (Phase 2+) | Docker Swarm, Nomad, ECS | Excellent: HPA, VPA | K3s free, EKS $72/month

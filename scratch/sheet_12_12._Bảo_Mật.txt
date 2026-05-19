@@ -1,0 +1,23 @@
+--- SHEET: 12. Bảo Mật ---
+
+Row 1: # | Hạng mục | Mô tả chi tiết | Giải pháp | Công nghệ | Priority | Phase
+Row 2: 1 | 🔐 JWT Authentication | Token-based auth, access + refresh token | Access token 15min, refresh 7d, rotation on use, blacklist on logout | jsonwebtoken, Passport JWT | 🔴 Critical | MVP
+Row 3: 2 | 🔑 OAuth2 | Social login Google, Facebook, GitHub | OAuth2 flow with PKCE, secure token exchange, account linking | Passport OAuth, Firebase Auth | 🔴 Critical | MVP
+Row 4: 3 | 👥 RBAC | Role-based access control, permission matrix | 12 roles, granular permissions, middleware guards, dynamic permission check | NestJS Guards, Casl | 🔴 Critical | MVP
+Row 5: 4 | 🔒 Encryption | Data encryption at rest and in transit | TLS 1.3 for transit, AES-256 for sensitive fields, bcrypt for passwords | SSL/TLS, bcrypt, crypto | 🔴 Critical | MVP
+Row 6: 5 | ⏱️ Rate Limiting | Prevent abuse and DDoS | Per-endpoint limits, sliding window, IP + user-based, progressive backoff | express-rate-limit, Redis | 🔴 Critical | MVP
+Row 7: 6 | 🚫 Anti-Spam | Prevent spam content and accounts | Honeypot fields, CAPTCHA, email verification, phone verification, content analysis | reCAPTCHA v3, AI moderation | 🟠 High | Phase 1
+Row 8: 7 | 🤖 Anti-Bot | Prevent automated attacks | Browser fingerprinting, behavior analysis, CAPTCHA challenge, rate limiting | Cloudflare Bot Management | 🟠 High | Phase 1
+Row 9: 8 | 🛡️ DDoS Protection | Distributed denial of service prevention | CDN-level protection, rate limiting, geographic filtering, auto-scaling | Cloudflare, AWS Shield | 🟠 High | Phase 1
+Row 10: 9 | 🧠 AI Content Moderation | Auto-detect harmful content | ML-based text classification, image analysis, real-time filtering, manual review queue | PhoBERT, image classification | 🟠 High | Phase 1
+Row 11: 10 | 📤 Secure Upload | Prevent malicious file uploads | File type whitelist, virus scanning, size limits, sanitize filenames, isolated storage | ClamAV, Multer, S3 | 🔴 Critical | MVP
+Row 12: 11 | 🕸️ XSS Prevention | Cross-site scripting protection | Input sanitization, output encoding, CSP headers, HTML purification | DOMPurify, Helmet CSP | 🔴 Critical | MVP
+Row 13: 12 | 🔄 CSRF Protection | Cross-site request forgery | CSRF tokens, SameSite cookies, origin validation | csurf, SameSite cookies | 🔴 Critical | MVP
+Row 14: 13 | 💉 SQL Injection | Prevent SQL injection attacks | Parameterized queries (TypeORM), input validation, WAF rules | TypeORM, Joi validation | 🔴 Critical | MVP
+Row 15: 14 | 📝 Audit Log | Track all system actions | Immutable audit trail, user actions, admin actions, security events, IP logging | Custom middleware, PostgreSQL | 🟠 High | Phase 1
+Row 16: 15 | 🔐 Admin Security | Protect admin accounts | MFA required, IP whitelist, session timeout 30min, action confirmation, separate auth flow | TOTP, IP filter | 🔴 Critical | MVP
+Row 17: 16 | 🗝️ Permission Control | Fine-grained access control | Resource-level permissions, field-level access, row-level security, dynamic policies | Casl, PostgreSQL RLS | 🟠 High | Phase 1
+Row 18: 17 | 📱 Mobile Security | Secure mobile app | Certificate pinning, secure storage, jailbreak detection, code obfuscation | Flutter secure_storage | 🟠 High | Phase 1
+Row 19: 18 | 🔍 Vulnerability Scanning | Regular security audits | Automated dependency scanning, SAST, DAST, penetration testing quarterly | Snyk, OWASP ZAP, npm audit | 🟡 Medium | Phase 2
+Row 20: 19 | 🗄️ Data Privacy (PDPA) | Personal data protection | Data minimization, consent management, right to delete, data portability, privacy policy | Custom consent system | 🟡 Medium | Phase 2
+Row 21: 20 | 🔐 Secret Management | Secure secrets handling | Environment variables, vault for production, rotation policy, no hardcoded secrets | HashiCorp Vault, dotenv | 🔴 Critical | MVP

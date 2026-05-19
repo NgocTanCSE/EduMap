@@ -1,0 +1,28 @@
+﻿apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edumap-config
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  REDIS_HOST: "redis-service"
+  AI_SERVICE_URL: "http://edumap-ai-service:8000"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edumap-backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edumap-backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70

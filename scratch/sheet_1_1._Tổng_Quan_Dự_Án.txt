@@ -1,0 +1,17 @@
+--- SHEET: 1. Tổng Quan Dự Án ---
+
+Row 1: Hạng mục | Nội dung chi tiết | Ghi chú
+Row 2: 📋 Tên dự án | EduMap – Bản đồ học tập mở | Nền tảng EdTech cộng đồng
+Row 3: 🎯 Tầm nhìn | Xây dựng hệ sinh thái giáo dục mở, kết nối tri thức, cơ hội học tập công bằng cho mọi người thông qua công nghệ AI và bản đồ số thông minh | Hướng tới scale toàn quốc
+Row 4: 🚀 Sứ mệnh | Số hóa giáo dục cộng đồng, thu hẹp khoảng cách giáo dục giữa các vùng miền, kết nối sinh viên tình nguyện với học sinh vùng khó khăn | Gắn với SDG 4, 10, 17
+Row 5: 🏆 Mục tiêu | 1) Bản đồ hóa toàn bộ tài nguyên giáo dục 2) Kết nối 10,000+ sinh viên tình nguyện 3) Hỗ trợ 50,000+ học sinh vùng khó khăn 4) Xây dựng kho học liệu mở 100,000+ tài liệu | Mục tiêu 3 năm
+Row 6: 💎 Giá trị cốt lõi | 1) Lan tỏa tri thức 2) Kết nối cộng đồng 3) Hỗ trợ giáo dục vùng khó khăn 4) Giáo dục xanh & chuyển đổi số 5) Công bằng giáo dục | 
+Row 7: 👥 Đối tượng người dùng | Học sinh THPT, Sinh viên, Giáo viên, Mentor, Volunteer, Trường học, Đại học, Doanh nghiệp, Nhà tài trợ, Cộng đồng | 12 loại vai trò
+Row 8: ⭐ Điểm nổi bật | 1) Bản đồ giáo dục thông minh AI 2) Student Opportunity Map (Google Maps cho sinh viên) 3) Green Campus 4) Gamification 5) Kết nối liên trường Đồng Nai 6) STEM Lab & Innovation 7) Kho học liệu offline | Unique selling points
+Row 9: 🔄 Mô hình hoạt động | Nền tảng mở (Freemium) + Tài trợ doanh nghiệp + Hợp tác trường học + Quỹ giáo dục + Quảng cáo giáo dục | Hybrid revenue model
+Row 10: 🏗️ Kiến trúc tổng quan | Frontend: NextJS + Flutter Backend: NestJS + FastAPI (AI) DB: PostgreSQL + MongoDB + Redis Map: Mapbox + Google Maps AI: Python + LLM Cloud: AWS/GCP + Firebase | Microservice Architecture
+Row 11: 🧭 Định hướng mở rộng | Phase 1: Đồng Nai → Phase 2: Đông Nam Bộ → Phase 3: Toàn quốc → Phase 4: ASEAN | Chiến lược mở rộng theo vùng
+Row 12: 📅 Roadmap | MVP (3 tháng) → Phase 1 (6 tháng) → Phase 2 (12 tháng) → Phase 3 (18 tháng) → Scale (24 tháng) | Timeline tổng quan
+Row 13: 💰 Mô hình doanh thu | 1) Freemium cho người dùng cá nhân 2) Gói doanh nghiệp tài trợ 3) Hợp tác trường học (SaaS) 4) Quỹ giáo dục quốc tế 5) Workshop/Event phí | Đa nguồn thu
+Row 14: 📊 KPI chính | MAU: 50K+ (Y1), DAU: 10K+, Tài liệu: 100K+, Volunteer: 10K+, Trường hợp tác: 100+, Workshop: 500+/năm | Đo lường hàng quý
+Row 15: 🔗 SDG liên quan | SDG 4 (Giáo dục chất lượng), SDG 10 (Giảm bất bình đẳng), SDG 17 (Quan hệ đối tác), SDG 9 (Công nghiệp & Đổi mới), SDG 13 (Hành động khí hậu) | UN Sustainable Development Goals

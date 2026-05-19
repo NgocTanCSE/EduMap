@@ -1,0 +1,71 @@
+services:
+  # --- DATABASES ---
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: edumap_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: edumap_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: edumap_redis
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    container_name: edumap_minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  # --- APP SERVICES ---
+  backend:
+    build: ./backend
+    container_name: edumap_backend
+    environment:
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio
+      - AI_SERVICE_URL=http://ai-service:8000
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  frontend:
+    build: ./frontend
+    container_name: edumap_frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+
+  ai-service:
+    build: ./ai-service
+    container_name: edumap_ai
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  minio_data:

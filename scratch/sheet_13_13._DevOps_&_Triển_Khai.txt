@@ -1,0 +1,17 @@
+--- SHEET: 13. DevOps & Triển Khai ---
+
+Row 1: # | Hạng mục | Mô tả | Công nghệ | Chi tiết cấu hình | Phase | Cost/tháng
+Row 2: 1 | 🐳 Docker | Container hóa tất cả services | Docker, Docker Compose | Dockerfile cho: frontend (multi-stage, nginx), backend (NestJS), ai-service (Python), PostgreSQL, Redis, Elasticsearch Docker Compose cho dev environment | MVP | Free
+Row 3: 2 | 🔄 CI/CD | Tự động build, test, deploy | GitHub Actions | Workflows: lint→test→build→push image→deploy Branches: main (prod), develop (staging), feature/* Automatic rollback on failure | MVP | Free (public)
+Row 4: 3 | 📦 Git Strategy | Quản lý code versioning | Git, GitHub | GitFlow: main, develop, feature/*, release/*, hotfix/* PR required, 1 reviewer minimum Conventional commits, semantic versioning | MVP | Free
+Row 5: 4 | 🌍 Environments | Tách biệt môi trường | Docker, .env | Development (local Docker Compose) Staging (cloud, auto-deploy from develop) Production (cloud, manual approve from main) Each has separate DB, API keys, configs | MVP | Staging: $30
+Row 6: 5 | ☁️ Cloud Hosting | Production hosting | Railway / Render / AWS | MVP: Railway (simple, cheap) Phase 2: AWS ECS or GCP Cloud Run Phase 3: Kubernetes (EKS/GKE) Auto-scaling policies | MVP→Scale | $20→$500+
+Row 7: 6 | 🔥 Firebase | Auth, push notification, hosting | Firebase | Auth: email + OAuth (free 50K MAU) FCM: push notifications (free) Hosting: static assets (free tier) Firestore: optional for realtime features | MVP | Free→$25
+Row 8: 7 | ▲ Vercel | Frontend hosting & CDN | Vercel | NextJS optimized hosting Automatic preview deployments Edge functions Analytics | MVP | Free→$20
+Row 9: 8 | 📊 Monitoring | System health monitoring | Prometheus + Grafana | Metrics: CPU, memory, request latency, error rate, DB connections Dashboards: system overview, per-service, business metrics Alerts: Slack/email on threshold breach | Phase 1 | Free (self-hosted)
+Row 10: 9 | 📝 Logging | Centralized log management | ELK Stack / Loki | Structured JSON logging Log levels: error, warn, info, debug Log rotation: 30 days Search & analyze in Kibana/Grafana | Phase 1 | $30-100
+Row 11: 10 | 💾 Backup | Data backup strategy | pg_dump, S3 | PostgreSQL: daily full backup, hourly WAL archiving MongoDB: daily mongodump S3: versioned storage Retention: 30 daily, 12 monthly Disaster recovery: RTO 1h, RPO 15min | MVP | $5-20
+Row 12: 11 | 📈 Auto Scaling | Tự động scale theo tải | Kubernetes HPA / Cloud auto-scale | CPU threshold: scale up >70%, scale down <30% Min replicas: 2, Max: 10 Cool-down: 5min Database: read replicas on demand | Phase 2 | Included in hosting
+Row 13: 12 | 🌐 CDN | Content delivery network | Cloudflare | Free tier: DDoS protection, SSL, caching Pro ($20): WAF, image optimization, analytics Cache: static assets 30d, API 5min Purge on deploy | MVP | Free→$20
+Row 14: 13 | 🔒 SSL | HTTPS certificates | Let's Encrypt / Cloudflare | Auto-renewal, wildcard cert for subdomains HSTS enabled, TLS 1.3 Certificate monitoring | MVP | Free
+Row 15: 14 | 🌐 Domain | Domain management | Cloudflare DNS | edumap.vn (primary) api.edumap.vn (backend) ai.edumap.vn (AI service) Admin: admin.edumap.vn | MVP | $10/year

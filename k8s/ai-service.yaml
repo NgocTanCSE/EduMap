@@ -1,0 +1,19 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edumap-ai-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edumap-ai-service
+  template:
+    metadata:
+      labels:
+        app: edumap-ai-service
+    spec:
+      containers:
+      - name: ai-service
+        image: edumap-ai-service:latest
+        ports:
+        - containerPort: 8000

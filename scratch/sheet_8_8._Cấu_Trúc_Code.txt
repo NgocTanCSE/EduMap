@@ -1,0 +1,76 @@
+--- SHEET: 8. Cấu Trúc Code ---
+
+Row 1: # | Thư mục/File | Mục đích | Công nghệ | Ghi chú
+Row 2: 1 | 📁 frontend/ | NextJS web application | NextJS 14, React 18, TypeScript | App Router, SSR/SSG
+Row 3: 2 | 📁 src/app/ | App Router pages & layouts | NextJS | File-based routing
+Row 4: 3 | 📁 (auth)/login/page.tsx | Trang đăng nhập | React, NextAuth | Server component
+Row 5: 4 | 📁 (auth)/register/page.tsx | Trang đăng ký | React | Multi-step form
+Row 6: 5 | 📁 (main)/page.tsx | Home page | React | Landing page
+Row 7: 6 | 📁 (main)/map/page.tsx | Trang bản đồ | Mapbox GL JS | Dynamic import (no SSR)
+Row 8: 7 | 📁 (main)/library/page.tsx | Kho học liệu | React | SSR + client filter
+Row 9: 8 | 📁 (main)/opportunities/page.tsx | Bản đồ cơ hội | Mapbox | Client-side rendering
+Row 10: 9 | 📁 (main)/community/page.tsx | Cộng đồng | React | Realtime WebSocket
+Row 11: 10 | 📁 (main)/ai-chat/page.tsx | AI Chat | React | Streaming response
+Row 12: 11 | 📁 (main)/green/page.tsx | Green Campus | React, Mapbox | Gamification integration
+Row 13: 12 | 📁 (main)/workshops/page.tsx | Workshops | React | Calendar integration
+Row 14: 13 | 📁 (main)/mentoring/page.tsx | Mentoring | React, WebRTC | Video call integration
+Row 15: 14 | 📁 (main)/donate/page.tsx | Quyên góp | React | Payment integration
+Row 16: 15 | 📁 (main)/career/page.tsx | Career Roadmap | React, D3.js | Interactive visualization
+Row 17: 16 | 📁 (admin)/dashboard/page.tsx | Admin Dashboard | React, Chart.js | Protected route
+Row 18: 17 | 📁 layout.tsx | Root layout | NextJS | Navbar, Footer, Providers
+Row 19: 18 | 📁 src/components/ | Reusable components | React | Atomic design pattern
+Row 20: 19 | 📁 ui/ | Base UI (Button, Input, Modal, Card) | React, CSS Modules | Design system
+Row 21: 20 | 📁 map/ | Map components (MapView, Marker, Popup) | Mapbox GL JS | Lazy loaded
+Row 22: 21 | 📁 ai/ | AI Chat components | React | Streaming support
+Row 23: 22 | 📁 gamification/ | Badge, Leaderboard, Points | React | Animations
+Row 24: 23 | 📁 layout/ | Navbar, Sidebar, Footer | React | Responsive
+Row 25: 24 | 📁 src/hooks/ | Custom React hooks | TypeScript | useMap, useAuth, useAI, useRealtime
+Row 26: 25 | 📁 src/services/ | API service layer | Axios/Fetch | apiClient, mapService, aiService
+Row 27: 26 | 📁 src/stores/ | State management | Zustand | authStore, mapStore, uiStore
+Row 28: 27 | 📁 src/styles/ | Global styles & design tokens | CSS Modules, CSS Variables | Dark mode, responsive
+Row 29: 28 | 📁 src/utils/ | Utility functions | TypeScript | formatDate, validators, constants
+Row 30: 29 | 📁 src/types/ | TypeScript type definitions | TypeScript | API types, model types
+Row 31: 30 | 📁 public/ | Static assets | N/A | Images, icons, fonts
+Row 32: 31 |  |  |  | 
+Row 33: 32 | 📁 backend/ | NestJS API server | NestJS, TypeScript | Modular architecture
+Row 34: 33 | 📁 src/modules/auth/ | Authentication module | NestJS, Passport, JWT | Guards, strategies
+Row 35: 34 | 📁 src/modules/users/ | User management | NestJS, TypeORM | CRUD, profile, roles
+Row 36: 35 | 📁 src/modules/map/ | Map & geolocation | NestJS, PostGIS | Geo queries, clustering
+Row 37: 36 | 📁 src/modules/library/ | Learning materials | NestJS, Multer, S3 | Upload, search, download
+Row 38: 37 | 📁 src/modules/events/ | Events & workshops | NestJS | CRUD, registration, tickets
+Row 39: 38 | 📁 src/modules/community/ | Community features | NestJS, WebSocket | Posts, comments, groups
+Row 40: 39 | 📁 src/modules/gamification/ | Gamification system | NestJS, Redis | Badges, points, leaderboard
+Row 41: 40 | 📁 src/modules/mentoring/ | Mentor system | NestJS, WebRTC | Matching, booking, video
+Row 42: 41 | 📁 src/modules/donations/ | Donation system | NestJS | Campaigns, payments, reports
+Row 43: 42 | 📁 src/modules/surveys/ | Survey system | NestJS | Create, respond, analyze
+Row 44: 43 | 📁 src/modules/notifications/ | Notification system | NestJS, FCM, WebSocket | Push, email, in-app
+Row 45: 44 | 📁 src/modules/admin/ | Admin panel API | NestJS | Dashboard, moderation
+Row 46: 45 | 📁 src/modules/green/ | Green Campus | NestJS | Challenges, activities
+Row 47: 46 | 📁 src/modules/careers/ | Career & roadmap | NestJS | Paths, quiz, recommendations
+Row 48: 47 | 📁 src/common/ | Shared utilities | NestJS | Guards, pipes, filters, interceptors, decorators
+Row 49: 48 | 📁 src/config/ | Configuration | NestJS | Database, auth, storage, AI, map configs
+Row 50: 49 | 📁 src/database/ | Database setup | TypeORM, PostgreSQL | Migrations, seeds, entities
+Row 51: 50 |  |  |  | 
+Row 52: 51 | 📁 ai-service/ | AI microservice | Python, FastAPI | Separate service
+Row 53: 52 | 📁 app/routers/ | API routes | FastAPI | chat, recommend, analyze, career
+Row 54: 53 | 📁 app/services/ | Business logic | Python | LLM service, embedding, RAG
+Row 55: 54 | 📁 app/models/ | ML models | PyTorch/TF | Recommendation, classification
+Row 56: 55 | 📁 app/core/ | Core utilities | Python | Config, security, logging
+Row 57: 56 | 📁 app/vectordb/ | Vector database | ChromaDB/Pinecone | Document embeddings
+Row 58: 57 |  |  |  | 
+Row 59: 58 | 📁 mobile/ | Flutter mobile app | Flutter, Dart | iOS + Android
+Row 60: 59 | 📁 lib/screens/ | Screen widgets | Flutter | All app screens
+Row 61: 60 | 📁 lib/widgets/ | Reusable widgets | Flutter | Custom components
+Row 62: 61 | 📁 lib/services/ | API services | Dart | HTTP client, WebSocket
+Row 63: 62 | 📁 lib/providers/ | State management | Riverpod | App state
+Row 64: 63 |  |  |  | 
+Row 65: 64 | 📁 infrastructure/ | DevOps & deployment | Docker, K8s | IaC
+Row 66: 65 | 📁 docker/ | Dockerfiles | Docker | frontend, backend, ai, nginx
+Row 67: 66 | 📁 k8s/ | Kubernetes manifests | K8s | Deployments, services, ingress
+Row 68: 67 | 📁 terraform/ | Infrastructure as Code | Terraform | AWS/GCP resources
+Row 69: 68 | 📁 ci-cd/ | CI/CD pipelines | GitHub Actions | Build, test, deploy
+Row 70: 69 | 📁 monitoring/ | Monitoring setup | Prometheus, Grafana | Metrics, alerts, dashboards
+Row 71: 70 |  |  |  | 
+Row 72: 71 | 📁 docs/ | Documentation | Markdown | API docs, architecture, guides
+Row 73: 72 | 📁 scripts/ | Utility scripts | Bash, Python | Setup, seed, migrate, backup
+Row 74: 73 | 📁 tests/ | Test suites | Jest, Pytest, Cypress | Unit, integration, E2E
