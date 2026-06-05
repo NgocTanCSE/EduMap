@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MinIO
-RUN wget https://dl.min.io/server/minio/release/linux-amd64/minio -O /usr/local/bin/minio 
+RUN wget https://dl.min.io/server/minio/release/linux-amd64/minio -O /usr/local/bin/minio \
     && chmod +x /usr/local/bin/minio
 
 WORKDIR /app
