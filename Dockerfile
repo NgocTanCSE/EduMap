@@ -53,7 +53,7 @@ WORKDIR /app
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-builder /app/backend/package.json ./backend/package.json
-COPY --from=backend-builder /app/backend/src/database ./backend/src/database
+COPY backend/src/database/ ./backend/src/database/
 
 COPY --from=frontend-builder /app/frontend/.next ./frontend/.next
 COPY --from=frontend-builder /app/frontend/public ./frontend/public
@@ -80,9 +80,10 @@ USER root
 # Setup Directories
 RUN mkdir -p /data /var/log/supervisor /var/run/postgresql
 
-# Copy Entrypoint Script
+# Copy Entrypoint and DB Scripts
 COPY scripts/ ./scripts/
 COPY scripts/hf_entrypoint.sh /usr/local/bin/hf_entrypoint.sh
+COPY seed_crawled_data.sql .
 RUN chmod +x /usr/local/bin/hf_entrypoint.sh
 
 # HF Spaces requires port 7860
