@@ -12,6 +12,7 @@ import { Post, Comment } from '../community/entities/community.entity';
 import { Booking } from '../mentor/entities/mentor.entity';
 import { UserCertificate } from '../certificate/entities/user-certificate.entity';
 import { AIModule } from '../ai/ai.module'; // Import AIModule
+import { MapModule } from '../map/map.module'; // Import MapModule
 
 @Module({
   imports: [
@@ -26,7 +27,8 @@ import { AIModule } from '../ai/ai.module'; // Import AIModule
       Booking, 
       UserCertificate
     ]),
-    AIModule // Add AIModule
+    AIModule, // Add AIModule
+    MapModule // Add MapModule
   ],
   providers: [DashboardService],
   controllers: [DashboardController],

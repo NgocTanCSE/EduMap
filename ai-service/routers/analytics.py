@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any
 import pandas as pd
 import json
-from app.services.db_service import db_service
+from services.db_service import db_service
 from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/analytics", tags=["6. AI Education Analytics"])
