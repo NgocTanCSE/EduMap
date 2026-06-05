@@ -9,6 +9,7 @@ import { AIModule } from '../ai/ai.module'; // Correct path to AIModule
 @Module({
   imports: [
     TypeOrmModule.forFeature([Location, LocationCategory]),
+    AIModule,
   ],
   providers: [MapService],
   controllers: [MapController],

@@ -39,6 +39,9 @@ echo "🛑 Stopping temporary services..."
 service postgresql stop
 service redis-server stop
 
+# Wait for ports to be freed
+sleep 3
+
 # 4. Start Supervisord to manage all processes
 echo "🏁 Handing over to Supervisor..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

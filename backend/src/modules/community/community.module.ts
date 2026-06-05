@@ -4,11 +4,13 @@ import { Post, Comment, Group, ChatMessage } from './entities/community.entity';
 import { CommunityService } from './community.service';
 import { CommunityController } from './community.controller';
 import { AIModule } from '../ai/ai.module'; // Import AIModule
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Post, Comment, Group, ChatMessage]),
-    AIModule, // Add to imports
+    AIModule,
+    NotificationsModule,
   ],
   providers: [CommunityService],
   controllers: [CommunityController],

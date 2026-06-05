@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIService } from './ai.service';
 import { AIController } from './ai.controller';
 import { LearningMaterial } from '../library/entities/learning-material.entity';
-import { MapPoint } from '../map/entities/map-point.entity';
+import { Location } from '../map/entities/location.entity';
 
 import { ChatHistory } from './entities/chat-history.entity';
 
@@ -13,7 +13,7 @@ import { ChatHistory } from './entities/chat-history.entity';
   imports: [
     HttpModule,
     ConfigModule,
-    TypeOrmModule.forFeature([LearningMaterial, MapPoint, ChatHistory]),
+    TypeOrmModule.forFeature([LearningMaterial, Location, ChatHistory]),
   ],
   providers: [AIService],
   controllers: [AIController],
