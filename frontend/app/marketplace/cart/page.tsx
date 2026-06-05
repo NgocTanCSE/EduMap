@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { ShoppingCart, Trash2, ArrowLeft, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, GraduationCap, Trash2, ArrowLeft, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CartPage() {

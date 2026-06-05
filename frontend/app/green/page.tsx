@@ -74,12 +74,12 @@ export default function GreenPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-8 rounded-3xl bg-green-500/10 border border-green-500/20">
             <Leaf className="w-8 h-8 text-green-500 mb-4" />
-            <h3 className="text-3xl font-bold">{(progress?.carbon_saved || 0).toFixed(1)}kg</h3>
+            <h3 className="text-3xl font-bold">{((progress as any)?.carbon_saved || 0).toFixed(1)}kg</h3>
             <p className="text-sm text-green-500/60 font-medium uppercase tracking-wider">CO2 đã tiết kiệm</p>
           </div>
           <div className="p-8 rounded-3xl bg-yellow-500/10 border border-yellow-500/20">
             <Clock className="w-8 h-8 text-yellow-500 mb-4" />
-            <h3 className="text-3xl font-bold">{progress?.volunteer_hours || 0} Giờ</h3>
+            <h3 className="text-3xl font-bold">{((progress as any)?.volunteer_hours || 0).toFixed(1)}h</h3>
             <p className="text-sm text-yellow-500/60 font-medium uppercase tracking-wider">Tình nguyện cộng đồng</p>
           </div>
           <div className="p-8 rounded-3xl bg-purple-500/10 border border-purple-500/20">

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal } from 'lucide-react';
+import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal } from 'lucide-react';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { gamificationService, UserProgress, LeaderboardUser } from '@/src/services/gamification.service';
 import { toast } from 'sonner';
