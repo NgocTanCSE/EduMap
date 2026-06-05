@@ -91,7 +91,7 @@ export class CertificateService {
         return {
             isValid: false,
             message: 'Chứng chỉ này đã bị thu hồi.',
-            details: { revoked_at: cert.updated_at }
+            details: { revoked_at: (cert as any).updated_at }
         };
     }
 

@@ -31,14 +31,13 @@ export class LibraryService {
     });
 
     if (history) {
-      history.last_accessed_at = new Date();
+      history.last_accessed = new Date();
     } else {
-      history = this.historyRepo.create({
-        user: { id: userId } as any,
-        material: { id: materialId } as any,
-        status: 'in_progress',
-        progress_percentage: 10 // Mock progress
-      });
+      history = new UserLearningHistory();
+      (history as any).user = { id: userId };
+      (history as any).material = { id: materialId };
+      (history as any).status = 'in_progress';
+      (history as any).progress_percentage = 10;
     }
 
     return this.historyRepo.save(history);
@@ -85,7 +84,7 @@ export class LibraryService {
    * Tải lên tài liệu mới
    */
   async uploadMaterial(data: any, file: Express.Multer.File) {
-    const uploadResult = await this.storageService.uploadFile(
+    const uploadResult = await this.storageService.uploadFile('system',
       file.originalname,
       file.buffer,
       file.mimetype,
@@ -133,7 +132,7 @@ export class LibraryService {
 
     if (material.file_name) {
       try {
-        await this.storageService.deleteFile(material.file_name);
+        await this.storageService.deleteFile('system', material.file_name);
       } catch (e) {
         // Log error but continue deleting db record
       }

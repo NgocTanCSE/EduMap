@@ -120,7 +120,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Access Token và Refresh Token mới đã được cấp' })
   @ApiResponse({ status: 401, description: 'Refresh Token không hợp lệ' })
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refreshTokens(refreshTokenDto.userId, refreshTokenDto.refreshToken);
+    return this.authService.refreshTokens((refreshTokenDto as any).user_id || (refreshTokenDto as any).userId || '', refreshTokenDto.refreshToken);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

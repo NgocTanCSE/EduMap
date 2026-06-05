@@ -30,7 +30,7 @@ import { BusinessModule } from './modules/business/business.module';
 import { StemModule } from './modules/stem/stem.module';
 import { SurveyModule } from './modules/survey/survey.module';
 import { WifiModule } from './modules/wifi/wifi.module';
-import { SummerCampaignModule } from './modules/summer/summer.module';
+import { SummerModule } from './modules/summer/summer.module';
 import { HsConnectionModule } from './modules/hs-connection/hs-connection.module';
 import { MobileConfigModule } from './modules/mobile-config/mobile-config.module';
 import { CareerModule } from './modules/career/career.module';
@@ -93,7 +93,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     StemModule,
     SurveyModule,
     WifiModule,
-    SummerCampaignModule,
+    SummerModule,
     HsConnectionModule,
     MobileConfigModule,
     CareerModule,

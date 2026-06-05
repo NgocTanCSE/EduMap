@@ -1,3 +1,6 @@
+import { GamificationService } from '../gamification/gamification.service';
+import { DataSource } from 'typeorm';
+import { Logger } from '@nestjs/common';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,7 +9,10 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class EventsService {
+  private readonly logger = new Logger(EventsService.name);
   constructor(
+    private readonly gamificationService: GamificationService,
+    private readonly dataSource: DataSource,
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(EventRegistration)

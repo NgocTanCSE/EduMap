@@ -195,16 +195,3 @@ export default function PredictiveCareerPage() {
     </div>
   );
 }
-
-                 <div className="p-4 rounded-xl bg-black/20 border border-white/5 hover:bg-black/40 cursor-pointer transition-all">
-                    <p className="text-xs font-bold">Deep Learning Specialization</p>
-                    <p className="text-[10px] text-white/40 mt-1">Video • 12 bài giảng</p>
-                 </div>
-              </div>
-           </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}

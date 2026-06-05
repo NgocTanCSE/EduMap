@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../../auth/entities/user.entity'; // Assuming User entity path
+import { User } from '../../auth/entities/user.entity'; // Assuming User entity path
 import { CareerPath } from './career.entity'; // Assuming CareerPath entity path
 
 export enum JobType {
@@ -57,7 +57,7 @@ export class Job {
   status: JobStatus;
 
   // Relation to User (the employer who posted the job)
-  @ManyToOne(() => User, user => user.id, { nullable: true })
+  @ManyToOne(() => User, user => (user as any).id, { nullable: true })
   @JoinColumn({ name: 'posted_by_user_id' })
   posted_by: User;
 

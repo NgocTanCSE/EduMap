@@ -49,7 +49,7 @@ export class DonateService {
         created_at: true,
         donor: {
           id: true,
-          fullName: true,
+          full_name: true,
           avatar_url: true,
         }
       }
@@ -126,14 +126,7 @@ export class DonateService {
           },
         };
       } catch (error) {
-        // Elite Coder: Luôn log lỗi chi tiết, không silent failure
-        this.logger.error(`[DONATE FAILED] Campaign: ${campaignId}, Error: ${error.message}`);
-        throw error;
-      }
-    });
-  }
-}
-ite Coder: Luôn log lỗi chi tiết, không silent failure
+        // El// Note Coder: Luôn log lỗi chi tiết, không silent failure
         this.logger.error(`[DONATE FAILED] Campaign: ${campaignId}, Error: ${error.message}`);
         throw error;
       }

@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../../auth/entities/user.entity';
+import { User } from '../../auth/entities/user.entity';
 
 export enum SkillProficiency {
   BEGINNER = 'beginner',
@@ -13,7 +13,7 @@ export class UserSkill {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, user => user.id)
+  @ManyToOne(() => User, user => (user as any).id)
   @JoinColumn({ name: 'user_id' })
   user: User;
 

@@ -15,10 +15,7 @@ import { UpdateUserCareerDto } from './dto/update-user-career.dto';
 import { CreateUserSkillDto } from './dto/create-user-skill.dto';
 import { UpdateUserSkillDto } from './dto/update-user-skill.dto';
 import { ApplyJobDto } from './dto/apply-job.dto';
-import { AIService } from '../ai/ai.service';
 import { StorageService } from '../storage/storage.service'; // New import
-import { CreateJobDto } from './dto/create-job.dto';
-...
 @Injectable()
 export class CareerService {
   constructor(
@@ -36,12 +33,11 @@ export class CareerService {
    * Upload resume to storage
    */
   async uploadResume(file: Express.Multer.File) {
-    return this.storageService.uploadFile(file.originalname, file.buffer, file.mimetype);
+    return this.storageService.uploadFile('system', file.originalname, file.buffer, file.mimetype);
   }
 
   // =====================================
   //  AI Integration (Existing & Enhanced)
-...
   // =====================================
 
   /**
@@ -192,7 +188,7 @@ export class CareerService {
    * Tìm kiếm và lọc Job/Cơ hội
    * @param searchDto DTO chứa các tiêu chí tìm kiếm
    */
-  async searchJobs(searchDto: SearchJobsDto) {
+  async searchJobs(searchDto: any) {
     const { keyword, location, job_type, experience_level, salary_range, career_path_id, page = 1, limit = 10 } = searchDto;
     const query = this.jobRepo.createQueryBuilder('job');
 
@@ -447,12 +443,12 @@ export class CareerService {
   /**
    * Cập nhật trạng thái ứng tuyển (chỉ dành cho người đăng Job hoặc Admin)
    */
-  async updateApplicationStatus(id: string, status: ApplicationStatus, currentUserId: string, currentUserRole: UserRole) {
+  async updateApplicationStatus(id: string, status: ApplicationStatus, currentUserId: string, currentUserRole: string) {
     const application = await this.applicationRepo.findOne({ where: { id }, relations: ['job'] });
     if (!application) throw new NotFoundException('Ứng tuyển không tìm thấy.');
 
     // Kiểm tra quyền: chỉ người đăng công việc hoặc admin mới có thể cập nhật trạng thái
-    if (currentUserRole !== UserRole.ADMIN && application.job.posted_by_user_id !== currentUserId) {
+    if (currentUserRole !== 'admin' && application.job.posted_by_user_id !== currentUserId) {
         throw new NotFoundException('Bạn không có quyền cập nhật trạng thái ứng tuyển này.');
     }
 

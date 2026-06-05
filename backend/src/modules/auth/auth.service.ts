@@ -242,7 +242,7 @@ export class AuthService {
   /**
    * Đăng nhập
    */
-  async login(email: string, password: string) {
+  async login2(email: string, password: string) {
     const user = await this.userRepo.createQueryBuilder('user')
       .addSelect('user.password_hash')
       .addSelect('user.twoFactorSecret') // Select 2FA secret

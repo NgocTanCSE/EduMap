@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { 
-  Search, Filter, Book, Video, FileText, 
+  Search, Target, Filter, Book, Video, FileText, 
   Download, ExternalLink, Bookmark, Sparkles,
   ArrowRight, Star, X, BrainCircuit, Lightbulb, Loader2
 } from 'lucide-react';
@@ -126,21 +126,7 @@ export default function LibraryPage() {
           ))}
         </div>
 
-          <div className="bg-zinc-900/50 p-1 rounded-xl flex items-center gap-1 border border-white/5">
-            {CATEGORIES.map(cat => (
-              <button 
-                key={cat}
-                onClick={() => setActiveTab(cat)}
-                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === cat ? 'bg-yellow-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-          <button className="ml-auto bg-zinc-900/50 border border-white/10 p-2.5 rounded-xl hover:bg-zinc-800 transition-all">
-            <Filter className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
+
 
         {/* Resources Grid */}
         {loading ? (
