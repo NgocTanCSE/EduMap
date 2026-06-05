@@ -34,14 +34,9 @@ else
     echo "🔄 System already initialized. Skipping setup."
 fi
 
-# 3. Stop temporary background services so Supervisor can manage them
-echo "🛑 Stopping temporary services..."
-service postgresql stop
-service redis-server stop
+# 3. Leave Database and Redis running in background
+echo "✅ Keeping PostgreSQL and Redis running..."
 
-# Wait for ports to be freed
-sleep 3
-
-# 4. Start Supervisord to manage all processes
+# 4. Start Supervisord to manage application processes
 echo "🏁 Handing over to Supervisor..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
