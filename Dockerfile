@@ -69,7 +69,7 @@ COPY infrastructure/docker/supervisord.conf /etc/supervisor/conf.d/supervisord.c
 
 # Setup PostgreSQL
 USER postgres
-RUN /etc/init.d/postgresql start && 
+RUN /etc/init.d/postgresql start && \ 
     psql --command "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';" && 
     createdb -O admin edumap_db && 
     /etc/init.d/postgresql stop
