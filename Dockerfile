@@ -26,21 +26,21 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
-RUN apt-get update && apt-get install -y 
-    curl 
-    gnupg 
-    lsb-release 
-    supervisor 
-    nginx 
-    postgresql-14 
-    postgresql-14-postgis-3 
-    redis-server 
-    python3 
-    python3-pip 
-    wget 
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 
-    && apt-get install -y nodejs 
-    && apt-get clean 
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    lsb-release \
+    supervisor \
+    nginx \
+    postgresql-14 \
+    postgresql-14-postgis-3 \
+    redis-server \
+    python3 \
+    python3-pip \
+    wget \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MinIO
