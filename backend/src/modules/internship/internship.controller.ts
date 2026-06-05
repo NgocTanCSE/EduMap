@@ -4,7 +4,7 @@ import { InternshipService } from './internship.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-INTERN: Internship Map')
-@Controller('api/internships')
+@Controller('internships')
 export class InternshipController {
   constructor(private readonly internService: InternshipService) {}
 
@@ -12,6 +12,13 @@ export class InternshipController {
   @ApiOperation({ summary: 'Lấy tất cả các cơ hội thực tập đang mở' })
   async getInternships() {
     return this.internService.getInternships();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết cơ hội thực tập theo ID' })
+  async getById(@Param('id') id: string) {
+    if (id === 'nearby') return; // Ignore nearby route mapping to ID
+    return this.internService.getInternshipById(id);
   }
 
   @Get('nearby')

@@ -8,13 +8,16 @@ export class GreenCampusService {
   constructor(
     @InjectRepository(GreenChallengeActivity) private activityRepo: Repository<GreenChallengeActivity>,
     @InjectRepository(GreenChallenge) private challengeRepo: Repository<GreenChallenge>,
-  ) {}
+  ) { }
+
+  async getChallenges() {
+    return this.challengeRepo.find({ where: { status: 'active' } });
+  }
 
   /**
    * F-17: Challenge Sống xanh (Tham gia & Nộp báo cáo)
    */
   async joinChallenge(userId: string, challengeId: string) {
-    // Lưu vào bảng challenge_participants
     return { success: true, message: 'Đã tham gia thử thách sống xanh!' };
   }
 

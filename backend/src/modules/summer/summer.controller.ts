@@ -4,7 +4,7 @@ import { SummerCampaignService } from './summer.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-SUMMER: Chiến dịch Mùa hè xanh')
-@Controller('api/summer-campaigns')
+@Controller('summer-campaigns')
 export class SummerCampaignController {
   constructor(private readonly summerService: SummerCampaignService) {}
 

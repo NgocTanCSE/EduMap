@@ -1,13 +1,19 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { CacheModule } from '@nestjs/cache-manager';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIService } from './ai.service';
 import { AIController } from './ai.controller';
+import { LearningMaterial } from '../library/entities/learning-material.entity';
+import { MapPoint } from '../map/entities/map-point.entity';
+
+import { ChatHistory } from './entities/chat-history.entity';
 
 @Module({
   imports: [
     HttpModule,
-    CacheModule.register(), // S? d?ng global cache n?u ? c?u hnh ? AppModule
+    ConfigModule,
+    TypeOrmModule.forFeature([LearningMaterial, MapPoint, ChatHistory]),
   ],
   providers: [AIService],
   controllers: [AIController],

@@ -6,6 +6,7 @@ import { BullModule } from '@nestjs/bull';
 import { APP_GUARD } from '@nestjs/core';
 import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
+import { ScheduleModule } from '@nestjs/schedule';
 
 // === CORE MODULES ===
 import { AuthModule } from './modules/auth/auth.module';
@@ -13,6 +14,7 @@ import { AIModule } from './modules/ai/ai.module';
 import { MapModule } from './modules/map/map.module';
 import { LibraryModule } from './modules/library/library.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { CrawlerModule } from './modules/crawler/crawler.module';
 
 // === RESTORED MODULES ===
 import { GamificationModule } from './modules/gamification/gamification.module';
@@ -41,9 +43,15 @@ import { LearningCommunityModule } from './modules/learning-community/learning-c
 import { HackathonModule } from './modules/hackathon/hackathon.module';
 import { IntlModule } from './modules/intl/intl.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { ModuleModule } from './modules/module/module.module'; // Import new ModuleModule
+import { FeatureModule } from './modules/feature/feature.module'; // Import new FeatureModule
+import { RoleModule } from './modules/role/role.module'; // Import new RoleModule
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => ({
@@ -59,12 +67,12 @@ import { AdminModule } from './modules/admin/admin.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
-      port: 5432,
-      username: 'admin',
-      password: 'password123',
-      database: 'edumap_db',
+      port: parseInt(process.env.DB_PORT) || 5432,
+      username: process.env.DB_USERNAME || 'admin',
+      password: process.env.DB_PASSWORD || 'password123',
+      database: process.env.DB_DATABASE || 'edumap_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: false, // Quản lý qua Migrations
     }),
     HttpModule,
     AuthModule,
@@ -98,9 +106,16 @@ import { AdminModule } from './modules/admin/admin.module';
     HackathonModule,
     IntlModule,
     AdminModule,
+    AuditLogModule,
+    ModuleModule, // Add ModuleModule here
+    FeatureModule, // Add FeatureModule here
+    RoleModule, // Add RoleModule here
+    CrawlerModule,
+    AnalyticsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}
+

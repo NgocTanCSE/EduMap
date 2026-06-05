@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VolunteerActivity } from './entities/volunteer.entity';
@@ -10,26 +10,49 @@ export class VolunteerService {
   ) {}
 
   /**
-   * 1. Quản lý chiến dịch & Phân công (Assign & Campaign management)
+   * Lấy lịch sử tình nguyện của một người dùng
    */
-  async getCampaigns() {
-    return this.volRepo.createQueryBuilder('campaign')
-      .where('campaign.status = :status', { status: 'active' })
-      .orderBy('campaign.created_at', 'DESC')
-      .getMany();
+  async getUserActivities(userId: string) {
+    const activities = await this.volRepo.find({
+      where: { volunteer_id: userId },
+      order: { date: 'DESC' },
+    });
+
+    const totalHours = activities.reduce((sum, act) => sum + Number(act.hours), 0);
+
+    return {
+      activities,
+      total_hours: totalHours
+    };
   }
 
   /**
-   * 2. Tracking hours & Chứng nhận tự động
+   * Ghi nhận hoạt động tình nguyện
    */
-  async logVolunteerHours(userId: string, campaignId: string, hours: number) {
-    // Thực tế sẽ lưu vào bảng VolunteerLog và cộng dồn
-    // Nếu tổng số giờ > 50, tự động kích hoạt MOD-22 (Certificate) cấp chứng chỉ "Công dân tích cực"
+  async logVolunteerActivity(userId: string, data: { title: string; description: string; campaign_name: string; hours: number; date: string }) {
+    if (!data.hours || data.hours <= 0) {
+        throw new BadRequestException('Số giờ tình nguyện không hợp lệ');
+    }
+
+    const activity = this.volRepo.create({
+        volunteer_id: userId,
+        title: data.title,
+        description: data.description,
+        campaign_name: data.campaign_name,
+        hours: data.hours,
+        date: new Date(data.date),
+        status: 'pending' // Chờ duyệt
+    });
+
+    await this.volRepo.save(activity);
+
+    const { total_hours } = await this.getUserActivities(userId);
+
     return {
       success: true,
-      logged_hours: hours,
-      message: `Đã ghi nhận ${hours} giờ tình nguyện. Sắp đạt mốc nhận chứng nhận!`,
-      current_total: hours + 45 // Giả lập tổng số giờ
+      message: `Đã ghi nhận ${data.hours} giờ. Chờ hệ thống xác thực.`,
+      activity,
+      current_total: total_hours
     };
   }
 }

@@ -4,16 +4,32 @@ import { AIService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('AI Assistant')
-@Controller('api/ai')
+@Controller('ai')
 export class AIController {
-  constructor(private readonly aiService: AIService) {}
+  constructor(private readonly aiService: AIService) { }
 
   @Post('chat')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F-05: Chatbot AI (LLM + RAG)' })
-  async chat(@Request() req: any, @Body('message') msg: string, @Body('context') ctx: any) {
-    return this.aiService.chat(msg, ctx);
+  async chat(
+    @Request() req: any,
+    @Body('message') msg: string, 
+    @Body('history') history: any[],
+    @Body('context') ctx: any
+  ) {
+    if (!msg || msg.trim().length === 0) {
+      return { message: 'Tin nhắn không được để trống.' };
+    }
+    return this.aiService.chat(msg, history || [], ctx, req.user.id);
+  }
+
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy lịch sử cuộc trò chuyện' })
+  async getHistory(@Request() req: any) {
+    return this.aiService.getUserHistory(req.user.id);
   }
 
   @Get('learning-path')
@@ -21,7 +37,8 @@ export class AIController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F-06: Lộ trình học cá nhân hóa' })
   async getLearningPath(@Request() req: any) {
-    return this.aiService.getLearningPath(req.user.id);
+    // Reusing the prediction logic for personalized path
+    return this.aiService.predictCareerPath({ user_id: req.user.id, task: "learning_path" });
   }
 
   @Post('career-quiz')
@@ -29,6 +46,12 @@ export class AIController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F-08: Nộp bài trắc nghiệm hướng nghiệp' })
   async submitQuiz(@Request() req: any, @Body('answers') answers: any) {
-    return this.aiService.processCareerQuiz(req.user.id, answers);
+    return this.aiService.predictCareerPath({ user_id: req.user.id, answers, task: "career_quiz" });
+  }
+
+  @Get('trends')
+  @ApiOperation({ summary: 'Phân tích xu hướng thị trường' })
+  async getTrends() {
+    return this.aiService.getMarketTrends();
   }
 }

@@ -1,5 +1,12 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
+export enum MaterialType {
+  EBOOK = 'ebook',
+  VIDEO = 'video',
+  PODCAST = 'podcast',
+  DOCUMENT = 'document',
+}
+
 @Entity('learning_materials')
 export class LearningMaterial {
   @PrimaryGeneratedColumn('uuid')
@@ -11,16 +18,21 @@ export class LearningMaterial {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column()
-  type: string; // Ebook, Video, Podcast, Document
+  @Column({ nullable: true })
+  author: string; // Tác giả hoặc nguồn
 
-  @Column()
-  category: string; // Programming, Soft Skills, etc.
+  @Column({ type: 'enum', enum: MaterialType, default: MaterialType.DOCUMENT })
+  type: MaterialType; 
 
-  @Column({ type: 'text', array: true, default: '{}' })
+  @Column({ nullable: true })
+  category: string; // Lĩnh vực (VD: Programming, Soft Skills)
+
+  @Column({ type: 'jsonb', nullable: true })
   tags: string[];
 
-  // ?? STORAGE: Thong tin file luu tren MinIO
+  @Column({ nullable: true })
+  cover_image_url: string; // Ảnh bìa sách/video
+
   @Column({ nullable: true })
   file_url: string;
 

@@ -1,50 +1,121 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThanOrEqual } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
-import { MapPoint } from '../map/entities/map-point.entity';
+import { UserEvent } from '../analytics/entities/user-event.entity';
+import { UserLearningHistory } from '../library/entities/user-learning-history.entity';
+import { UserCareer } from '../career/entities/user-career.entity';
+import { UserSkill } from '../career/entities/user-skill.entity';
+import { Post, Comment } from '../community/entities/community.entity';
+import { Booking } from '../mentor/entities/mentor.entity';
+import { UserCertificate } from '../certificate/entities/user-certificate.entity';
+import { AIService } from '../ai/ai.service'; // Import AIService
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(MapPoint) private readonly mapRepository: Repository<MapPoint>,
+    @InjectRepository(UserEvent) private readonly userEventRepository: Repository<UserEvent>,
+    @InjectRepository(UserLearningHistory) private readonly historyRepo: Repository<UserLearningHistory>,
+    @InjectRepository(UserCareer) private readonly careerRepo: Repository<UserCareer>,
+    @InjectRepository(UserSkill) private readonly skillRepo: Repository<UserSkill>,
+    @InjectRepository(Post) private readonly postRepo: Repository<Post>,
+    @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
+    @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
+    @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
+    private readonly aiService: AIService, // Inject AIService
   ) {}
 
   /**
-   * F-08: Dashboard phân tích dữ liệu & Bản đồ nhiệt (Heatmap)
+   * Lấy dữ liệu tổng quan cá nhân hóa cho người dùng (Dashboard)
+   */
+  async getUserDashboard(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Sử dụng Promise.allSettled để tránh Partial Failure (Edge Case 2)
+    const results = await Promise.allSettled([
+      // 0. Thông tin user cơ bản
+      this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role'] }),
+      // 1. Tiến độ học tập
+      this.historyRepo.count({ where: { user: { id: userId } as any } }),
+      // 2. Kỹ năng & Nguyện vọng
+      this.skillRepo.count({ where: { user_id: userId } }),
+      this.careerRepo.find({ where: { user_id: userId, status: 'active' as any }, take: 3 }),
+      // 3. Hoạt động cộng đồng
+      this.postRepo.count({ where: { author_id: userId } }),
+      this.commentRepo.count({ where: { author_id: userId } }),
+      // 4. Lịch hẹn Mentor sắp tới (từ hôm nay trở đi)
+      this.bookingRepo.find({ 
+        where: { student_id: userId, status: 'confirmed', slot_start: MoreThanOrEqual(today) },
+        relations: ['mentor', 'mentor.user'],
+        order: { slot_start: 'ASC' },
+        take: 3
+      }),
+      // 5. Chứng chỉ
+      this.certRepo.count({ where: { user_id: userId, status: 'active' as any } })
+    ]);
+
+    // Xử lý kết quả trả về an toàn
+    const getValue = (result: PromiseSettledResult<any>, fallback: any) => 
+      result.status === 'fulfilled' ? result.value : fallback;
+
+    const user = getValue(results[0], null);
+    const learningCount = getValue(results[1], 0);
+    const skillsCount = getValue(results[2], 0);
+    const activeCareers = getValue(results[3], []);
+    const postCount = getValue(results[4], 0);
+    const commentCount = getValue(results[5], 0);
+    const upcomingBookings = getValue(results[6], []);
+    const certCount = getValue(results[7], 0);
+
+    return {
+      user,
+      stats: {
+        learning_materials: learningCount,
+        skills_mastered: skillsCount,
+        community_contributions: postCount + commentCount,
+        certificates_earned: certCount
+      },
+      active_goals: activeCareers,
+      upcoming_mentoring: upcomingBookings.map(b => ({
+          id: b.id,
+          mentor_name: b.mentor?.user?.full_name || 'N/A',
+          start: b.slot_start,
+          meeting_url: b.meeting_url
+      }))
+    };
+  }
+
+  /**
+   * AI Insight: Lấy lời khuyên mỗi ngày
+   */
+  async getDailyInsight(userId: string) {
+      const dashboardData = await this.getUserDashboard(userId);
+      return this.aiService.getDailyInsight(dashboardData);
+  }
+
+  /**
+   * F-08: Dashboard phân tích dữ liệu (Dành cho Admin/Global)
    */
   async getStats() {
     const userCount = await this.userRepository.count();
-    const mapCount = await this.mapRepository.count();
-    
-    // Đếm số điểm bản đồ chờ phê duyệt (status = 'pending')
-    const pendingPoints = await this.mapRepository.count({
-      where: { status: 'pending' },
-    });
+    const eventCount = await this.userEventRepository.count();
 
-    // Lấy danh sách vị trí thực tế của các điểm bản đồ để tạo Heatmap
-    const mapPoints = await this.mapRepository.find({
-      select: ['id', 'name', 'location', 'rating_avg'],
-      where: { status: 'approved' },
-      take: 100, // Giới hạn lấy 100 điểm mới nhất để tối ưu hiệu năng
-    });
+    // Lấy top 5 sự kiện phổ biến
+    const topEvents = await this.userEventRepository
+      .createQueryBuilder('event')
+      .select('event.event_type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('event.event_type')
+      .orderBy('count', 'DESC')
+      .limit(5)
+      .getRawMany();
 
-    const heatmapData = mapPoints
-      .filter(point => point.location && point.location.coordinates)
-      .map(point => {
-        const [lng, lat] = point.location.coordinates;
-        return {
-          id: point.id,
-          name: point.name,
-          lat: Number(lat),
-          lng: Number(lng),
-          intensity: Number(point.rating_avg) > 0 ? Number(point.rating_avg) / 5 : 0.6,
-        };
-      });
-
-    // Nếu không có dữ liệu thật trong DB, cung cấp mock dữ liệu các thành phố lớn tại Việt Nam
-    const finalHeatmap = heatmapData.length > 0 ? heatmapData : [
+    // Mock heatmap data since we removed mapRepo dependency here
+    const finalHeatmap = [
       { id: 'mock-1', name: 'Đại học Quốc gia TP.HCM', lat: 10.875151, lng: 106.800724, intensity: 0.95 },
       { id: 'mock-2', name: 'Đại học Bách Khoa Hà Nội', lat: 21.006437, lng: 105.842777, intensity: 0.85 },
       { id: 'mock-3', name: 'Đại học Đà Nẵng', lat: 16.075489, lng: 108.220123, intensity: 0.75 },
@@ -54,8 +125,8 @@ export class DashboardService {
 
     return {
       total_users: userCount,
-      total_map_points: mapCount,
-      pending_approval_points: pendingPoints,
+      total_events: eventCount,
+      top_activities: topEvents,
       heatmap_data: finalHeatmap,
       education_metrics: {
         enrollment_rate: '96.4%',

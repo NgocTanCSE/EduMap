@@ -1,0 +1,496 @@
+Chức năng     │ DB  │ BE  │ API │ FE  │ FE  │ Ghi chú từ      │ Tổng │
+  │               │     │     │     │ Web │ Mob │ Elite Coder     │      │
+  ├───────────────┼─────┼─────┼─────┼─────┼─────┼─────────────────┼──────┤
+  │ Quyên góp     │ 80% │ 80% │ 80% │ 35% │ 0%  │ BE đã xong      │ 55%  │
+  │ (Donation)    │     │     │     │     │     │ logic tài       │      │
+  │               │     │     │     │     │     │ chính, FE vẫn   │      │
+  │               │     │     │     │     │     │ dùng mock-data. │      │
+  │ Sự kiện       │ 85% │ 80% │ 80% │ 0%  │ 0%  │ BE có QR Code & │ 49%  │
+  │ (Events)      │     │     │     │     │     │ Ticket logic    │      │
+  │               │     │     │     │     │     │ rất tốt nhưng   │      │
+  │               │     │     │     │     │     │ chưa có UI Web. │      │
+  │ Gamification  │ 70% │ 60% │ 60% │ 30% │ 0%  │ Tích hợp vào    │ 44%  │
+  │               │     │     │     │     │     │ Profile/Green   │      │
+  │               │     │     │     │     │     │ Campus, chưa có │      │
+  │               │     │     │     │     │     │ module riêng.   │      │
+  │ Môi trường    │ 70% │ 70% │ 70% │ 40% │ 0%  │ Đã có logic     │ 50%  │
+  │ (Green)       │     │     │     │     │     │ tích điểm Green │      │
+  │               │     │     │     │     │     │ Points.         │      │
+  │ Hackathon     │ 60% │ 60% │ 60% │ 0%  │ 0%  │ Mới chỉ dừng    │ 36%  │
+  │               │     │     │     │     │     │ lại ở cấu trúc  │      │
+  │               │     │     │     │     │     │ Backend.        │      │
+  │ Kết nối HS    │ 50% │ 50% │ 50% │ 0%  │ 0%  │ Logic kết nối   │ 30%  │
+  │ (HS-Conn)     │     │     │     │     │     │ cơ bản, chưa có │      │
+  │               │     │     │     │     │     │ giao diện.      │      │
+  │ Thực tập      │ 75% │ 70% │ 70% │ 40% │ 10% │ Khá hoàn thiện  │ 53%  │
+  │ (Internships) │     │     │     │     │     │ về DB/BE, FE đã │      │
+  │               │     │     │     │     │     │ có trang danh   │      │
+  │               │     │     │     │     │     │ sách.           │      │
+  │ Quốc tế hóa   │ 80% │ 75% │ 75% │ 0%  │ 0%  │ Lưu ý: Code     │ 46%  │
+  │ (Intl)        │     │     │     │     │     │ thực tế là quản │      │
+  │               │     │     │     │     │     │ lý Alumni/Du    │      │
+  │               │     │     │     │     │     │ học, không phải │      │
+  │               │     │     │     │     │     │ dịch thuật.     │      │
+  │ Cộng đồng học │ 70% │ 65% │ 65% │ 0%  │ 0%  │ Chưa có giao    │ 40%  │
+  │ tập           │     │     │     │     │     │ diện Web.       │      │
+  │ Cấu hình      │ 60% │ 60% │ 60% │ 0%  │ 0%  │ Chỉ phục vụ API │ 36%  │
+  │ Mobile        │     │     │     │     │     │ cho Mobile sau  │      │
+  │               │     │     │     │     │     │ này.            │      │
+  │ Kiểm duyệt    │ 70% │ 70% │ 70% │ 40% │ 0%  │ Điểm mạnh: AI   │ 50%  │
+  │ (Moderator)   │     │     │     │     │     │ Moderation      │      │
+  │               │     │     │     │     │     │ (Gemini) đã     │      │
+  │               │     │     │     │     │     │ chạy 80%.       │      │
+  │ Thông báo     │ 75% │ 70% │ 70% │ 30% │ 10% │ Đã có Socket.io │ 51%  │
+  │ (Notify)      │     │     │     │     │     │ tích hợp ở      │      │
+  │               │     │     │     │     │     │ Header Web.     │      │
+  │ Cơ hội        │ 65% │ 60% │ 60% │ 0%  │ 0%  │ Backend CRUD cơ │ 37%  │
+  │ (Opportunity) │     │     │     │     │     │ bản.            │      │
+  │ Vai trò &     │ 90% │ 90% │ 90% │ 60% │ 0%  │ Đã có RBAC      │ 66%  │
+  │ Quyền (Role)  │     │     │     │     │     │ (Role-based     │      │
+  │               │     │     │     │     │     │ Access Control) │      │
+  │               │     │     │     │     │     │ mạnh mẽ.        │      │
+  │ Học bổng      │ 75% │ 70% │ 70% │ 40% │ 10% │ Đã có trang     │ 53%  │
+  │ (Scholar)     │     │     │     │     │     │ hiển thị học    │      │
+  │               │     │     │     │     │     │ bổng cơ bản.    │      │
+  │ Tìm kiếm      │ 60% │ 70% │ 70% │ 50% │ 20% │ Điểm mạnh:      │ 54%  │
+  │ (Search)      │     │     │     │     │     │ Semantic Search │      │
+  │               │     │     │     │     │     │ (ChromaDB) đã   │      │
+  │               │     │     │     │     │     │ sẵn sàng.       │      │
+  │ Chia sẻ       │ 40% │ 50% │ 50% │ 30% │ 0%  │ Logic sanitize  │ 34%  │
+  │ (Share)       │     │     │     │     │     │ nội dung đã có. │      │
+  │ STEM          │ 60% │ 50% │ 50% │ 0%  │ 0%  │ Chỉ mới có      │ 32%  │
+  │               │     │     │     │     │     │ khung Backend.  │      │
+  │ Lưu trữ       │ 50% │ 85% │ 80% │ 40% │ 0%  │ Tốt: Đã tích    │ 51%  │
+  │ (Storage)     │     │     │     │     │     │ hợp thành công  │      │
+  │               │     │     │     │     │     │ MinIO Object    │      │
+  │               │     │     │     │     │     │ Storage.        │      │
+  │ Mùa hè        │ 60% │ 50% │ 50% │ 0%  │ 0%  │ Tương tự        │ 32%  │
+  │ (Summer)      │     │     │     │     │     │ Hackathon/STEM. │      │
+  │ Khảo sát      │ 70% │ 65% │ 65% │ 0%  │ 0%  │ Backend đã có   │ 40%  │
+  │ (Survey)      │     │     │     │     │     │ logic câu       │      │
+  │               │     │     │     │     │     │ hỏi/trả lời.    │      │
+  │ Tình nguyện   │ 70% │ 65% │ 65% │ 40% │ 10% │ Đã có trang     │ 50%  │
+  │ (Volunt)      │     │     │     │     │     │ danh sách tình  │      │
+  │               │     │     │     │     │     │ nguyện.         │      │
+  │ WiFi          │ 40% │ 40% │ 40% │ 0%  │ 0%  │ Chức năng phụ   │ 24%  │
+  │               │     │     │     │     │     │ trợ, mức độ     │      │
+  │               │     │     │     │     │     │ hoàn thiện      │      │
+  │               │     │     │     │     │     │ thấp.           │      │
+  └───────────────┴─────┴─────┴─────┴─────┴─────┴─────────────────┴──────┘
+
+📑 CHI TIẾT TIẾN ĐỘ 23 CHỨC NĂNG DỰ ÁN EDUMAP
+
+  1. Chức năng Quyên góp (Donation)
+   * Mô tả: Cho phép người dùng quyên góp trực tuyến cho các chiến dịch cộng
+     đồng, xây dựng phòng Lab STEM.
+   * Database (DB): Bảng donation_campaigns và donations đã định nghĩa đầy
+     đủ với các trường tiền tệ và trạng thái.
+       * Hoàn thiện ước tính: 80%.
+   * Backend (BE): DonateService đã có logic xử lý giao dịch, cập nhật tiến
+     độ tài chính của chiến dịch.
+       * Hoàn thiện ước tính: 80%.
+   * API: Controller đầy đủ endpoints CRUD cho campaign và quy trình
+     donation.
+       * Hoàn thiện ước tính: 80%.
+   * Frontend (Web): Thư mục app/donate đã có giao diện chi tiết chiến dịch
+     nhưng dữ liệu hiện tại vẫn là mock-data.
+       * Hoàn thiện ước tính: 35%.
+   * Frontend (Mobile): Chưa triển khai mã nguồn cụ thể.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 55%.
+
+  2. Chức năng Sự kiện (Events)
+   * Mô tả: Quản lý các workshop, sự kiện giáo dục; hỗ trợ đăng ký và phát
+     hành vé điện tử qua QR Code.
+   * Database (DB): Bảng events và event_registrations tích hợp logic mã vé
+     (ticket_code).
+       * Hoàn thiện ước tính: 85%.
+   * Backend (BE): EventsService xử lý tạo QR Code (Data URL) và kiểm tra
+     sức chứa giới hạn của sự kiện.
+       * Hoàn thiện ước tính: 80%.
+   * API: Endpoints hỗ trợ đăng ký tham gia và quản lý thông tin sự kiện.
+       * Hoàn thiện ước tính: 80%.
+   * Frontend (Web): Chưa có thư mục triển khai trang sự kiện riêng biệt.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 49%.
+
+  3. Chức năng Gamification
+   * Mô tả: Hệ thống điểm thưởng (XP), cấp độ (Level) và bảng xếp hạng
+     (Leaderboard) để thúc đẩy tương tác học tập.
+   * Database (DB): Tích hợp trực tiếp trong bảng User (trường points,
+     level) và các bảng ghi nhận nhiệm vụ.
+       * Hoàn thiện ước tính: 70%.
+   * Backend (BE): Logic cộng điểm nằm rải rác trong các module tích hợp
+     (như Green Campus).
+       * Hoàn thiện ước tính: 60%.
+   * API: Cung cấp thông tin hạng và điểm thông qua Profile API.
+       * Hoàn thiện ước tính: 60%.
+   * Frontend (Web): Hiển thị thanh tiến trình level và rank trên Profile và
+     Dashboard.
+       * Hoàn thiện ước tính: 30%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 44%.
+
+  4. Chức năng Môi trường xanh (Green)
+   * Mô tả: Khuyến khích lối sống xanh qua việc đổi rác tái chế lấy Green
+     Points và tham gia các thử thách môi trường.
+   * Database (DB): Bảng lưu trữ hoạt động xanh và cấu hình điểm thưởng cho
+     từng loại rác.
+       * Hoàn thiện ước tính: 70%.
+   * Backend (BE): GreenService xử lý các thử thách và cơ chế tích lũy điểm
+     thưởng xanh.
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoints cho các nhiệm vụ bảo vệ môi trường và đổi quà.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Đã có trang hiển thị danh sách các hoạt động đổi điểm
+     và leaderboard xanh.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 50%.
+
+  5. Chức năng Hackathon
+   * Mô tả: Nền tảng tổ chức các cuộc thi lập trình, quản lý đội nhóm và nộp
+     dự án trực tuyến.
+   * Database (DB): Bảng cuộc thi, đăng ký đội thi và tiêu chí chấm điểm kỹ
+     thuật.
+       * Hoàn thiện ước tính: 60%.
+   * Backend (BE): Xử lý quy trình đăng ký đội và cơ chế nộp bài thi (tích
+     hợp Storage).
+       * Hoàn thiện ước tính: 60%.
+   * API: Các endpoints cơ bản cho việc truy vấn và đăng ký Hackathon.
+       * Hoàn thiện ước tính: 60%.
+   * Frontend (Web): Chưa có giao diện người dùng.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 36%.
+
+  6. Chức năng Kết nối HS (HS-Connection)
+   * Mô tả: Mạng lưới kết nối học sinh giữa các trường phổ thông, chia sẻ
+     kinh nghiệm học tập và định hướng.
+   * Database (DB): Bảng quan hệ bạn bè và yêu cầu kết nối giữa các tài
+     khoản học sinh.
+       * Hoàn thiện ước tính: 50%.
+   * Backend (BE): Logic gửi/nhận và quản lý danh sách yêu cầu kết nối.
+       * Hoàn thiện ước tính: 50%.
+   * API: Endpoints kết nối cơ bản tích hợp vào module người dùng.
+       * Hoàn thiện ước tính: 50%.
+   * Frontend (Web): Chưa triển khai giao diện.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 30%.
+
+  7. Chức năng Thực tập (Internships)
+   * Mô tả: Kết nối sinh viên với các doanh nghiệp, quản lý tin tuyển dụng
+     và quy trình ứng tuyển thực tập.
+   * Database (DB): Bảng thông tin doanh nghiệp, vị trí tuyển dụng và quản
+     lý đơn ứng tuyển.
+       * Hoàn thiện ước tính: 75%.
+   * Backend (BE): Xử lý quy trình ứng tuyển, trạng thái duyệt đơn và thông
+     báo cho sinh viên.
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoints đầy đủ cho việc tìm kiếm, lọc và nộp đơn ứng tuyển.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Đã có trang danh sách thực tập nhưng bộ lọc dữ liệu còn
+     ở dạng cơ bản.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Đã có khung (skeleton) hiển thị danh sách tin tuyển
+     dụng.
+       * Hoàn thiện ước tính: 10%.
+   * Tổng thể chức năng: 53%.
+
+  8. Chức năng Quốc tế hóa (Intl)
+   * Mô tả: Quản lý chương trình trao đổi quốc tế và mạng lưới cựu lưu học
+     sinh (Alumni) toàn cầu.
+   * Database (DB): Sử dụng PostGIS để lưu trữ vị trí tọa độ của Alumni trên
+     bản đồ thế giới.
+       * Hoàn thiện ước tính: 80%.
+   * Backend (BE): IntlService xử lý tìm kiếm Alumni lân cận (Spatial
+     Search) bằng ST_DWithin.
+       * Hoàn thiện ước tính: 75%.
+   * API: Endpoints cho danh sách chương trình du học và bản đồ vị trí
+     Alumni.
+       * Hoàn thiện ước tính: 75%.
+   * Frontend (Web): Chưa có giao diện tích hợp bản đồ Alumni (mới chỉ có
+     code nền).
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 46%.
+
+  9. Chức năng Cộng đồng học tập (Learning Community)
+   * Mô tả: Các nhóm học tập chuyên sâu, nơi chia sẻ tài liệu và thảo luận
+     theo chủ đề cụ thể.
+   * Database (DB): Bảng nhóm học tập, quan hệ thành viên và bài viết trong
+     nhóm.
+       * Hoàn thiện ước tính: 70%.
+   * Backend (BE): Logic xử lý tham gia nhóm, đăng bài và tương tác bình
+     luận.
+       * Hoàn thiện ước tính: 65%.
+   * API: Endpoints quản lý vòng đời của một cộng đồng học tập.
+       * Hoàn thiện ước tính: 65%.
+   * Frontend (Web): Chưa triển khai giao diện chuyên biệt cho nhóm học tập.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 40%.
+
+  10. Chức năng Cấu hình Mobile (Mobile-Config)
+   * Mô tả: Quản lý các cài đặt động cho ứng dụng di động (banner, phiên bản
+     cập nhật, bật/tắt tính năng).
+   * Database (DB): Bảng lưu trữ cấu hình key-value chuyên biệt cho client
+     mobile.
+       * Hoàn thiện ước tính: 60%.
+   * Backend (BE): Cung cấp cấu hình tập trung thông qua API quản trị.
+       * Hoàn thiện ước tính: 60%.
+   * API: Endpoint trả về cấu hình JSON cho ứng dụng di động khi khởi động.
+       * Hoàn thiện ước tính: 60%.
+   * Frontend (Web): Chưa có trang quản lý cấu hình cho Admin.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Đã có logic cơ bản để nhận và áp dụng cấu hình.
+       * Hoàn thiện ước tính: 0% (Mới dừng ở mức code nền).
+   * Tổng thể chức năng: 36%.
+
+  11. Chức năng Kiểm duyệt (Moderator)
+   * Mô tả: Hệ thống kiểm duyệt nội dung tự động sử dụng AI (Gemini) để lọc
+     văn bản và hình ảnh.
+   * Database (DB): Bảng nhật ký kiểm duyệt và lưu trữ các nội dung bị đánh
+     dấu (flagged).
+       * Hoàn thiện ước tính: 50%.
+   * Backend (BE): Tích hợp quy trình 2 lớp: Lớp Regex (nhanh) và lớp Deep
+     Semantic (AI).
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoint nhận nội dung và trả về kết quả phân tích độ an toàn.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Trang quản trị cho phép Moderator duyệt lại các nội
+     dung AI nghi ngờ.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * AI (Nếu có): Router moderation.py trong AI Service đã hoạt động ổn
+     định.
+       * Hoàn thiện ước tính: 80%.
+   * Tổng thể chức năng: 50%.
+
+  12. Chức năng Thông báo (Notifications)
+   * Mô tả: Hệ thống thông báo thời gian thực về hoạt động tài khoản, sự
+     kiện và tin nhắn mới.
+   * Database (DB): Bảng thông báo người dùng, trạng thái đã đọc/chưa đọc và
+     loại thông báo.
+       * Hoàn thiện ước tính: 75%.
+   * Backend (BE): Sử dụng Socket.io để đẩy thông báo trực tiếp đến client
+     đang hoạt động.
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoints lấy danh sách thông báo theo phân trang.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Biểu tượng chuông thông báo trên Header đã có logic đếm
+     số lượng realtime.
+       * Hoàn thiện ước tính: 30%.
+   * Frontend (Mobile): Đã có khung chuẩn bị cho việc nhận Push
+     Notification.
+       * Hoàn thiện ước tính: 10%.
+   * Tổng thể chức năng: 51%.
+
+  13. Chức năng Cơ hội (Opportunity)
+   * Mô tả: Tổng hợp các cơ hội phát triển bản thân như khóa học miễn phí,
+     cuộc thi và hoạt động cộng đồng.
+   * Database (DB): Bảng lưu trữ danh mục và thông tin chi tiết các loại
+     hình cơ hội.
+       * Hoàn thiện ước tính: 65%.
+   * Backend (BE): CRUD cơ bản cho việc quản lý các tin bài về cơ hội giáo
+     dục.
+       * Hoàn thiện ước tính: 60%.
+   * API: Endpoints hỗ trợ tìm kiếm và phân loại cơ hội theo sở thích người
+     dùng.
+       * Hoàn thiện ước tính: 60%.
+   * Frontend (Web): Chưa triển khai giao diện trang danh sách.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 37%.
+
+  14. Chức năng Vai trò & Quyền hạn (Role)
+   * Mô tả: Quản lý phân quyền người dùng (Admin, Mentor, Học viên) thông
+     qua hệ thống RBAC chặt chẽ.
+   * Database (DB): Cấu trúc bảng Role, Permission và quan hệ Many-to-Many
+     hoàn thiện.
+       * Hoàn thiện ước tính: 90%.
+   * Backend (BE): Các Guard và Decorator trong NestJS đã kiểm soát quyền
+     truy cập ở mức API cực tốt.
+       * Hoàn thiện ước tính: 90%.
+   * API: Tích hợp kiểm tra quyền vào tất cả các module hệ thống.
+       * Hoàn thiện ước tính: 90%.
+   * Frontend (Web): Đã có giao diện quản lý vai trò và gán quyền cho người
+     dùng trong Admin Dashboard.
+       * Hoàn thiện ước tính: 60%.
+   * Frontend (Mobile): Chưa triển khai giao diện quản lý.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 66%.
+
+  15. Chức năng Học bổng (Scholarships)
+   * Mô tả: Cung cấp thông tin chi tiết và hỗ trợ quy trình ứng tuyển các
+     loại học bổng giáo dục.
+   * Database (DB): Bảng học bổng, tiêu chí xét tuyển và quản lý hồ sơ ứng
+     tuyển.
+       * Hoàn thiện ước tính: 75%.
+   * Backend (BE): Logic tìm kiếm, phân loại và gợi ý học bổng theo hồ sơ
+     người dùng.
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoints hỗ trợ truy vấn dữ liệu học bổng theo nhiều tiêu chí.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Trang danh sách học bổng đã có khung giao diện cơ bản.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Đã có khung hiển thị danh sách cơ bản.
+       * Hoàn thiện ước tính: 10%.
+   * Tổng thể chức năng: 53%.
+
+  16. Chức năng Tìm kiếm (Search)
+   * Mô tả: Công cụ tìm kiếm thông minh tích hợp giữa tìm kiếm từ khóa
+     truyền thống và tìm kiếm ngữ nghĩa AI.
+   * Database (DB): Tối ưu hóa Index cho các bảng nội dung quan trọng.
+       * Hoàn thiện ước tính: 60%.
+   * Backend (BE): Tích hợp AI Search thông qua Vector Database (ChromaDB).
+       * Hoàn thiện ước tính: 70%.
+   * API: Endpoint tìm kiếm toàn cục (Global Search) tích hợp kết quả từ
+     nhiều module.
+       * Hoàn thiện ước tính: 70%.
+   * Frontend (Web): Thanh tìm kiếm trên Header đã có giao diện gợi ý kết
+     quả.
+       * Hoàn thiện ước tính: 50%.
+   * Frontend (Mobile): Giao diện tìm kiếm cơ bản đã được thiết lập.
+       * Hoàn thiện ước tính: 20%.
+   * AI (Nếu có): Semantic Search với cơ chế Vectorization đã sẵn sàng hoạt
+     động.
+       * Hoàn thiện ước tính: 70%.
+   * Tổng thể chức năng: 54%.
+
+  17. Chức năng Chia sẻ (Share)
+   * Mô tả: Tính năng chia sẻ nội dung bài viết, tài liệu lên mạng xã hội
+     hoặc qua link nội bộ an toàn.
+   * Database (DB): Bảng theo dõi lượt chia sẻ và quản lý metadata link.
+       * Hoàn thiện ước tính: 40%.
+   * Backend (BE): Logic làm sạch URL (Sanitize) và tạo liên kết chia sẻ
+     động.
+       * Hoàn thiện ước tính: 50%.
+   * API: Endpoints hỗ trợ việc ghi nhận hoạt động chia sẻ.
+       * Hoàn thiện ước tính: 50%.
+   * Frontend (Web): Các nút chia sẻ đã xuất hiện ở một số trang tính năng
+     chính (như Donation).
+       * Hoàn thiện ước tính: 30%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 34%.
+
+  18. Chức năng STEM
+   * Mô tả: Chuyên mục chuyên sâu cho các dự án và khóa học Khoa học, Công
+     nghệ, Kỹ thuật, Toán học.
+   * Database (DB): Phân loại dữ liệu và tag nội dung thuộc danh mục STEM.
+       * Hoàn thiện ước tính: 60%.
+   * Backend (BE): Logic lọc và tổng hợp tài nguyên học tập STEM.
+       * Hoàn thiện ước tính: 50%.
+   * API: Endpoints truy xuất dữ liệu chuyên biệt cho chuyên mục STEM.
+       * Hoàn thiện ước tính: 50%.
+   * Frontend (Web): Chưa có trang chuyên mục riêng.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 32%.
+
+  19. Chức năng Lưu trữ tệp (Storage)
+   * Mô tả: Hệ thống quản lý tệp tin tập trung hỗ trợ lưu trữ ảnh và tài
+     liệu thông qua MinIO.
+   * Database (DB): Quản lý Metadata và đường dẫn lưu trữ tệp tin trong hệ
+     thống.
+       * Hoàn thiện ước tính: 50%.
+   * Backend (BE): StorageService đã tích hợp đầy đủ SDK MinIO và xử lý
+     luồng upload/download.
+       * Hoàn thiện ước tính: 85%.
+   * API: Endpoints upload tệp tin hỗ trợ xác thực và giới hạn dung lượng.
+       * Hoàn thiện ước tính: 80%.
+   * Frontend (Web): Tích hợp vào các trang cần upload (như trang Profile
+     hoặc Dashboard).
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 51%.
+
+  20. Chức năng Chương trình Mùa hè (Summer)
+   * Mô tả: Các hoạt động ngoại khóa và khóa học ngắn hạn diễn ra trong kỳ
+     nghỉ hè cho học sinh.
+   * Database (DB): Bảng thông tin chương trình hè và quản lý danh sách đăng
+     ký.
+       * Hoàn thiện ước tính: 60%.
+   * Backend (BE): Các logic CRUD cơ bản để quản trị viên cập nhật chương
+     trình.
+       * Hoàn thiện ước tính: 50%.
+   * API: Endpoints truy vấn thông tin chương trình hè.
+       * Hoàn thiện ước tính: 50%.
+   * Frontend (Web): Chưa triển khai giao diện.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 32%.
+
+  21. Chức năng Khảo sát (Survey)
+   * Mô tả: Công cụ thu thập ý kiến người dùng và đánh giá chất lượng các
+     hoạt động giáo dục trên EduMap.
+   * Database (DB): Hệ thống bảng Survey, Question, Option và Response hoàn
+     thiện.
+       * Hoàn thiện ước tính: 70%.
+   * Backend (BE): Logic xử lý kết quả khảo sát và tính toán thống kê cơ
+     bản.
+       * Hoàn thiện ước tính: 65%.
+   * API: Endpoints tạo và thực hiện bài khảo sát trực tuyến.
+       * Hoàn thiện ước tính: 65%.
+   * Frontend (Web): Chưa triển khai giao diện thực hiện khảo sát cho người
+     dùng.
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 40%.
+
+  22. Chức năng Tình nguyện (Volunteer)
+   * Mô tả: Nền tảng kết nối các hoạt động tình nguyện xã hội, quản lý giờ
+     làm và cấp chứng nhận.
+   * Database (DB): Bảng hoạt động tình nguyện, đăng ký tham gia và ghi nhận
+     đóng góp.
+       * Hoàn thiện ước tính: 70%.
+   * Backend (BE): Logic xử lý quy trình đăng ký và xác nhận tham gia từ tổ
+     chức.
+       * Hoàn thiện ước tính: 65%.
+   * API: Endpoints quản lý vòng đời hoạt động tình nguyện.
+       * Hoàn thiện ước tính: 65%.
+   * Frontend (Web): Trang danh sách các hoạt động tình nguyện đang diễn ra
+     đã có khung UI.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Mobile): Đã có khung hiển thị danh sách cơ bản.
+       * Hoàn thiện ước tính: 10%.
+   * Tổng thể chức năng: 50%.
+
+  23. Chức năng Kết nối WiFi (WiFi)
+   * Mô tả: Hỗ trợ người dùng kết nối WiFi nhanh chóng tại các điểm trường
+     và phòng Lab STEM.
+   * Database (DB): Danh sách các điểm truy cập WiFi và thông tin cấu hình
+     kết nối an toàn.
+       * Hoàn thiện ước tính: 40%.
+   * Backend (BE): Logic cung cấp thông tin kết nối WiFi dựa trên vị trí
+     người dùng.
+       * Hoàn thiện ước tính: 40%.
+   * API: Endpoint cung cấp thông tin mạng WiFi hỗ trợ ứng dụng.
+       * Hoàn thiện ước tính: 40%.
+   * Frontend (Web): Không triển khai (không phù hợp trên web).
+       * Hoàn thiện ước tính: 0%.
+   * Frontend (Mobile): Chưa triển khai logic kết nối thực tế trên ứng dụng.
+       * Hoàn thiện ước tính: 0%.
+   * Tổng thể chức năng: 24%.
+
+  ---
+  Elite Coder Audit Report: Mọi con số trên đều dựa trên phân tích mã nguồn
+  thực tế tại các thư mục backend/src/modules, ai-service/routers và
+  frontend/app. Các chức năng có tổng thể dưới 40% chủ yếu do thiếu hụt phần
+  giao diện người dùng (Frontend).

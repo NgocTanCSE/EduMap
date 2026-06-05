@@ -35,18 +35,46 @@ export class SurveyService {
   }
 
   /**
+   * Lấy chi tiết khảo sát theo ID
+   */
+  async getSurveyById(id: string) {
+    const survey = await this.surveyRepo.findOne({ where: { id } });
+    if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
+    return survey;
+  }
+
+  /**
    * F-22: Thu thập dữ liệu ý kiến đóng góp của học sinh
    */
   async submitResponse(surveyId: string, userId: string, answers: any) {
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
     if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
 
+    if (survey.status !== 'active') {
+        throw new BadRequestException('Khảo sát này đã đóng.');
+    }
+
+    // Defensive: Check if user already submitted
+    const existing = await this.responseRepo.findOne({
+        where: { survey_id: surveyId, user_id: userId }
+    });
+
+    if (existing) {
+        throw new BadRequestException('Bạn đã hoàn thành bài khảo sát này rồi. Xin cảm ơn!');
+    }
+
     const response = this.responseRepo.create({
       survey_id: surveyId,
       user_id: userId,
       answers_json: answers,
     });
-    return this.responseRepo.save(response);
+    
+    await this.responseRepo.save(response);
+
+    return {
+        success: true,
+        message: 'Cảm ơn bạn đã đóng góp ý kiến!'
+    };
   }
 
   /**

@@ -27,4 +27,26 @@ export class GamificationController {
   async getPending() {
     return this.gamificationService.getPendingActivities();
   }
+
+  @Get('leaderboard')
+  @ApiOperation({ summary: 'Lấy bảng xếp hạng top người dùng' })
+  async getLeaderboard() {
+    return this.gamificationService.getLeaderboard(20);
+  }
+
+  @Get('my-progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy tiến độ cấp độ của bản thân' })
+  async getMyProgress(@Request() req: any) {
+    return this.gamificationService.getUserProgress(req.user.id);
+  }
+
+  @Get('my-badges')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách huy hiệu của bản thân' })
+  async getMyBadges(@Request() req: any) {
+    return this.gamificationService.getUserBadges(req.user.id);
+  }
 }

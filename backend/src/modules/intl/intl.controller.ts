@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { IntlService } from './intl.service';
 
 @ApiTags('MOD-INTL: Bản đồ lưu học sinh & Quốc tế hóa (International Student Map)')
-@Controller('api/intl')
+@Controller('intl')
 export class IntlController {
   constructor(private readonly intlService: IntlService) {}
 

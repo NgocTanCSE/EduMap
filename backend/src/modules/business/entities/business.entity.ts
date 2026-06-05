@@ -1,5 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
+import { Product } from './product.entity';
+import { Service } from './service.entity'; // Import Service entity
 
 @Entity('business_profiles')
 export class BusinessProfile {
@@ -36,4 +38,10 @@ export class BusinessProfile {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @OneToMany(() => Product, (product) => product.businessProfile)
+  products: Product[];
+
+  @OneToMany(() => Service, (service) => service.businessProfile)
+  services: Service[];
 }

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 
 @Entity('badges')
@@ -26,6 +26,7 @@ export class Badge {
 }
 
 @Entity('user_badges')
+@Index(['user_id', 'badge_id'], { unique: true })
 export class UserBadge {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -49,6 +50,7 @@ export class UserBadge {
 }
 
 @Entity('user_points')
+@Index(['user_id', 'action', 'reference_id'], { unique: true }) // Idempotency check
 export class UserPoint {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -63,8 +65,11 @@ export class UserPoint {
   @Column()
   points: number;
 
+  @Column()
+  action: string; // Tên hành động hoặc mã (e.g., 'DONATE_CAMPAIGN_1')
+
   @Column({ nullable: true })
-  action: string;
+  reference_id: string; // ID của đối tượng liên quan (VD: ID của donation, event)
 
   @Column({ nullable: true })
   source_type: string;

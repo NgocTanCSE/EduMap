@@ -53,51 +53,72 @@ export class EventsService {
   }
 
   /**
-   * F-13: Đăng ký tham gia workshop/sự kiện (Tạo ticket & QR Code)
+   * F-13: Đăng ký tham gia workshop/sự kiện (Tạo ticket & QR Code) - Đã xử lý Race Condition
    */
   async registerEvent(eventId: string, userId: string) {
-    const event = await this.eventRepository.findOne({ where: { id: eventId } });
-    if (!event) throw new NotFoundException('Không tìm thấy sự kiện');
+    return await this.dataSource.transaction(async (manager) => {
+      try {
+        // 1. Khóa bản ghi Event bằng Pessimistic Write Lock
+        const event = await manager.findOne(Event, { 
+          where: { id: eventId },
+          lock: { mode: 'pessimistic_write' }
+        });
+        
+        if (!event) throw new NotFoundException('Không tìm thấy sự kiện');
 
-    // 1. Kiểm tra đăng ký trùng lặp
-    const existing = await this.registrationRepository.findOne({
-      where: { event_id: eventId, user_id: userId },
+        // 2. Kiểm tra đăng ký trùng lặp trong transaction
+        const existing = await manager.findOne(EventRegistration, {
+          where: { event_id: eventId, user_id: userId },
+        });
+        if (existing) {
+          throw new BadRequestException('Bạn đã đăng ký tham gia sự kiện này rồi!');
+        }
+
+        // 3. Kiểm tra sức chứa giới hạn
+        if (event.registered_count >= event.capacity) {
+          throw new BadRequestException('Sự kiện/Workshop đã hết chỗ!');
+        }
+
+        // 4. Tăng số lượng đã đăng ký (Atomic Increment)
+        await manager.increment(Event, { id: eventId }, 'registered_count', 1);
+
+        // 5. Tạo mã vé độc nhất
+        const ticketCode = `TICKET-EVT-${eventId.substring(0, 8).toUpperCase()}-USR-${userId.substring(0, 8).toUpperCase()}-${Date.now()}`;
+
+        // 6. Tạo ảnh QR Code dạng Data URL
+        const qrCodeUrl = await QRCode.toDataURL(ticketCode);
+
+        // 7. Lưu vé đăng ký
+        const registration = manager.create(EventRegistration, {
+          event_id: eventId,
+          user_id: userId,
+          status: 'registered',
+          ticket_code: ticketCode,
+        });
+        await manager.save(registration);
+
+        // 8. Cộng điểm Gamification (Đăng ký workshop = 100 XP)
+        await this.gamificationService.awardPoints(
+          userId,
+          100,
+          `Đăng ký tham gia workshop: ${event.title}`,
+          'event'
+        );
+
+        this.logger.log(`[EVENT REG SUCCESS] User ${userId} registered for event ${eventId}`);
+
+        return {
+          message: 'Đăng ký tham gia sự kiện thành công!',
+          event_title: event.title,
+          ticket_code: ticketCode,
+          ticket_qr: qrCodeUrl,
+          start_date: event.start_date,
+          location: event.location,
+        };
+      } catch (error) {
+        this.logger.error(`[EVENT REG FAILED] Event: ${eventId}, Error: ${error.message}`);
+        throw error;
+      }
     });
-    if (existing) {
-      throw new BadRequestException('Bạn đã đăng ký tham gia sự kiện này rồi!');
-    }
-
-    // 2. Kiểm tra sức chứa giới hạn
-    if (event.registered_count >= event.capacity) {
-      throw new BadRequestException('Sự kiện/Workshop đã hết chỗ!');
-    }
-
-    // 3. Tăng số lượng đã đăng ký
-    event.registered_count += 1;
-    await this.eventRepository.save(event);
-
-    // 4. Tạo mã vé độc nhất
-    const ticketCode = `TICKET-EVT-${eventId.substring(0, 8).toUpperCase()}-USR-${userId.substring(0, 8).toUpperCase()}-${Date.now()}`;
-
-    // 5. Tạo ảnh QR Code dạng Data URL
-    const qrCodeUrl = await QRCode.toDataURL(ticketCode);
-
-    // 6. Lưu vé đăng ký
-    const registration = this.registrationRepository.create({
-      event_id: eventId,
-      user_id: userId,
-      status: 'registered',
-      ticket_code: ticketCode,
-    });
-    await this.registrationRepository.save(registration);
-
-    return {
-      message: 'Đăng ký tham gia sự kiện thành công!',
-      event_title: event.title,
-      ticket_code: ticketCode,
-      ticket_qr: qrCodeUrl,
-      start_date: event.start_date,
-      location: event.location,
-    };
   }
 }

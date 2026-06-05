@@ -1,17 +1,36 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import numpy as np
-from sklearn.cluster import KMeans
+from services.llm_service import LLMService
 
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
+llm_service = LLMService()
 
 class Point(BaseModel):
+    name: str
+    type: str
     lat: float
     lng: float
 
+class GeoDensityAnalysisRequest(BaseModel):
+    city: str
+    points: List[Point]
+
+@router.post("/analyze")
+async def analyze_geo_density(request: GeoDensityAnalysisRequest):
+    """
+    Phân tích mật độ cơ sở giáo dục bằng AI Gemini.
+    Giúp phát hiện vùng 'khát' tri thức và gợi ý đầu tư.
+    """
+    try:
+        analysis = await llm_service.analyze_geo_density(request)
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class GeoAnalysisRequest(BaseModel):
-    population_points: List[Point]
+...
     school_points: List[Point]
 
 # --- API Phân tích vùng thiếu hụt (Đã làm ở bài trước) ---

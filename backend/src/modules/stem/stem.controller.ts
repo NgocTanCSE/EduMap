@@ -4,7 +4,7 @@ import { StemService } from './stem.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-STEM: Sân chơi STEM')
-@Controller('api/stem')
+@Controller('stem')
 export class StemController {
   constructor(private readonly stemService: StemService) {}
 

@@ -3,9 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Post, Comment, Group, ChatMessage } from './entities/community.entity';
 import { CommunityService } from './community.service';
 import { CommunityController } from './community.controller';
+import { AIModule } from '../ai/ai.module'; // Import AIModule
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Post, Comment, Group, ChatMessage])],
+  imports: [
+    TypeOrmModule.forFeature([Post, Comment, Group, ChatMessage]),
+    AIModule, // Add to imports
+  ],
   providers: [CommunityService],
   controllers: [CommunityController],
   exports: [CommunityService],

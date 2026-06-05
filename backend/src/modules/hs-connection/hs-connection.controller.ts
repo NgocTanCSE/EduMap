@@ -4,7 +4,7 @@ import { HsConnectionService } from './hs-connection.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-HS: Kết nối THPT')
-@Controller('api/hs-connection')
+@Controller('hs-connection')
 export class HsConnectionController {
   constructor(private readonly hsService: HsConnectionService) {}
 
@@ -28,5 +28,35 @@ export class HsConnectionController {
   @ApiOperation({ summary: 'Đăng ký Virtual Campus Tour và ghép cặp sinh viên đồng hành (Mentor Matching)' })
   async registerTour(@Request() req: any, @Body('universityName') uniName: string) {
     return this.hsService.registerCampusTour(req.user.id, uniName);
+  }
+
+  // --- SOCIAL NETWORK ENDPOINTS ---
+
+  @Get('network')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy mạng lưới kết nối của tôi (Bạn bè, Yêu cầu, Gợi ý)' })
+  async getMyNetwork(@Request() req: any) {
+    return this.hsService.getMyNetwork(req.user.id);
+  }
+
+  @Post('network/request')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gửi yêu cầu kết bạn' })
+  async sendRequest(@Request() req: any, @Body('receiverId') receiverId: string) {
+    return this.hsService.sendConnectionRequest(req.user.id, receiverId);
+  }
+
+  @Post('network/respond')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Chấp nhận hoặc từ chối yêu cầu kết bạn' })
+  async respondToRequest(
+    @Request() req: any, 
+    @Body('connectionId') connectionId: string, 
+    @Body('accept') accept: boolean
+  ) {
+    return this.hsService.respondToConnectionRequest(req.user.id, connectionId, accept);
   }
 }

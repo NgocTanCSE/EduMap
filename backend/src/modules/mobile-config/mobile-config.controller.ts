@@ -4,7 +4,7 @@ import { MobileConfigService } from './mobile-config.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-MOBILE: Tri thức lưu động (Mobile Library/Classroom)')
-@Controller('api/mobile-units')
+@Controller('mobile-units')
 export class MobileConfigController {
   constructor(private readonly mobileService: MobileConfigService) {}
 

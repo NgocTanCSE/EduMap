@@ -4,7 +4,7 @@ import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-WS: Workshop & Sự kiện')
-@Controller('api/events')
+@Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 

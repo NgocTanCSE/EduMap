@@ -4,7 +4,7 @@ import { SurveyService } from './survey.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-SURVEY: Khảo sát & Ý kiến')
-@Controller('api/surveys')
+@Controller('surveys')
 export class SurveyController {
   constructor(private readonly surveyService: SurveyService) {}
 
@@ -12,6 +12,12 @@ export class SurveyController {
   @ApiOperation({ summary: 'Lấy tất cả các cuộc khảo sát đang hoạt động' })
   async getSurveys() {
     return this.surveyService.getSurveys();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết một cuộc khảo sát' })
+  async getSurveyById(@Param('id') id: string) {
+    return this.surveyService.getSurveyById(id);
   }
 
   @Post()

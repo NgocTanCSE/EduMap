@@ -4,7 +4,7 @@ import { HackathonService } from './hackathon.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-HACK: Sân chơi Hackathon & Ý tưởng Đổi mới')
-@Controller('api/hackathons')
+@Controller('hackathons')
 export class HackathonController {
   constructor(private readonly hackService: HackathonService) {}
 
@@ -12,6 +12,12 @@ export class HackathonController {
   @ApiOperation({ summary: 'Lấy danh sách các cuộc thi Hackathon' })
   async getHackathons() {
     return this.hackService.getHackathons();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết một cuộc thi Hackathon' })
+  async getHackathonById(@Param('id') id: string) {
+    return this.hackService.getHackathonById(id);
   }
 
   @Post('register')

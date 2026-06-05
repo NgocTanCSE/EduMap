@@ -1,103 +1,127 @@
 "use client";
-import React from 'react';
-import { FileDown, Filter, Calendar, BarChart, Download, FileText, Table as TableIcon, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { adminService } from '@/services/admin.service';
+import { 
+  FileText, Calendar, User, Activity, 
+  ChevronLeft, ChevronRight, Clock, Database
+} from 'lucide-react';
 
-const reportTemplates = [
-  { id: 1, name: 'Hiệu quả học tập quý 2', type: 'PDF', status: 'Sẵn sàng', date: '16/05/2026' },
-  { id: 2, name: 'Báo cáo Quyên góp & Tài chính', type: 'Excel', status: 'Đang tạo...', date: '16/05/2026' },
-  { id: 3, name: 'Thống kê Mentor & Học viên', type: 'CSV', status: 'Sẵn sàng', date: '15/05/2026' },
-];
+export default function AdminAuditLogsPage() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+  const [loading, setLoading] = useState(true);
 
-export default function AdminReportsPage() {
+  const fetchLogs = async (page = 1) => {
+    setLoading(true);
+    try {
+      const response = await adminService.getAuditLogs({ page, limit: 10 });
+      setLogs(response.items);
+      setMeta(response.meta);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs(meta.page);
+  }, [meta.page]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <FileDown className="w-8 h-8 text-blue-500" />
-              Trung tâm Báo cáo
+            <h1 className="text-3xl font-bold flex items-center gap-3 text-yellow-500">
+              <Activity className="w-8 h-8" />
+              Nhật ký Hoạt động
             </h1>
-            <p className="text-white/40 text-sm mt-1">Trích xuất và tổng hợp dữ liệu từ 40 bảng hệ thống.</p>
+            <p className="text-white/40 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
           </div>
-          <button className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-sm font-bold shadow-lg shadow-blue-600/20 transition-all">
-             TẠO BÁO CÁO MỚI
-          </button>
         </div>
 
-        {/* Filter Bar */}
-        <div className="p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl grid grid-cols-1 md:grid-cols-4 gap-6">
-           <div className="space-y-2">
-              <label className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Thời gian</label>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-4 py-2.5">
-                 <Calendar className="w-4 h-4 text-blue-500" />
-                 <span className="text-xs font-bold">30 Ngày qua</span>
-              </div>
-           </div>
-           <div className="space-y-2">
-              <label className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Module</label>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-4 py-2.5">
-                 <BarChart className="w-4 h-4 text-purple-500" />
-                 <span className="text-xs font-bold">Tất cả Module</span>
-              </div>
-           </div>
-           <div className="space-y-2">
-              <label className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Định dạng</label>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-xl px-4 py-2.5">
-                 <TableIcon className="w-4 h-4 text-green-500" />
-                 <span className="text-xs font-bold">Excel (.xlsx)</span>
-              </div>
-           </div>
-           <div className="flex items-end">
-              <button className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold border border-white/10 transition-all flex items-center justify-center gap-2">
-                 <Filter className="w-4 h-4" /> Áp dụng lọc
-              </button>
-           </div>
-        </div>
+        {/* Logs Table */}
+        <div className="rounded-[32px] overflow-hidden border border-white/10 bg-zinc-900/30">
+          {loading ? (
+            <div className="p-20 text-center text-white/40">Đang tải dữ liệu...</div>
+          ) : (
+            <>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-zinc-900/50">
+                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Thời gian</th>
+                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Người thực hiện</th>
+                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Hành động</th>
+                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Tài nguyên</th>
+                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {logs.map(log => (
+                    <tr key={log.id} className="hover:bg-white/5 transition-colors text-sm">
+                      <td className="p-6">
+                        <div className="flex items-center gap-2 text-white/60">
+                          <Clock className="w-3.5 h-3.5" />
+                          {new Date(log.created_at).toLocaleString('vi-VN')}
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-[10px] font-bold">
+                              {log.user?.full_name?.charAt(0) || 'U'}
+                           </div>
+                           <div>
+                              <p className="font-bold">{log.user?.full_name || 'Hệ thống'}</p>
+                              <p className="text-[10px] text-white/30">{log.user?.email || ''}</p>
+                           </div>
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center gap-2">
+                           <Database className="w-3.5 h-3.5 text-white/20" />
+                           <span className="text-white/60 uppercase text-[10px] font-bold">{log.resource}</span>
+                        </div>
+                      </td>
+                      <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-white/40 italic">
+                        {JSON.stringify(log.new_data)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-        {/* Report List */}
-        <div className="space-y-4">
-           <h2 className="text-xl font-bold px-4 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-              Lịch sử trích xuất
-           </h2>
-           <div className="grid grid-cols-1 gap-4">
-              {reportTemplates.map(report => (
-                <div key={report.id} className="p-6 rounded-[32px] bg-white/5 border border-white/10 hover:border-blue-500/30 transition-all flex items-center justify-between group">
-                   <div className="flex items-center gap-6">
-                      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center group-hover:bg-blue-600/10 transition-colors">
-                         <FileText className="w-6 h-6 text-white/40 group-hover:text-blue-400" />
-                      </div>
-                      <div>
-                         <h3 className="font-bold">{report.name}</h3>
-                         <div className="flex gap-3 mt-1">
-                            <span className="text-[10px] text-white/40 uppercase font-bold">{report.type}</span>
-                            <span className="text-[10px] text-white/40 uppercase font-bold">•</span>
-                            <span className="text-[10px] text-white/40 uppercase font-bold">{report.date}</span>
-                         </div>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-6">
-                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${report.status === 'Sẵn sàng' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 animate-pulse'}`}>
-                         {report.status}
-                      </span>
-                      <button className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white text-black transition-all">
-                         <Download className="w-5 h-5" />
-                      </button>
-                   </div>
+              {/* Pagination */}
+              <div className="p-6 border-t border-white/5 flex justify-between items-center">
+                <p className="text-xs text-white/40">
+                  Hiển thị {logs.length} trên {meta.total} bản ghi
+                </p>
+                <div className="flex gap-2">
+                  <button 
+                    disabled={meta.page <= 1}
+                    onClick={() => setMeta({...meta, page: meta.page - 1})}
+                    className="p-2 rounded-xl bg-zinc-900 border border-white/10 disabled:opacity-30"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button 
+                    disabled={meta.page >= meta.totalPages}
+                    onClick={() => setMeta({...meta, page: meta.page + 1})}
+                    className="p-2 rounded-xl bg-zinc-900 border border-white/10 disabled:opacity-30"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
-              ))}
-           </div>
-        </div>
-
-        {/* Empty State / Tips */}
-        <div className="p-8 rounded-[40px] bg-blue-600/5 border border-blue-500/10 text-center">
-           <p className="text-sm text-white/40">
-              Mẹo: Bạn có thể đặt lịch tự động gửi báo cáo hiệu quả hệ thống vào Email mỗi sáng thứ Hai.
-              <span className="text-blue-500 ml-2 cursor-pointer hover:underline">Thiết lập ngay</span>
-           </p>
+              </div>
+            </>
+          )}
         </div>
 
       </div>

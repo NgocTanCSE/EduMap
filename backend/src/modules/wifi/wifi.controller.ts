@@ -4,7 +4,7 @@ import { WifiService } from './wifi.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-WIFI: Bản đồ phủ sóng Wifi')
-@Controller('api/wifi')
+@Controller('wifi')
 export class WifiController {
   constructor(private readonly wifiService: WifiService) {}
 

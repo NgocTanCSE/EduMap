@@ -4,7 +4,7 @@ import { OpportunityService } from './opportunity.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-OPP: Student Opportunity Map (Bản đồ cơ hội)')
-@Controller('api/opportunities')
+@Controller('opportunities')
 export class OpportunityController {
   constructor(private readonly oppService: OpportunityService) {}
 

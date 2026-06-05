@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { LearningCommunityService } from './learning-community.service';
 
 @ApiTags('MOD-LEARN: Bản đồ nhóm học tập & Tự học (Community Learning Map)')
-@Controller('api/learning-spots')
+@Controller('learning-spots')
 export class LearningCommunityController {
   constructor(private readonly learnService: LearningCommunityService) {}
 

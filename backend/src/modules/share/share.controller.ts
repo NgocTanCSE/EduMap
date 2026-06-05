@@ -4,7 +4,7 @@ import { ShareService } from './share.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-SHARE: Chia sẻ tài nguyên & Sanitization (Học cụ & Sách)')
-@Controller('api/share')
+@Controller('share')
 export class ShareController {
   constructor(private readonly shareService: ShareService) {}
 
@@ -17,17 +17,25 @@ export class ShareController {
   @Post('items')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đăng ký chia sẻ sách/tài liệu/học cụ mới (Có lọc XSS)' })
-  async createItem(@Req() req: any, @Body() body: any) {
-    return this.shareService.createItem(req.user.id, body);
+  @ApiOperation({ summary: 'Đăng tải sách/tài liệu/học cụ mới' })
+  async createItem(@Req() req: any, @Body() data: any) {
+    return this.shareService.createItem(req.user.id, data);
+  }
+
+  @Get('me/requests')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách yêu cầu mượn sách của tôi' })
+  async getMyRequests(@Req() req: any) {
+    return this.shareService.getUserBorrowRequests(req.user.id);
   }
 
   @Post('items/:id/request')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Yêu cầu mượn sách/tài liệu và lấy mã tracking vận chuyển' })
-  async requestItem(@Param('id') id: string, @Req() req: any) {
-    return this.shareService.requestItem(id, req.user.id);
+  @ApiOperation({ summary: 'Gửi yêu cầu mượn học cụ & tài liệu' })
+  async requestItem(@Param('id') id: string, @Req() req: any, @Body('message') message: string) {
+    return this.shareService.requestItem(id, req.user.id, message);
   }
 
   @Post('items/:id/return')

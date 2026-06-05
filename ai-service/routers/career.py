@@ -1,17 +1,17 @@
 ﻿from fastapi import APIRouter, HTTPException
-from models.career_models import CareerQuizRequest, CareerRecommendationResponse, RecommendedCareer
-from services.llm_service import LLMService
+from app.models.career_models import CareerAnalysisRequest, CareerRecommendationResponse, RecommendedCareer
+from app.services.llm_service import LLMService
 
 router = APIRouter(prefix="/api/ai/career", tags=["2. Career Recommendation"])
 llm_service = LLMService()
 
 @router.post("/recommend", response_model=CareerRecommendationResponse)
-async def recommend_career(request: CareerQuizRequest):
+async def recommend_career(request: CareerAnalysisRequest):
     try:
-        # Gọi "bộ não" LLM phân tích hồ sơ
+        # Call the LLM "brain" to analyze the profile
         ai_results = await llm_service.recommend_career(request)
         
-        # Ánh xạ kết quả JSON của AI vào Pydantic Output Schema
+        # Map AI JSON result into Pydantic Output Schema
         top_careers = []
         for item in ai_results:
             career = RecommendedCareer(

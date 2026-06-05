@@ -1,12 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SummerCampaign } from './entities/summer.entity';
+import { SummerRegistration } from './entities/summer-registration.entity';
 
 @Injectable()
 export class SummerCampaignService {
   constructor(
     @InjectRepository(SummerCampaign) private readonly campaignRepo: Repository<SummerCampaign>,
+    @InjectRepository(SummerRegistration) private readonly registrationRepo: Repository<SummerRegistration>,
   ) {}
 
   /**
@@ -59,12 +61,32 @@ export class SummerCampaignService {
     const campaign = await this.campaignRepo.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundException('Chiến dịch Mùa hè xanh không tồn tại');
 
+    if (campaign.status !== 'active') {
+        throw new BadRequestException('Chiến dịch đã kết thúc, không thể đăng ký thêm.');
+    }
+
+    const existing = await this.registrationRepo.findOne({
+        where: { user_id: userId, campaign_id: campaignId }
+    });
+
+    if (existing) {
+        throw new BadRequestException('Bạn đã đăng ký tham gia chiến dịch này rồi. Vui lòng chờ liên hệ.');
+    }
+
+    const registration = this.registrationRepo.create({
+        user_id: userId,
+        campaign_id: campaignId,
+        status: 'pending'
+    });
+
+    await this.registrationRepo.save(registration);
+
     return {
       success: true,
       message: `Đăng ký tham gia chiến dịch ${campaign.name} thành công. Hãy chờ liên hệ từ đội trưởng địa bàn ${campaign.location}!`,
       campaign_id: campaignId,
       user_id: userId,
-      registered_at: new Date(),
+      registered_at: registration.created_at,
     };
   }
 }

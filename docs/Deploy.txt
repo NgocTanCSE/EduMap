@@ -1,0 +1,75 @@
+ Chào bạn, tôi là Elite Coder. Đây là một câu hỏi rất quan trọng về mặt
+  kiến trúc hệ thống (System Architecture) khi triển khai trên Hugging Face
+  (HF) Spaces.
+
+  Dưới đây là phân tích chi tiết về cấu hình DB hiện tại và tư vấn giải pháp
+  tối ưu cho bạn:
+
+  ---
+
+  1. Cấu hình DB hiện tại trong "Unified Container"
+  Trong file Dockerfile.hf và supervisord.conf tôi vừa thiết lập:
+   * DB là gì: Tôi đã cài đặt PostgreSQL 14 kèm PostGIS 3 trực tiếp vào bên
+     trong Image Ubuntu của bạn.
+   * Vị trí: Nó chạy cùng với Backend và Frontend trên cùng một "máy ảo"
+     (Container).
+   * Kết nối: Backend kết nối tới DB qua localhost:5432.
+
+  ---
+
+  2. So sánh: Dùng DB nội bộ (Internal) vs DB bên thứ 3 (External)
+
+  ┌──────────┬─────────────────────────────────┬─────────────────────┐
+  │ Đặc điểm │ DB Nội bộ (Trong Container)     │ DB Bên thứ 3        │
+  │          │                                 │ (Supabase, Neon,    │
+  │          │                                 │ AWS)                │
+  ├──────────┼─────────────────────────────────┼─────────────────────┤
+  │ Chi phí  │ Miễn phí hoàn toàn (nằm trong   │ Thường có gói miễn  │
+  │          │ tài nguyên Space).              │ phí, nhưng giới hạn │
+  │          │                                 │ dung lượng.         │
+  │ Độ bền   │ Rủi ro cao. Dữ liệu sẽ mất sạch │ An toàn tuyệt đối.  │
+  │ dữ liệu  │ khi Space restart/re-build (trừ │ Dữ liệu tồn tại độc │
+  │          │ khi có Persistent Storage).     │ lập với ứng dụng.   │
+  │ Hiệu     │ Nhanh (do truy cập localhost).  │ Chậm hơn một chút   │
+  │ suất     │                                 │ (do độ trễ mạng).   │
+  │ Tính mở  │ Khó mở rộng, giới hạn bởi RAM   │ Dễ dàng nâng cấp,   │
+  │ rộng     │ của Space.                      │ backup và quản lý.  │
+  │ PostGIS  │ Đã được cài đặt sẵn trong       │ Cần chọn nhà cung   │
+  │          │ Dockerfile.                     │ cấp hỗ trợ PostGIS  │
+  │          │                                 │ (như Supabase).     │
+  └──────────┴─────────────────────────────────┴─────────────────────┘
+  ---
+
+  3. Tư vấn từ "Elite Coder"
+
+  Đối với dự án EduMap (có chức năng Bản đồ - Geo Analysis), tôi có 2 hướng
+  tư vấn cho bạn:
+
+  Hướng A: Nếu bạn muốn dùng DB nội bộ (Internal)
+  Bạn BẮT BUỘC phải bật tính năng "Persistent Storage" trong cài đặt của
+  Hugging Face Space (thường tốn phí hoặc yêu cầu xác thực).
+   * Sau đó, tôi sẽ chỉnh sửa để PostgreSQL lưu dữ liệu vào thư mục /data
+     (thư mục được HF gắn đĩa cứng vĩnh viễn).
+   * Ưu điểm: Bạn làm chủ hoàn toàn dữ liệu, không phụ thuộc bên ngoài.
+
+  Hướng B: Nếu bạn muốn dùng DB bên thứ 3 (Khuyên dùng cho 100% độ ổn định)
+  Tôi khuyên bạn nên dùng Supabase hoặc Neon.tech (Cả hai đều hỗ trợ
+  PostGIS).
+   * Tại sao: Khi bạn đẩy code mới lên HF, container sẽ build lại. Nếu dùng
+     DB ngoài, dữ liệu của bạn (sinh viên, học bổng, sự kiện) vẫn còn
+     nguyên, không bị ảnh hưởng bởi quá trình deploy.
+   * Thay đổi: Chúng ta chỉ cần nạp URL của DB ngoài vào biến môi trường
+     DB_HOST, DB_PORT,... là xong. Tôi sẽ gỡ bỏ PostgreSQL khỏi Dockerfile
+     để Image nhẹ hơn và build nhanh hơn.
+
+  ---
+
+  🛡️ CHIẾN LƯỢC TIẾP THEO (ELITE CODER PLAN)
+
+   1. Nếu bạn chọn Hướng B (DB ngoài): Hãy cung cấp cho tôi thông tin kết
+      nối (Host, User, Password) hoặc tôi sẽ hướng dẫn bạn cách nạp vào
+      Secret của HF. Tôi sẽ tối ưu lại Dockerfile để "vứt bỏ" gánh nặng DB
+      nội bộ.
+   2. Nếu bạn chọn Hướng A (DB nội bộ): Tôi sẽ tiến hành cấu hình "Mount
+      Volume" để đảm bảo dữ liệu không bị mất khi bạn tắt máy hoặc cập nhật
+      code.

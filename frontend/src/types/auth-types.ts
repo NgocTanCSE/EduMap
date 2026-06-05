@@ -1,0 +1,14 @@
+export enum UserRole {
+  GUEST = 'guest',
+  STUDENT = 'student',
+  PARENT = 'parent',
+  TEACHER = 'teacher',
+  MENTOR = 'mentor',
+  SCHOOL_REP = 'school_rep',
+  DONOR = 'donor',
+  EMPLOYER = 'employer',
+  ADMIN = 'admin',
+  COMMUNITY_COORD = 'community_coord',
+  SUPPORT_STAFF = 'support_staff',
+  PARTNER = 'partner',
+}

@@ -1,21 +1,28 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MapPoint } from './entities/map-point.entity';
+import { Location } from './entities/location.entity';
+import { LocationCategory } from './entities/location-category.entity';
+import { AIService } from '../ai/ai.service';
 
 @Injectable()
 export class MapService {
   constructor(
-    @InjectRepository(MapPoint) 
-    private pointRepo: Repository<MapPoint>,
+    @InjectRepository(Location) private readonly locationRepo: Repository<Location>,
+    @InjectRepository(LocationCategory) private readonly categoryRepo: Repository<LocationCategory>,
+    private readonly aiService: AIService,
   ) {}
 
   /**
-   * Lấy tất cả các điểm giáo dục đã phê duyệt
+   * Lấy tất cả các địa điểm đã xác minh
    */
-  async getPoints() {
-    return this.pointRepo.find({
-      where: { status: 'approved' },
+  async getLocations(categoryId?: number) {
+    const whereClause: any = { status: 'active' };
+    if (categoryId) whereClause.category_id = categoryId;
+
+    return this.locationRepo.find({
+      where: whereClause,
+      relations: ['category'],
       order: { name: 'ASC' },
     });
   }
@@ -25,84 +32,127 @@ export class MapService {
    * Giúp tìm các địa điểm trong vòng X mét từ một tọa độ (lat, lng)
    */
   async findNearby(lat: number, lng: number, radiusInMeters: number = 5000) {
-    return this.pointRepo
-      .createQueryBuilder('point')
-      .where('point.status = :status', { status: 'approved' })
+    return this.locationRepo
+      .createQueryBuilder('loc')
+      .leftJoinAndSelect('loc.category', 'category')
+      .where('loc.status = :status', { status: 'active' })
       .andWhere(
-        'ST_DWithin(point.location, ST_SetSRID(ST_Point(:lng, :lat), 4326)::geography, :radius)',
+        'ST_DWithin(loc.coordinates, ST_SetSRID(ST_Point(:lng, :lat), 4326)::geography, :radius)',
         { lng, lat, radius: radiusInMeters }
       )
       .getMany();
   }
 
   /**
-   * Tìm kiếm theo từ khóa và loại hình
+   * TÌM KIẾM TRONG VÙNG NHÌN (ST_MakeEnvelope)
+   * Tìm các địa điểm nằm trong hình chữ nhật bao quanh (viewport)
    */
-  async searchPoints(q: string, type?: string) {
-    const qb = this.pointRepo.createQueryBuilder('point');
-    qb.where('point.status = :status', { status: 'approved' });
-    
-    if (q) {
-      qb.andWhere('(point.name ILIKE :q OR point.description ILIKE :q)', { q: `%${q}%` });
-    }
-    
-    if (type) {
-      const typeMap: { [key: string]: number[] } = {
-        'school': [1, 2],
-        'library': [3, 4],
-        'lab': [5],
-        'university': [1],
-        'highschool': [2],
-      };
-      const mappedIds = typeMap[type.toLowerCase()];
-      if (mappedIds && mappedIds.length > 0) {
-        qb.andWhere('point.type_id IN (:...mappedIds)', { mappedIds });
-      } else if (!isNaN(Number(type))) {
-        qb.andWhere('point.type_id = :typeId', { typeId: Number(type) });
-      }
-    }
-
-    return qb.getMany();
+  async findInBounds(swLat: number, swLng: number, neLat: number, neLng: number) {
+    return this.locationRepo
+      .createQueryBuilder('loc')
+      .leftJoinAndSelect('loc.category', 'category')
+      .where('loc.status = :status', { status: 'active' })
+      .andWhere(
+        'loc.coordinates && ST_MakeEnvelope(:swLng, :swLat, :neLng, :neLat, 4326)',
+        { swLng, swLat, neLng, neLat }
+      )
+      .getMany();
   }
 
   /**
-   * Thêm điểm mới (Crowdsourcing)
+   * Tìm kiếm theo từ khóa
    */
-  async createPoint(data: any) {
-    const point = this.pointRepo.create({
+  async searchLocations(q: string) {
+    return this.locationRepo
+      .createQueryBuilder('loc')
+      .leftJoinAndSelect('loc.category', 'category')
+      .where('loc.status = :status', { status: 'active' })
+      .andWhere('(loc.name ILIKE :q OR loc.description ILIKE :q OR loc.address ILIKE :q)', { q: `%${q}%` })
+      .getMany();
+  }
+
+  /**
+   * Lấy chi tiết một địa điểm
+   */
+  async getLocationById(id: string) {
+    const location = await this.locationRepo.findOne({
+      where: { id },
+      relations: ['category', 'creator'],
+    });
+    if (!location) throw new NotFoundException('Địa điểm không tồn tại');
+    return location;
+  }
+
+  /**
+   * Tạo địa điểm mới
+   */
+  async createLocation(data: any, userId?: string) {
+    const location = this.locationRepo.create({
       ...data,
-      location: {
+      coordinates: {
         type: 'Point',
         coordinates: [Number(data.lng), Number(data.lat)],
       },
-      status: data.status || 'pending', // Crowdsourced points default to pending
+      created_by: userId,
     });
-    return this.pointRepo.save(point);
+    return this.locationRepo.save(location);
   }
 
   /**
-   * Phê duyệt/từ chối điểm bản đồ crowdsource
+   * Cập nhật địa điểm
    */
-  async approvePoint(id: string, status: 'approved' | 'rejected') {
-    const point = await this.pointRepo.findOne({ where: { id } });
-    if (!point) {
-      throw new NotFoundException(`Educational point with ID ${id} not found`);
+  async updateLocation(id: string, data: any) {
+    const location = await this.getLocationById(id);
+    
+    if (data.lat && data.lng) {
+      data.coordinates = {
+        type: 'Point',
+        coordinates: [Number(data.lng), Number(data.lat)],
+      };
+      delete data.lat;
+      delete data.lng;
     }
-    point.status = status;
-    return this.pointRepo.save(point);
+
+    Object.assign(location, data);
+    return this.locationRepo.save(location);
   }
 
   /**
-   * Lấy dữ liệu Heatmap (GeoJSON)
+   * Xóa địa điểm
    */
-  async getHeatmapData() {
-    const points = await this.pointRepo.find({ where: { status: 'approved' } });
-    return points
-      .filter(p => p.location && p.location.coordinates)
-      .map(p => ({
-        lat: p.location.coordinates[1],
-        lng: p.location.coordinates[0],
-        weight: Number(p.rating_avg) > 0 ? Number(p.rating_avg) / 5 : 1.0,
-      }));
+  async deleteLocation(id: string) {
+    const location = await this.getLocationById(id);
+    return this.locationRepo.remove(location);
+  }
+
+  /**
+   * Lấy danh mục địa điểm
+   */
+  async getCategories() {
+    return this.categoryRepo.find({ order: { display_name: 'ASC' } });
+  }
+
+  /**
+   * 🤖 AI GEO-ANALYSIS
+   * Sử dụng AI để phân tích mật độ giáo dục và gợi ý khu vực cần đầu tư
+   */
+  async analyzeEducationDensity(city: string) {
+    const locations = await this.locationRepo.find({
+        where: { city: city, status: 'active' },
+        relations: ['category']
+    });
+
+    const geoData = locations.map(l => ({
+        name: l.name,
+        type: l.category.name,
+        lat: l.coordinates.coordinates[1],
+        lng: l.coordinates.coordinates[0]
+    }));
+
+    // Gửi dữ liệu sang AI Service
+    return this.aiService.analyzeGeoDensity({
+        city,
+        points: geoData
+    });
   }
 }

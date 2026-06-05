@@ -29,20 +29,32 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   /**
-   * Gửi thông báo thời gian thực tới một User
+   * Đăng ký User ID vào Room riêng để nhận thông báo cá nhân
+   */
+  @SubscribeMessage('identity')
+  handleIdentity(@ConnectedSocket() client: Socket, @MessageBody() userId: string) {
+    if (userId) {
+      client.join(userId);
+      this.logger.log(`User ${userId} joined their private room.`);
+      return { status: 'ok', room: userId };
+    }
+  }
+
+  /**
+   * Gửi thông báo thời gian thực tới một User cụ thể
    */
   sendToUser(userId: string, data: any) {
-    this.server.emit('notify', data);
+    this.server.to(userId).emit('notify', data);
   }
 
   // ==========================================
-  // 🎥 WEBRTC SIGNALING LOGIC
+  // 🎥 WEBRTC SIGNALING LOGIC (Giữ nguyên)
   // ==========================================
 
   @SubscribeMessage('join-call')
   handleJoinCall(@ConnectedSocket() client: Socket, @MessageBody() room: string) {
     client.join(room);
-    this.logger.log(`User joined room: ${room}`);
+    this.logger.log(`User joined call room: ${room}`);
     client.to(room).emit('user-joined', { userId: client.id });
   }
 

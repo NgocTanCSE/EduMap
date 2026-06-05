@@ -1,71 +1,138 @@
 services:
-  # --- DATABASES ---
+  # --- INFRASTRUCTURE ---
   postgres:
     image: postgis/postgis:16-3.4
     container_name: edumap_postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: edumap_db
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT_EXTERNAL}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: edumap_redis
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
   minio:
     image: minio/minio:latest
     container_name: edumap_minio
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    restart: unless-stopped
+
+  # --- REVERSE PROXY ---
+  nginx:
+    image: nginx:alpine
+    container_name: edumap_nginx
+    volumes:
+      - ./infrastructure/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${NGINX_PORT_EXTERNAL}:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
 
   # --- APP SERVICES ---
   backend:
     build: ./backend
     container_name: edumap_backend
     environment:
-      - DB_HOST=postgres
-      - REDIS_HOST=redis
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - REDIS_HOST=${REDIS_HOST}
       - MINIO_ENDPOINT=minio
-      - AI_SERVICE_URL=http://ai-service:8000
-      - NODE_ENV=production
-    ports:
-      - "3000:3000"
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - NODE_ENV=${NODE_ENV}
+    # NO DIRECT PORTS - Secure through Nginx
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
     container_name: edumap_frontend
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-    ports:
-      - "3001:3000"
+      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - BACKEND_URL=http://backend:3000
+      - HOSTNAME=0.0.0.0
+    # NO DIRECT PORTS - Secure through Nginx
     depends_on:
       - backend
+    restart: unless-stopped
 
   ai-service:
     build: ./ai-service
     container_name: edumap_ai
-    ports:
-      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+    volumes:
+      - chroma_db_data:/app/chroma_db
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db-init:
+    image: python:3.11-slim
+    container_name: edumap_db_init
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    command: >
+      sh -c "pip install psycopg2-binary python-dotenv && 
+             python scripts/execute_db_setup.py"
+    depends_on:
+      postgres:
+        condition: service_started
+    profiles:
+      - init # Chạy bằng lệnh: docker-compose --profile init up
+
+  # --- MONITORING SERVICES ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: edumap_prometheus
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "${PROMETHEUS_PORT_EXTERNAL}:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: edumap_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   minio_data:
+  chroma_db_data:

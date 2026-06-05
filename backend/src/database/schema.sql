@@ -56,6 +56,22 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_location ON users USING GIST(location);
 
+-- 5. modules
+CREATE TABLE modules (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE features (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    module_id VARCHAR(255) REFERENCES modules(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 6. map_categories
 CREATE TABLE map_categories (
     id SERIAL PRIMARY KEY,
@@ -607,6 +623,29 @@ CREATE TABLE internships (
     deadline DATE,
     application_count INTEGER DEFAULT 0,
     status VARCHAR(50) DEFAULT 'open',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 41. shared_items
+CREATE TABLE shared_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(100), -- book/equipment/etc
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'available', -- available/taken/exchanged
+    owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 42. borrow_requests
+CREATE TABLE borrow_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_id UUID REFERENCES shared_items(id) ON DELETE CASCADE,
+    requester_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT,
+    status VARCHAR(50) DEFAULT 'pending', -- pending/approved/rejected/returned
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

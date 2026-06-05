@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne } from 'typeorm';
+import { UserPreference } from './user-preference.entity';
 
 export enum UserRole {
   GUEST = 'guest',
@@ -25,6 +26,15 @@ export class User {
 
   @Column({ select: false })
   password_hash: string;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  twoFactorSecret: string;
+
+  @Column({ default: false })
+  isTwoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshTokenHash: string;
 
   @Column({ name: 'role_id', default: 11 })
   role_id: number;
@@ -69,6 +79,9 @@ export class User {
   @Column({ type: 'text', array: true, default: '{}' })
   skills: string[];
 
+  @Column({ type: 'text', array: true, default: '{}' })
+  interests: string[];
+
   @Column({ default: 0 })
   points: number;
 
@@ -81,9 +94,15 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   last_login: Date;
 
+  @OneToOne(() => UserPreference, (prefs) => prefs.user, { cascade: true })
+  preferences: UserPreference;
+
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn()
+  deleted_at: Date;
 }

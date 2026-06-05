@@ -1,8 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import re
+from services.llm_service import LLMService
 
 router = APIRouter(prefix="/api/ai/moderate", tags=["7. AI Content Moderation"])
+llm_service = LLMService()
 
 class ContentRequest(BaseModel):
     user_id: str
@@ -15,7 +17,7 @@ class ModerationResult(BaseModel):
     flags: list
     action_taken: str
 
-# Từ điển Regex cơ bản (Mock)
+# Từ điển Regex cơ bản (Lọc siêu tốc ở Layer 1)
 BAD_WORDS_PATTERN = re.compile(r'\b(chửi thề|đm|vkl|lừa đảo|đánh bạc)\b', re.IGNORECASE)
 PHONE_PATTERN = re.compile(r'\b(0[3|5|7|8|9])+([0-9]{8})\b')
 
@@ -23,7 +25,7 @@ PHONE_PATTERN = re.compile(r'\b(0[3|5|7|8|9])+([0-9]{8})\b')
 async def moderate_content(request: ContentRequest):
     flags = []
     
-    # Lớp 1: Lọc bằng Regex (Tốc độ siêu nhanh 0.01s)
+    # Layer 1: Fast Regex Filtering
     if BAD_WORDS_PATTERN.search(request.text):
         flags.append("Profanity")
     
@@ -31,7 +33,6 @@ async def moderate_content(request: ContentRequest):
         flags.append("PII_Phone_Number")
 
     if flags:
-        # Nếu dính Regex -> Chặn ngay lập tức không cần tốn tiền gọi LLM
         return ModerationResult(
             status="Processed via Regex",
             is_safe=False,
@@ -40,34 +41,35 @@ async def moderate_content(request: ContentRequest):
             action_taken="AUTO_REJECTED"
         )
 
-    # Lớp 2: Gọi LLM phân tích ngữ nghĩa ngầm (Mock logic)
-    # Trong thực tế, chỗ này sẽ gọi model PhoBERT hoặc Gemini
-    toxicity_score = 0.1 # Giả lập điểm độc hại (0.0 -> 1.0)
-    
-    if "đồ ngu" in request.text.lower() or "chết đi" in request.text.lower():
-        toxicity_score = 0.9
+    # Layer 2: Deep Semantic Analysis with Gemini
+    try:
+        ai_result = await llm_service.moderate_text(request.text)
+        
+        is_safe = ai_result.get("is_safe", False)
+        confidence = float(ai_result.get("confidence", 0.0))
+        ai_flags = ai_result.get("flags", [])
 
-    if toxicity_score > 0.8:
+        action_taken = "APPROVED"
+        if not is_safe:
+            if confidence > 0.8:
+                action_taken = "AUTO_REJECTED"
+            else:
+                action_taken = "SEND_TO_HUMAN_REVIEW"
+
         return ModerationResult(
-            status="Processed via AI NLP",
+            status="Processed via Gemini AI",
+            is_safe=is_safe,
+            confidence=confidence,
+            flags=ai_flags,
+            action_taken=action_taken
+        )
+    except Exception as e:
+        print(f"Error in moderation route: {str(e)}")
+        # Fail-safe: Gửi cho người kiểm duyệt nếu AI gặp sự cố
+        return ModerationResult(
+            status="AI Error - Fallback",
             is_safe=False,
-            confidence=toxicity_score,
-            flags=["Toxic_Language", "Harassment"],
-            action_taken="AUTO_REJECTED"
-        )
-    elif toxicity_score > 0.4:
-        return ModerationResult(
-            status="Processed via AI NLP",
-            is_safe=True,
-            confidence=toxicity_score,
-            flags=["Suspicious"],
+            confidence=0.0,
+            flags=["System_Error"],
             action_taken="SEND_TO_HUMAN_REVIEW"
-        )
-    else:
-        return ModerationResult(
-            status="Processed via AI NLP",
-            is_safe=True,
-            confidence=toxicity_score,
-            flags=[],
-            action_taken="APPROVED"
         )

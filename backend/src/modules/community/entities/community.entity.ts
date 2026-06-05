@@ -38,7 +38,7 @@ export class Post {
   @Column()
   author_id: string;
 
-  @ManyToOne(() => Group, { nullable: true })
+  @ManyToOne(() => Group, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'group_id' })
   group: Group;
 
@@ -57,6 +57,9 @@ export class Post {
   @Column({ default: 0 })
   comment_count: number;
 
+  @Column({ default: 'active' }) // active, pending_review, rejected
+  status: string;
+
   @CreateDateColumn()
   created_at: Date;
 
@@ -69,7 +72,7 @@ export class Comment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Post)
+  @ManyToOne(() => Post, { onDelete: 'CASCADE' }) // Prevents orphaned records
   @JoinColumn({ name: 'post_id' })
   post: Post;
 
@@ -85,6 +88,9 @@ export class Comment {
 
   @Column({ type: 'text' })
   content: string;
+
+  @Column({ default: 'active' }) // active, pending_review, rejected
+  status: string;
 
   @CreateDateColumn()
   created_at: Date;

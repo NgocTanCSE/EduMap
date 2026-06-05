@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MapService } from './map.service';
 import { MapController } from './map.controller';
-import { MapPoint } from './entities/map-point.entity';
+import { Location } from './entities/location.entity';
+import { LocationCategory } from './entities/location-category.entity';
+import { AIModule } from '../ai/ai.module'; // Correct path to AIModule
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MapPoint]),
+    TypeOrmModule.forFeature([Location, LocationCategory]),
   ],
   providers: [MapService],
   controllers: [MapController],

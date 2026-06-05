@@ -1,124 +1,168 @@
 "use client";
-import React, { useState } from 'react';
-import { Shield, User, Search, MoreVertical, CheckCircle, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
-
-const users = [
-  { id: 1, name: 'Lê Ngọc Tân', email: 'tan.le@example.com', role: 'ADMIN', status: 'active', source: 'MANUAL', joinDate: '12/05/2026' },
-  { id: 2, name: 'Nguyễn Văn A', email: 'a.nguyen@example.com', role: 'STUDENT', status: 'active', source: 'AUTO (EMAIL)', joinDate: '14/05/2026' },
-  { id: 3, name: 'Trần Thị B', email: 'b.tran@example.com', role: 'MENTOR', status: 'pending', source: 'AUTO (APP)', joinDate: '15/05/2026' },
-];
-
-const roles = ['ADMIN', 'STUDENT', 'MENTOR', 'ORGANIZATION', 'DONOR', 'MODERATOR'];
+import React, { useState, useEffect } from 'react';
+import { adminService } from '@/src/services/admin.service';
+import { Shield, Search, Plus, Trash2, Edit2, ShieldAlert, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminRolesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState<{ id: number; name: string; description: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDesc, setNewRoleDesc] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
+
+  const fetchRoles = async () => {
+    try {
+      setLoading(true);
+      const data = await adminService.getRoles();
+      setRoles(data);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      toast.error('Không thể tải danh sách vai trò. Đảm bảo bạn có quyền Admin.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateRole = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newRoleName.trim()) return;
+
+      try {
+          setSubmitting(true);
+          const newRole = await adminService.createRole(newRoleName, newRoleDesc);
+          toast.success('Tạo vai trò thành công');
+          setRoles([...roles, newRole]);
+          setShowModal(false);
+          setNewRoleName('');
+          setNewRoleDesc('');
+      } catch (error: any) {
+          toast.error(error.message || 'Lỗi khi tạo vai trò');
+      } finally {
+          setSubmitting(false);
+      }
+  };
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-8">
+      {/* Modal Create Role */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[#121215] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+                <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white">
+                    <X className="w-5 h-5" />
+                </button>
+                <h3 className="text-2xl font-bold mb-2">Thêm vai trò mới</h3>
+                <p className="text-sm text-white/40 mb-6">Định nghĩa nhóm quyền hạn mới cho hệ thống.</p>
+                
+                <form onSubmit={handleCreateRole} className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Tên vai trò (Key) *</label>
+                        <input 
+                            type="text" 
+                            required
+                            value={newRoleName}
+                            onChange={e => setNewRoleName(e.target.value)}
+                            placeholder="VD: content_creator"
+                            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none" 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Mô tả chi tiết</label>
+                        <textarea 
+                            rows={3}
+                            value={newRoleDesc}
+                            onChange={e => setNewRoleDesc(e.target.value)}
+                            placeholder="Mô tả chức năng của vai trò này..."
+                            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none resize-none" 
+                        />
+                    </div>
+                    
+                    <button 
+                        type="submit" 
+                        disabled={submitting}
+                        className="w-full py-4 mt-4 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-black font-black transition-all shadow-lg shadow-yellow-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                    >
+                        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null} LƯU VAI TRÒ
+                    </button>
+                </form>
+            </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
-              <ShieldAlert className="w-8 h-8 text-red-500" />
-              Quản lý Quyền hạn
+              <ShieldAlert className="w-8 h-8 text-yellow-500" />
+              Quản lý Vai trò
             </h1>
-            <p className="text-white/40 text-sm">Quản lý 12 vai trò người dùng trong hệ sinh thái EduMap.</p>
+            <p className="text-white/40 text-sm">Định nghĩa các nhóm quyền hạn trong hệ thống EduMap.</p>
           </div>
-          <div className="flex gap-4">
-             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
-                <p className="text-xl font-bold">12</p>
-                <p className="text-[10px] text-white/40 uppercase font-bold">Tổng số vai trò</p>
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-yellow-600 hover:bg-yellow-500 text-black font-bold transition-all shadow-lg shadow-yellow-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm vai trò mới
+          </button>
+        </div>
+
+        {/* Roles Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+             <div className="col-span-full py-20 text-center flex justify-center">
+                 <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
              </div>
-             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
-                <p className="text-xl font-bold">1,254</p>
-                <p className="text-[10px] text-white/40 uppercase font-bold">Tổng người dùng</p>
-             </div>
-          </div>
+          ) : roles.length > 0 ? roles.map(role => (
+            <div key={role.id} className="p-6 rounded-[32px] bg-zinc-900/50 border border-white/10 hover:border-yellow-500/50 transition-all group">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 rounded-2xl bg-yellow-500/10 text-yellow-500">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white">
+                      <Edit2 className="w-4 h-4" />
+                   </button>
+                   <button className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-500">
+                      <Trash2 className="w-4 h-4" />
+                   </button>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-2">{role.name}</h3>
+              <p className="text-sm text-white/40 leading-relaxed mb-6">
+                {role.description || 'Chưa có mô tả cho vai trò này.'}
+              </p>
+              <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">ID: {role.id}</span>
+                 <button className="text-xs font-bold text-yellow-500 hover:underline">Chi tiết quyền hạn</button>
+              </div>
+            </div>
+          )) : (
+              <div className="col-span-full py-20 text-center text-white/40 border border-dashed border-white/10 rounded-3xl">
+                  Chưa có dữ liệu vai trò.
+              </div>
+          )}
         </div>
 
-        {/* Search & Actions */}
-        <div className="flex gap-4 items-center p-4 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm theo tên hoặc email..." 
-              className="w-full bg-white/5 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:border-blue-500 transition-colors"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <button className="px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-sm font-bold transition-all">Xuất báo cáo</button>
-        </div>
-
-        {/* Users Table */}
-        <div className="rounded-[32px] overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/5">
-                <th className="p-6 text-xs font-bold text-white/40 uppercase">Người dùng</th>
-                <th className="p-6 text-xs font-bold text-white/40 uppercase">Vai trò</th>
-                <th className="p-6 text-xs font-bold text-white/40 uppercase">Nguồn gốc</th>
-                <th className="p-6 text-xs font-bold text-white/40 uppercase">Trạng thái</th>
-                <th className="p-6 text-xs font-bold text-white/40 uppercase">Ngày gia nhập</th>
-                <th className="p-6 text-xs font-bold text-white/40 uppercase text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {users.map(user => (
-                <tr key={user.id} className="hover:bg-white/5 transition-colors">
-                  <td className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold">
-                        {user.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{user.name}</p>
-                        <p className="text-[10px] text-white/40">{user.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-6">
-                    <select className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 outline-none focus:border-blue-500">
-                      {roles.map(role => (
-                        <option key={role} value={role} selected={role === user.role}>{role}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-6">
-                    <span className={`px-2 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold ${user.source === 'MANUAL' ? 'text-blue-400' : 'text-purple-400'}`}>
-                      {user.source}
-                    </span>
-                  </td>
-                  <td className="p-6">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                      {user.status === 'active' ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="p-6 text-xs text-white/40">{user.joinDate}</td>
-                  <td className="p-6 text-right">
-                    <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                      <MoreVertical className="w-5 h-5 text-white/30" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Warning Section */}
-        <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/10 flex gap-6 items-center">
-           <div className="p-4 bg-red-500/10 rounded-2xl">
-              <Shield className="w-8 h-8 text-red-500" />
+        {/* Info Section */}
+        <div className="p-6 rounded-3xl bg-zinc-900 border border-white/10 flex gap-6 items-center">
+           <div className="p-4 bg-yellow-500/10 rounded-2xl shrink-0">
+              <Shield className="w-8 h-8 text-yellow-500" />
            </div>
            <div>
-              <h4 className="font-bold text-red-500 mb-1">Cảnh báo bảo mật</h4>
-              <p className="text-xs text-white/40 leading-relaxed">
-                Việc thay đổi vai trò ảnh hưởng trực tiếp đến quyền truy cập dữ liệu nhạy cảm. Mọi thao tác thay đổi vai trò sẽ được ghi lại trong nhật ký hệ thống (Audit Log).
+              <h4 className="font-bold mb-1">Cơ chế RBAC (Role-Based Access Control)</h4>
+              <p className="text-xs text-white/40 leading-relaxed max-w-2xl">
+                Hệ thống sử dụng cơ chế phân quyền dựa trên vai trò. Mỗi vai trò được gán một tập hợp các quyền (permissions) cụ thể để truy cập vào các tài nguyên và chức năng khác nhau. Chỉ có Admin mới được phép thao tác ở màn hình này.
               </p>
            </div>
         </div>

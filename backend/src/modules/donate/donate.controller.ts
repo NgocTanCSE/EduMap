@@ -4,7 +4,7 @@ import { DonateService } from './donate.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-DONATE: Quyên góp & Hỗ trợ')
-@Controller('api/donations')
+@Controller('donations')
 export class DonateController {
   constructor(private readonly donateService: DonateService) {}
 
@@ -18,6 +18,12 @@ export class DonateController {
   @ApiOperation({ summary: 'Lấy chi tiết chiến dịch quyên góp theo ID' })
   async getCampaignById(@Param('id') id: string) {
     return this.donateService.getCampaignById(id);
+  }
+
+  @Get('campaigns/:id/donors')
+  @ApiOperation({ summary: 'Lấy danh sách người đóng góp của một chiến dịch' })
+  async getDonors(@Param('id') id: string) {
+    return this.donateService.getDonorsByCampaignId(id);
   }
 
   @Post('campaigns')

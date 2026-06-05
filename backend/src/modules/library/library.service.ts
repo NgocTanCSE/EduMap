@@ -2,16 +2,64 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LearningMaterial } from './entities/learning-material.entity';
+import { UserLearningHistory } from './entities/user-learning-history.entity';
 import { User } from '../auth/entities/user.entity';
 import { StorageService } from '../storage/storage.service';
+import { AIService } from '../ai/ai.service';
 
 @Injectable()
 export class LibraryService {
   constructor(
     @InjectRepository(LearningMaterial)
     private materialRepo: Repository<LearningMaterial>,
+    @InjectRepository(UserLearningHistory)
+    private historyRepo: Repository<UserLearningHistory>,
     private storageService: StorageService,
-  ) {}
+    private aiService: AIService,
+  ) { }
+
+  /**
+   * Lưu lịch sử học tập
+   */
+  async recordViewHistory(userId: string, materialId: string) {
+    const material = await this.materialRepo.findOne({ where: { id: materialId } });
+    if (!material) throw new NotFoundException('Tài liệu không tồn tại');
+
+    // Tìm lịch sử cũ
+    let history = await this.historyRepo.findOne({
+      where: { user: { id: userId } as any, material: { id: materialId } as any }
+    });
+
+    if (history) {
+      history.last_accessed_at = new Date();
+    } else {
+      history = this.historyRepo.create({
+        user: { id: userId } as any,
+        material: { id: materialId } as any,
+        status: 'in_progress',
+        progress_percentage: 10 // Mock progress
+      });
+    }
+
+    return this.historyRepo.save(history);
+  }
+
+  /**
+   * AI Sinh tóm tắt và lộ trình học cho tài liệu
+   */
+  async generateMaterialSummary(materialId: string) {
+    const material = await this.materialRepo.findOne({ where: { id: materialId } });
+    if (!material) throw new NotFoundException('Tài liệu không tồn tại');
+
+    // Chuyển dữ liệu sang AI Service
+    return this.aiService.summarizeMaterial({
+      title: material.title,
+      description: material.description,
+      category: material.category,
+      tags: material.tags,
+      type: material.type
+    });
+  }
 
   /**
    * Tìm kiếm học liệu nâng cao
@@ -60,8 +108,37 @@ export class LibraryService {
   async getDetail(id: string) {
     const material = await this.materialRepo.findOne({ where: { id } });
     if (!material) throw new NotFoundException('Tài liệu không tồn tại');
-    
+
     material.view_count += 1;
     return this.materialRepo.save(material);
+  }
+
+  /**
+   * Cập nhật thông tin tài liệu
+   */
+  async updateMaterial(id: string, data: any) {
+    const material = await this.materialRepo.findOne({ where: { id } });
+    if (!material) throw new NotFoundException('Tài liệu không tồn tại');
+    
+    Object.assign(material, data);
+    return this.materialRepo.save(material);
+  }
+
+  /**
+   * Xóa tài liệu
+   */
+  async deleteMaterial(id: string) {
+    const material = await this.materialRepo.findOne({ where: { id } });
+    if (!material) throw new NotFoundException('Tài liệu không tồn tại');
+
+    if (material.file_name) {
+      try {
+        await this.storageService.deleteFile(material.file_name);
+      } catch (e) {
+        // Log error but continue deleting db record
+      }
+    }
+
+    return this.materialRepo.remove(material);
   }
 }

@@ -1,21 +1,22 @@
 ﻿from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
-# --- CẤU TRÚC ĐẦU VÀO (INPUT) ---
-class CareerQuizRequest(BaseModel):
-    user_id: str = Field(..., description="ID của sinh viên")
-    mbti_type: str = Field(..., description="Kết quả bài test tính cách MBTI (VD: INTJ, ENFP)")
-    holland_code: str = Field(None, description="Kết quả bài test Holland (VD: RIA, SEC)")
-    hard_skills: List[str] = Field(default_factory=list, description="Danh sách kỹ năng cứng (VD: Python, Java)")
-    soft_skills: List[str] = Field(default_factory=list, description="Danh sách kỹ năng mềm (VD: Teamwork, Leader)")
-    interests: List[str] = Field(default_factory=list, description="Sở thích học thuật")
+# --- INPUT STRUCTURE ---
+class CareerAnalysisRequest(BaseModel):
+    user_id: str = Field(..., description="ID of the user")
+    full_name: Optional[str] = Field(None, description="User's full name")
+    mbti_type: Optional[str] = Field(None, description="MBTI personality type (e.g., INTJ, ENFP)")
+    skills: List[str] = Field(default_factory=list, description="List of user skills (e.g., Python, Java)")
+    career_aspirations: List[str] = Field(default_factory=list, description="List of career goals or aspirations")
+    recent_keywords: Optional[str] = Field(None, description="Recent search keywords related to career")
+    holland_code: Optional[str] = Field(None, description="Holland code results (e.g., RIA, SEC)")
 
-# --- CẤU TRÚC ĐẦU RA (OUTPUT) ---
+# --- OUTPUT STRUCTURE ---
 class RecommendedCareer(BaseModel):
-    title: str = Field(..., description="Tên chức danh nghề nghiệp")
-    match_score: int = Field(..., description="Điểm phù hợp (0-100%)")
-    explanation: str = Field(..., description="AI giải thích lý do tại sao nghề này hợp với sinh viên")
-    missing_skills: List[str] = Field(..., description="Các kỹ năng sinh viên cần học thêm để làm nghề này")
+    title: str = Field(..., description="Job title or career path name")
+    match_score: int = Field(..., description="Suitability score (0-100%)")
+    explanation: str = Field(..., description="AI's explanation for this recommendation")
+    missing_skills: List[str] = Field(..., description="Skills the user needs to acquire for this career")
 
 class CareerRecommendationResponse(BaseModel):
     user_id: str
