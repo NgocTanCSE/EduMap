@@ -9,7 +9,7 @@ import {
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { dashboardService } from '@/src/services/dashboard.service';
 import { gamificationService, UserProgress } from '@/src/services/gamification.service';
-import { StatSkeleton, CardSkeleton } from '@/components/ui/Skeleton';
+import { StatSkeleton, CardSkeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 export default function DashboardPage() {
