@@ -14,7 +14,7 @@ RUN npm run build
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install --legacy-peer-peer-deps
+RUN npm install --legacy-peer-deps
 COPY frontend/ .
 ENV NEXT_PUBLIC_API_URL=/api
 RUN npm run build
