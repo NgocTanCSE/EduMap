@@ -21,7 +21,7 @@ async def root():
 async def chat(request: ChatRequest):
     # This is a placeholder for LLM logic (Gemini/GPT)
     return {
-        "reply": f"–‚y l‡ c‚u tr? l?i gi? l?p cho tin nh?n: {request.message}",
+        "reply": f"ƒê√¢y l√† c√¢u tr? l?i gi? l?p cho tin nh?n: {request.message}",
         "sources": ["https://edumap.vn/docs/1"],
         "suggestions": ["L? tr?nh h?c IT", "T?m ki?m h?c b?ng"]
     }
