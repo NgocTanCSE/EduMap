@@ -80,6 +80,7 @@ USER root
 RUN mkdir -p /data /var/log/supervisor /var/run/postgresql
 
 # Copy Entrypoint Script
+COPY scripts/ ./scripts/
 COPY scripts/hf_entrypoint.sh /usr/local/bin/hf_entrypoint.sh
 RUN chmod +x /usr/local/bin/hf_entrypoint.sh
 
