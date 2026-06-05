@@ -1,7 +1,7 @@
-﻿-- Migration to create user_events table
+-- Migration to create user_events table
 CREATE TABLE IF NOT EXISTS user_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    user_id UUID,
     event_type VARCHAR(255) NOT NULL,
     metadata JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
