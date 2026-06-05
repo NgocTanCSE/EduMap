@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 # Install ALL dependencies
-RUN npm install
+RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
@@ -14,7 +14,7 @@ ENV NODE_ENV=development
 
 COPY package*.json ./
 # Re-install dependencies inside the container to avoid binary compatibility issues
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy built code from builder stage
 COPY --from=builder /app/dist ./dist
