@@ -283,3 +283,24 @@ INSERT INTO career_paths (id, title, description) VALUES (4, 'Giáo viên STEM &
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('efe3440b-ceb9-41ed-a822-0dcc4121f642', 'Thử thách gom chai nhựa tái chế - Nhận quà xanh Lạc Hồng', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'b3326d93-9920-4a16-aa27-5dec61efb352');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('b8060056-94c1-45f0-8877-fa1ddddf329d', 'Ngày hội trồng cây bảo vệ hành lang xanh sông Đồng Nai', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', '00f42ddf-59e7-4d80-b7c7-042745ef0595');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'Thử thách 7 ngày đi bộ/xe đạp đến trường - THPT Trấn Biên', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'f575c928-4899-4c7e-b56b-501ed4367783');
+
+-- Seed Location Categories
+INSERT INTO location_categories (name, display_name, icon_name, marker_color) VALUES 
+('university', 'Trường Đại học', 'graduation-cap', '#3b82f6'),
+('school', 'Trường THPT', 'school', '#10b981'),
+('library', 'Thư viện', 'book-open', '#f59e0b'),
+('lab', 'Phòng thí nghiệm STEM', 'flask-conical', '#8b5cf6'),
+('wifi_hotspot', 'Wifi miễn phí', 'wifi', '#06b6d4'),
+('study_space', 'Góc học tập/Cafe', 'coffee', '#f97316');
+
+-- Seed Scholarships
+INSERT INTO scholarships (title, description, provider, value_amount, deadline) VALUES 
+('Học bổng Toàn phần ASEAN 2026', 'Học bổng dành cho sinh viên xuất sắc khối ngành kỹ thuật tại Đông Nam Á.', 'Chính phủ Singapore', 50000.0, '2026-09-01'),
+('Quỹ Tài năng Trẻ EduMap', 'Hỗ trợ các dự án khởi nghiệp sáng tạo trong lĩnh vực giáo dục.', 'EduMap Foundation', 2000.0, '2026-07-15'),
+('Học bổng Lập trình viên Tương lai', 'Dành cho các bạn nữ có đam mê với lập trình và khoa học dữ liệu.', 'Google Vietnam', 5000.0, '2026-08-30');
+
+-- Migrate Map Points to Locations (Ensure app sees the data)
+INSERT INTO locations (id, name, description, category_id, coordinates, address, city, status, created_by, created_at)
+SELECT id, name, description, type_id, location, address, city, status, created_by, created_at
+FROM map_points
+ON CONFLICT (id) DO NOTHING;

@@ -72,7 +72,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       password: process.env.DB_PASSWORD || 'password123',
       database: process.env.DB_DATABASE || 'edumap_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false, // Quản lý qua Migrations
+      synchronize: process.env.DB_SYNC === 'true', // Bật sync nếu DB_SYNC=true
     }),
     HttpModule,
     AuthModule,

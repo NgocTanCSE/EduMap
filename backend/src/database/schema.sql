@@ -649,3 +649,48 @@ CREATE TABLE borrow_requests (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 43. location_categories (Matches LocationCategory entity)
+CREATE TABLE location_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    display_name VARCHAR(255),
+    icon_name VARCHAR(255),
+    marker_color VARCHAR(50)
+);
+
+-- 44. locations (Matches Location entity)
+CREATE TABLE locations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    category_id INTEGER REFERENCES location_categories(id),
+    coordinates GEOGRAPHY(POINT, 4326) NOT NULL,
+    address TEXT,
+    city VARCHAR(100),
+    photos JSONB,
+    rating_avg DECIMAL(3,2) DEFAULT 0,
+    rating_count INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'active',
+    is_verified BOOLEAN DEFAULT false,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_locations_coordinates ON locations USING GIST (coordinates);
+
+-- 45. scholarships (Matches Scholarship entity)
+CREATE TABLE scholarships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    provider VARCHAR(255),
+    location GEOGRAPHY(POINT, 4326),
+    value_amount DECIMAL(15,2),
+    deadline TIMESTAMP WITH TIME ZONE,
+    eligibility_criteria JSONB,
+    apply_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
