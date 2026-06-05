@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService, User } from '@/services/admin.service';
+import { adminService, User } from '@/src/services/admin.service';
 import { 
   Users, Search, MoreVertical, CheckCircle, XCircle, 
   AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { careerService } from '../../../src/services/career.service';
+import { careerService } from '@/src/services/career.service';
 import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';

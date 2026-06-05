@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { certificateService } from '../../src/services/certificate.service';
-import { authService } from '../../src/services/auth.service';
+import { certificateService } from '@/src/services/certificate.service';
+import { authService } from '@/src/services/auth.service';
 import { Award, ShieldCheck, Link as LinkIcon, Download, ExternalLink, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';

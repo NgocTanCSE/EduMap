@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Search, Star, Calendar, MessageSquare, Video, Filter, UserCheck, ChevronRight, Clock, Award, BrainCircuit } from 'lucide-react';
-import { mentorService } from '../../src/services/mentor.service';
-import { authService } from '../../src/services/auth.service';
+import { mentorService } from '@/src/services/mentor.service';
+import { authService } from '@/src/services/auth.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
 import Link from 'next/link';

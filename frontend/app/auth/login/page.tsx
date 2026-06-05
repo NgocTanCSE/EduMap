@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Correct import for useRouter
 import { LogIn, Mail, Lock, Eye, EyeOff, Github, Chrome, ShieldCheck } from 'lucide-react'; // Added ShieldCheck for 2FA
-import { authService } from '../../../../src/services/auth.service'; // Adjust path as needed
+import { authService } from '@/src/services/auth.service'; // Adjust path as needed
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

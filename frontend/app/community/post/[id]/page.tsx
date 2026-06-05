@@ -5,8 +5,8 @@ import {
   Send, AlertTriangle, CheckCircle2, Clock, User, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
-import { communityService, Post, Comment } from '../../../src/services/community.service';
-import { authService } from '../../../src/services/auth.service';
+import { communityService, Post, Comment } from '@/src/services/community.service';
+import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 
 export default function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {

@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { mentorService } from '../../../../src/services/mentor.service';
-import { authService } from '../../../../src/services/auth.service';
+import { mentorService } from '@/src/services/mentor.service';
+import { authService } from '@/src/services/auth.service';
 import { Star, Calendar, MessageSquare, Video, ArrowLeft, Clock, Award, Briefcase, BookOpen, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';

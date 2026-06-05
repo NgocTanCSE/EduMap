@@ -5,8 +5,8 @@ import {
   Search, Users, TrendingUp, Flame, ShieldAlert, FileText, X
 } from 'lucide-react';
 import Link from 'next/link';
-import { communityService } from '../../src/services/community.service';
-import { authService } from '../../src/services/auth.service';
+import { communityService } from '@/src/services/community.service';
+import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 

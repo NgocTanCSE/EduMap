@@ -5,7 +5,7 @@ import {
   Download, ExternalLink, Bookmark, Sparkles,
   ArrowRight, Star, X, BrainCircuit, Lightbulb, Loader2
 } from 'lucide-react';
-import { libraryService } from '../../src/services/library.service';
+import { libraryService } from '@/src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
 
