@@ -3,7 +3,7 @@
 # =========================================================
 
 # Stage 1: Build Backend
-FROM node:20-alpine AS backend-builder
+FROM node:20-slim AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm install --legacy-peer-deps
@@ -11,7 +11,7 @@ COPY backend/ .
 RUN npm run build
 
 # Stage 2: Build Frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
