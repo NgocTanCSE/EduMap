@@ -284,20 +284,27 @@ INSERT INTO green_challenges (id, title, description, created_by) VALUES ('efe34
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('b8060056-94c1-45f0-8877-fa1ddddf329d', 'Ngày hội trồng cây bảo vệ hành lang xanh sông Đồng Nai', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', '00f42ddf-59e7-4d80-b7c7-042745ef0595');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'Thử thách 7 ngày đi bộ/xe đạp đến trường - THPT Trấn Biên', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'f575c928-4899-4c7e-b56b-501ed4367783');
 
--- Seed Location Categories
-INSERT INTO location_categories (name, display_name, icon_name, marker_color) VALUES 
-('university', 'Trường Đại học', 'graduation-cap', '#3b82f6'),
-('school', 'Trường THPT', 'school', '#10b981'),
-('library', 'Thư viện', 'book-open', '#f59e0b'),
-('lab', 'Phòng thí nghiệm STEM', 'flask-conical', '#8b5cf6'),
-('wifi_hotspot', 'Wifi miễn phí', 'wifi', '#06b6d4'),
-('study_space', 'Góc học tập/Cafe', 'coffee', '#f97316');
+-- Seed Location Categories (Explicit IDs to match map_categories for migration)
+INSERT INTO location_categories (id, name, display_name, icon_name, marker_color) VALUES 
+(1, 'university', 'Trường Đại học', 'graduation-cap', '#3b82f6'),
+(2, 'school', 'Trường THPT', 'school', '#10b981'),
+(3, 'library', 'Thư viện', 'book-open', '#f59e0b'),
+(4, 'bookstore', 'Nhà sách', 'book', '#f6c23e'),
+(5, 'lab', 'Phòng thí nghiệm STEM', 'flask-conical', '#8b5cf6'),
+(6, 'wifi_hotspot', 'Wifi miễn phí', 'wifi', '#06b6d4'),
+(7, 'green_space', 'Không gian xanh', 'leaf', '#2e59d9'),
+(8, 'study_space', 'Góc học tập/Cafe', 'coffee', '#f97316')
+ON CONFLICT (id) DO NOTHING;
+
+-- Reset sequence for location_categories
+SELECT setval('location_categories_id_seq', (SELECT MAX(id) FROM location_categories));
 
 -- Seed Scholarships
 INSERT INTO scholarships (title, description, provider, value_amount, deadline) VALUES 
 ('Học bổng Toàn phần ASEAN 2026', 'Học bổng dành cho sinh viên xuất sắc khối ngành kỹ thuật tại Đông Nam Á.', 'Chính phủ Singapore', 50000.0, '2026-09-01'),
 ('Quỹ Tài năng Trẻ EduMap', 'Hỗ trợ các dự án khởi nghiệp sáng tạo trong lĩnh vực giáo dục.', 'EduMap Foundation', 2000.0, '2026-07-15'),
-('Học bổng Lập trình viên Tương lai', 'Dành cho các bạn nữ có đam mê với lập trình và khoa học dữ liệu.', 'Google Vietnam', 5000.0, '2026-08-30');
+('Học bổng Lập trình viên Tương lai', 'Dành cho các bạn nữ có đam mê với lập trình và khoa học dữ liệu.', 'Google Vietnam', 5000.0, '2026-08-30')
+ON CONFLICT DO NOTHING;
 
 -- Migrate Map Points to Locations (Ensure app sees the data)
 INSERT INTO locations (id, name, description, category_id, coordinates, address, city, status, created_by, created_at)
