@@ -10,10 +10,10 @@ for root, _, files in os.walk(app_dir):
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
             
-            new_content = content.replace("@/services/", "@/src/services/")
-            new_content = new_content.replace("../../../../src/services/", "@/src/services/")
-            new_content = new_content.replace("../../../src/services/", "@/src/services/")
-            new_content = new_content.replace("../../src/services/", "@/src/services/")
+            new_content = content.replace("@/src/components/", "@/components/")
+            new_content = new_content.replace("../../../../src/types/", "@/src/types/")
+            new_content = new_content.replace("../../../src/types/", "@/src/types/")
+            new_content = new_content.replace("../../src/types/", "@/src/types/")
             
             if content != new_content:
                 with open(filepath, "w", encoding="utf-8") as f:

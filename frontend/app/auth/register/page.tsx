@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UserPlus, User, GraduationCap, Briefcase, Heart, Shield, Users, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import { authService } from '@/src/services/auth.service'; // Adjust path as needed
-import { UserRole } from '../../../../src/types/auth-types'; // Import UserRole from shared types
+import { UserRole } from '@/src/types/auth-types'; // Import UserRole from shared types
 
 const ROLES = [
   { id: UserRole.STUDENT, label: 'Học sinh / Sinh viên', icon: GraduationCap },

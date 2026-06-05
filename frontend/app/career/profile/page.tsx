@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
 import { Plus, Trash2, BrainCircuit, Target } from 'lucide-react';
-import { SkillProficiency } from '../../../src/types/career-types';
+import { SkillProficiency } from '@/src/types/career-types';
 import { toast } from 'sonner';
 
 export default function CareerProfilePage() {

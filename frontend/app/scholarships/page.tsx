@@ -4,7 +4,7 @@ import {
   GraduationCap, MapPin, DollarSign, Clock, Search, Bookmark, 
   CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X
 } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
