@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from models.mentor_models import MatchRequest, MentorMatchResponse, MatchResult
-from services.llm_service import LLMService
+from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/mentor", tags=["5. AI Mentor Matching"])
-llm_service = LLMService()
 
 @router.post("/match", response_model=MentorMatchResponse)
 async def match_mentor(request: MatchRequest):

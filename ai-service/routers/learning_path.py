@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from models.learning_models import LearningPathRequest, LearningPathResponse, PathStep
-from services.llm_service import LLMService
+from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/learning-path", tags=["4. Personalized Learning Path"])
-llm_service = LLMService()
 
 @router.post("/", response_model=LearningPathResponse)
 async def generate_path(request: LearningPathRequest):

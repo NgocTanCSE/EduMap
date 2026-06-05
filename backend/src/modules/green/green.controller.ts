@@ -1,15 +1,34 @@
-import { Controller, Get, Post, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { GreenCampusService } from './green.service';
+import { Controller, Get, Post, Body, InternalServerErrorException } from '@nestjs/common';
+import { GreenService } from './green.service';
 
-@ApiTags('Green')
+interface AddImpactDto {
+  initiative: string;
+  carbonSavedKg: number;
+}
+
 @Controller('green')
 export class GreenController {
-  constructor(private readonly greenService: GreenCampusService) { }
+  constructor(private readonly greenService: GreenService) {}
 
-  @Get('challenges')
-  @ApiOperation({ summary: 'Danh sách thử thách xanh' })
-  async getChallenges() {
-    return this.greenService.getChallenges();
+  @Get('impacts')
+  async getAllImpacts() {
+    try {
+      const impacts = await this.greenService.getAllImpacts();
+      return { success: true, data: impacts };
+    } catch (error) {
+      console.error(`Error getting all green impacts: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve green impacts');
+    }
+  }
+
+  @Post('impacts')
+  async addImpact(@Body() addImpactDto: AddImpactDto) {
+    try {
+      const newImpact = await this.greenService.addImpact(addImpactDto.initiative, addImpactDto.carbonSavedKg);
+      return { success: true, data: newImpact };
+    } catch (error) {
+      console.error(`Error adding green impact: ${error.message}`);
+      throw new InternalServerErrorException('Failed to add green impact');
+    }
   }
 }

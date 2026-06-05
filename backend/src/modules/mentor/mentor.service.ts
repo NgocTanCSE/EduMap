@@ -84,9 +84,8 @@ export class MentorService {
     const targetUserId = userId === booking.mentor_id ? booking.student_id : booking.mentor_id;
     await this.notifyService.sendNotification(
       targetUserId,
-      'Cập nhật lịch hẹn',
-      `Lịch hẹn của bạn đã được cập nhật thành: ${status}`,
-      ['in-app']
+      `Cập nhật lịch hẹn: Lịch hẹn của bạn đã được cập nhật thành: ${status}`,
+      'in-app'
     );
 
     return saved;
@@ -199,9 +198,8 @@ export class MentorService {
     // Thông báo cho sinh viên
     await this.notifyService.sendNotification(
       studentId,
-      'Yêu cầu đặt lịch thành công',
-      `Bạn đã đặt lịch hẹn với cố vấn ${mentor.user?.full_name}. Vui lòng chờ cố vấn xác nhận.`,
-      ['in-app']
+      `Yêu cầu đặt lịch thành công: Bạn đã đặt lịch hẹn với cố vấn ${mentor.user?.full_name}. Vui lòng chờ cố vấn xác nhận.`,
+      'in-app'
     );
 
     return saved;

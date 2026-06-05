@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from models.library_models import MaterialSummaryRequest, MaterialSummaryResponse
-from services.llm_service import LLMService
+from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/library", tags=["9. AI Library Assistant"])
-llm_service = LLMService()
 
 @router.post("/summarize", response_model=MaterialSummaryResponse)
 async def summarize_material(request: MaterialSummaryRequest):

@@ -1,28 +1,31 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { GreenChallengeActivity, GreenChallenge } from './entities/green.entity';
+
+export interface GreenImpact {
+  id: string;
+  initiative: string;
+  carbonSavedKg: number;
+  date: string;
+}
 
 @Injectable()
-export class GreenCampusService {
-  constructor(
-    @InjectRepository(GreenChallengeActivity) private activityRepo: Repository<GreenChallengeActivity>,
-    @InjectRepository(GreenChallenge) private challengeRepo: Repository<GreenChallenge>,
-  ) { }
+export class GreenService {
+  private greenImpacts: GreenImpact[] = []; // In-memory mock data
+  private nextId = 1;
 
-  async getChallenges() {
-    return this.challengeRepo.find({ where: { status: 'active' } });
+  constructor() {
+    this.greenImpacts.push({ id: `impact-${this.nextId++}`, initiative: 'Digital Learning', carbonSavedKg: 500, date: '2023-01-15' });
+    this.greenImpacts.push({ id: `impact-${this.nextId++}`, initiative: 'Waste Reduction Program', carbonSavedKg: 200, date: '2023-03-01' });
   }
 
-  /**
-   * F-17: Challenge Sống xanh (Tham gia & Nộp báo cáo)
-   */
-  async joinChallenge(userId: string, challengeId: string) {
-    return { success: true, message: 'Đã tham gia thử thách sống xanh!' };
+  async getAllImpacts(): Promise<GreenImpact[]> {
+    // In a real app, this would fetch data from a database
+    return this.greenImpacts;
   }
 
-  async logActivity(userId: string, data: any) {
-    const activity = this.activityRepo.create({ ...data, user_id: userId, carbon_saved_kg: 0.5 });
-    return this.activityRepo.save(activity);
+  async addImpact(initiative: string, carbonSavedKg: number): Promise<GreenImpact> {
+    const newImpact = { id: `impact-${this.nextId++}`, initiative, carbonSavedKg, date: new Date().toISOString().split('T')[0] };
+    this.greenImpacts.push(newImpact);
+    // In a real app, this would save to the database
+    return newImpact;
   }
 }

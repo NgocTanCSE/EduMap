@@ -1,31 +1,40 @@
-import { Controller, Get, Put, Param, Query, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Controller, Post, Get, Body, Param, InternalServerErrorException, HttpCode, HttpStatus } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 
-@ApiTags('Notifications')
+interface SendNotificationDto {
+  userId: string;
+  message: string;
+  type: 'email' | 'in-app' | 'push';
+}
+
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @Get()
-  @ApiOperation({ summary: 'Lấy danh sách thông báo của tôi' })
-  async getMyNotifications(@Request() req) {
-    const userId = req.user.id;
-    const list = await this.notificationsService.getInAppNotifications(userId);
-    const unreadCount = list.filter(n => !n.is_read).length;
-    return {
-      notifications: list,
-      unread_count: unreadCount
-    };
+  @Post('send')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async sendNotification(@Body() sendNotificationDto: SendNotificationDto) {
+    try {
+      const notification = await this.notificationsService.sendNotification(
+        sendNotificationDto.userId,
+        sendNotificationDto.message,
+        sendNotificationDto.type,
+      );
+      return { success: true, data: notification };
+    } catch (error) {
+      console.error(`Error sending notification: ${error.message}`);
+      throw new InternalServerErrorException('Failed to send notification');
+    }
   }
 
-  @Put(':id/read')
-  @ApiOperation({ summary: 'Đánh dấu thông báo đã đọc' })
-  async markAsRead(@Param('id') id: string) {
-    await this.notificationsService.markAsRead(id);
-    return { id, is_read: true, message: 'Đã đọc thông báo' };
+  @Get(':userId')
+  async getNotificationsForUser(@Param('userId') userId: string) {
+    try {
+      const notifications = await this.notificationsService.getNotificationsForUser(userId);
+      return { success: true, data: notifications };
+    } catch (error) {
+      console.error(`Error getting notifications for user ${userId}: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve notifications');
+    }
   }
 }

@@ -106,9 +106,7 @@ export class EventsService {
         // 8. Cộng điểm Gamification (Đăng ký workshop = 100 XP)
         await this.gamificationService.awardPoints(
           userId,
-          100,
-          `Đăng ký tham gia workshop: ${event.title}`,
-          'event'
+          100
         );
 
         this.logger.log(`[EVENT REG SUCCESS] User ${userId} registered for event ${eventId}`);

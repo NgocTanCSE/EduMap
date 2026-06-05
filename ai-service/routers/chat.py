@@ -1,26 +1,26 @@
-﻿from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-import asyncio
+from fastapi import APIRouter, HTTPException
+from models.chat_models import ChatRequest, ChatResponse
+from services.llm_service import llm_service
 
-router = APIRouter()
+router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
 
-class ChatRequest(BaseModel):
-    user_id: str
-    query: str
-
-@router.post("/chat")
+@router.post("/", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    # Mo phong viec streaming cac token tu LLM
-    async def generate():
-        full_text = f"Day la cau tra loi cho: {request.query}. Toi dang tim kiem du lieu tu EduMap..."
-        words = full_text.split()
-        for word in words:
-            yield f"{word} "
-            await asyncio.sleep(0.1) # Gia lap do tre cua LLM
+    """
+    Endpoint chat RAG chính thức.
+    Sử dụng context từ vector database và lịch sử hội thoại.
+    """
+    try:
+        # Trong tương lai, tìm kiếm context từ vector_store ở đây
+        # context_docs = vector_store.search_similar(request.message)
+        context_docs = []
+        
+        response_obj = await llm_service.chat_with_rag(request, context_docs=context_docs)
 
-    return StreamingResponse(generate(), media_type="text/plain")
+        if not isinstance(response_obj, ChatResponse):
+            return ChatResponse(reply="Lỗi xử lý AI.", sources=[])
 
-@router.post("/career/recommend")
-async def career_recommend(request: dict):
-    return {"recommendations": ["AI Engineer", "Sustainability Consultant"]}
+        return response_obj
+    except Exception as e:
+        print(f"Error in chat_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống chat: {str(e)}")

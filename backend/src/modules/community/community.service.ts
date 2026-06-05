@@ -85,9 +85,8 @@ export class CommunityService {
     if (likerId && post.author_id !== likerId) {
         await this.notificationsService.sendNotification(
             post.author_id,
-            'Lượt thích mới!',
-            'Ai đó vừa thích bài viết của bạn trong cộng đồng EduMap.',
-            ['in-app']
+            `Lượt thích mới! Ai đó vừa thích bài viết của bạn trong cộng đồng EduMap.`,
+            'in-app'
         );
     }
 
@@ -127,9 +126,8 @@ export class CommunityService {
         if (post.author_id !== userId) {
             await this.notificationsService.sendNotification(
                 post.author_id,
-                'Bình luận mới!',
-                `Bạn có một bình luận mới cho bài viết "${post.title}".`,
-                ['in-app']
+                `Bình luận mới! Bạn có một bình luận mới cho bài viết "${post.title}".`,
+                'in-app'
             );
         }
     }

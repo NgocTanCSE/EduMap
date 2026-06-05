@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import re
-from services.llm_service import LLMService
+from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/moderate", tags=["7. AI Content Moderation"])
-llm_service = LLMService()
 
 class ContentRequest(BaseModel):
     user_id: str

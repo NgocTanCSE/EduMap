@@ -61,14 +61,12 @@ export class ScholarshipService {
     });
 
     const saved = await this.appRepo.save(application);
-
-    // Gửi thông báo cho sinh viên
-    await this.notifyService.sendNotification(
-      userId,
-      'Nộp đơn thành công',
-      `Bạn đã nộp hồ sơ ứng tuyển học bổng: ${scholar.title}. Vui lòng theo dõi trạng thái tại Dashboard.`,
-      ['in-app']
-    );
+// Gửi thông báo cho sinh viên
+await this.notifyService.sendNotification(
+  userId,
+  `Nộp đơn thành công: Bạn đã nộp hồ sơ ứng tuyển học bổng: ${scholar.title}. Vui lòng theo dõi trạng thái tại Dashboard.`,
+  'in-app'
+);
 
     return saved;
   }

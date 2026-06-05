@@ -1,10 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from services.vector_store import VectorStoreService
+from services.vector_store import vector_store
 
 router = APIRouter(prefix="/api/ai/search", tags=["3. Semantic Search"])
-
-# Dùng chung Vector Store với tính năng Chatbot RAG
-vector_store = VectorStoreService()
 
 @router.get("/")
 async def semantic_search(q: str, limit: int = 5):

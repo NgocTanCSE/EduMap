@@ -10,6 +10,7 @@ import { Post, Comment } from '../community/entities/community.entity';
 import { Booking } from '../mentor/entities/mentor.entity';
 import { UserCertificate } from '../certificate/entities/user-certificate.entity';
 import { AIService } from '../ai/ai.service'; // Import AIService
+import { MapService } from '../map/map.service'; // Import MapService
 
 @Injectable()
 export class DashboardService {
@@ -26,6 +27,7 @@ export class DashboardService {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
     private readonly aiService: AIService, // Inject AIService
+    private readonly mapService: MapService, // Inject MapService
   ) {}
 
   /**
@@ -114,20 +116,28 @@ export class DashboardService {
       .limit(5)
       .getRawMany();
 
-    // Mock heatmap data since we removed mapRepo dependency here
-    const finalHeatmap = [
-      { id: 'mock-1', name: 'Đại học Quốc gia TP.HCM', lat: 10.875151, lng: 106.800724, intensity: 0.95 },
-      { id: 'mock-2', name: 'Đại học Bách Khoa Hà Nội', lat: 21.006437, lng: 105.842777, intensity: 0.85 },
-      { id: 'mock-3', name: 'Đại học Đà Nẵng', lat: 16.075489, lng: 108.220123, intensity: 0.75 },
-      { id: 'mock-4', name: 'Đại học Cần Thơ', lat: 10.029864, lng: 105.768652, intensity: 0.8 },
-      { id: 'mock-5', name: 'Nhà văn hóa Thanh niên TP.HCM', lat: 10.782502, lng: 106.697424, intensity: 0.9 },
-    ];
-
+    // Replace mock heatmap data with data from MapService
+    let realHeatmapData: any[] = [];
+    try {
+      const pois = await this.mapService.findAllPois();
+      realHeatmapData = pois.map(poi => ({
+        id: poi.id,
+        name: poi.name,
+        lat: poi.lat,
+        lng: poi.lng,
+        intensity: 0.7 + Math.random() * 0.3, // Example: add some random intensity for visualization
+      }));
+    } catch (error) {
+      this.logger.error(`Failed to retrieve POIs for heatmap: ${error.message}`);
+      // Defensive: Fallback to empty array if MapService fails
+      realHeatmapData = [];
+    }
+    
     return {
       total_users: userCount,
       total_events: eventCount,
       top_activities: topEvents,
-      heatmap_data: finalHeatmap,
+      heatmap_data: realHeatmapData, // Use realHeatmapData
       education_metrics: {
         enrollment_rate: '96.4%',
         student_teacher_ratio: '18.5',

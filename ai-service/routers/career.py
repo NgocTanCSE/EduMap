@@ -1,9 +1,8 @@
 ﻿from fastapi import APIRouter, HTTPException
-from app.models.career_models import CareerAnalysisRequest, CareerRecommendationResponse, RecommendedCareer
-from app.services.llm_service import LLMService
+from models.career_models import CareerAnalysisRequest, CareerRecommendationResponse, RecommendedCareer
+from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/career", tags=["2. Career Recommendation"])
-llm_service = LLMService()
 
 @router.post("/recommend", response_model=CareerRecommendationResponse)
 async def recommend_career(request: CareerAnalysisRequest):

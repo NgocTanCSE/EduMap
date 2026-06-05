@@ -1,60 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification } from './entities/notification.entity';
-import { NotificationGateway } from './notification.gateway';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  message: string;
+  type: 'email' | 'in-app' | 'push';
+  status: 'sent' | 'failed' | 'pending';
+  timestamp: string;
+}
 
 @Injectable()
 export class NotificationsService {
-  constructor(
-    @InjectRepository(Notification) 
-    private notifyRepo: Repository<Notification>,
-    private readonly gateway: NotificationGateway,
-  ) {}
+  private notifications: Notification[] = []; // In-memory mock data
+  private nextId = 1;
 
-  /**
-   * Gửi thông báo đa kênh (Real-time + DB)
-   */
-  async sendNotification(userId: string, title: string, body: string, channels: string[]) {
-    let savedNotification = null;
-
-    // 1. Lưu vào Database (In-app)
-    if (channels.includes('in-app')) {
-      const notification = this.notifyRepo.create({
-        user_id: userId,
-        title,
-        body,
-        channel: 'in_app',
-        is_read: false
-      });
-      savedNotification = await this.notifyRepo.save(notification);
-
-      // 2. Gửi Real-time qua Socket.io
-      this.gateway.sendToUser(userId, {
-        id: savedNotification.id,
-        title,
-        body,
-        sent_at: savedNotification.sent_at
-      });
-    }
-
-    // Giả lập các kênh khác
-    const results = { in_app: !!savedNotification };
-    if (channels.includes('push')) results['push'] = true;
-    if (channels.includes('email')) results['email'] = true;
-
-    return { success: true, delivered_channels: results };
+  async sendNotification(userId: string, message: string, type: 'email' | 'in-app' | 'push'): Promise<Notification> {
+    // Simulate sending a notification
+    const newNotification: Notification = {
+      id: `notif${this.nextId++}`,
+      userId,
+      message,
+      type,
+      status: 'sent', // Assume success for mock
+      timestamp: new Date().toISOString(),
+    };
+    this.notifications.push(newNotification);
+    console.log(`Mock: Sent ${type} notification to user ${userId}: "${message}"`);
+    // In a real app, this would integrate with a notification provider (e.g., SendGrid, Firebase)
+    return newNotification;
   }
 
-  async getInAppNotifications(userId: string) {
-    return this.notifyRepo.find({ 
-      where: { user_id: userId }, 
-      order: { sent_at: 'DESC' },
-      take: 20 
-    });
-  }
-
-  async markAsRead(id: string) {
-    return this.notifyRepo.update(id, { is_read: true, read_at: new Date() });
+  async getNotificationsForUser(userId: string): Promise<Notification[]> {
+    // In a real app, this would fetch from a database
+    return this.notifications.filter(notif => notif.userId === userId);
   }
 }
