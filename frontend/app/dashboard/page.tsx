@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { 
   LayoutDashboard, BookOpen, Map, MessageSquare, 
   Settings, LogOut, Bell, Search, TrendingUp, 
-  Clock, Award, Users, ChevronRight, BrainCircuit, Calendar, FileText
+  Clock, Award, Users, ChevronRight, BrainCircuit, Calendar, FileText, UserCircle, Target
 } from 'lucide-react';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { dashboardService } from '@/src/services/dashboard.service';
 import { gamificationService, UserProgress } from '@/src/services/gamification.service';
-import { StatSkeleton, CardSkeleton } from '@/components/ui/skeleton';
+import { Skeleton, CardSkeleton, StatSkeleton } from '@/src/components/ui/Skeleton';
 import { toast } from 'sonner';
 
 export default function DashboardPage() {
@@ -288,7 +288,3 @@ export default function DashboardPage() {
   );
 }
 
-// Giả lập cho component icons UserCircle
-const UserCircle = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
-);

@@ -22,7 +22,7 @@ export default function AIChatPage() {
   // Load history from Backend on mount
   useEffect(() => {
     const fetchHistory = async () => {
-      const token = authService.getToken();
+      const token = authService.getAccessToken();
       if (!token) {
         setIsFetchingHistory(false);
         return;
@@ -57,7 +57,7 @@ export default function AIChatPage() {
 
   const handleSend = async () => {
     const trimmedInput = input.trim();
-    const token = authService.getToken();
+    const token = authService.getAccessToken();
 
     if (!trimmedInput || isLoading) return;
 
