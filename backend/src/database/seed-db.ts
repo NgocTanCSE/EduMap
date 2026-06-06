@@ -1,4 +1,4 @@
-import { AppDataSource } from '../src/config/data-source';
+import { AppDataSource } from '../config/data-source';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -9,8 +9,8 @@ async function runSeed() {
     console.log('Connected to database successfully!');
 
     const seedFiles = [
-      path.join(__dirname, '../src/database/seed.sql'),
-      path.join(__dirname, '../../seed_crawled_data.sql'),
+      path.join(__dirname, 'seed.sql'),
+      path.join(__dirname, '../../../seed_crawled_data.sql'),
     ];
 
     for (const file of seedFiles) {
