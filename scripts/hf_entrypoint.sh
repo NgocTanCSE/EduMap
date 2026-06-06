@@ -16,17 +16,20 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "🆕 Initializing PostgreSQL database..."
     /usr/lib/postgresql/14/bin/initdb -D $PGDATA
     
+    echo "Configuring PostgreSQL to use /tmp for sockets..."
+    echo "unix_socket_directories = '/tmp'" >> $PGDATA/postgresql.conf
+    
     echo "Starting PostgreSQL temporarily for setup..."
-    /usr/lib/postgresql/14/bin/pg_ctl -D $PGDATA -l /data/pg_start.log start
+    /usr/lib/postgresql/14/bin/pg_ctl -D $PGDATA -l /data/pg_start.log start || { cat /data/pg_start.log; exit 1; }
     
     echo "Waiting for PostgreSQL to start..."
     for i in $(seq 1 30); do
-        if pg_isready -q; then break; fi
+        if pg_isready -h /tmp -q; then break; fi
         sleep 1
     done
     
-    psql postgres -c "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';"
-    createdb -O admin edumap_db
+    psql -h /tmp postgres -c "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';"
+    createdb -h /tmp -O admin edumap_db
     
     /usr/lib/postgresql/14/bin/pg_ctl -D $PGDATA stop
 fi
@@ -40,7 +43,7 @@ redis-server --dir $REDIS_DIR --daemonize yes
 # 2. Wait for services to be truly ready (not just started)
 echo "⏳ Waiting for PostgreSQL to accept connections..."
 for i in $(seq 1 30); do
-    if pg_isready -q; then
+    if pg_isready -h 127.0.0.1 -q; then
         echo "✅ PostgreSQL is ready!"
         break
     fi
