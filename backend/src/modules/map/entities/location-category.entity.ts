@@ -11,8 +11,7 @@ export class LocationCategory {
   @Column({ nullable: true })
   display_name: string; // e.g., Trường học, Thư viện
 
-  @Column({ nullable: true })
-  icon_name: string; // Lucide icon name
+
 
   @Column({ nullable: true })
   marker_color: string; // Hex color for the marker

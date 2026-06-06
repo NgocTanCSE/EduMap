@@ -12,8 +12,6 @@ export class Badge {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ nullable: true })
-  icon_url: string;
 
   @Column({ nullable: true })
   category: string;

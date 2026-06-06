@@ -176,7 +176,7 @@ export default function ProfilePage() {
                         {badges.length > 0 ? (
                             badges.map((userBadge) => (
                                 <div key={userBadge.id} className="aspect-square bg-black/40 rounded-3xl border border-white/5 flex flex-col items-center justify-center p-4 text-center group relative cursor-help hover:border-yellow-500/50 hover:bg-yellow-500/5 transition-all">
-                                    <img src={userBadge.badge.icon_url || 'https://cdn-icons-png.flaticon.com/512/5753/5753065.png'} alt="Badge" className="w-12 h-12 mb-3 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-lg" />
+                                    <img src={'https://cdn-icons-png.flaticon.com/512/5753/5753065.png'} alt="Badge" className="w-12 h-12 mb-3 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-lg" />
                                     <span className="text-xs font-bold w-full truncate">{userBadge.badge.name}</span>
                                     
                                     {/* Tooltip */}

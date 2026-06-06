@@ -120,14 +120,14 @@ INSERT INTO users (id, email, password_hash, full_name, role_id, status, email_v
 INSERT INTO users (id, email, password_hash, full_name, role_id, status, email_verified) VALUES ('e327a9b4-f32b-48be-8f73-b75b88aa4aeb', 'user97@edumap.vn', '$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO', 'Nguyễn Văn Dũng', 5, 'active', true);
 INSERT INTO users (id, email, password_hash, full_name, role_id, status, email_verified) VALUES ('c40b6e56-2bdb-402c-9e5e-989a55e2c495', 'teacher98@edumap.vn', '$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO', 'Đặng Minh Khôi', 8, 'active', true);
 INSERT INTO users (id, email, password_hash, full_name, role_id, status, email_verified) VALUES ('576e5212-7d5e-46d5-a863-38e15b63ad26', 'user99@edumap.vn', '$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO', 'Lê Thị Mai', 7, 'active', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (1, 'Trường Đại Học', 'fa-university', '#4e73df', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (2, 'Trường THPT', 'fa-school', '#1cc88a', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (3, 'Thư Viện', 'fa-book-reader', '#36b9cc', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (4, 'Nhà Sách', 'fa-book', '#f6c23e', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (5, 'STEM Lab', 'fa-flask', '#e74a3b', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (6, 'Wifi Miễn Phí', 'fa-wifi', '#858796', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (7, 'Không Gian Xanh', 'fa-leaf', '#2e59d9', true);
-INSERT INTO map_categories (id, name, icon, color, is_active) VALUES (8, 'Cà Phê Học Tập', 'fa-coffee', '#f8f9fc', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (1, 'Trường Đại Học', '#4e73df', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (2, 'Trường THPT', '#1cc88a', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (3, 'Thư Viện', '#36b9cc', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (4, 'Nhà Sách', '#f6c23e', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (5, 'STEM Lab', '#e74a3b', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (6, 'Wifi Miễn Phí', '#858796', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (7, 'Không Gian Xanh', '#2e59d9', true);
+INSERT INTO map_categories (id, name, color, is_active) VALUES (8, 'Cà Phê Học Tập', '#f8f9fc', true);
 INSERT INTO map_points (id, name, type_id, location, address, city, district, province, description, verified, status, created_by) VALUES ('231cea66-d30b-49cb-84f4-ea41e578f908', 'Trường Đại học Công nghệ Đồng Nai (DNTU)', 1, 'SRID=4326;POINT(106.8778 10.9525)', 'Nguyễn Khuyến, Trảng Dài, TP. Biên Hòa, Đồng Nai', 'Biên Hòa', 'Trảng Dài', 'Đồng Nai', 'Trường Đại học tư thục đào tạo nguồn nhân lực chất lượng cao ngành kỹ thuật, quản lý và chăm sóc sức khỏe hàng đầu tỉnh Đồng Nai với cơ sở vật chất cực kỳ hiện đại.', true, 'approved', '0882c9d0-944b-4449-be15-be343d1b5d77');
 INSERT INTO map_points (id, name, type_id, location, address, city, district, province, description, verified, status, created_by) VALUES ('30fb0786-c543-4c2f-b33a-356a3276c177', 'Trường Đại học Lạc Hồng (LHU)', 1, 'SRID=4326;POINT(106.8085 10.9631)', 'Số 10 Huỳnh Văn Nghệ, Bửu Long, TP. Biên Hòa, Đồng Nai', 'Biên Hòa', 'Bửu Long', 'Đồng Nai', 'Đại học ứng dụng công nghệ hàng đầu tại Đồng Nai, nổi tiếng với thành tích Robocon.', true, 'approved', '1baac14d-65f9-4f50-bfa6-16598fe9f249');
 INSERT INTO map_points (id, name, type_id, location, address, city, district, province, description, verified, status, created_by) VALUES ('2c2b41ea-23de-4f68-98a6-93369048b90a', 'Trường Đại học Đồng Nai (DNU)', 1, 'SRID=4326;POINT(106.8475 10.9423)', 'Số 9 Lê Quý Đôn, Tân Hiệp, TP. Biên Hòa, Đồng Nai', 'Biên Hòa', 'Tân Hiệp', 'Đồng Nai', 'Đại học công lập đa ngành trực thuộc Ủy ban Nhân dân tỉnh Đồng Nai.', true, 'approved', 'd03372d3-5f02-4fe0-aec2-4918af8f1dc1');
@@ -285,15 +285,15 @@ INSERT INTO green_challenges (id, title, description, created_by) VALUES ('b8060
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'Thử thách 7 ngày đi bộ/xe đạp đến trường - THPT Trấn Biên', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'f575c928-4899-4c7e-b56b-501ed4367783');
 
 -- Seed Location Categories (Explicit IDs to match map_categories for migration)
-INSERT INTO location_categories (id, name, display_name, icon_name, marker_color) VALUES 
-(1, 'university', 'Trường Đại học', 'graduation-cap', '#3b82f6'),
-(2, 'school', 'Trường THPT', 'school', '#10b981'),
-(3, 'library', 'Thư viện', 'book-open', '#f59e0b'),
-(4, 'bookstore', 'Nhà sách', 'book', '#f6c23e'),
-(5, 'lab', 'Phòng thí nghiệm STEM', 'flask-conical', '#8b5cf6'),
-(6, 'wifi_hotspot', 'Wifi miễn phí', 'wifi', '#06b6d4'),
-(7, 'green_space', 'Không gian xanh', 'leaf', '#2e59d9'),
-(8, 'study_space', 'Góc học tập/Cafe', 'coffee', '#f97316')
+INSERT INTO location_categories (id, name, display_name, marker_color) VALUES 
+(1, 'university', 'Trường Đại học', '#3b82f6'),
+(2, 'school', 'Trường THPT', '#10b981'),
+(3, 'library', 'Thư viện', '#f59e0b'),
+(4, 'bookstore', 'Nhà sách', '#f6c23e'),
+(5, 'lab', 'Phòng thí nghiệm STEM', '#8b5cf6'),
+(6, 'wifi_hotspot', 'Wifi miễn phí', '#06b6d4'),
+(7, 'green_space', 'Không gian xanh', '#2e59d9'),
+(8, 'study_space', 'Góc học tập/Cafe', '#f97316')
 ON CONFLICT (id) DO NOTHING;
 
 -- Reset sequence for location_categories
