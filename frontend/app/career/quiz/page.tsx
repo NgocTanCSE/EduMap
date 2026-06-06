@@ -35,8 +35,9 @@ export default function CareerQuizPage() {
       setLoading(true);
       setIsFinished(true);
       try {
-        const data = await careerService.getCareerSuggestions();
-        setSuggestions(Array.isArray(data) ? data : []);
+        const response = await careerService.getCareerSuggestions();
+        const suggestionsData = response.top_suggestions || response.data || response;
+        setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
         toast.success("AI đã hoàn tất phân tích!");
       } catch (error: any) {
         console.error("Lỗi AI suggest:", error);

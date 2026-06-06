@@ -42,8 +42,9 @@ export default function LibraryPage() {
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const data = await libraryService.searchMaterials(searchQuery, activeTab);
-      setResources(Array.isArray(data) ? data : []);
+      const response = await libraryService.searchMaterials(searchQuery, activeTab);
+      const resourcesData = response.data || response; // Handle both wrapped and unwrapped arrays
+      setResources(Array.isArray(resourcesData) ? resourcesData : []);
     } catch (error: any) {
       console.error("Lỗi fetch library:", error);
       toast.error(error.message || 'Failed to load library resources');

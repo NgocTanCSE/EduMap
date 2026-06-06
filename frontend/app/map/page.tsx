@@ -32,8 +32,11 @@ export default function MapPage() {
         fetch('/api/map/categories')
       ]);
       
-      const locData = await locRes.json();
-      const catData = await catRes.json();
+      const locDataRes = await locRes.json();
+      const catDataRes = await catRes.json();
+      
+      const locData = locDataRes.data || locDataRes;
+      const catData = catDataRes.data || catDataRes;
       
       setLocations(Array.isArray(locData) ? locData : []);
       setFilteredLocations(Array.isArray(locData) ? locData : []);

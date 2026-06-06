@@ -35,9 +35,10 @@ export default function PredictiveCareerPage() {
       }
 
       const data = await careerService.getAIAdvice();
-      // Assume data returned is an array of recommendations from AI
-      if (Array.isArray(data)) {
-        setPaths(data.map((p: any, idx: number) => ({
+      // Safely extract array regardless of wrapper format
+      const adviceData = data.recommendations || data.predictions || data.data || data;
+      if (Array.isArray(adviceData)) {
+        setPaths(adviceData.map((p: any, idx: number) => ({
           ...p,
           status: p.match_score > 80 ? 'High Fit' : p.match_score > 60 ? 'Learning' : 'Skill Gap',
           color: idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-purple-400' : 'text-orange-400'
