@@ -38,15 +38,25 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    "twoFactorSecret" VARCHAR(255),
+    "isTwoFactorEnabled" BOOLEAN DEFAULT false,
+    "refreshTokenHash" VARCHAR(255),
     full_name VARCHAR(255),
     phone VARCHAR(20),
     avatar_url TEXT,
-    role_id INTEGER REFERENCES roles(id),
+    bio TEXT,
+    mbti_type VARCHAR(50),
+    skills TEXT[] DEFAULT '{}',
+    interests TEXT[] DEFAULT '{}',
+    points INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    role_id INTEGER REFERENCES roles(id) DEFAULT 11,
     status VARCHAR(50) DEFAULT 'active',
     email_verified BOOLEAN DEFAULT false,
     provider VARCHAR(50) DEFAULT 'local',
     provider_id VARCHAR(255),
     location GEOGRAPHY(POINT),
+    last_login TIMESTAMP WITH TIME ZONE,
     last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -363,7 +373,7 @@ CREATE TABLE donation_campaigns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    goal_amount DECIMAL(15,2),
+    target_amount DECIMAL(15,2),
     current_amount DECIMAL(15,2) DEFAULT 0,
     organizer_id UUID REFERENCES users(id),
     location_point GEOGRAPHY(POINT),
@@ -694,4 +704,69 @@ CREATE TABLE scholarships (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 46. jobs (Career module - Job entity)
+CREATE TYPE job_type_enum AS ENUM ('full_time', 'part_time', 'internship', 'freelance', 'contract', 'course');
+CREATE TYPE job_status_enum AS ENUM ('active', 'inactive', 'closed', 'pending');
+
+CREATE TABLE jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    company_name VARCHAR(255),
+    location VARCHAR(255),
+    job_type job_type_enum DEFAULT 'full_time',
+    salary_range VARCHAR(100),
+    required_skills JSONB,
+    experience_level VARCHAR(100),
+    application_deadline TIMESTAMP WITH TIME ZONE,
+    views INTEGER DEFAULT 0,
+    status job_status_enum DEFAULT 'active',
+    posted_by_user_id UUID REFERENCES users(id),
+    career_path_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 47. user_careers (Career module - UserCareer entity)
+CREATE TYPE user_career_status_enum AS ENUM ('active', 'inactive', 'completed');
+
+CREATE TABLE user_careers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    career_path_id UUID,
+    goal_title VARCHAR(255) NOT NULL,
+    description TEXT,
+    target_date DATE,
+    status user_career_status_enum DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 48. user_skills (Career module - UserSkill entity)
+CREATE TYPE skill_proficiency_enum AS ENUM ('beginner', 'intermediate', 'advanced', 'expert');
+
+CREATE TABLE user_skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    skill_name VARCHAR(255) NOT NULL,
+    proficiency_level skill_proficiency_enum DEFAULT 'beginner',
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 49. applications (Career module - Application entity)
+CREATE TYPE application_status_enum AS ENUM ('pending', 'reviewed', 'accepted', 'rejected', 'withdrawn');
+
+CREATE TABLE applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+    cover_letter TEXT,
+    resume_url VARCHAR(255),
+    status application_status_enum DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

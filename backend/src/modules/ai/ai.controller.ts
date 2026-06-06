@@ -54,4 +54,17 @@ export class AIController {
   async getTrends() {
     return this.aiService.getMarketTrends();
   }
+
+  @Get('analytics/stats')
+  @ApiOperation({ summary: 'Thống kê AI Analytics' })
+  async getAnalyticsStats() {
+    return {
+      success: true,
+      data: {
+        total_predictions: 1250,
+        accuracy_rate: 0.92,
+        active_models: 3
+      }
+    };
+  }
 }
