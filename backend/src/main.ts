@@ -12,6 +12,9 @@ async function bootstrap() {
   app.use(helmet());
   app.enableCors();
 
+  // 📝 GLOBAL PREFIX: Tất cả API bắt đầu bằng /api
+  app.setGlobalPrefix('api');
+
   // 📝 VALIDATION: Tự động kiểm tra DTO
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -30,9 +33,9 @@ async function bootstrap() {
     .addTag('Library', 'Kho học liệu')
     .addTag('AI', 'Trí tuệ nhân tạo')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');

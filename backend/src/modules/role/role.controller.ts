@@ -11,7 +11,7 @@ import { UserRole } from '../auth/entities/user.entity';
 @ApiTags('Admin Roles (RBAC)')
 @Controller('roles')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.MODERATOR)
 @ApiBearerAuth()
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}

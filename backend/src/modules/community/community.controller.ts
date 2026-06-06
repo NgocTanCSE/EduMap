@@ -2,6 +2,9 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, ParseInt
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '../auth/entities/user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
@@ -88,8 +91,8 @@ export class CommunityController {
   // --- MODERATION ENDPOINTS ---
 
   @Get('moderation/posts')
-  @UseGuards(JwtAuthGuard)
-  // @Roles(UserRole.ADMIN) // Should use RolesGuard
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy danh sách bài viết chờ duyệt' })
   async getPendingPosts() {
@@ -97,7 +100,8 @@ export class CommunityController {
   }
 
   @Post('moderation/posts/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Duyệt hoặc từ chối bài viết' })
   async moderatePost(@Param('id') id: string, @Body('action') action: 'approve' | 'reject') {
@@ -105,7 +109,8 @@ export class CommunityController {
   }
 
   @Get('moderation/comments')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy danh sách bình luận chờ duyệt' })
   async getPendingComments() {
@@ -113,7 +118,8 @@ export class CommunityController {
   }
 
   @Post('moderation/comments/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Duyệt hoặc từ chối bình luận' })
   async moderateComment(@Param('id') id: string, @Body('action') action: 'approve' | 'reject') {

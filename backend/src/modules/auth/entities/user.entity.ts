@@ -11,6 +11,7 @@ export enum UserRole {
   DONOR = 'donor',
   EMPLOYER = 'employer',
   ADMIN = 'admin',
+  MODERATOR = 'moderator',
   COMMUNITY_COORD = 'community_coord',
   SUPPORT_STAFF = 'support_staff',
   PARTNER = 'partner',
@@ -44,6 +45,7 @@ export class User {
       1: UserRole.ADMIN,
       2: UserRole.ADMIN,
       3: UserRole.ADMIN,
+      4: UserRole.MODERATOR,
       8: UserRole.TEACHER,
       9: UserRole.MENTOR,
       11: UserRole.STUDENT,
@@ -54,6 +56,7 @@ export class User {
   set role(val: UserRole) {
     const idsMap: { [key in UserRole]?: number } = {
       [UserRole.ADMIN]: 2,
+      [UserRole.MODERATOR]: 4,
       [UserRole.TEACHER]: 8,
       [UserRole.MENTOR]: 9,
       [UserRole.STUDENT]: 11,

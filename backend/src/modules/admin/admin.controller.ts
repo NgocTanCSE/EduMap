@@ -14,7 +14,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 @ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.MODERATOR)
 @ApiBearerAuth()
 export class AdminController {
   constructor(

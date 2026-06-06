@@ -27,7 +27,7 @@ export class CertificateController {
 
   @Post('issue')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cấp chứng nhận điện tử mới (Chỉ dành cho Admin/System)' })
   async issueCertificate(
@@ -39,7 +39,7 @@ export class CertificateController {
 
   @Patch(':id/revoke')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Thu hồi chứng chỉ' })
   async revokeCertificate(@Param('id') id: string) {

@@ -181,7 +181,13 @@ export default function Header() {
                 {activeDropdown === group.id && (
                   <div className="absolute left-0 mt-1 w-96 rounded-2xl border border-white/10 bg-[#121215] p-4 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="grid gap-3">
-                      {group.items.map((item) => {
+                      {group.items
+                        .filter(item => {
+                          if (item.name === 'Moderator Control') return user?.role === 'moderator' || user?.role === 'admin';
+                          if (item.name === 'Admin Control Panel') return user?.role === 'admin' || user?.role === 'moderator';
+                          return true;
+                        })
+                        .map((item) => {
                         const IconComponent = item.icon;
                         return (
                           <Link 
@@ -364,7 +370,13 @@ export default function Header() {
                   {group.title}
                 </h4>
                 <div className="grid gap-1">
-                  {group.items.map((item) => {
+                  {group.items
+                    .filter(item => {
+                      if (item.name === 'Moderator Control') return user?.role === 'moderator' || user?.role === 'admin';
+                      if (item.name === 'Admin Control Panel') return user?.role === 'admin' || user?.role === 'moderator';
+                      return true;
+                    })
+                    .map((item) => {
                     const IconComponent = item.icon;
                     return (
                       <Link 

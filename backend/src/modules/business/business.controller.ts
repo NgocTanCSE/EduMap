@@ -40,7 +40,7 @@ export class BusinessController {
 
   @Post(':id/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xác minh hồ sơ doanh nghiệp liên kết (Dành cho Quản trị viên)' })
   async verify(@Param('id') id: string) {

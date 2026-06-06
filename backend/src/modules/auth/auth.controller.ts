@@ -34,4 +34,14 @@ export class AuthController {
       throw new BadRequestException('Registration failed');
     }
   }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    // In a real app, this would send an email with a token
+    // For now, we'll just mock it
+    console.log(`Password reset requested for email: ${email}`);
+    return { success: true, message: 'Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn.' };
+  }
 }

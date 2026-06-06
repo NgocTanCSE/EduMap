@@ -8,6 +8,7 @@ export enum UserRole {
   DONOR = 'donor',
   EMPLOYER = 'employer',
   ADMIN = 'admin',
+  MODERATOR = 'moderator',
   COMMUNITY_COORD = 'community_coord',
   SUPPORT_STAFF = 'support_staff',
   PARTNER = 'partner',

@@ -136,7 +136,7 @@ class AuthService {
 
   isAdmin(): boolean {
     const user = this.getUser();
-    return user?.role === UserRole.ADMIN;
+    return user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
   }
 
   logout() {
