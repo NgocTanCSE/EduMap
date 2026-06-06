@@ -14,7 +14,7 @@ mkdir -p $PGDATA $REDIS_DIR /data/minio
 # Initialize PostgreSQL if not initialized
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "🆕 Initializing PostgreSQL database..."
-    /usr/lib/postgresql/14/bin/initdb -D $PGDATA
+    /usr/lib/postgresql/14/bin/initdb -D $PGDATA --encoding=UTF8 --locale=C
     
     echo "Configuring PostgreSQL to use /tmp for sockets..."
     echo "unix_socket_directories = '/tmp'" >> $PGDATA/postgresql.conf
