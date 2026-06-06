@@ -1,22 +1,23 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthDto } from './dto/auth.dto';
-import { Public } from 'src/common/decorators/public.decorator'; // Assuming this decorator exists
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Public() // Mark as public, no auth required for login/register
+  @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() authDto: AuthDto) {
+  async login(@Body() loginDto: LoginDto) {
     try {
-      const result = await this.authService.login(authDto.username, authDto.password);
+      // Assuming AuthService.login expects email and password now
+      const result = await this.authService.login(loginDto.email, loginDto.password);
       return { success: true, data: result };
     } catch (error) {
-      // Defensive Programming: Catch specific error types or log for debugging
-      console.error(`Login failed for user ${authDto.username}: ${error.message}`);
+      console.error(`Login failed for user ${loginDto.email}: ${error.message}`);
       throw new UnauthorizedException('Invalid credentials');
     }
   }
@@ -24,13 +25,13 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @Post('register')
-  async register(@Body() authDto: AuthDto) {
+  async register(@Body() registerDto: RegisterDto) {
     try {
-      const result = await this.authService.register(authDto.username, authDto.password);
+      // Assuming AuthService.register expects email, password, full_name, role now
+      const result = await this.authService.register(registerDto.email, registerDto.password, registerDto.full_name, registerDto.role);
       return { success: true, data: result };
     } catch (error) {
-      // Defensive Programming: Catch specific error types or log for debugging
-      console.error(`Registration failed for user ${authDto.username}: ${error.message}`);
+      console.error(`Registration failed for user ${registerDto.email}: ${error.message}`);
       throw new BadRequestException('Registration failed');
     }
   }
@@ -39,8 +40,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
   async forgotPassword(@Body('email') email: string) {
-    // In a real app, this would send an email with a token
-    // For now, we'll just mock it
     console.log(`Password reset requested for email: ${email}`);
     return { success: true, message: 'Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn.' };
   }
