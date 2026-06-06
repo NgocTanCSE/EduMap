@@ -26,4 +26,22 @@ export class MapService {
   async findPoisByCategory(category: string): Promise<PointOfInterest[]> {
     return this.pois.filter(poi => poi.category.toLowerCase() === category.toLowerCase());
   }
+
+  async analyzeWithAI(query: string, context?: any): Promise<any> {
+    try {
+      // In a real application, this would call an external AI service or the internal AI module
+      // Defensive programming: Always return a safe fallback if AI fails or is not implemented yet
+      console.log(`Mock AI Analysis for query: "${query}"`);
+      
+      return {
+        query,
+        analysis: "Dựa trên phân tích giả lập, các địa điểm phù hợp với yêu cầu của bạn tập trung ở khu vực trung tâm.",
+        recommended_pois: this.pois.slice(0, 2),
+        confidence_score: 0.85
+      };
+    } catch (error) {
+      console.error('Error during AI map analysis:', error);
+      throw new Error('AI analysis failed. Please try again later.');
+    }
+  }
 }

@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe } from '@nestjs/common';
 import { MapService } from './map.service';
+import { AiAnalysisDto } from './dto/ai-analysis.dto';
 
 @Controller('map')
 export class MapController {
@@ -40,6 +41,21 @@ export class MapController {
     } catch (error) {
       console.error(`Error getting categories: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve categories');
+    }
+  }
+
+  @Post('ai-analysis')
+  async aiAnalysis(@Body(new ValidationPipe({ whitelist: true })) body: AiAnalysisDto) {
+    if (!body || !body.query) {
+      throw new BadRequestException('Query string is required for AI analysis');
+    }
+    
+    try {
+      const result = await this.mapService.analyzeWithAI(body.query, body.context);
+      return { success: true, data: result };
+    } catch (error) {
+      console.error(`Error during AI map analysis: ${error.message}`);
+      throw new InternalServerErrorException('An error occurred while processing the AI request');
     }
   }
 }

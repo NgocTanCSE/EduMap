@@ -339,7 +339,8 @@ CREATE TABLE mentors (
     hourly_rate DECIMAL(15,2),
     availability_json JSONB,
     is_verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 22. bookings
