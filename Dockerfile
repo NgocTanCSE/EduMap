@@ -68,26 +68,26 @@ RUN pip3 install --no-cache-dir -r ./ai-service/requirements.txt
 COPY infrastructure/nginx/default.conf /etc/nginx/sites-available/default
 COPY infrastructure/docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Setup PostgreSQL
-USER postgres
-RUN /etc/init.d/postgresql start && \
-    psql --command "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';" && \
-    createdb -O admin edumap_db && \
-    /etc/init.d/postgresql stop
-
-USER root
-
-# Setup Directories
-RUN mkdir -p /data /var/log/supervisor /var/run/postgresql
+# Setup Directories and Hugging Face User
+RUN useradd -m -u 1000 user && \
+    mkdir -p /data /var/log/supervisor /var/run/postgresql /var/lib/nginx /var/log/nginx /var/log/redis /var/lib/redis /etc/redis && \
+    chown -R user:user /app /data /var/log /var/run /var/lib/nginx /etc/nginx /var/log/redis /var/lib/redis /etc/redis /usr/local/bin
 
 # Copy Entrypoint and DB Scripts
 COPY scripts/ ./scripts/
 COPY scripts/hf_entrypoint.sh /usr/local/bin/hf_entrypoint.sh
 COPY seed_crawled_data.sql .
-RUN chmod +x /usr/local/bin/hf_entrypoint.sh
+RUN chmod +x /usr/local/bin/hf_entrypoint.sh && \
+    chown user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data.sql
 
 # HF Spaces requires port 7860
-RUN sed -i 's/listen 80;/listen 7860;/' /etc/nginx/sites-available/default
+RUN sed -i 's/listen 80;/listen 7860;/' /etc/nginx/sites-available/default && \
+    sed -i 's/user www-data;//' /etc/nginx/nginx.conf || true && \
+    sed -i 's/pid \/run\/nginx.pid;/pid \/tmp\/nginx.pid;/' /etc/nginx/nginx.conf || true
+
+USER 1000
+
+ENV PATH="/usr/lib/postgresql/14/bin:${PATH}"
 
 EXPOSE 7860
 
