@@ -5,24 +5,30 @@ export class EducationStat {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ nullable: true })
   region: string;
 
-  @Column()
+  @Column({ nullable: true })
   province: string;
 
-  @Column()
+  @Column({ nullable: true })
+  district: string;
+
+  @Column({ nullable: true })
   metric_type: string; // literacy_rate, school_count, etc.
 
-  @Column({ type: 'float' })
-  value: number;
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  metric_value: number;
 
-  @Column()
+  @Column({ nullable: true })
   year: number;
 
-  @CreateDateColumn()
+  @Column({ nullable: true })
+  source: string;
+
+  @CreateDateColumn({ type: 'timestamp with time zone' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp with time zone' })
   updated_at: Date;
 }
