@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -21,6 +22,9 @@ async function bootstrap() {
     transform: true,
     forbidNonWhitelisted: true,
   }));
+
+  // 🐛 EXCEPTION FILTER: Log full stack traces
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // 📖 SWAGGER: Cấu hình Tài liệu API
   const config = new DocumentBuilder()

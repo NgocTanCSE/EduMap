@@ -22,6 +22,14 @@ export class LibraryService {
     return this.items;
   }
 
+  async search(query: string): Promise<LibraryItem[]> {
+    if (!query) return this.items;
+    return this.items.filter(item => 
+      item.title.toLowerCase().includes(query.toLowerCase()) || 
+      item.author.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+
   async findOne(id: string): Promise<LibraryItem> {
     // In a real app, this would fetch data from a database
     const item = this.items.find(i => i.id === id);

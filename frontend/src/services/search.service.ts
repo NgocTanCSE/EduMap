@@ -1,5 +1,5 @@
 class SearchService {
-  private readonly AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || 'http://localhost:8000/api/ai';
+  private readonly AI_API_URL = process.env.NEXT_PUBLIC_AI_API_URL || '/api/ai';
 
   async semanticSearch(query: string, limit: number = 5): Promise<any[]> {
     if (!query.trim()) return [];

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { LibraryService } from './library.service';
 
 interface CreateLibraryItemDto {
@@ -20,6 +20,17 @@ export class LibraryController {
     } catch (error) {
       console.error(`Error getting all library resources: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve library resources');
+    }
+  }
+
+  @Get('search')
+  async search(@Query('q') query: string) {
+    try {
+      const resources = await this.libraryService.search(query);
+      return { success: true, data: resources };
+    } catch (error) {
+      console.error(`Error searching library resources: ${error.message}`);
+      throw new InternalServerErrorException('Failed to search library resources');
     }
   }
 

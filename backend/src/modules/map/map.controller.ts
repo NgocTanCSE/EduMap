@@ -19,4 +19,27 @@ export class MapController {
       throw new InternalServerErrorException('Failed to retrieve points of interest');
     }
   }
+
+  @Get('locations')
+  async getLocations() {
+    try {
+      const allPois = await this.mapService.findAllPois();
+      return { success: true, data: allPois };
+    } catch (error) {
+      console.error(`Error getting locations: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve locations');
+    }
+  }
+
+  @Get('categories')
+  async getCategories() {
+    try {
+      const allPois = await this.mapService.findAllPois();
+      const categories = [...new Set(allPois.map(poi => poi.category))];
+      return { success: true, data: categories };
+    } catch (error) {
+      console.error(`Error getting categories: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve categories');
+    }
+  }
 }

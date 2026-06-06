@@ -22,6 +22,13 @@ export class GreenService {
     return this.greenImpacts;
   }
 
+  async getAllChallenges() {
+    return [
+      { id: 'chal-1', title: 'Zero Waste Week', description: 'No single-use plastics for a week', points: 100 },
+      { id: 'chal-2', title: 'Bike to Work', description: 'Commute by bike for 5 days', points: 200 }
+    ];
+  }
+
   async addImpact(initiative: string, carbonSavedKg: number): Promise<GreenImpact> {
     const newImpact = { id: `impact-${this.nextId++}`, initiative, carbonSavedKg, date: new Date().toISOString().split('T')[0] };
     this.greenImpacts.push(newImpact);

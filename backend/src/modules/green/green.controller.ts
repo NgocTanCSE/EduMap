@@ -20,6 +20,16 @@ export class GreenController {
       throw new InternalServerErrorException('Failed to retrieve green impacts');
     }
   }
+  @Get('challenges')
+  async getAllChallenges() {
+    try {
+      const challenges = await this.greenService.getAllChallenges();
+      return { success: true, data: challenges };
+    } catch (error) {
+      console.error(`Error getting all green challenges: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve green challenges');
+    }
+  }
 
   @Post('impacts')
   async addImpact(@Body() addImpactDto: AddImpactDto) {

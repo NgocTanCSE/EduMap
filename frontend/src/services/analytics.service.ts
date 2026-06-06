@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export const analyticsService = {
   async trackEvent(eventType: string, metadata: any = {}) {
@@ -28,7 +28,8 @@ export const analyticsService = {
   },
 
   async getAiTrends() {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:8000'}/api/ai/analytics/stats`);
+    const aiServiceUrl = process.env.NEXT_PUBLIC_AI_SERVICE_URL || '';
+    const response = await fetch(`${aiServiceUrl}/api/ai/analytics/stats`);
     return response.json();
   }
 };
