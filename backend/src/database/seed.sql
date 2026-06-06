@@ -311,3 +311,30 @@ INSERT INTO locations (id, name, description, category_id, coordinates, address,
 SELECT id, name, description, type_id, location, address, city, status, created_by, created_at
 FROM map_points
 ON CONFLICT (id) DO NOTHING;
+
+-- Seed Career Data (Jobs, User Careers, User Skills, Applications)
+-- Using Business user 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306' and Student3 user '31e1fd5b-a1c6-44fe-a5c5-b12adad42001'
+
+INSERT INTO jobs (id, title, description, company_name, location, job_type, salary_range, required_skills, experience_level, status, posted_by_user_id) VALUES
+('b2345678-1234-1234-1234-123456789012', 'Software Engineer Intern', 'Thực tập sinh lập trình web Backend với Node.js và NestJS.', 'Công ty Cổ phần Sonadezi', 'Biên Hòa, Đồng Nai', 'internship', '3.000.000 - 5.000.000 VND', '["Node.js", "TypeScript", "PostgreSQL"]', 'Mới ra trường / Sinh viên', 'active', 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306'),
+('c3456789-1234-1234-1234-123456789012', 'Fullstack Developer', 'Lập trình viên Fullstack ReactJS và NestJS', 'Amata VN', 'KCN Amata, Biên Hòa', 'full_time', '15.000.000 - 25.000.000 VND', '["React", "Node.js", "Docker"]', '1-3 năm', 'active', 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_skills (id, user_id, skill_name, proficiency_level, description) VALUES
+('d4567890-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'JavaScript', 'intermediate', 'Có 1 năm kinh nghiệm làm project trên trường.'),
+('e5678901-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'Node.js', 'beginner', 'Đã học qua khóa học cơ bản và làm API RESTful.')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_careers (id, user_id, goal_title, description, status) VALUES
+('f6789012-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'Trở thành Senior Backend Developer', 'Lộ trình 5 năm tập trung vào hệ thống phân tán và Cloud.', 'active')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO applications (id, user_id, job_id, cover_letter, status) VALUES
+('a1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'b2345678-1234-1234-1234-123456789012', 'Em là sinh viên đam mê lập trình, mong muốn được học hỏi và cống hiến cho công ty.', 'pending')
+ON CONFLICT DO NOTHING;
+
+-- Seed Certificates Data
+INSERT INTO certificates (id, user_id, type, title, description, issued_at, issuer, verify_code) VALUES
+('c1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'course', 'Chứng nhận Hoàn thành Khóa học ReactJS', 'Hoàn thành xuất sắc khóa đào tạo ReactJS cơ bản.', '2025-10-15', 'EduMap Academy', 'CERT-REACT-2025-001'),
+('d1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'volunteer', 'Chiến sĩ Mùa Hè Xanh 2025', 'Chứng nhận thành tích xuất sắc trong chiến dịch Mùa Hè Xanh.', '2025-08-30', 'Hội Sinh Viên Tỉnh Đồng Nai', 'CERT-VOL-2025-089')
+ON CONFLICT DO NOTHING;
