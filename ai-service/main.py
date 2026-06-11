@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Body
 from services.llm_service import llm_service
-from routers import analytics, career, geo, learning_path, mentor, moderation, search, library, scholarship, chat
+from routers import analytics, career, geo, learning_path, mentor, moderation, search, library, scholarship, chat, suggestions
 
 app = FastAPI(title="EduMap AI Service")
 
 # Include Routers
 app.include_router(chat.router, prefix="/api/ai")
+app.include_router(suggestions.router, prefix="/api/ai")
 app.include_router(analytics.router)
 app.include_router(career.router)
 app.include_router(geo.router)
