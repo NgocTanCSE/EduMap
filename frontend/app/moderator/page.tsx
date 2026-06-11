@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { moderatorService } from "@/src/services/moderator.service";
 
 export default function ModeratorPage() {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await moderatorService.getPending();
-        setTasks(data.pending ?? []);
+        const data = await moderatorService.getPendingPosts();
+        setTasks(data ?? []);
       } catch (e) {
         console.error(e);
       } finally {

@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { adminService } from "@/src/services/admin.service";
 
 export default function AdminRolesPage() {
-  const [roles, setRoles] = useState([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchRoles() {
       try {
         const data = await adminService.getRoles();
-        setRoles(data.roles ?? []);
+        setRoles(data ?? []);
       } catch (e) {
         console.error(e);
       } finally {

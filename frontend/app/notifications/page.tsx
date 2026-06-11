@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { notificationService } from "@/src/services/notification.service";
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
