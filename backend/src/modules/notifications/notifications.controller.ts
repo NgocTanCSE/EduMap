@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, Param, InternalServerErrorException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Param, Request, UseGuards, InternalServerErrorException, HttpCode, HttpStatus } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 interface SendNotificationDto {
   userId: string;
@@ -7,6 +8,7 @@ interface SendNotificationDto {
   type: 'email' | 'in-app' | 'push';
 }
 
+@UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
@@ -27,6 +29,21 @@ export class NotificationsController {
     }
   }
 
+  // Get notifications for the logged‑in user (used by frontend)
+  @Get()
+  async getMyNotifications(@Request() req) {
+    const userId = req.user.id;
+    try {
+      const notifications = await this.notificationsService.getNotificationsForUser(userId);
+      const unreadCount = notifications.filter(n => !n.is_read).length;
+      return { success: true, notifications, unread_count: unreadCount };
+    } catch (error) {
+      console.error(`Error getting notifications for user ${userId}: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve notifications');
+    }
+  }
+
+  // Existing admin‑style endpoint – kept for compatibility
   @Get(':userId')
   async getNotificationsForUser(@Param('userId') userId: string) {
     try {
@@ -35,6 +52,18 @@ export class NotificationsController {
     } catch (error) {
       console.error(`Error getting notifications for user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve notifications');
+    }
+  }
+
+  @Put(':id/read')
+  async markAsRead(@Param('id') id: string, @Request() req) {
+    // Optional: Verify ownership (skip for mock)
+    try {
+      const updated = await this.notificationsService.markAsRead(id);
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error(`Error marking notification ${id} as read: ${error.message}`);
+      throw new InternalServerErrorException('Failed to update notification');
     }
   }
 }
