@@ -189,21 +189,31 @@ class LLMService:
             print(f"Error in moderate_text: {e}")
             return {"is_safe": False, "confidence": 0.0, "flags": ["AI Error"]}
 
-    async def generate_learning_path(self, data: LearningPathRequest) -> dict:
+    async def get_suggestions(self) -> list:
+        """Generate AI suggestions.
+        Returns mock data when the service is not ready (no real API key).
+        When a valid Gemini API key is configured, it sends a prompt to the model
+        and expects a JSON array in the response.
+        """
         if not self.is_ready:
-            return {"target_role": data.target_role, "steps": []}
-        
-        prompt = f"Tạo lộ trình học tập cho {data.target_role}. Trả về JSON."
+            # Mock fallback – same shape as expected real response
+            return [
+                {"title": "Cải thiện kỹ năng lập trình", "description": "Tham gia các khóa học Python/JavaScript.", "match_score": 85},
+                {"title": "Khám phá AI & Data Science", "description": "Bắt đầu với các bài học về Machine Learning.", "match_score": 78},
+                {"title": "Phát triển kỹ năng giao tiếp", "description": "Tham gia các buổi workshop mềm kỹ năng.", "match_score": 70}
+            ]
+        prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0‑100)."
         try:
             response = self.model.generate_content(prompt)
-            text = response.text
-            json_start = text.find('{')
-            json_end = text.rfind('}') + 1
-            if json_start != -1:
-                return json.loads(text[json_start:json_end])
-            return {"target_role": data.target_role, "steps": []}
+            text = response.text if response else ""
+            # Extract JSON array from response text (robust to surrounding text)
+            start = text.find('[')
+            end = text.rfind(']') + 1
+            if start != -1 and end != -1:
+                return json.loads(text[start:end])
+            return []
         except Exception as e:
-            print(f"Error in generate_learning_path: {e}")
-            return {"target_role": data.target_role, "steps": []}
+            print(f"Error in get_suggestions: {e}")
+            return []
 
 llm_service = LLMService()
