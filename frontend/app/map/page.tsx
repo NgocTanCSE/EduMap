@@ -8,10 +8,10 @@ const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), { s
 
 export default function MapPage() {
   const [locations, setLocations] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategoryId, setActiveCategoryId] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,9 +53,9 @@ export default function MapPage() {
   useEffect(() => {
     let result = locations;
 
-    if (activeCategoryId !== 'all') {
-      result = result.filter(loc => String(loc.category_id) === activeCategoryId);
-    }
+if (activeCategory !== 'all') {
+       result = result.filter(loc => loc.category === activeCategory);
+     }
 
     if (searchTerm.trim() !== '') {
       const q = searchTerm.toLowerCase();
@@ -67,7 +67,7 @@ export default function MapPage() {
     }
 
     setFilteredLocations(result);
-  }, [searchTerm, activeCategoryId, locations]);
+  }, [searchTerm, activeCategory, locations]);
 
   const handleAIAnalysis = async () => {
     try {
@@ -116,19 +116,19 @@ export default function MapPage() {
 
         {/* Category Filters */}
         <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => setActiveCategoryId('all')}
-            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategoryId === 'all' ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === 'all' ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
           >
             All
           </button>
           {categories.map((cat) => (
-            <button 
-              key={cat.id}
-              onClick={() => setActiveCategoryId(String(cat.id))}
-              className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategoryId === String(cat.id) ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === cat ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
             >
-              {cat.display_name}
+              {cat}
             </button>
           ))}
         </div>
@@ -151,7 +151,7 @@ export default function MapPage() {
                 <div className="flex justify-between items-start mb-2 text-yellow-500">
                     <h3 className="font-black text-gray-100 text-base group-hover:text-yellow-400 transition-colors">{item.name}</h3>
                     <span className="text-[9px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
-                        {item.category?.display_name}
+                        {item.category}
                     </span>
                 </div>
                 <div className="flex items-start gap-2 text-xs text-white/40">

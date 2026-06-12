@@ -1,44 +1,84 @@
 ---
-title: EduMap
-emoji: 🗺️
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
+language: vi
+license: cc-by-sa-4.0
+tags:
+  - education
+  - vietnam
+  - schools
+  - libraries
+  - wifi
+  - open-data
 ---
 
-# EduMap (Educational Map)
+# Dong Nai Education & Facilities Dataset
 
-Đây là hệ thống EduMap, bao gồm Frontend (Next.js), Backend (Node.js), và AI Service (Python). 
-Dự án này đã được cấu hình sẵn để triển khai lên môi trường **Hugging Face Spaces** sử dụng Docker.
+Bộ dữ liệu tổng hợp các **trường học**, **đại học/cao đẳng**, **thư viện** và **điểm Wi‑Fi** ở tỉnh Đồng Nai (2024‑2026). Dữ liệu được thu thập chủ yếu từ OpenStreetMap (Overpass API) và các cổng dữ liệu mở của Sở Giáo dục‑Đào tạo Đồng Nai.
 
-## Cấu trúc dự án
-- `frontend/`: Ứng dụng giao diện người dùng xây dựng bằng Next.js.
-- `backend/`: Máy chủ API xây dựng bằng Node.js / NestJS.
-- `ai-service/`: Dịch vụ AI xây dựng bằng Python (FastAPI).
-- `mobile/`: Ứng dụng di động (React Native / Expo).
-- `infrastructure/`: Cấu hình hạ tầng (Nginx, Supervisor).
+## Nội dung dataset
 
-## Hướng dẫn triển khai lên Hugging Face Spaces
+| File | Mô tả |
+|------|-------|
+| `dong_nai_all_schools_20260613_005546.sql` | Tập lệnh SQL `INSERT` cho bảng `map_points` (579 POI). |
+| `dongnai_detailed.json` | JSON chi tiết gồm 3 danh sách:
+- `schools` (428 trường)
+- `libraries` (15 thư viện)
+- `wifi` (47 điểm Wi‑Fi) |
+| `dongnai_unis.json` | Danh sách 91 đại học & cao đẳng. |
 
-Dự án này sử dụng GitHub Actions để tự động đồng bộ (sync) lên Hugging Face Spaces mỗi khi có thay đổi trên nhánh `main`.
-
-1. **Chuẩn bị Token:**
-   - Tạo một Access Token trên Hugging Face với quyền `Write`.
-   - Vào mục Settings -> Secrets and variables -> Actions trên kho lưu trữ GitHub.
-   - Thêm một biến Secret mới với tên `HF_TOKEN` và dán mã token vào.
-
-2. **Cấu hình không gian (Space):**
-   - Đảm bảo bạn đã tạo một Space trống trên Hugging Face với môi trường là **Docker**.
-   - Cập nhật đúng đường dẫn `https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap` trong file `.github/workflows/deploy-hf.yml`.
-
-3. **Deploy:**
-   - Mỗi khi bạn commit và push code lên GitHub nhánh `main`, action sẽ tự động kích hoạt.
-   - Quá trình này sẽ đổi tên file `Dockerfile.hf` thành `Dockerfile` (theo yêu cầu của Hugging Face) và đẩy toàn bộ mã nguồn sang Space của bạn.
-
-## Chạy dự án ở môi trường Local (Máy tính cá nhân)
-Nếu bạn muốn chạy dự án này trên máy tính bằng Docker:
-```bash
-docker-compose up --build
+## Cấu trúc JSON (`dongnai_detailed.json`)
+```json
+{
+  "schools": [
+    {
+      "name": "Trường Mầm Non Bình Trưng Đông",
+      "name_vi": "Trường Mầm Non Bình Trưng Đông",
+      "lat": 10.7894062,
+      "lng": 106.7721717,
+      "type": "school",
+      "address": "",
+      "website": "",
+      "phone": "",
+      "operator": "",
+      "opening_hours": "",
+      "level": ""
+    },
+    ...
+  ],
+  "libraries": [ {...} ],
+  "wifi": [ {...} ]
+}
 ```
-Hoặc bạn có thể chạy file `run.bat` (đối với Windows).
+
+## Cách tải dữ liệu (Python)
+```python
+from datasets import load_dataset
+
+ds = load_dataset("username/dongnai-education")   # nếu bạn đã tạo script load (dongnai_dataset.py)
+# Hoặc tải trực tiếp file JSON
+import json, pathlib
+path = pathlib.Path('dongnai_detailed.json')
+with path.open(encoding='utf-8') as f:
+    data = json.load(f)
+```
+
+## Các trường (common) trong dataset
+- `name` (string): Tên địa điểm.
+- `category` (string): `school`, `university`, `library`, `wifi`.
+- `type` (string, optional): Loại chi tiết (ví dụ `primary_school`, `college`).
+- `lat`, `lng` (float): Tọa độ.
+- `address`, `website`, `phone`, `operator`, `opening_hours` (string, optional).
+- `description` (string, optional): Thông tin bổ sung được tạo tự động.
+
+## License
+Dữ liệu được cấp phép **CC‑BY‑SA 4.0**. Bạn có thể tái sử dụng, chỉnh sửa và phát hành lại với việc ghi nhận tác giả.
+
+## Citation
+Nếu bạn sử dụng bộ dữ liệu này trong công trình nghiên cứu, vui lòng trích dẫn:
+```
+@dataset{dongnai-education,
+  title   = {Dong Nai Education & Facilities Dataset},
+  author  = {Ngoc Tan},
+  year    = {2026},
+  url     = {https://huggingface.co/datasets/username/dongnai-education}
+}
+```

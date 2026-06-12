@@ -1,0 +1,52 @@
+
+╔════════════════════════════════════════════════════════════╗
+║         EduMap Data Crawling Statistics Report              ║
+║         Generated: 2026-06-12 23:19:51                ║
+╚════════════════════════════════════════════════════════════╝
+
+📊 DATA SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 WiFi Hotspots: 776 locations
+   {'Biên Hòa': 11, 'Thủ Dầu Một': 1, 'Đồng Nài': 1}
+
+🌳 Green Spaces: 329 locations
+   - Parks: 306
+   - Initiatives: 1
+
+📚 Books & Libraries
+   - Books: 80 books
+   - Libraries: 31 libraries
+   - Book Categories:
+     * Information Technology
+     * Computer Science
+     * Digital Transformation
+     * Education
+
+🏫 Schools & Educational Spaces: 2057 institutions
+   - Universities: 2
+   - Secondary Schools: 5
+   - Training Centers: 4
+   - DNTU Specific Spaces: 4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 TOTAL MAP POINTS: 3193
+
+📌 TOTAL LEARNING MATERIALS: 80
+
+🎯 FOCUS AREAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Dong Nai Province (Biên Hòa, Thủ Dầu Một)
+✓ Trường Đại học Công nghệ Đông Nái (DNTU)
+✓ Khu công nghiệp Amata
+✓ Digital transformation initiatives
+✓ Green/sustainability programs
+✓ Educational spaces and resources
+
+📦 READY FOR DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Next steps:
+1. Import consolidated_crawled_data_*.sql into PostgreSQL
+2. Add vector embeddings to ChromaDB using seed_vector_db.py
+3. Deploy to Hugging Face Spaces
+4. Validate data in frontend map view

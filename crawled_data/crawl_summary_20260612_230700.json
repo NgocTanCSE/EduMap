@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-06-12T23:07:00.546031",
+  "summary": {
+    "wifi_locations": 13,
+    "green_spaces": 11,
+    "books": 80,
+    "libraries": 4,
+    "schools": 15,
+    "total_map_points": 43
+  },
+  "details": {
+    "wifi_by_type": {
+      "wifi_park": 2,
+      "wifi_transport": 1,
+      "wifi_library": 1,
+      "wifi_community": 1,
+      "wifi_education": 2,
+      "wifi_cafe": 1,
+      "wifi_mall": 1,
+      "wifi_health": 1,
+      "wifi_industrial": 1,
+      "wifi_residential": 1,
+      "wifi_provincial_library": 1
+    },
+    "schools_breakdown": {
+      "universities": 2,
+      "secondary_schools": 5,
+      "training_centers": 4,
+      "dntu_spaces": 4
+    }
+  }
+}

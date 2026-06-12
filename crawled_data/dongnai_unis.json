@@ -1,0 +1,730 @@
+[
+  {
+    "name": "Lilama 2",
+    "lat": 10.702169,
+    "lng": 107.012785,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung Cấp Đại Việt",
+    "lat": 10.8453975,
+    "lng": 106.7674443,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Lilama Khu B",
+    "lat": 10.699358,
+    "lng": 107.012325,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Học viện Công nghệ Bưu chính Viễn thông - Cơ sở Thành phố Hồ Chí Minh",
+    "lat": 10.8477744,
+    "lng": 106.7859501,
+    "type": "college",
+    "operator": "HỌC VIỆN BƯU CHÍNH VIỄN THÔNG",
+    "website": ""
+  },
+  {
+    "name": "Ho Chi Minh city International University",
+    "lat": 10.8778839,
+    "lng": 106.8015666,
+    "type": "university",
+    "operator": "Vietnam National University HCMC",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại Học FPT Thành phố Hồ Chí Minh",
+    "lat": 10.841436,
+    "lng": 106.8098568,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Tòa nhà hành chính IU (Đang xây dựng)",
+    "lat": 10.8772665,
+    "lng": 106.801773,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao Đẳng Công Nghệ Thủ Đức",
+    "lat": 10.8516946,
+    "lng": 106.7597552,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại Học Cảnh Sát Nhân Dân - Cơ Sở 2",
+    "lat": 10.8581815,
+    "lng": 106.7557233,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Khoa học Xã hội và Nhân văn - CS Dĩ An",
+    "lat": 10.8731005,
+    "lng": 106.8020069,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Đại học Khoa học Tự Nhiên Thành phố Hồ Chí Minh - Cơ sở Linh Trung",
+    "lat": 10.8756596,
+    "lng": 106.7991749,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Nhà Văn Hóa Sinh Viên",
+    "lat": 10.8753395,
+    "lng": 106.8000331,
+    "type": "university",
+    "operator": "Đại học Quốc gia TP. Hồ Chí Minh (Vietnam National University Ho Chi Minh City)",
+    "website": "https://www.nhavanhoasinhvien.vn/"
+  },
+  {
+    "name": "Đại Học Nông Lâm Thành phố Hồ Chí Minh",
+    "lat": 10.8710319,
+    "lng": 106.79145,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Đại học Bách Khoa - Cơ sở Dĩ An",
+    "lat": 10.8799198,
+    "lng": 106.8047006,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Quản lý và Công nghệ Thành phố Hồ Chí Minh (UMT)",
+    "lat": 10.7740881,
+    "lng": 106.7980152,
+    "type": "university",
+    "operator": "",
+    "website": "https://www.umt.edu.vn"
+  },
+  {
+    "name": "Trường Đại học Công nghệ Kỹ thuật Thành phố Hồ Chí Minh",
+    "lat": 10.8520722,
+    "lng": 106.7717145,
+    "type": "university",
+    "operator": "",
+    "website": "https://www.hcmute.edu.vn/"
+  },
+  {
+    "name": "Trường Cao đẳng Công nghệ Thủ Đức",
+    "lat": 10.8522658,
+    "lng": 106.758729,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp Kỹ thuật Nhơn Trạch",
+    "lat": 10.7178398,
+    "lng": 106.8881498,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công nghệ Đồng Nai",
+    "lat": 10.9845815,
+    "lng": 106.8696671,
+    "type": "university",
+    "operator": "",
+    "website": "https://dntu.edu.vn"
+  },
+  {
+    "name": "Trường Đại học Thể dục Thể thao Thành phố Hồ Chí Minh",
+    "lat": 10.8720215,
+    "lng": 106.7958388,
+    "type": "university",
+    "operator": "",
+    "website": "https://ush.edu.vn/"
+  },
+  {
+    "name": "Trường Cao đẳng Công nghệ và Nông lâm Nam Bộ",
+    "lat": 10.8952994,
+    "lng": 106.7925977,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng",
+    "lat": 10.9532747,
+    "lng": 106.8024545,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Ngân hàng Thành phố Hồ Chí Minh",
+    "lat": 10.8571239,
+    "lng": 106.7608407,
+    "type": "university",
+    "operator": "",
+    "website": "https://buh.edu.vn/"
+  },
+  {
+    "name": "Saigon International University",
+    "lat": 10.8449562,
+    "lng": 106.7727016,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao Đẳng Kinh tế Đối ngoại",
+    "lat": 10.8131507,
+    "lng": 106.7720723,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Cao đẳng Cảnh sát Nhân dân 2",
+    "lat": 10.841778,
+    "lng": 106.8187339,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Phân hiệu Trường Đại học Giao thông Vận tải tại Thành phố Hồ Chí Minh",
+    "lat": 10.8466553,
+    "lng": 106.7944796,
+    "type": "university",
+    "operator": "Bộ Giáo dục và Đào tạo",
+    "website": "https://utc2.edu.vn/"
+  },
+  {
+    "name": "Phân hiệu Trường Đại học Giao thông vận tải tại Thành phố Hồ Chí Minh - Khu Văn phòng",
+    "lat": 10.8448529,
+    "lng": 106.7949332,
+    "type": "university",
+    "operator": "Bộ Giáo dục và Đào tạo",
+    "website": "https://utc2.edu.vn/"
+  },
+  {
+    "name": "Trường Cao đẳng Kỹ nghệ II",
+    "lat": 10.821013,
+    "lng": 106.7711006,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Văn hóa Thành phố Hồ Chí Minh - cơ sở 2",
+    "lat": 10.8219489,
+    "lng": 106.7704677,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng nghề Thành phố Hồ Chí Minh",
+    "lat": 10.8550888,
+    "lng": 106.7600729,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Đại học Cảnh sát Nhân dân Thành phố Hồ Chí Minh",
+    "lat": 10.8588452,
+    "lng": 106.7553555,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Cao đẳng Sư phạm Mầm non TW3",
+    "lat": 10.8122524,
+    "lng": 106.7711737,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Phân viện Học viện Phụ nữ Việt Nam",
+    "lat": 10.8146595,
+    "lng": 106.7745794,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Cảnh sát Nhân dân 2",
+    "lat": 10.8487907,
+    "lng": 106.7581499,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đoàn Lý Tự Trọng",
+    "lat": 10.8455517,
+    "lng": 106.764167,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Học viện Chính trị khu vực II",
+    "lat": 10.8499234,
+    "lng": 106.7856235,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Tài chính - Marketing",
+    "lat": 10.8486985,
+    "lng": 106.7919159,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Học viện Công nghệ Bưu chính Viễn thông - Cơ sở Thành phố Hồ Chí Minh",
+    "lat": 10.8477293,
+    "lng": 106.7859253,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công nghệ Kỹ thuật Thành phố Hồ Chí Minh - cơ sở 2",
+    "lat": 10.8451819,
+    "lng": 106.7969363,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Ký túc xá Phân hiệu Trường Đại học Giao thông Vận tải tại Thành phố Hồ Chí Minh",
+    "lat": 10.8427121,
+    "lng": 106.7965034,
+    "type": "university",
+    "operator": "Bộ Giáo dục và Đào tạo",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Công nghệ cao Đồng Nai",
+    "lat": 10.7916849,
+    "lng": 106.9507748,
+    "type": "college",
+    "operator": "",
+    "website": "https://dcoht.edu.vn/"
+  },
+  {
+    "name": "Trường Cao đẳng Mỹ thuật trang trí Đồng Nai",
+    "lat": 10.9551671,
+    "lng": 106.8274795,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp Kinh tế - Kỹ thuật số 2",
+    "lat": 10.9535595,
+    "lng": 106.8535125,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Đồng Nai",
+    "lat": 10.9589663,
+    "lng": 106.8615234,
+    "type": "university",
+    "operator": "",
+    "website": "https://dnpu.edu.vn/"
+  },
+  {
+    "name": "Trường Đại học Đồng Nai (cơ sở 3)",
+    "lat": 10.9344907,
+    "lng": 106.8615059,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp Nghề 26 tháng 3",
+    "lat": 10.9625121,
+    "lng": 106.8800957,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Thống kê II",
+    "lat": 10.9573814,
+    "lng": 106.873346,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Cao đẳng Công nghệ cao Đồng An",
+    "lat": 10.8921094,
+    "lng": 106.8115363,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Học viện Thanh thiếu niên Việt Nam - Phân hiệu Miền Nam",
+    "lat": 10.8631668,
+    "lng": 106.812483,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp Kỹ thuật Nông nghiệp Thành phố Hồ Chí Minh",
+    "lat": 10.8677594,
+    "lng": 106.8111245,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Nghề Đường sắt 2",
+    "lat": 10.9070122,
+    "lng": 106.7506246,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp nghề thị xã Dĩ An",
+    "lat": 10.9051593,
+    "lng": 106.7520737,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Đại học Lạc Hồng cơ sở Dầu Giây",
+    "lat": 10.940858,
+    "lng": 107.139437,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công nghệ Miền Đông",
+    "lat": 10.9442953,
+    "lng": 107.1611729,
+    "type": "university",
+    "operator": "Bộ Giáo dục và Đào tạo",
+    "website": "https://mit.vn"
+  },
+  {
+    "name": "Trường Đại học Nguyễn Tất Thành (cơ sở Thành phố Thủ Đức)",
+    "lat": 10.8379239,
+    "lng": 106.8096846,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Kiến trúc Thành phố Hồ Chí Minh - Cơ sở Thủ Đức",
+    "lat": 10.8420854,
+    "lng": 106.7645056,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Kỹ thuật Đồng Nai",
+    "lat": 10.9538344,
+    "lng": 106.8359538,
+    "type": "college",
+    "operator": "",
+    "website": "http://cdktdn.edu.vn/"
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở 2)",
+    "lat": 10.9551128,
+    "lng": 106.8021861,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở 3)",
+    "lat": 10.9636506,
+    "lng": 106.7880487,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở Dược)",
+    "lat": 10.9627408,
+    "lng": 106.7895476,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở 5)",
+    "lat": 10.957168,
+    "lng": 106.7890044,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở 6)",
+    "lat": 10.9572869,
+    "lng": 106.7907362,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Lạc Hồng (cơ sở 4)",
+    "lat": 10.9561081,
+    "lng": 106.7980007,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Cơ giới và Thủy lợi (cơ sở Đào tạo)",
+    "lat": 11.0153648,
+    "lng": 106.8578461,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Công nghệ và Quản trị Sonadezi",
+    "lat": 10.9073749,
+    "lng": 106.8571277,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao Đẳng Công Thương Thành phố Hồ Chí Minh",
+    "lat": 10.8302363,
+    "lng": 106.7753457,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Trung cấp Văn hóa Nghệ thuật Đồng Nai",
+    "lat": 10.9554605,
+    "lng": 106.8210458,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Y tế Đồng Nai",
+    "lat": 10.9635984,
+    "lng": 106.8988344,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng An ninh Nhân dân II",
+    "lat": 10.8518655,
+    "lng": 106.9236706,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Lê Quý Đôn",
+    "lat": 10.8980981,
+    "lng": 106.8818889,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Tài nguyên và Môi trường Thành phố Hồ Chí Minh (cơ sở 2)",
+    "lat": 10.857153,
+    "lng": 106.9393488,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công nghệ Miền Đông (cơ sở 1)",
+    "lat": 10.962997,
+    "lng": 106.839465,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học FPT Thành phố Hồ Chí Minh",
+    "lat": 10.8414179,
+    "lng": 106.8100399,
+    "type": "university",
+    "operator": "",
+    "website": "https://hcmuni.fpt.edu.vn"
+  },
+  {
+    "name": "Trường Cao đẳng Hậu cần 2",
+    "lat": 10.8455356,
+    "lng": 106.7769375,
+    "type": "college",
+    "operator": "Quân khu 7",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Mở Thành phố Hồ Chí Minh (cơ sở 2)",
+    "lat": 10.9044363,
+    "lng": 106.8570293,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao đẳng Cơ giới và Thuỷ lợi",
+    "lat": 10.9586137,
+    "lng": 106.9414651,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Phân hiệu Trường Đại học Lâm nghiệp tại Đồng Nai",
+    "lat": 10.9467714,
+    "lng": 106.9984735,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học An ninh Nhân dân",
+    "lat": 10.8723543,
+    "lng": 106.8052551,
+    "type": "university",
+    "operator": "Bộ Công an Việt Nam",
+    "website": "https://dhannd.edu.vn/"
+  },
+  {
+    "name": "Trường Cao đẳng Hoà Bình Xuân Lộc",
+    "lat": 10.9942842,
+    "lng": 106.9157612,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Nông Lâm Thành phố Hồ Chí Minh",
+    "lat": 10.8723619,
+    "lng": 106.7898363,
+    "type": "university",
+    "operator": "Bộ Giáo dục và Đào tạo Việt Nam",
+    "website": "https://hcmuaf.edu.vn"
+  },
+  {
+    "name": "Trường Cao đẳng Cảnh sát Nhân dân 2",
+    "lat": 10.8477063,
+    "lng": 106.8199685,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Cao Đẳng Sư Phạm Trung Ương Thành phố Hồ Chí Minh",
+    "lat": 10.8056408,
+    "lng": 106.7826662,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công Nghệ Chi nhánh CNC",
+    "lat": 10.8404375,
+    "lng": 106.8085906,
+    "type": "university",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Công nghệ Thông tin",
+    "lat": 10.8699883,
+    "lng": 106.8034308,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": "https://www.uit.edu.vn/"
+  },
+  {
+    "name": "Phân hiệu Trường Đại học Kiểm sát tại Thành phố Hồ Chí Minh",
+    "lat": 10.848947,
+    "lng": 106.7933979,
+    "type": "college",
+    "operator": "",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Khoa học Sức khỏe",
+    "lat": 10.8886404,
+    "lng": 106.797667,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": "https://www.uhsvnu.edu.vn/"
+  },
+  {
+    "name": "Trường Đại học Khoa học tự nhiên (cơ sở 2)",
+    "lat": 10.8761964,
+    "lng": 106.7969492,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Quốc tế",
+    "lat": 10.8776808,
+    "lng": 106.8012827,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": "https://hcmiu.edu.vn/"
+  },
+  {
+    "name": "Trường Đại học Bách khoa (cơ sở 2)",
+    "lat": 10.8802192,
+    "lng": 106.8057041,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": ""
+  },
+  {
+    "name": "Trường Đại học Khoa học Xã hội và Nhân văn (cơ sở 2)",
+    "lat": 10.8710357,
+    "lng": 106.8001813,
+    "type": "university",
+    "operator": "Đại học Quốc gia Thành phố Hồ Chí Minh",
+    "website": ""
+  }
+]

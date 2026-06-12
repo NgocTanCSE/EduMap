@@ -1,0 +1,55 @@
+Goal
+- Hoàn thiện các route thiếu, triển khai endpoint AI Suggestions, xây dựng UI cho Dashboard, Notification Center và Admin Roles, và thiết lập CI/CD tự động trên Hugging Face.
+Constraints & Preferences
+- Trả lời bằng tiếng Việt.
+- Dùng bảng và danh sách gạch đầu dòng chi tiết.
+- Không dùng dữ liệu mock ngoài các ví dụ trong code.
+Progress
+Done
+- Thêm placeholder Dashboard và thay thế bằng UI thực tế (thống kê, menu cá nhân) với tích hợp API /api/dashboard/overview và /api/dashboard/insight.
+- Thiết kế và triển khai UI Notification Center đầy đủ: hiển thị danh sách, pagination, nút “đánh dấu đã đọc”, và kết nối PUT /api/notifications/:id/read.
+- Cập nhật backend Notification Module:
+- Thêm @UseGuards(JwtAuthGuard) cho bảo mật.
+- Thêm endpoint GET /api/notifications trả về { notifications, unread_count }.
+- Thêm endpoint PUT /api/notifications/:id/read.
+- Mở rộng Notification interface và thêm phương pháp markAsRead.
+- Hoàn thiện Admin Roles UI:
+- Thêm page /admin/roles hiển thị danh sách vai trò thực từ backend.
+- Đảm bảo adminService.getRoles gọi đúng endpoint /api/roles.
+- Triển khai endpoint AI Suggestions:
+- Thêm router ai-service/routers/suggestions.py và import vào main.py.
+- Thêm phương thức LLMService.get_suggestions trong llm_service.py (mock fallback + thực tế Gemini khi có key).
+- Thêm CI/CD pipeline (.github/workflows/ci.yml) để tự động build Docker image và kích hoạt restart Space trên Hugging Face sau mỗi push.
+- Kiểm tra và xác nhận build thành công cho frontend và backend.
+In Progress
+- (none)
+Blocked
+- (none)
+Key Decisions
+- Thay placeholder Dashboard bằng UI thực tế để tránh 404 sau login và cung cấp thông tin cá nhân.
+- Cập nhật Notification Service để trả về đúng cấu trúc và hỗ trợ đánh dấu đã đọc, giúp UI hoạt động trơn tru.
+- Sử dụng Gemini API key (biến môi trường GEMINI_API_KEY) để chuyển từ chế độ mock sang chế độ thực cho AI Suggestions.
+- Đưa CI/CD vào CI pipeline GitHub Actions, sử dụng secret HF_SPACE_TOKEN để tự động redeploy trên Hugging Face.
+Next Steps
+- Kiểm thử đầy đủ UI Dashboard, Notification Center, Admin Roles trên môi trường HF.
+- Đặt biến môi trường GEMINI_API_KEY trong cấu hình Space để kích hoạt đề xuất AI thực.
+- Theo dõi logs Nginx/Backend để xác nhận không còn 404 cho các route mới.
+- (Nếu cần) Bổ sung unit/integration tests cho các endpoint mới và UI components.
+Critical Context
+- Backend global prefix /api; tất cả các endpoint đều bắt đầu bằng /api.
+- Notification routes hiện đã bảo vệ bằng JWT và trả về { notifications, unread_count }.
+- LLMService.is_ready dựa trên GEMINI_API_KEY; khi key hợp lệ, get_suggestions gọi Gemini, ngược lại trả về mock.
+- CI workflow (.github/workflows/ci.yml) tự động build Docker image, đẩy lên GHCR và gọi Hugging Face API restart.
+- Đã cập nhật frontend/app/dashboard/page.tsx để tải dữ liệu dashboard và insight.
+- Dashboard UI sử dụng Card, Avatar và hiển thị stats, mentoring và AI insight.
+Relevant Files
+- frontend/app/dashboard/page.tsx: UI Dashboard thực tế, fetch overview & insight.
+- frontend/app/notifications/page.tsx: UI Notification Center với pagination và mark‑as‑read.
+- backend/src/modules/notifications/notifications.controller.ts: Thêm GET /api/notifications và PUT /api/notifications/:id/read (bảo vệ JWT).
+- backend/src/modules/notifications/notifications.service.ts: Mở rộng Notification model, thêm markAsRead.
+- frontend/src/services/notification.service.ts: Gọi endpoint mới và hỗ trợ markAsRead.
+- frontend/app/admin/roles/page.tsx: Hiển thị danh sách vai trò thực từ /api/roles.
+- backend/src/modules/role/role.controller.ts: GET /api/roles (đã có) trả về thực thể Role.
+- ai-service/routers/suggestions.py: Endpoint /api/ai/suggestions gọi llm_service.get_suggestions.
+- ai-service/services/llm_service.py: Thêm get_suggestions (mock + Gemini).
+- .github/workflows/ci.yml: CI/CD pipeline tự động build và restart Hugging Face Space.
