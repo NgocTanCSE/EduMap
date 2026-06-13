@@ -33,7 +33,7 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
         echo "  Attempt $i/30: Waiting for PostgreSQL..."
         sleep 1
     done
-    if ! pg_isready -h /tmp -q; then echo "❌ [PostgreSQL] Temporary PostgreSQL did not start in time!"; exit 1; }
+    if ! pg_isready -h /tmp -q; then echo "❌ [PostgreSQL] Temporary PostgreSQL did not start in time!"; exit 1; fi
     echo "✅ [PostgreSQL] Temporary PostgreSQL is ready."
     
     echo "➡️ [PostgreSQL] Creating user 'admin' and database 'edumap_db'..."
