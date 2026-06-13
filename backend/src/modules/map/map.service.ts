@@ -28,7 +28,7 @@ export class MapService {
     return {
       id: p.id,
       name: p.name,
-      category: p.description || p.type || 'other',
+      category: p.type || 'other',
       lat,
       lng,
     };
@@ -41,26 +41,28 @@ export class MapService {
   }
 
   async findPoisByCategory(category: string): Promise<PointOfInterest[]> {
-    // Tối ưu hóa Database Query: Filter trực tiếp ở mức DB thay vì load 73.000 dòng lên RAM
-    const points = await this.mapPointRepo.createQueryBuilder('map_points')
-      .where('LOWER(map_points.description) = LOWER(:category)', { category })
-      .getMany();
+    // Tối ưu hóa Database Query: Filter dựa trên type_id.
+    const typeIdsMap: { [key: string]: number } = {
+      'school': 1,
+      'library': 3,
+      'lab': 5,
+    };
+    
+    const typeId = typeIdsMap[category.toLowerCase()];
+    
+    let query = this.mapPointRepo.createQueryBuilder('map_points');
+    if (typeId) {
+        query = query.where('map_points.type_id = :typeId', { typeId });
+    } else {
+        query = query.where('1=0'); // No category match
+    }
+    const points = await query.getMany();
       
-    // Defensive check: If the old logic mapped by type_id, we might miss some hardcoded seeds, 
-    // but the query builder is significantly safer for 73k records. 
-    // To be perfectly backward compatible, we fetch by description.
     return points.map(p => this.mapPointToPoi(p));
   }
 
   async getCategories(): Promise<string[]> {
-    // Tối ưu hóa Database Query: Dùng DISTINCT thay vì map Set trên 73.000 dòng RAM
-    const result = await this.mapPointRepo.createQueryBuilder('map_points')
-      .select('map_points.description', 'category')
-      .distinct(true)
-      .where('map_points.description IS NOT NULL')
-      .getRawMany();
-      
-    return result.map(r => r.category).filter(Boolean);
+    return ['school', 'library', 'lab'];
   }
 
   async analyzeWithAI(query: string, context?: any): Promise<any> {

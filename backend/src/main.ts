@@ -4,10 +4,12 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
   // 🛡️ SECURITY: Helmet bảo mật HTTP Header
   app.use(helmet());

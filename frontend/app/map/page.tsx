@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), { ssr: false });
 
@@ -27,6 +28,7 @@ export default function MapPage() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
+      logger.info('Fetching map data');
       const [locRes, catRes] = await Promise.all([
         fetch('/api/map/locations'),
         fetch('/api/map/categories')
@@ -41,8 +43,9 @@ export default function MapPage() {
       setLocations(Array.isArray(locData) ? locData : []);
       setFilteredLocations(Array.isArray(locData) ? locData : []);
       setCategories(Array.isArray(catData) ? catData : []);
+      logger.info('Map data loaded successfully');
     } catch (error) {
-      console.error("Error fetching map data:", error);
+      logger.error("Error fetching map data:", error);
       toast.error('Failed to load map data');
     } finally {
       setLoading(false);
@@ -125,7 +128,10 @@ if (activeCategory !== 'all') {
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => {
+                  logger.action(`Category filter clicked: ${cat}`);
+                  setActiveCategory(cat);
+              }}
               className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === cat ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
             >
               {cat}
