@@ -35,8 +35,7 @@ export class MapController {
   @Get('categories')
   async getCategories() {
     try {
-      const allPois = await this.mapService.findAllPois();
-      const categories = [...new Set(allPois.map(poi => poi.category))];
+      const categories = await this.mapService.getCategories();
       return { success: true, data: categories };
     } catch (error) {
       console.error(`Error getting categories: ${error.message}`);
