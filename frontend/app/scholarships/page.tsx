@@ -33,7 +33,8 @@ export default function ScholarshipPage() {
     try {
       setLoading(true);
       const data = await scholarshipService.getScholarships();
-      setScholarships(data);
+      const items = Array.isArray(data) ? data : (data.data || []);
+      setScholarships(items);
     } catch (error: any) {
       toast.error(error.message || "Lỗi tải danh sách học bổng");
     } finally {

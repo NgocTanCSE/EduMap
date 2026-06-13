@@ -18,7 +18,8 @@ export default function InternshipPage() {
     try {
       setLoading(true);
       const data = await internshipService.getInternships();
-      setInternships(data);
+      const items = Array.isArray(data) ? data : (data.data || []);
+      setInternships(items);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải danh sách thực tập');
     } finally {

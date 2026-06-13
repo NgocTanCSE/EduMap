@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -61,10 +61,8 @@ function MapController({ selectedPoint }: { selectedPoint: any }) {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedPoint && selectedPoint.coordinates && selectedPoint.coordinates.coordinates) {
-      const lat = selectedPoint.coordinates.coordinates[1];
-      const lng = selectedPoint.coordinates.coordinates[0];
-      map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 });
+    if (selectedPoint && selectedPoint.lat !== undefined && selectedPoint.lng !== undefined) {
+      map.flyTo([selectedPoint.lat, selectedPoint.lng], 16, { animate: true, duration: 1.5 });
     }
   }, [selectedPoint, map]);
 
@@ -95,20 +93,23 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         
         <MarkerClusterGroup chunkedLoading>
           {points
-            .filter(p => p.coordinates && p.coordinates.coordinates)
+            .filter(p => p.lat !== undefined && p.lng !== undefined)
             .map((p) => {
-              const lat = p.coordinates.coordinates[1];
-              const lng = p.coordinates.coordinates[0];
+              const lat = p.lat;
+              const lng = p.lng;
 
               return (
                 <Marker 
                   key={p.id} 
                   position={[lat, lng]} 
-                  icon={getIconForCategory(p.category?.name)}
+                  icon={getIconForCategory(p.category)}
                   eventHandlers={{
                     click: () => onSelectPoint(p)
                   }}
                 >
+                  <Tooltip direction="top" offset={[0, -30]} opacity={0.9}>
+                    <span className="font-bold text-xs text-zinc-900">{p.name}</span>
+                  </Tooltip>
                   <Popup>
                     <div className="p-2 text-zinc-950 font-sans max-w-[240px]">
                       <h4 className="font-extrabold text-sm text-zinc-900 leading-tight mb-1">{p.name}</h4>

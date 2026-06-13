@@ -18,26 +18,23 @@ export class MapService {
     private readonly mapPointRepo: Repository<MapPoint>,
   ) {}
 
-  private mapPointToPoi(p: MapPoint): PointOfInterest {
-    let lat = 0;
-    let lng = 0;
-    if (p.location && p.location.type === 'Point' && Array.isArray(p.location.coordinates)) {
-      lng = p.location.coordinates[0];
-      lat = p.location.coordinates[1];
+  private mapPointToPoi(p: MapPoint): PointOfInterest | null {
+    if (!p.location || p.location.type !== 'Point' || !Array.isArray(p.location.coordinates) || p.location.coordinates.length < 2) {
+      return null;
     }
     return {
       id: p.id,
       name: p.name,
       category: p.type || 'other',
-      lat,
-      lng,
+      lng: p.location.coordinates[0],
+      lat: p.location.coordinates[1],
     };
   }
 
   async findAllPois(): Promise<PointOfInterest[]> {
     // Trả về toàn bộ dữ liệu. Giao diện (Next.js) sẽ dùng Supercluster chunkedLoading để xử lý hiển thị.
     const points = await this.mapPointRepo.find();
-    return points.map(p => this.mapPointToPoi(p));
+    return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
   async findPoisByCategory(category: string): Promise<PointOfInterest[]> {
@@ -58,7 +55,7 @@ export class MapService {
     }
     const points = await query.getMany();
       
-    return points.map(p => this.mapPointToPoi(p));
+    return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
   async getCategories(): Promise<string[]> {
@@ -82,4 +79,3 @@ export class MapService {
     }
   }
 }
-

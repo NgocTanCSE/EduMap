@@ -76,6 +76,19 @@ def run():
     
     cur.close()
     conn.close()
+
+    # 6. Execute Python seed scripts for additional data
+    import subprocess
+    print("Executing additional Python seed scripts...")
+    seed_scripts = ['scripts/seed_edu_data.py']
+    for script in seed_scripts:
+        if os.path.exists(script):
+            print(f"Running {script}...")
+            try:
+                subprocess.run(['python3', script], check=True)
+            except Exception as e:
+                print(f"Failed to execute {script}: {e}")
+
     print("Setup completed successfully!")
 
 if __name__ == "__main__":
