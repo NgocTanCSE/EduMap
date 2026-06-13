@@ -32,7 +32,7 @@ export default function ScholarshipPage() {
   const fetchScholarships = async () => {
     try {
       setLoading(true);
-      const data = await scholarshipService.getScholarships();
+      const data: any = await scholarshipService.getScholarships();
       const items = Array.isArray(data) ? data : (data.data || []);
       setScholarships(items);
     } catch (error: any) {

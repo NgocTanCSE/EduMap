@@ -17,7 +17,7 @@ export default function InternshipPage() {
   const fetchInternships = async () => {
     try {
       setLoading(true);
-      const data = await internshipService.getInternships();
+      const data: any = await internshipService.getInternships();
       const items = Array.isArray(data) ? data : (data.data || []);
       setInternships(items);
     } catch (error: any) {
