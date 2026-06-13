@@ -8,10 +8,19 @@ async function runSeed() {
     await AppDataSource.initialize();
     console.log('Connected to database successfully!');
 
-    const seedFiles = [
+    let seedFiles = [
       path.join(__dirname, 'seed.sql'),
-      path.join(__dirname, '../../../seed_crawled_data.sql'),
     ];
+    
+    // Tự động tìm và đưa vào các file đã bị cắt (split)
+    const rootDir = path.join(__dirname, '../../..');
+    const rootFiles = fs.readdirSync(rootDir);
+    const crawledFiles = rootFiles
+      .filter(f => f.startsWith('seed_crawled_data') && f.endsWith('.sql'))
+      .sort()
+      .map(f => path.join(rootDir, f));
+      
+    seedFiles = seedFiles.concat(crawledFiles);
 
     for (const file of seedFiles) {
       console.log(`Checking seed file: ${file}`);

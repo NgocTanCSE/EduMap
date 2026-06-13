@@ -76,9 +76,9 @@ RUN useradd -m -u 1000 user && \
 # Copy Entrypoint and DB Scripts
 COPY scripts/ ./scripts/
 COPY scripts/hf_entrypoint.sh /usr/local/bin/hf_entrypoint.sh
-COPY seed_crawled_data.sql .
+COPY seed_crawled_data*.sql ./
 RUN chmod +x /usr/local/bin/hf_entrypoint.sh && \
-    chown user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data.sql
+    chown user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data*.sql
 
 # HF Spaces requires port 7860
 RUN sed -i 's/listen 80;/listen 7860;/' /etc/nginx/sites-available/default && \

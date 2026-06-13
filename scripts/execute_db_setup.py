@@ -48,15 +48,19 @@ def run():
     cur.execute(seed_sql)
     print("Database seeded successfully.")
 
-    # 4. Read and execute seed_crawled_data.sql
-    crawled_data_path = 'seed_crawled_data.sql'
-    if os.path.exists(crawled_data_path):
-        print(f"Reading {crawled_data_path}...")
-        with open(crawled_data_path, 'r', encoding='utf-8-sig') as f:
-            crawled_sql = f.read()
-        print("Executing seed_crawled_data.sql...")
-        cur.execute(crawled_sql)
-        print("Crawled data seeded successfully.")
+    # 4. Read and execute seed_crawled_data*.sql (Hỗ trợ file bị chia nhỏ / split)
+    import glob
+    crawled_data_files = sorted(glob.glob('seed_crawled_data*.sql'))
+    if crawled_data_files:
+        for file_path in crawled_data_files:
+            print(f"Reading {file_path}...")
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                crawled_sql = f.read()
+            print(f"Executing {file_path}...")
+            cur.execute(crawled_sql)
+        print("All crawled data seeded successfully.")
+    else:
+        print("No seed_crawled_data*.sql files found.")
 
     # 5. Read and execute init_analytics_db.sql
 

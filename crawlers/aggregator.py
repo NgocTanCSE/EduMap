@@ -176,14 +176,25 @@ class DataAggregator:
             return None
 
     def save_results(self, crawlers_data: Dict):
-        """Save all results to files"""
+        """Save all results to files, splitting SQL to avoid Git limits."""
 
-        # Consolidated SQL
-        sql_content = self.generate_consolidated_sql(crawlers_data)
-        sql_file = os.path.join(self.output_dir, f"consolidated_crawled_data_{self.timestamp}.sql")
-        with open(sql_file, "w", encoding="utf-8") as f:
-            f.write(sql_content)
-        print(f"✓ Saved consolidated SQL: {sql_file}")
+        # Generate Consolidated SQL Content (List of lines)
+        sql_lines = self.generate_consolidated_sql(crawlers_data).split('\n')
+        
+        chunk_size = 30000  # ~6MB per file to avoid 10MB Git limit
+        total_chunks = (len(sql_lines) // chunk_size) + 1
+        
+        for i in range(total_chunks):
+            chunk_lines = sql_lines[i*chunk_size : (i+1)*chunk_size]
+            if not chunk_lines or all(not line.strip() for line in chunk_lines):
+                continue
+                
+            suffix = f"_part{i+1}" if total_chunks > 1 else ""
+            sql_file = os.path.join(self.output_dir, f"consolidated_crawled_data_{self.timestamp}{suffix}.sql")
+            
+            with open(sql_file, "w", encoding="utf-8") as f:
+                f.write('\n'.join(chunk_lines))
+            print(f"✓ Saved SQL chunk: {sql_file}")
 
         # Individual JSON reports
         summary = self._generate_summary(crawlers_data)

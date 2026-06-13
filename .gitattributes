@@ -2,4 +2,3 @@
 *.py text eol=lf
 *.sql text eol=lf
 Dockerfile* text eol=lf
-crawled_data/*.sql filter=lfs diff=lfs merge=lfs -text
