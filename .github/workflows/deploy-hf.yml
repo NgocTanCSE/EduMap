@@ -20,7 +20,10 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           
-          
-          # Đẩy code lên Hugging Face (Thay username và tên Space của bạn vào đường dẫn dưới)
-          # Ví dụ: https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap
-          git push --force https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap HEAD:main
+          git remote add hf https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap
+          # Đảm bảo git lfs hook được cấu hình
+          git lfs install
+          # Explicitly push LFS objects to the HF remote
+          git lfs push hf HEAD
+          # Push code
+          git push --force hf HEAD:main
