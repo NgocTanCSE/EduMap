@@ -1,13 +1,18 @@
 import psycopg2
 import sys
+import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # --- Database Configuration ---
 DB_CONFIG = {
     "host": "localhost",
-    "port": "5433",
-    "dbname": "edumap_db",
-    "user": "admin",
-    "password": "password123"
+    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"),
+    "dbname": os.getenv("DB_DATABASE", "edumap_db"),
+    "user": os.getenv("DB_USERNAME", "admin"),
+    "password": os.getenv("DB_PASSWORD", "password123")
 }
 
 # Type IDs: 1: School, 3: Library, 5: STEM Lab, 6: Green Space, 7: WiFi, 8: Bookstore, 9: Cafe
@@ -140,8 +145,8 @@ def seed():
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
         
-        print("Cleaning old map data...")
-        cur.execute("DELETE FROM map_points;")
+        print("Skipping cleaning old map data to preserve crawled data.")
+        # cur.execute("DELETE FROM map_points;")
         
         print(f"Seeding {len(LOCATIONS)} precise locations for DNTU ecosystem...")
         
