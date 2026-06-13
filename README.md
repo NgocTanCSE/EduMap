@@ -1,4 +1,10 @@
 ---
+title: EduMap Dong Nai
+emoji: 🎓
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
 language: vi
 license: cc-by-sa-4.0
 tags:
