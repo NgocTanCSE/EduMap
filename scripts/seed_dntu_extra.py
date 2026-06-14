@@ -35,9 +35,11 @@ def seed_business_and_intern():
         
         business_ids = []
         for name, desc, industry_val, addr, web in business_data:
+            # 🛠️ FIX: Match schema columns for business_profiles
             cur.execute("""
-                INSERT INTO business_profiles (id, name, description, industry, address, website, is_verified, user_id)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, gen_random_uuid())
+                INSERT INTO business_profiles (id, user_id, name, description, industry, address, website, is_verified)
+                VALUES (uuid_generate_v4(), uuid_generate_v4(), %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
                 RETURNING id;
             """, (name, desc, industry_val, addr, web, True))
             business_ids.append(cur.fetchone()[0])
@@ -53,10 +55,11 @@ def seed_business_and_intern():
         
         expiry = datetime.now() + timedelta(days=60)
         for b_id, title, desc, category, skills in intern_data:
+            # 🛠️ FIX: Match schema columns for internships
             cur.execute("""
                 INSERT INTO internships (id, company_id, title, description, field, requirements, deadline, status)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s);
-            """, (b_id, title, desc, category, json.dumps(skills), expiry, "open"))
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
+            """, (b_id, title, desc, category, ", ".join(skills), expiry, "open"))
 
         # 3. Seed Events
         print("Seeding DNTU Campus Events...")
@@ -69,9 +72,10 @@ def seed_business_and_intern():
         
         event_start = datetime.now() + timedelta(days=15)
         for title, desc, e_type, loc in event_data:
+            # 🛠️ FIX: Use address instead of location
             cur.execute("""
-                INSERT INTO events (id, title, description, type, location, start_date, end_date, status)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s);
+                INSERT INTO events (id, title, description, type, address, start_date, end_date, status)
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
             """, (title, desc, e_type, loc, event_start, event_start + timedelta(hours=4), "upcoming"))
 
         conn.commit()
@@ -82,6 +86,8 @@ def seed_business_and_intern():
         if conn:
             conn.rollback()
     finally:
+        if 'cur' in locals() and cur:
+            cur.close()
         if conn:
             conn.close()
 

@@ -8,7 +8,6 @@ import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
-const HandlebarsAdapter = require('@nestjs-modules/mailer/dist/adapters/handlebars.adapter').HandlebarsAdapter;
 import { join } from 'path';
 
 // === CORE MODULES ===
@@ -93,7 +92,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       },
       template: {
         dir: join(__dirname, 'modules/notifications/templates'),
-        adapter: new HandlebarsAdapter(),
+        // 🛠️ FIX: Use require() to bypass ERR_PACKAGE_PATH_NOT_EXPORTED
+        adapter: new (require('@nestjs-modules/mailer').HandlebarsAdapter)(),
         options: {
           strict: true,
         },

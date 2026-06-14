@@ -42,11 +42,12 @@ def seed_content():
         ]
         
         for title, desc, m_type, cat, tags in library_data:
+            # 🛠️ FIX: Change category to subject as per schema
             cur.execute("""
-                INSERT INTO learning_materials (id, title, description, type, category, tags, view_count)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s)
+                INSERT INTO learning_materials (id, title, description, type, subject, tags, view_count)
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING;
-            """, (title, desc, m_type, cat, tags, 120))
+            """, (title, desc, m_type, cat, json.dumps(tags), 120))
 
         # 3. Seed Scholarships
         print("Seeding DNTU Scholarships...")
@@ -60,7 +61,7 @@ def seed_content():
         for title, desc, prov, val, criteria in scholarship_data:
             cur.execute("""
                 INSERT INTO scholarships (id, title, description, provider, value_amount, deadline, eligibility_criteria)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s)
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING;
             """, (title, desc, prov, val, deadline, json.dumps(criteria)))
 
@@ -76,7 +77,7 @@ def seed_content():
         for title, content in posts_data:
             cur.execute("""
                 INSERT INTO posts (id, author_id, title, content, like_count, comment_count)
-                VALUES (gen_random_uuid(), %s, %s, %s, 10, 5)
+                VALUES (uuid_generate_v4(), %s, %s, %s, 10, 5)
                 ON CONFLICT DO NOTHING;
             """, (admin_id, title, content))
 
@@ -88,6 +89,8 @@ def seed_content():
         if conn:
             conn.rollback()
     finally:
+        if 'cur' in locals() and cur:
+            cur.close()
         if conn:
             conn.close()
 

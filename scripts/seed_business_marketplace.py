@@ -22,11 +22,12 @@ def seed_business_marketplace():
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
         
-        # 1. Get Employer ID
-        cur.execute("SELECT id FROM users WHERE role = 'employer' LIMIT 1;")
+        # 1. Get Employer ID (Business Partner role_id = 6 from seed.sql)
+        # 🛠️ FIX: Use role_id = 6 instead of role = 'employer'
+        cur.execute("SELECT id FROM users WHERE role_id = 6 LIMIT 1;")
         employer_row = cur.fetchone()
         if not employer_row:
-            print("No employer found. Please run main seed first.")
+            print("No business partner found. Please run main seed first.")
             return
         employer_id = employer_row[0]
 
@@ -52,7 +53,7 @@ def seed_business_marketplace():
         for name, desc, price, cat, stock in products:
             cur.execute("""
                 INSERT INTO products (id, name, description, price, category, stock, business_profile_id)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s);
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s);
             """, (name, desc, price, cat, stock, biz_id))
 
         # 4. Create Services
@@ -65,7 +66,7 @@ def seed_business_marketplace():
         for name, desc, price, cat, duration, loc in services:
             cur.execute("""
                 INSERT INTO business_services (id, name, description, price, category, duration, location, business_profile_id)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s);
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
             """, (name, desc, price, cat, duration, loc, biz_id))
 
         conn.commit()
@@ -76,6 +77,8 @@ def seed_business_marketplace():
         if conn:
             conn.rollback()
     finally:
+        if 'cur' in locals() and cur:
+            cur.close()
         if conn:
             conn.close()
 

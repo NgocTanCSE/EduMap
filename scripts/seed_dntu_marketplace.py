@@ -31,18 +31,19 @@ def seed_marketplace():
 
         print("Seeding DNTU Marketplace books...")
         marketplace_data = [
-            ("Giáo trình Giải tích 1 - DNTU", "Sách cũ, còn mới 80%, có ghi chú quan trọng.", "book", "Trao đổi"),
-            ("Lập trình C cơ bản", "Tặng cho bạn nào mới vào k21 khoa CNTT.", "book", "Tặng"),
-            ("Tiếng Anh giao tiếp", "Sách học kèm CD, phù hợp tự học tại nhà.", "book", "Trao đổi"),
-            ("Cấu trúc dữ liệu và Giải thuật", "Tài liệu photo từ thư viện, tặng miễn phí.", "book", "Tặng"),
+            ("Giáo trình Giải tích 1 - DNTU", "Sách cũ, còn mới 80%, có ghi chú quan trọng.", "book", "available"),
+            ("Lập trình C cơ bản", "Tặng cho bạn nào mới vào k21 khoa CNTT.", "book", "available"),
+            ("Tiếng Anh giao tiếp", "Sách học kèm CD, phù hợp tự học tại nhà.", "book", "available"),
+            ("Cấu trúc dữ liệu và Giải thuật", "Tài liệu photo từ thư viện, tặng miễn phí.", "book", "available"),
         ]
         
         for name, desc, cat, status in marketplace_data:
+            # 🛠️ FIX: Match schema columns for shared_items (id, name, category, description, status, owner_id)
             cur.execute("""
-                INSERT INTO shared_items (id, name, description, category, status, owner_id)
-                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s)
+                INSERT INTO shared_items (id, name, category, description, status, owner_id)
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING;
-            """, (name, desc, cat, status, admin_id))
+            """, (name, cat, desc, status, admin_id))
 
         conn.commit()
         print("DNTU Marketplace books seeded successfully!")
@@ -52,6 +53,8 @@ def seed_marketplace():
         if conn:
             conn.rollback()
     finally:
+        if 'cur' in locals() and cur:
+            cur.close()
         if conn:
             conn.close()
 

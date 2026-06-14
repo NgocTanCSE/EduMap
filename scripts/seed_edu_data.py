@@ -42,19 +42,19 @@ def seed_scholarships(cur):
 
 def seed_events(cur):
     events = [
-        ("Workshop: Làm chủ AI 2026", "Tìm hiểu về ứng dụng của LLM trong phát triển phần mềm.", "workshop", "Hội trường A1, ĐH Công nghệ", datetime.now() + timedelta(days=7, hours=9), datetime.now() + timedelta(days=7, hours=12), 100),
-        ("Hackathon: Green Tech Challenge", "Cuộc thi lập trình các giải pháp bảo vệ môi trường.", "hackathon", "Trung tâm Đổi mới Sáng tạo", datetime.now() + timedelta(days=14), datetime.now() + timedelta(days=16), 200),
-        ("Seminar: Kỹ năng Viết CV & Phỏng vấn", "Hướng dẫn từ các chuyên gia tuyển dụng hàng đầu.", "seminar", "Phòng họp trực tuyến Zoom", datetime.now() + timedelta(days=3), datetime.now() + timedelta(days=3, hours=2), 500),
-        ("Trại hè STEM cho Học sinh Cấp 3", "Khám phá khoa học qua các thí nghiệm thực tế.", "camp", "Cơ sở EduMap Thủ Đức", datetime.now() + timedelta(days=30), datetime.now() + timedelta(days=35), 50),
-        ("Triển lãm Du học Quốc tế", "Gặp gỡ đại diện hơn 50 trường đại học toàn cầu.", "seminar", "Khách sạn Sheraton", datetime.now() + timedelta(days=20), datetime.now() + timedelta(days=20, hours=8), 1000)
+        ("Workshop: Làm chủ AI 2026", "Tìm hiểu về ứng dụng của LLM trong phát triển phần mềm.", "workshop", "Hội trường A1, ĐH Công nghệ", 106.83, 10.93, datetime.now() + timedelta(days=7, hours=9), datetime.now() + timedelta(days=7, hours=12), 100),
+        ("Hackathon: Green Tech Challenge", "Cuộc thi lập trình các giải pháp bảo vệ môi trường.", "hackathon", "Trung tâm Đổi mới Sáng tạo", 106.82, 10.92, datetime.now() + timedelta(days=14), datetime.now() + timedelta(days=16), 200),
+        ("Seminar: Kỹ năng Viết CV & Phỏng vấn", "Hướng dẫn từ các chuyên gia tuyển dụng hàng đầu.", "seminar", "Phòng họp trực tuyến Zoom", 106.81, 10.91, datetime.now() + timedelta(days=3), datetime.now() + timedelta(days=3, hours=2), 500),
+        ("Trại hè STEM cho Học sinh Cấp 3", "Khám phá khoa học qua các thí nghiệm thực tế.", "camp", "Cơ sở EduMap Thủ Đức", 106.80, 10.90, datetime.now() + timedelta(days=30), datetime.now() + timedelta(days=35), 50),
+        ("Triển lãm Du học Quốc tế", "Gặp gỡ đại diện hơn 50 trường đại học toàn cầu.", "seminar", "Khách sạn Sheraton", 106.79, 10.89, datetime.now() + timedelta(days=20), datetime.now() + timedelta(days=20, hours=8), 1000)
     ]
     
-    for title, desc, type, loc, start, end, cap in events:
+    for title, desc, etype, addr, lng, lat, start, end, cap in events:
         cur.execute("""
-            INSERT INTO events (id, title, description, type, location, start_date, end_date, capacity, registered_count, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO events (id, title, description, type, address, location_point, start_date, end_date, capacity, registered_count, status, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT DO NOTHING
-        """, (str(uuid.uuid4()), title, desc, type, loc, start, end, cap, 0, 'upcoming', datetime.now(), datetime.now()))
+        """, (str(uuid.uuid4()), title, desc, etype, addr, lng, lat, start, end, cap, 0, 'upcoming', datetime.now(), datetime.now()))
 
 def seed_donations(cur):
     campaigns = [
@@ -79,7 +79,8 @@ def seed_internships(cur):
     ]
     
     # Get a valid company_id (admin user)
-    cur.execute("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+    # 🛠️ FIX: Use role_id = 1 (Super Admin) instead of role = 'admin'
+    cur.execute("SELECT id FROM users WHERE role_id = 1 LIMIT 1")
     admin_id = cur.fetchone()
     if not admin_id: return
     
@@ -108,11 +109,13 @@ def main():
         conn.commit()
         print("Seeding completed successfully!")
     except Exception as e:
-        print(f"Error during seeding: {e}", file=sys.stderr)
+        print(f"Error during seeding: {e}")
         conn.rollback()
     finally:
-        cur.close()
-        conn.close()
+        if 'cur' in locals() and cur:
+            cur.close()
+        if 'conn' in locals() and conn:
+            conn.close()
 
 if __name__ == "__main__":
     main()

@@ -780,3 +780,46 @@ CREATE TABLE applications (
 );
 CREATE INDEX idx_applications_user ON applications(user_id);
 CREATE INDEX idx_applications_job ON applications(job_id);
+
+-- 50. business_profiles (Matches BusinessProfile entity)
+CREATE TABLE business_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE REFERENCES users(id),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    industry VARCHAR(255),
+    website VARCHAR(255),
+    logo_url TEXT,
+    address TEXT,
+    is_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 51. products (Matches Product entity)
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(15,2) NOT NULL,
+    category VARCHAR(100),
+    stock INTEGER DEFAULT 0,
+    image_url TEXT,
+    business_profile_id UUID REFERENCES business_profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 52. business_services (Matches Service entity)
+CREATE TABLE business_services (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(15,2) NOT NULL,
+    category VARCHAR(100),
+    duration VARCHAR(100),
+    location VARCHAR(255),
+    business_profile_id UUID REFERENCES business_profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
