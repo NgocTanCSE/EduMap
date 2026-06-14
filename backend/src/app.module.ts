@@ -8,7 +8,7 @@ import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+const HandlebarsAdapter = require('@nestjs-modules/mailer/dist/adapters/handlebars.adapter').HandlebarsAdapter;
 import { join } from 'path';
 
 // === CORE MODULES ===

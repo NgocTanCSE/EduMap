@@ -1,18 +1,24 @@
 import psycopg2
 import sys
 import json
+import os
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # --- Database Configuration ---
 DB_CONFIG = {
-    "host": "localhost",
-    "port": "5433",
-    "dbname": "edumap_db",
-    "user": "admin",
-    "password": "password123"
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "dbname": os.getenv("DB_DATABASE", "edumap_db"),
+    "user": os.getenv("DB_USERNAME", "admin"),
+    "password": os.getenv("DB_PASSWORD", "password123")
 }
 
 def seed_content():
+    conn = None
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
@@ -79,6 +85,8 @@ def seed_content():
         
     except Exception as e:
         print(f"Error seeding content: {e}", file=sys.stderr)
+        if conn:
+            conn.rollback()
     finally:
         if conn:
             conn.close()

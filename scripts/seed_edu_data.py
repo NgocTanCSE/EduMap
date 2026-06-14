@@ -1,6 +1,7 @@
 import psycopg2
 import os
 import uuid
+import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -8,8 +9,8 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 DB_CONFIG = {
-    "host": "localhost",
-    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5433"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432"),
     "dbname": os.getenv("DB_DATABASE", "edumap_db"),
     "user": os.getenv("DB_USERNAME", "admin"),
     "password": os.getenv("DB_PASSWORD", "password123")
@@ -107,7 +108,7 @@ def main():
         conn.commit()
         print("Seeding completed successfully!")
     except Exception as e:
-        print(f"Error during seeding: {e}")
+        print(f"Error during seeding: {e}", file=sys.stderr)
         conn.rollback()
     finally:
         cur.close()

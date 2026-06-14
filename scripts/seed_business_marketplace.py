@@ -1,14 +1,19 @@
 import psycopg2
 import sys
 import uuid
+import os
+from dotenv import load_dotenv
+
+# Load .env file from the project root
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # --- Database Configuration ---
 DB_CONFIG = {
-    "host": "localhost",
-    "port": "5433",
-    "dbname": "edumap_db",
-    "user": "admin",
-    "password": "password123"
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "dbname": os.getenv("DB_DATABASE", "edumap_db"),
+    "user": os.getenv("DB_USERNAME", "admin"),
+    "password": os.getenv("DB_PASSWORD", "password123")
 }
 
 def seed_business_marketplace():
