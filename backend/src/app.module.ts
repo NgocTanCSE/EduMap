@@ -92,8 +92,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       },
       template: {
         dir: join(__dirname, 'modules/notifications/templates'),
-        // 🛠️ FIX: Use require() to bypass ERR_PACKAGE_PATH_NOT_EXPORTED
-        adapter: new (require('@nestjs-modules/mailer').HandlebarsAdapter)(),
+        // 🛠️ FIX: Use direct path import for HandlebarsAdapter to satisfy Node.js module loader
+        adapter: new (require('@nestjs-modules/mailer/dist/adapters/handlebars.adapter').HandlebarsAdapter)(),
         options: {
           strict: true,
         },

@@ -23,6 +23,14 @@ def seed_business_and_intern():
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
         
+        # 🛠️ FIX: Get a valid Business Partner ID (role_id = 6) or Admin ID (role_id = 1)
+        cur.execute("SELECT id FROM users WHERE role_id IN (1, 6) LIMIT 1;")
+        user_row = cur.fetchone()
+        if not user_row:
+            print("ERROR: No suitable user found for business profiles.")
+            return
+        user_id = user_row[0]
+
         # 1. Seed Business Profiles (KCN Amata & Bien Hoa)
         print("Seeding Business Profiles around DNTU...")
         business_data = [
@@ -35,13 +43,13 @@ def seed_business_and_intern():
         
         business_ids = []
         for name, desc, industry_val, addr, web in business_data:
-            # 🛠️ FIX: Match schema columns for business_profiles
+            # 🛠️ FIX: Use ON CONFLICT to avoid duplicate names and use existing user_id
             cur.execute("""
                 INSERT INTO business_profiles (id, user_id, name, description, industry, address, website, is_verified)
-                VALUES (uuid_generate_v4(), uuid_generate_v4(), %s, %s, %s, %s, %s, %s)
+                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
                 RETURNING id;
-            """, (name, desc, industry_val, addr, web, True))
+            """, (user_id, name, desc, industry_val, addr, web, True))
             business_ids.append(cur.fetchone()[0])
 
         # 2. Seed Internships
@@ -55,7 +63,6 @@ def seed_business_and_intern():
         
         expiry = datetime.now() + timedelta(days=60)
         for b_id, title, desc, category, skills in intern_data:
-            # 🛠️ FIX: Match schema columns for internships
             cur.execute("""
                 INSERT INTO internships (id, company_id, title, description, field, requirements, deadline, status)
                 VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
@@ -72,7 +79,6 @@ def seed_business_and_intern():
         
         event_start = datetime.now() + timedelta(days=15)
         for title, desc, e_type, loc in event_data:
-            # 🛠️ FIX: Use address instead of location
             cur.execute("""
                 INSERT INTO events (id, title, description, type, address, start_date, end_date, status)
                 VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
@@ -82,7 +88,7 @@ def seed_business_and_intern():
         print("DNTU Business, Internships and Events data seeded successfully!")
         
     except Exception as e:
-        print(f"Error seeding data: {e}", file=sys.stderr)
+        print(f"Error seeding data: {e}")
         if conn:
             conn.rollback()
     finally:
