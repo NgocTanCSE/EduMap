@@ -37,7 +37,7 @@ def seed_scholarships(cur):
         cur.execute("""
             INSERT INTO scholarships (id, title, description, provider, value_amount, deadline, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (title) DO NOTHING
         """, (str(uuid.uuid4()), title, desc, provider, val, deadline, datetime.now(), datetime.now()))
 
 def seed_events(cur):
@@ -53,7 +53,7 @@ def seed_events(cur):
         cur.execute("""
             INSERT INTO events (id, title, description, type, address, location_point, start_date, end_date, capacity, registered_count, status, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (title) DO NOTHING
         """, (str(uuid.uuid4()), title, desc, etype, addr, lng, lat, start, end, cap, 0, 'upcoming', datetime.now(), datetime.now()))
 
 def seed_donations(cur):
@@ -67,7 +67,7 @@ def seed_donations(cur):
         cur.execute("""
             INSERT INTO donation_campaigns (id, title, description, target_amount, current_amount, end_date, status, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (title) DO NOTHING
         """, (str(uuid.uuid4()), title, desc, target, current, end, 'active', datetime.now(), datetime.now()))
 
 def seed_internships(cur):
@@ -79,7 +79,6 @@ def seed_internships(cur):
     ]
     
     # Get a valid company_id (admin user)
-    # 🛠️ FIX: Use role_id = 1 (Super Admin) instead of role = 'admin'
     cur.execute("SELECT id FROM users WHERE role_id = 1 LIMIT 1")
     admin_id = cur.fetchone()
     if not admin_id: return
@@ -88,7 +87,7 @@ def seed_internships(cur):
         cur.execute("""
             INSERT INTO internships (id, title, description, field, location_point, salary_range, deadline, company_id, status, created_at, updated_at)
             VALUES (%s, %s, %s, %s, ST_SetSRID(ST_MakePoint(106.660172, 10.762622), 4326), %s, %s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (title) DO NOTHING
         """, (str(uuid.uuid4()), title, desc, field, salary, deadline, admin_id[0], 'open', datetime.now(), datetime.now()))
 
 def main():

@@ -94,6 +94,9 @@ export class User {
   @Column({ default: 'active' })
   status: string;
 
+  @Column({ default: false })
+  email_verified: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   last_login: Date;
 

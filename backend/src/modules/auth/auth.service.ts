@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -64,16 +64,17 @@ export class AuthService {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    // Tạo user mới
-    const newUser = this.userRepo.create({
+    // Tạo user mới (Ép kiểu DeepPartial<User> để đảm bảo match đúng overload)
+    const userPayload: DeepPartial<User> = {
       email,
       password_hash,
       full_name,
       role, // Tự động map role_id qua setter của Entity
       status: 'active',
       email_verified: false,
-    });
+    };
 
+    const newUser = this.userRepo.create(userPayload);
     const savedUser = await this.userRepo.save(newUser);
 
     // Tạo token cho user mới đăng ký luôn

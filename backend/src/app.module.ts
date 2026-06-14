@@ -8,6 +8,7 @@ import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 import { join } from 'path';
 
 // === CORE MODULES ===
@@ -92,11 +93,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       },
       template: {
         dir: join(__dirname, 'modules/notifications/templates'),
-        // 🛠️ FIX: Use extra-safe require pattern for HandlebarsAdapter to satisfy Node.js 20 exports
-        adapter: new (
-          require('@nestjs-modules/mailer/adapters/handlebars.adapter').HandlebarsAdapter || 
-          require('@nestjs-modules/mailer/adapters/handlebars.adapter')
-        )(),
+        // 🛠️ FIX: Use correct subpath for HandlebarsAdapter to satisfy Node.js 20 exports
+        adapter: new HandlebarsAdapter(),
         options: {
           strict: true,
         },
