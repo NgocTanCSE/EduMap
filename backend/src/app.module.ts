@@ -92,8 +92,11 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       },
       template: {
         dir: join(__dirname, 'modules/notifications/templates'),
-        // 🛠️ FIX: Use direct path import for HandlebarsAdapter to satisfy Node.js module loader
-        adapter: new (require('@nestjs-modules/mailer/dist/adapters/handlebars.adapter').HandlebarsAdapter)(),
+        // 🛠️ FIX: Use extra-safe require pattern for HandlebarsAdapter to satisfy Node.js 20 exports
+        adapter: new (
+          require('@nestjs-modules/mailer/adapters/handlebars.adapter').HandlebarsAdapter || 
+          require('@nestjs-modules/mailer/adapters/handlebars.adapter')
+        )(),
         options: {
           strict: true,
         },

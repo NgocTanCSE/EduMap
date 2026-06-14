@@ -2,6 +2,7 @@ import psycopg2
 import sys
 import json
 import os
+import uuid
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -23,33 +24,34 @@ def seed_business_and_intern():
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
         
-        # 🛠️ FIX: Get a valid Business Partner ID (role_id = 6) or Admin ID (role_id = 1)
-        cur.execute("SELECT id FROM users WHERE role_id IN (1, 6) LIMIT 1;")
-        user_row = cur.fetchone()
-        if not user_row:
-            print("ERROR: No suitable user found for business profiles.")
-            return
-        user_id = user_row[0]
-
         # 1. Seed Business Profiles (KCN Amata & Bien Hoa)
         print("Seeding Business Profiles around DNTU...")
         business_data = [
-            ("Tập đoàn Amata City Biên Hòa", "Đơn vị quản lý KCN Amata, đối tác chiến lược của DNTU.", "Công nghiệp / Quản lý", "KCN Amata, Long Bình, Biên Hòa", "https://www.amata.com"),
-            ("Nestlé Việt Nam (Nhà máy Amata)", "Tập đoàn thực phẩm và thức uống lớn nhất thế giới.", "Thực phẩm / FMCG", "Đường số 9, KCN Amata, Biên Hòa", "https://www.nestle.com.vn"),
-            ("Brother Industries Việt Nam", "Công ty Nhật Bản chuyên sản xuất máy in và thiết bị điện tử.", "Kỹ thuật / Điện tử", "Đường số 11, KCN Amata, Biên Hòa", "https://www.brother.com.vn"),
-            ("Bayer Việt Nam", "Tập đoàn đa quốc gia trong lĩnh vực Chăm sóc sức khỏe và Nông nghiệp.", "Hóa học / Y tế", "KCN Amata, Long Bình, Biên Hòa", "https://www.bayer.com.vn"),
-            ("Kao Việt Nam", "Công ty sản xuất hàng tiêu dùng nổi tiếng từ Nhật Bản.", "Sản xuất / Marketing", "Đường số 10, KCN Amata, Biên Hòa", "https://www.kao.com/vn"),
+            ("Tập đoàn Amata City Biên Hòa", "Đơn vị quản lý KCN Amata, đối tác chiến lược của DNTU.", "Công nghiệp / Quản lý", "KCN Amata, Long Bình, Biên Hòa", "https://www.amata.com", "amata@example.com"),
+            ("Nestlé Việt Nam (Nhà máy Amata)", "Tập đoàn thực phẩm và thức uống lớn nhất thế giới.", "Thực phẩm / FMCG", "Đường số 9, KCN Amata, Biên Hòa", "https://www.nestle.com.vn", "nestle@example.com"),
+            ("Brother Industries Việt Nam", "Công ty Nhật Bản chuyên sản xuất máy in và thiết bị điện tử.", "Kỹ thuật / Điện tử", "Đường số 11, KCN Amata, Biên Hòa", "https://www.brother.com.vn", "brother@example.com"),
+            ("Bayer Việt Nam", "Tập đoàn đa quốc gia trong lĩnh vực Chăm sóc sức khỏe và Nông nghiệp.", "Hóa học / Y tế", "KCN Amata, Long Bình, Biên Hòa", "https://www.bayer.com.vn", "bayer@example.com"),
+            ("Kao Việt Nam", "Công ty sản xuất hàng tiêu dùng nổi tiếng từ Nhật Bản.", "Sản xuất / Marketing", "Đường số 10, KCN Amata, Biên Hòa", "https://www.kao.com/vn", "kao@example.com"),
         ]
         
         business_ids = []
-        for name, desc, industry_val, addr, web in business_data:
-            # 🛠️ FIX: Use ON CONFLICT to avoid duplicate names and use existing user_id
+        for name, desc, industry_val, addr, web, email in business_data:
+            # 🛠️ FIX: Create or get a unique user for each business
+            cur.execute("""
+                INSERT INTO users (id, email, password_hash, full_name, role_id, status)
+                VALUES (%s, %s, %s, %s, 6, 'active')
+                ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+                RETURNING id;
+            """, (str(uuid.uuid4()), email, '$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO', name))
+            actual_user_id = cur.fetchone()[0]
+
+            # 🛠️ FIX: Use ON CONFLICT (name) or (user_id) to avoid duplicates
             cur.execute("""
                 INSERT INTO business_profiles (id, user_id, name, description, industry, address, website, is_verified)
-                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, user_id = EXCLUDED.user_id
                 RETURNING id;
-            """, (user_id, name, desc, industry_val, addr, web, True))
+            """, (str(uuid.uuid4()), actual_user_id, name, desc, industry_val, addr, web, True))
             business_ids.append(cur.fetchone()[0])
 
         # 2. Seed Internships
@@ -65,8 +67,9 @@ def seed_business_and_intern():
         for b_id, title, desc, category, skills in intern_data:
             cur.execute("""
                 INSERT INTO internships (id, company_id, title, description, field, requirements, deadline, status)
-                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
-            """, (b_id, title, desc, category, ", ".join(skills), expiry, "open"))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (str(uuid.uuid4()), b_id, title, desc, category, ", ".join(skills), expiry, "open"))
 
         # 3. Seed Events
         print("Seeding DNTU Campus Events...")
@@ -81,8 +84,9 @@ def seed_business_and_intern():
         for title, desc, e_type, loc in event_data:
             cur.execute("""
                 INSERT INTO events (id, title, description, type, address, start_date, end_date, status)
-                VALUES (uuid_generate_v4(), %s, %s, %s, %s, %s, %s, %s);
-            """, (title, desc, e_type, loc, event_start, event_start + timedelta(hours=4), "upcoming"))
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING;
+            """, (str(uuid.uuid4()), title, desc, e_type, loc, event_start, event_start + timedelta(hours=4), "upcoming"))
 
         conn.commit()
         print("DNTU Business, Internships and Events data seeded successfully!")

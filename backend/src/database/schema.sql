@@ -802,6 +802,7 @@ CREATE TABLE products (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'VND',
     category VARCHAR(100),
     stock INTEGER DEFAULT 0,
     image_url TEXT,

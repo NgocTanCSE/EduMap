@@ -1,24 +1,95 @@
-import { Injectable } from '@nestjs/common';
-import { UserRole } from './entities/user.entity';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserRole } from './entities/user.entity';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  /**
+   * Đăng nhập người dùng bằng email và mật khẩu (Sử dụng bcrypt)
+   */
   async login(email: string, password: string): Promise<any> {
-    // Placeholder for actual authentication logic
-    // In a real app, this would validate credentials against a database
-    // and return a JWT token or session data.
-    if (email === 'test@example.com' && password === 'test') {
-      return { userId: 1, email: 'test@example.com', message: 'Login successful' };
+    // Tìm user kèm theo password_hash (mặc định bị ẩn trong Entity)
+    const user = await this.userRepo.findOne({
+      where: { email },
+      select: ['id', 'email', 'password_hash', 'full_name', 'role_id'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác.');
     }
-    throw new Error('Invalid credentials');
+
+    // Kiểm tra mật khẩu (Bcrypt)
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Thông tin đăng nhập không chính xác.');
+    }
+
+    // Tạo JWT Payload
+    const payload = { 
+      email: user.email, 
+      sub: user.id, 
+      role: user.role 
+    };
+
+    return {
+      userId: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      access_token: this.jwtService.sign(payload),
+      message: 'Đăng nhập thành công!',
+    };
   }
 
+  /**
+   * Đăng ký người dùng mới
+   */
   async register(email: string, password: string, full_name: string, role: UserRole): Promise<any> {
-    // Placeholder for actual registration logic
-    // In a real app, this would hash password, save user to database, etc.
-    if (email && password && full_name && role) {
-      return { userId: Math.floor(Math.random() * 1000) + 2, email: email, full_name: full_name, role: role, message: 'Registration successful' };
+    // Kiểm tra email đã tồn tại chưa
+    const existingUser = await this.userRepo.findOne({ where: { email } });
+    if (existingUser) {
+      throw new ConflictException('Email này đã được sử dụng.');
     }
-    throw new Error('Registration failed');
+
+    // Hash mật khẩu
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    // Tạo user mới
+    const newUser = this.userRepo.create({
+      email,
+      password_hash,
+      full_name,
+      role, // Tự động map role_id qua setter của Entity
+      status: 'active',
+      email_verified: false,
+    });
+
+    const savedUser = await this.userRepo.save(newUser);
+
+    // Tạo token cho user mới đăng ký luôn
+    const payload = { 
+        email: savedUser.email, 
+        sub: savedUser.id, 
+        role: savedUser.role 
+    };
+
+    return {
+      userId: savedUser.id,
+      email: savedUser.email,
+      full_name: savedUser.full_name,
+      role: savedUser.role,
+      access_token: this.jwtService.sign(payload),
+      message: 'Đăng ký tài khoản thành công!',
+    };
   }
 }

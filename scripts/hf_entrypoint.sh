@@ -106,15 +106,9 @@ else
     echo "🔄 System already initialized. Skipping database schema setup."
 fi
 
-# Always run additional Python seed scripts to ensure missing data is populated (using INSERT ON CONFLICT DO NOTHING)
-echo "➡️ Ensuring additional data is populated..."
-for script in scripts/seed_edu_data.py scripts/mega_seed_books.py scripts/seed_business_marketplace.py scripts/seed_dntu_content.py scripts/seed_dntu_extra.py scripts/seed_dntu_locations.py scripts/seed_dntu_marketplace.py scripts/seed_dntu_real_data.py; do
-    if [ -f "$script" ]; then
-        echo "Running $script..."
-        python3 -u "$script" || echo "⚠️ Warning: $script encountered an error but continuing..."
-    fi
-done
-echo "✅ Additional data seeding check completed."
+# Always run ONLY essential data synchronization if needed, 
+# but additional seeds are already handled inside execute_db_setup.py on first run.
+echo "✅ Database and AI services are ready."
 
 echo "🏁 Handing over to Supervisor to start application services..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
