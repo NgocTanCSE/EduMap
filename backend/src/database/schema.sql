@@ -695,7 +695,7 @@ CREATE INDEX idx_locations_status ON locations(status);
 -- 45. scholarships (Matches Scholarship entity)
 CREATE TABLE scholarships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     provider VARCHAR(255),
     location GEOGRAPHY(POINT, 4326),
