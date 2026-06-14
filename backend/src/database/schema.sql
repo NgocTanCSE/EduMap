@@ -171,7 +171,7 @@ CREATE TABLE material_ratings (
 -- 10. events
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     type VARCHAR(100), -- workshop/hackathon/seminar/camp
     location_point GEOGRAPHY(POINT),
