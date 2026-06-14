@@ -689,6 +689,8 @@ CREATE TABLE locations (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_locations_coordinates ON locations USING GIST (coordinates);
+CREATE INDEX idx_locations_category ON locations(category_id);
+CREATE INDEX idx_locations_status ON locations(status);
 
 -- 45. scholarships (Matches Scholarship entity)
 CREATE TABLE scholarships (
@@ -705,6 +707,7 @@ CREATE TABLE scholarships (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
 );
+CREATE INDEX idx_scholarships_deadline ON scholarships(deadline);
 
 -- 46. jobs (Career module - Job entity)
 CREATE TYPE job_type_enum AS ENUM ('full_time', 'part_time', 'internship', 'freelance', 'contract', 'course');
@@ -728,6 +731,8 @@ CREATE TABLE jobs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_jobs_title ON jobs(title);
+CREATE INDEX idx_jobs_status ON jobs(status);
 
 -- 47. user_careers (Career module - UserCareer entity)
 CREATE TYPE user_career_status_enum AS ENUM ('active', 'inactive', 'completed');
@@ -743,6 +748,7 @@ CREATE TABLE user_careers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_user_careers_user ON user_careers(user_id);
 
 -- 48. user_skills (Career module - UserSkill entity)
 CREATE TYPE skill_proficiency_enum AS ENUM ('beginner', 'intermediate', 'advanced', 'expert');
@@ -756,6 +762,8 @@ CREATE TABLE user_skills (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_user_skills_user ON user_skills(user_id);
+CREATE INDEX idx_user_skills_name ON user_skills(skill_name);
 
 -- 49. applications (Career module - Application entity)
 CREATE TYPE application_status_enum AS ENUM ('pending', 'reviewed', 'accepted', 'rejected', 'withdrawn');
@@ -770,3 +778,5 @@ CREATE TABLE applications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_applications_user ON applications(user_id);
+CREATE INDEX idx_applications_job ON applications(job_id);

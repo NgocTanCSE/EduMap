@@ -1,36 +1,60 @@
-﻿import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+﻿import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/api';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await apiService.get('/analytics/stats');
+        setStats(data);
+      } catch (err) {
+        console.error("Failed to load stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Xin chào, Tân! 👋</Text>
-        <Text style={styles.subtitle}>Bạn đã tiết kiệm được 12.5kg CO2 tuần này.</Text>
-      </View>
+        <Text style={styles.greeting}>Xin chào, {user?.full_name || 'Sinh viên'}! 👋</Text>
+        <Text style={styles.subtitle}>Chào mừng bạn quay lại hệ thống EduMap DNTU.</Text>
+      </div>
 
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
-          <Text style={styles.statLabel}>Level</Text>
-          <Text style={styles.statValue}>24</Text>
+        <View style={[styles.statCard, { backgroundColor: '#FFF9C4' }]}>
+          <Text style={styles.statLabel}>Dự đoán AI</Text>
+          <Text style={styles.statValue}>{stats?.data?.total_predictions || 0}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
-          <Text style={styles.statLabel}>Points</Text>
-          <Text style={styles.statValue}>1,540</Text>
+          <Text style={styles.statLabel}>Độ chính xác</Text>
+          <Text style={styles.statValue}>{(stats?.data?.accuracy_rate * 100).toFixed(0) || 0}%</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Hoạt động nổi bật</Text>
-      <TouchableOpacity style={styles.featuredCard}>
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?q=80&w=400' }} 
-          style={styles.cardImage} 
-        />
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle}>Dọn rác bãi biển Vũng Tàu</Text>
-          <Text style={styles.cardDesc}>Nhận ngay 100 điểm và huy hiệu Tình nguyện.</Text>
-        </View>
-      </TouchableOpacity>
+      <Text style={styles.sectionTitle}>Tài nguyên dành cho bạn</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#FFD600" />
+      ) : (
+        <TouchableOpacity style={styles.featuredCard}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?q=80&w=400' }} 
+            style={styles.cardImage} 
+          />
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Khám phá bản đồ tri thức</Text>
+            <Text style={styles.cardDesc}>Xem các địa điểm học tập và Wifi miễn phí xung quanh DNTU.</Text>
+          </div>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }

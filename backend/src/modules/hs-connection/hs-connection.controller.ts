@@ -1,62 +1,62 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, Patch } from '@nestjs/common';
 import { HsConnectionService } from './hs-connection.service';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@ApiTags('MOD-HS: Kết nối THPT')
+@ApiTags('HS-Uni Connection')
 @Controller('hs-connection')
 export class HsConnectionController {
   constructor(private readonly hsService: HsConnectionService) {}
 
   @Get('counseling')
-  @ApiOperation({ summary: 'Lấy danh sách các thông tin tuyển sinh đại học phục vụ học sinh THPT' })
+  @ApiOperation({ summary: 'Lấy danh sách hồ sơ tư vấn tuyển sinh' })
   async getCounseling() {
     return this.hsService.getCounselingList();
-  }
-
-  @Post('counseling')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Tạo/Cập nhật hồ sơ tuyển sinh đại học mới' })
-  async createCounseling(@Body() data: any) {
-    return this.hsService.createCounselingInfo(data);
   }
 
   @Post('campus-tour')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đăng ký Virtual Campus Tour và ghép cặp sinh viên đồng hành (Mentor Matching)' })
-  async registerTour(@Request() req: any, @Body('universityName') uniName: string) {
-    return this.hsService.registerCampusTour(req.user.id, uniName);
+  @ApiOperation({ summary: 'Đăng ký Campus Tour ảo' })
+  async registerTour(@Request() req: any, @Body('university') university: string) {
+    return this.hsService.registerCampusTour(req.user.id, university);
   }
 
-  // --- SOCIAL NETWORK ENDPOINTS ---
-
-  @Get('network')
+  @Post('questions')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy mạng lưới kết nối của tôi (Bạn bè, Yêu cầu, Gợi ý)' })
+  @ApiOperation({ summary: 'Đặt câu hỏi tư vấn' })
+  async createQuestion(@Request() req: any, @Body() data: any) {
+    return this.hsService.createQuestion(req.user.id, data);
+  }
+
+  @Get('questions')
+  @ApiOperation({ summary: 'Lấy danh sách câu hỏi' })
+  async getQuestions(@Query('university') university: string) {
+    return this.hsService.getQuestions(university);
+  }
+
+  @Post('questions/:id/answers')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Trả lời câu hỏi (Sinh viên đại học)' })
+  async answerQuestion(@Request() req: any, @Param('id') id: string, @Body('content') content: string) {
+    return this.hsService.answerQuestion(req.user.id, id, content);
+  }
+
+  @Post('connect/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gửi yêu cầu kết nối' })
+  async connect(@Request() req: any, @Param('userId') userId: string) {
+    return this.hsService.sendConnectionRequest(req.user.id, userId);
+  }
+
+  @Get('my-network')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy mạng lưới kết nối của tôi' })
   async getMyNetwork(@Request() req: any) {
     return this.hsService.getMyNetwork(req.user.id);
-  }
-
-  @Post('network/request')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Gửi yêu cầu kết bạn' })
-  async sendRequest(@Request() req: any, @Body('receiverId') receiverId: string) {
-    return this.hsService.sendConnectionRequest(req.user.id, receiverId);
-  }
-
-  @Post('network/respond')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Chấp nhận hoặc từ chối yêu cầu kết bạn' })
-  async respondToRequest(
-    @Request() req: any, 
-    @Body('connectionId') connectionId: string, 
-    @Body('accept') accept: boolean
-  ) {
-    return this.hsService.respondToConnectionRequest(req.user.id, connectionId, accept);
   }
 }

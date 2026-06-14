@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { MailerService } from '@nestjs-modules/mailer';
 
 export interface Notification {
   id: string;
@@ -13,11 +14,18 @@ export interface Notification {
 
 @Injectable()
 export class NotificationsService {
-  private notifications: Notification[] = []; // In-memory mock data
+  private readonly logger = new Logger(NotificationsService.name);
+  private notifications: Notification[] = [];
   private nextId = 1;
 
-  async sendNotification(userId: string, message: string, type: 'email' | 'in-app' | 'push'): Promise<Notification> {
-    // Simulate sending a notification; map message to title, leave body empty
+  constructor(private readonly mailerService: MailerService) {}
+
+  async sendNotification(
+    userId: string, 
+    message: string, 
+    type: 'email' | 'in-app' | 'push',
+    emailAddress?: string
+  ): Promise<Notification> {
     const newNotification: Notification = {
       id: `notif${this.nextId++}`,
       userId,
@@ -28,13 +36,30 @@ export class NotificationsService {
       sent_at: new Date().toISOString(),
       read_at: null,
     };
+
+    if (type === 'email' && emailAddress) {
+      try {
+        await this.mailerService.sendMail({
+          to: emailAddress,
+          subject: 'Thông báo từ EduMap',
+          template: './notification',
+          context: {
+            message: message,
+            action_url: 'https://edumap.vn/notifications',
+          },
+        });
+        this.logger.log(`Email sent successfully to ${emailAddress}`);
+      } catch (error) {
+        this.logger.error(`Failed to send email to ${emailAddress}: ${error.message}`);
+      }
+    }
+
     this.notifications.push(newNotification);
-    console.log(`Mock: Sent ${type} notification to user ${userId}: "${message}"`);
+    this.logger.log(`Sent ${type} notification to user ${userId}: "${message}"`);
     return newNotification;
   }
 
   async getNotificationsForUser(userId: string): Promise<Notification[]> {
-    // Filter notifications for a given user
     return this.notifications.filter(notif => notif.userId === userId);
   }
 

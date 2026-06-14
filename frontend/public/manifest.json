@@ -1,0 +1,32 @@
+{
+  "name": "EduMap Biên Hòa - Bản đồ Giáo dục",
+  "short_name": "EduMap",
+  "description": "Hệ thống bản đồ giáo dục thông minh và kết nối cộng đồng tại Biên Hòa, Đồng Nai.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#eab308",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "maps"],
+  "screenshots": [
+    {
+      "src": "/screenshots/main.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info } from 'lucide-react';
+import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info, Flame } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 
@@ -15,6 +15,7 @@ export default function MapPage() {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // AI Analysis states
   const [analyzing, setAnalyzing] = useState(false);
@@ -56,7 +57,7 @@ export default function MapPage() {
   useEffect(() => {
     let result = locations;
 
-if (activeCategory !== 'all') {
+    if (activeCategory !== 'all') {
        result = result.filter(loc => loc.category === activeCategory);
      }
 
@@ -119,6 +120,17 @@ if (activeCategory !== 'all') {
 
         {/* Category Filters */}
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+                setShowHeatmap(!showHeatmap);
+                logger.action(`Heatmap toggled: ${!showHeatmap}`);
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${showHeatmap ? 'bg-orange-600 border-orange-500 shadow-lg shadow-orange-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+          >
+            <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse' : ''}`} />
+            {showHeatmap ? 'Disable Heatmap' : 'Enable Heatmap'}
+          </button>
+          <div className="w-full h-px bg-white/5 my-2" />
           <button
             onClick={() => setActiveCategory('all')}
             className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === 'all' ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
@@ -189,6 +201,7 @@ if (activeCategory !== 'all') {
           points={filteredLocations} 
           selectedPoint={selectedLocation}
           onSelectPoint={setSelectedLocation}
+          showHeatmap={showHeatmap}
         />
         
         {/* AI Results Overlay Panel */}

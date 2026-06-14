@@ -7,6 +7,9 @@ import { APP_GUARD } from '@nestjs/core';
 import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { join } from 'path';
 
 // === CORE MODULES ===
 import { AuthModule } from './modules/auth/auth.module';
@@ -44,9 +47,9 @@ import { HackathonModule } from './modules/hackathon/hackathon.module';
 import { IntlModule } from './modules/intl/intl.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
-import { ModuleModule } from './modules/module/module.module'; // Import new ModuleModule
-import { FeatureModule } from './modules/feature/feature.module'; // Import new FeatureModule
-import { RoleModule } from './modules/role/role.module'; // Import new RoleModule
+import { ModuleModule } from './modules/module/module.module';
+import { FeatureModule } from './modules/feature/feature.module';
+import { RoleModule } from './modules/role/role.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
@@ -72,9 +75,30 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       password: process.env.DB_PASSWORD || 'password123',
       database: process.env.DB_DATABASE || 'edumap_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.DB_SYNC === 'true', // Bật sync nếu DB_SYNC=true
+      synchronize: process.env.DB_SYNC === 'true',
     }),
     HttpModule,
+    MailerModule.forRoot({
+      transport: {
+        host: process.env.MAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.MAIL_PORT) || 587,
+        secure: false,
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
+        },
+      },
+      defaults: {
+        from: '"EduMap Support" <support@edumap.vn>',
+      },
+      template: {
+        dir: join(__dirname, 'modules/notifications/templates'),
+        adapter: new HandlebarsAdapter(),
+        options: {
+          strict: true,
+        },
+      },
+    }),
     AuthModule,
     AIModule,
     MapModule,
@@ -107,9 +131,9 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     IntlModule,
     AdminModule,
     AuditLogModule,
-    ModuleModule, // Add ModuleModule here
-    FeatureModule, // Add FeatureModule here
-    RoleModule, // Add RoleModule here
+    ModuleModule,
+    FeatureModule,
+    RoleModule,
     CrawlerModule,
     AnalyticsModule,
   ],
@@ -118,4 +142,3 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
   ],
 })
 export class AppModule {}
-

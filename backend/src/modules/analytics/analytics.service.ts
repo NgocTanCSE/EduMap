@@ -2,12 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEvent } from './entities/user-event.entity';
+import { EducationStat } from './entities/education-stat.entity';
 
 @Injectable()
 export class AnalyticsService {
   constructor(
     @InjectRepository(UserEvent)
     private userEventRepo: Repository<UserEvent>,
+    @InjectRepository(EducationStat)
+    private educationStatRepo: Repository<EducationStat>,
   ) {}
 
   async trackEvent(userId: string, eventType: string, metadata: any) {
@@ -17,6 +20,20 @@ export class AnalyticsService {
       metadata,
     });
     return await this.userEventRepo.save(event);
+  }
+
+  async getEducationStats(year?: number, region?: string) {
+    const query = this.educationStatRepo.createQueryBuilder('stat');
+    
+    if (year) {
+      query.andWhere('stat.year = :year', { year });
+    }
+    
+    if (region) {
+      query.andWhere('stat.region = :region', { region });
+    }
+
+    return await query.getMany();
   }
 
   async getGlobalStats() {

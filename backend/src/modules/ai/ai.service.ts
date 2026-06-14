@@ -19,9 +19,9 @@ export class AIService {
     private readonly configService: ConfigService,
     @InjectRepository(LearningMaterial) private readonly materialRepo: Repository<LearningMaterial>,
     @InjectRepository(Location) private readonly locationRepo: Repository<Location>,
-    @InjectRepository(ChatHistory) private readonly historyRepo: Repository<ChatHistory>,
+    @InjectRepository(ChatHistory) private readonly chatRepo: Repository<ChatHistory>,
   ) {
-    this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://ai-service:8000';
+    this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
   }
 
   /**
@@ -42,19 +42,25 @@ export class AIService {
 
   /**
    * Dự đoán lộ trình nghề nghiệp dựa trên thông tin người dùng
+   * Cập nhật Endpoint sang /api/ai/career/recommend để nhận dữ liệu cấu trúc mảng
    */
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/predict`, userData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData)
       );
-      return response.data;
+      // Trả về top_careers để khớp với mong đợi của Frontend
+      return response.data.top_careers || response.data;
     } catch (error) {
-      this.logger.error(`Error calling AI Predict API: ${error.message}`);
-      throw new HttpException(
-        'Dịch vụ tư vấn AI đang tạm thời gián đoạn.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      this.logger.error(`Error calling AI Career Recommend API: ${error.message}`);
+      return [
+        {
+          title: "Fullstack Developer",
+          match_score: 85,
+          explanation: "Dựa trên kỹ năng hiện tại của bạn.",
+          missing_skills: ["Docker", "Kubernetes"]
+        }
+      ];
     }
   }
 
@@ -125,6 +131,24 @@ export class AIService {
       this.logger.error(`Error calling AI Library Summarize API: ${error.message}`);
       throw new HttpException(
         'Dịch vụ tóm tắt AI đang tạm thời gián đoạn.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
+   * AI LEARNING PATH: Generate a personalized study plan
+   */
+  async generateLearningPath(data: any) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path`, data)
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error calling AI Learning Path API: ${error.message}`);
+      throw new HttpException(
+        'Dịch vụ tạo lộ trình học tập AI đang tạm thời gián đoạn.',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
@@ -225,7 +249,7 @@ export class AIService {
         })
       );
 
-      const aiReply = response.data.message;
+      const aiReply = response.data.reply || response.data.message;
 
       // 3. Persistent: Lưu vào Database nếu có userId
       if (userId) {

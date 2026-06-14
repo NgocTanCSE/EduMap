@@ -32,8 +32,9 @@ class MentorService {
     return this.fetchWithAuth(`${API_BASE_URL}/mentors/recommend/${userId}`);
   }
 
-  async getMentorSlots(mentorId: string) {
-    return this.fetchWithAuth(`${API_BASE_URL}/mentors/${mentorId}/slots`);
+  async getMentorSlots(mentorId: string, date?: string) {
+    const queryDate = date || new Date().toISOString().split('T')[0];
+    return this.fetchWithAuth(`${API_BASE_URL}/mentors/${mentorId}/slots?date=${queryDate}`);
   }
 
   async bookMentor(mentorId: string, slotStart: string, slotEnd: string) {

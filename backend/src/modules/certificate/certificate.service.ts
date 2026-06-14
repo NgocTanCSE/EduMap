@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { UserCertificate, CertificateStatus } from './entities/user-certificate.entity';
 import { CertificateTemplate } from './entities/certificate-template.entity';
 import * as crypto from 'crypto';
+import * as PDFDocument from 'pdfkit';
+import * as QRCode from 'qrcode';
+import { PassThrough } from 'stream';
 
 @Injectable()
 export class CertificateService {
@@ -12,32 +15,21 @@ export class CertificateService {
     @InjectRepository(CertificateTemplate) private readonly templateRepo: Repository<CertificateTemplate>,
   ) {}
 
-  /**
-   * Cấp chứng nhận số mới (Simulated Blockchain anchor)
-   * Đã sửa: Chỉ cấp dựa trên Template ID có sẵn.
-   */
   async issueCertificate(userId: string, templateId: string) {
     const template = await this.templateRepo.findOne({ 
         where: { id: templateId },
         relations: ['organization'] 
     });
 
-    if (!template) {
-        throw new NotFoundException('Template chứng chỉ không tồn tại');
-    }
+    if (!template) throw new NotFoundException('Template không tồn tại');
 
-    // Check if user already has this certificate
     const existingCert = await this.certRepo.findOne({
         where: { user_id: userId, template_id: templateId }
     });
 
-    if (existingCert) {
-        throw new BadRequestException('Người dùng đã sở hữu chứng chỉ này');
-    }
+    if (existingCert) throw new BadRequestException('Người dùng đã sở hữu chứng chỉ này');
 
     const certCode = 'CERT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-
-    // Tạo hash blockchain mô phỏng lưu trên sổ cái
     const txHash = crypto.createHash('sha256').update(`${userId}-${template.name}-${certCode}`).digest('hex');
 
     const cert = this.certRepo.create({
@@ -46,12 +38,10 @@ export class CertificateService {
       verify_code: certCode,
       issued_at: new Date(),
       status: CertificateStatus.ACTIVE,
-      // Trong thực tế, PDF/QR nên được generate và lưu lên S3
-      pdf_url: `https://edumap.app/certs/${certCode}.pdf`,
-      qr_url: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://edumap.app/verify/${certCode}`,
+      pdf_url: `/api/certificates/download/${certCode}.pdf`,
+      qr_url: `/api/certificates/verify-qr/${certCode}`,
       blockchain_metadata: {
-        network: 'EduMap Ledger Mainnet',
-        block_height: Math.floor(Math.random() * 1000000) + 5000000,
+        network: 'EduMap Blockchain',
         tx_hash: `0x${txHash}`,
         status: 'CONFIRMED',
       },
@@ -61,58 +51,70 @@ export class CertificateService {
   }
 
   /**
-   * Thu hồi chứng chỉ
+   * Tạo tệp tin PDF chứng nhận thực tế
    */
-  async revokeCertificate(certId: string) {
-      const cert = await this.certRepo.findOne({ where: { id: certId } });
-      if (!cert) throw new NotFoundException('Chứng chỉ không tồn tại');
+  async generateCertificatePdf(code: string): Promise<Buffer> {
+    const cert = await this.certRepo.findOne({
+      where: { verify_code: code },
+      relations: ['user', 'template', 'template.organization'],
+    });
 
-      cert.status = CertificateStatus.REVOKED;
-      return this.certRepo.save(cert);
+    if (!cert) throw new NotFoundException('Chứng chỉ không tồn tại');
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape' });
+    const buffers: any[] = [];
+    doc.on('data', buffers.push.bind(buffers));
+    
+    return new Promise(async (resolve) => {
+      doc.on('end', () => {
+        resolve(Buffer.concat(buffers));
+      });
+
+      // Vẽ chứng chỉ
+      doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).lineWidth(5).stroke('#eab308');
+      
+      doc.fontSize(40).fillColor('#18181b').text('CHỨNG NHẬN HOÀN THÀNH', 0, 100, { align: 'center' });
+      
+      doc.fontSize(20).text('Hệ thống Bản đồ Giáo dục EduMap Biên Hòa trân trọng trao tặng cho:', 0, 180, { align: 'center' });
+      
+      doc.fontSize(35).fillColor('#eab308').text(cert.user?.full_name || 'Học viên EduMap', 0, 230, { align: 'center' });
+      
+      doc.fontSize(20).fillColor('#18181b').text(`Vì đã hoàn thành xuất sắc:`, 0, 300, { align: 'center' });
+      doc.fontSize(25).font('Helvetica-Bold').text(cert.template?.name || 'Khóa học cộng đồng', 0, 340, { align: 'center' });
+
+      doc.fontSize(12).font('Helvetica').text(`Mã xác thực: ${cert.verify_code}`, 50, 500);
+      doc.text(`Ngày cấp: ${cert.issued_at.toLocaleDateString('vi-VN')}`, 50, 520);
+      
+      // Chèn mã QR
+      const qrData = `https://edumap.vn/verify/${cert.verify_code}`;
+      const qrBuffer = await QRCode.toBuffer(qrData);
+      doc.image(qrBuffer, doc.page.width - 150, 430, { width: 100 });
+      doc.fontSize(8).text('Quét để xác thực', doc.page.width - 150, 535, { width: 100, align: 'center' });
+
+      doc.end();
+    });
   }
 
-  /**
-   * Xác thực chứng chỉ số (Verify)
-   */
   async verifyCertificate(code: string) {
     const cert = await this.certRepo.findOne({
       where: { verify_code: code },
       relations: ['user', 'template', 'template.organization'],
     });
 
-    if (!cert) {
-      return {
-        isValid: false,
-        message: 'Chứng nhận không tồn tại hoặc mã xác thực không chính xác.',
-      };
-    }
-
-    if (cert.status === CertificateStatus.REVOKED) {
-        return {
-            isValid: false,
-            message: 'Chứng chỉ này đã bị thu hồi.',
-            details: { revoked_at: (cert as any).updated_at }
-        };
-    }
+    if (!cert) return { isValid: false, message: 'Mã xác thực không chính xác.' };
 
     return {
       isValid: true,
-      message: 'Chứng nhận điện tử hợp lệ!',
+      message: 'Chứng nhận hợp lệ!',
       details: {
         title: cert.template?.name,
-        type: cert.template?.type,
-        issuer: cert.template?.organization?.name,
+        recipient: cert.user?.full_name,
         issued_at: cert.issued_at,
-        verify_code: cert.verify_code,
-        recipient: cert.user ? { name: cert.user.full_name, email: cert.user.email } : null,
         blockchain: cert.blockchain_metadata,
       },
     };
   }
 
-  /**
-   * Lấy hồ sơ năng lực cá nhân (Portfolio)
-   */
   async getUserPortfolio(userId: string) {
     const certs = await this.certRepo.find({
       where: { user_id: userId, status: CertificateStatus.ACTIVE },
@@ -121,8 +123,7 @@ export class CertificateService {
     });
 
     return {
-      total_certs: certs.length,
-      portfolio_link: `https://edumap.app/portfolio/${userId}`,
+      total: certs.length,
       certificates: certs,
     };
   }

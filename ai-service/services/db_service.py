@@ -21,14 +21,22 @@ class DBService:
 
     def get_user_events(self, limit=1000):
         if not self.conn: return []
-        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM user_events ORDER BY created_at DESC LIMIT %s", (limit,))
-            return cur.fetchall()
+        try:
+            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM user_events ORDER BY created_at DESC LIMIT %s", (limit,))
+                return cur.fetchall()
+        except Exception as e:
+            print(f"Error fetching user events: {e}")
+            return []
 
     def get_education_stats(self, year=2024):
         if not self.conn: return []
-        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM education_stats WHERE year = %s", (year,))
-            return cur.fetchall()
+        try:
+            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM education_stats WHERE year = %s", (year,))
+                return cur.fetchall()
+        except Exception as e:
+            print(f"Error fetching education stats: {e}")
+            return []
 
 db_service = DBService()

@@ -32,13 +32,23 @@ export class AIController {
     return this.aiService.getUserHistory(req.user.id);
   }
 
-  @Get('learning-path')
+  @Post('learning-path')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'F-06: Lộ trình học cá nhân hóa' })
-  async getLearningPath(@Request() req: any) {
-    // Reusing the prediction logic for personalized path
-    return this.aiService.predictCareerPath({ user_id: req.user.id, task: "learning_path" });
+  @ApiOperation({ summary: 'F-06: Tạo lộ trình học cá nhân hóa bằng AI' })
+  async getLearningPath(
+    @Request() req: any,
+    @Body('current_level') currentLevel: string,
+    @Body('target_role') targetRole: string,
+    @Body('time_commitment_hours_per_week') timeCommitment: number,
+  ) {
+    const data = {
+      user_id: req.user.id,
+      current_level: currentLevel || 'Beginner',
+      target_role: targetRole || 'AI Developer',
+      time_commitment_hours_per_week: timeCommitment || 10,
+    };
+    return this.aiService.generateLearningPath(data);
   }
 
   @Post('career-quiz')

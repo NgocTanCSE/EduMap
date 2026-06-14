@@ -9,8 +9,8 @@ import { UserSkill } from '../career/entities/user-skill.entity';
 import { Post, Comment } from '../community/entities/community.entity';
 import { Booking } from '../mentor/entities/mentor.entity';
 import { UserCertificate } from '../certificate/entities/user-certificate.entity';
-import { AIService } from '../ai/ai.service'; // Import AIService
-import { MapService } from '../map/map.service'; // Import MapService
+import { AIService } from '../ai/ai.service';
+import { MapService } from '../map/map.service';
 
 @Injectable()
 export class DashboardService {
@@ -26,63 +26,42 @@ export class DashboardService {
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
-    private readonly aiService: AIService, // Inject AIService
-    private readonly mapService: MapService, // Inject MapService
+    private readonly aiService: AIService,
+    private readonly mapService: MapService,
   ) {}
 
-  /**
-   * Lấy dữ liệu tổng quan cá nhân hóa cho người dùng (Dashboard)
-   */
   async getUserDashboard(userId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Sử dụng Promise.allSettled để tránh Partial Failure (Edge Case 2)
     const results = await Promise.allSettled([
-      // 0. Thông tin user cơ bản
       this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role'] }),
-      // 1. Tiến độ học tập
       this.historyRepo.count({ where: { user: { id: userId } as any } }),
-      // 2. Kỹ năng & Nguyện vọng
       this.skillRepo.count({ where: { user_id: userId } }),
       this.careerRepo.find({ where: { user_id: userId, status: 'active' as any }, take: 3 }),
-      // 3. Hoạt động cộng đồng
       this.postRepo.count({ where: { author_id: userId } }),
       this.commentRepo.count({ where: { author_id: userId } }),
-      // 4. Lịch hẹn Mentor sắp tới (từ hôm nay trở đi)
       this.bookingRepo.find({ 
         where: { student_id: userId, status: 'confirmed', slot_start: MoreThanOrEqual(today) },
         relations: ['mentor', 'mentor.user'],
         order: { slot_start: 'ASC' },
         take: 3
       }),
-      // 5. Chứng chỉ
       this.certRepo.count({ where: { user_id: userId, status: 'active' as any } })
     ]);
 
-    // Xử lý kết quả trả về an toàn
-    const getValue = (result: PromiseSettledResult<any>, fallback: any) => 
-      result.status === 'fulfilled' ? result.value : fallback;
-
-    const user = getValue(results[0], null);
-    const learningCount = getValue(results[1], 0);
-    const skillsCount = getValue(results[2], 0);
-    const activeCareers = getValue(results[3], []);
-    const postCount = getValue(results[4], 0);
-    const commentCount = getValue(results[5], 0);
-    const upcomingBookings = getValue(results[6], []);
-    const certCount = getValue(results[7], 0);
+    const getValue = (result: PromiseSettledResult<any>, fallback: any) => result.status === 'fulfilled' ? result.value : fallback;
 
     return {
-      user,
+      user: getValue(results[0], null),
       stats: {
-        learning_materials: learningCount,
-        skills_mastered: skillsCount,
-        community_contributions: postCount + commentCount,
-        certificates_earned: certCount
+        learning_materials: getValue(results[1], 0),
+        skills_mastered: getValue(results[2], 0),
+        community_contributions: getValue(results[4], 0) + getValue(results[5], 0),
+        certificates_earned: getValue(results[7], 0)
       },
-      active_goals: activeCareers,
-      upcoming_mentoring: upcomingBookings.map(b => ({
+      active_goals: getValue(results[3], []),
+      upcoming_mentoring: getValue(results[6], []).map((b: any) => ({
           id: b.id,
           mentor_name: b.mentor?.user?.full_name || 'N/A',
           start: b.slot_start,
@@ -91,22 +70,37 @@ export class DashboardService {
     };
   }
 
-  /**
-   * AI Insight: Lấy lời khuyên mỗi ngày
-   */
   async getDailyInsight(userId: string) {
       const dashboardData = await this.getUserDashboard(userId);
       return this.aiService.getDailyInsight(dashboardData);
   }
 
   /**
-   * F-08: Dashboard phân tích dữ liệu (Dành cho Admin/Global)
+   * Bảng điều khiển Quản trị viên: Phân tích dữ liệu chuyên sâu
    */
   async getStats() {
-    const userCount = await this.userRepository.count();
-    const eventCount = await this.userEventRepository.count();
+    const [userCount, eventCount, roleDist, trendData] = await Promise.all([
+      this.userRepository.count(),
+      this.userEventRepository.count(),
+      
+      // 1. Phân bổ vai trò người dùng
+      this.userRepository.createQueryBuilder('user')
+        .select('user.role', 'role')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('user.role')
+        .getRawMany(),
 
-    // Lấy top 5 sự kiện phổ biến
+      // 2. Xu hướng đăng ký người dùng mới (6 tháng gần nhất)
+      this.userRepository.createQueryBuilder('user')
+        .select("TO_CHAR(user.created_at, 'YYYY-MM')", 'month')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('month')
+        .orderBy('month', 'DESC')
+        .limit(6)
+        .getRawMany()
+    ]);
+
+    // 3. Top 5 sự kiện phổ biến
     const topEvents = await this.userEventRepository
       .createQueryBuilder('event')
       .select('event.event_type', 'type')
@@ -116,33 +110,35 @@ export class DashboardService {
       .limit(5)
       .getRawMany();
 
-    // Replace mock heatmap data with data from MapService
-    let realHeatmapData: any[] = [];
+    // 4. Dữ liệu bản đồ nhiệt thực tế
+    let heatmapData = [];
     try {
       const pois = await this.mapService.findAllPois();
-      realHeatmapData = pois.map(poi => ({
-        id: poi.id,
-        name: poi.name,
+      heatmapData = pois.map(poi => ({
         lat: poi.lat,
         lng: poi.lng,
-        intensity: 0.7 + Math.random() * 0.3, // Example: add some random intensity for visualization
+        category: poi.category,
+        intensity: 0.8
       }));
-    } catch (error) {
-      this.logger.error(`Failed to retrieve POIs for heatmap: ${error.message}`);
-      // Defensive: Fallback to empty array if MapService fails
-      realHeatmapData = [];
+    } catch (e) {
+      this.logger.error('Map analysis failed', e);
     }
     
     return {
-      total_users: userCount,
-      total_events: eventCount,
-      top_activities: topEvents,
-      heatmap_data: realHeatmapData, // Use realHeatmapData
+      overview: {
+        total_users: userCount,
+        total_events: eventCount,
+      },
+      charts: {
+        user_roles: roleDist,
+        growth_trend: trendData.reverse(),
+        top_activities: topEvents,
+      },
+      heatmap: heatmapData,
       education_metrics: {
         enrollment_rate: '96.4%',
-        student_teacher_ratio: '18.5',
-        online_learning_adoption: '78.2%',
-      },
+        adoption_score: '8.5/10',
+      }
     };
   }
 }

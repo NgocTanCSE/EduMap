@@ -211,8 +211,8 @@ export class CareerController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tải lên CV/Resume' })
-  async uploadResume(@UploadedFile() file: Express.Multer.File) {
-    return this.careerService.uploadResume(file);
+  async uploadResume(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    return this.careerService.uploadResume(req.user.id, file);
   }
 
   // =====================================

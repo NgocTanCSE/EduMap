@@ -11,7 +11,10 @@ import { ChatHistory } from './entities/chat-history.entity';
 
 @Module({
   imports: [
-    HttpModule,
+    HttpModule.register({
+      timeout: 10000,
+      maxRedirects: 5,
+    }),
     ConfigModule,
     TypeOrmModule.forFeature([LearningMaterial, Location, ChatHistory]),
   ],

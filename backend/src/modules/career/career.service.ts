@@ -32,8 +32,8 @@ export class CareerService {
   /**
    * Upload resume to storage
    */
-  async uploadResume(file: Express.Multer.File) {
-    return this.storageService.uploadFile('system', file.originalname, file.buffer, file.mimetype);
+  async uploadResume(userId: string, file: Express.Multer.File) {
+    return this.storageService.uploadFile(userId, file.originalname, file.buffer, file.mimetype);
   }
 
   // =====================================

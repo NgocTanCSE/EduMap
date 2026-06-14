@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.chat_models import ChatRequest, ChatResponse
+from models.chat_models import ChatRequest, ChatResponse, SourceDocument
 from services.llm_service import llm_service
 
 router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
@@ -11,16 +11,32 @@ async def chat_endpoint(request: ChatRequest):
     Sử dụng context từ vector database và lịch sử hội thoại.
     """
     try:
-        # Trong tương lai, tìm kiếm context từ vector_store ở đây
-        # context_docs = vector_store.search_similar(request.message)
-        context_docs = []
+        # Chuyển đổi history sang dạng dictionary để LLMService dễ xử lý
+        history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
         
-        response_obj = await llm_service.chat_with_rag(request, context_docs=context_docs)
+        # Gọi phương thức đã được tối ưu hóa (RAG + Anti-Hallucination)
+        response_data = await llm_service.chat_with_rag(
+            message=request.message, 
+            history=history_dicts
+        )
+        
+        # Mapping dữ liệu sources từ dạng dict sang model Pydantic
+        sources_list = []
+        for src in response_data.get("sources", []):
+            sources_list.append(SourceDocument(
+                doc_id=src.get("doc_id", ""),
+                title=src.get("title", ""),
+                snippet=src.get("snippet", "")
+            ))
 
-        if not isinstance(response_obj, ChatResponse):
-            return ChatResponse(reply="Lỗi xử lý AI.", sources=[])
-
-        return response_obj
+        return ChatResponse(
+            reply=response_data.get("reply", "Lỗi phản hồi"),
+            sources=sources_list
+        )
     except Exception as e:
         print(f"Error in chat_endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống chat: {str(e)}")
+        # Cấu trúc phòng thủ (Defensive Programming) khi lỗi xảy ra
+        return ChatResponse(
+            reply="Hệ thống AI đang bảo trì hoặc quá tải. Vui lòng thử lại sau.", 
+            sources=[]
+        )

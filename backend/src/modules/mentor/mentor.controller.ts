@@ -34,9 +34,25 @@ export class MentorController {
   }
 
   @Get('mentors/:mentorId/slots')
-  @ApiOperation({ summary: 'Lấy danh sách slot rảnh của Mentor' })
-  async getSlots(@Param('mentorId') mentorId: string) {
-    return this.mentorService.getMentorSlots(mentorId);
+  @ApiOperation({ summary: 'Lấy danh sách slot rảnh của Mentor theo ngày' })
+  async getSlots(@Param('mentorId') mentorId: string, @Query('date') date: string) {
+    return this.mentorService.getMentorSlots(mentorId, date);
+  }
+
+  @Post('availability')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Thêm khung giờ rảnh (Mentor)' })
+  async addAvailability(@Request() req: any, @Body() data: { day_of_week: number; start_time: string; end_time: string }) {
+    return this.mentorService.addAvailability(req.user.id, data);
+  }
+
+  @Get('me/availability')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách lịch rảnh của tôi (Mentor)' })
+  async getMyAvailability(@Request() req: any) {
+    return this.mentorService.getMentorAvailability(req.user.id);
   }
 
   @Post('book')

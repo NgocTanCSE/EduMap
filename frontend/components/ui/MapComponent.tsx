@@ -4,7 +4,8 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { ShieldCheck, MapPin } from 'lucide-react';
+import { ShieldCheck, MapPin, Flame } from 'lucide-react';
+import HeatmapLayer from '@/components/map/HeatmapLayer';
 
 // Configure standard Leaflet markers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -73,9 +74,15 @@ interface InteractiveMapProps {
   points?: any[];
   selectedPoint?: any | null;
   onSelectPoint?: (point: any) => void;
+  showHeatmap?: boolean;
 }
 
-export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => {} }: InteractiveMapProps) {
+export default function InteractiveMap({ 
+  points = [], 
+  selectedPoint = null, 
+  onSelectPoint = () => {},
+  showHeatmap = false
+}: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
 
   return (
@@ -91,54 +98,58 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
         
-        <MarkerClusterGroup chunkedLoading>
-          {points
-            .filter(p => p.lat !== undefined && p.lng !== undefined)
-            .map((p) => {
-              const lat = p.lat;
-              const lng = p.lng;
+        {showHeatmap ? (
+          <HeatmapLayer points={points.filter(p => p.lat !== undefined && p.lng !== undefined).map(p => ({ lat: p.lat, lng: p.lng, intensity: 0.8 }))} />
+        ) : (
+          <MarkerClusterGroup chunkedLoading>
+            {points
+              .filter(p => p.lat !== undefined && p.lng !== undefined)
+              .map((p) => {
+                const lat = p.lat;
+                const lng = p.lng;
 
-              return (
-                <Marker 
-                  key={p.id} 
-                  position={[lat, lng]} 
-                  icon={getIconForCategory(p.category)}
-                  eventHandlers={{
-                    click: () => onSelectPoint(p)
-                  }}
-                >
-                  <Tooltip direction="top" offset={[0, -30]} opacity={0.9}>
-                    <span className="font-bold text-xs text-zinc-900">{p.name}</span>
-                  </Tooltip>
-                  <Popup>
-                    <div className="p-2 text-zinc-950 font-sans max-w-[240px]">
-                      <h4 className="font-extrabold text-sm text-zinc-900 leading-tight mb-1">{p.name}</h4>
-                      <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
-                      
-                      {p.description && (
-                        <p className="text-[10px] bg-zinc-50 p-2 rounded-lg mt-2 text-zinc-700 italic border-l-2 border-yellow-500 mb-3">
-                          "{p.description}"
-                        </p>
-                      )}
+                return (
+                  <Marker 
+                    key={p.id} 
+                    position={[lat, lng]} 
+                    icon={getIconForCategory(p.category)}
+                    eventHandlers={{
+                      click: () => onSelectPoint(p)
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -30]} opacity={0.9}>
+                      <span className="font-bold text-xs text-zinc-900">{p.name}</span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="p-2 text-zinc-950 font-sans max-w-[240px]">
+                        <h4 className="font-extrabold text-sm text-zinc-900 leading-tight mb-1">{p.name}</h4>
+                        <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
+                        
+                        {p.description && (
+                          <p className="text-[10px] bg-zinc-50 p-2 rounded-lg mt-2 text-zinc-700 italic border-l-2 border-yellow-500 mb-3">
+                            "{p.description}"
+                          </p>
+                        )}
 
-                      <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                        <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Verified</span>
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                          <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-700">Verified</span>
+                          </div>
+                          <button 
+                              className="bg-zinc-900 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-zinc-800"
+                              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')}
+                          >
+                              Dẫn đường
+                          </button>
                         </div>
-                        <button 
-                            className="bg-zinc-900 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-zinc-800"
-                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')}
-                        >
-                            Dẫn đường
-                        </button>
                       </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-        </MarkerClusterGroup>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+          </MarkerClusterGroup>
+        )}
 
         <MapController selectedPoint={selectedPoint} />
       </MapContainer>

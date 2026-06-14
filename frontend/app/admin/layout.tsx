@@ -1,11 +1,12 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Users, Shield, Activity, LayoutDashboard, 
-  Settings, LogOut, ChevronRight, Globe
+  Settings, LogOut, ChevronRight, Globe, Lock
 } from 'lucide-react';
+import { authService } from '@/src/services/auth.service';
 
 const menuItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -16,6 +17,53 @@ const menuItems = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // 🛡️ SECURITY: Kiểm tra quyền Admin trước khi render
+    const checkAuth = () => {
+      if (!authService.isLoggedIn()) {
+        router.replace('/auth/login?redirect=' + pathname);
+        return;
+      }
+      
+      if (!authService.isAdmin()) {
+        setIsAuthorized(false);
+        // Tự động chuyển hướng sau 3 giây
+        setTimeout(() => router.replace('/'), 3000);
+        return;
+      }
+      
+      setIsAuthorized(true);
+    };
+
+    checkAuth();
+  }, [pathname, router]);
+
+  // Trạng thái đang kiểm tra hoặc không có quyền
+  if (isAuthorized === null) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isAuthorized === false) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-8 text-center">
+        <div className="bg-red-500/10 border border-red-500/20 p-12 rounded-[40px] max-w-md">
+           <Lock className="w-16 h-16 text-red-500 mx-auto mb-6" />
+           <h2 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h2>
+           <p className="text-white/40 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về trang chủ.</p>
+           <Link href="/" className="px-8 py-3 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition-all">
+              VỀ TRANG CHỦ
+           </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#050505]">
@@ -64,12 +112,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <span className="text-sm font-bold">Cài đặt</span>
            </button>
-           <Link href="/" className="flex items-center gap-3 text-red-500/60 hover:text-red-500 transition-colors w-full group">
+           <button 
+              onClick={() => authService.logout()}
+              className="flex items-center gap-3 text-red-500/60 hover:text-red-500 transition-colors w-full group text-left"
+            >
               <div className="p-2 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
                  <LogOut className="w-4 h-4" />
               </div>
-              <span className="text-sm font-bold">Thoát Admin</span>
-           </Link>
+              <span className="text-sm font-bold">Đăng xuất</span>
+           </button>
         </div>
       </aside>
 

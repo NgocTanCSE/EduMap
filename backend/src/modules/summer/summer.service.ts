@@ -3,17 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SummerCampaign } from './entities/summer.entity';
 import { SummerRegistration } from './entities/summer-registration.entity';
+import { SummerActivity } from './entities/summer-activity.entity';
 
 @Injectable()
 export class SummerCampaignService {
   constructor(
     @InjectRepository(SummerCampaign) private readonly campaignRepo: Repository<SummerCampaign>,
     @InjectRepository(SummerRegistration) private readonly registrationRepo: Repository<SummerRegistration>,
+    @InjectRepository(SummerActivity) private readonly activityRepo: Repository<SummerActivity>,
   ) {}
 
-  /**
-   * Tạo chiến dịch mùa hè xanh mới
-   */
   async createCampaign(data: any) {
     const campaign = this.campaignRepo.create({
       ...data,
@@ -22,9 +21,6 @@ export class SummerCampaignService {
     return this.campaignRepo.save(campaign);
   }
 
-  /**
-   * Lấy danh sách tất cả chiến dịch mùa hè xanh
-   */
   async getCampaigns() {
     return this.campaignRepo.find({
       order: { created_at: 'DESC' },
@@ -32,31 +28,50 @@ export class SummerCampaignService {
   }
 
   /**
-   * F-27: Báo cáo hoạt động hằng ngày của chiến dịch
+   * Thêm hoạt động hằng ngày vào chiến dịch
+   */
+  async addActivity(campaignId: string, data: any) {
+    const campaign = await this.campaignRepo.findOne({ where: { id: campaignId } });
+    if (!campaign) throw new NotFoundException('Chiến dịch không tồn tại');
+
+    const activity = this.activityRepo.create({
+      campaign_id: campaignId,
+      ...data
+    });
+    return this.activityRepo.save(activity);
+  }
+
+  /**
+   * Báo cáo hoạt động hằng ngày của chiến dịch (Dữ liệu thực)
    */
   async getDailyReport(campaignId: string, date: string) {
     const campaign = await this.campaignRepo.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundException('Chiến dịch Mùa hè xanh không tồn tại');
 
-    // Gom nhóm dữ liệu hoạt động của các đội thanh niên tình nguyện trong ngày
+    const activities = await this.activityRepo.find({
+      where: { campaign_id: campaignId, date: date }
+    });
+
+    const totalVolunteers = await this.registrationRepo.count({
+      where: { campaign_id: campaignId, status: 'approved' }
+    });
+
     return {
       campaign_id: campaign.id,
       campaign_name: campaign.name,
       location: campaign.location,
       date: date,
-      activities: [
-        { type: 'Dạy học văn hóa & kỹ năng sống', hours: 16, volunteers: 8, status: 'Hoàn thành' },
-        { type: 'Sửa chữa lộ giao thông nông thôn', hours: 24, volunteers: 15, status: 'Hoàn thành' },
-        { type: 'Tuyên truyền phòng chống đuối nước', hours: 8, volunteers: 4, status: 'Hoàn thành' },
-      ],
-      total_volunteers_active: 27,
-      completed_percentage: '92%',
+      activities: activities.map(a => ({
+        type: a.title,
+        hours: a.hours_spent,
+        volunteers: a.volunteer_count,
+        status: a.status
+      })),
+      total_volunteers_approved: totalVolunteers,
+      activity_count: activities.length,
     };
   }
 
-  /**
-   * Đăng ký tham gia tình nguyện chiến dịch Mùa hè xanh
-   */
   async registerVolunteer(campaignId: string, userId: string) {
     const campaign = await this.campaignRepo.findOne({ where: { id: campaignId } });
     if (!campaign) throw new NotFoundException('Chiến dịch Mùa hè xanh không tồn tại');
@@ -70,7 +85,7 @@ export class SummerCampaignService {
     });
 
     if (existing) {
-        throw new BadRequestException('Bạn đã đăng ký tham gia chiến dịch này rồi. Vui lòng chờ liên hệ.');
+        throw new BadRequestException('Bạn đã đăng ký tham gia chiến dịch này rồi.');
     }
 
     const registration = this.registrationRepo.create({
@@ -83,10 +98,21 @@ export class SummerCampaignService {
 
     return {
       success: true,
-      message: `Đăng ký tham gia chiến dịch ${campaign.name} thành công. Hãy chờ liên hệ từ đội trưởng địa bàn ${campaign.location}!`,
+      message: `Đăng ký tham gia chiến dịch ${campaign.name} thành công!`,
       campaign_id: campaignId,
       user_id: userId,
       registered_at: registration.created_at,
     };
+  }
+
+  /**
+   * Phê duyệt tình nguyện viên (Admin/Đội trưởng)
+   */
+  async updateRegistrationStatus(registrationId: string, status: 'approved' | 'rejected') {
+    const reg = await this.registrationRepo.findOne({ where: { id: registrationId } });
+    if (!reg) throw new NotFoundException('Yêu cầu đăng ký không tồn tại');
+    
+    reg.status = status;
+    return this.registrationRepo.save(reg);
   }
 }

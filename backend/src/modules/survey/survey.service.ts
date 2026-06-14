@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Survey } from './entities/survey.entity';
 import { SurveyResponse } from './entities/survey-response.entity';
+import { Parser } from 'json2csv';
 
 @Injectable()
 export class SurveyService {
@@ -11,9 +12,6 @@ export class SurveyService {
     @InjectRepository(SurveyResponse) private readonly responseRepo: Repository<SurveyResponse>,
   ) {}
 
-  /**
-   * Tạo khảo sát mới (MOD-21)
-   */
   async createSurvey(createdById: string, data: any) {
     const survey = this.surveyRepo.create({
       title: data.title,
@@ -24,9 +22,6 @@ export class SurveyService {
     return this.surveyRepo.save(survey);
   }
 
-  /**
-   * Lấy danh sách khảo sát đang hoạt động
-   */
   async getSurveys() {
     return this.surveyRepo.find({
       where: { status: 'active' },
@@ -34,18 +29,12 @@ export class SurveyService {
     });
   }
 
-  /**
-   * Lấy chi tiết khảo sát theo ID
-   */
   async getSurveyById(id: string) {
     const survey = await this.surveyRepo.findOne({ where: { id } });
     if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
     return survey;
   }
 
-  /**
-   * F-22: Thu thập dữ liệu ý kiến đóng góp của học sinh
-   */
   async submitResponse(surveyId: string, userId: string, answers: any) {
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
     if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
@@ -54,13 +43,12 @@ export class SurveyService {
         throw new BadRequestException('Khảo sát này đã đóng.');
     }
 
-    // Defensive: Check if user already submitted
     const existing = await this.responseRepo.findOne({
         where: { survey_id: surveyId, user_id: userId }
     });
 
     if (existing) {
-        throw new BadRequestException('Bạn đã hoàn thành bài khảo sát này rồi. Xin cảm ơn!');
+        throw new BadRequestException('Bạn đã hoàn thành bài khảo sát này rồi.');
     }
 
     const response = this.responseRepo.create({
@@ -71,14 +59,11 @@ export class SurveyService {
     
     await this.responseRepo.save(response);
 
-    return {
-        success: true,
-        message: 'Cảm ơn bạn đã đóng góp ý kiến!'
-    };
+    return { success: true, message: 'Cảm ơn bạn đã đóng góp ý kiến!' };
   }
 
   /**
-   * F-22: Phân tích dữ liệu & Báo cáo kết quả trực quan
+   * Phân tích dữ liệu & Báo cáo kết quả thực tế
    */
   async analyzeSurvey(surveyId: string) {
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
@@ -86,29 +71,54 @@ export class SurveyService {
 
     const responses = await this.responseRepo.find({ where: { survey_id: surveyId } });
     
-    return {
+    const stats = {
       survey_title: survey.title,
       total_responses: responses.length,
-      completion_rate: responses.length > 0 ? '94%' : '0%',
-      insights: [
-        { question: 'Mức độ hài lòng với hạ tầng học tập', average_score: 4.6 },
-        { question: 'Khó khăn lớn nhất hiện tại', top_answer: 'Tài chính và định hướng nghề nghiệp' },
-        { question: 'Mong muốn trải nghiệm STEM', top_answer: 'Cần nhiều thiết bị thực hành IoT hơn' }
-      ]
+      questions_stats: [] as any[]
     };
+
+    // Phân tích sơ bộ các câu hỏi trắc nghiệm
+    if (survey.questions_json && Array.isArray(survey.questions_json)) {
+      survey.questions_json.forEach((q: any, idx: number) => {
+        if (q.type === 'rating' || q.type === 'choice') {
+            const answers = responses.map(r => r.answers_json?.[q.id]).filter(a => a !== undefined);
+            stats.questions_stats.push({
+                question: q.text,
+                response_count: answers.length,
+                average: q.type === 'rating' ? (answers.reduce((s, a) => s + Number(a), 0) / answers.length).toFixed(1) : null
+            });
+        }
+      });
+    }
+
+    return stats;
   }
 
   /**
-   * Xuất dữ liệu khảo sát (Export CSV/Excel)
+   * Xuất dữ liệu khảo sát (Real CSV)
    */
-  async exportData(surveyId: string, format: string = 'csv') {
+  async exportData(surveyId: string) {
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
     if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
 
+    const responses = await this.responseRepo.find({ where: { survey_id: surveyId } });
+    
+    if (responses.length === 0) throw new BadRequestException('Không có dữ liệu để xuất');
+
+    // Chuyển đổi dữ liệu sang dạng phẳng để CSV dễ đọc
+    const data = responses.map(r => ({
+      user_id: r.user_id,
+      submitted_at: r.created_at,
+      ...r.answers_json
+    }));
+
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(data);
+
     return {
       success: true,
-      message: `Đã chuẩn bị file xuất dữ liệu khảo sát định dạng ${format.toUpperCase()} thành công.`,
-      download_url: `https://api.edumap.vn/exports/survey-${surveyId}.${format}`,
+      filename: `survey-${surveyId}-${Date.now()}.csv`,
+      content: csv,
     };
   }
 }
