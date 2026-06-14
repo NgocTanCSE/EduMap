@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { UserCertificate, CertificateStatus } from './entities/user-certificate.entity';
 import { CertificateTemplate } from './entities/certificate-template.entity';
 import * as crypto from 'crypto';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
 import { PassThrough } from 'stream';
 

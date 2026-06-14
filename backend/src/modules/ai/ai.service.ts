@@ -19,7 +19,7 @@ export class AIService {
     private readonly configService: ConfigService,
     @InjectRepository(LearningMaterial) private readonly materialRepo: Repository<LearningMaterial>,
     @InjectRepository(Location) private readonly locationRepo: Repository<Location>,
-    @InjectRepository(ChatHistory) private readonly chatRepo: Repository<ChatHistory>,
+    @InjectRepository(ChatHistory) private readonly historyRepo: Repository<ChatHistory>,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
   }

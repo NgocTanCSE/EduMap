@@ -21,7 +21,7 @@ export class MapService {
 
   constructor(
     @InjectRepository(MapPoint)
-    private mapPointRepository: Repository<MapPoint>,
+    private readonly mapPointRepo: Repository<MapPoint>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {

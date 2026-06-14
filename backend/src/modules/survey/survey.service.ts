@@ -97,7 +97,7 @@ export class SurveyService {
   /**
    * Xuất dữ liệu khảo sát (Real CSV)
    */
-  async exportData(surveyId: string) {
+  async exportData(surveyId: string, format: string = 'csv') {
     const survey = await this.surveyRepo.findOne({ where: { id: surveyId } });
     if (!survey) throw new NotFoundException('Không tìm thấy cuộc khảo sát này');
 
@@ -111,6 +111,14 @@ export class SurveyService {
       submitted_at: r.created_at,
       ...r.answers_json
     }));
+
+    if (format === 'json') {
+      return {
+        success: true,
+        filename: `survey-${surveyId}-${Date.now()}.json`,
+        content: JSON.stringify(data, null, 2),
+      };
+    }
 
     const json2csvParser = new Parser();
     const csv = json2csvParser.parse(data);
