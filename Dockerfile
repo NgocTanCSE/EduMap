@@ -80,10 +80,14 @@ COPY seed_crawled_data*.sql ./
 RUN chmod +x /usr/local/bin/hf_entrypoint.sh && \
     chown user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data*.sql
 
-# HF Spaces requires port 7860
-RUN sed -i 's/listen 80;/listen 7860;/' /etc/nginx/sites-available/default && \
-    sed -i 's/user www-data;//' /etc/nginx/nginx.conf || true && \
-    sed -i 's/pid \/run\/nginx.pid;/pid \/tmp\/nginx.pid;/' /etc/nginx/nginx.conf || true
+# HF Spaces requires port 7860 + non-root nginx
+RUN mkdir -p /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi && \
+    chown -R user:user /var/lib/nginx && \
+    ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default && \
+    sed -i 's/user www-data;//' /etc/nginx/nginx.conf && \
+    sed -i 's|pid /run/nginx.pid;|pid /tmp/nginx.pid;|' /etc/nginx/nginx.conf && \
+    sed -i 's|access_log /var/log/nginx/access.log;|access_log /data/nginx_access.log;|' /etc/nginx/nginx.conf || true && \
+    sed -i 's|error_log /var/log/nginx/error.log;|error_log /data/nginx_error.log;|' /etc/nginx/nginx.conf || true
 
 USER 1000
 

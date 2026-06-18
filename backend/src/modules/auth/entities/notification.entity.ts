@@ -11,12 +11,9 @@ export class Notification {
   user: User;
 
   @Column()
-  type: string;
-
-  @Column()
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'text', nullable: true })
   body: string;
 
   @Column({ name: 'data_json', type: 'jsonb', nullable: true })
@@ -25,6 +22,12 @@ export class Notification {
   @Column({ default: false })
   is_read: boolean;
 
+  @Column({ nullable: true })
+  channel: string;
+
   @CreateDateColumn()
-  created_at: Date;
+  sent_at: Date;
+
+  @Column({ nullable: true })
+  read_at: Date;
 }

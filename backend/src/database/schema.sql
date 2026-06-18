@@ -371,7 +371,7 @@ CREATE TABLE bookings (
 -- 24. donation_campaigns
 CREATE TABLE donation_campaigns (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     target_amount DECIMAL(15,2),
     current_amount DECIMAL(15,2) DEFAULT 0,
@@ -623,7 +623,7 @@ CREATE TABLE support_tickets (
 CREATE TABLE internships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID, -- Could link to a companies table
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     field VARCHAR(100),
     location_point GEOGRAPHY(POINT),
