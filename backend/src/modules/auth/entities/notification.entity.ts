@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('notifications')
@@ -7,6 +7,7 @@ export class Notification {
   id: string;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column()
@@ -18,7 +19,7 @@ export class Notification {
   @Column({ type: 'text' })
   body: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'data_json', type: 'jsonb', nullable: true })
   data: any;
 
   @Column({ default: false })

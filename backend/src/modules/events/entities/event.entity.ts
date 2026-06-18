@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('events')
 export class Event {
@@ -14,8 +14,15 @@ export class Event {
   @Column({ default: 'workshop' }) // workshop, hackathon, seminar, camp
   type: string;
 
-  @Column({ nullable: true })
-  location: string;
+  @Index({ spatial: true })
+  @Column({
+    name: 'location_point',
+    type: 'geography',
+    spatialFeatureType: 'Point',
+    srid: 4326,
+    nullable: true,
+  })
+  location: any;
 
   @Column({ type: 'timestamp with time zone' })
   start_date: Date;

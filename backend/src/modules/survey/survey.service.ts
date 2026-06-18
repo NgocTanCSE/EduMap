@@ -16,7 +16,7 @@ export class SurveyService {
     const survey = this.surveyRepo.create({
       title: data.title,
       questions_json: data.questions || [],
-      created_by_id: createdById,
+      created_by: { id: createdById } as any,
       status: 'active',
     });
     return this.surveyRepo.save(survey);

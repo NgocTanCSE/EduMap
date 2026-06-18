@@ -31,7 +31,7 @@ export class WifiLocation {
   @Column({ nullable: true })
   password: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'hint', nullable: true })
   password_hint: string;
 
   @Column({ default: false })

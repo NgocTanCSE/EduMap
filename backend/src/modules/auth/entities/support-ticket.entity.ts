@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('support_tickets')
@@ -7,6 +7,7 @@ export class SupportTicket {
   id: string;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column()
@@ -22,6 +23,7 @@ export class SupportTicket {
   priority: string;
 
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'assigned_to' })
   assigned_to: User;
 
   @CreateDateColumn()

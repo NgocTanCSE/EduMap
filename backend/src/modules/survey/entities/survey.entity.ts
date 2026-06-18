@@ -13,11 +13,8 @@ export class Survey {
   questions_json: any;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'created_by_id' })
+  @JoinColumn({ name: 'created_by' })
   created_by: User;
-
-  @Column()
-  created_by_id: string;
 
   @Column({ default: 'active' }) // active, inactive
   status: string;

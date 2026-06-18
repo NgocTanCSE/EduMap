@@ -66,7 +66,7 @@ export class UserPoint {
   @Column()
   action: string; // Tên hành động hoặc mã (e.g., 'DONATE_CAMPAIGN_1')
 
-  @Column({ nullable: true })
+  @Column({ name: 'source_id', nullable: true })
   reference_id: string; // ID của đối tượng liên quan (VD: ID của donation, event)
 
   @Column({ nullable: true })

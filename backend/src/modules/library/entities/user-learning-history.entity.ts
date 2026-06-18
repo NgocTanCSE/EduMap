@@ -21,9 +21,9 @@ export class UserLearningHistory {
   @Column()
   material_id: string;
 
-  @Column({ default: 0 })
+  @Column({ name: 'progress_pct', default: 0 })
   progress: number;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   last_accessed: Date;
 }
