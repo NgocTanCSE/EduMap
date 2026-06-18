@@ -1,10 +1,8 @@
 import { Controller, Get, Put, Post, Delete, Param, Body, Query, UseGuards, UsePipes, ValidationPipe, Req } from '@nestjs/common';
-
-
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/entities/user.entity';
 import { CrawlerService } from '../crawler/crawler.service';
 import { AdminService } from './admin.service';
@@ -74,10 +72,6 @@ export class AdminController {
   @Get('content/pending')
   @ApiOperation({ summary: 'Danh sách nội dung chờ duyệt' })
   async getPendingContent(@Query('type') type: string) {
-    return {
-      type,
-      items: [],
-      count: 0
-    };
+    return this.adminService.getPendingContent(type);
   }
 }

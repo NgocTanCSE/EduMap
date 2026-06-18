@@ -1,6 +1,6 @@
-// backend/src/modules/module/module.entity.ts
+// backend/src/modules/module/entities/module.entity.ts
 import { Entity, PrimaryColumn, Column, OneToMany } from 'typeorm';
-import { Feature } from '../feature/feature.entity';
+import { Feature } from '../../feature/entities/feature.entity';
 
 @Entity('modules')
 export class Module {

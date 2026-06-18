@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingCart, GraduationCap, Trash2, ArrowLeft, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
@@ -53,6 +54,7 @@ export default function CartPage() {
       return;
     }
     try {
+      setLoading(true);
       const res = await fetch('/api/business/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,14 +62,31 @@ export default function CartPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setOrderInfo(data);
-        setCheckoutStep(3);
+        
+        // Simulate Payment Processing
+        toast.info("Đang kết nối cổng thanh toán...");
+        const payRes = await fetch(`/api/payment/process/${data.orderId}`, { // In real app, orderId might be linked to transaction
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: paymentMethod })
+        });
+
+        if (payRes.ok) {
+            setOrderInfo(data);
+            setCheckoutStep(3);
+        } else {
+            alert("Thanh toán thất bại, đơn hàng đã được ghi nhận ở trạng thái Chờ.");
+            setOrderInfo(data);
+            setCheckoutStep(3);
+        }
       } else {
         const error = await res.json();
         alert(error.message || "Lỗi khi đặt hàng.");
       }
     } catch (error) {
       console.error("Lỗi checkout:", error);
+    } finally {
+        setLoading(false);
     }
   };
 

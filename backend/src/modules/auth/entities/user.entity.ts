@@ -44,11 +44,15 @@ export class User {
     const rolesMap: { [key: number]: UserRole } = {
       1: UserRole.ADMIN,
       2: UserRole.ADMIN,
-      3: UserRole.ADMIN,
-      4: UserRole.MODERATOR,
+      3: UserRole.MODERATOR,
+      4: UserRole.SCHOOL_REP,
+      6: UserRole.EMPLOYER,
+      7: UserRole.DONOR,
       8: UserRole.TEACHER,
       9: UserRole.MENTOR,
+      10: UserRole.COMMUNITY_COORD,
       11: UserRole.STUDENT,
+      12: UserRole.GUEST,
     };
     return rolesMap[this.role_id] || UserRole.STUDENT;
   }
@@ -56,10 +60,18 @@ export class User {
   set role(val: UserRole) {
     const idsMap: { [key in UserRole]?: number } = {
       [UserRole.ADMIN]: 2,
-      [UserRole.MODERATOR]: 4,
+      [UserRole.MODERATOR]: 3,
       [UserRole.TEACHER]: 8,
       [UserRole.MENTOR]: 9,
       [UserRole.STUDENT]: 11,
+      [UserRole.PARENT]: 12,
+      [UserRole.SCHOOL_REP]: 4,
+      [UserRole.DONOR]: 7,
+      [UserRole.EMPLOYER]: 6,
+      [UserRole.COMMUNITY_COORD]: 10,
+      [UserRole.SUPPORT_STAFF]: 12,
+      [UserRole.PARTNER]: 6,
+      [UserRole.GUEST]: 12,
     };
     this.role_id = idsMap[val] || 11;
   }

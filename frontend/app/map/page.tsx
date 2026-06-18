@@ -1,9 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info, Flame } from 'lucide-react';
+import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info, Flame, Plus, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { authService } from '@/src/services/auth.service';
 
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), { ssr: false });
 
@@ -22,16 +23,27 @@ export default function MapPage() {
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
 
+  // Pinning states
+  const [pinningCoord, setPinningCoord] = useState<{lat: number, lng: number} | null>(null);
+  const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
+  const [isSavingPin, setIsSavingPin] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
     try {
       setLoading(true);
       logger.info('Fetching map data');
+      
+      let locUrl = '/api/map/locations';
+      if (bounds) {
+        locUrl += `?minLat=${bounds.minLat}&maxLat=${bounds.maxLat}&minLng=${bounds.minLng}&maxLng=${bounds.maxLng}`;
+      }
+
       const [locRes, catRes] = await Promise.all([
-        fetch('/api/map/locations'),
+        fetch(locUrl),
         fetch('/api/map/categories')
       ]);
       
@@ -42,7 +54,13 @@ export default function MapPage() {
       const catData = catDataRes.data || catDataRes;
       
       setLocations(Array.isArray(locData) ? locData : []);
-      setFilteredLocations(Array.isArray(locData) ? locData : []);
+      
+      // Maintain category filters on bound change
+      if (activeCategory !== 'all') {
+         setFilteredLocations(Array.isArray(locData) ? locData.filter((l: any) => l.category === activeCategory) : []);
+      } else {
+         setFilteredLocations(Array.isArray(locData) ? locData : []);
+      }
       setCategories(Array.isArray(catData) ? catData : []);
       logger.info('Map data loaded successfully');
     } catch (error) {
@@ -50,6 +68,54 @@ export default function MapPage() {
       toast.error('Failed to load map data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBoundsChange = (bounds: any) => {
+      fetchInitialData(bounds);
+  };
+
+  const handleMapClick = (lat: number, lng: number) => {
+    const user = authService.getUser();
+    if (!user) {
+        toast.error('Bạn cần đăng nhập để ghim vị trí mới.');
+        return;
+    }
+    setPinningCoord({ lat, lng });
+    logger.info(`Map clicked at: ${lat}, ${lng}`);
+  };
+
+  const handleSavePin = async () => {
+    if (!pinForm.name || !pinningCoord) {
+        toast.warning('Vui lòng nhập tên địa điểm.');
+        return;
+    }
+
+    try {
+        setIsSavingPin(true);
+        const res = await fetch('/api/map/pois', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...pinForm,
+                lat: pinningCoord.lat,
+                lng: pinningCoord.lng
+            })
+        });
+
+        if (res.ok) {
+            toast.success('Đã ghim vị trí thành công!');
+            setPinningCoord(null);
+            setPinForm({ name: '', category: 'school', description: '', address: '' });
+            fetchInitialData(); // Refresh map
+        } else {
+            const err = await res.json();
+            toast.error(err.message || 'Lỗi khi ghim vị trí.');
+        }
+    } catch (error) {
+        toast.error('Lỗi kết nối máy chủ.');
+    } finally {
+        setIsSavingPin(false);
     }
   };
 
@@ -201,9 +267,91 @@ export default function MapPage() {
           points={filteredLocations} 
           selectedPoint={selectedLocation}
           onSelectPoint={setSelectedLocation}
+          onMapClick={handleMapClick}
           showHeatmap={showHeatmap}
+          onBoundsChange={handleBoundsChange}
         />
         
+        {/* Pinning Modal */}
+        {pinningCoord && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                    <div className="p-8 space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-black text-yellow-500 flex items-center gap-2">
+                                <Plus size={24} /> Ghim Vị Trí Mới
+                            </h3>
+                            <button onClick={() => setPinningCoord(null)} className="text-gray-500 hover:text-white">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tên địa điểm</label>
+                                <input 
+                                    type="text" 
+                                    value={pinForm.name}
+                                    onChange={e => setPinForm({...pinForm, name: e.target.value})}
+                                    placeholder="VD: Thư viện X, Quán Cafe Y..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Thể loại</label>
+                                <select 
+                                    value={pinForm.category}
+                                    onChange={e => setPinForm({...pinForm, category: e.target.value})}
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
+                                >
+                                    {categories.map(cat => <option key={cat} value={cat} className="bg-zinc-900">{cat.toUpperCase()}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Địa chỉ (Tùy chọn)</label>
+                                <input 
+                                    type="text" 
+                                    value={pinForm.address}
+                                    onChange={e => setPinForm({...pinForm, address: e.target.value})}
+                                    placeholder="Số nhà, Tên đường..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Mô tả thêm</label>
+                                <textarea 
+                                    value={pinForm.description}
+                                    onChange={e => setPinForm({...pinForm, description: e.target.value})}
+                                    placeholder="Nhận xét của bạn về địa điểm này..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm h-24"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setPinningCoord(null)}
+                                className="flex-1 py-4 rounded-2xl border border-white/10 font-bold hover:bg-white/5 transition-all"
+                            >
+                                Hủy
+                            </button>
+                            <button 
+                                onClick={handleSavePin}
+                                disabled={isSavingPin}
+                                className="flex-1 bg-yellow-600 hover:bg-yellow-700 py-4 rounded-2xl font-black text-white shadow-xl shadow-yellow-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Save size={18} />
+                                {isSavingPin ? 'Đang lưu...' : 'Lưu Vị Trí'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* AI Results Overlay Panel */}
         {showAiPanel && (
             <div className="absolute top-8 right-8 w-80 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl z-20 overflow-hidden animate-in slide-in-from-right duration-500">

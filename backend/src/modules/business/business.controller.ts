@@ -3,14 +3,14 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam, ApiResponse } 
 import { BusinessService } from './business.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/entities/user.entity';
-import { CreateProductDto } from './dtos/create-product.dto';
-import { UpdateProductDto } from './dtos/update-product.dto';
-import { CreateServiceDto } from './dtos/create-service.dto'; // Import Service DTO
-import { UpdateServiceDto } from './dtos/update-service.dto'; // Import Service DTO
-import { CreateReviewDto } from './dtos/create-review.dto';
-import { CheckoutDto } from './dtos/checkout.dto'; // Import Checkout DTO
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { CheckoutDto } from './dto/checkout.dto';
 
 @ApiTags('MOD-BIZ: Kết nối doanh nghiệp & Sản phẩm & Dịch vụ & Giao dịch')
 @Controller('business')

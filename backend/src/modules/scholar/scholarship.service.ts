@@ -17,8 +17,24 @@ export class ScholarshipService {
     private readonly aiService: AIService,
   ) { }
 
-  async getAllScholarships() {
-    return this.scholarRepo.find({ where: { deleted_at: null } });
+  async getAllScholarships(page: number = 1, limit: number = 10) {
+    const [items, total] = await this.scholarRepo.findAndCount({
+      where: { deleted_at: null },
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { created_at: 'DESC' }
+    });
+
+    return {
+      items,
+      meta: {
+        totalItems: total,
+        itemCount: items.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      }
+    };
   }
 
   /**

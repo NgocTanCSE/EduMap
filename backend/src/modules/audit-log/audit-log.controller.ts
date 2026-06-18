@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards, UsePipes, ValidationPipe } from '@ne
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/entities/user.entity';
 import { AuditLogService } from './audit-log.service';
 import { AuditLogQueryDto } from './dto/audit-log-query.dto';

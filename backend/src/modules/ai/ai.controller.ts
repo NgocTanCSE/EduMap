@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AIService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('AI Assistant')
 @Controller('ai')
@@ -30,6 +31,16 @@ export class AIController {
   @ApiOperation({ summary: 'Lấy lịch sử cuộc trò chuyện' })
   async getHistory(@Request() req: any) {
     return this.aiService.getUserHistory(req.user.id);
+  }
+
+  @Public()
+  @Get('search')
+  @ApiOperation({ summary: 'Tìm kiếm AI theo tài liệu và địa điểm' })
+  async search(@Query('q') query: string, @Query('limit') limit?: string) {
+    if (!query || !query.trim()) {
+      return { success: true, data: [] };
+    }
+    return this.aiService.search(query, limit ? parseInt(limit, 10) : 5);
   }
 
   @Post('learning-path')
@@ -68,13 +79,6 @@ export class AIController {
   @Get('analytics/stats')
   @ApiOperation({ summary: 'Thống kê AI Analytics' })
   async getAnalyticsStats() {
-    return {
-      success: true,
-      data: {
-        total_predictions: 1250,
-        accuracy_rate: 0.92,
-        active_models: 3
-      }
-    };
+    return this.aiService.getAnalyticsStats();
   }
 }

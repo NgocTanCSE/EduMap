@@ -19,19 +19,19 @@ class LibraryService {
     return response.json();
   }
 
-  async searchMaterials(q: string = '', category?: string, type?: string) {
-    let url = `${API_BASE_URL}/search?q=${encodeURIComponent(q)}`;
+  async searchMaterials(q: string = '', category?: string, type?: string, page: number = 1, limit: number = 10) {
+    let url = `${API_BASE_URL}/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`;
     if (category && category !== 'Tất cả') url += `&category=${encodeURIComponent(category)}`;
     if (type) url += `&type=${encodeURIComponent(type)}`;
     return this.fetchWithAuth(url);
   }
 
   async getMaterialDetail(id: string) {
-    return this.fetchWithAuth(`${API_BASE_URL}/${id}`);
+    return this.fetchWithAuth(`${API_BASE_URL}/resources/${id}`);
   }
 
   async getMaterialSummary(id: string) {
-    return this.fetchWithAuth(`${API_BASE_URL}/${id}/summary`);
+    return this.fetchWithAuth(`${API_BASE_URL}/resources/${id}/summary`);
   }
 }
 

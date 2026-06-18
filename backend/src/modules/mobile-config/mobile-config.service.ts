@@ -40,6 +40,19 @@ export class MobileConfigService {
   }
 
   /**
+   * Tìm các xe tri thức lưu động gần đây (PostGIS)
+   */
+  async getNearbyUnits(lat: number, lng: number, radiusKm: number = 10) {
+    return this.unitRepo
+      .createQueryBuilder('unit')
+      .where(
+        "ST_DistanceSphere(unit.current_location, ST_MakePoint(:lng, :lat)) <= :radius",
+        { lng, lat, radius: radiusKm * 1000 }
+      )
+      .getMany();
+  }
+
+  /**
    * F-26: Quản lý tài nguyên & Lộ trình di chuyển
    */
   async getUnitSchedule(unitId: string) {

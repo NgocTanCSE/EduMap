@@ -45,7 +45,7 @@ class AuthService {
   }
 
   // === Token Management ===
-  setTokens(accessToken: string, refreshToken: string) {
+  setTokens(accessToken: string, refreshToken: string = accessToken) {
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -171,7 +171,8 @@ class AuthService {
         return false;
       }
       const data = await response.json();
-      this.setTokens(data.access_token, data.refresh_token);
+      const authData = data.data || data;
+      this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
       return true;
     } catch (error) {
       console.error("Error refreshing tokens:", error);

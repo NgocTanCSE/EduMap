@@ -12,9 +12,14 @@ import { toast } from 'sonner';
 export default function ScholarshipPage() {
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [eligibilityResult, setEligibilityResult] = useState<{ [key: string]: EligibilityResponse }>({});
   
@@ -26,19 +31,37 @@ export default function ScholarshipPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchScholarships();
+    fetchScholarships(1);
   }, []);
 
-  const fetchScholarships = async () => {
+  const fetchScholarships = async (pageNum: number) => {
     try {
-      setLoading(true);
-      const data: any = await scholarshipService.getScholarships();
-      const items = Array.isArray(data) ? data : (data.data || []);
-      setScholarships(items);
+      if (pageNum === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const data: any = await scholarshipService.getScholarships(pageNum, 10);
+      const items = data.items || data.data || [];
+      const meta = data.meta || {};
+
+      if (pageNum === 1) {
+        setScholarships(items);
+      } else {
+        setScholarships(prev => [...prev, ...items]);
+      }
+
+      setHasMore(meta.currentPage < meta.totalPages);
+      setPage(pageNum);
     } catch (error: any) {
       toast.error(error.message || "Lỗi tải danh sách học bổng");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchScholarships(page + 1);
     }
   };
 
@@ -285,6 +308,19 @@ export default function ScholarshipPage() {
 
               </div>
             ))}
+            {hasMore && (
+              <div className="flex justify-center pt-8">
+                <Button 
+                  onClick={handleLoadMore} 
+                  disabled={loadingMore}
+                  variant="outline"
+                  className="rounded-full border-white/20 text-white hover:bg-white/10 px-8"
+                >
+                  {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : null}
+                  {loadingMore ? 'Đang tải...' : 'Tải thêm học bổng'}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
             <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">

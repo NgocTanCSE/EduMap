@@ -62,11 +62,10 @@ export default function LoginPage() {
         setUserIdFor2FA(data.userId);
         setErrorMessage('');
       } else {
-        authService.setTokens(data.access_token, data.refresh_token);
-        // Assuming the login response also contains user info (id, email, fullName, role)
-        // You might need to adjust this based on actual backend response
-        authService.getUser(); // Force update current user
-        router.push('/dashboard'); // Redirect to dashboard or home page
+        const authData = data.data || data;
+        authService.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+        authService.getUser();
+        router.push('/dashboard');
       }
     } catch (error) {
       console.error('Lỗi khi đăng nhập:', error);
@@ -95,9 +94,10 @@ export default function LoginPage() {
         return;
       }
 
-      authService.setTokens(data.access_token, data.refresh_token);
-      authService.getUser(); // Force update current user
-      router.push('/dashboard'); // Redirect to dashboard or home page
+      const authData = data.data || data;
+      authService.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+      authService.getUser();
+      router.push('/dashboard');
     } catch (error) {
       console.error('Lỗi khi xác minh 2FA:', error);
       setErrorMessage('Đã xảy ra lỗi khi xác minh 2FA. Vui lòng thử lại sau.');

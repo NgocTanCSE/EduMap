@@ -63,6 +63,15 @@ export class Booking {
   @Column({ default: 'pending' })
   status: string; // pending/confirmed/completed/cancelled
 
+  @Column({ default: 'unpaid' })
+  payment_status: string; // unpaid/paid/refunded
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount: number;
+
+  @Column({ nullable: true })
+  transaction_id: string;
+
   @Column({ nullable: true })
   meeting_url: string;
 

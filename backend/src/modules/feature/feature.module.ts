@@ -1,7 +1,7 @@
 // backend/src/modules/feature/feature.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Feature as FeatureEntity } from './feature.entity';
+import { Feature as FeatureEntity } from './entities/feature.entity';
 import { FeatureService } from './feature.service';
 import { FeatureController } from './feature.controller'; // Import FeatureController
 

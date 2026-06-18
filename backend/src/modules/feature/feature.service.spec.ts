@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeatureService } from './feature.service';
-import { Feature } from './feature.entity';
+import { Feature } from './entities/feature.entity';
 import { Repository } from 'typeorm';
 
 describe('FeatureService', () => {

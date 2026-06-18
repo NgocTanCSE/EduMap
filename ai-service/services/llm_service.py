@@ -15,8 +15,8 @@ load_dotenv()
 
 class LLMService:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY", "mock-key-for-dev")
-        if self.api_key and self.api_key != "mock-key-for-dev" and not self.api_key.startswith("AIzaSy_placeholder"):
+        self.api_key = os.getenv("GEMINI_API_KEY")
+        if self.api_key:
             genai.configure(api_key=self.api_key)
             model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             self.model = genai.GenerativeModel(model_name)
@@ -24,25 +24,27 @@ class LLMService:
         else:
             self.model = None
             self.is_ready = False
-            print("WARNING: GEMINI_API_KEY not set correctly. AI Service running in Mock mode.")
+            print("ERROR: GEMINI_API_KEY is not configured. AI Service requires a valid Gemini API key.")
+            print("Set GEMINI_API_KEY in .env file or environment variables.")
 
     # --- Methods from Legacy LLMService ---
 
-    async def chat_with_rag(self, message: str, history: list = None) -> dict:
+    async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
         """
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
-        Kết hợp dữ liệu từ ChromaDB và Gemini Pro Engine.
+        Kết hợp dữ liệu từ ChromaDB, hệ thống và Gemini Pro Engine.
         """
         if not self.is_ready:
             return {"reply": "Trợ lý ảo EduMap hiện đang bảo trì, vui lòng quay lại sau.", "sources": []}
 
         # Kiểm tra Cache
-        cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {{}})}".encode()).hexdigest()
         cached_res = cache_service.get(cache_key)
         if cached_res:
             return cached_res
 
         history = history or []
+        context = context or {}
 
         # 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
         from services.vector_store import vector_store
@@ -77,16 +79,24 @@ class LLMService:
             docs_str = "Lỗi kết nối kho dữ liệu."
             sources = []
 
-        # 2. Prompt Engineering: Thiết lập "Luật" cho AI
+        # 2. Ngữ cảnh hệ thống (Dynamic Context)
+        system_context_str = ""
+        if context:
+            system_context_str = "\nNGỮ CẢNH HỆ THỐNG THỜI GIAN THỰC:\n"
+            for key, value in context.items():
+                system_context_str += f"- {key}: {value}\n"
+
+        # 3. Prompt Engineering: Thiết lập "Luật" cho AI
         system_instruction = f"""
         Bạn là Trợ lý ảo thông minh của EduMap DNTU (Trường Đại học Công nghệ Đồng Nai).
         
         DỮ LIỆU TỪ HỆ THỐNG RAG (Sự thật):
         {docs_str}
+        {system_context_str}
         
         NGUYÊN TẮC HOẠT ĐỘNG (CORE RULES):
-        1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG bên trên.
-        2. Nếu câu hỏi không liên quan đến dữ liệu RAG, trả lời: "EduMap hiện chưa cập nhật dữ liệu về vấn đề này, mình sẽ ghi nhận để hoàn thiện thêm".
+        1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
+        2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thức chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
         4. Trình bày rõ ràng, sử dụng bullet points nếu cần thiết.
         """
@@ -100,7 +110,7 @@ class LLMService:
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
         
         try:
-            # 3. AI Generation Config
+            # 4. AI Generation Config
             generation_config = genai.types.GenerationConfig(
                 max_output_tokens=2048,
                 temperature=0.3, 
@@ -122,11 +132,11 @@ class LLMService:
 
     async def chat_response(self, message: str, history: list = None, context: dict = None):
         """Wrapper để tương thích với các module cũ."""
-        res = await self.chat_with_rag(message, history)
+        res = await self.chat_with_rag(message, history, context)
         return res.get("reply")
 
     async def generate_career_advice(self, user_info: dict):
-        if not self.is_ready: return "Dịch vụ bảo trì."
+        if not self.is_ready: return "AI Service is not configured. Please set GEMINI_API_KEY to use career advice."
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
             response = self.model.generate_content(prompt)
@@ -135,12 +145,12 @@ class LLMService:
             return "AI đang bận, hãy thử lại."
 
     async def analyze_market_trends(self, market_data: list):
-        if not self.is_ready: return {"status": "offline"}
+        if not self.is_ready: return {"status": "offline", "message": "AI Service not configured. GEMINI_API_KEY is required."}
         return {"status": "online", "analysis": "Xu hướng tuyển dụng tại KCN Amata đang rất tốt."}
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            return {"insight": "Hãy tiếp tục cố gắng học tập mỗi ngày!"}
+            return {"insight": "AI Service offline - configure GEMINI_API_KEY for personalized insights."}
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
@@ -199,8 +209,14 @@ class LLMService:
 
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
         if not self.is_ready:
-            return [{"title": "Backend Developer", "match_score": 90, "explanation": "Chế độ Demo.", "radar_chart": {"Technical": 85, "SoftSkills": 70, "ProblemSolving": 90}}]
+            return []
         
+        # Kiểm tra Cache
+        cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
+        cached_res = cache_service.get(cache_key)
+        if cached_res:
+            return cached_res
+
         prompt = f"""
         Phân tích hồ sơ sinh viên: {data.json()}
         Đề xuất 3 nghề nghiệp phù hợp nhất tại Việt Nam.
@@ -212,10 +228,16 @@ class LLMService:
         - Creativity (Sáng tạo)
         
         Trả về mảng JSON gồm: title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}
+        Chỉ trả về JSON.
         """
         try:
             response = self.model.generate_content(prompt)
             result = self._extract_json(response.text)
+            
+            if result and isinstance(result, list):
+                # Lưu vào Cache (TTL 24 giờ cho đề xuất nghề nghiệp)
+                cache_service.set(cache_key, result, ttl=86400)
+                
             return result if isinstance(result, list) else []
         except Exception as e:
             print(f"Error in recommend_career: {e}")
@@ -226,11 +248,7 @@ class LLMService:
         Tạo lộ trình học tập cá nhân hóa dựa trên trình độ và mục tiêu nghề nghiệp.
         """
         if not self.is_ready:
-            return {
-                "target_role": data.target_role,
-                "total_estimated_months": 6.0,
-                "steps": [{"step_number": 1, "title": "Học căn bản", "estimated_weeks": 4, "description": "Làm quen với kiến thức nền tảng."}]
-            }
+            return {}
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
@@ -267,7 +285,7 @@ class LLMService:
 
     async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
         if not self.is_ready:
-            return {"summary": "Phân tích mật độ giả lập", "density_score": 7.0}
+            return {"summary": "AI Service not configured", "density_score": 0}
         
         prompt = f"""
         Phân tích mật độ giáo dục tại {data.city}.
@@ -290,7 +308,7 @@ class LLMService:
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
         if not self.is_ready:
-            return {"summary": "Tóm tắt giả lập cho tài liệu.", "key_concepts": ["Concept 1"]}
+            return {"summary": "AI Service not configured", "key_concepts": []}
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
@@ -302,7 +320,7 @@ class LLMService:
 
     async def match_mentors(self, data: MatchRequest) -> list:
         if not self.is_ready:
-            return [{"mentor_id": "mock", "name": "Mentor Giả Lập", "match_score": 90.0, "match_reasons": ["Kỹ năng phù hợp"]}]
+            return []
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
@@ -316,7 +334,7 @@ class LLMService:
 
     async def moderate_text(self, text: str) -> dict:
         if not self.is_ready:
-            return {"is_safe": True, "confidence": 1.0, "flags": []}
+            return {"is_safe": None, "confidence": 0.0, "flags": ["AI_OFFLINE"], "reason": "AI Service not configured."}
         
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
@@ -339,11 +357,7 @@ class LLMService:
 
     async def get_suggestions(self) -> list:
         if not self.is_ready:
-            return [
-                {"title": "Cải thiện kỹ năng lập trình", "description": "Tham gia các khóa học Python/JavaScript.", "match_score": 85},
-                {"title": "Khám phá AI & Data Science", "description": "Bắt đầu với các bài học về Machine Learning.", "match_score": 78},
-                {"title": "Phát triển kỹ năng giao tiếp", "description": "Tham gia các buổi workshop mềm kỹ năng.", "match_score": 70}
-            ]
+            return []
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
             response = self.model.generate_content(prompt)

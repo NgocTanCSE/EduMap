@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Body
 from services.llm_service import llm_service
-from routers import analytics, career, geo, learning_path, mentor, moderation, search, library, scholarship, chat, suggestions
+from routers import analytics, career, geo, learning_path, mentor, moderation, search, library, scholarship, chat, suggestions, predictive
 
 app = FastAPI(title="EduMap AI Service")
 
@@ -16,11 +16,12 @@ app.include_router(moderation.router)
 app.include_router(search.router)
 app.include_router(library.router)
 app.include_router(scholarship.router)
+app.include_router(predictive.router)
 
 @app.get("/api/ai/trends")
 async def get_trends():
-    mock_market_logs = [{"keyword": "AI"}, {"keyword": "Industrial"}]
-    return await llm_service.analyze_market_trends(mock_market_logs)
+    market_logs = [{"keyword": "AI"}, {"keyword": "Industrial"}]
+    return await llm_service.analyze_market_trends(market_logs)
 
 @app.post("/api/ai/predict")
 async def predict_user(data: dict = Body(...)):

@@ -35,13 +35,26 @@ export class InternshipService {
   }
 
   /**
-   * Lấy danh sách tất cả cơ hội thực tập
+   * Lấy danh sách tất cả cơ hội thực tập có phân trang
    */
-  async getInternships() {
-    return this.internRepo.find({
+  async getInternships(page: number = 1, limit: number = 10) {
+    const [items, total] = await this.internRepo.findAndCount({
       relations: ['company'],
+      skip: (page - 1) * limit,
+      take: limit,
       order: { created_at: 'DESC' },
     });
+
+    return {
+      items,
+      meta: {
+        totalItems: total,
+        itemCount: items.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      }
+    };
   }
 
   /**

@@ -28,14 +28,11 @@ async def get_stats():
     # 1. Fetch real data from DB
     stats_data = db_service.get_education_stats(year=2024)
     if not stats_data:
-        # Fallback to mock if DB is empty
-        stats_data = [
-            {"metric_type": "IT Enrollment", "value": 3500, "year": 2024},
-            {"metric_type": "IT Enrollment", "value": 2800, "year": 2023},
-            {"metric_type": "IT Enrollment", "value": 2100, "year": 2022},
-        ]
+        return {"status": "empty", "message": "Khong co du lieu thong ke giao duc trong database."}
     
     df = pd.DataFrame(stats_data)
+    if df.empty:
+        return {"status": "empty", "message": "No statistics data available."}
     
     # Filter for IT Enrollment if available, else use what we have
     it_df = df[df['metric_type'].str.contains('IT', case=False)]

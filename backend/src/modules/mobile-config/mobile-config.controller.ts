@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MobileConfigService } from './mobile-config.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,6 +12,16 @@ export class MobileConfigController {
   @ApiOperation({ summary: 'Lấy danh sách tất cả các xe tri thức lưu động' })
   async getUnits() {
     return this.mobileService.getUnits();
+  }
+
+  @Get('nearby')
+  @ApiOperation({ summary: 'Tìm các xe gần bạn nhất' })
+  async getNearby(
+    @Query('lat') lat: number,
+    @Query('lng') lng: number,
+    @Query('radius') radius?: number,
+  ) {
+    return this.mobileService.getNearbyUnits(Number(lat), Number(lng), radius ? Number(radius) : 10);
   }
 
   @Post()

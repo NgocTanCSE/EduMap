@@ -190,4 +190,34 @@ export class AdminService {
       throw new BadRequestException('Failed to restore user');
     }
   }
+
+  async getPendingContent(type: string) {
+    let items = [];
+    let count = 0;
+
+    try {
+      switch (type) {
+        case 'event':
+          [items, count] = await this.eventRepo.findAndCount({ where: { status: 'pending' as any } });
+          break;
+        case 'campaign':
+          [items, count] = await this.campaignRepo.findAndCount({ where: { status: 'pending' } });
+          break;
+        case 'scholarship':
+          [items, count] = await this.scholarRepo.findAndCount({ where: { status: 'pending' } });
+          break;
+        default:
+          throw new BadRequestException('Invalid content type');
+      }
+
+      return {
+        type,
+        items,
+        count
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching pending content: ${error.message}`);
+      throw new BadRequestException('Failed to fetch pending content');
+    }
+  }
 }

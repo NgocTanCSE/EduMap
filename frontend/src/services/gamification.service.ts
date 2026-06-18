@@ -28,7 +28,8 @@ class GamificationService {
       if (!response.ok) {
         throw new Error('Không thể tải bảng xếp hạng');
       }
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error("GamificationService.getLeaderboard Error:", error);
       throw error;
@@ -51,7 +52,8 @@ class GamificationService {
       if (!response.ok) {
         throw new Error('Không thể tải tiến độ cá nhân');
       }
-      return await response.json();
+      const data = await response.json();
+      return data.data || data;
     } catch (error) {
       console.error("GamificationService.getMyProgress Error:", error);
       throw error;
@@ -74,7 +76,8 @@ class GamificationService {
       if (!response.ok) {
         throw new Error('Không thể tải danh sách huy hiệu');
       }
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error("GamificationService.getMyBadges Error:", error);
       throw error;

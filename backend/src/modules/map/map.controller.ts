@@ -1,19 +1,37 @@
-import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe, UseGuards } from '@nestjs/common';
 import { MapService } from './map.service';
 import { AiAnalysisDto } from './dto/ai-analysis.dto';
+import { CreateMapPointDto } from './dto/create-map-point.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('map')
 export class MapController {
   constructor(private readonly mapService: MapService) {}
 
   @Get('pois')
-  async getAllPois(@Query('category') category?: string) {
+  async getAllPois(
+    @Query('category') category?: string,
+    @Query('minLat') minLat?: string,
+    @Query('maxLat') maxLat?: string,
+    @Query('minLng') minLng?: string,
+    @Query('maxLng') maxLng?: string
+  ) {
     try {
       if (category) {
         const filteredPois = await this.mapService.findPoisByCategory(category);
         return { success: true, data: filteredPois };
       }
-      const allPois = await this.mapService.findAllPois();
+      
+      let bounds = undefined;
+      if (minLat && maxLat && minLng && maxLng) {
+        bounds = {
+          minLat: parseFloat(minLat),
+          maxLat: parseFloat(maxLat),
+          minLng: parseFloat(minLng),
+          maxLng: parseFloat(maxLng)
+        };
+      }
+      const allPois = await this.mapService.findAllPois(bounds);
       return { success: true, data: allPois };
     } catch (error) {
       console.error(`Error getting points of interest: ${error.message}`);
@@ -22,9 +40,23 @@ export class MapController {
   }
 
   @Get('locations')
-  async getLocations() {
+  async getLocations(
+    @Query('minLat') minLat?: string,
+    @Query('maxLat') maxLat?: string,
+    @Query('minLng') minLng?: string,
+    @Query('maxLng') maxLng?: string
+  ) {
     try {
-      const allPois = await this.mapService.findAllPois();
+      let bounds = undefined;
+      if (minLat && maxLat && minLng && maxLng) {
+        bounds = {
+          minLat: parseFloat(minLat),
+          maxLat: parseFloat(maxLat),
+          minLng: parseFloat(minLng),
+          maxLng: parseFloat(maxLng)
+        };
+      }
+      const allPois = await this.mapService.findAllPois(bounds);
       return { success: true, data: allPois };
     } catch (error) {
       console.error(`Error getting locations: ${error.message}`);
@@ -43,7 +75,20 @@ export class MapController {
     }
   }
 
+  @Post('pois')
+  @UseGuards(JwtAuthGuard)
+  async createPoi(@Body(new ValidationPipe({ whitelist: true })) body: CreateMapPointDto) {
+    try {
+      const result = await this.mapService.createPoi(body);
+      return { success: true, data: result };
+    } catch (error) {
+      console.error(`Error creating point of interest: ${error.message}`);
+      throw new InternalServerErrorException('Failed to create point of interest');
+    }
+  }
+
   @Post('ai-analysis')
+  @UseGuards(JwtAuthGuard)
   async aiAnalysis(@Body(new ValidationPipe({ whitelist: true })) body: AiAnalysisDto) {
     if (!body || !body.query) {
       throw new BadRequestException('Query string is required for AI analysis');

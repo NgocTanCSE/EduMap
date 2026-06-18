@@ -200,6 +200,8 @@ export class MentorService {
       slot_start: slotStart,
       slot_end: slotEnd,
       status: 'pending',
+      amount: mentor.hourly_rate || 0,
+      payment_status: mentor.hourly_rate > 0 ? 'unpaid' : 'paid',
       meeting_url: `https://meet.jit.si/edumap-mentor-${mentorId.substring(0, 8)}`,
     });
 

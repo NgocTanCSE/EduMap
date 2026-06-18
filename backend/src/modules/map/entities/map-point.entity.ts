@@ -17,25 +17,40 @@ export class MapPoint {
 
   get type(): string {
     const typesMap: { [key: number]: string } = {
-      1: 'school',
+      1: 'university',
       2: 'school',
       3: 'library',
-      4: 'library',
+      4: 'bookstore',
       5: 'lab',
+      6: 'wifi',
+      7: 'green',
+      8: 'cafe',
+      9: 'restaurant',
     };
     return typesMap[this.type_id] || 'other';
   }
 
   set type(val: string) {
     const idsMap: { [key: string]: number } = {
-      'school': 1,
+      'university': 1,
+      'school': 2,
       'library': 3,
+      'bookstore': 4,
       'lab': 5,
+      'wifi': 6,
+      'green': 7,
+      'cafe': 8,
+      'restaurant': 9,
     };
     this.type_id = idsMap[val] || 1;
   }
 
-  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326 })
+  @Column({
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres'
+      ? { spatialFeatureType: 'Point', srid: 4326 }
+      : {}),
+  })
   location: any;
 
   @Column({ nullable: true })
@@ -52,6 +67,9 @@ export class MapPoint {
 
   @Column({ default: 0 })
   rating_count: number;
+
+  @Column({ default: false })
+  verified: boolean;
 
   @Column({ default: 'pending' })
   status: string;

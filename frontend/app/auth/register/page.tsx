@@ -85,10 +85,10 @@ export default function RegisterPage() {
         return;
       }
 
-      // Assuming backend returns tokens upon successful registration
-      authService.setTokens(data.access_token, data.refresh_token);
-      authService.getUser(); // Force update current user
-      router.push('/dashboard'); // Redirect to dashboard or home page
+      const authData = data.data || data;
+      authService.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+      authService.getUser();
+      router.push('/dashboard');
     } catch (error) {
       console.error('Lỗi khi đăng ký:', error);
       setErrorMessage('Đã xảy ra lỗi. Vui lòng thử lại sau.');

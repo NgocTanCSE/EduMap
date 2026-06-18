@@ -8,22 +8,45 @@ import Link from 'next/link';
 export default function InternshipPage() {
   const [internships, setInternships] = useState<Internship[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
   useEffect(() => {
-    fetchInternships();
+    fetchInternships(1);
   }, []);
 
-  const fetchInternships = async () => {
+  const fetchInternships = async (pageNum: number) => {
     try {
-      setLoading(true);
-      const data: any = await internshipService.getInternships();
-      const items = Array.isArray(data) ? data : (data.data || []);
-      setInternships(items);
+      if (pageNum === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const data: any = await internshipService.getInternships(pageNum, 10);
+      const items = data.items || data.data || [];
+      const meta = data.meta || {};
+
+      if (pageNum === 1) {
+        setInternships(items);
+      } else {
+        setInternships(prev => [...prev, ...items]);
+      }
+
+      setHasMore(meta.currentPage < meta.totalPages);
+      setPage(pageNum);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải danh sách thực tập');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchInternships(page + 1);
     }
   };
 
@@ -115,6 +138,18 @@ export default function InternshipPage() {
                   </div>
               </Link>
             ))}
+            {hasMore && (
+              <div className="flex justify-center pt-8">
+                <button 
+                  onClick={handleLoadMore} 
+                  disabled={loadingMore}
+                  className="px-8 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {loadingMore ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+                  {loadingMore ? 'Đang tải...' : 'Tải thêm thực tập'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
             <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">

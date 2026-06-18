@@ -52,6 +52,8 @@ import { ModuleModule } from './modules/module/module.module';
 import { FeatureModule } from './modules/feature/feature.module';
 import { RoleModule } from './modules/role/role.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { BlockchainModule } from './modules/blockchain/blockchain.module';
 
 @Module({
   imports: [
@@ -70,12 +72,18 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      username: process.env.DB_USERNAME || 'admin',
-      password: process.env.DB_PASSWORD || 'password123',
-      database: process.env.DB_DATABASE || 'edumap_db',
+      type: process.env.DB_TYPE === 'postgres' ? 'postgres' : 'sqlite',
+      ...(process.env.DB_TYPE === 'postgres'
+        ? {
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT) || 5432,
+          username: process.env.DB_USERNAME || 'admin',
+          password: process.env.DB_PASSWORD || 'password123',
+          database: process.env.DB_DATABASE || 'edumap_db',
+        }
+        : {
+          database: process.env.DB_SQLITE_PATH || ':memory:',
+        }),
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.DB_SYNC === 'true',
     }),
@@ -139,6 +147,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     RoleModule,
     CrawlerModule,
     AnalyticsModule,
+    PaymentModule,
+    BlockchainModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

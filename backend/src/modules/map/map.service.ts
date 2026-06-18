@@ -12,6 +12,12 @@ export interface PointOfInterest {
   category: string;
   lat: number;
   lng: number;
+  address?: string;
+  description?: string;
+  rating_avg?: number;
+  rating_count?: number;
+  status?: string;
+  verified?: boolean;
 }
 
 @Injectable()
@@ -52,12 +58,27 @@ export class MapService {
       category: categoryStr || 'other',
       lng: p.location.coordinates[0],
       lat: p.location.coordinates[1],
+      address: p.address,
+      description: p.description,
+      rating_avg: p.rating_avg,
+      rating_count: p.rating_count,
+      status: p.status,
+      verified: p.verified,
     };
   }
 
-  async findAllPois(): Promise<PointOfInterest[]> {
-    // Trả về toàn bộ dữ liệu. Giao diện (Next.js) sẽ dùng Supercluster chunkedLoading để xử lý hiển thị.
-    const points = await this.mapPointRepo.find();
+  async findAllPois(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    let query = this.mapPointRepo.createQueryBuilder('map_points');
+
+    if (bounds) {
+      query = query.where(
+        `ST_Intersects(map_points.location, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))`,
+        { ...bounds }
+      );
+    }
+
+    query = query.limit(2000); // Ngăn chặn trả về quá tải dữ liệu gây tràn RAM trình duyệt
+    const points = await query.getMany();
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
@@ -93,6 +114,36 @@ export class MapService {
 
   async getCategories(): Promise<string[]> {
     return ['university', 'school', 'library', 'bookstore', 'lab', 'wifi', 'green', 'cafe', 'restaurant'];
+  }
+
+  async createPoi(data: any): Promise<PointOfInterest> {
+    const typeIdsMap: { [key: string]: number } = {
+      'university': 1,
+      'school': 2,
+      'library': 3,
+      'bookstore': 4,
+      'lab': 5,
+      'wifi': 6,
+      'green': 7,
+      'cafe': 8,
+      'restaurant': 9
+    };
+
+    const point = this.mapPointRepo.create({
+      name: data.name,
+      description: data.description,
+      address: data.address,
+      type: data.category,
+      type_id: typeIdsMap[data.category.toLowerCase()] || 0,
+      status: 'active',
+      location: {
+        type: 'Point',
+        coordinates: [data.lng, data.lat]
+      }
+    });
+
+    const saved = await this.mapPointRepo.save(point);
+    return this.mapPointToPoi(saved)!;
   }
 
   async analyzeWithAI(query: string, context?: any): Promise<any> {

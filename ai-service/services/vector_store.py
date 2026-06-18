@@ -11,14 +11,13 @@ class VectorStoreService:
         self.collection = self.client.get_or_create_collection(name="edumap_docs")
         
         self.api_key = os.getenv("GEMINI_API_KEY")
-        if self.api_key and not self.api_key.startswith("AIzaSy_placeholder"):
+        if self.api_key:
             genai.configure(api_key=self.api_key)
             self.has_api = True
         else:
             self.has_api = False
-            # Seed some data for local dev if empty
-            if self.collection.count() == 0:
-                self._seed_mock_data()
+            # No API key - text search only (no embeddings)
+            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY for semantic search.")
 
     def _seed_mock_data(self):
         docs = [

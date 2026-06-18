@@ -18,10 +18,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const response = await apiService.post('/auth/login', credentials);
-      const { user: userData, access_token } = response;
+      const authData = response.data || response;
+      const { access_token } = authData;
       
       apiService.setToken(access_token);
-      setUser(userData);
+      setUser({
+        id: authData.userId,
+        email: authData.email,
+        fullName: authData.full_name,
+        role: authData.role,
+      });
     } catch (error) {
       throw error;
     } finally {

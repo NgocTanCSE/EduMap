@@ -99,7 +99,8 @@ export default function AIChatPage() {
         newArr[newArr.length - 1] = { 
           role: 'assistant', 
           content: data.reply || data.message || "Xin lỗi, mình gặp chút trục trặc khi suy nghĩ câu trả lời.",
-          sources: data.sources || []
+          sources: data.sources || [],
+          isError: data.error || !res.ok
         };
         return newArr;
       });
@@ -109,8 +110,9 @@ export default function AIChatPage() {
         const newArr = [...prev];
         newArr[newArr.length - 1] = { 
           role: 'assistant', 
-          content: "Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra lại kết nối mạng của bạn.",
-          sources: []
+          content: "Không thể kết nối đến máy chủ AI (Timeout). Vui lòng kiểm tra lại kết nối mạng của bạn.",
+          sources: [],
+          isError: true
         };
         return newArr;
       });
@@ -148,7 +150,9 @@ export default function AIChatPage() {
                 <div className={`p-5 rounded-[1.8rem] text-sm leading-relaxed ${
                   m.role === 'user' 
                     ? 'bg-zinc-800 text-white rounded-tr-none' 
-                    : 'bg-zinc-900 border border-white/5 text-gray-200 rounded-tl-none'
+                    : m.isError
+                      ? 'bg-red-950 border border-red-900 text-red-200 rounded-tl-none'
+                      : 'bg-zinc-900 border border-white/5 text-gray-200 rounded-tl-none'
                 }`}>
                   {m.content === '...' ? (
                     <div className="flex gap-1.5 py-2">

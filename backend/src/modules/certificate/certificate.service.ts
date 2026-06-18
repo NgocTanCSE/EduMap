@@ -3,16 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserCertificate, CertificateStatus } from './entities/user-certificate.entity';
 import { CertificateTemplate } from './entities/certificate-template.entity';
-import * as crypto from 'crypto';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
-import { PassThrough } from 'stream';
 
 @Injectable()
 export class CertificateService {
   constructor(
     @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
     @InjectRepository(CertificateTemplate) private readonly templateRepo: Repository<CertificateTemplate>,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   async issueCertificate(userId: string, templateId: string) {
@@ -30,7 +30,9 @@ export class CertificateService {
     if (existingCert) throw new BadRequestException('Người dùng đã sở hữu chứng chỉ này');
 
     const certCode = 'CERT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    const txHash = crypto.createHash('sha256').update(`${userId}-${template.name}-${certCode}`).digest('hex');
+    
+    // Blockchain Signing
+    const blockchainInfo = await this.blockchainService.signCertificate(userId, certCode, template.name);
 
     const cert = this.certRepo.create({
       user_id: userId,
@@ -40,11 +42,7 @@ export class CertificateService {
       status: CertificateStatus.ACTIVE,
       pdf_url: `/api/certificates/download/${certCode}.pdf`,
       qr_url: `/api/certificates/verify-qr/${certCode}`,
-      blockchain_metadata: {
-        network: 'EduMap Blockchain',
-        tx_hash: `0x${txHash}`,
-        status: 'CONFIRMED',
-      },
+      blockchain_metadata: blockchainInfo,
     });
 
     return this.certRepo.save(cert);

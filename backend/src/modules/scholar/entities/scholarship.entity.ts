@@ -30,6 +30,9 @@ export class Scholarship {
   @Column({ nullable: true })
   apply_url: string;
 
+  @Column({ default: 'active' })
+  status: string;
+
   @CreateDateColumn()
   created_at: Date;
 

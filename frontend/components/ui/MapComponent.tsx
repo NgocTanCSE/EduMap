@@ -70,18 +70,56 @@ function MapController({ selectedPoint }: { selectedPoint: any }) {
   return null;
 }
 
+// Bounding Box Event Tracker
+function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!onBoundsChange) return;
+    const handleMoveEnd = () => {
+      const bounds = map.getBounds();
+      onBoundsChange({
+        minLat: bounds.getSouth(),
+        maxLat: bounds.getNorth(),
+        minLng: bounds.getWest(),
+        maxLng: bounds.getEast()
+      });
+    };
+    handleMoveEnd(); // Init
+    map.on('moveend', handleMoveEnd);
+    return () => { map.off('moveend', handleMoveEnd); };
+  }, [map, onBoundsChange]);
+  return null;
+}
+
+// Map Click Handler for Pinning
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    const handleMapClick = (e: any) => {
+      onClick(e.latlng.lat, e.latlng.lng);
+    };
+    map.on('click', handleMapClick);
+    return () => { map.off('click', handleMapClick); };
+  }, [map, onClick]);
+  return null;
+}
+
 interface InteractiveMapProps {
   points?: any[];
   selectedPoint?: any | null;
   onSelectPoint?: (point: any) => void;
+  onMapClick?: (lat: number, lng: number) => void;
   showHeatmap?: boolean;
+  onBoundsChange?: (bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => void;
 }
 
 export default function InteractiveMap({ 
   points = [], 
   selectedPoint = null, 
   onSelectPoint = () => {},
-  showHeatmap = false
+  onMapClick = () => {},
+  showHeatmap = false,
+  onBoundsChange
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
 
@@ -152,8 +190,9 @@ export default function InteractiveMap({
         )}
 
         <MapController selectedPoint={selectedPoint} />
+        <MapEvents onBoundsChange={onBoundsChange} />
+        <MapClickHandler onClick={onMapClick} />
       </MapContainer>
     </div>
   );
 }
-

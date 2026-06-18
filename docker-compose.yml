@@ -73,7 +73,7 @@ services:
     build: ./frontend
     container_name: edumap_frontend
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NEXT_PUBLIC_API_URL=/api
       - BACKEND_URL=http://backend:3000
       - HOSTNAME=0.0.0.0
     # NO DIRECT PORTS - Secure through Nginx

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Request, Get } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ScholarshipService } from './scholarship.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,8 +11,13 @@ export class ScholarshipController {
 
   @Get()
   @ApiOperation({ summary: 'Lấy tất cả danh sách học bổng' })
-  async findAll() {
-    return this.scholarService.getAllScholarships();
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.scholarService.getAllScholarships(pageNum, limitNum);
   }
 
   @Get(':id/check-eligibility')

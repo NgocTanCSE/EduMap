@@ -6,23 +6,32 @@ from functools import wraps
 class CacheService:
     def __init__(self):
         self.enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
-        self.redis_host = os.getenv("REDIS_HOST", "redis")
+        self.redis_host = os.getenv("REDIS_HOST", "localhost")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.redis_client = None
         
         if self.enabled:
-            try:
-                self.redis_client = redis.Redis(
-                    host=self.redis_host,
-                    port=self.redis_port,
-                    db=0,
-                    decode_responses=True,
-                    socket_timeout=2
-                )
-                self.redis_client.ping()
-                print(f"Connected to Redis at {self.redis_host}:{self.redis_port}")
-            except Exception as e:
-                print(f"Redis connection failed: {e}. Caching disabled.")
+            hosts_to_try = [self.redis_host, "redis", "localhost", "127.0.0.1"]
+            connected = False
+            for host in hosts_to_try:
+                try:
+                    self.redis_client = redis.Redis(
+                        host=host,
+                        port=self.redis_port,
+                        db=0,
+                        decode_responses=True,
+                        socket_timeout=1
+                    )
+                    self.redis_client.ping()
+                    self.redis_host = host
+                    print(f"Connected to Redis at {host}:{self.redis_port}")
+                    connected = True
+                    break
+                except Exception:
+                    continue
+            
+            if not connected:
+                print("Redis connection failed on all common hosts. Caching disabled.")
                 self.enabled = False
 
     def get(self, key):

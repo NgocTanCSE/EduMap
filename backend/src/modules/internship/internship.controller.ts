@@ -10,15 +10,13 @@ export class InternshipController {
 
   @Get()
   @ApiOperation({ summary: 'Lấy tất cả các cơ hội thực tập đang mở' })
-  async getInternships() {
-    return this.internService.getInternships();
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Lấy chi tiết cơ hội thực tập theo ID' })
-  async getById(@Param('id') id: string) {
-    if (id === 'nearby') return; // Ignore nearby route mapping to ID
-    return this.internService.getInternshipById(id);
+  async getInternships(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.internService.getInternships(pageNum, limitNum);
   }
 
   @Get('nearby')
@@ -29,6 +27,12 @@ export class InternshipController {
     @Query('radius') radius?: number,
   ) {
     return this.internService.getInternshipsNearby(Number(lat), Number(lng), radius ? Number(radius) : undefined);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết cơ hội thực tập theo ID' })
+  async getById(@Param('id') id: string) {
+    return this.internService.getInternshipById(id);
   }
 
   @Post()

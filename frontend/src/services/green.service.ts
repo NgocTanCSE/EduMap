@@ -24,7 +24,8 @@ class GreenService {
       if (!response.ok) {
         throw new Error('Không thể tải danh sách thử thách');
       }
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error("GreenService.getChallenges Error:", error);
       throw error;
@@ -53,7 +54,7 @@ class GreenService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: activityType,
+          activityType: activityType,
           description: description,
           proofUrl: proofUrl
         }),

@@ -11,7 +11,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await apiService.get('/analytics/stats');
+        const data = await apiService.get('/ai/analytics/stats');
         setStats(data);
       } catch (err) {
         console.error("Failed to load stats:", err);
@@ -27,7 +27,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.greeting}>Xin chào, {user?.full_name || 'Sinh viên'}! 👋</Text>
         <Text style={styles.subtitle}>Chào mừng bạn quay lại hệ thống EduMap DNTU.</Text>
-      </div>
+      </View>
 
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: '#FFF9C4' }]}>
@@ -52,7 +52,7 @@ export default function HomeScreen() {
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>Khám phá bản đồ tri thức</Text>
             <Text style={styles.cardDesc}>Xem các địa điểm học tập và Wifi miễn phí xung quanh DNTU.</Text>
-          </div>
+          </View>
         </TouchableOpacity>
       )}
     </ScrollView>

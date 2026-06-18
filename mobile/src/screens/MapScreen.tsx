@@ -1,59 +1,64 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { apiService } from '../services/api';
 import { MapPin } from 'lucide-react-native';
 
 export default function MapScreen() {
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const response = await apiService.get('/map/locations');
-        setLocations(response.data || []);
-      } catch (err) {
-        console.error("Failed to load locations:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLocations();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      const data = await apiService.getLocations();
+      setLocations(Array.isArray(data) ? data : data.data || []);
+    } catch (error: any) {
+      console.error(error);
+      setErrorMsg(error.message || 'Lỗi tải dữ liệu. Vui lòng thử lại.');
+      Alert.alert('Lỗi Kết Nối', error.message || 'Không thể lấy dữ liệu từ máy chủ.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.card}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-        <View style={styles.iconContainer}>
-           <MapPin size={20} color="#FFD600" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{item.name}</Text>
-          <Text style={styles.cardSub}>{item.category || 'Educational Point'}</Text>
-        </View>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{item.name}</Text>
+        <Text style={styles.categoryBadge}>{item.category}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        <MapPin size={14} color="#666" />
+        <Text style={styles.addressText} numberOfLines={1}>{item.address}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>EduMap PostGIS</Text>
-        <Text style={styles.subtitle}>Tìm kiếm tài nguyên học thuật quanh bạn</Text>
-      </View>
-      
+    <View style={styles.content}>
       {loading ? (
-        <View style={styles.center}>
-            <ActivityIndicator size="large" color="#FFD600" />
-            <Text style={{ marginTop: 10, color: '#666' }}>Đang nạp dữ liệu địa lý...</Text>
+        <ActivityIndicator size="large" color="#eab308" />
+      ) : errorMsg ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#ef4444', marginBottom: 10 }}>{errorMsg}</Text>
+            <TouchableOpacity onPress={loadData} style={{ padding: 10, backgroundColor: '#eab308', borderRadius: 8 }}>
+              <Text style={{ color: '#000', fontWeight: 'bold' }}>Thử lại</Text>
+            </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={locations}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ padding: 20 }}
-          ListEmptyComponent={<Text style={styles.empty}>Không tìm thấy địa điểm nào.</Text>}
+          keyExtractor={(item) => item.id || Math.random().toString()}
+          contentContainerStyle={styles.listContainer}
+          refreshing={loading}
+          onRefresh={loadData}
         />
       )}
     </View>
@@ -61,14 +66,53 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f8f8' },
-  header: { padding: 20, paddingTop: 60, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  title: { fontSize: 24, fontWeight: 'bold' },
-  subtitle: { color: '#666', marginTop: 5 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#fff', padding: 20, borderRadius: 20, marginBottom: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
-  iconContainer: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF9C4', justifyContent: 'center', alignItems: 'center' },
-  cardTitle: { fontWeight: 'bold', fontSize: 16 },
-  cardSub: { color: '#888', fontSize: 12, marginTop: 2 },
-  empty: { textAlign: 'center', marginTop: 50, color: '#999' }
+  content: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#09090b',
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  card: {
+    backgroundColor: '#18181b',
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#27272a',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    flex: 1,
+    marginRight: 10,
+  },
+  categoryBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#eab308',
+    backgroundColor: '#eab30810',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#eab30820',
+  },
+  cardBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addressText: {
+    fontSize: 12,
+    color: '#71717a',
+  }
 });

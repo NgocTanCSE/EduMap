@@ -29,9 +29,9 @@ class ScholarshipService {
   /**
    * Lấy danh sách tất cả học bổng
    */
-  async getScholarships(): Promise<Scholarship[]> {
+  async getScholarships(page: number = 1, limit: number = 10): Promise<any> {
     try {
-      const response = await fetch(this.API_URL);
+      const response = await fetch(`${this.API_URL}?page=${page}&limit=${limit}`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách học bổng');
       }

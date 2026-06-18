@@ -1,7 +1,7 @@
 // backend/src/modules/feature/feature.controller.ts
 import { Controller, Get, Post, Body, Param, NotFoundException } from '@nestjs/common';
 import { FeatureService } from './feature.service';
-import { Feature } from './feature.entity';
+import { Feature } from './entities/feature.entity';
 
 @Controller('features')
 export class FeatureController {

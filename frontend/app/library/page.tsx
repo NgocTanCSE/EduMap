@@ -13,8 +13,13 @@ export default function LibraryPage() {
   const [resources, setResources] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>(["Tất cả", "Programming", "Soft Skills", "Science", "Design"]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState("Tất cả");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   // AI Modal States
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
@@ -26,7 +31,7 @@ export default function LibraryPage() {
   }, []);
 
   useEffect(() => {
-    fetchResources();
+    fetchResources(1);
   }, [activeTab]);
 
   const fetchInitialData = async () => {
@@ -39,23 +44,41 @@ export default function LibraryPage() {
     }
   };
 
-  const fetchResources = async () => {
+  const fetchResources = async (pageNum: number) => {
     try {
-      setLoading(true);
-      const response = await libraryService.searchMaterials(searchQuery, activeTab);
-      const resourcesData = response.data || response; // Handle both wrapped and unwrapped arrays
-      setResources(Array.isArray(resourcesData) ? resourcesData : []);
+      if (pageNum === 1) setLoading(true);
+      else setLoadingMore(true);
+
+      const response = await libraryService.searchMaterials(searchQuery, activeTab, undefined, pageNum, 12);
+      const resourcesData = response.data?.items || response.data || response;
+      const meta = response.data?.meta || {};
+
+      if (pageNum === 1) {
+        setResources(Array.isArray(resourcesData) ? resourcesData : []);
+      } else {
+        setResources(prev => [...prev, ...(Array.isArray(resourcesData) ? resourcesData : [])]);
+      }
+
+      setHasMore(meta.currentPage < meta.totalPages);
+      setPage(pageNum);
     } catch (error: any) {
       console.error("Lỗi fetch library:", error);
       toast.error(error.message || 'Failed to load library resources');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchResources(page + 1);
     }
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchResources();
+    fetchResources(1);
   };
 
   const handleViewDetails = async (material: any) => {
@@ -175,6 +198,19 @@ export default function LibraryPage() {
         ) : (
           <div className="text-center py-20 text-gray-500 border border-dashed border-white/10 rounded-3xl">
               Không tìm thấy tài liệu phù hợp.
+          </div>
+        )}
+
+        {hasMore && resources.length > 0 && !loading && (
+          <div className="flex justify-center mt-12">
+            <button 
+              onClick={handleLoadMore} 
+              disabled={loadingMore}
+              className="px-8 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+            >
+              {loadingMore ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+              {loadingMore ? 'Đang tải...' : 'Tải thêm tài liệu'}
+            </button>
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 // backend/src/modules/module/module.controller.ts
 import { Controller, Get, Post, Body, Param, NotFoundException } from '@nestjs/common';
 import { ModuleService } from './module.service';
-import { Module } from './module.entity';
+import { Module } from './entities/module.entity';
 
 @Controller('modules')
 export class ModuleController {
