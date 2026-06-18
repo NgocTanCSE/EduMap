@@ -9,3 +9,5 @@ pandas
 chromadb
 numpy
 redis
+scikit-learn
+scipy

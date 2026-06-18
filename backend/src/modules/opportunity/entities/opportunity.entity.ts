@@ -8,7 +8,7 @@ export class Opportunity {
   @Column()
   title: string;
 
-  @Column()
+  @Column({ name: 'type', nullable: true })
   category: string; // exchange/competition/grant/internship
 
   @Column({ type: 'text', nullable: true })
