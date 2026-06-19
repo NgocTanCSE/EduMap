@@ -824,3 +824,31 @@ CREATE TABLE business_services (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 53. international_programs (Matches InternationalProgram entity)
+CREATE TABLE international_programs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(100) NOT NULL,
+    description TEXT,
+    host_country VARCHAR(255),
+    organization VARCHAR(255),
+    application_deadline TIMESTAMP WITH TIME ZONE,
+    benefits JSONB,
+    apply_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 54. alumni_networks (Matches AlumniNetwork entity)
+CREATE TABLE alumni_networks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    full_name VARCHAR(255) NOT NULL,
+    university VARCHAR(255) NOT NULL,
+    country VARCHAR(255) NOT NULL,
+    major VARCHAR(255) NOT NULL,
+    location GEOGRAPHY(POINT, 4326) NOT NULL,
+    contact_email VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'studying',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_alumni_networks_location ON alumni_networks USING GIST (location);
