@@ -441,3 +441,16 @@ INSERT INTO certificates (id, user_id, type, title, description, issued_at, issu
 ('c1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'course', 'Chứng nhận Hoàn thành Khóa học ReactJS', 'Hoàn thành xuất sắc khóa đào tạo ReactJS cơ bản.', '2025-10-15', 'EduMap Academy', 'CERT-REACT-2025-001'),
 ('d1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'volunteer', 'Chiến sĩ Mùa Hè Xanh 2025', 'Chứng nhận thành tích xuất sắc trong chiến dịch Mùa Hè Xanh.', '2025-08-30', 'Hội Sinh Viên Tỉnh Đồng Nai', 'CERT-VOL-2025-089')
 ON CONFLICT DO NOTHING;
+
+-- Seed Mentors (using existing user_ids with role_id = 9)
+INSERT INTO mentors (user_id, bio, specialties, experience_years, rating_avg, total_sessions, hourly_rate, is_verified) VALUES
+('0b18a95a-406f-4437-bd9d-4d67783c5c05', 'Chuyên gia tư vấn hướng nghiệp với hơn 10 năm kinh nghiệm trong lĩnh vực giáo dục và phát triển nhân tài trẻ.', '["Hướng nghiệp", "Phát triển cá nhân", "Kỹ năng mềm"]', 10, 4.8, 150, 300000, true),
+('44d1d199-b0da-4dc0-9580-d65c7217acdc', 'Full-stack Developer với chuyên môn sâu về React, Node.js và kiến trúc microservices.', '["Lập trình Web", "React", "Node.js", "Microservices"]', 8, 4.9, 200, 500000, true),
+('2f64dbc8-9a2d-44ef-ab79-e0aee6f79630', 'Kỹ sư AI/ML tại tập đoàn công nghệ hàng đầu, chuyên về NLP và Computer Vision.', '["Trí tuệ nhân tạo", "Machine Learning", "Python", "Deep Learning"]', 9, 4.7, 120, 600000, true),
+('8b77d9d4-9a15-4431-9ccb-ea01b4abf788', 'Data Engineer với kinh nghiệm xây dựng hệ thống xử lý dữ liệu lớn cho các ngân hàng thương mại.', '["Khoa học dữ liệu", "Big Data", "Python", "SQL"]', 7, 4.6, 90, 450000, true),
+('e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f', 'Nhà sáng lập EduMap, chuyên gia khởi nghiệp và đổi mới sáng tạo trong lĩnh vực EdTech.', '["Khởi nghiệp", "Chiến lược kinh doanh", "EdTech", "Gọi vốn"]', 12, 4.9, 80, 800000, true),
+('aa49e56c-fc8e-4aa1-82de-01b6d00f3213', 'Giảng viên Đại học với 15 năm kinh nghiệm giảng dạy Toán học và Khoa học máy tính.', '["Toán học", "Khoa học máy tính", "Giảng dạy", "Thuật toán"]', 15, 4.8, 300, 200000, true),
+('27515053-6cf9-4e78-91da-894e87ed526b', 'Chuyên gia Marketing số với chiến dịch từng đạt giải thưởng quốc gia về tiếp thị giáo dục.', '["Marketing số", "Content Marketing", "SEO", "Truyền thông"]', 8, 4.5, 60, 350000, true),
+('610004e2-374e-4aba-8cbe-1bad85c471ef', 'Kỹ sư Cơ điện tử với kinh nghiệm thiết kế hệ thống tự động hóa cho các khu công nghiệp.', '["Cơ điện tử", "Tự động hóa", "IoT", "Robotics"]', 11, 4.7, 110, 400000, true),
+('2928a0da-7ff0-459f-bde9-3cd05e0fbe1e', 'Chuyên gia UI/UX Design với portfolio từng thiết kế cho các startup kỳ lân Đông Nam Á.', '["UI/UX Design", "Figma", "Thiết kế sản phẩm", "Design System"]', 6, 4.6, 75, 500000, true)
+ON CONFLICT (user_id) DO NOTHING;
