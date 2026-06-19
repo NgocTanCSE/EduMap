@@ -703,6 +703,7 @@ CREATE TABLE scholarships (
     deadline TIMESTAMP WITH TIME ZONE,
     eligibility_criteria JSONB,
     apply_url TEXT,
+    status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
