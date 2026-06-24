@@ -54,12 +54,6 @@ const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLn
       const catData = catDataRes.data || catDataRes;
       
       setLocations(Array.isArray(locData) ? locData : []);
-      
-      if (activeCategory !== 'all') {
-         setFilteredLocations(Array.isArray(locData) ? locData.filter((l: any) => l.category === activeCategory) : []);
-      } else {
-         setFilteredLocations(Array.isArray(locData) ? locData : []);
-      }
       setCategories(Array.isArray(catData) ? catData : []);
       logger.info('Map data loaded successfully');
     } catch (error) {
@@ -125,13 +119,20 @@ const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLn
     }
   };
 
-  // Filter logic
+// Filter logic
   useEffect(() => {
     let result = locations;
 
     if (activeCategory !== 'all') {
-       result = result.filter(loc => loc.category === activeCategory);
-     }
+       const catLower = activeCategory.toLowerCase();
+       result = result.filter(loc => {
+         const locCat = (loc.category || '').toLowerCase();
+         if (locCat === catLower) return true;
+         if (activeCategory === 'wifi' && (locCat.includes('wifi') || locCat.includes('education'))) return true;
+         if (activeCategory === 'green' && (locCat.includes('green') || locCat.includes('park'))) return true;
+         return locCat.includes(catLower);
+       });
+    }
 
     if (searchTerm.trim() !== '') {
       const q = searchTerm.toLowerCase();
