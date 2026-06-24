@@ -5,6 +5,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { MapPoint } from './entities/map-point.entity';
+import { Location } from './entities/location.entity';
 
 export interface PointOfInterest {
   id: string;
@@ -28,10 +29,46 @@ export class MapService {
   constructor(
     @InjectRepository(MapPoint)
     private readonly mapPointRepo: Repository<MapPoint>,
+    @InjectRepository(Location)
+    private readonly locationRepo: Repository<Location>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
+  }
+
+  private locationToPoi(l: Location): PointOfInterest | null {
+    if (!l.coordinates || typeof l.coordinates !== 'object') return null;
+    const coords = l.coordinates.coordinates || [];
+    if (!Array.isArray(coords) || coords.length < 2) return null;
+
+    let categoryStr = 'other';
+    if (l.category?.name) {
+      categoryStr = l.category.name.toLowerCase();
+    } else if (l.description) {
+      const descLower = l.description.toLowerCase();
+      if (descLower.includes('wifi')) categoryStr = 'wifi';
+      else if (descLower.includes('green') || descLower.includes('park')) categoryStr = 'green';
+      else if (descLower.includes('cafe')) categoryStr = 'cafe';
+      else if (descLower.includes('school')) categoryStr = 'school';
+      else if (descLower.includes('university') || descLower.includes('college')) categoryStr = 'university';
+      else if (descLower.includes('library')) categoryStr = 'library';
+      else if (descLower.includes('lab') || descLower.includes('stem')) categoryStr = 'lab';
+    }
+
+    return {
+      id: l.id,
+      name: l.name,
+      category: categoryStr,
+      lng: coords[0],
+      lat: coords[1],
+      address: l.address,
+      description: l.description,
+      rating_avg: l.rating_avg,
+      rating_count: l.rating_count,
+      status: l.status,
+      verified: l.is_verified,
+    };
   }
 
   private mapPointToPoi(p: MapPoint): PointOfInterest | null {
@@ -41,15 +78,15 @@ export class MapService {
     
     let categoryStr = p.type;
     if ((!categoryStr || categoryStr === 'other') && p.description) {
-        const descLower = p.description.toLowerCase();
-        if (descLower.includes('wifi')) categoryStr = 'wifi';
-        else if (descLower.includes('green') || descLower.includes('park')) categoryStr = 'green';
-        else if (descLower.includes('cafe')) categoryStr = 'cafe';
-        else if (descLower.includes('school')) categoryStr = 'school';
-        else if (descLower.includes('university') || descLower.includes('college')) categoryStr = 'university';
-        else if (descLower.includes('library')) categoryStr = 'library';
-        else if (descLower.includes('lab') || descLower.includes('stem')) categoryStr = 'lab';
-        else if (descLower.includes('restaurant') || descLower.includes('food')) categoryStr = 'restaurant';
+      const descLower = p.description.toLowerCase();
+      if (descLower.includes('wifi')) categoryStr = 'wifi';
+      else if (descLower.includes('green') || descLower.includes('park')) categoryStr = 'green';
+      else if (descLower.includes('cafe')) categoryStr = 'cafe';
+      else if (descLower.includes('school')) categoryStr = 'school';
+      else if (descLower.includes('university') || descLower.includes('college')) categoryStr = 'university';
+      else if (descLower.includes('library')) categoryStr = 'library';
+      else if (descLower.includes('lab') || descLower.includes('stem')) categoryStr = 'lab';
+      else if (descLower.includes('restaurant') || descLower.includes('food')) categoryStr = 'restaurant';
     }
 
     return {
@@ -68,6 +105,22 @@ export class MapService {
   }
 
   async findAllPois(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    // Fetch from both map_points and locations tables for proper data sync
+    const [mapPoints, locations] = await Promise.all([
+      this.fetchMapPoints(bounds),
+      this.fetchLocations(bounds)
+    ]);
+    
+    // Merge and deduplicate by id
+    const allPois = [...mapPoints, ...locations];
+    const uniquePois = allPois.filter((poi, index, self) => 
+      index === self.findIndex(p => p.id === poi.id)
+    );
+    
+    return uniquePois;
+  }
+
+  private async fetchMapPoints(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     let query = this.mapPointRepo.createQueryBuilder('map_points');
 
     if (bounds) {
@@ -77,13 +130,28 @@ export class MapService {
       );
     }
 
-    query = query.limit(2000); // Ngăn chặn trả về quá tải dữ liệu gây tràn RAM trình duyệt
+    query = query.limit(2000);
     const points = await query.getMany();
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
+  private async fetchLocations(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    let query = this.locationRepo.createQueryBuilder('locations')
+      .leftJoinAndSelect('locations.category', 'category');
+
+    if (bounds) {
+      query = query.where(
+        `ST_Intersects(locations.coordinates, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))`,
+        { ...bounds }
+      );
+    }
+
+    query = query.limit(2000);
+    const locations = await query.getMany();
+    return locations.map(l => this.locationToPoi(l)).filter((p): p is PointOfInterest => p !== null);
+  }
+
   async findPoisByCategory(category: string): Promise<PointOfInterest[]> {
-    // Tối ưu hóa Database Query: Filter dựa trên type_id OR description (vì crawled data lưu category vào description).
     const typeIdsMap: { [key: string]: number } = {
       'university': 1,
       'school': 2,
@@ -98,18 +166,46 @@ export class MapService {
     const catLower = category.toLowerCase();
     const typeId = typeIdsMap[catLower];
     
+    // Fetch from both tables
+    const [mapPoints, locations] = await Promise.all([
+      this.fetchMapPointsByCategory(typeId, catLower),
+      this.fetchLocationsByCategory(catLower)
+    ]);
+    
+    // Merge and deduplicate
+    const allPois = [...mapPoints, ...locations];
+    const uniquePois = allPois.filter((poi, index, self) => 
+      index === self.findIndex(p => p.id === poi.id)
+    );
+    
+    return uniquePois;
+  }
+
+  private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string): Promise<PointOfInterest[]> {
     let query = this.mapPointRepo.createQueryBuilder('map_points');
     
     if (typeId) {
-        query = query.where('map_points.type_id = :typeId', { typeId })
-                     .orWhere('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` })
-                     .orWhere('LOWER(map_points.description) LIKE :desc2', { desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` });
+      query = query.where('map_points.type_id = :typeId', { typeId })
+                   .orWhere('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` })
+                   .orWhere('LOWER(map_points.description) LIKE :desc2', { desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` });
     } else {
-        query = query.where('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` });
+      query = query.where('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` });
     }
     const points = await query.getMany();
-      
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
+  }
+
+  private async fetchLocationsByCategory(catLower: string): Promise<PointOfInterest[]> {
+    const query = this.locationRepo.createQueryBuilder('locations')
+      .leftJoinAndSelect('locations.category', 'category')
+      .where(
+        `(LOWER(category.name) LIKE :cat OR LOWER(locations.description) LIKE :desc OR LOWER(locations.description) LIKE :desc2)`,
+        { cat: `%${catLower}%`, desc: `%${catLower}%`, desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` }
+      )
+      .limit(2000);
+    
+    const locations = await query.getMany();
+    return locations.map(l => this.locationToPoi(l)).filter((p): p is PointOfInterest => p !== null);
   }
 
   async getCategories(): Promise<string[]> {

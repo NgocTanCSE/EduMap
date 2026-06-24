@@ -11,6 +11,7 @@ import { Booking } from '../mentor/entities/mentor.entity';
 import { UserCertificate } from '../certificate/entities/user-certificate.entity';
 import { AIService } from '../ai/ai.service';
 import { MapService } from '../map/map.service';
+import { EducationStat } from '../analytics/entities/education-stat.entity';
 
 @Injectable()
 export class DashboardService {
@@ -26,6 +27,7 @@ export class DashboardService {
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
+    @InjectRepository(EducationStat) private readonly educationStatRepo: Repository<EducationStat>,
     private readonly aiService: AIService,
     private readonly mapService: MapService,
   ) {}
@@ -79,9 +81,10 @@ export class DashboardService {
    * Bảng điều khiển Quản trị viên: Phân tích dữ liệu chuyên sâu
    */
   async getStats() {
-    const [userCount, eventCount, roleDist, trendData] = await Promise.all([
+    const [userCount, eventCount, educationStats, roleDist, trendData] = await Promise.all([
       this.userRepository.count(),
       this.userEventRepository.count(),
+      this.educationStatRepo.find({ take: 10 }), // Get recent education stats
       
       // 1. Phân bổ vai trò người dùng
       this.userRepository.createQueryBuilder('user')
@@ -124,6 +127,10 @@ export class DashboardService {
       this.logger.error('Map analysis failed', e);
     }
     
+    // 5. Tính education metrics từ dữ liệu thực tế
+    const enrollmentRate = educationStats.find((s: any) => s.metricType === 'enrollment_rate');
+    const adoptionScore = educationStats.find((s: any) => s.metricType === 'adoption_score');
+    
     return {
       overview: {
         total_users: userCount,
@@ -136,8 +143,8 @@ export class DashboardService {
       },
       heatmap: heatmapData,
       education_metrics: {
-        enrollment_rate: '96.4%',
-        adoption_score: '8.5/10',
+        enrollment_rate: enrollmentRate ? `${enrollmentRate.metricValue}%` : '0%',
+        adoption_score: adoptionScore ? `${adoptionScore.metricValue}/10` : '0/10',
       }
     };
   }

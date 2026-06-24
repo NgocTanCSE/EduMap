@@ -38,9 +38,9 @@ class HsConnectionService {
     }
   }
 
-  /**
-   * Gửi yêu cầu kết nối
-   */
+/**
+    * Gửi yêu cầu kết nối
+    */
   async sendRequest(receiverId: string): Promise<any> {
     const token = authService.getAccessToken();
     if (!token) throw new Error('Vui lòng đăng nhập');
@@ -58,6 +58,31 @@ class HsConnectionService {
       return data;
     } catch (error) {
       console.error("HsConnectionService.sendRequest Error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Phản hồi yêu cầu kết nối
+   */
+  async respondToRequest(connectionId: string, accept: boolean): Promise<any> {
+    const token = authService.getAccessToken();
+    if (!token) throw new Error('Vui lòng đăng nhập');
+
+    try {
+      const response = await fetch(`${this.API_URL}/respond/${connectionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accept }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Phản hồi thất bại');
+      return data;
+    } catch (error) {
+      console.error("HsConnectionService.respondToRequest Error:", error);
       throw error;
     }
   }

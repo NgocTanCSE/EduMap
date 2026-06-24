@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { notificationService } from "@/src/services/notification.service";
+import { authService } from "@/src/services/auth.service";
 import { Button } from "@/components/ui/button";
 
 export default function NotificationsPage() {
@@ -16,6 +17,11 @@ export default function NotificationsPage() {
   };
 
   useEffect(() => {
+    if (!authService.isLoggedIn()) {
+      window.location.href = '/auth/login';
+      return;
+    }
+    
     async function load() {
       try {
         await fetchNotifications();

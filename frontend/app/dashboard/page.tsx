@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { dashboardService } from '@/src/services/dashboard.service';
+import { authService } from '@/src/services/auth.service';
 
 export default function DashboardPage() {
   const [overview, setOverview] = useState<any>(null);
@@ -10,8 +11,16 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!authService.isLoggedIn()) {
+      window.location.href = '/auth/login';
+      return;
+    }
+    
     async function load() {
       try {
+        const user = authService.getUser();
+        if (!user?.id) return;
+        
         const [ov, ins] = await Promise.all([
           dashboardService.getOverview(),
           dashboardService.getDailyInsight()

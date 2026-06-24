@@ -41,7 +41,7 @@ export class AdminService {
       ] = await Promise.all([
         this.userRepo.count({ where: { status: 'pending' as any } }), // Example: User status 'pending'
         this.campaignRepo.count({ where: { status: 'pending' } }), // Example: Campaign status 'pending'
-        this.scholarRepo.count({ where: { deleted_at: null } }), // Scholarship doesn't have status, using total count as fallback for now
+        this.scholarRepo.count({ where: { status: 'pending' } }), // Scholarship status 'pending' for approval
         this.eventRepo.count({ where: { status: 'pending' as any } }), // Example: Event status 'pending'
       ]);
 
@@ -55,7 +55,6 @@ export class AdminService {
         total_users: userCount,
         active_campaigns: activeCampaignCount,
         pending_verifications: totalPendingVerifications, // Use aggregated count
-        revenue_growth: `+${upcomingEventCount * 5}%`, // Dynamic growth based on events
         total_scholarships: totalScholarshipCount,
         upcoming_events: upcomingEventCount,
       };

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GreenChallenge } from './entities/green.entity';
+import { GreenChallenge, GreenChallengeActivity } from './entities/green.entity';
 
 export interface GreenImpact {
   id: string;
@@ -17,6 +17,8 @@ export class GreenService {
   constructor(
     @InjectRepository(GreenChallenge)
     private readonly challengeRepo: Repository<GreenChallenge>,
+    @InjectRepository(GreenChallengeActivity)
+    private readonly activityRepo: Repository<GreenChallengeActivity>,
   ) {}
 
   async getAllImpacts(): Promise<GreenImpact[]> {
@@ -45,16 +47,24 @@ export class GreenService {
         order: { created_at: 'DESC' },
       });
       
-      return challenges.map(c => ({
-        id: c.id,
-        title: c.title,
-        description: c.description,
-        points: c.points_reward,
-        carbon_saved_kg: c.points_reward * 0.5,
-        participants_count: 0,
-        image_url: null,
-        status: c.status,
-      }));
+      // Get participants count for each challenge
+      const challengesWithParticipants = await Promise.all(
+        challenges.map(async (c) => {
+          const participantsCount = await this.activityRepo.count({ where: { challenge_id: c.id } });
+          return {
+            id: c.id,
+            title: c.title,
+            description: c.description,
+            points: c.points_reward,
+            carbon_saved_kg: c.points_reward * 0.5,
+            participants_count: participantsCount,
+            image_url: null,
+            status: c.status,
+          };
+        })
+      );
+      
+      return challengesWithParticipants;
     } catch (error) {
       this.logger.error(`Error fetching green challenges: ${error.message}`);
       return [];

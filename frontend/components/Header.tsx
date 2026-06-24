@@ -30,23 +30,45 @@ export default function Header() {
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const checkAuth = () => {
-      const loggedIn = authService.isLoggedIn();
-      setIsLoggedIn(loggedIn);
-      if (loggedIn) {
-        setUser(authService.getUser());
+  const checkAuth = () => {
+    const loggedIn = authService.isLoggedIn();
+    setIsLoggedIn(loggedIn);
+    if (loggedIn) {
+      setUser(authService.getUser());
+      fetchNotifications();
+      socketService.connect();
+      
+      const handleNewNotification = (e: any) => {
         fetchNotifications();
-        socketService.connect();
-        
-        const handleNewNotification = (e: any) => {
-          fetchNotifications();
-        };
-        window.addEventListener('edumap-notification', handleNewNotification);
-        return () => window.removeEventListener('edumap-notification', handleNewNotification);
+      };
+      window.addEventListener('edumap-notification', handleNewNotification);
+      return () => window.removeEventListener('edumap-notification', handleNewNotification);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+    
+    // Listen for storage changes (cross-tab logout/login sync)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'edumap-access-token' || e.key === 'edumap-user-info') {
+        checkAuth();
       }
     };
-    checkAuth();
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Re-check auth when tab becomes visible (for same-tab logout in another component)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAuth();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Handle Search Outside Click

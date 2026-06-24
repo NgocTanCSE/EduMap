@@ -1,14 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, BarChart3, PieChart, Zap, ArrowUpRight, Globe, Target, Cpu } from 'lucide-react';
+import { TrendingUp, BarChart3, PieChart, Zap, ArrowUpRight, Globe, Target, Cpu, Loader2 } from 'lucide-react';
 import { analyticsService } from '@/src/services/analytics.service';
-
-const trendingSkillsDefault = [
-  { name: 'Prompt Engineering', growth: '+150%', color: 'bg-yellow-500' },
-  { name: 'Rust Programming', growth: '+85%', color: 'bg-orange-500' },
-  { name: 'Green Tech', growth: '+60%', color: 'bg-green-500' },
-  { name: 'Cybersecurity', growth: '+45%', color: 'bg-purple-500' },
-];
+import { toast } from 'sonner';
 
 export default function AITrendsPage() {
   const [data, setData] = useState<any>(null);
@@ -22,12 +16,22 @@ export default function AITrendsPage() {
         analyticsService.trackEvent('view_ai_trends', { timestamp: new Date().toISOString() });
       } catch (error) {
         console.error('Failed to fetch AI trends:', error);
+        toast.error('Không thể tải xu hướng AI');
       } finally {
         setLoading(false);
       }
     };
     fetchData();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white p-8 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+        <span className="ml-2">Đang tải dữ liệu xu hướng...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-8">
@@ -91,25 +95,28 @@ export default function AITrendsPage() {
               </div>
            </div>
 
-           <div className="p-8 rounded-[40px] bg-card border border-white/10 space-y-6">
-              <h2 className="text-xl font-bold mb-2">Kỹ năng "Hot"</h2>
-              <div className="space-y-4">
-                 {trendingSkillsDefault.map(skill => (
-                   <div key={skill.name} className="p-4 rounded-2xl bg-card border border-white/5 flex justify-between items-center group cursor-pointer hover:bg-card transition-all">
-                      <div>
-                         <p className="text-sm font-bold">{skill.name}</p>
-                         <div className="w-24 h-1 bg-card rounded-full mt-2 overflow-hidden">
-                            <div className={`h-full ${skill.color}`} style={{ width: '70%' }} />
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-green-400 text-xs font-bold">{skill.growth}</p>
-                         <ArrowUpRight className="w-4 h-4 text-white/20 ml-auto group-hover:text-white transition-colors" />
-                      </div>
-                   </div>
-                 ))}
-              </div>
-           </div>
+<div className="p-8 rounded-[40px] bg-card border border-white/10 space-y-6">
+               <h2 className="text-xl font-bold mb-2">Kỹ năng "Hot"</h2>
+               <div className="space-y-4">
+                  {(data?.trending_skills || []).map((skill: any, idx: number) => (
+                    <div key={skill.name || idx} className="p-4 rounded-2xl bg-card border border-white/5 flex justify-between items-center group cursor-pointer hover:bg-card transition-all">
+                       <div>
+                          <p className="text-sm font-bold">{skill.name || 'N/A'}</p>
+                          <div className="w-24 h-1 bg-card rounded-full mt-2 overflow-hidden">
+                             <div className="h-full bg-yellow-500" style={{ width: '70%' }} />
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-green-400 text-xs font-bold">{skill.growth || '+0%'}</p>
+                          <ArrowUpRight className="w-4 h-4 text-white/20 ml-auto group-hover:text-white transition-colors" />
+                       </div>
+                    </div>
+                  ))}
+                  {(!data?.trending_skills || data.trending_skills.length === 0) && (
+                    <p className="text-sm text-white/40">Chưa có dữ liệu kỹ năng xu hướng.</p>
+                  )}
+               </div>
+            </div>
         </div>
 
         {/* AI Prediction Footer */}

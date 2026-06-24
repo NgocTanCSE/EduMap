@@ -5,10 +5,11 @@ import { MapService } from './map.service';
 import { MapController } from './map.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MapPoint } from './entities/map-point.entity';
+import { Location } from './entities/location.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MapPoint]),
+    TypeOrmModule.forFeature([MapPoint, Location]),
     HttpModule.register({
       timeout: 10000,
       maxRedirects: 5,

@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Correct import for useRouter
-import { LogIn, Mail, Lock, Eye, EyeOff, Github, Chrome, ShieldCheck } from 'lucide-react'; // Added ShieldCheck for 2FA
-import { authService } from '@/src/services/auth.service'; // Adjust path as needed
+import { useRouter } from 'next/navigation';
+import { LogIn, Mail, Lock, Eye, EyeOff, Github, Chrome, ShieldCheck } from 'lucide-react';
+import { authService } from '@/src/services/auth.service';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,8 +13,19 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [requiresTwoFactorAuth, setRequiresTwoFactorAuth] = useState(false);
   const [userIdFor2FA, setUserIdFor2FA] = useState('');
+  const [checking, setChecking] = useState(true);
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (authService.isLoggedIn()) {
+      router.push('/dashboard');
+    } else {
+      setChecking(false);
+    }
+  }, [router]);
+
+  if (checking) return <div className="min-h-screen w-full flex items-center justify-center bg-[#0a0a0a]"><div className="text-white">Đang kiểm tra...</div></div>;
 
   const validateForm = () => {
     if (!email) {

@@ -11,8 +11,9 @@ import { UserSkill } from '../career/entities/user-skill.entity';
 import { Post, Comment } from '../community/entities/community.entity';
 import { Booking } from '../mentor/entities/mentor.entity';
 import { UserCertificate } from '../certificate/entities/user-certificate.entity';
-import { AIModule } from '../ai/ai.module'; // Import AIModule
-import { MapModule } from '../map/map.module'; // Import MapModule
+import { AIModule } from '../ai/ai.module';
+import { MapModule } from '../map/map.module';
+import { EducationStat } from '../analytics/entities/education-stat.entity';
 
 @Module({
   imports: [
@@ -25,10 +26,11 @@ import { MapModule } from '../map/map.module'; // Import MapModule
       Post, 
       Comment, 
       Booking, 
-      UserCertificate
+      UserCertificate,
+      EducationStat
     ]),
-    AIModule, // Add AIModule
-    MapModule // Add MapModule
+    AIModule,
+    MapModule
   ],
   providers: [DashboardService],
   controllers: [DashboardController],

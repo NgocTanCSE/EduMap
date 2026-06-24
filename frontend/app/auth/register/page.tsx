@@ -1,10 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UserPlus, User, GraduationCap, Briefcase, Heart, Shield, Users, Mail, Lock, CheckCircle2 } from 'lucide-react';
-import { authService } from '@/src/services/auth.service'; // Adjust path as needed
-import { UserRole } from '@/src/types/auth-types'; // Import UserRole from shared types
+import { authService } from '@/src/services/auth.service';
+import { UserRole } from '@/src/types/auth-types';
 
 const ROLES = [
   { id: UserRole.STUDENT, label: 'Học sinh / Sinh viên', icon: GraduationCap },
@@ -28,8 +28,19 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.STUDENT);
   const [errorMessage, setErrorMessage] = useState('');
+  const [checking, setChecking] = useState(true);
 
   const router = useRouter();
+
+useEffect(() => {
+    if (authService.isLoggedIn()) {
+      router.push('/dashboard');
+    } else {
+      setChecking(false);
+    }
+  }, [router]);
+
+  if (checking) return <div className="min-h-screen w-full flex items-center justify-center bg-[#0a0a0a]"><div className="text-white">Đang kiểm tra...</div></div>;
 
   const validateForm = () => {
     if (!fullName) {

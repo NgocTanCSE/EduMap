@@ -118,46 +118,48 @@ export default function AdminDashboardPage() {
            </div>
         </div>
 
-        {/* Quick Links / Module Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-           <div className="p-8 rounded-[40px] bg-zinc-900/30 border border-white/10 space-y-6">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                 <Activity className="w-5 h-5 text-yellow-500" />
-                 Trạng thái Module
-              </h3>
-              <div className="space-y-4">
-                 {[
-                   { name: 'Bản đồ PostGIS', status: 'Hoạt động', icon: MapPin },
-                   { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen },
-                   { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf },
-                   { name: 'Quỹ quyên góp', status: 'Bảo trì', icon: Heart },
-                 ].map((mod, i) => (
-                   <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                      <div className="flex items-center gap-3">
-                         <mod.icon className="w-5 h-5 text-white/20" />
-                         <span className="text-sm font-bold">{mod.name}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${mod.status === 'Hoạt động' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10'}`}>
-                         {mod.status}
-                      </span>
-                   </div>
-                 ))}
-              </div>
-           </div>
+{/* Quick Links / Module Status */}
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="p-8 rounded-[40px] bg-zinc-900/30 border border-white/10 space-y-6">
+               <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-yellow-500" />
+                  Trạng thái Module
+               </h3>
+               <div className="space-y-4">
+                  {[
+                    { name: 'Bản đồ PostGIS', status: 'Hoạt động', icon: MapPin, href: '/map' },
+                    { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
+                    { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/green' },
+                    { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
+                  ].map((mod, i) => (
+                    <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                       <div className="flex items-center gap-3">
+                          <mod.icon className="w-5 h-5 text-white/20" />
+                          <span className="text-sm font-bold">{mod.name}</span>
+                       </div>
+                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${mod.status === 'Hoạt động' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10'}`}>
+                          {mod.status}
+                       </span>
+                    </div>
+                  ))}
+               </div>
+            </div>
 
-           <div className="p-8 rounded-[40px] bg-gradient-to-br from-yellow-600/20 to-purple-600/20 border border-white/10 flex flex-col justify-center items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center shadow-xl shadow-yellow-500/20">
-                 <Shield className="w-8 h-8 text-black" />
-              </div>
-              <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
-              <p className="text-sm text-white/60 leading-relaxed max-w-sm">
-                 Mọi thao tác quản trị đều được mã hóa và ghi nhật ký hệ thống. Đảm bảo tuân thủ các quy tắc bảo mật dữ liệu người dùng.
-              </p>
-              <button className="px-8 py-3 rounded-2xl bg-white text-black text-sm font-bold hover:bg-yellow-500 transition-colors">
-                 KIỂM TRA AUDIT LOGS
-              </button>
-           </div>
-        </div>
+            <div className="p-8 rounded-[40px] bg-gradient-to-br from-yellow-600/20 to-purple-600/20 border border-white/10 flex flex-col justify-center items-center text-center space-y-4">
+               <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center shadow-xl shadow-yellow-500/20">
+                  <Shield className="w-8 h-8 text-black" />
+               </div>
+               <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
+               <p className="text-sm text-white/60 leading-relaxed max-w-sm">
+                  Mọi thao tác quản trị đều được mã hóa và ghi nhật ký hệ thống. Đảm bảo tuân thủ các quy tắc bảo mật dữ liệu người dùng.
+               </p>
+               <a href="/admin/reports">
+                  <button className="px-8 py-3 rounded-2xl bg-white text-black text-sm font-bold hover:bg-yellow-500 transition-colors">
+                     KIỂM TRA AUDIT LOGS
+                  </button>
+               </a>
+            </div>
+         </div>
 
       </div>
     </div>

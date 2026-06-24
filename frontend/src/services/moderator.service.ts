@@ -52,6 +52,14 @@ class ModeratorService {
     }
   }
 
+  async approvePost(id: string): Promise<any> {
+    return this.moderatePost(id, 'approve');
+  }
+
+  async rejectPost(id: string): Promise<any> {
+    return this.moderatePost(id, 'reject');
+  }
+
   // --- COMMUNITY COMMENTS ---
   async getPendingComments(): Promise<any[]> {
     const token = authService.getAccessToken();
