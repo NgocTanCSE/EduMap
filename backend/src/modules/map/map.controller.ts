@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe, UseGuards, SkipThrottle } from '@nestjs/common';
 import { MapService } from './map.service';
 import { AiAnalysisDto } from './dto/ai-analysis.dto';
 import { CreateMapPointDto } from './dto/create-map-point.dto';
@@ -9,6 +9,7 @@ export class MapController {
   constructor(private readonly mapService: MapService) {}
 
   @Get('pois')
+  @SkipThrottle()
   async getAllPois(
     @Query('category') category?: string,
     @Query('minLat') minLat?: string,
@@ -40,6 +41,7 @@ export class MapController {
   }
 
   @Get('locations')
+  @SkipThrottle()
   async getLocations(
     @Query('minLat') minLat?: string,
     @Query('maxLat') maxLat?: string,
@@ -65,6 +67,7 @@ export class MapController {
   }
 
   @Get('categories')
+  @SkipThrottle()
   async getCategories() {
     try {
       const categories = await this.mapService.getCategories();

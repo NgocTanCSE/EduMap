@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info, Flame, Plus, Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,7 +32,7 @@ export default function MapPage() {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
+const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
     try {
       setLoading(true);
       logger.info('Fetching map data');
@@ -55,7 +55,6 @@ export default function MapPage() {
       
       setLocations(Array.isArray(locData) ? locData : []);
       
-      // Maintain category filters on bound change
       if (activeCategory !== 'all') {
          setFilteredLocations(Array.isArray(locData) ? locData.filter((l: any) => l.category === activeCategory) : []);
       } else {
@@ -71,8 +70,15 @@ export default function MapPage() {
     }
   };
 
+  const boundsDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  
   const handleBoundsChange = (bounds: any) => {
-      fetchInitialData(bounds);
+      if (boundsDebounceRef.current) {
+        clearTimeout(boundsDebounceRef.current);
+      }
+      boundsDebounceRef.current = setTimeout(() => {
+        fetchInitialData(bounds);
+      }, 500);
   };
 
   const handleMapClick = (lat: number, lng: number) => {
