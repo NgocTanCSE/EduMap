@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { MapPoint } from './entities/map-point.entity';
 import { Location } from './entities/location.entity';
+import { GoogleAIService } from '../../services/google-ai.service';
 
 export interface PointOfInterest {
   id: string;
@@ -33,6 +34,7 @@ export class MapService {
     private readonly locationRepo: Repository<Location>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly googleAI: GoogleAIService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
   }
