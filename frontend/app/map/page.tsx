@@ -28,11 +28,27 @@ export default function MapPage() {
   const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
   const [isSavingPin, setIsSavingPin] = useState(false);
 
+const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+
   useEffect(() => {
     fetchInitialData();
+    fetchCategoriesOnce();
   }, []);
 
-const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
+  const fetchCategoriesOnce = async () => {
+    if (categoriesLoaded) return;
+    try {
+      const catRes = await fetch('/api/map/categories');
+      const catDataRes = await catRes.json();
+      const catData = catDataRes.data || catDataRes;
+      setCategories(Array.isArray(catData) ? catData : []);
+      setCategoriesLoaded(true);
+    } catch (error) {
+      logger.error("Failed to fetch categories:", error);
+    }
+  };
+
+const fetchLocationsOnly = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
     try {
       setLoading(true);
       logger.info('Fetching map data');
@@ -42,19 +58,11 @@ const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLn
         locUrl += `?minLat=${bounds.minLat}&maxLat=${bounds.maxLat}&minLng=${bounds.minLng}&maxLng=${bounds.maxLng}`;
       }
 
-      const [locRes, catRes] = await Promise.all([
-        fetch(locUrl),
-        fetch('/api/map/categories')
-      ]);
-      
+      const locRes = await fetch(locUrl);
       const locDataRes = await locRes.json();
-      const catDataRes = await catRes.json();
-      
       const locData = locDataRes.data || locDataRes;
-      const catData = catDataRes.data || catDataRes;
       
       setLocations(Array.isArray(locData) ? locData : []);
-      setCategories(Array.isArray(catData) ? catData : []);
       logger.info('Map data loaded successfully');
     } catch (error) {
       logger.error("Error fetching map data:", error);
@@ -65,15 +73,15 @@ const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLn
   };
 
   const boundsDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const handleBoundsChange = (bounds: any) => {
-      if (boundsDebounceRef.current) {
-        clearTimeout(boundsDebounceRef.current);
-      }
-      boundsDebounceRef.current = setTimeout(() => {
-        fetchInitialData(bounds);
-      }, 500);
-  };
+   
+   const handleBoundsChange = (bounds: any) => {
+       if (boundsDebounceRef.current) {
+         clearTimeout(boundsDebounceRef.current);
+       }
+       boundsDebounceRef.current = setTimeout(() => {
+         fetchLocationsOnly(bounds);
+       }, 500);
+   };
 
   const handleMapClick = (lat: number, lng: number) => {
     const user = authService.getUser();
@@ -103,12 +111,12 @@ const fetchInitialData = async (bounds?: { minLat: number, maxLat: number, minLn
             })
         });
 
-        if (res.ok) {
-            toast.success('Đã ghim vị trí thành công!');
-            setPinningCoord(null);
-            setPinForm({ name: '', category: 'school', description: '', address: '' });
-            fetchInitialData(); // Refresh map
-        } else {
+if (res.ok) {
+             toast.success('Đã ghim vị trí thành công!');
+             setPinningCoord(null);
+             setPinForm({ name: '', category: 'school', description: '', address: '' });
+             fetchLocationsOnly();
+         } else {
             const err = await res.json();
             toast.error(err.message || 'Lỗi khi ghim vị trí.');
         }
