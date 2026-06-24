@@ -97,18 +97,14 @@ export class AIService {
       return response.data.top_careers || response.data;
     } catch (error) {
       this.logger.error(`Error calling AI Career Recommend API: ${error.message}`);
-      return [
-        {
-          title: "Fullstack Developer",
-          match_score: 85,
-          explanation: "Dựa trên kỹ năng hiện tại của bạn.",
-          missing_skills: ["Docker", "Kubernetes"]
-        }
-      ];
-    }
-  }
-
-  /**
+throw new HttpException(
+         'AI Career recommendation service is currently unavailable. Please ensure AI_SERVICE_URL is configured correctly.',
+         HttpStatus.SERVICE_UNAVAILABLE,
+       );
+     }
+   }
+ 
+   /**
    * Phân tích xu hướng thị trường lao động
    */
   async getMarketTrends() {
@@ -119,7 +115,10 @@ export class AIService {
       return response.data;
     } catch (error) {
       this.logger.error(`Error calling AI Trends API: ${error.message}`);
-      return { status: 'offline', analysis: 'Dữ liệu xu hướng thị trường chưa sẵn sàng.' };
+      throw new HttpException(
+        'AI Market trends service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -136,11 +135,10 @@ export class AIService {
       return response.data;
     } catch (error) {
       this.logger.error(`Error calling AI Daily Insight API: ${error.message}`);
-      // Fallback response
-      return { 
-          motivation_message: "Hãy bắt đầu một ngày mới đầy năng lượng!", 
-          suggested_action: "Xem qua các khóa học hoặc công việc mới nhất." 
-      };
+      throw new HttpException(
+        'AI Daily Insight service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -230,12 +228,10 @@ export class AIService {
       return response.data;
     } catch (error) {
       this.logger.error(`Error calling AI Moderation API: ${error.message}`);
-      // Fail-safe: Accept but flag for review
-      return { 
-        is_safe: false, 
-        action_taken: "SEND_TO_HUMAN_REVIEW",
-        flags: ["AI Service Unavailable"] 
-      };
+      throw new HttpException(
+        'AI Content moderation service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -253,10 +249,10 @@ export class AIService {
       return response.data;
     } catch (error) {
       this.logger.error(`Error calling AI Scholarship Check API: ${error.message}`);
-      return { 
-        is_eligible: false, 
-        message: 'Dịch vụ phân tích hồ sơ AI đang bận. Vui lòng thử lại sau.' 
-      };
+      throw new HttpException(
+        'AI Scholarship eligibility service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -288,16 +284,10 @@ export class AIService {
       };
     } catch (error) {
       this.logger.error(`Error fetching AI analytics stats: ${error.message}`);
-      const totalConversations = await this.historyRepo.count();
-      return {
-        success: true,
-        data: {
-          total_predictions: totalConversations,
-          accuracy_rate: 0.90,
-          active_models: 1,
-          status: 'degraded'
-        }
-      };
+      throw new HttpException(
+        'AI Analytics stats service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -354,11 +344,10 @@ export class AIService {
       return response.data;
     } catch (error) {
       this.logger.error(`Error in AI Chat: ${error.message}`);
-      return { 
-        reply: 'Hệ thống AI đang bảo trì hoặc mất quá nhiều thời gian để phản hồi (Timeout). Vui lòng thử lại sau 30 giây.',
-        sources: [],
-        error: true
-      };
+      throw new HttpException(
+        'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL is configured correctly.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 }

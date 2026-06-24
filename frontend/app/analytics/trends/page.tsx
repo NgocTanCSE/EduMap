@@ -11,9 +11,12 @@ export default function AITrendsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const trends = await analyticsService.getAiTrends();
-        setData(trends);
-        analyticsService.trackEvent('view_ai_trends', { timestamp: new Date().toISOString() });
+        const r = await analyticsService.getAiTrends();
+        if (r.success || r.status === 'success' || r.status === 'online') {
+          setData(r);
+        } else if (r.error) {
+          throw new Error(r.error);
+        }
       } catch (error) {
         console.error('Failed to fetch AI trends:', error);
         toast.error('Không thể tải xu hướng AI');
@@ -21,6 +24,7 @@ export default function AITrendsPage() {
         setLoading(false);
       }
     };
+    analyticsService.trackEvent('view_ai_trends', { timestamp: new Date().toISOString() });
     fetchData();
   }, []);
 
