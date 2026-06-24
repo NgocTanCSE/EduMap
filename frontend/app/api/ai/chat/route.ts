@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getBackendUrl } from '@/src/lib/api-config';
 
 export async function POST(req: Request) {
   try {
@@ -6,12 +7,11 @@ export async function POST(req: Request) {
     const { message, history, context } = body;
 
     // Backend URL from env or fallback to local NestJS
-    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
+    
     // Lấy token từ header của request đến Next.js
     const authHeader = req.headers.get('Authorization');
 
-    const response = await fetch(`${BACKEND_URL}/ai/chat`, {
+    const response = await fetch(`${getBackendUrl()}/ai/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

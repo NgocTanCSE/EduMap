@@ -15,6 +15,8 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [trendingTags, setTrendingTags] = useState<string[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
 
   // Create Post State
   const [isCreating, setIsCreating] = useState(false);
@@ -24,6 +26,7 @@ export default function CommunityPage() {
 
   useEffect(() => {
     fetchPosts();
+    fetchGroups();
   }, [page]);
 
   const fetchPosts = async () => {
@@ -43,6 +46,20 @@ export default function CommunityPage() {
       toast.error('Không thể tải bài viết.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const groupsData = await communityService.getGroups();
+      setGroups(Array.isArray(groupsData) ? groupsData : []);
+      // Extract trending tags from group names if available
+      const tags = groupsData?.map((g: any) => `#${g.name?.replace(/\s+/g, '')}`).slice(0, 4) || [];
+      setTrendingTags(tags.length > 0 ? tags : ['#ChuaCoDuLieu', '#KetNoi', '#HocTap', '#ChiaSe']);
+    } catch (error) {
+      console.error("Lỗi fetch groups:", error);
+      setGroups([]);
+      setTrendingTags(['#ChuaCoDuLieu', '#KetNoi', '#HocTap', '#ChiaSe']);
     }
   };
 
@@ -240,25 +257,29 @@ export default function CommunityPage() {
                 <div className="pt-4 border-t border-white/5 space-y-4">
                     <h3 className="font-bold text-sm text-gray-300 flex items-center gap-2 uppercase tracking-widest"><Flame size={16} className="text-orange-500"/> Xu hướng</h3>
                     <ul className="space-y-3">
-                        {['#HocReact', '#TimViecIT', '#ReviewTruong', '#HocBong2026'].map((tag, i) => (
+                        {trendingTags.length > 0 ? trendingTags.map((tag, i) => (
                             <li key={i} className="text-sm text-gray-400 hover:text-purple-400 cursor-pointer transition-colors font-medium">
                                 {tag}
                             </li>
-                        ))}
+                        )) : (
+                            <li className="text-sm text-gray-500 italic">Đang tải xu hướng...</li>
+                        )}
                     </ul>
                 </div>
 
                 <div className="pt-4 border-t border-white/5 space-y-4">
                     <h3 className="font-bold text-sm text-gray-300 flex items-center gap-2 uppercase tracking-widest"><Users size={16} className="text-blue-500"/> Nhóm nổi bật</h3>
                     <div className="space-y-3">
-                        {['Cộng đồng IT Fresher', 'Hội Săn Học Bổng', 'Luyện thi IELTS'].map((group, i) => (
-                            <div key={i} className="flex items-center gap-3 group cursor-pointer">
+                        {groups.length > 0 ? groups.slice(0, 3).map((group, i) => (
+                            <div key={group.id || i} className="flex items-center gap-3 group cursor-pointer">
                                 <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-xs font-black text-gray-500 group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-all">
-                                    {group.charAt(0)}
+                                    {(group.name || 'G')[0]}
                                 </div>
-                                <span className="text-sm text-gray-400 group-hover:text-white font-medium transition-colors">{group}</span>
+                                <span className="text-sm text-gray-400 group-hover:text-white font-medium transition-colors">{group.name}</span>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="text-sm text-gray-500 italic">Chưa có nhóm nào</div>
+                        )}
                     </div>
                 </div>
             </div>

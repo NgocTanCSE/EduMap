@@ -27,7 +27,7 @@ class HsConnectionService {
     if (!token) throw new Error('Vui lòng đăng nhập để xem mạng lưới');
 
     try {
-      const response = await fetch(`${this.API_URL}/network`, {
+      const response = await fetch(`${this.API_URL}/my-network`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải mạng lưới kết nối');
@@ -39,51 +39,25 @@ class HsConnectionService {
   }
 
   /**
-   * Gửi yêu cầu kết bạn
+   * Gửi yêu cầu kết nối
    */
   async sendRequest(receiverId: string): Promise<any> {
     const token = authService.getAccessToken();
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/network/request`, {
+      const response = await fetch(`${this.API_URL}/connect/${receiverId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ receiverId })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Gửi yêu cầu thất bại');
       return data;
     } catch (error) {
       console.error("HsConnectionService.sendRequest Error:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Phản hồi yêu cầu kết bạn
-   */
-  async respondToRequest(connectionId: string, accept: boolean): Promise<any> {
-    const token = authService.getAccessToken();
-    if (!token) throw new Error('Vui lòng đăng nhập');
-
-    try {
-      const response = await fetch(`${this.API_URL}/network/respond`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ connectionId, accept })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Phản hồi thất bại');
-      return data;
-    } catch (error) {
-      console.error("HsConnectionService.respondToRequest Error:", error);
       throw error;
     }
   }

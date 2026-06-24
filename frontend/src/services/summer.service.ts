@@ -11,7 +11,7 @@ export interface SummerCampaign {
 }
 
 class SummerService {
-  private readonly API_URL = '/api/summer-campaigns';
+  private readonly API_URL = '/api/summer/campaigns';
 
   async getCampaigns(): Promise<SummerCampaign[]> {
     try {

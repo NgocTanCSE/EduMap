@@ -25,7 +25,7 @@ export interface UnitScheduleResponse {
 }
 
 class MobileUnitService {
-  private readonly API_URL = '/api/mobile-config'; // Keep existing API path
+  private readonly API_URL = '/api/mobile-units';
 
   /**
    * Lấy danh sách các xe tri thức lưu động

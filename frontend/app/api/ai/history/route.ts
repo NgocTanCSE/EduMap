@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
+import { getBackendUrl } from '@/src/lib/api-config';
 
 export async function GET(req: Request) {
   try {
-    const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const authHeader = req.headers.get('Authorization');
+        const authHeader = req.headers.get('Authorization');
 
-    const response = await fetch(`${BACKEND_URL}/ai/history`, {
+    const response = await fetch(`${getBackendUrl()}/ai/history`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

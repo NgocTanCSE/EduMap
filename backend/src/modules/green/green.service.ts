@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { GreenChallenge } from './entities/green.entity';
 
 export interface GreenImpact {
   id: string;
@@ -9,30 +12,72 @@ export interface GreenImpact {
 
 @Injectable()
 export class GreenService {
-  private greenImpacts: GreenImpact[] = []; // In-memory mock data
-  private nextId = 1;
+  private readonly logger = new Logger(GreenService.name);
 
-  constructor() {
-    this.greenImpacts.push({ id: `impact-${this.nextId++}`, initiative: 'Digital Learning', carbonSavedKg: 500, date: '2023-01-15' });
-    this.greenImpacts.push({ id: `impact-${this.nextId++}`, initiative: 'Waste Reduction Program', carbonSavedKg: 200, date: '2023-03-01' });
-  }
+  constructor(
+    @InjectRepository(GreenChallenge)
+    private readonly challengeRepo: Repository<GreenChallenge>,
+  ) {}
 
   async getAllImpacts(): Promise<GreenImpact[]> {
-    // In a real app, this would fetch data from a database
-    return this.greenImpacts;
+    try {
+      const challenges = await this.challengeRepo.find({
+        select: ['id', 'title', 'points_reward', 'created_at'],
+        order: { created_at: 'DESC' },
+      });
+      return challenges.map(c => ({
+        id: c.id,
+        initiative: c.title,
+        carbonSavedKg: c.points_reward * 0.5,
+        date: c.created_at.toISOString().split('T')[0],
+      }));
+    } catch (error) {
+      this.logger.error(`Error fetching green impacts: ${error.message}`);
+      return [];
+    }
   }
 
   async getAllChallenges() {
-    return [
-      { id: 'chal-1', title: 'Zero Waste Week', description: 'No single-use plastics for a week', points: 100 },
-      { id: 'chal-2', title: 'Bike to Work', description: 'Commute by bike for 5 days', points: 200 }
-    ];
+    try {
+      const challenges = await this.challengeRepo.find({
+        select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at'],
+        where: { status: 'active' },
+        order: { created_at: 'DESC' },
+      });
+      
+      return challenges.map(c => ({
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        points: c.points_reward,
+        carbon_saved_kg: c.points_reward * 0.5,
+        participants_count: 0,
+        image_url: null,
+        status: c.status,
+      }));
+    } catch (error) {
+      this.logger.error(`Error fetching green challenges: ${error.message}`);
+      return [];
+    }
   }
 
   async addImpact(initiative: string, carbonSavedKg: number): Promise<GreenImpact> {
-    const newImpact = { id: `impact-${this.nextId++}`, initiative, carbonSavedKg, date: new Date().toISOString().split('T')[0] };
-    this.greenImpacts.push(newImpact);
-    // In a real app, this would save to the database
-    return newImpact;
+    try {
+      const challenge = this.challengeRepo.create({
+        title: initiative,
+        points_reward: Math.round(carbonSavedKg * 2),
+        status: 'active',
+      });
+      const saved = await this.challengeRepo.save(challenge);
+      return {
+        id: saved.id,
+        initiative: saved.title,
+        carbonSavedKg: saved.points_reward * 0.5,
+        date: saved.created_at.toISOString().split('T')[0],
+      };
+    } catch (error) {
+      this.logger.error(`Error adding green impact: ${error.message}`);
+      throw error;
+    }
   }
 }

@@ -59,4 +59,12 @@ export class HsConnectionController {
   async getMyNetwork(@Request() req: any) {
     return this.hsService.getMyNetwork(req.user.id);
   }
+
+  @Post('network/respond')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Phản hồi yêu cầu kết bạn (Chấp nhận/Từ chối)' })
+  async respondToRequest(@Request() req: any, @Body('connectionId') connectionId: string, @Body('accept') accept: boolean) {
+    return this.hsService.respondToConnectionRequest(req.user.id, connectionId, accept);
+  }
 }

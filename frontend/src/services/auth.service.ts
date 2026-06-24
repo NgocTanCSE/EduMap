@@ -20,6 +20,8 @@ export interface CurrentUser {
   fullName: string;
   role: UserRole;
   avatar_url?: string;
+  phone?: string;
+  bio?: string;
 }
 
 class AuthService {
@@ -147,7 +149,44 @@ class AuthService {
     }
   }
 
-  // Potentially add methods for refreshing token (using backend API)
+  async updateProfile(updateData: { full_name?: string; phone?: string; bio?: string; avatar_url?: string; skills?: string[]; interests?: string[] }): Promise<any> {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAccessToken()}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const data = await response.json();
+      const updatedUser = data.data || data;
+      
+      if (updatedUser) {
+        this.currentUser = {
+          id: updatedUser.userId || this.currentUser?.id || '',
+          email: updatedUser.email || this.currentUser?.email || '',
+          fullName: updatedUser.full_name || this.currentUser?.fullName || '',
+          role: updatedUser.role || this.currentUser?.role || UserRole.STUDENT,
+          avatar_url: updatedUser.avatar_url || this.currentUser?.avatar_url || '',
+        };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(USER_INFO_KEY, JSON.stringify(this.currentUser));
+        }
+      }
+
+      return updatedUser;
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error;
+    }
+  }
+
   async refreshAuthTokens(): Promise<boolean> {
     const refreshToken = this.getRefreshToken();
     const userId = this.getUser()?.id; // Assuming userId is available in the current user object

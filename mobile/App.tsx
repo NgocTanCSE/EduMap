@@ -3,13 +3,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MapPin, MessageSquare, Briefcase, GraduationCap } from 'lucide-react-native';
+import { MapPin, MessageSquare, Briefcase, GraduationCap, Home, User } from 'lucide-react-native';
 
 // Screens
 import MapScreen from './src/screens/MapScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import InternshipScreen from './src/screens/InternshipScreen';
 import ScholarshipScreen from './src/screens/ScholarshipScreen';
+import HomeScreen from './src/screens/HomeScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -56,6 +58,15 @@ export default function App() {
         }}
       >
         <Tab.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{
+            title: 'Trang chủ',
+            tabBarLabel: 'Trang chủ',
+            tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          }}
+        />
+        <Tab.Screen 
           name="Map" 
           component={MapScreen} 
           options={{
@@ -89,6 +100,15 @@ export default function App() {
             title: 'Học bổng',
             tabBarLabel: 'Học bổng',
             tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} />,
+          }}
+        />
+        <Tab.Screen 
+          name="Profile" 
+          component={ProfileScreen} 
+          options={{
+            title: 'Cá nhân',
+            tabBarLabel: 'Cá nhân',
+            tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
           }}
         />
       </Tab.Navigator>
