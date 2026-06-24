@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe, UseGuards, SkipThrottle } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, InternalServerErrorException, BadRequestException, ValidationPipe, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { MapService } from './map.service';
 import { AiAnalysisDto } from './dto/ai-analysis.dto';
 import { CreateMapPointDto } from './dto/create-map-point.dto';
