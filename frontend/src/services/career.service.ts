@@ -98,7 +98,9 @@ class CareerService {
   }
 
   async getCareerSuggestions() {
-    return this.fetchWithAuth(`${API_BASE_URL}/suggest`, { method: 'POST' });
+    const response = await this.fetchWithAuth(`${API_BASE_URL}/suggest`, { method: 'POST' });
+    const data = response.data || response;
+    return { top_suggestions: Array.isArray(data) ? data : [] };
   }
 }
 

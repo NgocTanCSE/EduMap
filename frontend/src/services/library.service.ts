@@ -20,10 +20,13 @@ class LibraryService {
   }
 
   async searchMaterials(q: string = '', category?: string, type?: string, page: number = 1, limit: number = 10) {
-    let url = `${API_BASE_URL}/search?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`;
-    if (category && category !== 'Tất cả') url += `&category=${encodeURIComponent(category)}`;
-    if (type) url += `&type=${encodeURIComponent(type)}`;
-    return this.fetchWithAuth(url);
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (q) params.append('q', q);
+    if (category && category !== 'Tất cả') params.append('subject', category);
+    if (type) params.append('type', type);
+    return this.fetchWithAuth(`${API_BASE_URL}/search?${params.toString()}`);
   }
 
   async getMaterialDetail(id: string) {

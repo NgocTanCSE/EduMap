@@ -5,8 +5,11 @@ export interface Opportunity {
   title: string;
   category: string;
   description: string;
-  location: any;
-  address: string;
+  location: {
+    lat?: number;
+    lng?: number;
+  } | null;
+  address: string | null;
   deadline: string | null;
   is_team_finding_open: boolean;
   tags: string[];
@@ -25,7 +28,9 @@ class OpportunityService {
 
       const response = await fetch(`${this.API_URL}?${params.toString()}`);
       if (!response.ok) throw new Error('Không thể tải danh sách cơ hội');
-      return await response.json();
+      const data = await response.json();
+      const items = data.data || data;
+      return Array.isArray(items) ? items : [];
     } catch (error) {
       console.error(error);
       throw error;
@@ -36,7 +41,8 @@ class OpportunityService {
     try {
       const response = await fetch(`${this.API_URL}/${id}`);
       if (!response.ok) throw new Error('Không thể tải chi tiết cơ hội');
-      return await response.json();
+      const data = await response.json();
+      return data.data || data;
     } catch (error) {
       throw error;
     }
@@ -54,7 +60,8 @@ class OpportunityService {
         }
       });
       if (!response.ok) throw new Error('Cập nhật trạng thái thất bại');
-      return await response.json();
+      const data = await response.json();
+      return data.data || data;
     } catch (error) {
       throw error;
     }

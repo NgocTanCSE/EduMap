@@ -32,12 +32,12 @@ export default function CareerQuizPage() {
         return;
       }
 
-      setLoading(true);
-      setIsFinished(true);
-      try {
-        const response = await careerService.getCareerSuggestions();
-        const suggestionsData = response.top_suggestions || response.data || response;
-        setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
+setLoading(true);
+       setIsFinished(true);
+       try {
+         const response = await careerService.getCareerSuggestions();
+         const suggestionsData = response.top_suggestions || [];
+         setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
         toast.success("AI đã hoàn tất phân tích!");
       } catch (error: any) {
         console.error("Lỗi AI suggest:", error);
