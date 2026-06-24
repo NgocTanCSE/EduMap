@@ -249,29 +249,29 @@ export class MapService {
       this.logger.log(`Performing AI Analysis for query: "${query}"`);
       
       const allPois = await this.findAllPois();
-      // Chuyển đổi dữ liệu sang format cho AI Service (khớp với GeoDensityAnalysisRequest)
       const pointsData = allPois.map(p => ({
         name: p.name,
-        type: p.category, // AI Service expects 'type' instead of 'category'
+        type: p.category,
         lat: p.lat,
         lng: p.lng
       }));
 
-      // Sửa endpoint từ /geo/density thành /geo/analyze
-      const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
-          city: query,
-          points: pointsData,
-          context: context
-        })
-      );
-
-      // AI Service returns { hubs: [], ai_analysis: { summary, density_score, recommendations } }
-      const aiData = response.data.ai_analysis || response.data;
-      return aiData;
+      // Try AI Service first, fallback to Gemini
+      try {
+        const response = await firstValueFrom(
+          this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
+            city: query,
+            points: pointsData,
+            context: context
+          })
+        );
+        return response.data.ai_analysis || response.data;
+      } catch (aiServiceError) {
+        this.logger.warn('AI Service unavailable, using Gemini direct');
+        return this.googleAI.analyzeGeoDensity(query, pointsData);
+      }
     } catch (error) {
       this.logger.error(`Error during AI map analysis: ${error.message}`);
-      // Fallback response nếu AI Service lỗi
       return {
         summary: "Dữ liệu AI hiện không khả dụng. Dựa trên bản đồ, các cơ sở giáo dục tập trung chủ yếu quanh khuôn viên Biên Hòa.",
         density_score: 7.5,
