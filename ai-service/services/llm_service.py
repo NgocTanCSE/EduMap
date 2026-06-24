@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from services.cache_service import cache_service
 from models.career_models import CareerAnalysisRequest
@@ -17,9 +17,8 @@ class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         if self.api_key:
-            genai.configure(api_key=self.api_key)
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-            self.model = genai.GenerativeModel(model_name)
+            self.client = genai.Client(api_key=self.api_key)
+            self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             self.is_ready = True
         else:
             self.model = None
@@ -116,7 +115,7 @@ class LLMService:
                 temperature=0.3, 
                 top_p=0.8
             )
-            response = self.model.generate_content(prompt, generation_config=generation_config)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt, config=generation_config)
             
             reply_text = response.text.strip() if response and response.text else "Mình chưa tìm được câu trả lời phù hợp."
             final_res = {"reply": reply_text, "sources": sources}
@@ -139,7 +138,7 @@ class LLMService:
         if not self.is_ready: return "AI Service is not configured. Please set GEMINI_API_KEY to use career advice."
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return response.text
         except:
             return "AI đang bận, hãy thử lại."
@@ -154,7 +153,7 @@ class LLMService:
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return {"insight": response.text}
         except:
             return {"insight": "Hôm nay là một ngày tuyệt vời để học kỹ năng mới."}
@@ -231,7 +230,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             result = self._extract_json(response.text)
             
             if result and isinstance(result, list):
@@ -271,7 +270,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             result = self._extract_json(response.text)
             
             if result:
@@ -300,7 +299,7 @@ class LLMService:
         Trả về JSON: {{summary, density_score, recommendations: []}}
         """
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return self._extract_json(response.text) or {"summary": "Lỗi phân tích"}
         except Exception as e:
             print(f"Error in analyze_geo_density: {e}")
@@ -312,7 +311,7 @@ class LLMService:
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return self._extract_json(response.text) or {"summary": "Lỗi tóm tắt"}
         except Exception as e:
             print(f"Error in summarize_material: {e}")
@@ -324,7 +323,7 @@ class LLMService:
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             result = self._extract_json(response.text)
             return result if isinstance(result, list) else []
         except Exception as e:
@@ -349,7 +348,7 @@ class LLMService:
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             return self._extract_json(response.text) or {"is_safe": False, "confidence": 0.0, "flags": ["Parse Error"]}
         except Exception as e:
             print(f"Error in moderate_text: {e}")
@@ -360,7 +359,7 @@ class LLMService:
             return []
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             result = self._extract_json(response.text)
             return result if isinstance(result, list) else []
         except Exception as e:

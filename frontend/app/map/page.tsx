@@ -17,6 +17,9 @@ export default function MapPage() {
   const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [mapStats, setMapStats] = useState<any>(null);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
 
   // AI Analysis states
   const [analyzing, setAnalyzing] = useState(false);
@@ -29,11 +32,63 @@ export default function MapPage() {
   const [isSavingPin, setIsSavingPin] = useState(false);
 
 const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+const [mapStats, setMapStats] = useState<any>(null);
+const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    fetchLocationsOnly();
+    fetchStats();
     fetchCategoriesOnce();
   }, []);
+
+  useEffect(() => {
+    fetchMapData(activeCategory);
+  }, [activeCategory]);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/map/stats');
+      const json = await res.json();
+      const data = json.data || json;
+      if (data.categories) {
+        setCategoryCounts(data.categories);
+        setMapStats(data);
+      }
+    } catch (err) {
+      logger.error('Failed to fetch map stats', err);
+    }
+  };
+
+  const fetchMapData = async (category?: string, bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
+    try {
+      setLoading(true);
+      logger.info('Fetching map data', { category, bounds });
+
+      let url = '/api/map/pois';
+      const params = new URLSearchParams();
+      if (category && category !== 'all') params.set('category', category);
+      if (bounds) {
+        params.set('minLat', String(bounds.minLat));
+        params.set('maxLat', String(bounds.maxLat));
+        params.set('minLng', String(bounds.minLng));
+        params.set('maxLng', String(bounds.maxLng));
+      }
+      const qs = params.toString();
+      if (qs) url += '?' + qs;
+
+      const res = await fetch(url);
+      const json = await res.json();
+      const data = json.data || json;
+      const list = Array.isArray(data) ? data : [];
+      setLocations(list);
+      setFilteredLocations(list);
+      logger.info('Map data loaded', list.length);
+    } catch (err) {
+      logger.error('Error fetching map data', err);
+      toast.error('Failed to load map data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCategoriesOnce = async () => {
     if (categoriesLoaded) return;
@@ -48,30 +103,6 @@ const [categoriesLoaded, setCategoriesLoaded] = useState(false);
     }
   };
 
-const fetchLocationsOnly = async (bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
-    try {
-      setLoading(true);
-      logger.info('Fetching map data');
-      
-      let locUrl = '/api/map/locations';
-      if (bounds) {
-        locUrl += `?minLat=${bounds.minLat}&maxLat=${bounds.maxLat}&minLng=${bounds.minLng}&maxLng=${bounds.maxLng}`;
-      }
-
-      const locRes = await fetch(locUrl);
-      const locDataRes = await locRes.json();
-      const locData = locDataRes.data || locDataRes;
-      
-      setLocations(Array.isArray(locData) ? locData : []);
-      logger.info('Map data loaded successfully');
-    } catch (error) {
-      logger.error("Error fetching map data:", error);
-      toast.error('Failed to load map data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const boundsDebounceRef = useRef<NodeJS.Timeout | null>(null);
    
    const handleBoundsChange = (bounds: any) => {
@@ -79,7 +110,7 @@ const fetchLocationsOnly = async (bounds?: { minLat: number, maxLat: number, min
          clearTimeout(boundsDebounceRef.current);
        }
        boundsDebounceRef.current = setTimeout(() => {
-         fetchLocationsOnly(bounds);
+         fetchMapData(activeCategory, bounds);
        }, 500);
    };
 
@@ -115,7 +146,7 @@ if (res.ok) {
              toast.success('Đã ghim vị trí thành công!');
              setPinningCoord(null);
              setPinForm({ name: '', category: 'school', description: '', address: '' });
-             fetchLocationsOnly();
+             fetchMapData(activeCategory);
          } else {
             const err = await res.json();
             toast.error(err.message || 'Lỗi khi ghim vị trí.');

@@ -75,7 +75,7 @@ export default function LoginPage() {
       } else {
         const authData = data.data || data;
         authService.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
-        authService.getUser();
+        authService.setUserInfo({ id: authData.userId, email: authData.email, fullName: authData.full_name, role: authData.role } as any);
         router.push('/dashboard');
       }
     } catch (error) {

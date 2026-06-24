@@ -282,3 +282,19 @@ export class MapService {
     }
   }
 }
+
+  async getStats() {
+    try {
+      const allPois = await this.findAllPois();
+      const stats: Record<string, number> = {};
+      for (const poi of allPois) {
+        const cat = poi.category || 'other';
+        stats[cat] = (stats[cat] || 0) + 1;
+      }
+      return { total: allPois.length, categories: stats };
+    } catch (error) {
+      this.logger.error(`Error getting map stats: ${error.message}`);
+      return { total: 0, categories: {} };
+    }
+  }
+

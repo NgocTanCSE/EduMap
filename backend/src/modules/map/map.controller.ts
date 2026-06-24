@@ -106,4 +106,17 @@ export class MapController {
       throw new InternalServerErrorException('An error occurred while processing the AI request');
     }
   }
+
+  @Get('stats')
+  @SkipThrottle()
+  async getStats() {
+    try {
+      const stats = await this.mapService.getStats();
+      return { success: true, data: stats };
+    } catch (error) {
+      console.error(`Error getting map stats: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve map stats');
+    }
+  }
 }
+

@@ -137,7 +137,144 @@ LOCATIONS = [
         "lng": 106.8600,
         "address": "240 Đồng Khởi, Biên Hòa",
         "description": "WiFi ổn định, không gian hiện đại để làm tiểu luận."
-    }
+    },
+    {
+        "name": "Trường THPT Lý Tự Trọng",
+        "type_id": 2,
+        "lat": 10.9530,
+        "lng": 106.8510,
+        "address": "456 Lý Tự Trọng, P. Tân Tiến, Biên Hòa",
+        "description": "Trường THPT công lập chất lượng cao."
+    },
+    {
+        "name": "Trường THPT Nguyễn Bỉnh Khiêm",
+        "type_id": 2,
+        "lat": 10.9610,
+        "lng": 106.8690,
+        "address": "89 Nguyễn Bỉnh Khiêm, P. Tân Hòa, Biên Hòa",
+        "description": "Trường THPT nổi tiếng với môn Toán - Lý."
+    },
+    {
+        "name": "Trường THCS Phan Châu Trinh",
+        "type_id": 2,
+        "lat": 10.9540,
+        "lng": 106.8550,
+        "address": "12 Phan Châu Trinh, P. Thống Nhất, Biên Hòa",
+        "description": "Trường THCS với nhiều hoạt động STEAM."
+    },
+    {
+        "name": "Trường Tiểu Học Bùi Thị Xuân",
+        "type_id": 2,
+        "lat": 10.9480,
+        "lng": 106.8520,
+        "address": "78 Bùi Thị Xuân, P. Trung Dũng, Biên Hòa",
+        "description": "Trường tiểu học tiên tiến."
+    },
+    {
+        "name": "Trường Mầm Non 10/10",
+        "type_id": 2,
+        "lat": 10.9560,
+        "lng": 106.8600,
+        "address": "12/10 Nguyễn Tri Phương, P. Hố Nai, Biên Hòa",
+        "description": "Trường mầm non công lập chất lượng."
+    },
+    {
+        "name": "Thư viện Huyện Thống Nhất",
+        "type_id": 3,
+        "lat": 10.9580,
+        "lng": 106.8720,
+        "address": "Khu phố 1, TT. Trảng Bom, Đồng Nai",
+        "description": "Thư viện địa phương phục vụ cộng đồng."
+    },
+    {
+        "name": "Trung tâm Anh ngữ VUS Biên Hòa",
+        "type_id": 1,
+        "lat": 10.9590,
+        "lng": 106.8650,
+        "address": "220 Đồng Khởi, P. Tân Tiến, Biên Hòa",
+        "description": "Trung tâm tiếng Anh quốc tế."
+    },
+    {
+        "name": "Học viện Aptech Đồng Nai",
+        "type_id": 1,
+        "lat": 10.9600,
+        "lng": 106.8700,
+        "address": "Lô A2, Khu công nghiệp Tam Hiệp, Biên Hòa",
+        "description": "Đào tạo CNTT và thiết kế đồ họa."
+    },
+    {
+        "name": "Cafe Highlands Biên Hòa",
+        "type_id": 8,
+        "lat": 10.9550,
+        "lng": 106.8630,
+        "address": "Vincom Biên Hòa, Tầng 2",
+        "description": "Không gian học tập yên tĩnh, WiFi mạnh."
+    },
+    {
+        "name": "The Coffee House - Lê Duẩn",
+        "type_id": 8,
+        "lat": 10.9620,
+        "lng": 106.8570,
+        "address": "15 Lê Duẩn, P. Tân Hòa, Biên Hòa",
+        "description": "Địa điểm học bài phổ biến của sinh viên."
+    },
+    {
+        "name": "Starbucks Biên Hòa Mall",
+        "type_id": 8,
+        "lat": 10.9480,
+        "lng": 106.8680,
+        "address": "Tầng 1, Sense City Mall",
+        "description": "Không gian mở, phù hợp làm việc nhóm."
+    },
+    {
+        "name": "Nhà sách Đức Bảo",
+        "type_id": 8,
+        "lat": 10.9500,
+        "lng": 106.8530,
+        "address": "42 Hùng Vương, P. Tân Mai, Biên Hòa",
+        "description": "Nhà sách nhỏ bán giáo trình cũ."
+    },
+    {
+        "name": "Công viên Bửu Long",
+        "type_id": 6,
+        "lat": 10.9400,
+        "lng": 106.8550,
+        "address": "Khu dân cư Bửu Long, Biên Hòa",
+        "description": "Công viên rộng rãi cho picnic và học nhóm ngoài trời."
+    },
+    {
+        "name": "Trường THPT Trảng Đài",
+        "type_id": 2,
+        "lat": 10.9920,
+        "lng": 106.8640,
+        "address": "Ngã ba Trảng Đài, Biên Hòa",
+        "description": "Trường THPT trung tâm huyện."
+    },
+    {
+        "name": "Trường THCS Tam Hiệp",
+        "type_id": 2,
+        "lat": 10.9780,
+        "lng": 106.8720,
+        "address": "Khu phố 2, TT. Tam Hiệp, Biên Hòa",
+        "description": "Trường THCS năng động."
+    },
+    {
+        "name": "Trung tâm Vi tính SOSoft Biên Hòa",
+        "type_id": 5,
+        "lat": 10.9420,
+        "lng": 106.8700,
+        "address": "123 Nguyễn Văn Trị, P. Tân Tiến, Biên Hòa",
+        "description": "Trung tâm tin học uy tín."
+    },
+    {
+        "name": "Sân vận động Biên Hòa",
+        "type_id": 6,
+        "lat": 10.9500,
+        "lng": 106.8100,
+        "address": "Đường Nguyễn Thái Học, P. Trung Dũng, Biên Hòa",
+        "description": "Nơi tổ chức các hoạt động thể dục thể thao."
+    },
+
 ]
 
 def seed():

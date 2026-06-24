@@ -317,10 +317,11 @@ throw new HttpException(
 
       // 2. Gửi sang AI Service
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, { 
-          message: message, 
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, {
+          user_id: userId,
+          message: message,
           history: history,
-          context: systemContext 
+          context: systemContext,
         }, { timeout: 15000 })
       );
 

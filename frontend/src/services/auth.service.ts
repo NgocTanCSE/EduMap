@@ -65,6 +65,18 @@ class AuthService {
     return this.refreshToken;
   }
 
+
+  setUserInfo(user: CurrentUser | null) {
+    this.currentUser = user;
+    if (typeof window !== 'undefined') {
+      if (user) {
+        localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(USER_INFO_KEY);
+      }
+    }
+  }
+
   clearAuthData() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
