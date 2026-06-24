@@ -503,6 +503,16 @@ CREATE TABLE green_activities (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 31b. green_challenge_activities (Track individual user participation in challenges)
+CREATE TABLE green_challenge_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    challenge_id UUID NOT NULL REFERENCES green_challenges(id) ON DELETE CASCADE,
+    carbon_saved_kg DECIMAL(10,2) DEFAULT 0,
+    points_earned INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 32. career_paths
 CREATE TABLE career_paths (
     id SERIAL PRIMARY KEY,

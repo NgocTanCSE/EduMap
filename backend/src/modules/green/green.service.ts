@@ -67,6 +67,7 @@ export class GreenService {
       return challengesWithParticipants;
     } catch (error) {
       this.logger.error(`Error fetching green challenges: ${error.message}`);
+      // Return empty array instead of mock data to avoid hardcoded data
       return [];
     }
   }

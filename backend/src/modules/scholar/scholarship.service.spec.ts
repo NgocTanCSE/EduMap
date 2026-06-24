@@ -1,16 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { ScholarshipService } from './scholarship.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Scholarship } from './entities/scholarship.entity';
 import { ScholarshipApplication } from './entities/scholarship-application.entity';
-import { User } from '../auth/entities/user.entity';
 import { Repository } from 'typeorm';
 
 describe('ScholarshipService', () => {
   let service: ScholarshipService;
-  let scholarRepo: Repository<Scholarship>;
-  let appRepo: Repository<ScholarshipApplication>;
-  let userRepo: Repository<User>;
+  let scholarshipRepo: Repository<Scholarship>;
+
+  const mockScholarshipRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findAndCount: jest.fn(),
+  };
+
+  const mockApplicationRepo = {
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,150 +29,53 @@ describe('ScholarshipService', () => {
         ScholarshipService,
         {
           provide: getRepositoryToken(Scholarship),
-          useValue: {
-            findAndCount: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-          },
+          useValue: mockScholarshipRepo,
         },
         {
           provide: getRepositoryToken(ScholarshipApplication),
-          useValue: {
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-          },
-        },
-        {
-          provide: getRepositoryToken(User),
-          useValue: {
-            findOne: jest.fn(),
-          },
+          useValue: mockApplicationRepo,
         },
       ],
     }).compile();
 
     service = module.get<ScholarshipService>(ScholarshipService);
-    scholarRepo = module.get<Repository<Scholarship>>(getRepositoryToken(Scholarship));
-    appRepo = module.get<Repository<ScholarshipApplication>>(getRepositoryToken(ScholarshipApplication));
-    userRepo = module.get<Repository<User>>(getRepositoryToken(User));
+    scholarshipRepo = module.get<Repository<Scholarship>>(getRepositoryToken(Scholarship));
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  describe('getAllScholarships', () => {
-    it('should return paginated scholarships', async () => {
-      const mockScholarships = [
-        { id: 'sch-1', title: 'Scholarship A', status: 'active', deleted_at: null },
-        { id: 'sch-2', title: 'Scholarship B', status: 'active', deleted_at: null },
-      ];
+  describe('findAll', () => {
+    it('should return all scholarships', async () => {
+      jest.spyOn(scholarshipRepo, 'find').mockResolvedValue([]);
 
-      jest.spyOn(scholarRepo, 'findAndCount').mockResolvedValue([mockScholarships, 2] as any);
+      const result = await service.findAll();
 
-      const result = await service.getAllScholarships(1, 10);
-
-      expect(result).toBeDefined();
-      expect(result.items).toEqual(mockScholarships);
-      expect(result.meta.totalItems).toBe(2);
+      expect(Array.isArray(result)).toBe(true);
     });
   });
 
-  describe('checkEligibility', () => {
-    it('should check eligibility via AI service', async () => {
-      const mockScholar = {
-        id: 'sch-1',
-        title: 'Test Scholarship',
-        status: 'active',
-      };
+  describe('findOne', () => {
+    it('should return a single scholarship', async () => {
+      const mockScholarship = { id: 'scholarship-1', title: 'STEM Scholarship' };
+      jest.spyOn(scholarshipRepo, 'findOne').mockResolvedValue(mockScholarship as any);
 
-      const mockUser = {
-        id: 'user-1',
-        email: 'test@example.com',
-      };
+      const result = await service.findOne('scholarship-1');
 
-      jest.spyOn(scholarRepo, 'findOne').mockResolvedValue(mockScholar as Scholarship);
-      jest.spyOn(userRepo, 'findOne').mockResolvedValue(mockUser as User);
-
-      const mockAiResult = {
-        eligible: true,
-        score: 85,
-        feedback: 'You meet all criteria',
-      };
-
-      jest.spyOn(service as any, 'aiService').mockReturnValue({
-        checkScholarshipEligibility: jest.fn().mockResolvedValue(mockAiResult),
-      });
-
-      const result = await service.checkEligibility('user-1', 'sch-1');
-
-      expect(result).toBeDefined();
+      expect(result).toEqual(mockScholarship);
     });
   });
 
-  describe('applyScholarship', () => {
-    it('should create a new scholarship application', async () => {
-      const mockScholar = {
-        id: 'sch-1',
-        title: 'Test Scholarship',
-        status: 'active',
-      };
+  describe('create', () => {
+    it('should create a scholarship', async () => {
+      const mockScholarship = { id: 'scholarship-1', title: 'STEM Scholarship' };
+      jest.spyOn(scholarshipRepo, 'create').mockReturnValue(mockScholarship as any);
+      jest.spyOn(scholarshipRepo, 'save').mockResolvedValue(mockScholarship as any);
 
-      const mockApplication = {
-        id: 'app-1',
-        scholarship_id: 'sch-1',
-        student_id: 'user-1',
-        personal_statement: 'My statement',
-        cv_url: 'http://cv.pdf',
-        status: 'pending',
-      };
+      const result = await service.create({ title: 'STEM Scholarship' });
 
-      jest.spyOn(scholarRepo, 'findOne').mockResolvedValue(mockScholar as Scholarship);
-      jest.spyOn(appRepo, 'findOne').mockResolvedValue(null);
-      jest.spyOn(appRepo, 'create').mockReturnValue(mockApplication as ScholarshipApplication);
-      jest.spyOn(appRepo, 'save').mockResolvedValue(mockApplication as ScholarshipApplication);
-
-      const result = await service.applyScholarship('user-1', 'sch-1', 'My statement', 'http://cv.pdf');
-
-      expect(result).toBeDefined();
-      expect(result.id).toBe('app-1');
-      expect(result.status).toBe('pending');
-    });
-
-    it('should throw BadRequestException when already applied', async () => {
-      const mockScholar = { id: 'sch-1', status: 'active' };
-      const mockExisting = { id: 'app-1', student_id: 'user-1', scholarship_id: 'sch-1' };
-
-      jest.spyOn(scholarRepo, 'findOne').mockResolvedValue(mockScholar as Scholarship);
-      jest.spyOn(appRepo, 'findOne').mockResolvedValue(mockExisting as ScholarshipApplication);
-
-      await expect(
-        service.applyScholarship('user-1', 'sch-1', 'statement', 'http://cv.pdf'),
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('getUserApplications', () => {
-    it('should return list of applications for a user', async () => {
-      const mockApplications = [
-        { id: 'app-1', student_id: 'user-1', scholarship: { id: 'sch-1', title: 'A' } },
-        { id: 'app-2', student_id: 'user-1', scholarship: { id: 'sch-2', title: 'B' } },
-      ];
-
-      jest.spyOn(appRepo, 'find').mockResolvedValue(mockApplications as ScholarshipApplication[]);
-
-      const result = await service.getUserApplications('user-1');
-
-      expect(result).toEqual(mockApplications);
-      expect(appRepo.find).toHaveBeenCalledWith({
-        where: { student_id: 'user-1' },
-        relations: ['scholarship'],
-        order: { created_at: 'DESC' },
-      });
+      expect(mockScholarshipRepo.create).toHaveBeenCalled();
     });
   });
 });

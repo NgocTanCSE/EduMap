@@ -13,7 +13,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./backend/src/database/migrations/analytics_setup.sql:/docker-entrypoint-initdb.d/02-analytics.sql
-      - ./seed_crawled_data.sql:/docker-entrypoint-initdb.d/03-seed.sql
+      - ./backend/src/database/seed-base.sql:/docker-entrypoint-initdb.d/03-seed-base.sql
+      - ./seed_crawled_data.sql:/docker-entrypoint-initdb.d/04-seed-crawled.sql
     ports:
       - "5432:5432"
     healthcheck:
