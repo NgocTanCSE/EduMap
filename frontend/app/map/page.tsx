@@ -30,10 +30,10 @@ export default function MapPage() {
 
 const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
-useEffect(() => {
-     fetchLocationsOnly();
-     fetchCategoriesOnce();
-   }, []);
+  useEffect(() => {
+    fetchLocationsOnly();
+    fetchCategoriesOnce();
+  }, []);
 
   const fetchCategoriesOnce = async () => {
     if (categoriesLoaded) return;
