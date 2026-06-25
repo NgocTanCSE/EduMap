@@ -100,7 +100,11 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   const map = useMap();
   useEffect(() => {
     const handleMapClick = (e: any) => {
-      onClick(e.latlng.lat, e.latlng.lng);
+      console.log('Map clicked raw:', e.latlng);
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      console.log('Sending to handler - lat:', lat, 'lng:', lng);
+      onClick(lat, lng);
     };
     map.on('click', handleMapClick);
     return () => { map.off('click', handleMapClick); };
