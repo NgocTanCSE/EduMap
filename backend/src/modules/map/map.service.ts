@@ -132,7 +132,7 @@ export class MapService {
       );
     }
 
-    query = query.limit(2000);
+    query = query.limit(5000);
     const points = await query.getMany();
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
@@ -148,7 +148,7 @@ export class MapService {
       );
     }
 
-    query = query.limit(2000);
+    query = query.limit(5000);
     const locations = await query.getMany();
     return locations.map(l => this.locationToPoi(l)).filter((p): p is PointOfInterest => p !== null);
   }

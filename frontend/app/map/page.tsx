@@ -231,12 +231,12 @@ if (res.ok) {
     <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden p-6 gap-6 relative">
       
       {/* Sidebar */}
-      <div className="w-1/3 min-w-[380px] border border-white/10 rounded-[2.5rem] p-8 flex flex-col space-y-6 shadow-2xl bg-zinc-900/60 backdrop-blur-xl z-10">
+      <div className="w-2/5 min-w-[420px] border border-white/10 rounded-[2.5rem] p-6 flex flex-col space-y-4 shadow-2xl bg-zinc-900/60 backdrop-blur-xl z-10">
         <header>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-black uppercase tracking-widest mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-black uppercase tracking-widest mb-3">
             <Sparkles className="w-3.5 h-3.5" /> PostGIS + AI Power
           </div>
-          <h2 className="text-3xl font-black text-white tracking-tight">Geo Education</h2>
+          <h2 className="text-2xl font-black text-white tracking-tight">Geo Education</h2>
           <p className="opacity-50 text-sm mt-1">Discovering {filteredLocations.length} educational assets</p>
         </header>
 
@@ -286,34 +286,34 @@ if (res.ok) {
         </div>
         
         {/* Locations List */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar max-h-[60vh]">
           {loading ? (
-            <div className="text-center py-10 text-gray-500 italic">Synchronizing PostGIS data...</div>
+            <div className="text-center py-8 text-gray-500 italic">Synchronizing PostGIS data...</div>
           ) : filteredLocations.length > 0 ? (
             filteredLocations.map((item) => (
               <div 
                 key={item.id} 
                 onClick={() => setSelectedLocation(item)}
-                className={`p-5 rounded-[2rem] border transition-all cursor-pointer group ${
+                className={`p-3 rounded-2xl border transition-all cursor-pointer group ${
                   selectedLocation?.id === item.id 
                     ? 'border-yellow-500/50 bg-yellow-500/10 shadow-lg shadow-yellow-500/5' 
                     : 'border-white/5 bg-black/20 hover:border-white/20'
                 }`}
               >
-                <div className="flex justify-between items-start mb-2 text-yellow-500">
-                    <h3 className="font-black text-gray-100 text-base group-hover:text-yellow-400 transition-colors">{item.name}</h3>
-                    <span className="text-[9px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
+                <div className="flex justify-between items-start mb-1 text-yellow-500">
+                    <h3 className="font-black text-gray-100 text-sm group-hover:text-yellow-400 transition-colors">{item.name}</h3>
+                    <span className="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
                         {item.category}
                     </span>
                 </div>
                 <div className="flex items-start gap-2 text-xs text-white/40">
-                  <MapPin className="w-3.5 h-3.5 text-zinc-600 shrink-0 mt-0.5" />
-                  <span className="line-clamp-2 leading-relaxed">{item.address}</span>
+                  <MapPin className="w-3 h-3 text-zinc-600 shrink-0 mt-0.5" />
+                  <span className="line-clamp-1 leading-tight">{item.address}</span>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center py-10 border border-dashed border-white/5 rounded-3xl">
+            <div className="text-center py-8 border border-dashed border-white/5 rounded-2xl">
                 <p className="text-sm text-white/20">No matching assets found.</p>
             </div>
           )}
