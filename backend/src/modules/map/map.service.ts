@@ -281,8 +281,8 @@ export class MapService {
       };
     }
   }
-}
 
+  async getStats(): Promise<{ total: number; categories: Record<string, number> }> {
     try {
       const allPois = await this.findAllPois();
       const stats: Record<string, number> = {};
@@ -296,4 +296,5 @@ export class MapService {
       return { total: 0, categories: {} };
     }
   }
+}
 

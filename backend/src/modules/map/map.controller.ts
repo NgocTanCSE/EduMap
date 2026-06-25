@@ -109,6 +109,7 @@ export class MapController {
 
   @Get('stats')
   @SkipThrottle()
+  async getStats() {
     try {
       const stats = await this.mapService.getStats();
       return { success: true, data: stats };
