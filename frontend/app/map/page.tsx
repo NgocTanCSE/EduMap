@@ -26,14 +26,12 @@ export default function MapPage() {
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
 
-  // Pinning states
+// Pinning states
   const [pinningCoord, setPinningCoord] = useState<{lat: number, lng: number} | null>(null);
   const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
   const [isSavingPin, setIsSavingPin] = useState(false);
 
-const [categoriesLoaded, setCategoriesLoaded] = useState(false);
-const [mapStats, setMapStats] = useState<any>(null);
-const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -91,13 +89,31 @@ const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({})
   };
 
   const fetchCategoriesOnce = async () => {
-    if (categoriesLoaded) return;
+    const CACHE_KEY = 'map_categories';
+    const CACHE_TTL = 5 * 60 * 1000;
+    
     try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          setCategories(data);
+          setCategoriesLoaded(true);
+          return;
+        }
+      }
+      
       const catRes = await fetch('/api/map/categories');
       const catDataRes = await catRes.json();
       const catData = catDataRes.data || catDataRes;
-      setCategories(Array.isArray(catData) ? catData : []);
+      const categoriesList = Array.isArray(catData) ? catData : [];
+      setCategories(categoriesList);
       setCategoriesLoaded(true);
+      
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data: categoriesList,
+        timestamp: Date.now()
+      }));
     } catch (error) {
       logger.error("Failed to fetch categories:", error);
     }

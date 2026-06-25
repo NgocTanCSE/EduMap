@@ -283,7 +283,6 @@ export class MapService {
   }
 }
 
-  async getStats() {
     try {
       const allPois = await this.findAllPois();
       const stats: Record<string, number> = {};
