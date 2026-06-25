@@ -119,16 +119,22 @@ export default function MapPage() {
     }
   };
 
-  const boundsDebounceRef = useRef<NodeJS.Timeout | null>(null);
-   
-   const handleBoundsChange = (bounds: any) => {
-       if (boundsDebounceRef.current) {
-         clearTimeout(boundsDebounceRef.current);
-       }
-       boundsDebounceRef.current = setTimeout(() => {
-         fetchMapData(activeCategory, bounds);
-       }, 500);
-   };
+const boundsChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastBoundsRef = useRef<string | null>(null);
+
+  const handleBoundsChange = (bounds: any) => {
+    if (boundsChangeTimeoutRef.current) {
+      clearTimeout(boundsChangeTimeoutRef.current);
+    }
+
+    const boundsKey = `${bounds.minLat.toFixed(4)}-${bounds.maxLat.toFixed(4)}-${bounds.minLng.toFixed(4)}-${bounds.maxLng.toFixed(4)}`;
+    if (lastBoundsRef.current === boundsKey) return;
+
+    boundsChangeTimeoutRef.current = setTimeout(() => {
+      lastBoundsRef.current = boundsKey;
+      fetchMapData(activeCategory, bounds);
+    }, 1000);
+  };
 
   const handleMapClick = (lat: number, lng: number) => {
     const user = authService.getUser();

@@ -75,7 +75,12 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
   const map = useMap();
   useEffect(() => {
     if (!onBoundsChange) return;
+    let didInitialLoad = false;
     const handleMoveEnd = () => {
+      if (!didInitialLoad) {
+        didInitialLoad = true;
+        return;
+      }
       const bounds = map.getBounds();
       onBoundsChange({
         minLat: bounds.getSouth(),
@@ -84,7 +89,6 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
         maxLng: bounds.getEast()
       });
     };
-    handleMoveEnd(); // Init
     map.on('moveend', handleMoveEnd);
     return () => { map.off('moveend', handleMoveEnd); };
   }, [map, onBoundsChange]);
