@@ -370,7 +370,7 @@ export class BusinessService {
         amount: totalAmount,
         status: TransactionStatus.PENDING,
       });
-      await queryRunner.manager.save(transaction);
+      const savedTransaction = await queryRunner.manager.save(transaction);
 
       // 5. Clear Cart
       await queryRunner.manager.delete(CartItem, { userId });
@@ -380,6 +380,7 @@ export class BusinessService {
       return {
         message: 'Đặt hàng thành công.',
         orderId: savedOrder.id,
+        transactionId: savedTransaction.id,
         totalAmount,
       };
     } catch (err) {

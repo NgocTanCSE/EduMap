@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [checkoutStep, setCheckoutStep] = useState(1); // 1: Cart, 2: Checkout, 3: Success
+  const [checkoutStep, setCheckoutStep] = useState(1);
   const [address, setAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [orderInfo, setOrderInfo] = useState<any>(null);
@@ -64,9 +64,8 @@ export default function CartPage() {
         const data = await res.json();
         const orderData = data.data || data;
         
-        // Simulate Payment Processing
         toast.info("Đang kết nối cổng thanh toán...");
-        const payRes = await fetch(`/api/payment/process/${orderData.orderId}`, { // In real app, orderId might be linked to transaction
+        const payRes = await fetch(`/api/payment/process/${orderData.transactionId || orderData.orderId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ method: paymentMethod })
@@ -141,7 +140,6 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Cart List */}
             <div className="lg:col-span-2 space-y-4">
               {checkoutStep === 1 ? (
                 cartItems.map(item => (
@@ -201,7 +199,6 @@ export default function CartPage() {
               )}
             </div>
 
-            {/* Summary */}
             <div className="space-y-4">
               <div className="p-8 bg-card border border-white/10 rounded-[40px] space-y-6">
                 <h2 className="text-xl font-bold">Tổng quan đơn hàng</h2>
