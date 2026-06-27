@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) headers['Authorization'] = authHeader;
 
-    const response = await fetch(`${getBackendUrl()}/ai/analytics/stats`, { headers });
+    const response = await fetch(`${getBackendUrl()}/library/resources`, { headers });
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

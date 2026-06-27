@@ -83,6 +83,14 @@ class ApiService {
   async getInternships(page: number = 1, limit: number = 10) {
     return this.get(`/internships?page=${page}&limit=${limit}`);
   }
+
+  async getCareerJobs() {
+    return this.get('/career/jobs');
+  }
+
+  async getWifiLocations() {
+    return this.get('/wifi/locations');
+  }
 }
 
 export const apiService = new ApiService();

@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     const authHeader = req.headers.get('Authorization');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) headers['Authorization'] = authHeader;
-    const response = await fetch(`${getBackendUrl()}/hs-connection/network`, { headers });
+    const response = await fetch(`${getBackendUrl()}/hs-connection/my-network`, { headers });
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

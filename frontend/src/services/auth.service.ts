@@ -1,19 +1,19 @@
 import { jwtDecode } from "jwt-decode";
-import { UserRole } from '../types/auth-types'; // Assuming such a type exists or creating one
+import { UserRole } from '../types/auth-types';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 
 export const ACCESS_TOKEN_KEY = 'edumap-access-token';
 export const REFRESH_TOKEN_KEY = 'edumap-refresh-token';
-export const USER_INFO_KEY = 'edumap-user-info'; // Renamed to be more descriptive
+export const USER_INFO_KEY = 'edumap-user-info';
 
 interface DecodedToken {
-  sub: string; // User ID
+  sub: string;
   email: string;
   role: UserRole;
-  exp: number; // Expiration timestamp
-  iat: number; // Issued at timestamp
+  exp: number;
+  iat: number;
 }
 
-// Minimal User interface based on backend's User entity
 export interface CurrentUser {
   id: string;
   email: string;
@@ -163,12 +163,13 @@ class AuthService {
 
   async updateProfile(updateData: { full_name?: string; phone?: string; bio?: string; avatar_url?: string; skills?: string[]; interests?: string[] }): Promise<any> {
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetchWithRetry('/api/auth/profile', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAccessToken()}`,
         },
+        retries: 2,
         body: JSON.stringify(updateData),
       });
 

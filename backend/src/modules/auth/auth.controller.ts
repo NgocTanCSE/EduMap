@@ -102,4 +102,13 @@ export class AuthController {
     const result = await this.authService.updateProfile(userId, dto);
     return { success: true, data: result };
   }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  async changePassword(@Req() req: any, @Body() body: { currentPassword: string; newPassword: string }) {
+    const userId = req.user.id || req.user.sub;
+    const result = await this.authService.changePassword(userId, body.currentPassword, body.newPassword);
+    return { success: true, data: result };
+  }
 }

@@ -303,11 +303,16 @@ export default function ProfilePage() {
                       }
                       try {
                         setSavingPassword(true);
-                        // Call backend reset password with a dummy token flow or direct endpoint
-                        const res = await fetch('/api/auth/reset-password', {
+                        const res = await fetch('/api/auth/change-password', {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ token: 'direct-update', newPassword: passwordForm.newPassword }),
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authService.getAccessToken()}`
+                          },
+                          body: JSON.stringify({ 
+                            currentPassword: passwordForm.currentPassword,
+                            newPassword: passwordForm.newPassword 
+                          }),
                         });
                         if (!res.ok) throw new Error();
                         toast.success('Đổi mật khẩu thành công!');

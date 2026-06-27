@@ -209,4 +209,24 @@ export class AuthService {
       message: 'Cap nhat thong tin thanh cong!',
     };
   }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<any> {
+    const user = await this.userRepo.findOne({ 
+      where: { id: userId },
+      select: ['id', 'password_hash']
+    });
+    if (!user) {
+      throw new NotFoundException('Nguoi dung khong ton tai.');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Mat khau hien tai khong dung.');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.update(userId, { password_hash: hashedNewPassword });
+
+    return { message: 'Doi mat khau thanh cong!' };
+  }
 }

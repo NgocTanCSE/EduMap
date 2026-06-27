@@ -70,7 +70,7 @@ export class MapService {
       rating_avg: l.rating_avg,
       rating_count: l.rating_count,
       status: l.status,
-      verified: l.is_verified,
+      verified: l.is_verified ?? false,
     };
   }
 

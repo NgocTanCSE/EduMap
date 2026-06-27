@@ -1,4 +1,5 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 
 export interface LeaderboardUser {
   id: string;
@@ -19,12 +20,9 @@ export interface UserProgress {
 class GamificationService {
   private readonly API_URL = '/api/gamification';
 
-  /**
-   * Lấy bảng xếp hạng
-   */
   async getLeaderboard(): Promise<LeaderboardUser[]> {
     try {
-      const response = await fetch(`${this.API_URL}/leaderboard`);
+      const response = await fetchWithRetry(`${this.API_URL}/leaderboard`, { retries: 2 });
       if (!response.ok) {
         throw new Error('Không thể tải bảng xếp hạng');
       }
@@ -36,18 +34,14 @@ class GamificationService {
     }
   }
 
-  /**
-   * Lấy tiến độ cá nhân
-   */
   async getMyProgress(): Promise<UserProgress> {
     const token = authService.getAccessToken();
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/my-progress`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetchWithRetry(`${this.API_URL}/my-progress`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        retries: 2
       });
       if (!response.ok) {
         throw new Error('Không thể tải tiến độ cá nhân');
@@ -60,18 +54,14 @@ class GamificationService {
     }
   }
 
-  /**
-   * Lấy danh sách huy hiệu cá nhân
-   */
   async getMyBadges(): Promise<any[]> {
     const token = authService.getAccessToken();
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/my-badges`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetchWithRetry(`${this.API_URL}/my-badges`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        retries: 2
       });
       if (!response.ok) {
         throw new Error('Không thể tải danh sách huy hiệu');

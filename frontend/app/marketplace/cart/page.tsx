@@ -21,7 +21,7 @@ export default function CartPage() {
       const res = await fetch('/api/business/cart');
       if (res.ok) {
         const data = await res.json();
-        setCartItems(data);
+        setCartItems(data.data || data || []);
       }
     } catch (error) {
       console.error("Lỗi fetch cart:", error);
@@ -62,21 +62,22 @@ export default function CartPage() {
       });
       if (res.ok) {
         const data = await res.json();
+        const orderData = data.data || data;
         
         // Simulate Payment Processing
         toast.info("Đang kết nối cổng thanh toán...");
-        const payRes = await fetch(`/api/payment/process/${data.orderId}`, { // In real app, orderId might be linked to transaction
+        const payRes = await fetch(`/api/payment/process/${orderData.orderId}`, { // In real app, orderId might be linked to transaction
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ method: paymentMethod })
         });
 
         if (payRes.ok) {
-            setOrderInfo(data);
+            setOrderInfo(orderData);
             setCheckoutStep(3);
         } else {
             alert("Thanh toán thất bại, đơn hàng đã được ghi nhận ở trạng thái Chờ.");
-            setOrderInfo(data);
+            setOrderInfo(orderData);
             setCheckoutStep(3);
         }
       } else {
