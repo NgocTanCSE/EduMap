@@ -79,7 +79,7 @@ def run():
 
     # 6. Execute Python seed scripts for additional data
     import subprocess
-    print("Executing additional Python seed scripts...")
+    print("\nExecuting additional Python seed scripts...")
     seed_scripts = [
         'scripts/seed_edu_data.py',
         'scripts/mega_seed_books.py',
@@ -88,7 +88,8 @@ def run():
         'scripts/seed_dntu_extra.py',
         'scripts/seed_dntu_locations.py',
         'scripts/seed_dntu_marketplace.py',
-        'scripts/seed_dntu_real_data.py'
+        'scripts/seed_dntu_real_data.py',
+        'scripts/seed_dongnai_unis.py'
     ]
     for script in seed_scripts:
         if os.path.exists(script):
