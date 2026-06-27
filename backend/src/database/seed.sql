@@ -396,7 +396,8 @@ INSERT INTO location_categories (id, name, display_name, marker_color) VALUES
 (5, 'lab', 'Phòng thí nghiệm STEM', '#8b5cf6'),
 (6, 'wifi_hotspot', 'Wifi miễn phí', '#06b6d4'),
 (7, 'green_space', 'Không gian xanh', '#2e59d9'),
-(8, 'study_space', 'Góc học tập/Cafe', '#f97316')
+(8, 'study_space', 'Góc học tập/Cafe', '#f97316'),
+(10, 'restaurant', 'Nhà hàng', '#e11d48')
 ON CONFLICT (id) DO NOTHING;
 
 -- Reset sequence for location_categories

@@ -56,6 +56,7 @@ export class MapService {
       else if (descLower.includes('university') || descLower.includes('college')) categoryStr = 'university';
       else if (descLower.includes('library')) categoryStr = 'library';
       else if (descLower.includes('lab') || descLower.includes('stem')) categoryStr = 'lab';
+      else if (descLower.includes('restaurant') || descLower.includes('food') || descLower.includes('fast_food')) categoryStr = 'restaurant';
     }
 
     return {
@@ -163,6 +164,7 @@ export class MapService {
       'wifi': 6,
       'green': 7,
       'cafe': 8,
+      'restaurant': 10,
     };
     
     const catLower = category.toLowerCase();

@@ -1,7 +1,8 @@
 import os
 import json
 import hashlib
-from google import genai
+from google.genai import Client
+from google.genai import types as genai_types
 from dotenv import load_dotenv
 from services.cache_service import cache_service
 from models.career_models import CareerAnalysisRequest
@@ -17,7 +18,7 @@ class LLMService:
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         if self.api_key:
-            self.client = genai.Client(api_key=self.api_key)
+            self.client = Client(api_key=self.api_key)
             self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             self.is_ready = True
         else:
@@ -45,7 +46,7 @@ class LLMService:
         history = history or []
         context = context or {}
 
-        # 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
+# 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
         from services.vector_store import vector_store
         try:
             search_results = vector_store.query(message, n_results=3)
@@ -95,7 +96,7 @@ class LLMService:
         
         NGUYÊN TẮC HOẠT ĐỘNG (CORE RULES):
         1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
-        2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thức chung nhưng phải khẳng định là thông tin tham khảo.
+        2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
         4. Trình bày rõ ràng, sử dụng bullet points nếu cần thiết.
         """
@@ -109,8 +110,7 @@ class LLMService:
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
         
         try:
-            # 4. AI Generation Config
-            generation_config = genai.types.GenerationConfig(
+            generation_config = genai_types.GenerationConfig(
                 max_output_tokens=2048,
                 temperature=0.3, 
                 top_p=0.8
@@ -120,7 +120,6 @@ class LLMService:
             reply_text = response.text.strip() if response and response.text else "Mình chưa tìm được câu trả lời phù hợp."
             final_res = {"reply": reply_text, "sources": sources}
             
-            # Lưu vào Cache (TTL 1 giờ)
             cache_service.set(cache_key, final_res, ttl=3600)
             
             return final_res
