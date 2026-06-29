@@ -14,12 +14,21 @@ mkdir -p $PGDATA $REDIS_DIR $MINIO_DATA_DIR $CHROMA_DB_DIR
 
 # --- PostgreSQL Setup ---
 echo "--- Step 1: PostgreSQL Setup ---"
-echo "🐘 Starting PostgreSQL service in background..."
+if [ ! -s "$PGDATA/PG_VERSION" ]; then
+    echo "🆕 Initializing PostgreSQL database..."
+    /usr/lib/postgresql/14/bin/initdb -D $PGDATA --encoding=UTF8 --locale=C || { echo "❌ initdb failed!"; exit 1; }
+    echo "unix_socket_directories = '/tmp'" >> $PGDATA/postgresql.conf
+    echo "✅ initdb completed."
+else
+    echo "🔄 Database already initialized."
+fi
+
+echo "🐘 Starting PostgreSQL..."
 /usr/lib/postgresql/14/bin/postgres -D $PGDATA > /data/pg.log 2>&1 &
 PG_PID=$!
-echo "✅ PostgreSQL service started (PID: $PG_PID)."
+echo "✅ PostgreSQL started (PID: $PG_PID)."
 
-# Wait for PostgreSQL with extended timeout
+# Wait for PostgreSQL with timeout
 echo "⏳ Waiting for PostgreSQL to accept connections..."
 for i in $(seq 1 60); do
     if pg_isready -h 127.0.0.1 -q 2>/dev/null; then
@@ -31,39 +40,21 @@ for i in $(seq 1 60); do
 done
 
 if ! pg_isready -h 127.0.0.1 -q 2>/dev/null; then
-    echo "❌ PostgreSQL did not become ready in time!"
+    echo "❌ PostgreSQL did not start in time!"
     cat /data/pg.log 2>/dev/null || true
     exit 1
 fi
 
-# Initialize database if needed
-INIT_FLAG="/data/.initialized"
-if [ ! -f "$INIT_FLAG" ]; then
-    echo "🆕 First run detected. Initiating database and AI knowledge base seeding..."
-    
-    # Run Database Setup
-    echo "➡️ Running database schema and seeding..."
-    timeout 300 python3 -u scripts/execute_db_setup.py 2>&1 | tee /data/db_setup.log || { echo "⚠️ Database setup timed out or failed, continuing..."; }
-    
-    # Run AI Vector DB Seeding (skip if no API key)
-    if [ -n "$GEMINI_API_KEY" ]; then
-        echo "➡️ Running AI Vector Database seeding..."
-        timeout 60 python3 -u ai-service/seed_vector_db.py 2>&1 | tee /data/ai_seed.log || echo "⚠️ AI seed skipped or timed out"
-    else
-        echo "⚠️ Skipping AI Vector DB seeding (GEMINI_API_KEY not set)"
-    fi
-    
-    touch "$INIT_FLAG"
-    echo "✅ Initialization completed."
-else
-    echo "🔄 System already initialized. Skipping database setup."
-fi
+# Create user and database
+psql -h 127.0.0.1 postgres -c "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';" 2>/dev/null || true
+createdb -h 127.0.0.1 -O admin edumap_db 2>/dev/null || true
+echo "✅ User and database ready."
 
 # --- Redis Setup ---
 echo "--- Step 2: Redis Setup ---"
-echo "🏮 Starting Redis service in background..."
 redis-server --dir $REDIS_DIR --daemonize yes
-echo "✅ Redis service started."
+sleep 2
+echo "✅ Redis started."
 
 # Wait for Redis
 for i in $(seq 1 30); do
@@ -74,6 +65,19 @@ for i in $(seq 1 30); do
     echo "  Attempt $i/30: Waiting for Redis..."
     sleep 1
 done
+
+# --- Database Seeding ---
+echo "--- Step 3: Database Seeding ---"
+INIT_FLAG="/data/.initialized"
+
+if [ ! -f "$INIT_FLAG" ]; then
+    echo "🆕 First run - seeding database..."
+    timeout 300 python3 -u scripts/execute_db_setup.py 2>&1 | tee /data/db_setup.log || echo "⚠️ Database setup timed out or had errors"
+    touch "$INIT_FLAG"
+    echo "✅ Initialization completed."
+else
+    echo "🔄 Database already initialized."
+fi
 
 echo "🏁 Handing over to Supervisor to start application services..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
