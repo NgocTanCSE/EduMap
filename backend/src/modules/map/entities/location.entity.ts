@@ -56,15 +56,6 @@ export class Location {
   @JoinColumn({ name: 'created_by' })
   creator: User;
 
-  @Column({ nullable: true })
-  speed_mbps: number;
-
-  @Column({ default: true })
-  is_free: boolean;
-
-  @Column({ nullable: true })
-  password: string;
-
   @CreateDateColumn()
   created_at: Date;
 

@@ -25,7 +25,6 @@ export class WifiService {
       coordinates,
       created_by: reporterId,
       is_verified: false,
-      is_free: data.is_free !== undefined ? data.is_free : true,
     });
     return this.locationRepo.save(location);
   }
