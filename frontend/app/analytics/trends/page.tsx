@@ -12,12 +12,12 @@ export default function AITrendsPage() {
     const fetchData = async () => {
       try {
         const r = await analyticsService.getAiTrends();
-        if (r.success || r.status === 'success' || r.status === 'online') {
+        if (r.success === true || r.status === 'success' || r.status === 'online') {
           setData(r);
-        } else if (r.error) {
-          throw new Error(r.error);
+        } else {
+          console.warn('AI trends response:', r);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch AI trends:', error);
         toast.error('Không thể tải xu hướng AI');
       } finally {

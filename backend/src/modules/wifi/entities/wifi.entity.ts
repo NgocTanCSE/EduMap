@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 
-@Entity('wifi_locations')
+@Entity('locations')
 export class WifiLocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -11,7 +11,7 @@ export class WifiLocation {
 
   @Index({ spatial: true })
   @Column({
-    name: 'location_point',
+    name: 'coordinates',
     type: 'geography',
     spatialFeatureType: 'Point',
     srid: 4326,
@@ -31,18 +31,18 @@ export class WifiLocation {
   @Column({ nullable: true })
   password: string;
 
-  @Column({ name: 'hint', nullable: true })
+  @Column({ nullable: true })
   password_hint: string;
 
   @Column({ default: false })
   verified: boolean;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'reported_by' })
+  @JoinColumn({ name: 'created_by' })
   reporter: User;
 
   @Column({ nullable: true })
-  reported_by: string;
+  created_by: string;
 
   @CreateDateColumn()
   created_at: Date;

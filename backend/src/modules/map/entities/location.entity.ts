@@ -20,7 +20,6 @@ export class Location {
   @Column()
   category_id: number;
 
-  // 🌍 PostGIS GEOGRAPHY Point (SRID 4326 - WGS84)
   @Index({ spatial: true })
   @Column({
     type: 'geography',
@@ -45,17 +44,26 @@ export class Location {
   rating_count: number;
 
   @Column({ default: 'active' })
-  status: string; // active, pending, rejected
+  status: string;
 
   @Column({ default: false })
   is_verified: boolean;
+
+  @Column({ nullable: true })
+  created_by: string;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   creator: User;
 
   @Column({ nullable: true })
-  created_by: string;
+  speed_mbps: number;
+
+  @Column({ default: true })
+  is_free: boolean;
+
+  @Column({ nullable: true })
+  password: string;
 
   @CreateDateColumn()
   created_at: Date;

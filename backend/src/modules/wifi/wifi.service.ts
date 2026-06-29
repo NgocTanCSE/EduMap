@@ -1,81 +1,55 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WifiLocation } from './entities/wifi.entity';
+import { Location } from '../map/entities/location.entity';
 
 @Injectable()
 export class WifiService {
+  private readonly logger = new Logger(WifiService.name);
+
   constructor(
-    @InjectRepository(WifiLocation) private readonly wifiRepo: Repository<WifiLocation>,
+    @InjectRepository(Location) private readonly locationRepo: Repository<Location>,
   ) {}
 
-  /**
-   * Báo cáo điểm Wifi miễn phí mới (MOD-23)
-   */
   async reportWifi(reporterId: string, data: any) {
-    let location = null;
+    let coordinates = null;
     if (data.latitude && data.longitude) {
-      location = {
+      coordinates = {
         type: 'Point',
         coordinates: [Number(data.longitude), Number(data.latitude)],
       };
     }
 
-    const wifi = this.wifiRepo.create({
+    const location = this.locationRepo.create({
       ...data,
-      location,
-      reported_by: reporterId,
-      verified: false,
+      coordinates,
+      created_by: reporterId,
+      is_verified: false,
+      is_free: data.is_free !== undefined ? data.is_free : true,
     });
-    return this.wifiRepo.save(wifi);
+    return this.locationRepo.save(location);
   }
 
-  /**
-   * Lấy danh sách tất cả các điểm Wifi công cộng
-   */
   async getWifiPoints() {
-    return this.wifiRepo.find({
-      order: { created_at: 'DESC' },
-    });
+    try {
+      return this.locationRepo.createQueryBuilder('locations')
+        .where("LOWER(locations.description) LIKE :desc", { desc: '%wifi%' })
+        .orderBy('locations.created_at', 'DESC')
+        .getMany();
+    } catch (error) {
+      this.logger.error('Error fetching WiFi points:', error.message);
+      return [];
+    }
   }
 
-  /**
-   * Tìm các điểm Wifi phủ sóng gần nhất qua bản đồ GIS PostGIS
-   */
   async getWifiPointsNearby(lat: number, lng: number, radiusInMeters: number = 5000) {
-    return this.wifiRepo.createQueryBuilder('wifi')
+    return this.locationRepo.createQueryBuilder('locations')
       .where(
-        'ST_DWithin(wifi.location, ST_MakePoint(:lng, :lat)::geography, :radius)',
+        'ST_DWithin(locations.coordinates, ST_MakePoint(:lng, :lat)::geography, :radius)',
         { lat, lng, radius: radiusInMeters }
       )
-      .orderBy('wifi.created_at', 'DESC')
+      .andWhere("LOWER(locations.description) LIKE :desc", { desc: '%wifi%' })
+      .orderBy('locations.created_at', 'DESC')
       .getMany();
-  }
-
-  /**
-   * F-24: Khảo sát & Đánh giá tốc độ mạng (Crowdsourced Speed Test)
-   */
-  async submitSpeedTest(wifiId: string, downloadSpeed: number, uploadSpeed: number, rating: number) {
-    const wifi = await this.wifiRepo.findOne({ where: { id: wifiId } });
-    if (!wifi) throw new NotFoundException('Điểm Wifi không tồn tại');
-
-    // Cập nhật tốc độ trung bình của điểm WiFi dựa trên dữ liệu đóng góp mới
-    const currentSpeed = wifi.speed_mbps || 20; // Tốc độ mặc định nếu chưa có
-    const avgDownload = (downloadSpeed + currentSpeed) / 2;
-
-    wifi.speed_mbps = Number(avgDownload.toFixed(1));
-    await this.wifiRepo.save(wifi);
-
-    return {
-      success: true,
-      message: 'Cảm ơn bạn đã đóng góp đo lường tốc độ mạng thực tế cho cộng đồng học tập.',
-      wifi_id: wifiId,
-      new_stats: {
-        avg_speed_mbps: wifi.speed_mbps,
-        measured_download: downloadSpeed,
-        measured_upload: uploadSpeed,
-        user_rating: rating,
-      }
-    };
   }
 }
