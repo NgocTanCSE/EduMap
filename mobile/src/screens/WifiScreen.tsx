@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { apiService } from '../services/api';
 import { MapPin, Wifi } from 'lucide-react-native';
 
@@ -9,73 +9,6 @@ interface WifiLocation {
   address: string;
   speed_mbps?: number;
   is_free?: boolean;
-}
-
-export default function WifiScreen() {
-  const [locations, setLocations] = useState<WifiLocation[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadLocations();
-  }, []);
-
-  const loadLocations = async () => {
-    try {
-      setLoading(true);
-      const data = await apiService.getWifiLocations();
-      setLocations(data?.data || data || []);
-    } catch (err) {
-      console.error("Failed to load WiFi locations:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderItem = ({ item }: { item: WifiLocation }) => (
-    <TouchableOpacity style={styles.card}>
-      <View style={styles.iconContainer}>
-        <Wifi color="#06b6d4" size={20} />
-      </View>
-      <View style={styles.info}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.address}>{item.address}</Text>
-        <View style={styles.metaRow}>
-          {item.speed_mbps && (
-            <Text style={styles.meta}>{item.speed_mbps} Mbps</Text>
-          )}
-          {item.is_free !== undefined && (
-            <Text style={[styles.badge, { backgroundColor: item.is_free ? '#22c55e' : '#ef4444' }]}>
-              {item.is_free ? 'Miễn phí' : 'Có phí'}
-            </Text>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#eab308" />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Địa điểm WiFi</Text>
-      <FlatList
-        data={locations}
-        keyExtractor={(item) => item.id || Math.random().toString()}
-        renderItem={renderItem}
-        ListEmptyComponent={() => (
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>Không có địa điểm WiFi nào.</Text>
-          </View>
-        )}
-      />
-    </View>
-  );
 }
 
 export default function WifiScreen() {
@@ -140,14 +73,14 @@ export default function WifiScreen() {
       <Text style={styles.title}>Địa điểm WiFi</Text>
       <FlatList
         data={locations}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id || Math.random().toString()}
         renderItem={renderItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
+        ListEmptyComponent={() => (
           <View style={styles.center}>
             <Text style={styles.emptyText}>Không có địa điểm WiFi nào.</Text>
           </View>
-        }
+        )}
       />
     </View>
   );

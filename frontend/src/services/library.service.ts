@@ -11,12 +11,25 @@ class LibraryService {
       ...options.headers,
     } as any;
 
-    const response = await fetch(url, { ...options, headers });
-    if (!response.ok) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(url, { ...options, headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'API request failed');
+        throw new Error(errorData.message || `API request failed with status ${response.status}`);
+      }
+      return response.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - vui lòng kiểm tra kết nối mạng');
+      }
+      throw error;
     }
-    return response.json();
   }
 
   async searchMaterials(q: string = '', category?: string, type?: string, page: number = 1, limit: number = 10) {
@@ -34,7 +47,10 @@ class LibraryService {
   }
 
   async getMaterialSummary(id: string) {
-    return this.fetchWithAuth(`${API_BASE_URL}/resources/${id}/summary`);
+    return this.fetchWithAuth(`/api/ai/library/summarize`, {
+      method: 'POST',
+      body: JSON.stringify({ material_id: id })
+    });
   }
 }
 

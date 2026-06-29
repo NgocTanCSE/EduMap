@@ -1,18 +1,16 @@
 ﻿from pydantic import BaseModel, Field
 from typing import List, Optional
 
-# --- CẤU TRÚC ĐẦU VÀO (INPUT) ---
 class ChatMessage(BaseModel):
     role: str = Field(..., description="'user' hoặc 'model'")
     content: str = Field(..., description="Nội dung tin nhắn")
 
 class ChatRequest(BaseModel):
-    user_id: str = Field(..., description="ID của sinh viên đang chat")
+    user_id: Optional[str] = Field(None, description="ID của sinh viên đang chat")
     message: str = Field(..., description="Câu hỏi mới nhất")
     history: List[ChatMessage] = Field(default_factory=list, description="Lịch sử trò chuyện trước đó")
-    context: Optional[dict] = Field(None, description="Ngữ cảnh động từ hệ thống (Vị trí, Sách...)")
+    context: Optional[dict] = Field(None, description="Ngữ cạnh động từ hệ thống (Vị trí, Sách...)")
 
-# --- CẤU TRÚC ĐẦU RA (OUTPUT) ---
 class SourceDocument(BaseModel):
     doc_id: str = Field(..., description="ID tài liệu")
     title: str = Field(..., description="Tên tài liệu trích dẫn")
