@@ -17,11 +17,13 @@ export class CommunityController {
   @ApiOperation({ summary: 'Lấy danh sách các bài viết thảo luận' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'group_id', required: false, type: String })
   async getPosts(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('group_id') groupId?: string,
   ) {
-    return this.communityService.getPosts(page, limit);
+    return this.communityService.getPosts(page, limit, undefined, groupId);
   }
 
   @Post('posts')

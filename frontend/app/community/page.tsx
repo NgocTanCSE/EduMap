@@ -17,6 +17,7 @@ export default function CommunityPage() {
   const [hasMore, setHasMore] = useState(true);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   // Create Post State
   const [isCreating, setIsCreating] = useState(false);
@@ -25,14 +26,17 @@ export default function CommunityPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchPosts();
-    fetchGroups();
-  }, [page]);
+    fetchPosts(selectedGroupId || undefined);
+  }, [page, selectedGroupId]);
 
-  const fetchPosts = async () => {
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchPosts = async (groupId?: string) => {
     try {
       if (page === 1) setLoading(true);
-      const data = await communityService.getPosts(page, 10);
+      const data = await communityService.getPosts(page, 10, groupId);
       
       if (page === 1) {
         setPosts(data.posts || []);
@@ -47,6 +51,17 @@ export default function CommunityPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTagClick = (tag: string) => {
+    const group = groups.find(g => `#${g.name?.replace(/\s+/g, '')}` === tag);
+    if (group) {
+      setSelectedGroupId(group.id);
+    }
+  };
+
+  const handleGroupClick = (groupId: string) => {
+    setSelectedGroupId(groupId);
   };
 
   const fetchGroups = async () => {
@@ -118,14 +133,32 @@ export default function CommunityPage() {
           <header className="flex justify-between items-center bg-zinc-900/60 p-6 rounded-3xl border border-white/10 backdrop-blur-xl">
             <div>
               <h1 className="text-2xl font-black mb-1">Cộng đồng EduMap</h1>
-              <p className="text-gray-400 text-sm">Hỏi đáp, chia sẻ và kết nối</p>
+              <p className="text-gray-400 text-sm">
+                {selectedGroupId
+                  ? `Đang xem: ${groups.find(g => g.id === selectedGroupId)?.name || '...'}`
+                  : 'Hỏi đáp, chia sẻ và kết nối'
+                }
+              </p>
             </div>
-            <button 
-                onClick={() => setIsCreating(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-purple-500/20 active:scale-95 flex items-center gap-2"
-            >
-                <FileText size={18} /> Đăng bài
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedGroupId && (
+                <button
+                  onClick={() => {
+                    setSelectedGroupId(null);
+                    setPage(1);
+                  }}
+                  className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+              <button 
+                  onClick={() => setIsCreating(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-purple-500/20 active:scale-95 flex items-center gap-2"
+              >
+                  <FileText size={18} /> Đăng bài
+              </button>
+            </div>
           </header>
 
           {/* Create Post Modal */}
@@ -258,7 +291,10 @@ export default function CommunityPage() {
                     <h3 className="font-bold text-sm text-gray-300 flex items-center gap-2 uppercase tracking-widest"><Flame size={16} className="text-orange-500"/> Xu hướng</h3>
                     <ul className="space-y-3">
                         {trendingTags.length > 0 ? trendingTags.map((tag, i) => (
-                            <li key={i} className="text-sm text-gray-400 hover:text-purple-400 cursor-pointer transition-colors font-medium">
+                            <li key={i} 
+                                className="text-sm text-gray-400 hover:text-purple-400 cursor-pointer transition-colors font-medium"
+                                onClick={() => handleTagClick(tag)}
+                            >
                                 {tag}
                             </li>
                         )) : (
@@ -271,11 +307,14 @@ export default function CommunityPage() {
                     <h3 className="font-bold text-sm text-gray-300 flex items-center gap-2 uppercase tracking-widest"><Users size={16} className="text-blue-500"/> Nhóm nổi bật</h3>
                     <div className="space-y-3">
                         {groups.length > 0 ? groups.slice(0, 3).map((group, i) => (
-                            <div key={group.id || i} className="flex items-center gap-3 group cursor-pointer">
-                                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-xs font-black text-gray-500 group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-all">
+                            <div key={group.id || i} 
+                                className="flex items-center gap-3 group cursor-pointer"
+                                onClick={() => handleGroupClick(group.id)}
+                            >
+                                <div className={`w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-xs font-black text-gray-500 group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-all ${selectedGroupId === group.id ? 'bg-blue-500/20 text-blue-400' : ''}`}>
                                     {(group.name || 'G')[0]}
                                 </div>
-                                <span className="text-sm text-gray-400 group-hover:text-white font-medium transition-colors">{group.name}</span>
+                                <span className={`text-sm text-gray-400 group-hover:text-white font-medium transition-colors ${selectedGroupId === group.id ? 'text-white font-bold' : ''}`}>{group.name}</span>
                             </div>
                         )) : (
                             <div className="text-sm text-gray-500 italic">Chưa có nhóm nào</div>

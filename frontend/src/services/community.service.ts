@@ -66,12 +66,16 @@ class CommunityService {
     }
   }
 
-  /**
-   * Lấy danh sách bài đăng (có phân trang)
-   */
-  async getPosts(page: number = 1, limit: number = 10): Promise<{posts: Post[], total: number}> {
+/**
+    * Lấy danh sách bài đăng (có phân trang)
+    */
+  async getPosts(page: number = 1, limit: number = 10, groupId?: string): Promise<{posts: Post[], total: number}> {
+    let url = `${this.API_URL}/posts?page=${page}&limit=${limit}`;
+    if (groupId) {
+      url += `&group_id=${groupId}`;
+    }
     try {
-      const response = await fetch(`${this.API_URL}/posts?page=${page}&limit=${limit}`);
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Không thể tải bài viết');
       return await response.json();
     } catch (error) {

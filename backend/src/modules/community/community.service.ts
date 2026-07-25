@@ -45,12 +45,18 @@ export class CommunityService {
     };
   }
 
-  /**
-   * Lấy danh sách tất cả các bài đăng (Có phân trang)
-   */
-  async getPosts(page: number = 1, limit: number = 10) {
+/**
+    * Lấy danh sách tất cả các bài đăng (Có phân trang và tìm kiếm)
+    */
+  async getPosts(page: number = 1, limit: number = 10, search?: string, groupId?: string) {
+    const whereCondition: any = { status: 'active' };
+
+    if (groupId) {
+      whereCondition.group_id = groupId;
+    }
+
     const [posts, total] = await this.postRepo.findAndCount({
-      where: { status: 'active' }, // Chỉ lấy bài đã duyệt
+      where: whereCondition,
       relations: ['author', 'group'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
