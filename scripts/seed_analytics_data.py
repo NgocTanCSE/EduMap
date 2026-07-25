@@ -52,7 +52,7 @@ for year in [2022, 2023, 2024]:
     for region in regions:
         for metric_name, min_v, max_v in metrics:
             val = random.uniform(min_v, max_v)
-            sql.append(f"INSERT INTO education_stats (region, province, metric_type, value, year) VALUES ({escape(region)}, {escape(region)}, {escape(metric_name)}, {val}, {year});")
+            sql.append(f"INSERT INTO education_stats (region, province, metric_type, metric_value, year) VALUES ({escape(region)}, {escape(region)}, {escape(metric_name)}, {val}, {year});")
 
 # Write to file
 with open('backend/src/database/migrations/seed_analytics.sql', 'w', encoding='utf-8') as f:

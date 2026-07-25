@@ -32,6 +32,9 @@ async def get_trends():
             return {"status": "offline", "message": "AI Service offline - configure GEMINI_API_KEY for market trends."}
         
         df = pd.DataFrame(stats_data)
+        # Rename metric_value to value for frontend compatibility
+        if 'metric_value' in df.columns:
+            df = df.rename(columns={'metric_value': 'value'})
         trending_skills = [
             {"name": "AI Engineering", "growth": "+95%"},
             {"name": "Sustainability", "growth": "+80%"},

@@ -43,11 +43,11 @@ async def get_stats():
     it_df = it_df.sort_values('year')
 
     # 2. Phân tích Xu hướng
-    it_df['growth_rate'] = it_df['value'].pct_change() * 100
+    it_df['growth_rate'] = it_df['metric_value'].pct_change() * 100
     avg_growth = it_df['growth_rate'].mean() if not it_df['growth_rate'].isnull().all() else 15.0
 
     # 3. Thuật toán Dự báo tương lai
-    last_val = it_df['value'].iloc[-1]
+    last_val = it_df['metric_value'].iloc[-1]
     pred_2025 = int(last_val * (1 + avg_growth/100))
     
     # Get user events for insights
@@ -58,6 +58,8 @@ async def get_stats():
         top_event = event_df['event_type'].mode()[0] if not event_df.empty else "N/A"
 
     # Đóng gói dữ liệu trả về cho Frontend vẽ Chart
+    # Rename metric_value to value for frontend compatibility
+    it_df = it_df.rename(columns={'metric_value': 'value'})
     response_data = {
         "status": "success",
         "historical_data": it_df.fillna(0).to_dict(orient="records"),
