@@ -1,46 +1,61 @@
-import traceback
-from fastapi import FastAPI, Body
-from services.llm_service import llm_service
-from services.db_service import db_service
-import pandas as pd
+import os
+print("AI SERVICE MAIN STARTED")
+print("PID:", os.getpid())
 
-print("AI SERVICE: Starting imports...")
+try:
+    from routers.chat import chat
+    print("AI SERVICE IMPORTED chat")
+except Exception as e:
+    print("AI SERVICE IMPORT FAILED chat:", e)
 
-from routers.chat import chat
-print("AI SERVICE: chat router imported")
+try:
+    from fastapi import FastAPI, Body
+    print("AI SERVICE IMPORTED fastapi")
+except Exception as e:
+    print("AI SERVICE IMPORT FAILED fastapi:", e)
 
-from routers.suggestions import suggestions
-print("AI SERVICE: suggestions router imported")
+try:
+    app = FastAPI(title="EduMap AI Service")
+    print("AI SERVICE FastAPI app created")
+except Exception as e:
+    print("AI SERVICE FastAPI CREATE FAILED:", e)
+    raise
 
-from routers.analytics import analytics
-print("AI SERVICE: analytics router imported")
+try:
+    from routers.chat import chat
+    from routers.suggestions import suggestions
+    from routers.analytics import analytics
+    from routers.career import career
+    from routers.geo import geo
+    from routers.learning_path import learning_path
+    from routers.mentor import mentor
+    from routers.moderation import moderation
+    from routers.search import search
+    from routers.library import library
+    from routers.scholarship import scholarship
+    from routers.predictive import predictive
+    print("AI SERVICE all routers imported")
+except Exception as e:
+    print("AI SERVICE router import failed:", e)
+    raise
 
-from routers.career import career
-print("AI SERVICE: career router imported")
-
-from routers.geo import geo
-print("AI SERVICE: geo router imported")
-
-from routers.learning_path import learning_path
-print("AI SERVICE: learning_path router imported")
-
-from routers.mentor import mentor
-print("AI SERVICE: mentor router imported")
-
-from routers.moderation import moderation
-print("AI SERVICE: moderation router imported")
-
-from routers.search import search
-print("AI SERVICE: search router imported")
-
-from routers.library import library
-print("AI SERVICE: library router imported")
-
-from routers.scholarship import scholarship
-print("AI SERVICE: scholarship router imported")
-
-from routers.predictive import predictive
-print("AI SERVICE: predictive router imported")
+try:
+    from routers.chat import chat
+    from routers.suggestions import suggestions
+    from routers.analytics import analytics
+    from routers.career import career
+    from routers.geo import geo
+    from routers.learning_path import learning_path
+    from routers.mentor import mentor
+    from routers.moderation import moderation
+    from routers.search import search
+    from routers.library import library
+    from routers.scholarship import scholarship
+    from routers.predictive import predictive
+    print("AI SERVICE all routers imported")
+except Exception as e:
+    print("AI SERVICE router import failed:", e)
+    raise
 
 try:
     print("AI SERVICE: Creating FastAPI app...")
