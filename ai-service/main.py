@@ -3,6 +3,19 @@ from services.llm_service import llm_service
 from services.db_service import db_service
 import pandas as pd
 
+from routers.chat import chat
+from routers.suggestions import suggestions
+from routers.analytics import analytics
+from routers.career import career
+from routers.geo import geo
+from routers.learning_path import learning_path
+from routers.mentor import mentor
+from routers.moderation import moderation
+from routers.search import search
+from routers.library import library
+from routers.scholarship import scholarship
+from routers.predictive import predictive
+
 app = FastAPI(title="EduMap AI Service")
 
 app.include_router(chat.router, prefix="/api/ai")

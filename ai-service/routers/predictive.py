@@ -51,10 +51,7 @@ async def predict_career_path(request: CareerPredictionRequest):
         prediction = predictive_service.predict_career_path(user_history)
         
         # Bổ sung gợi ý AI chi tiết
-        ai_suggestion = await llm_service.get_suggestions(
-            skills=request.skills,
-            interests=request.interests
-        )
+        ai_suggestion = await llm_service.get_suggestions()
         
         return {
             "status": "success",
@@ -89,7 +86,7 @@ async def get_market_data():
     try:
         return {
             "status": "success",
-            "market_trends": predictive_service.market_trends,
+            "market_trends": predictive_service.get_market_trends(),
             "last_updated": "2026-06-15",
             "source": "EduMap Analytics"
         }
