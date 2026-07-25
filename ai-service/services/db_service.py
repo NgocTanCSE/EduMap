@@ -27,6 +27,7 @@ class DBService:
                 print(f"DB connection attempt {i+1}/{max_retries} failed: {e}")
                 if i < max_retries - 1:
                     time.sleep(delay)
+        print("DB connection FAILED after all retries")
 
     def get_user_events(self, limit=1000):
         if not self.conn: return []

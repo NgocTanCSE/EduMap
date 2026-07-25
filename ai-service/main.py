@@ -4,34 +4,84 @@ from services.llm_service import llm_service
 from services.db_service import db_service
 import pandas as pd
 
+print("AI SERVICE: Starting imports...")
+
 from routers.chat import chat
+print("AI SERVICE: chat router imported")
+
 from routers.suggestions import suggestions
+print("AI SERVICE: suggestions router imported")
+
 from routers.analytics import analytics
+print("AI SERVICE: analytics router imported")
+
 from routers.career import career
+print("AI SERVICE: career router imported")
+
 from routers.geo import geo
+print("AI SERVICE: geo router imported")
+
 from routers.learning_path import learning_path
+print("AI SERVICE: learning_path router imported")
+
 from routers.mentor import mentor
+print("AI SERVICE: mentor router imported")
+
 from routers.moderation import moderation
+print("AI SERVICE: moderation router imported")
+
 from routers.search import search
+print("AI SERVICE: search router imported")
+
 from routers.library import library
+print("AI SERVICE: library router imported")
+
 from routers.scholarship import scholarship
+print("AI SERVICE: scholarship router imported")
+
 from routers.predictive import predictive
+print("AI SERVICE: predictive router imported")
 
 try:
+    print("AI SERVICE: Creating FastAPI app...")
     app = FastAPI(title="EduMap AI Service")
+    print("AI SERVICE: FastAPI app created")
 
     app.include_router(chat.router, prefix="/api/ai")
+    print("AI SERVICE: chat router included")
+
     app.include_router(suggestions.router, prefix="/api/ai")
+    print("AI SERVICE: suggestions router included")
+
     app.include_router(analytics.router)
+    print("AI SERVICE: analytics router included")
+
     app.include_router(career.router)
+    print("AI SERVICE: career router included")
+
     app.include_router(geo.router)
+    print("AI SERVICE: geo router included")
+
     app.include_router(learning_path.router)
+    print("AI SERVICE: learning_path router included")
+
     app.include_router(mentor.router)
+    print("AI SERVICE: mentor router included")
+
     app.include_router(moderation.router)
+    print("AI SERVICE: moderation router included")
+
     app.include_router(search.router)
+    print("AI SERVICE: search router included")
+
     app.include_router(library.router)
+    print("AI SERVICE: library router included")
+
     app.include_router(scholarship.router)
+    print("AI SERVICE: scholarship router included")
+
     app.include_router(predictive.router)
+    print("AI SERVICE: predictive router included")
 
     @app.get("/api/ai/trends")
     async def get_trends():
@@ -90,6 +140,8 @@ try:
     @app.get("/")
     async def root():
         return {"message": "EduMap AI Service is running with Gemini Pro Engine!"}
+
+    print("AI SERVICE: Startup completed successfully")
 
 except Exception as startup_error:
     print("FATAL AI SERVICE STARTUP ERROR:")
