@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import time
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
@@ -8,16 +9,24 @@ load_dotenv()
 class DBService:
     def __init__(self):
         self.conn = None
-        try:
-            self.conn = psycopg2.connect(
-                host=os.getenv("DB_HOST", "localhost"),
-                port=os.getenv("DB_PORT", "5432"),
-                database=os.getenv("DB_DATABASE", "edumap_db"),
-                user=os.getenv("DB_USERNAME", "admin"),
-                password=os.getenv("DB_PASSWORD", "password123")
-            )
-        except Exception as e:
-            print(f"Error connecting to DB: {e}")
+        self._connect_with_retry()
+
+    def _connect_with_retry(self, max_retries=10, delay=2):
+        for i in range(max_retries):
+            try:
+                self.conn = psycopg2.connect(
+                    host=os.getenv("DB_HOST", "localhost"),
+                    port=os.getenv("DB_PORT", "5432"),
+                    database=os.getenv("DB_DATABASE", "edumap_db"),
+                    user=os.getenv("DB_USERNAME", "admin"),
+                    password=os.getenv("DB_PASSWORD", "password123")
+                )
+                print("DB connection successful")
+                return
+            except Exception as e:
+                print(f"DB connection attempt {i+1}/{max_retries} failed: {e}")
+                if i < max_retries - 1:
+                    time.sleep(delay)
 
     def get_user_events(self, limit=1000):
         if not self.conn: return []
@@ -37,6 +46,16 @@ class DBService:
                 return cur.fetchall()
         except Exception as e:
             print(f"Error fetching education stats: {e}")
+            return []
+
+    def get_education_stats_all(self):
+        if not self.conn: return []
+        try:
+            with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM education_stats ORDER BY year DESC")
+                return cur.fetchall()
+        except Exception as e:
+            print(f"Error fetching all education stats: {e}")
             return []
 
     def get_nearby_locations(self, lat, lng, radius_km=5.0, category=None, limit=50):

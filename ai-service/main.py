@@ -1,8 +1,19 @@
 from fastapi import FastAPI, Body
 from services.llm_service import llm_service
 from services.db_service import db_service
-from routers import analytics, career, geo, learning_path, mentor, moderation, search, library, scholarship, chat, suggestions, predictive
 import pandas as pd
+import asyncio
+
+app = FastAPI(title="EduMap AI Service")
+
+async def init_db():
+    await asyncio.sleep(1)
+    if db_service.conn is None:
+        db_service._connect_with_retry()
+
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
 
 app = FastAPI(title="EduMap AI Service")
 
