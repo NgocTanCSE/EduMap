@@ -2,22 +2,9 @@ from fastapi import FastAPI, Body
 from services.llm_service import llm_service
 from services.db_service import db_service
 import pandas as pd
-import asyncio
 
 app = FastAPI(title="EduMap AI Service")
 
-async def init_db():
-    await asyncio.sleep(1)
-    if db_service.conn is None:
-        db_service._connect_with_retry()
-
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
-
-app = FastAPI(title="EduMap AI Service")
-
-# Include Routers
 app.include_router(chat.router, prefix="/api/ai")
 app.include_router(suggestions.router, prefix="/api/ai")
 app.include_router(analytics.router)
@@ -37,13 +24,12 @@ async def get_trends():
         if llm_service.is_ready:
             market_logs = [{"keyword": "AI"}, {"keyword": "Industrial"}]
             return await llm_service.analyze_market_trends(market_logs)
-        
+
         stats_data = db_service.get_education_stats(year=2024)
         if not stats_data:
             return {"status": "offline", "message": "AI Service offline - configure GEMINI_API_KEY for market trends."}
-        
+
         df = pd.DataFrame(stats_data)
-        # Rename metric_value to value for frontend compatibility
         if 'metric_value' in df.columns:
             df = df.rename(columns={'metric_value': 'value'})
         trending_skills = [
@@ -52,9 +38,9 @@ async def get_trends():
             {"name": "Cybersecurity", "growth": "+75%"},
             {"name": "Cloud Computing", "growth": "+70%"}
         ]
-        
+
         it_df = df[df['metric_type'].str.contains('IT', case=False)] if not df.empty and 'metric_type' in df.columns else df
-        
+
         return {
             "status": "success",
             "historical_data": df.to_dict(orient="records") if not df.empty else [],
