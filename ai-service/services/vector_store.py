@@ -1,13 +1,25 @@
-import chromadb
 import os
+try:
+    import chromadb
+except ImportError:
+    chromadb = None
 from typing import List, Dict
 
 class VectorStoreService:
     def __init__(self):
-        db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-        self.client = chromadb.PersistentClient(path=db_path)
-        self.collection = self.client.get_or_create_collection(name="edumap_docs")
-        
+        self.collection = None
+        if chromadb is None:
+            print("ChromaDB module not available. Vector store disabled.")
+            return
+        try:
+            db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+            self.client = chromadb.PersistentClient(path=db_path)
+            self.collection = self.client.get_or_create_collection(name="edumap_docs")
+            print(f"Vector store initialized at {db_path}")
+        except Exception as e:
+            print(f"Vector store initialization failed: {e}")
+            self.collection = None
+
         self.api_key = os.getenv("GEMINI_API_KEY")
         if self.api_key:
             try:

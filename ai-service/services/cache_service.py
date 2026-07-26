@@ -1,14 +1,21 @@
 import os
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 import json
 from functools import wraps
 
 class CacheService:
     def __init__(self):
+        self.enabled = False
+        self.redis_client = None
+        if redis is None:
+            print("Redis module not available. Caching disabled.")
+            return
         self.enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
         self.redis_host = os.getenv("REDIS_HOST", "localhost")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
-        self.redis_client = None
         
         if self.enabled:
             hosts_to_try = [self.redis_host, "redis", "localhost", "127.0.0.1"]

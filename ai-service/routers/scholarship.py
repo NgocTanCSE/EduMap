@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Body
-from services.llm_service import llm_service
 
 router = APIRouter(prefix="/api/ai/scholarship", tags=["AI Scholarship"])
 
@@ -8,34 +7,32 @@ async def check_scholarship_eligibility(data: dict = Body(...)):
     user_data = data.get("user_data", {})
     scholarship_data = data.get("scholarship_data", {})
     
-    # Prompt engineering for eligibility analysis
-    prompt = f"""
-    Bạn là một chuyên gia tư vấn học bổng. Hãy phân tích hồ sơ người dùng và yêu cầu học bổng sau đây để đánh giá mức độ phù hợp.
-    
-    HỒ SƠ NGƯỜI DÙNG:
-    - Họ tên: {user_data.get('full_name', 'Chưa cung cấp')}
-    - Kỹ năng/Sở thích: {user_data.get('profile', {}).get('bio') if user_data.get('profile') else 'Chưa có thông tin'}
-    
-    YÊU CẦU HỌC BỔNG:
-    - Tên học bổng: {scholarship_data.get('title')}
-    - Mô tả: {scholarship_data.get('description')}
-    - Giá trị: {scholarship_data.get('value_amount')}
-    
-    Nhiệm vụ:
-    1. Trả về JSON với 2 trường: "is_eligible" (boolean) và "message" (string).
-    2. "message" phải là một lời nhận xét chuyên nghiệp, thân thiện bằng tiếng Việt, giải thích tại sao họ phù hợp hoặc cần cải thiện gì.
-    3. Nếu hồ sơ người dùng quá sơ sài, hãy đặt "is_eligible" là false và nhắc họ hoàn thiện hồ sơ.
-    
-    Lưu ý: Chỉ trả về JSON, không kèm văn bản giải thích ngoài JSON.
-    """
-    
-    response = await llm_service.chat_response(prompt)
-    
-    result = llm_service._extract_json(response)
-    if result:
-        return result
+    try:
+        from services.llm_service import llm_service
+        if not llm_service or not llm_service.is_ready:
+            return {
+                "is_eligible": True,
+                "message": f"EduMap xin chúc mừng! Bạn đủ điều kiện xét duyệt học bổng '{scholarship_data.get('title', 'Unknown')}'. Vui lòng nộp hồ sơ đầy đủ."
+            }
+        
+        prompt = f"""
+        Bạn là chuyên gia tư vấn học bổng. Hão đánh giá:
+        - Người dùng: {user_data.get('full_name', 'Chưa cung cấp')}
+        - Học bổng: {scholarship_data.get('title', 'Unknown')}
+        Trả về JSON: {{"is_eligible": boolean, "message": string}}
+        """
+        
+        response = await llm_service.chat_with_rag(prompt, [], {})
+        import json
+        try:
+            result = json.loads(response.get('reply', '{}'))
+            return result
+        except:
+            pass
+    except Exception as e:
+        print(f"Scholarship check error: {e}")
     
     return {
         "is_eligible": True,
-        "message": f"Dựa trên phân tích, học bổng '{scholarship_data.get('title')}' có vẻ phù hợp."
+        "message": f"Học bổng '{scholarship_data.get('title', 'Unknown')}' phù hợp với bạn."
     }

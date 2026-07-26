@@ -6,7 +6,8 @@ router = APIRouter(prefix="/api/ai/search", tags=["3. Semantic Search"])
 @router.get("/")
 async def semantic_search(q: str, limit: int = 5):
     try:
-        # ChromaDB sẽ tự động nhúng (embed) câu query 'q' và đo khoảng cách Cosine
+        if vector_store is None or vector_store.collection is None:
+            return {"status": "success", "message": "Tìm kiếm tạm thời không khả dụng.", "data": []}
         results = vector_store.search_similar(query=q, top_k=limit)
         
         if not results:
@@ -19,4 +20,4 @@ async def semantic_search(q: str, limit: int = 5):
         }
     except Exception as e:
         print(f"Lỗi Semantic Search: {str(e)}")
-        raise HTTPException(status_code=500, detail="Lỗi khi tìm kiếm ngữ nghĩa.")
+        return {"status": "error", "message": "Lỗi khi tìm kiếm ngữ nghĩa.", "data": []}

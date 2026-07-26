@@ -11,7 +11,7 @@ class DBService:
         self.conn = None
         self._connect_with_retry()
 
-    def _connect_with_retry(self, max_retries=10, delay=2):
+    def _connect_with_retry(self, max_retries=3, delay=1):
         for i in range(max_retries):
             try:
                 self.conn = psycopg2.connect(

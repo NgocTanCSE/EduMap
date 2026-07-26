@@ -1,16 +1,44 @@
 import os
 import json
 import hashlib
-from google.genai import Client
-from google.genai import types as genai_types
+try:
+    from google.genai import Client
+    from google.genai import types as genai_types
+except ImportError:
+    Client = None
+    genai_types = None
 from dotenv import load_dotenv
-from services.cache_service import cache_service
-from models.career_models import CareerAnalysisRequest
-from models.chat_models import ChatRequest, ChatResponse, ChatMessage
-from models.learning_models import LearningPathRequest
-from models.library_models import MaterialSummaryRequest
-from models.mentor_models import MatchRequest
-from models.geo_models import GeoDensityAnalysisRequest
+try:
+    from services.cache_service import cache_service
+except Exception as e:
+    print(f"Cache service import failed: {e}")
+    cache_service = None
+try:
+    from models.career_models import CareerAnalysisRequest
+except Exception:
+    CareerAnalysisRequest = None
+try:
+    from models.chat_models import ChatRequest, ChatResponse, ChatMessage
+except Exception:
+    ChatRequest = None
+    ChatResponse = None
+    ChatMessage = None
+try:
+    from models.learning_models import LearningPathRequest
+except Exception:
+    LearningPathRequest = None
+try:
+    from models.library_models import MaterialSummaryRequest
+except Exception:
+    MaterialSummaryRequest = None
+try:
+    from models.mentor_models import MatchRequest
+except Exception:
+    MatchRequest = None
+try:
+    from models.geo_models import GeoDensityAnalysisRequest
+except Exception:
+    GeoDensityAnalysisRequest = None
 
 load_dotenv()
 
