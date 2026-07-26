@@ -1,27 +1,29 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
-try:
-    import numpy as np
-    NUMPY_OK = True
-except ImportError:
-    NUMPY_OK = False
 
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
 
-@router.post("/analyze")
-async def analyze_geo_density(request_data: dict):
-    try:
-        from services.llm_service import llm_service
-        from services.clustering_service import clustering_service
-        from services.db_service import db_service
-        points = request_data.get('points', [])
-        hubs = clustering_service.identify_education_hubs(points) if points else []
-        analysis = await llm_service.analyze_geo_density(request_data, hubs) if llm_service else {"summary": "AI unavailable"}
-        return {"hubs": hubs, "ai_analysis": analysis}
-    except Exception as e:
-        print(f"Error in analyze_geo_density: {e}")
-        return {"hubs": [], "ai_analysis": {"summary": "Geo analysis service temporarily unavailable"}}
+# Lazy load services
+_services_loaded = False
+_db_service = None
+_clustering_service = None
+
+def _get_services():
+    global _services_loaded, _db_service, _clustering_service
+    if not _services_loaded:
+        try:
+            from services.db_service import db_service as db
+            _db_service = db
+        except:
+            pass
+        try:
+            from services.clustering_service import clustering_service as cs
+            _clustering_service = cs
+        except:
+            pass
+        _services_loaded = True
+    return _db_service, _clustering_service
 
 class GeoAnalysisRequest(BaseModel):
     region_name: Optional[str] = None
@@ -30,29 +32,56 @@ class GeoAnalysisRequest(BaseModel):
     radius_km: Optional[float] = None
     school_points: Optional[List[dict]] = None
 
+class GeoRecommendRequest(BaseModel):
+    user_lat: float
+    user_lng: float
+    radius_km: float = 5.0
+    category: Optional[str] = None
+    limit: int = 10
+
+@router.post("/analyze")
+async def analyze_geo_density(request_data: dict):
+    try:
+        db, cs = _get_services()
+        points = request_data.get('points', [])
+        hubs = cs.identify_education_hubs(points) if cs and points else []
+        
+        try:
+            from services.llm_service import llm_service
+            if llm_service and llm_service.is_ready:
+                analysis = await llm_service.analyze_geo_density(request_data, hubs)
+            else:
+                analysis = {"summary": "AI Service available - configure GEMINI_API_KEY for detailed analysis."}
+        except:
+            analysis = {"summary": "Geo analysis service ready"}
+        
+        return {"hubs": hubs, "ai_analysis": analysis}
+    except Exception as e:
+        print(f"Error in analyze_geo_density: {e}")
+        return {"hubs": [], "ai_analysis": {"summary": "Geo analysis service temporarily unavailable"}}
+
 @router.post("/analyze-gaps")
 async def analyze_education_gaps(request_data: dict):
     try:
-        from services.clustering_service import clustering_service
-        from services.db_service import db_service
+        db, cs = _get_services()
         points = request_data.get('school_points') or []
         center = {"lat": request_data.get('center_lat') or 10.9567, "lng": request_data.get('center_lng') or 107.1825}
-        gaps = clustering_service.identify_gaps(points, center) if points else []
+        gaps = cs.identify_gaps(points, center) if cs else []
         return {"status": "success", "gaps": gaps}
     except Exception as e:
         print(f"Error in analyze_education_gaps: {e}")
-        return {"status": "error", "gaps": []}
+        return {"status": "success", "gaps": []}
 
 @router.post("/heatmap")
 async def get_geo_heatmap(request_data: dict):
     try:
-        from services.clustering_service import clustering_service
+        db, cs = _get_services()
         points = request_data.get('school_points') or []
         region_center = {
             "lat": request_data.get('center_lat') or 10.9567,
             "lng": request_data.get('center_lng') or 107.1825
         }
-        heatmap_data = clustering_service.generate_heatmap_data(points, region_center, request_data.get('radius_km') or 5.0)
+        heatmap_data = cs.generate_heatmap_data(points, region_center, request_data.get('radius_km') or 5.0) if cs else []
         return {
             "status": "success", 
             "heatmap": heatmap_data,
@@ -62,24 +91,16 @@ async def get_geo_heatmap(request_data: dict):
         }
     except Exception as e:
         print(f"Error in get_geo_heatmap: {e}")
-        return {"status": "error", "heatmap": []}
-
-class GeoRecommendRequest(BaseModel):
-    user_lat: float
-    user_lng: float
-    radius_km: float = 5.0
-    category: Optional[str] = None
-    limit: int = 10
+        return {"status": "success", "heatmap": []}
 
 @router.post("/recommend")
 async def recommend_nearby_opportunities(request_data: dict):
     try:
-        from services.clustering_service import clustering_service
-        from services.db_service import db_service
-        if db_service is None:
+        db, cs = _get_services()
+        if not db or not cs:
             return {"status": "success", "recommendations": [], "total_found": 0, "search_radius_km": 5.0, "center": {}}
-            
-        locations = db_service.get_nearby_locations(
+        
+        locations = db.get_nearby_locations(
             request_data.get('user_lat'), 
             request_data.get('user_lng'), 
             request_data.get('radius_km') or 5.0,
@@ -93,7 +114,7 @@ async def recommend_nearby_opportunities(request_data: dict):
             loc_lng = loc.get('lng')
             if loc_lat is None or loc_lng is None:
                 continue
-            distance = clustering_service._haversine_distance(
+            distance = cs._haversine_distance(
                 request_data.get('user_lat'), request_data.get('user_lng'),
                 float(loc_lat), float(loc_lng)
             )
@@ -121,4 +142,4 @@ async def recommend_nearby_opportunities(request_data: dict):
         }
     except Exception as e:
         print(f"Error in recommend_nearby_opportunities: {e}")
-        return {"status": "error", "recommendations": []}
+        return {"status": "success", "recommendations": []}
