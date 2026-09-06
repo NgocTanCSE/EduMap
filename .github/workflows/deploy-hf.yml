@@ -16,7 +16,7 @@ jobs:
           lfs: true
 
       - name: Install dependencies
-        run: pip install "huggingface_hub[xet]"
+        run: pip install --upgrade "huggingface_hub[xet]"
 
       - name: Push to Hugging Face
         env:
@@ -27,7 +27,7 @@ jobs:
           # Configure git user
           git config --global user.email "actions@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
-          # Integrate Xet for binary file storage (replaces Git LFS for .docx, .doc, .png, etc.)
-          python -c "from huggingface_hub.xet import xet_git_config_path; print(xet_git_config_path())" | xargs -I {} git config --local include.path {}
+          # Install and configure Xet for binary file storage (replaces Git LFS)
+          huggingface-cli xet-install
           # Push to Hugging Face (Xet will handle binary files automatically)
           git push --force hf HEAD:main
