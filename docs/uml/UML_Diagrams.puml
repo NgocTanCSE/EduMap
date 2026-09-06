@@ -1,0 +1,3676 @@
+' =============================================================================
+' PlantUML — EduMap Comprehensive UML Documentation
+' This file contains all UML diagrams for the EduMap project:
+'   1. Container Diagram
+'   2. Backend Module Dependency (C4 Container / Component)
+'   3. AI Service Component Diagram
+'   4. Entity Relationship Class Diagram (all backend entities)
+'   5. Deployment Diagram
+'   6. Sequence Diagrams (Login, AI Chat, Community Post, Business Checkout,
+'      Mentor Booking, Scholarship Eligibility)
+' =============================================================================
+
+' =============================================================================
+' 1. CONTAINER DIAGRAM
+' =============================================================================
+@startuml container-diagram
+!theme plain
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 35
+
+skinparam package {
+  BackgroundColor #F8F9FA
+  BorderColor #5F6368
+  FontColor #202124
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #1A73E8
+  FontColor #202124
+  FontSize 11
+}
+
+skinparam database {
+  BackgroundColor #E8F0FE
+  BorderColor #1967D2
+  FontColor #174EA6
+  FontSize 11
+}
+
+skinparam cloud {
+  BackgroundColor #FEF7E0
+  BorderColor #F9AB00
+  FontColor #B06000
+  FontSize 11
+}
+
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #5F6368
+  FontColor #202124
+  FontSize 11
+}
+
+title Container Diagram - EduMap System (C4 Model Level 2)
+
+' =============================================================================
+' 1. CLIENT LAYER
+' =============================================================================
+package "Client Layer" as CLIENT_LAYER #FAFAFA {
+  component "Web Browser\n[Next.js 14 SPA & SSR Client]" as WEB #FEFCE8
+  component "Mobile App\n[Expo / React Native Workflow]" as MOBILE #FEFCE8
+  WEB -right- MOBILE
+}
+
+' =============================================================================
+' 2. INGRESS & EDGE PROXY
+' =============================================================================
+package "Edge & Ingress Layer" as EDGE_LAYER #F1F5F9 {
+  component "Nginx Reverse Proxy / K8s Ingress\n(Port 80 / 443 — TLS Termination, Path Routing & Rate Limit)" as NGINX #EFF6FF
+}
+
+' =============================================================================
+' 3. APPLICATION CONTAINERS (EDUMAP PLATFORM CORE)
+' =============================================================================
+package "EduMap Core Application Containers" as APP_LAYER #FFFFFF {
+  
+  component "Frontend Web Application\n[Next.js 14 App Router, TypeScript, Tailwind CSS]\n• Server-Side Rendering (SSR) & ISR\n• Interactive Map UI & Student Dashboards\n(Internal Port: 3000)" as FRONTEND #F0FDF4
+
+  component "Backend API Gateway & Business Core\n[NestJS, TypeScript, Node.js 18+]\n• REST API Controller (35+ Modules)\n• WebSocket Gateway (Socket.IO Realtime)\n• JWT Authentication & RBAC Policy Engine\n(Internal Port: 3001)" as BACKEND #EFF6FF
+
+  component "AI Intelligence Microservice\n[FastAPI, Python 3.11]\n• Gemini RAG Engine & Dynamic Prompts\n• Machine Learning (scikit-learn & pandas)\n• 2-Tier Content Safety Moderation\n(Internal Port: 8000)" as AI #FFF7ED
+
+  FRONTEND -right- BACKEND
+  BACKEND -right- AI
+}
+
+' =============================================================================
+' 4. DATA & PERSISTENCE LAYER
+' =============================================================================
+package "Data & Storage Persistence Layer" as DATA_LAYER #F8FAFC {
+  database "PostgreSQL 16 + PostGIS 3.4\n(Relational & Spatial Database)\n• 48 Entities, PostGIS geography(Point, 4326)\n• Spatial Indexes & Full-text Search (pg_trgm)\n(Port: 5432)" as POSTGRES
+
+  database "Redis 7\n(In-Memory Cache & Message Broker)\n• Distributed Cache Manager\n• Socket.IO Redis Adapter Pub/Sub\n• BullMQ Asynchronous Task Queue\n(Port: 6379)" as REDIS
+
+  database "MinIO S3\n(Object Storage Service)\n• Buckets: learning-materials, avatars,\n  post-photos, certificate-pdfs, receipts\n(Port: 9000 / Console 9001)" as MINIO
+
+  database "ChromaDB\n(Vector Database)\n• Persistent Vector Collections (/app/chroma_db)\n• Document Chunks & Knowledge Embeddings" as CHROMA
+
+  POSTGRES -right- REDIS
+  REDIS -right- MINIO
+  MINIO -right- CHROMA
+}
+
+' =============================================================================
+' 5. EXTERNAL 3RD-PARTY CLOUD SERVICES
+' =============================================================================
+package "External Services & Cloud Ecosystem" as EXT_LAYER #FAFAFA {
+  cloud "Google Gemini API\n(Vertex AI / Google AI Studio)\n• Multimodal LLM Inference\n(gemini-2.5-flash / 1.5-flash)" as GEMINI
+
+  cloud "Payment Gateways\n• VNPay, MoMo, Stripe API\n(Checkout & IPN Webhook)" as PAYMENTS #F0FDF4
+
+  cloud "SMTP Mailer Service\n• Transactional Emails\n(Gmail / SendGrid SMTP)" as SMTP
+}
+
+' =============================================================================
+' TRAFFIC & INTERACTION FLOWS
+' =============================================================================
+CLIENT_LAYER -[hidden]down-> EDGE_LAYER
+EDGE_LAYER -[hidden]down-> APP_LAYER
+APP_LAYER -[hidden]down-> DATA_LAYER
+DATA_LAYER -[hidden]down-> EXT_LAYER
+
+' Client to Ingress
+WEB -down-> NGINX : HTTPS 443\n(Web traffic)
+MOBILE -down-> NGINX : HTTPS 443\n(API & Media)
+
+' Ingress to Containers
+NGINX -down-> FRONTEND : HTTP 3000\n(/ - Web Pages)
+NGINX -down-> BACKEND : HTTP 3001\n(/api/*, /api/socket.io)
+NGINX -down-> MINIO : HTTP 9000\n(/media/* static assets)
+
+' Application inter-service communications
+FRONTEND -down-> BACKEND : REST API / WebSocket\n(/api/* - client requests)
+BACKEND -down-> AI : HTTP REST (Axios)\n(Internal microservice RPC)
+
+' Backend to Data Stores
+BACKEND -down-> POSTGRES : TypeORM Pool\n(CRUD & Spatial Queries)
+BACKEND -down-> REDIS : Cache Manager,\nSocket.IO, BullMQ
+BACKEND -down-> MINIO : AWS S3 SDK\n(Upload & Download)
+
+' AI Service to Data Stores
+AI -down-> POSTGRES : psycopg2\n(Read stats, save chat history)
+AI -down-> REDIS : async redis client\n(Cache get / set)
+AI -down-> CHROMA : ChromaDB Native Client\n(Vector similarity search)
+
+' External Cloud Connections
+AI -down-> GEMINI : HTTPS REST\n(Prompt completion)
+BACKEND -down-> PAYMENTS : HTTPS REST / IPN\n(Process transactions)
+BACKEND -down-> SMTP : SMTP 587\n(Send verification & alerts)
+
+@enduml
+
+' =============================================================================
+' 2. Backend Module Dependency Diagram (NestJS C4 Components)
+' =============================================================================
+@startuml backend-module-dependency
+!theme plain
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 20
+skinparam ranksep 28
+
+skinparam package {
+  BackgroundColor #F8F9FA
+  BorderColor #5F6368
+  FontColor #202124
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #1A73E8
+  FontColor #202124
+  FontSize 10
+}
+
+skinparam database {
+  BackgroundColor #E8F0FE
+  BorderColor #1967D2
+  FontColor #174EA6
+  FontSize 10
+}
+
+skinparam cloud {
+  BackgroundColor #FEF7E0
+  BorderColor #F9AB00
+  FontColor #B06000
+  FontSize 10
+}
+
+title NestJS Module Architecture & Dependency Diagram - EduMap Backend
+
+' =============================================================================
+' LEFT WING: DOMAIN BOUNDED CONTEXTS (GEO, COMMERCE, OPERATIONS)
+' =============================================================================
+package "Domain: Education & Operations" as WING_LEFT #FAFAFA {
+
+  package "1. Geo Education & Facilities" as CTX_GEO #F0FDF4 {
+    component "MapModule\n(Location, MapPoint)" as MOD_MAP
+    component "StemModule\n(StemLab)" as MOD_STEM
+    component "LearningCommunityModule\n(LearningSpot)" as MOD_LC
+    component "WifiModule\n(WifiLocation)" as MOD_WIFI
+    component "MobileConfigModule\n(MobileUnit, Route)" as MOD_MOBILE
+
+    MOD_MAP -right- MOD_STEM
+    MOD_STEM -right- MOD_LC
+    MOD_WIFI -right- MOD_MOBILE
+    MOD_MAP -[hidden]down- MOD_WIFI
+  }
+
+  package "4. Commerce & Philanthropy" as CTX_BUS #FFF7ED {
+    component "BusinessModule\n(Product, Order, Cart)" as MOD_BUS
+    component "DonateModule\n(DonationCampaign)" as MOD_DONATE
+    component "ShareModule\n(SharedItem, Borrow)" as MOD_SHARE
+    component "CertificateModule\n(Template, UserCert)" as MOD_CERT
+
+    MOD_BUS -right- MOD_DONATE
+    MOD_SHARE -right- MOD_CERT
+    MOD_BUS -[hidden]down- MOD_SHARE
+  }
+
+  package "5. Operations & Analytics" as CTX_OPS #F1F5F9 {
+    component "AdminModule\n(UserManagement, Stats)" as MOD_ADMIN
+    component "AnalyticsModule\n(EducationStat, Event)" as MOD_ANALYTICS
+    component "DashboardModule\n(DashboardService)" as MOD_DASH
+    component "CrawlerModule\n(Automated Crawler ETL)" as MOD_CRAWLER
+    component "SurveyModule\n(Survey, Response)" as MOD_SURVEY
+
+    MOD_ADMIN -right- MOD_ANALYTICS
+    MOD_DASH -right- MOD_CRAWLER
+    MOD_ADMIN -[hidden]down- MOD_DASH
+    MOD_DASH -[hidden]down- MOD_SURVEY
+  }
+
+  CTX_GEO -[hidden]down- CTX_BUS
+  CTX_BUS -[hidden]down- CTX_OPS
+}
+
+' =============================================================================
+' CENTER SPINE: CORE PLATFORM & CROSS-CUTTING SERVICES
+' =============================================================================
+package "Core Platform & Cross-Cutting Services" as SPINE_CENTER #F8F9FA {
+
+  package "Security & Identity Management (IAM)" as PKG_IAM #EFF6FF {
+    component "AuthModule\n(AuthService, JwtAuthGuard)" as AUTH
+    component "RoleModule & AuditLog\n(Role, Module, AuditLog)" as ROLE_AUDIT
+    AUTH -right-> ROLE_AUDIT
+  }
+
+  package "Cross-Cutting Application Services" as PKG_SERVICES #FFFFFF {
+    component "PaymentModule\n(PaymentService — Gateways)" as PAY_MOD #F0FDF4
+    component "NotificationsModule\n(NotificationsService & WS)" as NOTIF_MOD #FAF5FF
+    component "BlockchainModule\n(Certificate Verification)" as BC_MOD #F3F4F6
+
+    component "StorageModule\n(StorageService — MinIO S3)" as STORAGE_MOD #EFF6FF
+    component "GamificationModule\n(Badges & Points System)" as GAMI_MOD #FEFCE8
+    component "AIModule\n(AIService — calls FastAPI)" as AI_MOD #FFF7ED
+
+    PAY_MOD -right- NOTIF_MOD
+    NOTIF_MOD -right- BC_MOD
+
+    STORAGE_MOD -right- GAMI_MOD
+    GAMI_MOD -right- AI_MOD
+
+    PAY_MOD -[hidden]down- STORAGE_MOD
+    NOTIF_MOD -[hidden]down- GAMI_MOD
+    BC_MOD -[hidden]down- AI_MOD
+  }
+
+  PKG_IAM -[hidden]down- PKG_SERVICES
+}
+
+' =============================================================================
+' RIGHT WING: DOMAIN BOUNDED CONTEXTS (ACADEMIC, CAREER, COMMUNITY)
+' =============================================================================
+package "Domain: Academic & Community" as WING_RIGHT #FAFAFA {
+
+  package "2. Academic, Career & Mentorship" as CTX_ACAD #FEFCE8 {
+    component "CareerModule\n(CareerPath, Job, Skill)" as MOD_CAREER
+    component "MentorModule\n(Mentor, Booking, Session)" as MOD_MENTOR
+    component "ScholarshipModule\n(Scholarship, Application)" as MOD_SCHOLAR
+    component "LibraryModule\n(LearningMaterial)" as MOD_LIB
+    component "InternshipModule\n(Internship, Application)" as MOD_INTERN
+    component "HsConnectionModule\n(Counseling, Q&A)" as MOD_HS
+    component "OpportunityModule\n(Opportunity)" as MOD_OPP
+
+    MOD_CAREER -right- MOD_MENTOR
+    MOD_MENTOR -right- MOD_SCHOLAR
+    MOD_LIB -right- MOD_INTERN
+    MOD_HS -right- MOD_OPP
+    MOD_CAREER -[hidden]down- MOD_LIB
+  }
+
+  package "3. Community, Social & Engagement" as CTX_COMM #F5F3FF {
+    component "CommunityModule\n(Group, Post, Chat)" as MOD_COMM
+    component "GreenModule\n(GreenChallenge)" as MOD_GREEN
+    component "VolunteerModule\n(VolunteerActivity)" as MOD_VOLUNTEER
+    component "EventsModule\n(Event, Registration)" as MOD_EVENTS
+    component "SummerModule\n(SummerCampaign)" as MOD_SUMMER
+    component "HackathonModule\n(Hackathon, Team)" as MOD_HACK
+    component "IntlModule\n(IntlProgram, Alumni)" as MOD_INTL
+
+    MOD_COMM -right- MOD_GREEN
+    MOD_GREEN -right- MOD_VOLUNTEER
+    MOD_EVENTS -right- MOD_SUMMER
+    MOD_HACK -right- MOD_INTL
+    MOD_COMM -[hidden]down- MOD_EVENTS
+  }
+
+  CTX_ACAD -[hidden]down- CTX_COMM
+}
+
+' Horizontal 3-column alignment
+WING_LEFT -[hidden]right- SPINE_CENTER
+SPINE_CENTER -[hidden]right- WING_RIGHT
+
+' =============================================================================
+' BOTTOM: INFRASTRUCTURE & EXTERNAL SYSTEMS
+' =============================================================================
+package "Infrastructure & External Cloud Services" as INFRA_SECTION #FFFFFF {
+  database "PostgreSQL 16 + PostGIS 3.4\n(TypeORM Entities & Spatial Indexes)" as DB_POSTGRES #EFF6FF
+  cloud "SMTP Mailer Service" as EXT_SMTP
+  cloud "Payment Gateways\n(VNPay, Momo, Stripe API)" as EXT_GATEWAY #F0FDF4
+  database "Redis 7\n(Cache Manager, Socket.IO & BullMQ)" as DB_REDIS #EFF6FF
+  cloud "MinIO S3\n(Object Storage: Media, PDFs)" as EXT_MINIO #EFF6FF
+  cloud "FastAPI AI Engine (Port 8000)\n(RAG Pipeline, Gemini LLM)" as EXT_FASTAPI #FFF7ED
+
+  DB_POSTGRES -right- EXT_SMTP
+  EXT_SMTP -right- EXT_GATEWAY
+  EXT_GATEWAY -right- DB_REDIS
+  DB_REDIS -right- EXT_MINIO
+  EXT_MINIO -right- EXT_FASTAPI
+}
+
+SPINE_CENTER -[hidden]down- INFRA_SECTION
+
+' =============================================================================
+' DEPENDENCY CONSUMPTION (WINGS POINTING INWARD TO SPINE)
+' =============================================================================
+
+' Right Wing -> AIModule
+MOD_COMM ..> AI_MOD : moderateContent
+MOD_CAREER ..> AI_MOD : career advice
+MOD_SCHOLAR ..> AI_MOD : scholarship check
+MOD_MENTOR ..> AI_MOD : mentor matching
+MOD_HS ..> AI_MOD : question answering
+
+' Left Wing -> AIModule
+MOD_CERT ..> AI_MOD : cert verification
+MOD_DASH ..> AI_MOD : AI metrics
+MOD_CRAWLER ..> AI_MOD : classification
+
+' Left Wing -> PaymentModule
+MOD_BUS ..> PAY_MOD : checkout payment
+MOD_DONATE ..> PAY_MOD : campaign donation
+
+' Right Wing -> PaymentModule
+MOD_MENTOR ..> PAY_MOD : booking fee
+
+' Right Wing -> NotificationsModule
+MOD_COMM ..> NOTIF_MOD : post & chat alerts
+MOD_MENTOR ..> NOTIF_MOD : booking reminders
+
+' Left Wing -> NotificationsModule
+MOD_BUS ..> NOTIF_MOD : order alerts
+
+' Wings -> StorageModule
+MOD_LIB ..> STORAGE_MOD : material PDFs
+MOD_BUS ..> STORAGE_MOD : product images
+MOD_CERT ..> STORAGE_MOD : cert PDFs
+
+' Right Wing -> GamificationModule
+MOD_VOLUNTEER ..> GAMI_MOD : volunteer points
+MOD_GREEN ..> GAMI_MOD : green points
+
+' Left Wing -> BlockchainModule
+MOD_CERT ..> BC_MOD : issue hash
+
+' =============================================================================
+' INFRASTRUCTURE INTEGRATIONS (SPINE -> INFRA)
+' =============================================================================
+AUTH -down-> DB_POSTGRES : TypeORM (User, Role, Audit)
+AUTH -down-> EXT_SMTP : Verification Emails
+AUTH -down-> DB_REDIS : Token Cache
+MOD_MAP -down-> DB_POSTGRES : PostGIS Spatial Queries
+
+PAY_MOD -down-> EXT_GATEWAY : HTTPS REST / Webhook
+NOTIF_MOD -down-> DB_REDIS : Socket.IO Adapter
+STORAGE_MOD -down-> EXT_MINIO : S3 API (Port 9000)
+AI_MOD -down-> EXT_FASTAPI : HTTP REST (Axios)
+
+note bottom of DB_POSTGRES
+  **TypeORM Global Persistence Architecture:**
+  All 35+ Domain Modules register entities via TypeOrmModule.forFeature().
+  Global connection pooling & migrations managed centrally in AppModule.
+  PostGIS spatial columns: geography(Point, 4326) with spatial indexing.
+end note
+
+@enduml
+
+' =============================================================================
+' 3. AI SERVICE Component Diagram (FastAPI)
+' =============================================================================
+@startuml ai-service-components
+!theme plain
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 35
+
+skinparam package {
+  BackgroundColor #F8F9FA
+  BorderColor #5F6368
+  FontColor #202124
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #1A73E8
+  FontColor #202124
+  FontSize 11
+}
+
+skinparam database {
+  BackgroundColor #E8F0FE
+  BorderColor #1967D2
+  FontColor #174EA6
+  FontSize 11
+}
+
+skinparam cloud {
+  BackgroundColor #FEF7E0
+  BorderColor #F9AB00
+  FontColor #B06000
+  FontSize 11
+}
+
+skinparam actor {
+  BackgroundColor #F1F3F4
+  BorderColor #5F6368
+}
+
+title AI Service - Component Architecture Diagram (FastAPI)
+
+actor "NestJS Backend API\n(HTTP / Axios Client)" as BACKEND
+
+package "AI Service Microservice (FastAPI on Port 8000)" {
+
+  component "FastAPI Application Core (main.py)\n[CORS, Lifespan Management, Global Error Handlers]" as APP #E8EAED
+
+  ' ==================== THREE DOMAIN PILLARS ====================
+
+  ' COLUMN 1: GENERATIVE AI & RAG
+  package "Pillar 1: GenAI & Content Processing" as COL_GEN #FFF7ED {
+    package "Chat & Moderation Routers" as R_GEN #FFFBEB {
+      component "Chat Router\n(/api/ai/chat)" as R_CHAT
+      component "Moderation Router\n(/moderate - 2-tier regex/AI)" as R_MOD
+      component "Suggestions Router\n(/suggestions)" as R_SUGG
+    }
+
+    component "LLMService\n• Google Gemini 2.5 Flash Client\n• Prompt Builder & Context Injection\n• Offline Mock Resiliency Fallback" as S_LLM #FFFFFF
+    
+    component "RAG Pipeline\n1. Vector similarity search\n2. Redis cache lookup\n3. Dynamic prompt construction\n4. Gemini generation\n5. Cache storage & response" as S_RAG #FFFFFF
+
+    R_GEN -down-> S_LLM : prompt & chat
+    S_LLM -down-> S_RAG : executes
+  }
+
+  ' COLUMN 2: ADVISORY & KNOWLEDGE SEARCH
+  package "Pillar 2: Advisory & Knowledge Base" as COL_ADV #FEFCE8 {
+    package "Advisory & Search Routers" as R_ADV #FFFFF0 {
+      component "Career Router (/career)" as R_CAREER
+      component "Mentor Router (/mentor)" as R_MENTOR
+      component "Scholarship Router (/scholarship)" as R_SCHOLAR
+      component "Learning Path Router (/learning_path)" as R_PATH
+      component "Library Router (/library - doc summary)" as R_LIB
+      component "Search Router (/search - vector search)" as R_SEARCH
+    }
+
+    component "VectorStoreService\n• ChromaDB Collection Manager\n• Chunking & Embedding Query" as S_VECTOR #FFFFFF
+    
+    component "CacheService\n• Redis Async Connection Pool\n• Response Cache & Invalidation" as S_CACHE #FFFFFF
+
+    R_ADV -down-> S_VECTOR : vector search
+  }
+
+  ' COLUMN 3: SPATIAL & PREDICTIVE ANALYTICS
+  package "Pillar 3: Spatial & Predictive Analytics" as COL_GEO #F5F3FF {
+    package "Analytics & Geo Routers" as R_GEO_PKG #FAF5FF {
+      component "Geo Router (/geo - spatial clustering)" as R_GEO
+      component "Analytics Router (/analytics - KPI stats)" as R_ANALYTICS
+      component "Predictive Router (/predictive - forecast)" as R_PREDICT
+    }
+
+    component "ClusteringService\n• scikit-learn (DBSCAN & KMeans)\n• Facility Spatial Density & Hotspots" as S_CLUSTER #FFFFFF
+    
+    component "PredictiveService\n• pandas, numpy, statsmodels\n• Enrollment Trend & Skill Forecasting" as S_PRED #FFFFFF
+
+    component "DBService\n• PostgreSQL Connection Pool (psycopg2)\n• History Logging & Stats DAO" as S_DB #FFFFFF
+
+    R_GEO_PKG -down-> S_CLUSTER : spatial clustering
+    R_GEO_PKG -down-> S_PRED : enrollment forecast
+    R_GEO_PKG -down-> S_DB : query education stats
+  }
+
+  ' Horizontal alignment of the 3 pillars
+  COL_GEN -[hidden]right- COL_ADV
+  COL_ADV -[hidden]right- COL_GEO
+}
+
+' Center APP above the middle pillar
+COL_ADV -[hidden]up- APP
+BACKEND -down-> APP : HTTP REST / JSON Requests
+
+APP -down-> R_GEN : mounts
+APP -down-> R_ADV : mounts
+APP -down-> R_GEO_PKG : mounts
+
+' ==================== INFRASTRUCTURE ====================
+cloud "Google Gemini API\n(Vertex AI / Studio)\n(LLM Inference)" as CLOUD_GEMINI
+database "ChromaDB\n(Vector DB Volume)\n(/app/chroma_db)" as DB_CHROMA
+database "Redis 7\n(Cache & Session)\n(Port 6379)" as DB_REDIS
+database "PostgreSQL 16\n+ PostGIS 3.4\n(Port 5432)" as DB_POSTGRES
+
+' Infrastructure horizontal alignment
+CLOUD_GEMINI -[hidden]right- DB_CHROMA
+DB_CHROMA -[hidden]right- DB_REDIS
+DB_REDIS -[hidden]right- DB_POSTGRES
+
+' Cross-pillar coordination
+R_ADV -left-> S_LLM : career advice, mentor\nmatching, scholarship check
+R_GEN -right-> S_DB : save chat history
+
+S_RAG -right-> S_VECTOR : query top-k docs
+S_RAG -right-> S_CACHE : get / set response cache
+
+S_CLUSTER -left-> S_CACHE : cache cluster results
+S_CLUSTER -down-> S_DB : fetch coordinates
+S_PRED -down-> S_DB : fetch historical KPI
+
+' Pillar to Infrastructure (Direct vertical drops)
+S_LLM -down-> CLOUD_GEMINI : HTTPS REST API
+S_VECTOR -down-> DB_CHROMA : Chroma Client API
+S_CACHE -down-> DB_REDIS : Redis TCP (6379)
+S_DB -down-> DB_POSTGRES : psycopg2 (SQL)
+
+@enduml
+
+' =============================================================================
+' 4. Entity Relationship Class Diagram (Backend Entities)
+' =============================================================================
+@startuml entity-relationship-diagram
+skinparam defaultFontName "DejaVu Sans"
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 35
+skinparam shadowing false
+skinparam roundCorner 6
+skinparam packageStyle rectangle
+
+title Entity-Relationship Domain Architecture - EduMap Enterprise Backend (85 Entities across 7 Bounded Contexts)
+
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #475569
+  BorderThickness 1.2
+  FontSize 10
+  HeaderBackgroundColor #F1F5F9
+}
+
+skinparam enum {
+  BackgroundColor #FEF3C7
+  BorderColor #D97706
+  FontSize 9
+}
+
+skinparam note {
+  BackgroundColor #FFFBEB
+  BorderColor #F59E0B
+  FontSize 10
+}
+
+package "Bounded Context 1: IAM & Core System Security" as PKG_IAM #F8FAFC {
+enum UserRole {
+  GUEST
+  STUDENT
+  PARENT
+  TEACHER
+  MENTOR
+  SCHOOL_REP
+  DONOR
+  EMPLOYER
+  ADMIN
+  MODERATOR
+  COMMUNITY_COORD
+  SUPPORT_STAFF
+  PARTNER
+}
+
+class User {
+  + id: UUID <<PK>>
+  --
+  + email: string <<UK>>
+  + password_hash: string {select:false}
+  + twoFactorSecret: string {select:false}
+  + isTwoFactorEnabled: boolean
+  + refreshTokenHash: string {select:false}
+  + roleId: number {default:11}
+  + role: UserRole
+  + full_name: string
+  + avatar_url: string
+  + phone: string
+  + bio: string
+  + mbti_type: string
+  + skills: string[]
+  + interests: string[]
+  + points: number {default:0}
+  + level: number {default:1}
+  + status: string {default:active}
+  + email_verified: boolean
+  + last_login: Date
+  + created_at: Date
+  + updated_at: Date
+  + deleted_at: Date
+}
+
+class Role {
+  + id: number <<PK>>
+  --
+  + name: string <<UK>>
+  + description: string
+}
+
+class UserPreference {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + language: string {default:vi}
+  + theme: string {default:dark}
+  + notifications_enabled: boolean
+  + privacy_level: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class AuditLog {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + action: string
+  + resource: string
+  + resource_id: string
+  + old_data: jsonb
+  + new_data: jsonb
+  + ip_address: string
+  + created_at: Date
+}
+
+class PasswordResetToken {
+  + id: UUID <<PK>>
+  --
+  + token: string <<UK>>
+  + expiresAt: Date
+  + isUsed: boolean
+  + userId: UUID <<FK>>
+  + createdAt: Date
+  + updatedAt: Date
+}
+
+class SupportTicket {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + subject: string
+  + description: string
+  + status: string
+  + priority: string
+  + assigned_to: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+}
+
+class UserManagement {
+  + id: UUID <<PK>>
+  --
+  + userId: string
+  + action_type: string
+  + performed_by: string
+  + reason: string
+  + old_status: string
+  + new_status: string
+  + old_role: number
+  + new_role: number
+  + ip_address: string
+  + user_agent: string
+  + created_at: Date
+}
+
+class Module {
+  + id: string PK{Len50}
+  --
+  + name: string
+  + description: string
+  + features: Feature[]
+}
+
+class Feature {
+  + id: string PK{Len50}
+  --
+  + name: string
+  + description: string
+  + moduleId: string <<FK>>
+}
+
+User -[hidden]right- Role
+User -[hidden]down- AuditLog
+Role -[hidden]right- UserPreference
+Role -[hidden]down- PasswordResetToken
+UserPreference -[hidden]down- SupportTicket
+AuditLog -[hidden]right- PasswordResetToken
+AuditLog -[hidden]down- UserManagement
+PasswordResetToken -[hidden]right- SupportTicket
+PasswordResetToken -[hidden]down- Module
+SupportTicket -[hidden]down- Feature
+UserManagement -[hidden]right- Module
+Module -[hidden]right- Feature
+}
+
+package "Bounded Context 2: Spatial GIS & Locations" as PKG_GIS #F0FDF4 {
+class Location {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + categoryId: number <<FK>>
+  + coordinates: geography(Point,4326)
+  + address: string
+  + city: string
+  + photos: string[]
+  + rating_avg: Decimal
+  + rating_count: number
+  + status: string
+  + is_verified: boolean
+  + created_by: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+}
+
+class LocationCategory {
+  + id: number <<PK>>
+  --
+  + name: string <<UK>>
+  + display_name: string
+  + marker_color: string
+}
+
+class MapPoint {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + type_id: number
+  + type: string
+  + location: geography(Point,4326)
+  + address: string
+  + city: string
+  + photos: string[]
+  + rating_avg: Decimal
+  + rating_count: number
+  + verified: boolean
+  + status: string
+  + created_by: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+  + deleted_at: Date
+}
+
+class EducationalPoint {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + type: string
+  + location: geography(Point,4326)
+  + address: string
+  + is_verified: boolean
+  + created_at: Date
+  + updated_at: Date
+}
+
+class LearningSpot {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + location: geography(Point,4326)
+  + type: string
+  + has_wifi: boolean
+  + has_power_outlets: boolean
+  + rating_avg: Decimal
+  + total_capacity: number
+  + created_at: Date
+}
+
+class StemLab {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + location: geography(Point,4326)
+  + equipment: string[]
+  + capacity: number
+  + booking_available: boolean
+  + contact: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class MobileUnit {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + type: string
+  + description: string
+  + driver_name: string
+  + contact_number: string
+  + current_location: geography(Point,4326)
+  + status: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class MobileUnitRoute {
+  + id: UUID <<PK>>
+  --
+  + mobile_unit_id: UUID <<FK>>
+  + destination_name: string
+  + location: geography(Point,4326)
+  + scheduled_at: Date
+  + status: string
+}
+
+class WifiLocation {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + location: geography(Point,4326)
+  + address: string
+  + speed_mbps: float
+  + is_free: boolean
+  + password: string
+  + password_hint: string
+  + verified: boolean
+  + created_by: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+}
+
+class WifiConnection {
+  + id: UUID <<PK>>
+  --
+  + wifi_id: UUID <<FK>>
+  + user_id: UUID <<FK>>
+  + connected_at: Date
+  + disconnected_at: Date
+}
+
+Location -[hidden]right- LocationCategory
+Location -[hidden]down- EducationalPoint
+LocationCategory -[hidden]right- MapPoint
+LocationCategory -[hidden]down- LearningSpot
+MapPoint -[hidden]down- StemLab
+EducationalPoint -[hidden]right- LearningSpot
+EducationalPoint -[hidden]down- MobileUnit
+LearningSpot -[hidden]right- StemLab
+LearningSpot -[hidden]down- MobileUnitRoute
+StemLab -[hidden]down- WifiLocation
+MobileUnit -[hidden]right- MobileUnitRoute
+MobileUnit -[hidden]down- WifiConnection
+MobileUnitRoute -[hidden]right- WifiLocation
+}
+
+package "Bounded Context 3: Academic, Career & Library" as PKG_ACADEMIC #EFF6FF {
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  FREELANCE
+  CONTRACT
+  COURSE
+}
+
+enum JobStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+  PENDING
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum UserCareerStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+enum SkillProficiency {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+class CareerPath {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + field: string
+  + description: string
+  + skills_required: string[]
+  + roadmap_json: jsonb
+  + salary_range: string
+  + demand_level: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Job {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + company_name: string
+  + location: string
+  + job_type: JobType
+  + salary_range: string
+  + required_skills: string[]
+  + experience_level: string
+  + application_deadline: Date
+  + views: number
+  + status: JobStatus
+  + posted_by: UUID <<FK>>
+  + career_path_id: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Application {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + jobId: UUID <<FK>>
+  + cover_letter: string
+  + resume_url: string
+  + status: ApplicationStatus
+  + created_at: Date
+  + updated_at: Date
+}
+
+class UserCareer {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + career_path_id: UUID <<FK>>
+  + goal_title: string
+  + description: string
+  + target_date: Date
+  + status: UserCareerStatus
+  + created_at: Date
+  + updated_at: Date
+}
+
+class UserSkill {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + skill_name: string
+  + proficiency_level: SkillProficiency
+  + description: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class LearningMaterial {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + type: string
+  + subject: string
+  + grade: string
+  + tags: string[]
+  + file_url: string
+  + file_size: number
+  + thumbnail_url: string
+  + download_count: number
+  + view_count: number
+  + rating_avg: Decimal
+  + status: string {default:draft}
+  + author_id: UUID <<FK>>
+  + is_offline_available: boolean
+  + search_vector: tsvector
+  + created_at: Date
+  + updated_at: Date
+  + deleted_at: Date
+}
+
+class UserLearningHistory {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + materialId: UUID <<FK>>
+  + progress: number
+  + last_accessed: Date
+}
+
+class CrawlHistory {
+  + id: UUID <<PK>>
+  --
+  + crawl_type: string
+  + status: string
+  + records_added: number
+  + records_updated: number
+  + records_deleted: number
+  + errors: number
+  + error_message: string
+  + duration_seconds: number
+  + triggered_by: string
+  + is_automatic: boolean
+  + started_at: Date
+  + completed_at: Date
+}
+
+class Scholarship {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + provider: string
+  + location: geography(Point,4326)
+  + value_amount: Decimal
+  + deadline: Date
+  + eligibility_criteria: string[]
+  + apply_url: string
+  + status: string {default:active}
+  + created_at: Date
+  + updated_at: Date
+  + deleted_at: Date
+}
+
+class ScholarshipApplication {
+  + id: UUID <<PK>>
+  --
+  + scholarship_id: UUID <<FK>>
+  + student_id: UUID <<FK>>
+  + personal_statement: string
+  + cv_url: string
+  + status: string {default:pending}
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Internship {
+  + id: UUID <<PK>>
+  --
+  + company_id: UUID <<FK>>
+  + title: string
+  + description: string
+  + field: string
+  + location: geography(Point,4326)
+  + salary_range: string
+  + deadline: Date
+  + status: string {default:open}
+  + created_at: Date
+  + updated_at: Date
+}
+
+class InternshipApplication {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + internship_id: UUID <<FK>>
+  + cover_letter: string
+  + status: string {default:reviewing}
+  + tracking_id: string <<UK>>
+  + created_at: Date
+}
+
+class Opportunity {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + category: string
+  + description: string
+  + location: geography(Point,4326)
+  + address: string
+  + deadline: Date
+  + is_team_finding_open: boolean
+  + tags: string[]
+  + created_at: Date
+  + updated_at: Date
+}
+
+CareerPath -[hidden]right- Job
+CareerPath -[hidden]down- UserCareer
+Job -[hidden]right- Application
+Job -[hidden]down- UserSkill
+Application -[hidden]down- LearningMaterial
+UserCareer -[hidden]right- UserSkill
+UserCareer -[hidden]down- UserLearningHistory
+UserSkill -[hidden]right- LearningMaterial
+UserSkill -[hidden]down- CrawlHistory
+LearningMaterial -[hidden]down- Scholarship
+UserLearningHistory -[hidden]right- CrawlHistory
+UserLearningHistory -[hidden]down- ScholarshipApplication
+CrawlHistory -[hidden]right- Scholarship
+CrawlHistory -[hidden]down- Internship
+Scholarship -[hidden]down- InternshipApplication
+ScholarshipApplication -[hidden]right- Internship
+ScholarshipApplication -[hidden]down- Opportunity
+Internship -[hidden]right- InternshipApplication
+}
+
+package "Bounded Context 4: Mentorship & Advisory Guidance" as PKG_MENTOR #FEFCE8 {
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+class Mentor {
+  + user_id: UUID <<PK>> <<FK>>
+  --
+  + bio: string
+  + specialties: string[]
+  + experience_years: number
+  + rating_avg: Decimal
+  + hourly_rate: Decimal
+  + is_verified: boolean
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Booking {
+  + id: UUID <<PK>>
+  --
+  + mentor_id: UUID <<FK>>
+  + student_id: UUID <<FK>>
+  + slot_start: Date
+  + slot_end: Date
+  + status: BookingStatus {default:PENDING}
+  + payment_status: PaymentStatus {default:UNPAID}
+  + amount: Decimal
+  + transaction_id: string
+  + meeting_url: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class MentorAvailability {
+  + id: UUID <<PK>>
+  --
+  + mentor_id: UUID <<FK>>
+  + day_of_week: number
+  + start_time: string
+  + end_time: string
+  + is_active: boolean
+  + created_at: Date
+  + updated_at: Date
+}
+
+class MentorRelationship {
+  + id: UUID <<PK>>
+  --
+  + mentor_id: UUID <<FK>>
+  + student_id: UUID <<FK>>
+  + status: string {default:active}
+  + created_at: Date
+}
+
+class MentorSession {
+  + id: UUID <<PK>>
+  --
+  + mentor_id: UUID <<FK>>
+  + student_id: UUID <<FK>>
+  + slot_start: Date
+  + slot_end: Date
+  + status: BookingStatus
+  + meeting_url: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class HsQuestion {
+  + id: UUID <<PK>>
+  --
+  + student_id: UUID <<FK>>
+  + title: string
+  + content: string
+  + university_target: string
+  + view_count: number
+  + created_at: Date
+  + updated_at: Date
+  + answers: HsAnswer[]
+}
+
+class HsAnswer {
+  + id: UUID <<PK>>
+  --
+  + question_id: UUID <<FK>>
+  + mentor_id: UUID <<FK>>
+  + content: string
+  + is_verified_answer: boolean
+  + created_at: Date
+}
+
+class UniversityCounseling {
+  + id: UUID <<PK>>
+  --
+  + university_name: string
+  + program_info: string
+  + contact_email: string
+  + admission_criteria: jsonb
+  + created_at: Date
+}
+
+Mentor -[hidden]right- Booking
+Mentor -[hidden]down- MentorRelationship
+Booking -[hidden]right- MentorAvailability
+Booking -[hidden]down- MentorSession
+MentorAvailability -[hidden]down- HsQuestion
+MentorRelationship -[hidden]right- MentorSession
+MentorRelationship -[hidden]down- HsAnswer
+MentorSession -[hidden]right- HsQuestion
+MentorSession -[hidden]down- UniversityCounseling
+HsAnswer -[hidden]right- UniversityCounseling
+}
+
+package "Bounded Context 5: Business, Marketplace & Orders" as PKG_BUSINESS #FAF5FF {
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  COD
+  BANK_TRANSFER
+  WALLET
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+class BusinessProfile {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>> <<UK>>
+  + name: string <<UK>>
+  + description: string
+  + industry: string
+  + website: string
+  + logo_url: string
+  + is_verified: boolean
+  + created_at: Date
+  + updated_at: Date
+  + products: Product[]
+  + services: Service[]
+}
+
+class Product {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + price: Decimal
+  + currency: string {default:VND}
+  + category: string
+  + stock: number
+  + image_url: string
+  + businessProfileId: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+  + reviews: Review[]
+}
+
+class Service {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + price: Decimal
+  + currency: string {default:VND}
+  + category: string
+  + duration: string
+  + location: string
+  + businessProfileId: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+  + reviews: Review[]
+}
+
+class Order {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + totalAmount: Decimal
+  + currency: string {default:VND}
+  + status: OrderStatus {default:PENDING}
+  + shippingAddress: string
+  + created_at: Date
+  + updated_at: Date
+  + items: OrderItem[]
+}
+
+class OrderItem {
+  + id: UUID <<PK>>
+  --
+  + orderId: UUID <<FK>>
+  + productId: UUID <<FK>>
+  + serviceId: UUID <<FK>>
+  + quantity: number
+  + priceAtPurchase: Decimal
+  + created_at: Date
+  + updated_at: Date
+}
+
+class CartItem {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + productId: UUID <<FK>>
+  + serviceId: UUID <<FK>>
+  + quantity: number
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Review {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + productId: UUID <<FK>>
+  + serviceId: UUID <<FK>>
+  + rating: number
+  + comment: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Transaction {
+  + id: UUID <<PK>>
+  --
+  + orderId: UUID <<FK>> <<UK>>
+  + paymentMethod: PaymentMethod {default:COD}
+  + status: TransactionStatus {default:PENDING}
+  + amount: Decimal
+  + externalTransactionId: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+BusinessProfile -[hidden]right- Product
+BusinessProfile -[hidden]down- Order
+Product -[hidden]right- Service
+Product -[hidden]down- OrderItem
+Service -[hidden]down- CartItem
+Order -[hidden]right- OrderItem
+Order -[hidden]down- Review
+OrderItem -[hidden]right- CartItem
+OrderItem -[hidden]down- Transaction
+Review -[hidden]right- Transaction
+}
+
+package "Bounded Context 6: Community, Social & Engagement" as PKG_COMMUNITY #FFF1F2 {
+class Group {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + description: string
+  + privacy: string {default:public}
+  + owner_id: UUID <<FK>>
+  + created_at: Date
+}
+
+class Post {
+  + id: UUID <<PK>>
+  --
+  + author_id: UUID <<FK>>
+  + group_id: UUID <<FK>>
+  + title: string
+  + content: string
+  + like_count: number
+  + comment_count: number
+  + status: string {default:active}
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Comment {
+  + id: UUID <<PK>>
+  --
+  + post_id: UUID <<FK>>
+  + author_id: UUID <<FK>>
+  + content: string
+  + status: string {default:active}
+  + created_at: Date
+}
+
+class ChatMessage {
+  + id: UUID <<PK>>
+  --
+  + sender_id: UUID <<FK>>
+  + receiver_id: UUID <<FK>>
+  + content: string
+  + is_read: boolean
+  + created_at: Date
+}
+
+class ChatHistory {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + message: string
+  + response: string
+  + context: jsonb
+  + createdAt: Date
+}
+
+class Notification {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + title: string
+  + body: string
+  + data: jsonb
+  + is_read: boolean
+  + channel: string
+  + sent_at: Date
+  + read_at: Date
+}
+
+class StudentConnection {
+  + id: UUID <<PK>>
+  --
+  + requester_id: UUID <<FK>>
+  + receiver_id: UUID <<FK>>
+  + status: string {default:pending}
+  + created_at: Date
+}
+
+class SharedItem {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + category: string
+  + description: string
+  + status: string {default:available}
+  + owner_id: UUID <<FK>>
+  + created_at: Date
+  + updated_at: Date
+}
+
+class BorrowRequest {
+  + id: UUID <<PK>>
+  --
+  + item_id: UUID <<FK>>
+  + requester_id: UUID <<FK>>
+  + message: string
+  + status: string {default:pending}
+  + created_at: Date
+}
+
+class Event {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + type: string {default:workshop}
+  + location: geography(Point,4326)
+  + start_date: Date
+  + end_date: Date
+  + capacity: number {default:100}
+  + registered_count: number
+  + banner_url: string
+  + organizer_id: UUID <<FK>>
+  + status: string {default:upcoming}
+  + price: Decimal
+  + created_at: Date
+  + updated_at: Date
+}
+
+class EventRegistration {
+  + id: UUID <<PK>>
+  --
+  + event_id: UUID <<FK>>
+  + user_id: UUID <<FK>>
+  + status: string {default:registered}
+  + ticket_code: string <<UK>>
+  + checked_in_at: Date
+  + created_at: Date
+}
+
+class DonationCampaign {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + target_amount: Decimal
+  + current_amount: Decimal
+  + end_date: Date
+  + status: string {default:active}
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Donation {
+  + id: UUID <<PK>>
+  --
+  + campaign_id: UUID <<FK>>
+  + donor_id: UUID <<FK>>
+  + amount: Decimal
+  + status: string {default:completed}
+  + transaction_id: string
+  + created_at: Date
+}
+
+class VolunteerActivity {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + campaign_name: string
+  + hours: number
+  + date: Date
+  + status: string {default:pending}
+  + volunteer_id: UUID <<FK>>
+  + created_at: Date
+}
+
+class VolunteerHours {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + date: Date
+  + hours: number
+  + created_at: Date
+}
+
+class SummerCampaign {
+  + id: UUID <<PK>>
+  --
+  + name: string
+  + year: number
+  + location: string
+  + status: string {default:active}
+  + description: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class SummerActivity {
+  + id: UUID <<PK>>
+  --
+  + campaign_id: UUID <<FK>>
+  + title: string
+  + description: string
+  + volunteer_count: number
+  + hours_spent: Decimal
+  + date: string
+  + status: string {default:completed}
+  + created_at: Date
+}
+
+class SummerRegistration {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + campaign_id: UUID <<FK>>
+  + status: string {default:pending}
+  + created_at: Date
+}
+
+class Survey {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + questions_json: jsonb
+  + created_by: UUID <<FK>>
+  + status: string {default:active}
+  + created_at: Date
+}
+
+class SurveyResponse {
+  + id: UUID <<PK>>
+  --
+  + survey_id: UUID <<FK>>
+  + user_id: UUID <<FK>>
+  + answers_json: jsonb
+  + created_at: Date
+}
+
+class Hackathon {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + start_date: Date
+  + end_date: Date
+  + status: string {default:upcoming}
+  + created_at: Date
+}
+
+class HackathonTeam {
+  + id: UUID <<PK>>
+  --
+  + team_name: string
+  + hackathon_id: UUID <<FK>>
+  + leader_id: UUID <<FK>>
+  + members: string[]
+  + repo_url: string
+  + demo_video: string
+  + status: string {default:registered}
+  + score: Decimal
+  + feedback: string
+  + created_at: Date
+}
+
+class InternationalProgram {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + type: string
+  + description: string
+  + host_country: string
+  + organization: string
+  + application_deadline: Date
+  + benefits: string[]
+  + apply_url: string
+  + created_at: Date
+}
+
+class AlumniNetwork {
+  + id: UUID <<PK>>
+  --
+  + full_name: string
+  + university: string
+  + country: string
+  + major: string
+  + location: geography(Point,4326)
+  + contact_email: string
+  + status: string {default:studying}
+  + created_at: Date
+}
+
+Group -[hidden]right- Post
+Group -[hidden]down- ChatHistory
+Post -[hidden]right- Comment
+Post -[hidden]down- Notification
+Comment -[hidden]right- ChatMessage
+Comment -[hidden]down- StudentConnection
+ChatMessage -[hidden]down- SharedItem
+ChatHistory -[hidden]right- Notification
+ChatHistory -[hidden]down- BorrowRequest
+Notification -[hidden]right- StudentConnection
+Notification -[hidden]down- Event
+StudentConnection -[hidden]right- SharedItem
+StudentConnection -[hidden]down- EventRegistration
+SharedItem -[hidden]down- DonationCampaign
+BorrowRequest -[hidden]right- Event
+BorrowRequest -[hidden]down- Donation
+Event -[hidden]right- EventRegistration
+Event -[hidden]down- VolunteerActivity
+EventRegistration -[hidden]right- DonationCampaign
+EventRegistration -[hidden]down- VolunteerHours
+DonationCampaign -[hidden]down- SummerCampaign
+Donation -[hidden]right- VolunteerActivity
+Donation -[hidden]down- SummerActivity
+VolunteerActivity -[hidden]right- VolunteerHours
+VolunteerActivity -[hidden]down- SummerRegistration
+VolunteerHours -[hidden]right- SummerCampaign
+VolunteerHours -[hidden]down- Survey
+SummerCampaign -[hidden]down- SurveyResponse
+SummerActivity -[hidden]right- SummerRegistration
+SummerActivity -[hidden]down- Hackathon
+SummerRegistration -[hidden]right- Survey
+SummerRegistration -[hidden]down- HackathonTeam
+Survey -[hidden]right- SurveyResponse
+Survey -[hidden]down- InternationalProgram
+SurveyResponse -[hidden]down- AlumniNetwork
+Hackathon -[hidden]right- HackathonTeam
+HackathonTeam -[hidden]right- InternationalProgram
+InternationalProgram -[hidden]right- AlumniNetwork
+}
+
+package "Bounded Context 7: Gamification, Certifications & Analytics" as PKG_GAMIFICATION #F0FDFA {
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+}
+
+class Badge {
+  + id: number <<PK>>
+  --
+  + name: string <<UK>>
+  + description: string
+  + category: string
+  + points_criteria: number
+  + rarity: string {default:common}
+}
+
+class UserBadge {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + badge_id: number <<FK>>
+  + earned_at: Date
+}
+
+class UserPoint {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + points: number
+  + action: string
+  + reference_id: string
+  + source_type: string
+  + created_at: Date
+}
+
+class GreenChallenge {
+  + id: UUID <<PK>>
+  --
+  + title: string
+  + description: string
+  + points_reward: number
+  + status: string {default:active}
+  + created_by: UUID <<FK>>
+  + created_at: Date
+}
+
+class GreenChallengeActivity {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + challenge_id: UUID <<FK>>
+  + carbon_saved_kg: Decimal
+  + points_earned: number
+  + created_at: Date
+}
+
+class GreenActivity {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + activity_type: string
+  + description: string
+  + proof_url: string
+  + status: string {default:pending}
+  + ai_confidence: Decimal
+  + moderator_note: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class Organization {
+  + id: UUID <<PK>>
+  --
+  + name: string <<UK>>
+  + description: string
+  + logo_url: string
+  + website_url: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class CertificateTemplate {
+  + id: UUID <<PK>>
+  --
+  + organization_id: UUID <<FK>>
+  + name: string
+  + description: string
+  + type: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+class UserCertificate {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + template_id: UUID <<FK>>
+  + issued_at: Date
+  + verify_code: string <<UK>>
+  + qr_url: string
+  + pdf_url: string
+  + blockchain_metadata: jsonb
+  + status: CertificateStatus {default:ACTIVE}
+  + created_at: Date
+}
+
+class UserFile {
+  + id: UUID <<PK>>
+  --
+  + user_id: UUID <<FK>>
+  + original_name: string
+  + file_url: string
+  + mime_type: string
+  + size_kb: number
+  + created_at: Date
+}
+
+class UserEvent {
+  + id: UUID <<PK>>
+  --
+  + userId: UUID <<FK>>
+  + eventType: string
+  + metadata: jsonb
+  + createdAt: Date
+}
+
+class AdminStats {
+  + id: UUID <<PK>>
+  --
+  + totalUsers: number
+  + activeUsers: number
+  + totalMapPoints: number
+  + totalLearningMaterials: number
+  + totalEvents: number
+  + totalPosts: number
+  + totalDonations: number
+  + totalCertificates: number
+  + pendingApprovals: number
+  + newUsersToday: number
+  + newUsersThisWeek: number
+  + newUsersThisMonth: number
+  + createdAt: Date
+  + updatedAt: Date
+}
+
+class EducationStat {
+  + id: UUID <<PK>>
+  --
+  + region: string
+  + province: string
+  + district: string
+  + metric_type: string
+  + metric_value: Decimal
+  + year: number
+  + source: string
+  + created_at: Date
+  + updated_at: Date
+}
+
+Badge -[hidden]right- UserBadge
+Badge -[hidden]down- GreenChallenge
+UserBadge -[hidden]right- UserPoint
+UserBadge -[hidden]down- GreenChallengeActivity
+UserPoint -[hidden]down- GreenActivity
+GreenChallenge -[hidden]right- GreenChallengeActivity
+GreenChallenge -[hidden]down- Organization
+GreenChallengeActivity -[hidden]right- GreenActivity
+GreenChallengeActivity -[hidden]down- CertificateTemplate
+GreenActivity -[hidden]down- UserCertificate
+Organization -[hidden]right- CertificateTemplate
+Organization -[hidden]down- UserFile
+CertificateTemplate -[hidden]right- UserCertificate
+CertificateTemplate -[hidden]down- UserEvent
+UserCertificate -[hidden]down- AdminStats
+UserFile -[hidden]right- UserEvent
+UserFile -[hidden]down- EducationStat
+UserEvent -[hidden]right- AdminStats
+}
+
+
+note as NOTE_AUDIT
+  <b>Enterprise Multi-Tenant & Audit Pattern (PostgreSQL RLS):</b>
+  --
+  All transactional entities define explicit <b><<FK: users.id>></b> fields
+  (e.g., <i>created_by</i>, <i>author_id</i>, <i>student_id</i>, <i>organizer_id</i>, <i>donor_id</i>)
+  enforcing Row-Level Security (RLS) & Multi-Tenant Auditability.
+  To preserve visual clarity across 85 entities, secondary audit foreign keys
+  are documented directly inside entity attributes rather than point-to-point lines.
+end note
+
+
+' =============================================================================
+' INTRA-PACKAGE DOMAIN RELATIONSHIPS
+' =============================================================================
+
+' --- IAM ---
+User "n" --> "1" Role : roleId
+User "1" *-- "0..1" UserPreference
+User "1" o-- "0..*" AuditLog
+User "1" o-- "0..*" PasswordResetToken
+User "1" o-- "0..*" SupportTicket
+Module "1" *-- "0..*" Feature
+
+' --- GIS ---
+Location "n" --> "1" LocationCategory : categoryId
+MobileUnit "1" *-- "0..*" MobileUnitRoute
+WifiLocation "1" *-- "0..*" WifiConnection
+LearningSpot .. Location : spatial ref
+StemLab .. Location : spatial ref
+
+' --- ACADEMIC & CAREER ---
+CareerPath "1" *-- "0..*" Job
+Job "1" *-- "0..*" Application
+CareerPath "1" *-- "0..*" UserCareer
+UserCareer "1" *-- "0..*" UserSkill
+LearningMaterial "1" *-- "0..*" UserLearningHistory
+CrawlHistory .. LearningMaterial : ingest source
+Scholarship "1" *-- "0..*" ScholarshipApplication
+Internship "1" *-- "0..*" InternshipApplication
+Opportunity .. Job
+
+' --- MENTORSHIP ---
+Mentor "1" *-- "0..*" MentorAvailability
+Mentor "1" *-- "0..*" Booking
+Mentor "1" *-- "0..*" MentorSession
+Mentor "1" *-- "0..*" MentorRelationship
+HsQuestion "1" *-- "0..*" HsAnswer
+UniversityCounseling .. HsQuestion
+
+' --- BUSINESS & COMMERCE ---
+BusinessProfile "1" *-- "0..*" Product
+BusinessProfile "1" *-- "0..*" Service
+Order "1" *-- "1..*" OrderItem
+Order "1" -- "1" Transaction
+CartItem "n" --> "0..1" Product
+CartItem "n" --> "0..1" Service
+OrderItem "n" --> "0..1" Product
+OrderItem "n" --> "0..1" Service
+Review "n" --> "0..1" Product
+Review "n" --> "0..1" Service
+
+' --- COMMUNITY & SOCIAL ---
+Group "1" *-- "0..*" Post
+Post "1" *-- "0..*" Comment
+Event "1" *-- "0..*" EventRegistration
+DonationCampaign "1" *-- "0..*" Donation
+SummerCampaign "1" *-- "0..*" SummerActivity
+SummerCampaign "1" *-- "0..*" SummerRegistration
+SharedItem "1" *-- "0..*" BorrowRequest
+Survey "1" *-- "0..*" SurveyResponse
+Hackathon "1" *-- "0..*" HackathonTeam
+
+' --- GAMIFICATION & CERTIFICATION ---
+Badge "1" *-- "0..*" UserBadge
+GreenChallenge "1" *-- "0..*" GreenChallengeActivity
+Organization "1" *-- "0..*" CertificateTemplate
+CertificateTemplate "1" *-- "0..*" UserCertificate
+
+' =============================================================================
+' PACKAGE LAYOUT GRID (3 COLUMNS)
+' =============================================================================
+' Row 1: IAM | GIS | Community
+User -[hidden]down-> CareerPath
+CareerPath -[hidden]down-> BusinessProfile
+
+Location -[hidden]down-> Mentor
+Mentor -[hidden]down-> Badge
+
+Group -[hidden]right-> User
+
+
+@enduml
+
+' =============================================================================
+' 5. Deployment Diagram
+' =============================================================================
+@startuml deployment-diagram
+skinparam defaultFontName "DejaVu Sans"
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 60
+skinparam shadowing false
+skinparam roundCorner 8
+
+' Enterprise Color Palette
+skinparam node {
+  BackgroundColor #FAFAFA
+  BorderColor #455A64
+  BorderThickness 1.5
+  FontColor #263238
+  FontSize 12
+  FontStyle bold
+}
+
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #1A73E8
+  BorderThickness 1.2
+  FontColor #202124
+  FontSize 11
+}
+
+skinparam database {
+  BackgroundColor #E8F0FE
+  BorderColor #1967D2
+  BorderThickness 1.5
+  FontColor #174EA6
+  FontSize 11
+  FontStyle bold
+}
+
+skinparam cloud {
+  BackgroundColor #FEF7E0
+  BorderColor #F29900
+  BorderThickness 1.5
+  FontColor #B06000
+  FontSize 11
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #5F6368
+  FontSize 10
+}
+
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #F9A825
+  FontColor #37474F
+  FontSize 10
+}
+
+title Deployment Architecture - EduMap Production (Kubernetes Cluster & Cloud Services)
+
+' =============================================================================
+' 1. CLIENT ACCESS TIER
+' =============================================================================
+node "Client Devices Tier" as CLIENT_TIER {
+  node "Web Browser Clients\n(Desktop & Tablet)" as NODE_WEB {
+    artifact "Next.js 14 Web App\n(Chrome / Edge / Safari / Firefox)" as CLIENT_WEB
+  }
+  node "Mobile Devices\n(Android & iOS)" as NODE_MOBILE {
+    artifact "React Native Mobile App\n(Expo Framework)\nREST & Socket.IO Client" as CLIENT_APP
+  }
+}
+
+CLIENT_WEB -[hidden]right- CLIENT_APP
+
+' =============================================================================
+' 2. KUBERNETES CLUSTER (PRODUCTION ENVIRONMENT)
+' =============================================================================
+node "Kubernetes Cluster (Production Namespace: edumap-prod)" as K8S_CLUSTER {
+
+  ' Ingress Layer
+  node "Ingress & Edge Routing Layer" as INGRESS_LAYER {
+    component "Nginx Ingress Controller\n(TLS 1.3 Termination, SSL Let's Encrypt)\nLoadBalancer Service (Port 80 / 443)" as INGRESS
+  }
+
+  ' Workloads Layer
+  node "Stateless Workloads Layer (Pod Deployments)" as WORKLOADS_LAYER {
+    node "Frontend Deployment\n(HPA: 2-5 Replicas)" as POD_FE {
+      component "Next.js 14 SSR/SSG\nNode.js 20 Alpine\nClusterIP: 3000" as APP_FE
+    }
+
+    node "Backend Core Deployment\n(HPA: 3-10 Replicas, CPU > 70%)" as POD_BE {
+      component "NestJS 10 Enterprise API\nNode.js 18 Alpine\nClusterIP: 3001\nREST API & Socket.IO Gateway" as APP_BE
+    }
+
+    node "AI Service Deployment\n(HPA: 2-4 Replicas)" as POD_AI {
+      component "FastAPI Microservice\nPython 3.11 Slim\nClusterIP: 8000\nRAG Engine & ML Pipelines" as APP_AI
+    }
+  }
+
+  APP_FE -[hidden]right- APP_BE
+  APP_BE -[hidden]right- APP_AI
+
+  ' Data Storage Layer
+  node "Stateful & Persistence Layer (StatefulSets & PersistentVolumes)" as STORAGE_LAYER {
+    database "MinIO S3 Storage\nDistributed StatefulSet\nPersistentVolume: 500GB\nBuckets: media, books, avatars\n(Port 9000 / Console 9001)" as DB_MINIO
+
+    database "PostgreSQL 16 + PostGIS 3.4\nPrimary-Replica StatefulSet\nHigh-IOPS NVMe SSD PVC\nExtensions: postgis, pg_trgm\n(Port 5432)" as DB_PG
+
+    database "Redis 7 Alpine\nIn-Memory StatefulSet\n- Cache Store (TTL)\n- BullMQ Queues (No RabbitMQ)\n- Socket.IO Adapter Pub/Sub\n(Port 6379)" as DB_REDIS
+
+    database "ChromaDB Vector Store\nLocal PersistentVolume PVC\nEmbedding Index Vectors\n(Mounted at /app/chroma_db)" as DB_CHROMA
+  }
+
+  DB_MINIO -[hidden]right- DB_PG
+  DB_PG -[hidden]right- DB_REDIS
+  DB_REDIS -[hidden]right- DB_CHROMA
+}
+
+' =============================================================================
+' 3. EXTERNAL CLOUD & THIRD-PARTY SERVICES
+' =============================================================================
+node "External Cloud Platforms & Third-Party APIs" as EXT_SERVICES {
+  cloud "Notification & Communications" as CLOUD_MAIL {
+    component "SMTP / Cloud Mailer Service\nEmail Verification & Alerts\n(TLS Port 587)" as API_MAIL
+  }
+
+  cloud "Payment Gateway Providers\n(PCI-DSS Compliant)" as CLOUD_PAY {
+    component "VNPay / MoMo / Stripe\nPayment Gateways & IPN Webhooks\n(HTTPS Port 443)" as API_PAY
+  }
+
+  cloud "Google Cloud Platform" as CLOUD_GCP {
+    component "Google Gemini 1.5 Flash / Pro\nMultimodal LLM API\n(google-generativeai SDK)" as API_GEMINI
+    component "Google Cloud Monitoring\nAPM, Logs & System Telemetry" as API_MON
+  }
+
+  cloud "Hugging Face Spaces" as CLOUD_HF {
+    component "EduMap Demo / Staging\nUnified Docker Container\n(Reverse Proxy Port 7860)" as API_HF
+  }
+}
+
+CLOUD_MAIL -[hidden]right- CLOUD_PAY
+CLOUD_PAY -[hidden]right- CLOUD_GCP
+CLOUD_GCP -[hidden]right- CLOUD_HF
+
+' Anchor vertical hierarchy
+CLIENT_WEB -[hidden]down-> INGRESS
+INGRESS -[hidden]down-> APP_BE
+DB_MINIO -[hidden]down-> API_MAIL
+DB_PG -[hidden]down-> API_PAY
+DB_REDIS -[hidden]down-> API_GEMINI
+DB_CHROMA -[hidden]down-> API_MON
+
+' =============================================================================
+' INGRESS ROUTING NOTE
+' =============================================================================
+note right of INGRESS
+  **Nginx Ingress Routing Rules:**
+  --
+  * **/** -> edumap-frontend-service:3000
+  * **/api** -> edumap-backend-service:3001
+  * **/api/socket.io** -> WebSocket (NestJS:3001)
+  * **/ai-service/** -> edumap-ai-service:8000
+  * **/media/** -> edumap-minio-service:9000
+end note
+
+' =============================================================================
+' CONNECTIONS & TRAFFIC FLOWS
+' =============================================================================
+
+' 1. Clients -> Ingress
+CLIENT_WEB -down-> INGRESS : HTTPS 443 (TLS 1.3)
+CLIENT_APP -down-> INGRESS : HTTPS / WSS 443
+
+' 2. Ingress -> Workloads
+INGRESS -down-> APP_FE
+INGRESS -down-> APP_BE
+INGRESS -down-> APP_AI
+INGRESS -down-> DB_MINIO
+
+' 3. Inter-Workload Communication
+APP_FE -right-> APP_BE : REST API
+APP_BE -right-> APP_AI : HTTP / Axios
+
+' 4. Workloads -> Storage Tier
+APP_BE -down-> DB_PG
+APP_BE -down-> DB_REDIS
+APP_BE -down-> DB_MINIO
+
+APP_AI -down-> DB_CHROMA
+APP_AI ..> DB_PG
+APP_AI ..> DB_REDIS
+
+' 5. Workloads -> External Services
+APP_BE -down-> API_MAIL
+APP_BE -down-> API_PAY
+APP_AI -down-> API_GEMINI
+APP_AI -down-> API_MON
+
+CLOUD_HF .[#888888].> K8S_CLUSTER : Fallback / Demo Sync
+
+@enduml
+
+=============================================================================
+6. Sequence Diagram: User Login Flow
+=============================================================================
+@startuml seq-auth-login
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: User Authentication & JWT Login Flow (Client -> Gateway -> Auth Module -> TypeORM)
+
+actor "User" as USER #E2E8F0
+participant "Web / Mobile Client\n(Browser / App)" as CLIENT #E0E7FF
+participant "Nginx Reverse Proxy\n(API Ingress / Gateway)" as NGINX #FEF3C7
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "Auth Controller\n(auth.controller.ts)" as CTRL #DBEAFE
+    participant "Auth Service\n(auth.service.ts)" as SVC #DBEAFE
+    participant "JWT Service\n(@nestjs/jwt)" as JWT #DBEAFE
+    database "PostgreSQL 16\n(users table)" as PG #E2E8F0
+end box
+
+database "Redis Cache\n(Rate Limiter / Throttler)" as REDIS #FEE2E2
+
+autonumber "<b>[00]</b>"
+
+USER -> CLIENT : Enter email & password\nClick "Sign In"
+activate CLIENT
+
+CLIENT -> NGINX : HTTPS POST /api/v1/auth/login\n{email, password}
+activate NGINX
+
+NGINX -> CTRL : Forward HTTP POST /auth/login\n(X-Forwarded-For, X-Real-IP)
+activate CTRL
+
+group Brute-Force & Rate Limit Guard [Throttler via Redis]
+    CTRL -> REDIS : INCR throttler:login:<IP_or_Email>
+    activate REDIS
+    REDIS --> CTRL : current_attempts (TTL: 60s)
+    deactivate REDIS
+    alt #FEE2E2 Attempts > Threshold (e.g. 5 attempts/min)
+        CTRL --> CLIENT : 429 Too Many Requests (Rate limit exceeded)
+    end
+end
+
+CTRL -> SVC : login(email, password)
+activate SVC
+
+SVC -> PG : findOne({ where: { email },\n  select: [id, email, password_hash, full_name, role_id] })
+activate PG
+PG --> SVC : User entity (or null)
+deactivate PG
+
+alt #FEE2E2 Case 1: User Not Found
+    SVC --> CTRL : throw UnauthorizedException('Thông tin đăng nhập không chính xác')
+    CTRL --> CLIENT : HTTP 401 Unauthorized
+else #FFFFFF Case 2: User Exists
+    SVC -> SVC : bcrypt.compare(password, user.password_hash)
+    
+    alt #FEE2E2 Password Mismatch (Invalid Credentials)
+        SVC --> CTRL : throw UnauthorizedException('Thông tin đăng nhập không chính xác')
+        CTRL --> CLIENT : HTTP 401 Unauthorized
+    else #D1FAE5 Password Valid (Authentication Successful)
+        SVC -> SVC : Build JWT payload:\n{ sub: user.id, email: user.email, role: user.role }
+        
+        SVC -> JWT : sign(payload, { expiresIn: '1d' })
+        activate JWT
+        JWT --> SVC : access_token (Signed JWT)
+        deactivate JWT
+        
+        SVC --> CTRL : Return {\n  userId: user.id,\n  email: user.email,\n  full_name: user.full_name,\n  role: user.role,\n  access_token: token\n}
+        deactivate SVC
+        
+        CTRL --> NGINX : HTTP 200 OK\n{ success: true, data: { access_token, user } }
+        deactivate CTRL
+        
+        NGINX --> CLIENT : HTTPS 200 OK Response
+        deactivate NGINX
+        
+        CLIENT -> CLIENT : Store access_token in Secure Storage\n(HttpOnly Cookie or LocalStorage)
+        CLIENT --> USER : Redirect to Dashboard (Role-based Navigation)
+        deactivate CLIENT
+    end
+end
+
+@enduml
+
+=============================================================================
+7. Sequence Diagram: AI Chat Flow (RAG Chatbot)
+=============================================================================
+@startuml seq-ai-chat
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: AI RAG Chatbot Flow (Client -> NestJS Gateway -> FastAPI AI -> Gemini 1.5)
+
+actor "User\n(Student/Public)" as USER #E2E8F0
+participant "Web / Mobile Client\n(Next.js / Flutter)" as CLIENT #E0E7FF
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "AI Controller\n(ai.controller.ts)" as CTRL #DBEAFE
+    participant "AI Service\n(ai.service.ts)" as SVC #DBEAFE
+    database "PostgreSQL 16\n(Materials, Locations, ChatHistory)" as PG #E2E8F0
+end box
+
+box "AI Microservice (FastAPI Engine)" #FEF3C7
+    participant "Chat Router\n(routers/chat.py)" as AI_ROUTER #FDE68A
+    participant "LLM Service\n(services/llm_service.py)" as LLM #FDE68A
+    database "Redis Cache\n(Response Cache)" as REDIS #FEE2E2
+    database "ChromaDB\n(Vector Store)" as CHROMA #DCFCE7
+end box
+
+participant "Google GenAI\n(Gemini 1.5 Flash API)" as GEMINI #F3E8FF
+
+autonumber "<b>[00]</b>"
+
+USER -> CLIENT : Enter prompt / query in Chat UI
+activate CLIENT
+
+CLIENT -> CTRL : HTTP POST /api/ai/chat\n(Bearer JWT, message, history[], clientContext)
+activate CTRL
+
+CTRL -> CTRL : Validate payload & extract req.user.id
+CTRL -> SVC : chat(message, history, clientContext, userId)
+activate SVC
+
+group Dynamic Grounding Context Retrieval [NestJS TypeORM]
+    SVC -> PG : Query top-5 LearningMaterials + top-10 Locations
+    activate PG
+    PG --> SVC : materials[], locations[]
+    deactivate PG
+    SVC -> SVC : Build systemContext (books, campus facilities, metadata)
+end
+
+SVC -> AI_ROUTER : HTTP POST ${AI_SERVICE_URL}/chat/\n{user_id, message, history, context: systemContext}
+activate AI_ROUTER
+
+AI_ROUTER -> LLM : chat_with_rag(message, history, systemContext)
+activate LLM
+
+group 1. Cache Layer Check [Redis]
+    LLM -> LLM : Compute cache_key = MD5(message + history + context)
+    LLM -> REDIS : GET(cache_key)
+    activate REDIS
+    REDIS --> LLM : Cached response (Hit / Miss)
+    deactivate REDIS
+end
+
+alt #D1FAE5 Cache Hit
+    LLM --> AI_ROUTER : Return {reply: cached_text, sources: cached_sources}
+else #FFFBEB Cache Miss (Full RAG Pipeline)
+    group 2. Semantic Search [ChromaDB Vector Store]
+        LLM -> CHROMA : query(query_text=message, n_results=3)
+        activate CHROMA
+        CHROMA --> LLM : Top-3 relevant docs, metadata & snippet IDs
+        deactivate CHROMA
+    end
+
+    group 3. Prompt Assembly & Anti-Hallucination Guardrails
+        LLM -> LLM : Build system_instruction (Core Rules: Zero Hallucination)\n+ RAG context + Dynamic Context + Formatted conversation history
+    end
+
+    group 4. Cloud LLM Inference [Google Gemini]
+        LLM -> GEMINI : generate_content(model="gemini-1.5-flash", prompt, config)\n(temperature=0.3, top_p=0.8, max_tokens=2048)
+        activate GEMINI
+        GEMINI --> LLM : response.text (Generated accurate reply)
+        deactivate GEMINI
+    end
+
+    group 5. Cache Storage
+        LLM -> REDIS : SETEX(cache_key, ttl=3600, {reply, sources})
+        activate REDIS
+        REDIS --> LLM : OK
+        deactivate REDIS
+    end
+
+    LLM --> AI_ROUTER : Return {reply, sources}
+end
+deactivate LLM
+
+AI_ROUTER --> SVC : HTTP 200 {reply, sources: [doc_id, title, snippet]}
+deactivate AI_ROUTER
+
+group 6. Persistent Audit & Chat History [NestJS TypeORM]
+    alt #EFF6FF userId exists
+        SVC -> PG : historyRepo.save(ChatHistory {\n  user_id, message, response, context\n})
+        activate PG
+        PG --> SVC : Persisted Record (id, createdAt)
+        deactivate PG
+    end
+end
+
+SVC --> CTRL : Return response {reply, sources}
+deactivate SVC
+
+CTRL --> CLIENT : HTTP 200 OK\n{reply, sources, timestamp}
+deactivate CTRL
+
+CLIENT --> USER : Render AI message with interactive source citations
+deactivate CLIENT
+
+@enduml
+
+=============================================================================
+8. Sequence Diagram: Community Post Creation (AI Moderation)
+=============================================================================
+@startuml seq-community-post
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: Community Post Creation with Two-Tier AI Content Moderation
+
+actor "Student / Author" as USER #E2E8F0
+participant "Web / Mobile Client\n(Community Feed UI)" as CLIENT #E0E7FF
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "Community Controller\n(community.controller.ts)" as COMM_CTRL #DBEAFE
+    participant "Community Service\n(community.service.ts)" as COMM_SVC #DBEAFE
+    participant "AI Proxy Service\n(ai.service.ts)" as AI_SVC #DBEAFE
+    database "PostgreSQL 16\n(posts table)" as PG #E2E8F0
+    participant "Notification Service\n(notifications.service.ts)" as NOTIF #DBEAFE
+end box
+
+box "AI Microservice (FastAPI Engine)" #FEF3C7
+    participant "Moderation Router\n(routers/moderation.py)" as MOD_ROUTER #FDE68A
+    participant "Regex Guard (Layer 1)\n(Profanity & PII Dict)" as REGEX_GUARD #FDE68A
+    participant "LLM Moderation (Layer 2)\n(services/llm_service.py)" as LLM_SVC #FDE68A
+end box
+
+participant "Google GenAI\n(Gemini 1.5 Flash API)" as GEMINI #F3E8FF
+
+autonumber "<b>[00]</b>"
+
+USER -> CLIENT : Write post title, content & tags\nClick "Publish Post"
+activate CLIENT
+
+CLIENT -> COMM_CTRL : HTTP POST /api/community/posts\n(Bearer JWT, {title, content, group_id, tags})
+activate COMM_CTRL
+
+COMM_CTRL -> COMM_SVC : createPost(userId, postDto)
+activate COMM_SVC
+
+COMM_SVC -> AI_SVC : moderateContent(userId, postDto.content)
+activate AI_SVC
+
+AI_SVC -> MOD_ROUTER : HTTP POST ${AI_SERVICE_URL}/api/ai/moderate\n{user_id, text: content}
+activate MOD_ROUTER
+
+== Layer 1: Fast Deterministic Regex & PII Screening (<5ms) ==
+
+MOD_ROUTER -> REGEX_GUARD : Scan for Profanity & PII patterns\n(BAD_WORDS_PATTERN, PHONE_PATTERN)
+activate REGEX_GUARD
+REGEX_GUARD --> MOD_ROUTER : match_results (flags[])
+deactivate REGEX_GUARD
+
+alt #FEE2E2 Layer 1 Match (Severe Profanity or Leaked PII Detected)
+    MOD_ROUTER --> AI_SVC : HTTP 200 {\n  status: 'Processed via Regex',\n  is_safe: false, confidence: 1.0,\n  flags: ['Profanity' | 'PII_Phone'],\n  action_taken: 'AUTO_REJECTED'\n}
+else #FFFFFF Layer 1 Clean -> Escalate to Layer 2
+    == Layer 2: Deep Contextual & Semantic Analysis with Gemini ==
+    MOD_ROUTER -> LLM_SVC : moderate_text(content)
+    activate LLM_SVC
+    
+    LLM_SVC -> GEMINI : generate_content(model="gemini-1.5-flash",\n  prompt: "Evaluate text for harassment, hate speech, spam: {content}")
+    activate GEMINI
+    GEMINI --> LLM_SVC : JSON {is_safe: bool, confidence: float, flags: []}
+    deactivate GEMINI
+    
+    LLM_SVC --> MOD_ROUTER : {is_safe, confidence, flags}
+    deactivate LLM_SVC
+    
+    MOD_ROUTER -> MOD_ROUTER : Evaluate action_taken:\n- If !is_safe && confidence > 0.8 -> 'AUTO_REJECTED'\n- If !is_safe && confidence <= 0.8 -> 'SEND_TO_HUMAN_REVIEW'\n- If is_safe -> 'APPROVED'
+    
+    MOD_ROUTER --> AI_SVC : HTTP 200 {status, is_safe, confidence, flags, action_taken}
+end
+deactivate MOD_ROUTER
+
+AI_SVC --> COMM_SVC : moderationResult (action_taken, flags)
+deactivate AI_SVC
+
+== Community Service Decision & Persistence Matrix ==
+
+alt #FEE2E2 Case 1: AUTO_REJECTED (Direct Policy Violation)
+    COMM_SVC --> COMM_CTRL : throw BadRequestException(\n  "Nội dung vi phạm tiêu chuẩn cộng đồng: " + flags.join(', '))
+    COMM_CTRL --> CLIENT : HTTP 400 Bad Request\n{statusCode: 400, message: "Nội dung vi phạm..."}
+    CLIENT --> USER : Display error banner & highlight prohibited terms
+
+else #FEF3C7 Case 2: SEND_TO_HUMAN_REVIEW (Ambiguous / Borderline Toxicity)
+    COMM_SVC -> PG : INSERT INTO posts (\n  title, content, author_id, group_id,\n  status='pending_review'\n)
+    activate PG
+    PG --> COMM_SVC : savedPost (id, status='pending_review')
+    deactivate PG
+    
+    COMM_SVC -> NOTIF : notifyModerators(savedPost.id, "Review needed: Flagged borderline content")
+    
+    COMM_SVC --> COMM_CTRL : {\n  post: savedPost,\n  moderation_message: 'Bài viết đang chờ quản trị viên duyệt'\n}
+    COMM_CTRL --> CLIENT : HTTP 201 Created\n{post, moderation_message}
+    CLIENT --> USER : Show post in feed with "Under Review" pending badge
+
+else #D1FAE5 Case 3: APPROVED (Content Safe)
+    COMM_SVC -> PG : INSERT INTO posts (\n  title, content, author_id, group_id,\n  status='active', like_count=0, comment_count=0\n)
+    activate PG
+    PG --> COMM_SVC : savedPost (id, status='active')
+    deactivate PG
+    
+    COMM_SVC --> COMM_CTRL : {post: savedPost, moderation_message: null}
+    COMM_CTRL --> CLIENT : HTTP 201 Created {post}
+    deactivate COMM_CTRL
+    CLIENT --> USER : Instantly display active post on community feed
+    deactivate CLIENT
+end
+deactivate COMM_SVC
+
+@enduml
+
+=============================================================================
+9. Sequence Diagram: Business Checkout Flow
+=============================================================================
+@startuml seq-business-checkout
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: Business Checkout & Two-Phase Payment Processing (ACID Transaction + IPN Webhook)
+
+actor "Customer\n(Student / User)" as USER #E2E8F0
+participant "Web / Mobile Client\n(Checkout UI)" as CLIENT #E0E7FF
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "Business Controller\n(business.controller.ts)" as BIZ_CTRL #DBEAFE
+    participant "Business Service\n(business.service.ts)" as BIZ_SVC #DBEAFE
+    participant "Payment Controller\n(payment.controller.ts)" as PAY_CTRL #DBEAFE
+    participant "Payment Service\n(payment.service.ts)" as PAY_SVC #DBEAFE
+    database "PostgreSQL 16\n(orders, items, transactions)" as PG #E2E8F0
+end box
+
+participant "Payment Gateway\n(VNPay / Momo / Stripe)" as GATEWAY #FEF3C7
+database "MinIO Object Store\n(Receipts & Invoices)" as MINIO #DCFCE7
+
+autonumber "<b>[00]</b>"
+
+== Phase 1: ACID Order Creation & Inventory Lock ==
+
+USER -> CLIENT : Review Cart & Click "Place Order"\nSelect Payment Method (Online / COD)
+activate CLIENT
+
+CLIENT -> BIZ_CTRL : HTTP POST /api/business/checkout\n(Bearer JWT, {shippingAddress, paymentMethod})
+activate BIZ_CTRL
+
+BIZ_CTRL -> BIZ_SVC : checkout(userId, checkoutDto)
+activate BIZ_SVC
+
+group ACID Transaction [TypeORM QueryRunner]
+    BIZ_SVC -> PG : queryRunner.startTransaction()
+    activate PG
+    
+    BIZ_SVC -> PG : getCart(userId) -> CartItem[]
+    PG --> BIZ_SVC : cartItems[] (products, services, quantities)
+    
+    loop For each CartItem
+        BIZ_SVC -> PG : Check stock availability & Lock row\n(product.stock >= item.quantity)
+        BIZ_SVC -> PG : UPDATE products SET stock = stock - quantity
+    end
+    
+    BIZ_SVC -> BIZ_SVC : Calculate totalAmount = SUM(price * quantity)
+    
+    BIZ_SVC -> PG : INSERT INTO orders (userId, totalAmount, shippingAddress, status='PENDING')
+    PG --> BIZ_SVC : savedOrder (orderId)
+    
+    BIZ_SVC -> PG : INSERT INTO order_items (orderId, productId, quantity, priceAtPurchase)
+    
+    BIZ_SVC -> PG : INSERT INTO transactions (orderId, paymentMethod, amount, status='PENDING')
+    PG --> BIZ_SVC : savedTransaction (transactionId)
+    
+    BIZ_SVC -> PG : DELETE FROM cart_items WHERE userId = userId
+    
+    BIZ_SVC -> PG : queryRunner.commitTransaction()
+    deactivate PG
+end
+
+BIZ_SVC --> BIZ_CTRL : Return {orderId, transactionId, totalAmount}
+deactivate BIZ_SVC
+
+BIZ_CTRL --> CLIENT : HTTP 201 Created\n{orderId, transactionId, totalAmount}
+deactivate BIZ_CTRL
+
+== Phase 2: Payment Gateway Execution & Webhook Resolution ==
+
+alt #EFF6FF Scenario A: Online Payment (VNPay / Momo / Stripe)
+    CLIENT -> PAY_CTRL : HTTP POST /api/payment/process/:transactionId\n{paymentMethod, returnUrl}
+    activate PAY_CTRL
+    PAY_CTRL -> PAY_SVC : processPayment(transactionId, paymentData)
+    activate PAY_SVC
+    
+    PAY_SVC -> GATEWAY : Generate Signed Payment URL / Payment Intent\n(amount, orderInfo, hmacChecksum)
+    activate GATEWAY
+    GATEWAY --> PAY_SVC : paymentUrl (Hosted Checkout URL)
+    deactivate GATEWAY
+    
+    PAY_SVC --> PAY_CTRL : {paymentUrl, transactionId}
+    deactivate PAY_SVC
+    PAY_CTRL --> CLIENT : HTTP 200 OK {paymentUrl}
+    deactivate PAY_CTRL
+    
+    CLIENT -> GATEWAY : Redirect User to Payment Gateway URL
+    deactivate CLIENT
+    activate GATEWAY
+    
+    USER -> GATEWAY : Enter OTP / Scan QR / Authorize Payment
+    GATEWAY -> GATEWAY : Validate Funds & Authenticate Card/Wallet
+    
+    group Asynchronous Server-to-Server IPN Webhook
+        GATEWAY -> PAY_CTRL : POST /api/payment/ipn-webhook\n(transactionId, vnp_ResponseCode, secureHash)
+        activate PAY_CTRL
+        PAY_CTRL -> PAY_SVC : verifySignature & processPayment(transactionId, payload)
+        activate PAY_SVC
+        
+        alt #D1FAE5 Payment Successful (Signature Valid & Code == '00')
+            PAY_SVC -> PG : UPDATE transactions SET status = 'SUCCESS'\nWHERE id = transactionId
+            PAY_SVC -> PG : UPDATE orders SET status = 'PAID'\nWHERE id = orderId
+            
+            group Post-Payment Asynchronous Processing
+                PAY_SVC -> MINIO : Upload Digital PDF Receipt (receipt_<orderId>.pdf)
+                activate MINIO
+                MINIO --> PAY_SVC : receipt_url
+                deactivate MINIO
+            end
+            
+            PAY_SVC --> PAY_CTRL : {success: true, message: 'Thanh toán thành công'}
+            PAY_CTRL --> GATEWAY : HTTP 200 OK {RspCode: '00', Message: 'Confirm Success'}
+            deactivate PAY_CTRL
+        else #FEE2E2 Payment Failed / Cancelled
+            PAY_SVC -> PG : UPDATE transactions SET status = 'FAILED'
+            PAY_SVC -> PG : UPDATE orders SET status = 'CANCELLED'\n(Revert inventory stock)
+            PAY_SVC --> PAY_CTRL : throw BadRequestException
+            PAY_CTRL --> GATEWAY : HTTP 200 OK {RspCode: '01', Message: 'Payment Failed'}
+        end
+        deactivate PAY_SVC
+    end
+    
+    GATEWAY --> CLIENT : Browser Redirect to Return URL (/payment/result?orderId=...)
+    deactivate GATEWAY
+    activate CLIENT
+    CLIENT --> USER : Display Order Success Screen & Receipt Download Link
+    deactivate CLIENT
+
+else #FFFBEB Scenario B: Cash on Delivery (COD)
+    CLIENT --> USER : Order Placed! Display "Pay upon delivery"\nOrder remains PENDING until shipment completion
+end
+
+@enduml
+
+=============================================================================
+10. Sequence Diagram: Mentor Booking Flow
+=============================================================================
+@startuml seq-mentor-booking
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: Mentor Advisory Booking & Payment Settlement Flow (AI Matching -> Slot Lock -> IPN Confirmation)
+
+actor "Student" as USER #E2E8F0
+participant "Web / Mobile Client\n(Mentoring UI)" as CLIENT #E0E7FF
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "Mentor Controller\n(mentor.controller.ts)" as MENTOR_CTRL #DBEAFE
+    participant "Mentor Service\n(mentor.service.ts)" as MENTOR_SVC #DBEAFE
+    participant "Payment Service\n(payment.service.ts)" as PAY_SVC #DBEAFE
+    database "PostgreSQL 16\n(mentors, bookings, tx)" as PG #E2E8F0
+    participant "Notification Service\n(notifications.service.ts)" as NOTIF #DBEAFE
+end box
+
+box "AI Microservice (FastAPI)" #FEF3C7
+    participant "AI Mentor Matcher\n(/api/ai/mentor/match)" as AI_MATCH #FDE68A
+end box
+
+participant "Payment Gateway\n(VNPay / Momo)" as GATEWAY #FEF3C7
+
+autonumber "<b>[00]</b>"
+
+== Phase 1: Intelligent Mentor Discovery (AI Matching) ==
+
+USER -> CLIENT : Browse Mentors / Request AI Recommendation
+activate CLIENT
+
+CLIENT -> MENTOR_CTRL : HTTP GET /api/mentoring/mentors/recommend/:userId
+activate MENTOR_CTRL
+
+MENTOR_CTRL -> MENTOR_SVC : getAIRecommendedMentors(userId)
+activate MENTOR_SVC
+
+MENTOR_SVC -> PG : Query User (MBTI, skills) & Verified Mentors
+activate PG
+PG --> MENTOR_SVC : userProfile, activeMentors[]
+deactivate PG
+
+MENTOR_SVC -> AI_MATCH : POST /api/ai/mentor/match\n{student_mbti, skills_needed, available_mentors[]}
+activate AI_MATCH
+AI_MATCH --> MENTOR_SVC : JSON {recommended_mentors: [id, score, reason]}
+deactivate AI_MATCH
+
+MENTOR_SVC --> MENTOR_CTRL : Return top matched mentors
+deactivate MENTOR_SVC
+MENTOR_CTRL --> CLIENT : HTTP 200 OK (Recommended Mentors List)
+deactivate MENTOR_CTRL
+
+== Phase 2: Slot Availability & Booking Creation ==
+
+USER -> CLIENT : Select Mentor & Time Slot (e.g. 19:00 - 20:00)\nClick "Book Session"
+
+CLIENT -> MENTOR_CTRL : HTTP POST /api/mentoring/book\n(Bearer JWT, {mentorId, slotStart, slotEnd})
+activate MENTOR_CTRL
+
+MENTOR_CTRL -> MENTOR_SVC : bookMentor(studentId, mentorId, slotStart, slotEnd)
+activate MENTOR_SVC
+
+MENTOR_SVC -> PG : Verify slot collision (status = 'confirmed')
+activate PG
+PG --> MENTOR_SVC : collisionCheckResult
+deactivate PG
+
+alt #FEE2E2 Slot Already Booked
+    MENTOR_SVC --> MENTOR_CTRL : throw BadRequestException("Khung giờ này đã có người đặt")
+    MENTOR_CTRL --> CLIENT : HTTP 400 Bad Request
+else #FFFFFF Slot Available
+    MENTOR_SVC -> PG : INSERT INTO bookings (\n  mentor_id, student_id, slot_start, slot_end,\n  amount, status='pending', payment_status='unpaid',\n  meeting_url='https://meet.jit.si/edumap-mentor-...'\n)
+    activate PG
+    PG --> MENTOR_SVC : savedBooking (bookingId, amount)
+    deactivate PG
+    
+    MENTOR_SVC -> NOTIF : sendNotification(studentId, "Yêu cầu đặt lịch thành công. Vui lòng thanh toán.")
+    
+    MENTOR_SVC --> MENTOR_CTRL : savedBooking
+    deactivate MENTOR_SVC
+    MENTOR_CTRL --> CLIENT : HTTP 201 Created {bookingId, amount, payment_status: 'unpaid'}
+    deactivate MENTOR_CTRL
+end
+
+== Phase 3: Secure Escrow Payment & Webhook Verification ==
+
+opt #EFF6FF Paid Mentoring Session (amount > 0)
+    CLIENT -> PAY_SVC : POST /api/payment/booking/:bookingId\n{paymentMethod: 'VNPAY'}
+    activate PAY_SVC
+    
+    PAY_SVC -> PG : INSERT INTO transactions (bookingId, amount, status='PENDING')
+    activate PG
+    PG --> PAY_SVC : transactionRecord (transactionId)
+    deactivate PG
+    
+    PAY_SVC -> GATEWAY : Generate Secure Payment URL\n(transactionId, amount, orderInfo, hmacChecksum)
+    activate GATEWAY
+    GATEWAY --> PAY_SVC : paymentUrl
+    deactivate GATEWAY
+    
+    PAY_SVC --> CLIENT : HTTP 200 OK {paymentUrl, transactionId}
+    deactivate PAY_SVC
+    
+    CLIENT -> GATEWAY : Redirect Student to Payment Gateway
+    deactivate CLIENT
+    activate GATEWAY
+    
+    USER -> GATEWAY : Authorize Payment (OTP / QR Pay)
+    
+    group Asynchronous Server-to-Server IPN Webhook
+        GATEWAY -> PAY_SVC : POST /api/payment/ipn-webhook\n(transactionId, responseCode='00', secureHash)
+        activate PAY_SVC
+        
+        PAY_SVC -> PAY_SVC : Verify HMAC Signature & Payment Status
+        
+        alt #D1FAE5 Payment Verified (Success)
+            PAY_SVC -> PG : UPDATE transactions SET status='SUCCESS' WHERE id=transactionId
+            PAY_SVC -> PG : UPDATE bookings SET payment_status='paid', status='confirmed'\nWHERE transaction_id=transactionId
+            
+            PAY_SVC -> NOTIF : notifyStudent & notifyMentor(\n  "Lịch hẹn đã được xác nhận. Link họp: meet.jit.si/edumap-..."\n)
+            
+            PAY_SVC --> GATEWAY : HTTP 200 OK {RspCode: '00', Message: 'Confirm Success'}
+        else #FEE2E2 Payment Failure / Fraudulent
+            PAY_SVC -> PG : UPDATE transactions SET status='FAILED'
+            PAY_SVC --> GATEWAY : HTTP 200 OK {RspCode: '97', Message: 'Checksum Error'}
+        end
+        deactivate PAY_SVC
+    end
+    
+    GATEWAY --> CLIENT : Browser Redirect to Booking Success Page
+    deactivate GATEWAY
+    activate CLIENT
+    CLIENT --> USER : Display Confirmed Appointment Details & Jitsi Meeting Link
+    deactivate CLIENT
+end
+
+@enduml
+
+=============================================================================
+11. Sequence Diagram: Scholarship Eligibility Check
+=============================================================================
+@startuml seq-scholarship-eligibility
+skinparam defaultFontName "DejaVu Sans"
+skinparam roundCorner 6
+skinparam shadowing false
+skinparam monochrome false
+skinparam responseMessageBelowArrow true
+
+skinparam sequence {
+    ArrowColor #2563EB
+    ActorBorderColor #1E293B
+    LifeLineBorderColor #64748B
+    LifeLineBackgroundColor #F8FAFC
+    ParticipantBorderColor #334155
+    ParticipantBackgroundColor #FFFFFF
+    ParticipantFontSize 12
+    ParticipantFontStyle bold
+    BoxPadding 10
+    GroupBorderColor #94A3B8
+    GroupBackgroundColor #F8FAFC
+    GroupHeaderFontSize 11
+}
+
+title Sequence: Scholarship AI Eligibility Assessment & Application Submission Flow
+
+actor "Student" as USER #E2E8F0
+participant "Web / Mobile Client\n(Scholarship Portal)" as CLIENT #E0E7FF
+
+box "Backend Core Platform (NestJS)" #F1F5F9
+    participant "Scholarship Controller\n(scholarship.controller.ts)" as SCHOLAR_CTRL #DBEAFE
+    participant "Scholarship Service\n(scholarship.service.ts)" as SCHOLAR_SVC #DBEAFE
+    participant "AI Proxy Service\n(ai.service.ts)" as AI_SVC #DBEAFE
+    database "PostgreSQL 16\n(scholarships, applications)" as PG #E2E8F0
+end box
+
+box "AI Microservice (FastAPI Engine)" #FEF3C7
+    participant "Scholarship Router\n(routers/scholarship.py)" as AI_ROUTER #FDE68A
+    participant "LLM Service\n(services/llm_service.py)" as LLM_SVC #FDE68A
+end box
+
+participant "Google GenAI\n(Gemini 1.5 Flash API)" as GEMINI #F3E8FF
+
+autonumber "<b>[00]</b>"
+
+== Phase 1: AI Eligibility Evaluation & Criteria Matching ==
+
+USER -> CLIENT : Click "Check Eligibility" on Scholarship Card
+activate CLIENT
+
+CLIENT -> SCHOLAR_CTRL : HTTP GET /api/scholarships/:id/check-eligibility\n(Bearer JWT)
+activate SCHOLAR_CTRL
+
+SCHOLAR_CTRL -> SCHOLAR_SVC : checkEligibility(userId, scholarshipId)
+activate SCHOLAR_SVC
+
+SCHOLAR_SVC -> PG : findOne(Scholarship, {where: {id: scholarshipId}})\nfindOne(User, {where: {id: userId}} + profile)
+activate PG
+PG --> SCHOLAR_SVC : scholarshipData, userData (GPA, major, skills)
+deactivate PG
+
+SCHOLAR_SVC -> AI_SVC : checkScholarshipEligibility(userData, scholarshipData)
+activate AI_SVC
+
+AI_SVC -> AI_ROUTER : HTTP POST ${AI_SERVICE_URL}/api/ai/scholarship/check\n{user_data, scholarship_data}
+activate AI_ROUTER
+
+AI_ROUTER -> LLM_SVC : chat_with_rag(prompt, history=[], context={})
+activate LLM_SVC
+
+group Multi-Dimensional Criteria Evaluation [Gemini AI Engine]
+    LLM_SVC -> GEMINI : generate_content(model="gemini-1.5-flash", prompt: "\n    Assess Student Eligibility against Scholarship Criteria:\n    - Academic: GPA, Field of Study / Major\n    - Need / Background: Regional origin, socio-economic factors\n    - Extracurricular & Skills alignment\n    Return JSON {is_eligible: bool, match_score: float, analysis: str}\n    ")
+    activate GEMINI
+    GEMINI --> LLM_SVC : JSON Response {is_eligible, match_score: 0.92, analysis}
+    deactivate GEMINI
+end
+
+LLM_SVC --> AI_ROUTER : JSON {is_eligible, message, match_score}
+deactivate LLM_SVC
+
+AI_ROUTER --> AI_SVC : HTTP 200 {is_eligible: true, message: "Hồ sơ của bạn rất phù hợp..."}
+deactivate AI_ROUTER
+
+AI_SVC --> SCHOLAR_SVC : Eligibility Assessment Result
+deactivate AI_SVC
+
+SCHOLAR_SVC --> SCHOLAR_CTRL : Assessment Payload
+deactivate SCHOLAR_SVC
+
+SCHOLAR_CTRL --> CLIENT : HTTP 200 OK\n{is_eligible: true, match_score: 0.92, message: "..."}
+deactivate SCHOLAR_CTRL
+
+CLIENT --> USER : Display Eligibility Score (92%) & Recommendation Breakdown\nShow "Apply Now" Action Button
+deactivate CLIENT
+
+== Phase 2: Formal Scholarship Application Submission ==
+
+opt #D1FAE5 Student Proceeds with Application
+    USER -> CLIENT : Fill Statement of Purpose & Attach CV link\nClick "Submit Application"
+    activate CLIENT
+    
+    CLIENT -> SCHOLAR_CTRL : HTTP POST /api/scholarships/:id/apply\n(Bearer JWT, {personal_statement, cv_url})
+    activate SCHOLAR_CTRL
+    
+    SCHOLAR_CTRL -> SCHOLAR_SVC : applyScholarship(userId, scholarshipId, statement, cvUrl)
+    activate SCHOLAR_SVC
+    
+    SCHOLAR_SVC -> PG : Verify no duplicate active submission\n(where: {student_id, scholarship_id})
+    activate PG
+    PG --> SCHOLAR_SVC : existingCheck (null)
+    
+    SCHOLAR_SVC -> PG : INSERT INTO scholarship_applications (\n  scholarship_id, student_id, personal_statement,\n  cv_url, status='pending'\n)
+    PG --> SCHOLAR_SVC : savedApplication (id, created_at, status='pending')
+    deactivate PG
+    
+    SCHOLAR_SVC --> SCHOLAR_CTRL : savedApplication
+    deactivate SCHOLAR_SVC
+    
+    SCHOLAR_CTRL --> CLIENT : HTTP 201 Created\n{applicationId, status: 'pending', message: 'Nộp đơn thành công'}
+    deactivate SCHOLAR_CTRL
+    
+    CLIENT --> USER : Display Application Success Confirmation & Status Tracker
+    deactivate CLIENT
+end
+
+@enduml
+
+' =============================================================================
+' END OF FILE
+' ============================================================================
+
+
+=============================================================================
+12. Use Case Diagram: Overall System Use Case (EduMap Platform)
+=============================================================================
+@startuml usecase-overall
+left to right direction
+skinparam defaultFontName "DejaVu Sans"
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam packageStyle rectangle
+
+skinparam actor {
+    BackgroundColor #FFFFFF
+    BorderColor #1E293B
+    FontColor #0F172A
+    FontSize 11
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #2563EB
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 10
+    ArrowColor #3B82F6
+    ArrowThickness 1
+}
+
+skinparam package {
+    BackgroundColor #F8FAFC
+    BorderColor #64748B
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 11
+    FontStyle bold
+}
+
+title Sơ đồ Use Case Tổng thể Hệ thống EduMap (4 Nhóm Tác tử & 6 Phân hệ Nghiệp vụ)
+
+' =============================================================================
+' LEFT ACTORS
+' =============================================================================
+actor "Học sinh / Sinh viên\n(Student - Web & App)" as ACT_STUDENT #E0E7FF
+actor "Cố vấn / Giảng viên\n(Mentor / Advisor)" as ACT_MENTOR #FEF3C7
+
+' =============================================================================
+' SYSTEM BOUNDARY: EDUMAP PLATFORM (2 ROWS X 3 COLUMNS)
+' =============================================================================
+rectangle "HỆ THỐNG BẢN ĐỒ SỐ & GIÁO DỤC THÔNG MINH EDUMAP (ĐỒNG NAI)" as SYS_EDUMAP #FFFFFF {
+
+    ' --- COLUMN 1 ---
+    package "Phân hệ 1: Bản đồ Số & Không gian GIS" as PKG_GIS #F0FDF4 {
+        usecase "UC01: Tra cứu bản đồ\n& Điểm học tập lân cận" as UC_MAP
+        usecase "UC02: Theo dõi lộ trình\nxe thư viện lưu động" as UC_MOBILE_UNIT
+        usecase "UC03: Tìm trạm Wi-Fi\nmiễn phí Đồng Nai" as UC_WIFI
+        usecase "Định vị GPS & Bán kính PostGIS" as UC_GPS #DCFCE7
+        
+        UC_MAP .> UC_GPS : <<include>>
+    }
+
+    package "Phân hệ 2: Trợ lý AI & Hướng nghiệp" as PKG_AI #FEFCE8 {
+        usecase "UC04: Chat hỏi đáp RAG với Trợ lý AI" as UC_CHAT
+        usecase "UC05: Làm trắc nghiệm nghề nghiệp\n& Lộ trình học tập" as UC_CAREER
+        usecase "UC06: Đánh giá độ phù hợp\nhọc bổng bằng AI" as UC_SCHOLAR
+    }
+
+    ' --- COLUMN 2 ---
+    package "Phân hệ 3: Tư vấn 1-1 & Cố vấn Học tập" as PKG_MENTOR #EFF6FF {
+        usecase "UC07: Đặt lịch hẹn cố vấn 1-1" as UC_BOOK
+        usecase "UC08: Quản lý lịch rảnh\n& Xác nhận lịch hẹn" as UC_AVAIL
+        usecase "UC09: Tham gia phòng họp\ntrực tuyến (Jitsi Meet)" as UC_MEET
+        usecase "UC10: Đánh giá & Phản hồi Mentor" as UC_REVIEW_MENTOR
+    }
+
+    package "Phân hệ 4: Thư viện Số & Chứng chỉ Số" as PKG_LIB #F5F3FF {
+        usecase "UC11: Tra cứu & Đọc học liệu số" as UC_READ_LIB
+        usecase "UC12: Nhận chứng chỉ số\nxác thực Blockchain (SBT)" as UC_CERT
+    }
+
+    ' --- COLUMN 3 ---
+    package "Phân hệ 5: Sàn Giáo dục & Giao lưu Cộng đồng" as PKG_COMM #FFF1F2 {
+        usecase "UC13: Đặt mua tài liệu / Đăng ký dịch vụ" as UC_BUY
+        usecase "UC14: Đăng tuyển dụng & Quản lý gian hàng" as UC_SELL
+        usecase "UC15: Đăng thảo luận & Tương tác bài viết" as UC_POST
+        usecase "UC16: Tham gia Thử thách xanh & Tình nguyện" as UC_GREEN
+        usecase "Kiểm duyệt nội dung 2 lớp (Regex + AI)" as UC_MOD #FFE4E6
+        
+        UC_POST .> UC_MOD : <<include>>
+    }
+
+    package "Phân hệ 6: Quản trị & Điều hành Nền tảng" as PKG_ADMIN #F8FAFC {
+        usecase "UC17: Quản trị tài khoản & Phân quyền RBAC" as UC_USER_MGMT
+        usecase "UC18: Kiểm duyệt bài viết (Human-in-the-loop)" as UC_MODERATE
+        usecase "UC19: Xem bảng điều khiển thống kê (Dashboard)" as UC_STATS
+    }
+
+    usecase "Thanh toán Trực tuyến (Ký quỹ/Order)" as UC_PAY #FEF3C7
+    UC_BOOK .> UC_PAY : <<include>>
+    UC_BUY .> UC_PAY : <<include>>
+
+    ' Grid layout: Col 1, Col 2, Col 3
+    PKG_GIS -[hidden]down-> PKG_AI
+    PKG_MENTOR -[hidden]down-> PKG_LIB
+    PKG_COMM -[hidden]down-> PKG_ADMIN
+    
+    PKG_GIS -[hidden]right-> PKG_MENTOR
+    PKG_MENTOR -[hidden]right-> PKG_COMM
+}
+
+' =============================================================================
+' RIGHT ACTORS & EXTERNAL SAAS
+' =============================================================================
+actor "Doanh nghiệp / Tuyển dụng\n(Employer / Business)" as ACT_BIZ #F3E8FF
+actor "Quản trị viên / Điều phối\n(System Administrator)" as ACT_ADMIN #FEE2E2
+
+actor "Cổng Thanh toán\n(VNPay / MoMo)" as EXT_PAY <<External SaaS>> #F1F5F9
+actor "Google GenAI Engine\n(Gemini 1.5 Flash)" as EXT_AI <<External SaaS>> #F1F5F9
+
+' =============================================================================
+' ACTOR ASSOCIATIONS
+' =============================================================================
+ACT_STUDENT --> UC_MAP
+ACT_STUDENT --> UC_MOBILE_UNIT
+ACT_STUDENT --> UC_WIFI
+ACT_STUDENT --> UC_CHAT
+ACT_STUDENT --> UC_CAREER
+ACT_STUDENT --> UC_SCHOLAR
+ACT_STUDENT --> UC_BOOK
+ACT_STUDENT --> UC_MEET
+ACT_STUDENT --> UC_REVIEW_MENTOR
+ACT_STUDENT --> UC_READ_LIB
+ACT_STUDENT --> UC_CERT
+ACT_STUDENT --> UC_BUY
+ACT_STUDENT --> UC_POST
+ACT_STUDENT --> UC_GREEN
+
+ACT_MENTOR --> UC_AVAIL
+ACT_MENTOR --> UC_MEET
+ACT_MENTOR --> UC_READ_LIB
+ACT_MENTOR --> UC_POST
+
+ACT_BIZ --> UC_SELL
+ACT_BIZ --> UC_POST
+ACT_BIZ --> UC_GREEN
+
+ACT_ADMIN --> UC_USER_MGMT
+ACT_ADMIN --> UC_MODERATE
+ACT_ADMIN --> UC_STATS
+
+UC_PAY --> EXT_PAY
+UC_CHAT --> EXT_AI
+UC_SCHOLAR --> EXT_AI
+UC_MOD --> EXT_AI
+
+@enduml
+
+
+=============================================================================
+13. Component Architecture: EduMap Mobile Client (React Native / Expo SDK 50)
+=============================================================================
+@startuml mobile-app-architecture
+skinparam defaultFontName "DejaVu Sans"
+skinparam shadowing false
+skinparam roundCorner 8
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+skinparam component {
+    BackgroundColor #FFFFFF
+    BorderColor #334155
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 10
+    FontStyle bold
+}
+
+skinparam package {
+    BorderColor #64748B
+    BorderThickness 1.2
+    FontColor #0F172A
+    FontSize 11
+    FontStyle bold
+}
+
+title Kiến trúc Thành phần Ứng dụng Di động EduMap (React Native 0.73 & Expo SDK 50)
+
+' =============================================================================
+' DEVICE HARDWARE / RUNTIME TIER
+' =============================================================================
+package "Tầng Thiết bị Di động (Mobile Hardware & OS Sensors)" as PKG_HW #F8FAFC {
+    component "Cảm biến Vị trí GPS\n(Location Provider)" as HW_GPS #E2E8F0
+    component "Bộ nhớ Mã hóa Cứng\n(iOS Keychain / Android Keystore)" as HW_KEYSTORE #E2E8F0
+    component "Kết nối Mạng\n(Wi-Fi / 4G / 5G Network)" as HW_NET #E2E8F0
+}
+
+' =============================================================================
+' MOBILE APPLICATION CLIENT (EDUMAP EXPO)
+' =============================================================================
+package "Ứng dụng Di động EduMap (React Native / Expo Client)" as APP_EDUMAP #FFFFFF {
+
+    ' --- LAYER 1: PRESENTATION & SCREENS ---
+    package "1. Tầng Giao diện & Điều hướng (Presentation Tier / Navigation)" as PKG_UI #EFF6FF {
+        component "NavigationContainer\n(EduMapDarkTheme: #09090b)" as NAV_ROOT #DBEAFE
+        component "BottomTabNavigator\n(App.tsx: edumap-main-tabs)" as TAB_NAV #DBEAFE
+        
+        package "Màn hình Chức năng (Screens - mobile/src/screens/)" as PKG_SCREENS #F0FDF4 {
+            component "HomeScreen\n(Bảng tin & Lối tắt)" as SCR_HOME #FFFFFF
+            component "MapScreen\n(Bản đồ GIS & Điểm học tập)" as SCR_MAP #FFFFFF
+            component "ChatScreen\n(Trợ lý AI RAG Chat)" as SCR_CHAT #FFFFFF
+            component "ScholarshipScreen\n(Học bổng & Check AI)" as SCR_SCHOLAR #FFFFFF
+            component "InternshipScreen\n(Việc làm & Tuyển dụng)" as SCR_INTERN #FFFFFF
+            component "CareerScreen\n(Trắc nghiệm & Lộ trình)" as SCR_CAREER #FFFFFF
+            component "WifiScreen\n(Điểm Wi-Fi miễn phí)" as SCR_WIFI #FFFFFF
+            component "ProfileScreen\n(Hồ sơ & Chứng chỉ)" as SCR_PROFILE #FFFFFF
+        }
+    }
+
+    ' --- LAYER 2: STATE MANAGEMENT & CONTEXT ---
+    package "2. Tầng Trạng thái & Ngữ cảnh (State & Context Layer)" as PKG_CONTEXT #FEFCE8 {
+        component "AuthContext\n(Quản lý User & JWT Token)" as CTX_AUTH #FEF3C7
+        component "LocationContext\n(Tọa độ GPS Thời gian thực)" as CTX_LOC #FEF3C7
+        component "ThemeContext\n(Dark Glassmorphism Theme)" as CTX_THEME #FEF3C7
+    }
+
+    ' --- LAYER 3: CORE CLIENT SERVICES ---
+    package "3. Tầng Dịch vụ & Xử lý Nghiệp vụ (Client Services Layer)" as PKG_SERVICES #F5F3FF {
+        component "ApiService (api.ts)\n(HTTP Fetch + AbortController 10s)" as SVC_API #EDE9FE
+        component "SecureStore Service\n(Lưu trữ Token an toàn)" as SVC_SECURE #EDE9FE
+        component "Offline Cache Manager\n(AsyncStorage / In-Memory)" as SVC_CACHE #EDE9FE
+        component "Location Manager\n(Reverse Geocoding / Haversine)" as SVC_LOC_MGR #EDE9FE
+    }
+}
+
+' =============================================================================
+' BACKEND PLATFORM & EXTERNAL CLOUD
+' =============================================================================
+package "Hệ thống Máy chủ Backend (EduMap Core Platform)" as PKG_BACKEND #FFF1F2 {
+    component "NestJS REST API Gateway\n(/api/v1 - Auth, Map, Scholar, Career)" as BE_REST #FFE4E6
+    component "NestJS WebSocket Gateway\n(map.gateway.ts & notification.gateway.ts)" as BE_WS #FFE4E6
+}
+
+cloud "Hạ tầng Đám mây & Bên thứ ba" as CLOUD_EXT #F1F5F9 {
+    component "Bản đồ Mở OpenStreetMap\n(OSM Tile Server)" as OSM_TILES #E2E8F0
+    component "Google Gemini 1.5 Flash\n(AI LLM Engine)" as EXT_GEMINI #E2E8F0
+}
+
+' =============================================================================
+' RELATIONSHIPS & DATA FLOWS
+' =============================================================================
+' Hardware to Services
+HW_GPS --> SVC_LOC_MGR : Cung cấp Tọa độ (Lat/Lng)
+HW_KEYSTORE <--> SVC_SECURE : Đọc/Ghi Token mã hóa
+HW_NET <--> SVC_API : Gửi gói tin mạng HTTPS
+
+' Navigation to Screens
+NAV_ROOT --> TAB_NAV
+TAB_NAV --> SCR_HOME
+TAB_NAV --> SCR_MAP
+TAB_NAV --> SCR_CHAT
+TAB_NAV --> SCR_SCHOLAR
+TAB_NAV --> SCR_INTERN
+TAB_NAV --> SCR_CAREER
+TAB_NAV --> SCR_WIFI
+TAB_NAV --> SCR_PROFILE
+
+' Screens to Context & Services
+SCR_MAP --> CTX_LOC : Lấy vị trí GPS hiện tại
+SCR_MAP --> SVC_API : getLocations(), getWifi()
+SCR_MAP ..> OSM_TILES : Tải bản đồ nền Tile Layer
+
+SCR_CHAT --> SVC_API : POST /ai/chat
+SCR_SCHOLAR --> SVC_API : GET /scholarships/:id/check-eligibility
+SCR_INTERN --> SVC_API : GET /internships
+SCR_CAREER --> SVC_API : POST /career-quiz
+SCR_WIFI --> SVC_API : GET /map/wifi
+SCR_PROFILE --> CTX_AUTH : Lấy thông tin tài khoản
+
+' Context to Services
+CTX_AUTH --> SVC_SECURE : Lưu trữ Access Token
+CTX_LOC --> SVC_LOC_MGR : Lấy tọa độ GPS thiết bị
+
+' Services to Backend
+SVC_API --> BE_REST : HTTPS REST Requests (Bearer Token)
+SCR_MAP ..> BE_WS : Kết nối WebSocket theo dõi xe lưu động
+SCR_HOME ..> BE_WS : Nhận thông báo đẩy Real-time
+
+' Backend to Cloud
+BE_REST ..> EXT_GEMINI : RAG Prompt & Career Recommendation
+
+@enduml
+
+' ==============================================================================
+' 14. STATE MACHINE DIAGRAM: E-COMMERCE & SERVICE ORDER LIFECYCLE
+' ==============================================================================
+@startuml UML_state-order-lifecycle
+skinparam defaultFontName "DejaVu Sans"
+skinparam monochrome false
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.5
+skinparam NoteBackgroundColor #FEF3C7
+skinparam NoteBorderColor #D97706
+skinparam NoteFontColor #92400E
+
+skinparam state {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+  FontSize 13
+  FontStyle bold
+  
+  BackgroundColor<<Initial>> #E2E8F0
+  BackgroundColor<<Draft>> #F1F5F9
+  BackgroundColor<<Pending>> #FEF3C7
+  BorderColor<<Pending>> #D97706
+  BackgroundColor<<Paid>> #E0F2FE
+  BorderColor<<Paid>> #0284C7
+  BackgroundColor<<Shipping>> #EDE9FE
+  BorderColor<<Shipping>> #7C3AED
+  BackgroundColor<<Completed>> #DCFCE7
+  BorderColor<<Completed>> #16A34A
+  BackgroundColor<<Cancelled>> #FEE2E2
+  BorderColor<<Cancelled>> #DC2626
+  BackgroundColor<<Composite>> #FFFFFF
+  BorderColor<<Composite>> #475569
+}
+
+title <size:18><b>EDUMAP PLATFORM - E-COMMERCE & SERVICE ORDER LIFECYCLE</b></size>\n<size:12>Enterprise State Machine Diagram (TypeORM OrderStatus & Transaction Lifecycle)</size>
+
+[*] --> CART_SELECTION : User adds items to Cart
+
+state "<b>SHOPPING_CART</b>\n(Session / CartItem Entity)" as CART_SELECTION <<Draft>> {
+  CART_SELECTION : <b>entry /</b> Load active cart items
+  CART_SELECTION : <b>do /</b> Validate stock & calculate subtotal
+  CART_SELECTION : <b>exit /</b> Lock selected items for checkout
+}
+
+CART_SELECTION --> PENDING : <b>POST /api/business/checkout</b>\n[Stock >= quantity]\n/ Deduct stock, create Order & Transaction (UUID)
+
+state "<b>ORDER_PENDING</b>\n(OrderStatus.PENDING)" as PENDING <<Pending>> {
+  PENDING : <b>entry /</b> Order created (UUID); Transaction created (PENDING)
+  PENDING : <b>entry /</b> Set 15-minute payment expiration timer (Redis TTL)
+  PENDING : <b>do /</b> Awaiting payment via COD or Payment Gateway (VNPay/MoMo)
+  
+  state "Payment Method Branch" as PAY_BRANCH <<Composite>> {
+    state "<b>ONLINE_PAYMENT_PENDING</b>\n(VNPay / MoMo Gateway)" as ONLINE_PAY
+    state "<b>COD_PENDING</b>\n(Cash on Delivery)" as COD_PAY
+    
+    ONLINE_PAY : Redirect student to gateway URL
+    COD_PAY : Buyer verified phone & address
+  }
+}
+
+PENDING --> CANCELLED : <b>Payment Timeout (15m elapsed)</b>\n[Transaction not completed]\n/ Restore product stock, mark Transaction FAILED
+
+PENDING --> CANCELLED : <b>Buyer Cancels Checkout</b>\n/ Restore product stock, mark Transaction FAILED
+
+PENDING --> PAID : <b>Webhook IPN: Payment Verified</b>\n(VNPay/MoMo responseCode == '00')\n/ Transaction marked SUCCESS, audit logged
+
+PENDING --> SHIPPING : <b>Vendor Confirms COD Order</b>\n[PaymentMethod == COD]\n/ Lock delivery dispatch, notify shipping carrier
+
+state "<b>ORDER_PAID</b>\n(OrderStatus.PAID)" as PAID <<Paid>> {
+  PAID : <b>entry /</b> TransactionStatus = SUCCESS; Escrow funds held
+  PAID : <b>entry /</b> Send push notification & email receipt
+  PAID : <b>do /</b> Vendor prepares physical goods or provisions digital service
+  
+  state "Fulfillment Type" as FULFILL_BRANCH <<Composite>> {
+    state "<b>PHYSICAL_PACKING</b>\nWarehouse packaging & print shipping label" as PACKING
+    state "<b>DIGITAL_SERVICE_PROVISION</b>\nCourse access / Subscription entitlement" as DIGITAL_PROV
+  }
+}
+
+PAID --> SHIPPING : <b>Vendor Dispatches Order</b>\n/ Generate Tracking Code, assign 3PL Carrier (GHN/GHTK)
+
+PAID --> COMPLETED : <b>Auto-Activate Digital Service</b>\n[OrderItem.serviceId != null]\n/ Unlock course access, skip physical transit
+
+PAID --> CANCELLED : <b>Merchant Out of Stock / Buyer Cancelled</b>\n[Before dispatch]\n/ Initiate Payment Gateway Refund API, restore stock
+
+state "<b>ORDER_SHIPPING</b>\n(OrderStatus.SHIPPING)" as SHIPPING <<Shipping>> {
+  SHIPPING : <b>entry /</b> Carrier picks up parcel; dispatch status active
+  SHIPPING : <b>do /</b> Webhook sync with 3PL tracking updates (In-Transit)
+  SHIPPING : <b>do /</b> COD collection pending (if PaymentMethod == COD)
+}
+
+SHIPPING --> COMPLETED : <b>Delivery Confirmed</b>\n(Buyer signs receipt OR Carrier Webhook 'DELIVERED')\n/ If COD: TransactionStatus = SUCCESS, release vendor payout
+
+SHIPPING --> FAILED_DELIVERY : <b>Delivery Attempt Failed 3 Times</b>\n(Buyer unreachable / Address incorrect)
+
+state "<b>DELIVERY_FAILED</b>\n(Return to Vendor)" as FAILED_DELIVERY <<Cancelled>> {
+  FAILED_DELIVERY : <b>entry /</b> Carrier returns physical package to vendor
+  FAILED_DELIVERY : <b>do /</b> Inspect returned goods condition
+}
+
+FAILED_DELIVERY --> CANCELLED : <b>Vendor Confirms Return Receipt</b>\n/ Restock items; process partial/full refund
+
+state "<b>ORDER_COMPLETED</b>\n(OrderStatus.COMPLETED)" as COMPLETED <<Completed>> {
+  COMPLETED : <b>entry /</b> Release escrow balance to Business Vendor Wallet
+  COMPLETED : <b>entry /</b> Award student platform reward points
+  COMPLETED : <b>do /</b> Enable verified purchase review (1-5 stars)
+}
+
+state "<b>ORDER_CANCELLED</b>\n(OrderStatus.CANCELLED)" as CANCELLED <<Cancelled>> {
+  CANCELLED : <b>entry /</b> Execute Compensating Saga:
+  CANCELLED : - Restore product inventory (+quantity)
+  CANCELLED : - If paid: issue automated refund via Payment Gateway
+  CANCELLED : - Send cancellation notice to Buyer & Vendor
+}
+
+COMPLETED --> [*] : Order Lifecycle Closed
+CANCELLED --> [*] : Order Lifecycle Terminated
+
+note right of PENDING
+  <b>ACID Transaction & Stock Locking:</b>
+  During <b>checkout()</b>, stock is decremented
+  inside a PostgreSQL repeatable-read transaction.
+  If payment times out or fails, a compensating
+  worker restores stock:
+  <b>product.stock += item.quantity</b>
+end note
+
+note right of COMPLETED
+  <b>Review & Escrow Release:</b>
+  Once in <b>COMPLETED</b>, the student
+  is permitted to call <b>POST /api/business/reviews</b>
+  and vendor receives platform payout.
+end note
+
+@enduml
+
+' ==============================================================================
+' 15. STATE MACHINE DIAGRAM: MENTOR BOOKING & CONSULTATION LIFECYCLE
+' ==============================================================================
+@startuml UML_state-mentor-booking
+skinparam defaultFontName "DejaVu Sans"
+skinparam monochrome false
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.5
+skinparam NoteBackgroundColor #FEF3C7
+skinparam NoteBorderColor #D97706
+skinparam NoteFontColor #92400E
+
+skinparam state {
+  BackgroundColor #F8FAFC
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+  FontSize 13
+  FontStyle bold
+  
+  BackgroundColor<<SlotSelect>> #F1F5F9
+  BackgroundColor<<Pending>> #FEF3C7
+  BorderColor<<Pending>> #D97706
+  BackgroundColor<<Confirmed>> #E0F2FE
+  BorderColor<<Confirmed>> #0284C7
+  BackgroundColor<<InSession>> #EDE9FE
+  BorderColor<<InSession>> #7C3AED
+  BackgroundColor<<Completed>> #DCFCE7
+  BorderColor<<Completed>> #16A34A
+  BackgroundColor<<Cancelled>> #FEE2E2
+  BorderColor<<Cancelled>> #DC2626
+  BackgroundColor<<Composite>> #FFFFFF
+  BorderColor<<Composite>> #475569
+}
+
+title <size:18><b>EDUMAP PLATFORM - MENTOR BOOKING & CONSULTATION LIFECYCLE</b></size>\n<size:12>Enterprise State Machine Diagram (TypeORM Booking & Escrow Lifecycle)</size>
+
+[*] --> SLOT_SELECTION : Student explores Mentors
+
+state "<b>SLOT_BROWSING_&_MATCHING</b>\n(AI Match / Availability Check)" as SLOT_SELECTION <<SlotSelect>> {
+  SLOT_SELECTION : <b>entry /</b> AI match via GET /mentoring/mentors/recommend/:userId
+  SLOT_SELECTION : <b>do /</b> View verified mentors & available slots (GET /slots)
+  SLOT_SELECTION : <b>exit /</b> Select time slot [slot_start, slot_end]
+}
+
+SLOT_SELECTION --> BOOKING_PENDING : <b>POST /api/mentoring/book</b>\n[Slot is not booked && student != mentor]\n/ Create Booking (UUID, status: 'pending', meeting_url generated)
+
+state "<b>BOOKING_PENDING</b>\n(status: 'pending')" as BOOKING_PENDING <<Pending>> {
+  BOOKING_PENDING : <b>entry /</b> Send in-app notification to Mentor & Student
+  BOOKING_PENDING : <b>entry /</b> Start 15-minute escrow payment timer (Redis TTL)
+  BOOKING_PENDING : <b>do /</b> Awaiting Escrow Payment & Mentor Acceptance
+  
+  state "Payment & Acceptance Phase" as PEND_SUB <<Composite>> {
+    state "<b>UNPAID_AWAITING_PAYMENT</b>\n(payment_status: 'unpaid')\nStudent redirected to VNPay / MoMo" as UNPAID
+    state "<b>ESCROW_PAID_AWAITING_CONFIRM</b>\n(payment_status: 'paid')\nFunds held safely in Platform Escrow" as ESCROW_PAID
+    
+    UNPAID --> ESCROW_PAID : <b>Payment Webhook IPN</b>\n(responseCode == '00')\n/ payment_status = 'paid'
+  }
+}
+
+BOOKING_PENDING --> BOOKING_CONFIRMED : <b>Mentor Accepts Booking</b>\n(PATCH /api/mentoring/bookings/:id/status)\n[payment_status == 'paid' OR hourly_rate == 0]\n/ status = 'confirmed', lock calendar slot
+
+BOOKING_PENDING --> BOOKING_CANCELLED : <b>Payment Timeout (15m elapsed)</b>\n[payment_status == 'unpaid']\n/ status = 'cancelled', release time slot
+
+BOOKING_PENDING --> BOOKING_CANCELLED : <b>Student Aborts Request</b>\n/ status = 'cancelled', release time slot
+
+BOOKING_PENDING --> BOOKING_CANCELLED : <b>Mentor Declines Request</b>\n/ status = 'cancelled'\n[If payment_status == 'paid': Trigger Full Refund Gateway API]
+
+state "<b>BOOKING_CONFIRMED</b>\n(status: 'confirmed')" as BOOKING_CONFIRMED <<Confirmed>> {
+  BOOKING_CONFIRMED : <b>entry /</b> Calendar invitation dispatched (.ics / Google Calendar)
+  BOOKING_CONFIRMED : <b>entry /</b> Schedule reminder job (BullMQ: T-24h, T-1h, T-10m)
+  BOOKING_CONFIRMED : <b>do /</b> Awaiting session start time (slot_start)
+  BOOKING_CONFIRMED : <b>exit /</b> Activate Jitsi Meet Video Conference room
+}
+
+BOOKING_CONFIRMED --> IN_SESSION : <b>Session Start Time Reached (slot_start)</b>\nBoth Student & Mentor enter Jitsi Meet URL\n/ WebRTC connection established, live video active
+
+BOOKING_CONFIRMED --> BOOKING_CANCELLED : <b>Student / Mentor Cancels (> 24h prior)</b>\n(PATCH /bookings/:id/status)\n/ status = 'cancelled', release slot, process 100% refund
+
+BOOKING_CONFIRMED --> BOOKING_CANCELLED : <b>Late Cancellation (< 24h prior)</b>\n/ Apply platform cancellation policy & partial penalty
+
+state "<b>SESSION_IN_PROGRESS</b>\n(Active WebRTC Consultation)" as IN_SESSION <<InSession>> {
+  IN_SESSION : <b>entry /</b> Jitsi Meet room active: https://meet.jit.si/edumap-mentor-{uuid}
+  IN_SESSION : <b>do /</b> 1-on-1 audio/video, screenshare, chat, whiteboard
+  IN_SESSION : <b>do /</b> Session timer countdown (slot_start -> slot_end)
+  IN_SESSION : <b>exit /</b> Terminate meeting room session
+}
+
+IN_SESSION --> BOOKING_COMPLETED : <b>Session Concluded (slot_end reached)</b>\n(PATCH /api/mentoring/bookings/:id/status)\n[status -> 'completed']\n/ Finalize session duration log
+
+IN_SESSION --> BOOKING_CANCELLED : <b>Critical Technical Failure / Abandoned</b>\n[Dispute raised within call window]\n/ Hold payout for moderator investigation
+
+state "<b>BOOKING_COMPLETED</b>\n(status: 'completed')" as BOOKING_COMPLETED <<Completed>> {
+  BOOKING_COMPLETED : <b>entry /</b> Escrow Release: Transfer (Amount - PlatformFee) to Mentor Wallet
+  BOOKING_COMPLETED : <b>entry /</b> Send Review & Rating Prompt to Student (1-5 stars)
+  BOOKING_COMPLETED : <b>do /</b> Student submits review -> recalculate mentor.rating_avg
+  BOOKING_COMPLETED : <b>exit /</b> Archive session recording/notes to student profile
+}
+
+state "<b>BOOKING_CANCELLED</b>\n(status: 'cancelled')" as BOOKING_CANCELLED <<Cancelled>> {
+  BOOKING_CANCELLED : <b>entry /</b> Free reserved slot in mentor_availabilities
+  BOOKING_CANCELLED : <b>entry /</b> Compensating Refund Saga:
+  BOOKING_CANCELLED : - If payment_status == 'paid': API refund via VNPay/MoMo
+  BOOKING_CANCELLED : - payment_status = 'refunded'
+  BOOKING_CANCELLED : - Notify Student & Mentor with cancellation reason
+}
+
+COMPLETED --> [*] : Mentorship Cycle Closed
+BOOKING_CANCELLED --> [*] : Booking Terminated
+
+note right of BOOKING_PENDING
+  <b>Escrow Protection:</b>
+  Student funds are locked in Escrow
+  prior to session confirmation.
+  If the mentor fails to respond or declines,
+  the system triggers an automated 100% refund.
+end note
+
+note right of BOOKING_COMPLETED
+  <b>Rating Recalculation:</b>
+  Upon completion, student reviews update:
+  <b>mentor.rating_avg = AVG(reviews)</b>
+  boosting high-quality mentors on AI match.
+end note
+
+@enduml
+
+' ==============================================================================
+' 16. ACTIVITY / DATA FLOW DIAGRAM: GIS CRAWLER & VECTOR INGESTION PIPELINE
+' ==============================================================================
+@startuml UML_crawler-gis-pipeline
+skinparam defaultFontName "DejaVu Sans"
+skinparam monochrome false
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam ArrowColor #334155
+skinparam ArrowThickness 1.5
+skinparam NoteBackgroundColor #FEF3C7
+skinparam NoteBorderColor #D97706
+skinparam NoteFontColor #92400E
+
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #475569
+  BorderThickness 1.5
+  FontColor #0F172A
+  FontSize 12
+  FontStyle bold
+}
+
+skinparam partition {
+  BorderColor #64748B
+  FontColor #0F172A
+  FontSize 13
+  FontStyle bold
+}
+
+title <size:18><b>EDUMAP PLATFORM - GIS CRAWLER & VECTOR INGESTION PIPELINE</b></size>\n<size:12>Activity & Data Flow Pipeline (Multi-Source Crawling, PostGIS Spatial Geocoding & ChromaDB RAG Vector Store)</size>
+
+start
+
+partition "<b>Stage 1: Multi-Source Data Collection (crawlers/)</b>" #F8FAFC {
+  :<b>Trigger Batch / Scheduled Crawl</b>\n(Python 3.11 / Crontab / BullMQ Worker);
+  
+  fork
+    :<b>OSM Overpass Crawler</b> (overpass_crawler.py)\n- Mirror rotation & rate limit (3s delay)\n- Query schools, universities, amenities;
+  fork again
+    :<b>Đồng Nai Education Portal</b> (dongnai_schools_crawler.py)\n- Sở GD&ĐT Đồng Nai & DNTU portal\n- High schools, colleges, vocational centers;
+  fork again
+    :<b>Public Wi-Fi & Hotspots</b> (wifi_crawler.py)\n- Biên Hòa public Wi-Fi & study cafes;
+  fork again
+    :<b>Green Spaces & Eco-Zones</b> (green_spaces_crawler.py)\n- Parks, campus green initiatives;
+  fork again
+    :<b>Libraries & Books</b> (books_crawler.py)\n- OpenLibrary API & DNTU Library\n- IT, AI & curriculum textbooks;
+  fork again
+    :<b>Provincial Open Data</b> (open_data_crawler.py)\n- Public administrative facilities & transit;
+  end fork
+}
+
+partition "<b>Stage 2: Master Aggregation & Cleansing (aggregator.py & quality_check.py)</b>" #F1F5F9 {
+  :<b>Receive Multi-Source Stream</b> (DataAggregator)\nTag sources: ['osm', 'native_wifi', 'native_school', 'native_book', ...];
+  
+  :<b>Cleanse & Normalize Data</b>\n- Preserve Vietnamese UTF-8 diacritics\n- Standardize category taxonomy & address formats;
+  
+  :<b>Spatial Bounding Box Validation</b> (quality_check.py)\nVerify coordinates within Đồng Nai / Vietnam BBox:\n[10.6°N - 11.6°N, 106.7°E - 107.6°E];
+  
+  if (Coordinates valid & within BBox?) then (yes)
+    :<b>Deduplication Engine</b> (_dedup_locations)\n- Match normalized name + rounded lat/lng (4 decimals)\n- Eliminate duplicates within ~11m radius;
+  else (no)
+    :<b>Quarantine Corrupt Coordinates</b>\nLog anomaly to error report & discard record;
+    detach
+  endif
+}
+
+fork
+  partition "<b>Stage 3A: Spatial ETL & PostgreSQL PostGIS (Geospatial Serving)</b>" #EFF6FF {
+    :<b>PostGIS Spatial Geocoding</b>\n- Generate Point geometry:\n  <b>ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography</b>\n- Split SQL into 30,000-line chunks (consolidated_crawled_data_*.sql);
+    
+    :<b>Database Seeding & Spatial Indexing</b>\n- Bulk insert into tables: <b>map_points</b>, <b>schools</b>, <b>wifi_locations</b>\n- Build GiST index: <b>CREATE INDEX USING GIST(location)</b>;
+    
+    :<b>NestJS Spatial API Engine (backend/)</b>\n- <b>ST_DWithin</b> Radius Search (< 5km distance)\n- K-Nearest Neighbor (KNN: <b><-></b>)\n- GeoJSON serialization & dynamic clustering;
+    
+    :<b>Client GIS Applications</b>\n- <b>Mobile App (mobile/):</b> Expo SDK 50 MapScreen & Nearby POIs\n- <b>Web Portal (frontend/):</b> Leaflet / MapLibre interactive map;
+  }
+fork again
+  partition "<b>Stage 3B: Semantic NLP & ChromaDB Vector Store (AI RAG Serving)</b>" #ECFDF5 {
+    :<b>Semantic Document Chunking</b> (seed_vector_db.py)\n- Extract school profiles, admissions, majors, facilities & books\n- Enrich metadata: {title, category, source, lat, lng};
+    
+    :<b>Dense Vector Embedding Computation</b>\n- Model: Google text-embedding-004 (768 dimensions)\n- Generate high-dimensional vector embeddings;
+    
+    :<b>ChromaDB Persistent Vector Store</b>\n- Upsert vectors & metadata into collections:\n  ['edumap_knowledge', 'facilities', 'scholarships']\n- Persist to volume (/data/chromadb);
+    
+    :<b>FastAPI RAG Retriever & Gemini LLM (ai-service/)</b>\n- Vector cosine similarity search (top_k = 3)\n- Context injection into Gemini 1.5 Flash Prompt;
+    
+    :<b>AI Consultation & Assistant</b>\n- <b>Student Chatbot:</b> RAG QA for university & admissions\n- <b>AI Career Advisor:</b> Smart mentor & major recommendation;
+  }
+end fork
+
+stop
+
+@enduml
+
+
+
