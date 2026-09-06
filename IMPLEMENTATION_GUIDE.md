@@ -6,7 +6,7 @@
 **Date:** June 6, 2026
 **Project:** Add Crawled Data to EduMap
 **Status:** ✅ PRODUCTION READY
-**Coverage:** Đông Nái Province, Vietnam
+**Coverage:** Đồng Nai Province, Vietnam
 
 ---
 
@@ -75,8 +75,8 @@ BY CATEGORY:
 | Location | Details |
 |----------|---------|
 | **Primary City** | Biên Hòa (Bien Hoa) |
-| **Province** | Đông Nái (Dong Nai) |
-| **Key Institution** | DNTU (Trường Đại học Công nghệ Đông Nái) |
+| **Province** | Đồng Nai (Dong Nai) |
+| **Key Institution** | DNTU (Trường Đại học Công nghệ Đồng Nai) |
 | **Business Hub** | Amata Industrial Park |
 | **Coverage Radius** | ~50 km from Biên Hòa center |
 
@@ -333,7 +333,7 @@ Install via: `pip install -r crawlers/requirements.txt`
 - **Data Compression:** Excellent (no redundancy)
 
 ### Coverage
-- **Geographic:** Đông Nái Province, Vietnam
+- **Geographic:** Đồng Nai Province, Vietnam
 - **Languages:** Vietnamese primary, English support
 - **Time Period:** Current/evergreen data
 - **Update Frequency:** Manual (as needed)

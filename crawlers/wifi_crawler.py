@@ -10,7 +10,7 @@ import uuid
 from typing import List, Dict
 
 class WiFiCrawler:
-    """Crawler để lấy WiFi hotspots từ Đông Nái"""
+    """Crawler để lấy WiFi hotspots từ Đồng Nai"""
 
     def __init__(self):
         self.wifi_data = []
@@ -18,7 +18,7 @@ class WiFiCrawler:
 
     def get_bienhoa_wifi_locations(self) -> List[Dict]:
         """
-        Danh sách WiFi hotspots tại Biên Hòa, Đông Nái
+        Danh sách WiFi hotspots tại Biên Hòa, Đồng Nai
         Coordinates (lat, lng) cho Biên Hòa: ~10.92, 106.82
         """
         locations = [
@@ -50,7 +50,7 @@ class WiFiCrawler:
                 "type": "bus_station"
             },
             {
-                "name": "Thư viện Đông Nái",
+                "name": "Thư viện Đồng Nai",
                 "description": "Thư viện công cộng - WiFi tốc độ cao, khu làm việc",
                 "category": "wifi_library",
                 "lat": 10.9258,
@@ -70,7 +70,7 @@ class WiFiCrawler:
                 "type": "community_centre"
             },
             {
-                "name": "Trường Đại học Công nghệ Đông Nái (DNTU)",
+                "name": "Trường Đại học Công nghệ Đồng Nai (DNTU)",
                 "description": "Trường đại học, WiFi tốt, khu vực học tập mở",
                 "category": "wifi_education",
                 "lat": 10.9835,
@@ -134,10 +134,10 @@ class WiFiCrawler:
         return locations
 
     def get_dong_nai_wifi_zones(self) -> List[Dict]:
-        """WiFi zones trong các khu vực khác của Đông Nái"""
+        """WiFi zones trong các khu vực khác của Đồng Nai"""
         locations = [
             {
-                "name": "Thư viện Tỉnh Đông Nái - Thành phố Thủ Dầu Một",
+                "name": "Thư viện Tỉnh Đồng Nai - Thành phố Thủ Dầu Một",
                 "description": "Thư viện tỉnh, WiFi tốt, tài nguyên học tập phong phú",
                 "category": "wifi_provincial_library",
                 "lat": 10.8850,
@@ -148,12 +148,12 @@ class WiFiCrawler:
                 "services": ["WiFi 200Mbps", "Database trực tuyến", "E-books"]
             },
             {
-                "name": "Trường Đại học Nông Lâm TPHCM - Chi nhánh Đông Nái",
+                "name": "Trường Đại học Nông Lâm TPHCM - Chi nhánh Đồng Nai",
                 "description": "Cơ sở đào tạo nông lâm lâm nghiệp",
                 "category": "wifi_education",
                 "lat": 10.9200,
                 "lng": 106.7500,
-                "area": "Đồng Nài",
+                "area": "Đồng Nai",
                 "type": "school"
             },
         ]

@@ -10,13 +10,13 @@ import uuid
 from typing import List, Dict
 
 class SchoolsCrawler:
-    """Crawler để lấy thông tin trường học và không gian giáo dục tại Đông Nái"""
+    """Crawler để lấy thông tin trường học và không gian giáo dục tại Đồng Nai"""
 
     def get_universities(self) -> List[Dict]:
-        """Danh sách đại học tại Đông Nái"""
+        """Danh sách đại học tại Đồng Nai"""
         universities = [
             {
-                "name": "Trường Đại học Công nghệ Đông Nái (DNTU)",
+                "name": "Trường Đại học Công nghệ Đồng Nai (DNTU)",
                 "description": "Đại học hàng đầu về công nghệ thông tin, kỹ thuật ô tô, điều dưỡng",
                 "address": "Đường Nguyễn Khuyến, Phường Trảng Dài, Biên Hòa",
                 "lat": 10.9835,
@@ -38,7 +38,7 @@ class SchoolsCrawler:
                 "wifi": "500Mbps"
             },
             {
-                "name": "Trường Đại học Nông Lâm TPHCM - Chi nhánh Đông Nái",
+                "name": "Trường Đại học Nông Lâm TPHCM - Chi nhánh Đồng Nai",
                 "description": "Đại học về nông lâm lâm nghiệp, chuyên đào tạo kỹ sư xanh",
                 "address": "Biên Hòa",
                 "lat": 10.9200,
@@ -165,7 +165,7 @@ class SchoolsCrawler:
                 "target_audience": ["Startup founders", "Freelancers", "Entrepreneurs"]
             },
             {
-                "name": "Trung tâm Khởi nghiệp Đông Nái",
+                "name": "Trung tâm Khởi nghiệp Đồng Nai",
                 "description": "Trung tâm hỗ trợ khởi nghiệp, mentoring, huy động vốn",
                 "address": "Biên Hòa",
                 "lat": 10.9300,
@@ -299,7 +299,7 @@ class SchoolsCrawler:
                 "type": "guide"
             },
             {
-                "title": "Khởi Nghiệp Thành Công - Kinh Nghiệm từ Đông Nái",
+                "title": "Khởi Nghiệp Thành Công - Kinh Nghiệm từ Đồng Nai",
                 "description": "Trường hợp học tập từ các startup thành công tại Amata",
                 "subject": "Digital Transformation",
                 "type": "case_study"

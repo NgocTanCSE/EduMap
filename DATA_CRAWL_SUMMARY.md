@@ -15,7 +15,7 @@ Add comprehensive crawled data to EduMap covering:
 - Books and learning materials
 - Digital transformation resources
 
-**Focus Area:** Đông Nái Province, Vietnam (especially Biên Hòa and DNTU campus)
+**Focus Area:** Đồng Nai Province, Vietnam (especially Biên Hòa and DNTU campus)
 
 ---
 
@@ -64,7 +64,7 @@ seed_crawled_data_new.sql (33.3 KB)
 
 ✓ Geographic Coverage:
   - Primary: Biên Hòa City
-  - Secondary: Đông Nái Province
+  - Secondary: Đồng Nai Province
   - Focus: DNTU campus area
 ```
 
@@ -169,7 +169,7 @@ python schools_crawler.py
 ### Schools & Institutions (15 locations)
 
 **Universities (2):**
-- Trường Đại học Công nghệ Đông Nái (DNTU)
+- Trường Đại học Công nghệ Đồng Nai (DNTU)
   - Top focus: Tech, Auto, Nursing, Business
   - 24/7 facilities, Lab STEM, Incubator
 - Nông Lâm TPHCM Branch - Agriculture
@@ -407,7 +407,7 @@ def get_books_from_openlibrary(subject):
 - Real book metadata from OpenLibrary
 
 ### 🌐 Geographic Focus
-- All data centered on Đông Nái Province
+- All data centered on Đồng Nai Province
 - Emphasis on Biên Hòa City
 - Highlight DNTU campus
 - Local context and Vietnamese language

@@ -15,9 +15,9 @@ This module contains crawlers to collect various types of data for the EduMap sy
 ## Data Coverage
 
 ### Geographic Focus
-- **Province**: Đông Nái (Dong Nai)
+- **Province**: Đồng Nai (Dong Nai)
 - **Main City**: Biên Hòa (Bien Hoa)
-- **Key Institution**: DNTU (Trường Đại học Công nghệ Đông Nái)
+- **Key Institution**: DNTU (Trường Đại học Công nghệ Đồng Nai)
 - **Industrial Hub**: Amata Industrial Park
 
 ### Data Types

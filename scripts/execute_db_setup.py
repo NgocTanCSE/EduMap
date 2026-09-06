@@ -99,7 +99,69 @@ def run():
             except Exception as e:
                 print(f"Failed to execute {script}: {e}")
 
-    print("Setup completed successfully!")
+    # 7. Cleanup: remove near-duplicate map_points / locations
+    #    The same physical place (e.g. DNTU) is often inserted by multiple
+    #    data sources with slightly different coordinates.  When two points
+    #    share a normalised name (parenthetical suffix removed) and are within
+    #    200 m of each other, keep only the "best" one (approved first,
+    #    then lowest id).
+    print("\nCleaning up near-duplicate map points...")
+    conn = psycopg2.connect(**db_params)
+    conn.autocommit = True
+    cur = conn.cursor()
+
+    cur.execute("""
+        WITH flagged AS (
+            SELECT a.id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY lower(regexp_replace(a.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+                       ORDER BY
+                           CASE WHEN a.status = 'approved' THEN 0 ELSE 1 END,
+                           a.id
+                   ) AS rn
+            FROM map_points a
+            WHERE a.location IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM map_points b
+                  WHERE b.id <> a.id
+                    AND ST_DWithin(a.location, b.location, 200)
+                    AND lower(regexp_replace(a.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+                        = lower(regexp_replace(b.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+              )
+        )
+        DELETE FROM map_points
+        WHERE id IN (SELECT id FROM flagged WHERE rn > 1);
+    """)
+    print(f"  Removed {cur.rowcount} duplicate map_points.")
+
+    cur.execute("""
+        WITH flagged AS (
+            SELECT a.id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY lower(regexp_replace(a.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+                       ORDER BY
+                           CASE WHEN a.status = 'active' THEN 0 ELSE 1 END,
+                           a.id
+                   ) AS rn
+            FROM locations a
+            WHERE a.coordinates IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM locations b
+                  WHERE b.id <> a.id
+                    AND ST_DWithin(a.coordinates, b.coordinates, 200)
+                    AND lower(regexp_replace(a.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+                        = lower(regexp_replace(b.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
+              )
+        )
+        DELETE FROM locations
+        WHERE id IN (SELECT id FROM flagged WHERE rn > 1);
+    """)
+    print(f"  Removed {cur.rowcount} duplicate locations.")
+
+    cur.close()
+    conn.close()
+
+    print("\nSetup completed successfully!")
 
 if __name__ == "__main__":
     run()

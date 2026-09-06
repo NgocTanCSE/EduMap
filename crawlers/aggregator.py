@@ -143,17 +143,95 @@ class DataAggregator:
         return sql_content
 
     def _dedup_locations(self, locations: List[Dict]) -> List[Dict]:
-        """Remove duplicate locations by name + approximate coordinates."""
+        """Remove duplicate locations by name + approximate coordinates + proximity.
+
+        Pass 1 – exact name + 4-decimal coordinate match (fast set lookup).
+        Pass 2 – spatial proximity: if two locations share a normalized name
+        and are within ``SPATIAL_THRESHOLD_M`` metres, keep the one with richer
+        metadata (more non-empty fields).
+        """
+        from math import radians, sin, cos, sqrt, atan2
+        import re as _re
+
+        SPATIAL_THRESHOLD_M = 200   # ~0.002° grid
+        GRID_DIV = 0.002            # ~200 m cell
+
+        def _norm_name(name: str) -> str:
+            n = name.lower().strip()
+            n = _re.sub(r'^(trường|trung tâm|viện|cục|chi nhánh)\s*', '', n)
+            n = _re.sub(r'\s*\([^\)]*\)', '', n)
+            n = _re.sub(r'\s*-\s*.*$', '', n)
+            return _re.sub(r'\s+', ' ', n).strip()
+
+        def _haversine(lat1, lng1, lat2, lng2) -> float:
+            R = 6_371_000
+            dlat = radians(lat2 - lat1)
+            dlng = radians(lng2 - lng1)
+            a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+            return R * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        def _grid(lat: float, lng: float):
+            return (int(lat / GRID_DIV), int(lng / GRID_DIV))
+
+        def _richness(loc: Dict) -> int:
+            return sum(1 for v in loc.values() if v not in (None, '', [], {}))
+
+        # --- Pass 1: exact name + rounded coordinate dedup ---
         seen = set()
-        unique = []
+        deduped = []
         for loc in locations:
             name = loc.get("name", "").strip()
-            lat = round(loc.get("lat", 0), 4)
-            lng = round(loc.get("lng", 0), 4)
-            key = (name.lower(), lat, lng)
-            if key not in seen and name:
-                seen.add(key)
-                unique.append(loc)
+            lat = loc.get("lat", 0)
+            lng = loc.get("lng", 0)
+            if not name or lat == 0 or lng == 0:
+                continue
+            key = (name.lower(), round(lat, 4), round(lng, 4))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(loc)
+
+        # --- Pass 2: spatial proximity dedup ---
+        unique = []
+        spatial: Dict = {}  # grid_key -> [(lat, lng, norm_name, richness, idx)]
+
+        for loc in deduped:
+            name = loc.get("name", "").strip()
+            lat = loc.get("lat", 0)
+            lng = loc.get("lng", 0)
+            if not name or lat == 0 or lng == 0:
+                continue
+
+            n_name = _norm_name(name)
+            richness = _richness(loc)
+            cell = _grid(lat, lng)
+
+            duplicate = False
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    nc = (cell[0] + dx, cell[1] + dy)
+                    if nc not in spatial:
+                        continue
+                    for (elat, elng, ename, erich) in spatial[nc]:
+                        if ename != n_name:
+                            continue
+                        if _haversine(lat, lng, elat, elng) < SPATIAL_THRESHOLD_M:
+                            duplicate = True
+                            break
+                    if duplicate:
+                        break
+                if duplicate:
+                    break
+
+            if duplicate:
+                continue
+
+            idx = len(unique)
+            unique.append(loc)
+            if cell not in spatial:
+                spatial[cell] = []
+            spatial[cell].append((lat, lng, n_name, richness))
+
         return unique
 
     def _location_to_sql(self, location: Dict, default_category: str = 'poi') -> Optional[str]:

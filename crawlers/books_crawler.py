@@ -133,10 +133,10 @@ class BooksCrawler:
         return subjects_books.get(subject.lower(), [])
 
     def get_libraries_dong_nai(self) -> List[Dict]:
-        """Danh sách thư viện tại Đông Nái"""
+        """Danh sách thư viện tại Đồng Nai"""
         libraries = [
             {
-                "name": "Thư viện Tỉnh Đông Nái",
+                "name": "Thư viện Tỉnh Đồng Nai",
                 "address": "Thành phố Thủ Dầu Một",
                 "lat": 10.8850,
                 "lng": 106.7345,
@@ -153,7 +153,7 @@ class BooksCrawler:
                 "categories": ["Computer Science", "Information Technology", "Education", "Digital Transformation"]
             },
             {
-                "name": "Thư viện Đại học Công nghệ Đông Nái (DNTU)",
+                "name": "Thư viện Đại học Công nghệ Đồng Nai (DNTU)",
                 "address": "Đường Nguyễn Khuyến, Biên Hòa",
                 "lat": 10.9835,
                 "lng": 106.8686,
@@ -179,7 +179,7 @@ class BooksCrawler:
                 "categories": ["General Knowledge", "Education", "Technology"]
             },
             {
-                "name": "Thư viện Trường Cao đẳng Kỹ thuật Đông Nái",
+                "name": "Thư viện Trường Cao đẳng Kỹ thuật Đồng Nai",
                 "address": "Biên Hòa",
                 "lat": 10.9200,
                 "lng": 106.8200,

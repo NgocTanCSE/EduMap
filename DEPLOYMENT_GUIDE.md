@@ -85,7 +85,7 @@ python seed_vector_db.py
 
 ### WiFi Hotspots (13 locations)
 
-Located throughout Biên Hòa and Đông Nái:
+Located throughout Biên Hòa and Đồng Nai:
 
 - **DNTU Campus** - 500Mbps WiFi, 24/7 access
 - **Public Parks** - Biên Hùng, Dương Tử Giang
@@ -114,7 +114,7 @@ Environmental and sustainability areas:
 ### Schools (15 locations)
 
 **Universities:**
-- Trường Đại học Công nghệ Đông Nái (DNTU) - Main focus
+- Trường Đại học Công nghệ Đồng Nai (DNTU) - Main focus
 - Trường Đại học Nông Lâm TPHCM - Agriculture campus
 
 **Secondary Schools:** 5 institutions

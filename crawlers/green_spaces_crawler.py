@@ -10,7 +10,7 @@ import uuid
 from typing import List, Dict
 
 class GreenSpacesCrawler:
-    """Crawler để lấy không gian xanh từ Đông Nái"""
+    """Crawler để lấy không gian xanh từ Đồng Nai"""
 
     def get_parks_bienhoa(self) -> List[Dict]:
         """Công viên, không gian xanh tại Biên Hòa"""
@@ -86,10 +86,10 @@ class GreenSpacesCrawler:
                 "services": ["Tour tham quan", "Pick your own grapes"]
             },
             {
-                "name": "Công viên Quốc gia Tây Ninh (gần biên giới Đông Nái)",
+                "name": "Công viên Quốc gia Tây Ninh (gần biên giới Đồng Nai)",
                 "description": "Khu bảo tồn thiên nhiên lớn, trekking, sinh thái học",
                 "category": "national_park",
-                "area": "Ranh giới Đông Nái - Tây Ninh",
+                "area": "Ranh giới Đồng Nai - Tây Ninh",
                 "lat": 10.8200,
                 "lng": 106.7000,
                 "features": ["Rừng", "Tuyến trek", "Vùng bảo tồn"],
@@ -110,7 +110,7 @@ class GreenSpacesCrawler:
         return parks
 
     def get_green_initiatives(self) -> List[Dict]:
-        """Các chương trình, dự án xanh tại Đông Nái"""
+        """Các chương trình, dự án xanh tại Đồng Nai"""
         initiatives = [
             {
                 "name": "Dự án Sống Xanh - DNTU",
@@ -184,7 +184,7 @@ class GreenSpacesCrawler:
                 "type": "guide"
             },
             {
-                "title": "Sinh Thái Học Đô Thị - Ứng dụng tại Đông Nái",
+                "title": "Sinh Thái Học Đô Thị - Ứng dụng tại Đồng Nai",
                 "description": "Nghiên cứu về sinh thái đô thị và bảo tồn",
                 "subject": "Ecology",
                 "type": "research"
