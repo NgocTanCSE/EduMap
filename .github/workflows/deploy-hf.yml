@@ -22,7 +22,13 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          
           # Upload to HuggingFace Space via HTTP API
-          # (.huggingfaceignore skips binary docs like .docx/.doc/.png)
-          hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN
+          # Exclude documentation, videos, and binary assets to comply with Hugging Face policies
+          hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN \
+            --exclude "docs/*" \
+            --exclude "Video/*" \
+            --exclude "*.doc" \
+            --exclude "*.docx" \
+            --exclude "*.xlsx" \
+            --exclude ".git/*" \
+            --exclude ".github/*"
