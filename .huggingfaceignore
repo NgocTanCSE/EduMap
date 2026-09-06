@@ -1,0 +1,5 @@
+# Binary files not supported by HuggingFace Spaces git-upload
+# These stay on GitHub only
+docs/*.docx
+docs/*.doc
+docs/uml/*

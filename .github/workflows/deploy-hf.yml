@@ -16,21 +16,13 @@ jobs:
           lfs: true
 
       - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade "huggingface_hub[xet]"
-          pip install xet
+        run: pip install --upgrade huggingface_hub
 
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           
-          git remote add hf https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap
-          # Configure git user
-          git config --global user.email "actions@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
-          # Install and configure Xet for binary file storage (replaces Git LFS for .docx, .doc, .png)
-          hf xet install
-          # Push to Hugging Face (Xet will handle binary files automatically)
-          git push --force hf HEAD:main
+          # Upload to HuggingFace Space via HTTP API
+          # (.huggingfaceignore skips binary docs like .docx/.doc/.png)
+          hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN
