@@ -1,11 +1,13 @@
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { ShieldCheck, MapPin, Flame } from 'lucide-react';
+import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation } from 'lucide-react';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
+import { RoutePolyline } from '@/components/map/RoutePolyline';
+import RoutingPanel from '@/components/map/RoutingPanel';
 
 // Configure standard Leaflet markers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -57,6 +59,38 @@ const getIconForCategory = (categoryName: string) => {
   }
 };
 
+// Origin marker (blue pin)
+function OriginMarker({ position }: { position: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    const icon = L.divIcon({
+      className: 'custom-origin-marker',
+      html: `<div class="w-6 h-6 bg-blue-500 border-3 border-white rounded-full shadow-lg flex items-center justify-center"><Navigation className="w-3 h-3 text-white" /></div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+    });
+    const marker = L.marker(position, { icon }).addTo(map);
+    return () => { map.removeLayer(marker); };
+  }, [map, position]);
+  return null;
+}
+
+// Destination marker (red pin)
+function DestinationMarker({ position }: { position: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    const icon = L.divIcon({
+      className: 'custom-dest-marker',
+      html: `<div class="w-6 h-6 bg-red-500 border-3 border-white rounded-full shadow-lg flex items-center justify-center"><MapPinIcon className="w-3 h-3 text-white" /></div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+    });
+    const marker = L.marker(position, { icon }).addTo(map);
+    return () => { map.removeLayer(marker); };
+  }, [map, position]);
+  return null;
+}
+
 // Map controller component to move camera to selected point
 function MapController({ selectedPoint }: { selectedPoint: any }) {
   const map = useMap();
@@ -100,10 +134,8 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   const map = useMap();
   useEffect(() => {
     const handleMapClick = (e: any) => {
-      console.log('Map clicked raw:', e.latlng);
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
-      console.log('Sending to handler - lat:', lat, 'lng:', lng);
       onClick(lat, lng);
     };
     map.on('click', handleMapClick);
@@ -119,6 +151,7 @@ interface InteractiveMapProps {
   onMapClick?: (lat: number, lng: number) => void;
   showHeatmap?: boolean;
   onBoundsChange?: (bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => void;
+  apiBaseUrl?: string;
 }
 
 export default function InteractiveMap({ 
@@ -127,12 +160,155 @@ export default function InteractiveMap({
   onSelectPoint = () => {},
   onMapClick = () => {},
   showHeatmap = false,
-  onBoundsChange
+  onBoundsChange,
+  apiBaseUrl = '/api'
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
+  
+  // Routing state
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<any>(null);
+  const [routeInfo, setRouteInfo] = useState<{
+    duration: number;
+    distance: number;
+    segments?: Array<{ name: string; duration: number; distance: number; congestionLevel?: number }>;
+    floodWarnings?: Array<{ name: string; riskLevel: string }>;
+    avoidedFloodZones?: Array<{ name: string; riskLevel: string }>;
+    trafficAnalysis?: {
+      totalDelay: number;
+      congestionSummary: { free: number; light: number; moderate: number; heavy: number };
+      segments: Array<{ roadName: string; roadType: string; congestionLevel: number; congestionLabel: string; congestionColor: string; estimatedSpeed: number; freeFlowSpeed: number }>;
+    };
+  } | null>(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [routingMode, setRoutingMode] = useState<'idle' | 'setting_origin' | 'setting_destination'>('idle');
+
+  const handleMapClick = useCallback((lat: number, lng: number) => {
+    if (routingMode === 'setting_origin') {
+      setOrigin({ lat, lng });
+      setRoutingMode('setting_destination');
+    } else if (routingMode === 'setting_destination') {
+      setDestination({ lat, lng });
+      setRoutingMode('idle');
+    } else {
+      onMapClick(lat, lng);
+    }
+  }, [routingMode, onMapClick]);
+
+  const fetchRoute = useCallback(async (originPoint: { lat: number; lng: number }, destPoint: { lat: number; lng: number }, options?: { avoidFlood?: boolean; avoidTraffic?: boolean }) => {
+    setIsLoadingRoute(true);
+    try {
+      const params = new URLSearchParams({
+        lng1: originPoint.lng.toString(),
+        lat1: originPoint.lat.toString(),
+        lng2: destPoint.lng.toString(),
+        lat2: destPoint.lat.toString(),
+        alternatives: 'true',
+        steps: 'true',
+        overview: 'full',
+        avoidFlood: (options?.avoidFlood !== false).toString(),
+        avoidTraffic: (options?.avoidTraffic !== false).toString(),
+      });
+
+      const response = await fetch(`${apiBaseUrl}/map/routing/route?${params}`);
+      const data = await response.json();
+
+      if (data.success && data.data?.routes?.length > 0) {
+        const bestRoute = data.data.routes[0];
+        setRouteGeometry(bestRoute.geometry);
+        
+        const segments = bestRoute.legs?.[0]?.steps?.map((step: any) => ({
+          name: step.name || 'Đoạn đường',
+          duration: step.duration,
+          distance: step.distance,
+          congestionLevel: step.congestionLevel,
+        })) || [];
+
+        setRouteInfo({
+          duration: bestRoute.duration,
+          distance: bestRoute.distance,
+          segments,
+          floodWarnings: data.data.floodWarnings || [],
+          avoidedFloodZones: data.data.avoidedFloodZones || [],
+          trafficAnalysis: data.data.trafficAnalysis || null,
+        });
+      } else {
+        throw new Error(data.message || 'Không tìm thấy lộ trình');
+      }
+    } catch (error) {
+      console.error('Routing error:', error);
+      alert('Không thể tính lộ trình: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
+      setRouteGeometry(null);
+      setRouteInfo(null);
+    } finally {
+      setIsLoadingRoute(false);
+    }
+  }, [apiBaseUrl]);
+
+  const clearRoute = useCallback(() => {
+    setOrigin(null);
+    setDestination(null);
+    setRouteGeometry(null);
+    setRouteInfo(null);
+    setRoutingMode('idle');
+  }, []);
+
+  const swapLocations = useCallback(() => {
+    const temp = origin;
+    setOrigin(destination);
+    setDestination(temp);
+    if (routeGeometry) {
+      // Re-fetch with swapped locations
+      if (origin && destination) {
+        fetchRoute(destination, origin);
+      }
+    }
+  }, [origin, destination, routeGeometry, fetchRoute]);
+
+  const setOriginPoint = useCallback((lat: number, lng: number) => {
+    setOrigin({ lat, lng });
+    if (routingMode === 'setting_origin') {
+      setRoutingMode('setting_destination');
+    }
+  }, [routingMode]);
+
+  const setDestinationPoint = useCallback((lat: number, lng: number) => {
+    setDestination({ lat, lng });
+    if (routingMode === 'setting_destination') {
+      setRoutingMode('idle');
+    }
+  }, [routingMode]);
+
+  const startRouting = useCallback((mode: 'setting_origin' | 'setting_destination') => {
+    setRoutingMode(mode);
+  }, []);
 
   return (
     <div className="w-full h-full relative">
+      {/* Routing Panel */}
+      {routingMode !== 'idle' || origin || destination || routeGeometry ? (
+        <RoutingPanel
+          onGetRoute={fetchRoute}
+          onClearRoute={clearRoute}
+          routeInfo={routeInfo}
+          isLoading={isLoadingRoute}
+          origin={origin}
+          destination={destination}
+          onSetOrigin={setOriginPoint}
+          onSetDestination={setDestinationPoint}
+          onSwap={swapLocations}
+        />
+      ) : (
+        <button
+          onClick={() => startRouting('setting_origin')}
+          className="fixed top-4 right-4 z-40 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+        >
+          <Navigation className="w-4 h-4" />
+          Chỉ đường
+        </button>
+      )}
+
       <MapContainer 
         center={defaultCenter} 
         zoom={13} 
@@ -143,6 +319,9 @@ export default function InteractiveMap({
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
+        
+        {/* Route Polyline */}
+        {routeGeometry && <RoutePolyline geometry={routeGeometry} />}
         
         {showHeatmap ? (
           <HeatmapLayer points={points.filter(p => p.lat !== undefined && p.lng !== undefined).map(p => ({ lat: p.lat, lng: p.lng, intensity: 0.8 }))} />
@@ -197,9 +376,13 @@ export default function InteractiveMap({
           </MarkerClusterGroup>
         )}
 
+        {/* Origin/Destination Markers */}
+        {origin && <OriginMarker position={[origin.lat, origin.lng]} />}
+        {destination && <DestinationMarker position={[destination.lat, destination.lng]} />}
+
         <MapController selectedPoint={selectedPoint} />
         <MapEvents onBoundsChange={onBoundsChange} />
-        <MapClickHandler onClick={onMapClick} />
+        <MapClickHandler onClick={handleMapClick} />
       </MapContainer>
     </div>
   );

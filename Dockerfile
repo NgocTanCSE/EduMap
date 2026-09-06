@@ -47,6 +47,29 @@ RUN apt-get update && apt-get install -y \
 RUN wget https://dl.min.io/server/minio/release/linux-amd64/minio -O /usr/local/bin/minio \
     && chmod +x /usr/local/bin/minio
 
+# Install OSRM
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ \
+    cmake \
+    libboost-all-dev \
+    liblua5.3-dev \
+    libstxxl-dev \
+    libxml2-dev \
+    libz-dev \
+    libtbb-dev \
+    libosmpbf-dev \
+    libbz2-dev \
+    && git clone -b v5.27.0 --depth 1 https://github.com/Project-OSRM/osrm-backend.git /tmp/osrm-backend \
+    && cd /tmp/osrm-backend && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release \
+    && make -j$(nproc) \
+    && make install \
+    && rm -rf /tmp/osrm-backend \
+    && apt-get remove -y g++ cmake libboost-all-dev liblua5.3-dev libstxxl-dev libxml2-dev libz-dev libtbb-dev libosmpbf-dev libbz2-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy Build Artifacts

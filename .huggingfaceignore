@@ -3,3 +3,6 @@
 docs/*.docx
 docs/*.doc
 docs/uml/*
+
+# OSM data for OSRM (downloaded at runtime, ~50MB)
+osrm-data/vietnam-latest.osm.pbf

@@ -9,8 +9,40 @@ export PGDATA=/data/pgdata
 export REDIS_DIR=/data/redis
 export MINIO_DATA_DIR=/data/minio_data
 export CHROMA_DB_DIR=/data/chroma_db
+export OSRM_DATA_DIR=/data/osrm
 
-mkdir -p $PGDATA $REDIS_DIR $MINIO_DATA_DIR $CHROMA_DB_DIR
+mkdir -p $PGDATA $REDIS_DIR $MINIO_DATA_DIR $CHROMA_DB_DIR $OSRM_DATA_DIR
+
+# --- OSRM Setup ---
+echo "--- Step 0: OSRM Setup ---"
+OSRM_FILE="$OSRM_DATA_DIR/vietnam-latest.osrm"
+OSRM_PBF="$OSRM_DATA_DIR/vietnam-latest.osm.pbf"
+
+if [ ! -f "$OSRM_FILE" ]; then
+    echo "🆕 OSRM data not found, downloading and preprocessing..."
+    
+    # Download Vietnam OSM data if not exists
+    if [ ! -f "$OSRM_PBF" ]; then
+        echo "📥 Downloading Vietnam OSM data (~50MB)..."
+        wget -q --show-progress "https://download.geofabrik.de/asia/vietnam-latest.osm.pbf" -O "$OSRM_PBF" \
+            || { echo "❌ Failed to download OSM data"; exit 1; }
+        echo "✅ OSM data downloaded."
+    fi
+    
+    echo "⚙️  Preprocessing OSM data for OSRM (this may take a few minutes)..."
+    osrm-extract -p /usr/local/share/osrm/profiles/car.lua "$OSRM_PBF" \
+        && osrm-partition "$OSRM_FILE" \
+        && osrm-customize "$OSRM_FILE" \
+        && echo "✅ OSRM preprocessing complete." \
+        || { echo "❌ OSRM preprocessing failed"; exit 1; }
+else
+    echo "🔄 OSRM data already preprocessed."
+fi
+
+echo "🛣️  Starting OSRM server..."
+osrm-routed --algorithm mld "$OSRM_FILE" > /data/osrm.log 2>&1 &
+OSRM_PID=$!
+echo "✅ OSRM started (PID: $OSRM_PID)."
 
 # --- PostgreSQL Setup ---
 echo "--- Step 1: PostgreSQL Setup ---"

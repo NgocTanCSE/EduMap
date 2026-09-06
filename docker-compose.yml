@@ -60,6 +60,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - MINIO_ENDPOINT=minio
       - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - OSRM_URL=http://osrm:5000
       - NODE_ENV=${NODE_ENV}
     # NO DIRECT PORTS - Secure through Nginx
     depends_on:
@@ -138,6 +139,26 @@ services:
     container_name: edumap_grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    restart: unless-stopped
+
+  # --- ROUTING SERVICE (OSRM) ---
+  osrm:
+    image: osrm/osrm-backend:v5.27.0
+    container_name: edumap_osrm
+    volumes:
+      - ./osrm-data:/data
+    command: >
+      sh -c "
+        if [ ! -f /data/vietnam-latest.osrm ]; then
+          echo 'Preprocessing OSM data...' &&
+          osrm-extract -p /opt/car.lua /data/vietnam-latest.osm.pbf &&
+          osrm-partition /data/vietnam-latest.osrm &&
+          osrm-customize /data/vietnam-latest.osrm
+        fi &&
+        osrm-routed --algorithm mld /data/vietnam-latest.osrm
+      "
+    ports:
+      - "5000:5000"
     restart: unless-stopped
 
 volumes:
