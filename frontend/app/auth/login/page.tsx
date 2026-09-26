@@ -18,11 +18,9 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (authService.isLoggedIn()) {
-      router.push('/dashboard');
-    } else {
-      setChecking(false);
-    }
+    // DEMO MODE: Auth is auto-initialized in authService, so we always
+    // redirect to the dashboard immediately — no login form needed.
+    router.replace('/');
   }, [router]);
 
   if (checking) return <div className="min-h-screen w-full flex items-center justify-center bg-[#0a0a0a]"><div className="text-white">Đang kiểm tra...</div></div>;

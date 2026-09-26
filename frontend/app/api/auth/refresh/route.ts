@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendUrl } from '@/src/lib/api-config';
+
+// --- DEMO MODE: Mock refresh response (no backend call) ---
+const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6Imd1ZXN0QGVkdW1hcC5sb2NhbCIsInJvbGUiOiJhZG1pbiIsImZ1bGxfbmFtZSI6Ikd1ZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTcwMDAwMDAwMH0.signature';
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const url = `${getBackendUrl()}/auth/refresh`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('API Route Error:', error);
-    return NextResponse.json(
-      { message: 'Lỗi kết nối tới dịch vụ xác thực' },
-      { status: 500 }
-    );
-  }
+  // DEMO MODE: Always return fresh mock tokens — no backend refresh required.
+  return NextResponse.json({
+    access_token: MOCK_TOKEN,
+    refresh_token: MOCK_TOKEN,
+  });
 }

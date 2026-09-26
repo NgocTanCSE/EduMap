@@ -20,7 +20,8 @@ class VectorStoreService:
     def __init__(self):
         # --- Gemini Embedding config (always set; independent of ChromaDB) ---
         self.gemini_key = os.getenv("GEMINI_API_KEY")
-        self.embedding_model = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+        self.embed_models = [m.strip() for m in os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001,text-embedding-004").split(",") if m.strip()]
+        self.embedding_model = self.embed_models[0] if self.embed_models else "gemini-embedding-001"
         self.has_api = bool(self.gemini_key)
         if not self.gemini_key:
             print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY (Google) for semantic search.")
@@ -47,39 +48,41 @@ class VectorStoreService:
         if not text:
             return []
 
-        model = self.embedding_model
-        # gemini-embedding-001 (va text-embedding-004) dung endpoint :embedContent.
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
-        payload = json.dumps({
-            "model": model,
-            "content": {"parts": [{"text": text}]},
-        }).encode("utf-8")
-
-        req = urllib.request.Request(
-            url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "ignore")[:300]
-            print(f"Gemini embed HTTP error {e.code}: {body}")
-            raise RuntimeError(f"Error getting embedding (HTTP {e.code})")
-        except Exception as e:
-            print(f"Error getting embedding: {e}")
-            raise RuntimeError(f"Error getting embedding: {e}")
-
-        # Chuẩn hoá response shape: {"embeddings":[{"values":[...]}]} hoặc {"embedding":{"values":[...]}}
-        emb = data.get("embeddings") or data.get("embedding")
-        if isinstance(emb, list):
-            vec = (emb[0] if emb else {}).get("values")
-        elif isinstance(emb, dict):
-            vec = emb.get("values")
-        else:
-            vec = data.get("values")
-        if not vec:
-            raise RuntimeError(f"Gemini embedding: unexpected response shape {str(data)[:200]}")
-        return [float(x) for x in vec]
+        last_err = None
+        for model in self.embed_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
+            payload = json.dumps({"model": model, "content": {"parts": [{"text": text}]}}).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", "ignore")[:300]
+                low = body.lower()
+                if e.code == 404 or "not found" in low or "not supported" in low or "no longer available" in low:
+                    last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu ke tiep..."); continue
+                if e.code in (401, 403):
+                    raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {body[:200]}")
+                raise RuntimeError(f"Error getting embedding (HTTP {e.code}): {body}")
+            except Exception as e:
+                raise RuntimeError(f"Error getting embedding: {e}")
+            if "error" in data:
+                err = data["error"]; code = err.get("code"); msg = err.get("message",""); mlow = msg.lower()
+                if code == 404 or "not found" in mlow or "not supported" in mlow or "no longer available" in mlow:
+                    last_err = f"{model}: {msg[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu ke tiep..."); continue
+                raise RuntimeError(f"Google Gemini API error: {err}")
+            emb = data.get("embeddings") or data.get("embedding")
+            if isinstance(emb, list):
+                vec = (emb[0] if emb else {}).get("values")
+            elif isinstance(emb, dict):
+                vec = emb.get("values")
+            else:
+                vec = data.get("values")
+            if vec:
+                return [float(x) for x in vec]
+            last_err = f"{model}: response khong co gia tri embedding"
+            continue
+        raise RuntimeError(f"Khong the lay embedding tu Gemini. Loi: {last_err}")
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:

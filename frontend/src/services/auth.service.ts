@@ -6,6 +6,21 @@ export const ACCESS_TOKEN_KEY = 'edumap-access-token';
 export const REFRESH_TOKEN_KEY = 'edumap-refresh-token';
 export const USER_INFO_KEY = 'edumap-user-info';
 
+// --- DEMO MODE: Auto-login bypass ---
+// When no real token exists in storage, the service auto-seeds a mock JWT
+// and user profile so the entire frontend is accessible without logging in.
+// The backend JWT guard will still reject API calls that require a real token,
+// but all client-side route protection is bypassed.
+export const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6Imd1ZXN0QGVkdW1hcC5sb2NhbCIsInJvbGUiOiJhZG1pbiIsImZ1bGxfbmFtZSI6Ikd1ZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTcwMDAwMDAwMH0.signature';
+
+export const MOCK_USER: CurrentUser = {
+  id: 'demo-user',
+  email: 'guest@edumap.local',
+  fullName: 'Guest User',
+  role: 'admin' as UserRole,
+  avatar_url: 'https://ui-avatars.com/api/?name=Guest+User&background=random',
+};
+
 interface DecodedToken {
   sub: string;
   email: string;
@@ -42,6 +57,13 @@ class AuthService {
           console.error("Failed to parse user info from localStorage:", error);
           this.clearAuthData();
         }
+      }
+
+      // DEMO MODE: If no real token exists, auto-seed a mock user so the
+      // entire frontend is accessible without going through the login flow.
+      if (!this.accessToken) {
+        this.setTokens(MOCK_TOKEN, MOCK_TOKEN);
+        this.setUserInfo(MOCK_USER);
       }
     }
   }
@@ -155,9 +177,12 @@ class AuthService {
 
   logout() {
     this.clearAuthData();
-    // Redirect to login page or home
+    // DEMO MODE: Re-seed mock auth immediately so the app stays usable
+    // without requiring the user to go through the login flow again.
+    this.setTokens(MOCK_TOKEN, MOCK_TOKEN);
+    this.setUserInfo(MOCK_USER);
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth/login'; // Redirect to login page
+      window.location.href = '/'; // Redirect to home instead of login
     }
   }
 

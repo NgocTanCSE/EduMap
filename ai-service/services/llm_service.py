@@ -42,7 +42,9 @@ class LLMService:
     def __init__(self):
         # CHU Y: chat + embedding deu qua Google Gemini. Dung 1 key Google: GEMINI_API_KEY cho ca 2.
         self.api_key = os.getenv("GEMINI_API_KEY")
-        self.model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        # DSS model theo thu tu tu GEMINI_MODEL (CSV). Model dau tien = primary; con lai la fallback tu dong.
+        self.model_candidates = [m.strip() for m in os.getenv("GEMINI_MODEL", "gemini-3.8-flash,gemini-3.6-flash,gemini-1.5-flash,gemini-flash-latest").split(",") if m.strip()]
+        self.model_name = self.model_candidates[0] if self.model_candidates else "gemini-3.8-flash"
         if self.api_key:
             self.is_ready = True
         else:
@@ -51,11 +53,9 @@ class LLMService:
             print("GEMINI_MODEL mac dinh: gemini-3.8-flash.")
 
     def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Goi Google Generative Language API truc tiep bang urllib (khong phu thuoc SDK)."""
+        """Goi Google :generateContent (urllib). Thu tu model trong GEMINI_MODEL (CSV); 404 -> thu ke."""
         if not self.is_ready:
             raise RuntimeError("AI Service chua san sang. Cau hinh GEMINI_API_KEY (Google).")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
-        payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
         cfg = {}
         if temperature is not None:
             cfg["temperature"] = temperature
@@ -63,30 +63,41 @@ class LLMService:
             cfg["maxOutputTokens"] = max_tokens
         if top_p is not None:
             cfg["topP"] = top_p
+        payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
         if cfg:
             payload["generationConfig"] = cfg
-        req = urllib.request.Request(
-            url, data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}, method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "ignore")[:300]
-            raise RuntimeError(f"Google Gemini API error (HTTP {e.code}): {body}")
-        except Exception as e:
-            raise RuntimeError(f"Error calling Google Gemini API: {e}")
-        if "error" in data:
-            raise RuntimeError(f"Google Gemini API error: {data['error']}")
-        candidates = data.get("candidates") or []
-        if not candidates:
-            raise RuntimeError(f"Gemini returned no candidates: {str(data)[:300]}")
-        text = "".join(
-            "".join(pt.get("text", "") for pt in c.get("content", {}).get("parts", []))
-            for c in candidates
-        ).strip()
-        return text
+        body_json = json.dumps(payload).encode("utf-8")
+        last_err = None
+        for model in self.model_candidates:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+            req = urllib.request.Request(url, data=body_json, headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                b = e.read().decode("utf-8", "ignore")
+                low = b.lower()
+                if e.code == 404 or "not found" in low or "not supported" in low or "no longer available" in low:
+                    last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); continue
+                if e.code in (401, 403):
+                    raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {b[:200]}")
+                raise RuntimeError(f"Google Gemini API loi (HTTP {e.code}): {b[:200]}")
+            except Exception as e:
+                raise RuntimeError(f"Error calling Google Gemini API: {e}")
+            if "error" in data:
+                err = data["error"]; code = err.get("code"); msg = err.get("message", ""); mlow = msg.lower()
+                if code == 404 or "not found" in mlow or "not supported" in mlow or "no longer available" in mlow:
+                    last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); continue
+                raise RuntimeError(f"Google Gemini API error: {err}")
+            cands = data.get("candidates") or []
+            if not cands:
+                last_err = f"{model}: khong co candidate"; continue
+            text = "".join("".join(pt.get("text","") for pt in c.get("content",{}).get("parts",[])) for c in cands).strip()
+            if text:
+                return text
+            last_err = f"{model}: tra ve empty text"
+            continue
+        raise RuntimeError(f"Khong the sinh noi dung tu Gemini. Loi: {last_err}")
 
     # --- Methods from Legacy LLMService ---
 

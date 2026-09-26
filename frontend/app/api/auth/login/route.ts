@@ -1,36 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendUrl } from '@/src/lib/api-config';
+
+// --- DEMO MODE: Mock auth response (no backend call) ---
+const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6Imd1ZXN0QGVkdW1hcC5sb2NhbCIsInJvbGUiOiJhZG1pbiIsImZ1bGxfbmFtZSI6Ikd1ZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTcwMDAwMDAwMH0.signature';
+
+const MOCK_USER = {
+  userId: 'demo-user',
+  email: 'guest@edumap.local',
+  full_name: 'Guest User',
+  role: 'admin',
+  avatar_url: 'https://ui-avatars.com/api/?name=Guest+User&background=random',
+};
 
 export async function POST(req: NextRequest) {
-    const body = await req.json();
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  try {
-    const response = await fetch(`${getBackendUrl()}/auth/login`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Backend error:', errorText);
-      return NextResponse.json(
-        { message: 'Đăng nhập thất bại' },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('API Route Error:', error);
-    return NextResponse.json(
-      { message: 'Lỗi kết nối tới dịch vụ xác thực' },
-      { status: 500 }
-    );
-  }
+  // DEMO MODE: Always return mock auth data — no backend login required.
+  return NextResponse.json({
+    access_token: MOCK_TOKEN,
+    refresh_token: MOCK_TOKEN,
+    data: MOCK_USER,
+    ...MOCK_USER,
+  });
 }
