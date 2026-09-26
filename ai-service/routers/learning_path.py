@@ -20,7 +20,7 @@ async def generate_path(request_data: dict):
     # Chỉ trả về lộ trình THẬT từ AI — bỏ fallback bước mẫu "Liên hệ hỗ trợ"
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
 
     try:
         ai_data = await llm_service.generate_learning_path(type('obj', (object,), request_data)())

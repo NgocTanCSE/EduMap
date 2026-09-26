@@ -10,7 +10,7 @@ async def check_scholarship_eligibility(data: dict = Body(...)):
 
     # Chỉ trả về kết quả THẬT từ AI — bỏ thông báo "xin chúc mừng" mẫu
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
 
     import json
     try:

@@ -12,7 +12,7 @@ router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
 async def chat_endpoint(request: ChatRequest):
     # Chỉ trả về trả lời THẬT từ AI — bỏ lời nhắn "bảo trì" mẫu
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 

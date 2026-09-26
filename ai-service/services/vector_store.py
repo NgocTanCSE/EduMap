@@ -1,16 +1,33 @@
 import os
+import json
+import urllib.request
+import urllib.error
+from typing import List, Dict
+
 try:
     import chromadb
 except ImportError:
     chromadb = None
-from typing import List, Dict
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+
 
 class VectorStoreService:
+    """Semantic search. Chat + EMBEDDING deu qua GOOGLE GEMINI (1 key: GEMINI_API_KEY).
+
+    - Chat (LLM)  -> Google Gemini  : GEMINI_API_KEY / GEMINI_MODEL (gemini-3.8-flash)
+    - Embedding   -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL (gemini-embedding-001)
+    """
+
     def __init__(self):
+        # --- Gemini Embedding config (always set; independent of ChromaDB) ---
+        self.gemini_key = os.getenv("GEMINI_API_KEY")
+        self.embedding_model = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+        self.has_api = bool(self.gemini_key)
+        if not self.gemini_key:
+            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY (Google) for semantic search.")
+        if not os.getenv("GEMINI_EMBEDDING_MODEL"):
+            print("WARNING: GEMINI_EMBEDDING_MODEL not set -> default gemini-embedding-001")
+
+        # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
         if chromadb is None:
             print("ChromaDB module not available. Vector store disabled.")
@@ -24,39 +41,45 @@ class VectorStoreService:
             print(f"Vector store initialization failed: {e}")
             self.collection = None
 
-        # OpenAI-compatible embeddings (OpenRouter)
-        self.api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("XTROUTER_API_KEY")
-        self.embedding_model = os.getenv("OPENROUTER_EMBEDDING_MODEL")
-        if self.api_key and OpenAI is not None:
-            try:
-                self.openai_client = OpenAI(
-                    api_key=self.api_key,
-                    base_url=os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1"),
-                )
-                self.has_api = True
-            except Exception as e:
-                print(f"Warning: Failed to initialize embeddings client: {e}")
-                self.has_api = False
-        else:
-            self.has_api = False
-            if not self.api_key:
-                print("WARNING: Vector store without embeddings. Set OPENROUTER_API_KEY (sk-or-...) for semantic search.")
-            elif OpenAI is None:
-                print("WARNING: 'openai' package not installed. Semantic search unavailable.")
-            if not self.embedding_model:
-                print("WARNING: OPENROUTER_EMBEDDING_MODEL is not set. Set an OpenAI-compatible embedding model for semantic search.")
-
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY + OPENROUTER_API_BASE_URL + OPENROUTER_EMBEDDING_MODEL để dùng semantic search.")
-        if not self.embedding_model:
-            raise RuntimeError("Chưa cấu hình OPENROUTER_EMBEDDING_MODEL. Semantic search cần model embedding.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY + GEMINI_EMBEDDING_MODEL để dùng semantic search.")
+        if not text:
+            return []
+
+        model = self.embedding_model
+        # gemini-embedding-001 (va text-embedding-004) dung endpoint :embedContent.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
+        payload = json.dumps({
+            "model": model,
+            "content": {"parts": [{"text": text}]},
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+        )
         try:
-            result = self.openai_client.embeddings.create(model=self.embedding_model, input=text)
-            return result.data[0].embedding
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            print(f"Gemini embed HTTP error {e.code}: {body}")
+            raise RuntimeError(f"Error getting embedding (HTTP {e.code})")
         except Exception as e:
             print(f"Error getting embedding: {e}")
             raise RuntimeError(f"Error getting embedding: {e}")
+
+        # Chuẩn hoá response shape: {"embeddings":[{"values":[...]}]} hoặc {"embedding":{"values":[...]}}
+        emb = data.get("embeddings") or data.get("embedding")
+        if isinstance(emb, list):
+            vec = (emb[0] if emb else {}).get("values")
+        elif isinstance(emb, dict):
+            vec = emb.get("values")
+        else:
+            vec = data.get("values")
+        if not vec:
+            raise RuntimeError(f"Gemini embedding: unexpected response shape {str(data)[:200]}")
+        return [float(x) for x in vec]
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:
@@ -95,5 +118,6 @@ class VectorStoreService:
         except Exception as e:
             print(f"Error in search_similar: {e}")
             raise
+
 
 vector_store = VectorStoreService()

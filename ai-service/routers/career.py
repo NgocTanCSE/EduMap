@@ -19,7 +19,7 @@ async def recommend_career(request_data: dict):
     # Chỉ trả về dữ liệu THẬT từ AI — bỏ mọi danh sách career mẫu fallback
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
 
     class FakeRequest:
         user_id = request_data.get('user_id', '')

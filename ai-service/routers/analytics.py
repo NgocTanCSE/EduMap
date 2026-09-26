@@ -15,7 +15,7 @@ logger = logging.getLogger("analytics")
 async def get_daily_insight(request_data: dict):
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
     try:
         insight = await llm_service.generate_daily_insight(request_data.get('dashboard_data', {}))
         return insight

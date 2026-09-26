@@ -19,7 +19,7 @@ async def match_mentor(request_data: dict):
     # Chỉ trả về ghép mentor THẬT từ AI — bỏ fallback danh sách mentor mẫu
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
 
     class FakeRequest:
         student_id = request_data.get('student_id', '')

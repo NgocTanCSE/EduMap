@@ -40,11 +40,11 @@ if _llm_service is None:
     class MockLLMService:
         is_ready = False
         async def chat_with_rag(self, *args, **kwargs): 
-            return {"reply": "AI Service chưa sẵn sàng.", "sources": []}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
         async def analyze_market_trends(self, *args, **kwargs):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
         async def generate_career_advice(self, *args, **kwargs):
-            return "AI Service chưa sẵn sàng."
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
     _llm_service = MockLLMService()
     print("4b. mock llm_service used")
 
@@ -100,7 +100,7 @@ for name, router in router_modules.items():
 @app.get("/api/ai/trends")
 async def get_trends():
     if not llm_service.is_ready:
-        raise HTTPException(503, "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY để xem xu hướng thị trường.")
+        raise HTTPException(503, "AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY để xem xu hướng thị trường.")
     return await llm_service.analyze_market_trends([{"keyword": "AI"}])
 
 @app.post("/api/ai/predict")

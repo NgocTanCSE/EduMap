@@ -50,7 +50,7 @@ async def analyze_geo_density(request_data: dict):
 
         from services.llm_service import llm_service
         if not llm_service or not llm_service.is_ready:
-            raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+            raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
         # Truyền object có .points/.city do analyze_geo_density cần (dict thường không có attribute)
         gd_data = type('obj', (object,), {'points': points, 'city': request_data.get('city', 'Unknown')})()
         analysis = await llm_service.analyze_geo_density(gd_data, hubs)

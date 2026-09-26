@@ -87,7 +87,7 @@ services:
     container_name: edumap_ai
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - DB_DATABASE=${DB_DATABASE}
