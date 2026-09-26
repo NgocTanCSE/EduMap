@@ -2,11 +2,9 @@ import os
 import json
 import hashlib
 try:
-    from google.genai import Client
-    from google.genai import types as genai_types
+    from openai import OpenAI
 except ImportError:
-    Client = None
-    genai_types = None
+    OpenAI = None
 from dotenv import load_dotenv
 try:
     from services.cache_service import cache_service
@@ -44,26 +42,26 @@ load_dotenv()
 
 class LLMService:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        if self.api_key:
-            self.client = Client(api_key=self.api_key)
-            self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("XTROUTER_API_KEY")
+        if self.api_key and OpenAI is not None:
+            self.client = OpenAI(api_key=self.api_key, base_url=os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1"))
+            self.model_name = os.getenv("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
             self.is_ready = True
         else:
-            self.model = None
+            self.client = None
             self.is_ready = False
-            print("ERROR: GEMINI_API_KEY is not configured. AI Service requires a valid Gemini API key.")
-            print("Set GEMINI_API_KEY in .env file or environment variables.")
+            print("ERROR: OPENROUTER_API_KEY chưa cấu hình. Set OPENROUTER_API_KEY (sk-or-...) + OPENROUTER_API_BASE_URL.")
+            print("Set OPENROUTER_API_KEY trong .env — provider OpenAI-compatible tại OPENROUTER_API_BASE_URL.")
 
     # --- Methods from Legacy LLMService ---
 
     async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
         """
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
-        Kết hợp dữ liệu từ ChromaDB, hệ thống và Gemini Pro Engine.
+        Kết hợp dữ liệu từ ChromaDB, hệ thống và OpenRouter Engine.
         """
         if not self.is_ready:
-            return {"reply": "Trợ lý ảo EduMap hiện đang bảo trì, vui lòng quay lại sau.", "sources": []}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {{}})}".encode()).hexdigest()
@@ -138,14 +136,15 @@ class LLMService:
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
         
         try:
-            generation_config = genai_types.GenerationConfig(
-                max_output_tokens=2048,
-                temperature=0.3, 
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2048,
+                temperature=0.3,
                 top_p=0.8
             )
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt, config=generation_config)
             
-            reply_text = response.text.strip() if response and response.text else "Mình chưa tìm được câu trả lời phù hợp."
+            reply_text = response.choices[0].message.content.strip() if response and response.choices[0].message.content else "Mình chưa tìm được câu trả lời phù hợp."
             final_res = {"reply": reply_text, "sources": sources}
             
             cache_service.set(cache_key, final_res, ttl=3600)
@@ -154,7 +153,7 @@ class LLMService:
             
         except Exception as e:
             print(f"AI Generation Error: {e}")
-            return {"reply": "Hệ thống AI đang gặp sự cố nhỏ, mình sẽ quay lại ngay!", "sources": []}
+            raise RuntimeError(f"AI Generation Error: {e}")
 
     async def chat_response(self, message: str, history: list = None, context: dict = None):
         """Wrapper để tương thích với các module cũ."""
@@ -162,28 +161,47 @@ class LLMService:
         return res.get("reply")
 
     async def generate_career_advice(self, user_info: dict):
-        if not self.is_ready: return "AI Service is not configured. Please set GEMINI_API_KEY to use career advice."
+        if not self.is_ready:
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            return response.text
-        except:
-            return "AI đang bận, hãy thử lại."
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            raise RuntimeError(f"Error in generate_career_advice: {e}")
 
     async def analyze_market_trends(self, market_data: list):
-        if not self.is_ready: return {"status": "offline", "message": "AI Service not configured. GEMINI_API_KEY is required."}
-        return {"status": "online", "analysis": "Xu hướng tuyển dụng tại KCN Amata đang rất tốt."}
+        if not self.is_ready:
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        prompt = f"Dựa trên dữ liệu thị trường sau: {json.dumps(market_data)}, hãy phân tích ngắn gọn xu hướng kỹ năng/nghề nghề nổi bật. Trả về JSON: {{status, analysis}}."
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            return result if result else {"status": "ai", "analysis": response.choices[0].message.content.strip()}
+        except Exception as e:
+            print(f"Error in analyze_market_trends: {e}")
+            raise RuntimeError(f"Error in analyze_market_trends: {e}")
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            return {"insight": "AI Service offline - configure GEMINI_API_KEY for personalized insights."}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            return {"insight": response.text}
-        except:
-            return {"insight": "Hôm nay là một ngày tuyệt vời để học kỹ năng mới."}
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return {"insight": response.choices[0].message.content}
+        except Exception as e:
+            print(f"Error in generate_daily_insight: {e}")
+            raise RuntimeError(f"Error in generate_daily_insight: {e}")
 
     # --- Methods from New LLMService ---
 
@@ -235,7 +253,7 @@ class LLMService:
 
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
         if not self.is_ready:
-            return []
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
@@ -257,24 +275,29 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            result = self._extract_json(response.text)
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
             
             if result and isinstance(result, list):
                 # Lưu vào Cache (TTL 24 giờ cho đề xuất nghề nghiệp)
                 cache_service.set(cache_key, result, ttl=86400)
                 
-            return result if isinstance(result, list) else []
+            if result is None or not isinstance(result, list):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho recommend_career.")
+            return result
         except Exception as e:
             print(f"Error in recommend_career: {e}")
-            return []
+            raise RuntimeError(f"Error in recommend_career: {e}")
 
     async def generate_learning_path(self, data: LearningPathRequest) -> dict:
         """
         Tạo lộ trình học tập cá nhân hóa dựa trên trình độ và mục tiêu nghề nghiệp.
         """
         if not self.is_ready:
-            return {}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
@@ -297,21 +320,26 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            result = self._extract_json(response.text)
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
             
             if result:
                 # Lưu vào Cache (TTL 24 giờ cho lộ trình)
                 cache_service.set(cache_key, result, ttl=86400)
             
-            return result if result else {}
+            if result is None:
+                raise RuntimeError("AI trả về JSON không hợp lệ cho generate_learning_path.")
+            return result
         except Exception as e:
             print(f"Error in generate_learning_path: {e}")
-            return {}
+            raise RuntimeError(f"Error in generate_learning_path: {e}")
 
     async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
         if not self.is_ready:
-            return {"summary": "AI Service not configured", "density_score": 0}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         prompt = f"""
         Phân tích mật độ giáo dục tại {data.city}.
@@ -326,41 +354,58 @@ class LLMService:
         Trả về JSON: {{summary, density_score, recommendations: []}}
         """
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            return self._extract_json(response.text) or {"summary": "Lỗi phân tích"}
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            if result is None:
+                raise RuntimeError("AI trả về JSON không hợp lệ cho analyze_geo_density.")
+            return result
         except Exception as e:
             print(f"Error in analyze_geo_density: {e}")
-            return {"summary": "Lỗi AI"}
+            raise RuntimeError(f"Error in analyze_geo_density: {e}")
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
         if not self.is_ready:
-            return {"summary": "AI Service not configured", "key_concepts": []}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            return self._extract_json(response.text) or {"summary": "Lỗi tóm tắt"}
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            if result is None:
+                raise RuntimeError("AI trả về JSON không hợp lệ cho summarize_material.")
+            return result
         except Exception as e:
             print(f"Error in summarize_material: {e}")
-            return {"summary": "Lỗi AI"}
+            raise RuntimeError(f"Error in summarize_material: {e}")
 
     async def match_mentors(self, data: MatchRequest) -> list:
         if not self.is_ready:
-            return []
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            result = self._extract_json(response.text)
-            return result if isinstance(result, list) else []
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            if result is None or not isinstance(result, list):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho match_mentors.")
+            return result
         except Exception as e:
             print(f"Error in match_mentors: {e}")
-            return []
+            raise RuntimeError(f"Error in match_mentors: {e}")
 
 
     async def moderate_text(self, text: str) -> dict:
         if not self.is_ready:
-            return {"is_safe": None, "confidence": 0.0, "flags": ["AI_OFFLINE"], "reason": "AI Service not configured."}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
@@ -375,22 +420,33 @@ class LLMService:
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            return self._extract_json(response.text) or {"is_safe": False, "confidence": 0.0, "flags": ["Parse Error"]}
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            if result is None:
+                raise RuntimeError("AI trả về JSON không hợp lệ cho moderate_text.")
+            return result
         except Exception as e:
             print(f"Error in moderate_text: {e}")
-            return {"is_safe": False, "confidence": 0.0, "flags": ["AI Error"]}
+            raise RuntimeError(f"Error in moderate_text: {e}")
 
     async def get_suggestions(self) -> list:
         if not self.is_ready:
-            return []
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            result = self._extract_json(response.text)
-            return result if isinstance(result, list) else []
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            result = self._extract_json(response.choices[0].message.content)
+            if result is None or not isinstance(result, list):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho get_suggestions.")
+            return result
         except Exception as e:
             print(f"Error in get_suggestions: {e}")
-            return []
+            raise RuntimeError(f"Error in get_suggestions: {e}")
 
 llm_service = LLMService()

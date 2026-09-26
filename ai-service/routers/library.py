@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -15,26 +15,25 @@ class MaterialSummaryResponse(BaseModel):
 
 @router.post("/summarize")
 async def summarize_material(request_data: dict):
+    # Chỉ trả về tóm tắt THẬT từ AI — bỏ fallback thông điệp "bảo trì"/"lỗi" mẫu
+    from services.llm_service import llm_service
+    if not llm_service or not llm_service.is_ready:
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+
+    class FakeRequest:
+        title = request_data.get('title', '')
+        description = request_data.get('description', '')
+        category = request_data.get('category', '')
+        tags = request_data.get('tags', [])
+        type = request_data.get('type', '')
+
     try:
-        from services.llm_service import llm_service
-        if not llm_service or not llm_service.is_ready:
-            return MaterialSummaryResponse(
-                summary="AI trợ lý thư viện đang bảo trì.",
-                key_concepts=[KeyConcept(concept="Tài liệu", explanation="Xin vui lòng quay lại sau.")],
-                study_tips=["Liên hệ bộ phận hỗ trợ."]
-            ).dict()
-        
-        class FakeRequest:
-            title = request_data.get('title', '')
-            description = request_data.get('description', '')
-            category = request_data.get('category', '')
-            tags = request_data.get('tags', [])
-            type = request_data.get('type', '')
-            
         analysis = await llm_service.summarize_material(FakeRequest())
         if analysis:
             return analysis
-        return MaterialSummaryResponse(summary="Không thể tóm tắt tài liệu.", key_concepts=[], study_tips=[]).dict()
+        raise HTTPException(status_code=502, detail="AI trả về kết quả tóm tắt không hợp lệ.")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in summarize_material: {e}")
-        return MaterialSummaryResponse(summary="Lỗi xử lý tài liệu.", key_concepts=[], study_tips=[]).dict()
+        raise HTTPException(status_code=502, detail=f"Lỗi tóm tắt tài liệu: {str(e)}")

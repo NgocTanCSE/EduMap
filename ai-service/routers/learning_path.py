@@ -17,18 +17,12 @@ class LearningPathResponse(BaseModel):
 
 @router.post("/")
 async def generate_path(request_data: dict):
-    try:
-        from services.llm_service import llm_service
-        if not llm_service or not llm_service.is_ready:
-            return LearningPathResponse(
-                target_role=request_data.get('target_role', 'Unknown'),
-                total_estimated_months=6.0,
-                steps=[
-                    PathStep(step_number=1, title="Khám phá kỹ năng cơ bản", estimated_weeks=4, description="Học các kỹ năng cần thiết."),
-                    PathStep(step_number=2, title="Thực hành dự án", estimated_weeks=6, description="Làm dự án thực tế."),
-                ]
-            ).dict()
+    # Chỉ trả về lộ trình THẬT từ AI — bỏ fallback bước mẫu "Liên hệ hỗ trợ"
+    from services.llm_service import llm_service
+    if not llm_service or not llm_service.is_ready:
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
 
+    try:
         ai_data = await llm_service.generate_learning_path(type('obj', (object,), request_data)())
         steps = []
         for step in ai_data.get("steps", []):
@@ -40,8 +34,4 @@ async def generate_path(request_data: dict):
         ).dict()
     except Exception as e:
         print(f"Error generating learning path: {str(e)}")
-        return LearningPathResponse(
-            target_role=request_data.get('target_role', 'Unknown'),
-            total_estimated_months=6.0,
-            steps=[PathStep(step_number=1, title="Liên hệ hỗ trợ", estimated_weeks=1, description="Dịch vụ đang bảo trì.")]
-        ).dict()
+        raise HTTPException(status_code=502, detail=f"Lỗi tạo lộ trình học: {str(e)}")

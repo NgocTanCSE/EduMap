@@ -1,4 +1,4 @@
-﻿import math
+import math
 import os
 from typing import List, Dict, Any
 
@@ -13,41 +13,30 @@ class PredictiveService:
     def analyze_trends(self, recent_logs: List[Dict]) -> List[Dict]:
         if not recent_logs:
             return []
-        
         keyword_counts: Dict[str, int] = {}
         for log in recent_logs:
             kw = log.get('keyword', '')
             if kw and isinstance(kw, str):
                 keyword_counts[kw.lower()] = keyword_counts.get(kw.lower(), 0) + 1
-        
         sorted_trends = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
         return [{"skill": k, "score": v} for k, v in sorted_trends[:5]]
 
     def predict_career_path(self, user_history: List[str]) -> str:
         if not user_history:
-            return "Hãy khám phá các lĩnh vực kỹ năng để nhận đề xuất lộ trình phù hợp."
-        
+            return "Hãy cung cấp kỹ năng/hoạt động để nhận đề xuất lộ trình phù hợp."
         recommendations = []
         history_lower = [h.lower() for h in user_history if h]
-        
         if any("python" in h for h in history_lower):
-            recommendations.append("Bạn nên theo đuổi AI Engineering vì nó đang có điểm tăng trưởng cao.")
-        
+            recommendations.append("AI Engineering — phù hợp với nền tảng lập trình của bạn.")
         if any("web" in h or "javascript" in h for h in history_lower):
-            recommendations.append("Bạn có thể cân nhắc Full-stack Developer với xu hướng tuyển dụng tăng.")
-        
+            recommendations.append("Full-stack Developer — phù hợp với kinh nghiệm phát triển web của bạn.")
         if len(user_history) < 5:
-            recommendations.append("Hãy hoàn thành thêm các khoá học về Soft Skills để tăng 20% cơ hội trúng tuyển.")
-        
-        return recommendations[0] if recommendations else "Hãy tiếp tục khám phá các lĩnh vực mới!"
+            recommendations.append("Bạn nên bổ sung kỹ năng mềm để mở rộng cơ hội ứng tuyển.")
+        return recommendations[0] if recommendations else "Hãy khám phá thêm lĩnh vực để nhận đề xuất."
 
     def get_market_trends(self) -> Dict[str, float]:
-        market_trends = {
-            "AI Engineering": 0.95,
-            "Sustainability": 0.80,
-            "Cybersecurity": 0.75,
-            "Cloud Computing": 0.70
-        }
-        return market_trends
+        # TODO: trả về xu hướng thị trường thật từ bảng DB market_trends.
+        # Hiện chưa có nguồn dữ liệu thật → trả về rỗng (bỏ qua các con số mẫu old-mock-removed).
+        return {}
 
 predictive_service = PredictiveService()

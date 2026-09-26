@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -43,66 +43,77 @@ class GeoRecommendRequest(BaseModel):
 async def analyze_geo_density(request_data: dict):
     try:
         db, cs = _get_services()
+        if cs is None:
+            raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
         points = request_data.get('points', [])
-        hubs = cs.identify_education_hubs(points) if cs and points else []
-        
-        try:
-            from services.llm_service import llm_service
-            if llm_service and llm_service.is_ready:
-                analysis = await llm_service.analyze_geo_density(request_data, hubs)
-            else:
-                analysis = {"summary": "AI Service available - configure GEMINI_API_KEY for detailed analysis."}
-        except:
-            analysis = {"summary": "Geo analysis service ready"}
-        
+        hubs = cs.identify_education_hubs(points) if points else []
+
+        from services.llm_service import llm_service
+        if not llm_service or not llm_service.is_ready:
+            raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
+        # Truyền object có .points/.city do analyze_geo_density cần (dict thường không có attribute)
+        gd_data = type('obj', (object,), {'points': points, 'city': request_data.get('city', 'Unknown')})()
+        analysis = await llm_service.analyze_geo_density(gd_data, hubs)
+
         return {"hubs": hubs, "ai_analysis": analysis}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in analyze_geo_density: {e}")
-        return {"hubs": [], "ai_analysis": {"summary": "Geo analysis service temporarily unavailable"}}
+        raise HTTPException(status_code=503, detail="Geo analysis service không khả dụng.")
 
 @router.post("/analyze-gaps")
 async def analyze_education_gaps(request_data: dict):
     try:
         db, cs = _get_services()
+        if cs is None:
+            raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
         points = request_data.get('school_points') or []
         center = {"lat": request_data.get('center_lat') or 10.9567, "lng": request_data.get('center_lng') or 107.1825}
-        gaps = cs.identify_gaps(points, center) if cs else []
+        gaps = cs.identify_gaps(points, center)
         return {"status": "success", "gaps": gaps}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in analyze_education_gaps: {e}")
-        return {"status": "success", "gaps": []}
+        raise HTTPException(status_code=503, detail="Không phân tích được khoảng trống giáo dục.")
 
 @router.post("/heatmap")
 async def get_geo_heatmap(request_data: dict):
     try:
         db, cs = _get_services()
+        if cs is None:
+            raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
         points = request_data.get('school_points') or []
         region_center = {
             "lat": request_data.get('center_lat') or 10.9567,
             "lng": request_data.get('center_lng') or 107.1825
         }
-        heatmap_data = cs.generate_heatmap_data(points, region_center, request_data.get('radius_km') or 5.0) if cs else []
+        radius_km = request_data.get('radius_km') or 5.0
+        heatmap_data = cs.generate_heatmap_data(points, region_center, radius_km) or []
         return {
-            "status": "success", 
+            "status": "success",
             "heatmap": heatmap_data,
             "center": region_center,
-            "radius_km": request_data.get('radius_km') or 5.0,
+            "radius_km": radius_km,
             "total_points": len(heatmap_data)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in get_geo_heatmap: {e}")
-        return {"status": "success", "heatmap": []}
+        raise HTTPException(status_code=503, detail="Không tạo được bản đồ nhiệt.")
 
 @router.post("/recommend")
 async def recommend_nearby_opportunities(request_data: dict):
     try:
         db, cs = _get_services()
         if not db or not cs:
-            return {"status": "success", "recommendations": [], "total_found": 0, "search_radius_km": 5.0, "center": {}}
-        
+            raise HTTPException(status_code=503, detail="Dịch vụ bản đồ chưa sẵn sàng.")
+
         locations = db.get_nearby_locations(
-            request_data.get('user_lat'), 
-            request_data.get('user_lng'), 
+            request_data.get('user_lat'),
+            request_data.get('user_lng'),
             request_data.get('radius_km') or 5.0,
             request_data.get('category'),
             (request_data.get('limit') or 10) * 3
@@ -140,6 +151,8 @@ async def recommend_nearby_opportunities(request_data: dict):
             "search_radius_km": request_data.get('radius_km') or 5.0,
             "center": {"lat": request_data.get('user_lat'), "lng": request_data.get('user_lng')}
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in recommend_nearby_opportunities: {e}")
-        return {"status": "success", "recommendations": []}
+        raise HTTPException(status_code=503, detail="Không gợi đề xuất được địa điểm gần bạn.")

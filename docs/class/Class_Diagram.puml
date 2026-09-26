@@ -1,0 +1,429 @@
+@startuml Class_Diagram
+skinparam defaultFontName "DejaVu Sans"
+skinparam monochrome false
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam nodesep 40
+skinparam ranksep 45
+
+' Force 2-column or grid flow
+left to right direction
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #334155
+  BorderThickness 1.5
+  FontColor #0F172A
+  FontSize 11
+  FontStyle bold
+  AttributeFontColor #334155
+  AttributeFontSize 10
+  MethodFontColor #1E293B
+  MethodFontSize 10
+  HeaderBackgroundColor #F1F5F9
+}
+
+skinparam package {
+  BorderColor #94A3B8
+  BorderThickness 1.2
+  FontColor #1E3A8A
+  FontSize 13
+  FontStyle bold
+}
+
+skinparam arrow {
+  Color #475569
+  Thickness 1.2
+  FontColor #334155
+  FontSize 9
+}
+
+title <size:18><b>HỆ SINH THÁI GIÁO DỤC THÔNG MINH EDUMAP</b></size>\n<size:13><b>SƠ ĐỒ LỚP NGHIỆP VỤ HỆ THỐNG (DOMAIN CLASS DIAGRAM)</b></size>
+
+' ==============================================================================
+' 1. IDENTITY & ACCESS MANAGEMENT (QUẢN TRỊ NGƯỜI DÙNG & PHÂN QUYỀN)
+' ==============================================================================
+package "1. Identity & Access Domain (Phân hệ Người dùng & Phân quyền)" as PKG_USER #F8FAFC {
+
+  abstract class User {
+    # id: UUID
+    # email: String
+    # passwordHash: String
+    # fullName: String
+    # phoneNumber: String
+    # avatarUrl: String
+    # isActive: Boolean
+    # createdAt: DateTime
+    --
+    + authenticate(password: String): Boolean
+    + updateProfile(fullName: String, phone: String): Void
+    + changePassword(oldPass: String, newPass: String): Boolean
+    + resetPassword(token: String, newPass: String): Boolean
+  }
+
+  class Student {
+    - studentCode: String
+    - schoolName: String
+    - gpa: Float
+    - mbtiType: String
+    - skills: String[]
+    --
+    + searchNearbyLocations(radiusKm: Double): List<MapPoint>
+    + applyScholarship(scholarshipId: UUID): ScholarshipApplication
+    + bookMentor(mentorId: UUID, slot: DateTime): Booking
+    + addToCart(productId: UUID, quantity: Int): CartItem
+    + enrollCareerPath(careerId: UUID): Void
+  }
+
+  class Mentor {
+    - bio: String
+    - specialties: String[]
+    - experienceYears: Int
+    - hourlyRate: Decimal
+    - ratingAvg: Float
+    - isVerified: Boolean
+    --
+    + configureAvailability(dayOfWeek: Int, start: Time, end: Time): MentorAvailability
+    + acceptBooking(bookingId: UUID): Boolean
+    + rejectBooking(bookingId: UUID, reason: String): Boolean
+    + startSession(bookingId: UUID): MentorSession
+    + recalculateRating(): Float
+  }
+
+  class BusinessPartner {
+    - companyName: String
+    - taxCode: String
+    - businessAddress: String
+    - walletBalance: Decimal
+    --
+    + publishProduct(name: String, price: Decimal, stock: Int): Product
+    + publishService(name: String, price: Decimal): Service
+    + updateStock(productId: UUID, newStock: Int): Void
+    + confirmFulfillment(orderId: UUID): Boolean
+    + withdrawFunds(amount: Decimal): Boolean
+  }
+
+  class Admin {
+    - staffCode: String
+    - department: String
+    --
+    + verifyMentor(mentorId: UUID): Boolean
+    + lockUser(userId: UUID, reason: String): Void
+    + moderatePost(postId: UUID, isApproved: Boolean): Void
+    + generateSystemReport(): Report
+  }
+
+  class Role {
+    - id: UUID
+    - roleName: String
+    - permissions: String[]
+    --
+    + hasPermission(permission: String): Boolean
+  }
+
+  class Notification {
+    - id: UUID
+    - recipientId: UUID
+    - title: String
+    - content: String
+    - isRead: Boolean
+    - channel: String
+    --
+    + markAsRead(): Void
+    + sendPush(): Boolean
+  }
+
+  User <|-- Student
+  User <|-- Mentor
+  User <|-- BusinessPartner
+  User <|-- Admin
+  User "1" o-- "1..*" Role : assigned >
+  User "1" --> "0..*" Notification : receives >
+}
+
+' ==============================================================================
+' 2. GEOSPATIAL & SMART CAMPUS DOMAIN (BẢN ĐỒ & KHÔNG GIAN)
+' ==============================================================================
+package "2. Geospatial & Smart Campus (Phân hệ Bản đồ & Không gian)" as PKG_GIS #F0FDF4 {
+
+  class Location {
+    - id: UUID
+    - latitude: Double
+    - longitude: Double
+    - address: String
+    - district: String
+    --
+    + getCoordinates(): Point
+    + calculateDistance(toLat: Double, toLng: Double): Double
+    + isWithinRadius(centerLat: Double, centerLng: Double, radiusKm: Double): Boolean
+  }
+
+  class MapPoint {
+    - id: UUID
+    - name: String
+    - category: String
+    - description: String
+    - verified: Boolean
+    --
+    + getDetails(): String
+    + updateInformation(info: String): Void
+  }
+
+  class School {
+    - schoolType: String
+    - websiteUrl: String
+    - admissionQuota: Int
+    - totalFaculties: Int
+    --
+    + getAdmissionCriteria(): String
+    + getContactInfo(): String
+  }
+
+  class WifiHotspot {
+    - ssid: String
+    - isFree: Boolean
+    - bandwidthMbps: Float
+    - venueType: String
+    --
+    + checkActiveStatus(): Boolean
+  }
+
+  class MobileUnit {
+    - vehiclePlate: String
+    - unitType: String
+    - currentStatus: String
+    - batteryPercentage: Int
+    --
+    + updateLocation(lat: Double, lng: Double): Void
+    + broadcastPosition(): Void
+    + getNextStopSchedule(): Schedule
+  }
+
+  MapPoint "1" *-- "1" Location : situated at >
+  MapPoint <|-- School
+  MapPoint <|-- WifiHotspot
+  MobileUnit "1" --> "1" Location : current position >
+  Student "0..*" --> "0..1" School : attends >
+  BusinessPartner "1" --> "0..1" Location : based at >
+}
+
+' ==============================================================================
+' 3. MENTORSHIP & CONSULTATION DOMAIN (CỐ VẤN & TƯ VẤN TRỰC TUYẾN)
+' ==============================================================================
+package "3. Mentorship & Consultation (Phân hệ Cố vấn & Buổi tư vấn)" as PKG_MENTOR #FEF3C7 {
+
+  class MentorAvailability {
+    - id: UUID
+    - dayOfWeek: Int
+    - startTime: Time
+    - endTime: Time
+    - isActive: Boolean
+    --
+    + isSlotAvailable(date: Date, time: Time): Boolean
+    + toggleStatus(): Void
+  }
+
+  class Booking {
+    - id: UUID
+    - slotStart: DateTime
+    - slotEnd: DateTime
+    - amount: Decimal
+    - status: String
+    - paymentStatus: String
+    - meetingUrl: String
+    --
+    + confirmBooking(): Void
+    + cancelBooking(reason: String): Void
+    + markPaid(): Void
+    + generateMeetingRoom(): String
+  }
+
+  class MentorSession {
+    - id: UUID
+    - actualStartTime: DateTime
+    - actualEndTime: DateTime
+    - durationMinutes: Int
+    - notes: String
+    --
+    + startCall(): Void
+    + endCall(): Void
+    + saveNotes(summary: String): Void
+  }
+
+  class Review {
+    - id: UUID
+    - rating: Int
+    - comment: String
+    - createdAt: DateTime
+    --
+    + validateScore(): Boolean
+    + editComment(text: String): Void
+  }
+
+  Mentor "1" *-- "0..*" MentorAvailability : configures >
+  Mentor "1" <-- "0..*" Booking : booked for <
+  Student "1" --> "0..*" Booking : books >
+  Booking "1" o-- "0..1" MentorSession : manifests as >
+  Booking "1" --> "0..1" Review : rated by >
+}
+
+' ==============================================================================
+' 4. COMMERCE & ORDER MARKETPLACE (THƯƠNG MẠI & ĐƠN HÀNG)
+' ==============================================================================
+package "4. Commerce & Order (Phân hệ Thương mại & Đơn hàng)" as PKG_COMMERCE #EFF6FF {
+
+  class Product {
+    - id: UUID
+    - name: String
+    - description: String
+    - price: Decimal
+    - stock: Int
+    - category: String
+    --
+    + hasSufficientStock(quantity: Int): Boolean
+    + reduceStock(quantity: Int): Void
+    + replenishStock(quantity: Int): Void
+  }
+
+  class Service {
+    - id: UUID
+    - name: String
+    - description: String
+    - price: Decimal
+    - durationMonths: Int
+    --
+    + grantAccess(studentId: UUID): Void
+  }
+
+  class CartItem {
+    - id: UUID
+    - quantity: Int
+    --
+    + calculateSubtotal(): Decimal
+    + updateQuantity(newQty: Int): Void
+  }
+
+  class Order {
+    - id: UUID
+    - totalAmount: Decimal
+    - currency: String
+    - status: String
+    - shippingAddress: String
+    - createdAt: DateTime
+    --
+    + calculateTotal(): Decimal
+    + markPaid(): Void
+    + markShipping(): Void
+    + completeOrder(): Void
+    + cancelOrder(): Void
+  }
+
+  class OrderItem {
+    - id: UUID
+    - quantity: Int
+    - priceAtPurchase: Decimal
+    --
+    + getItemTotal(): Decimal
+  }
+
+  class Transaction {
+    - id: UUID
+    - amount: Decimal
+    - paymentMethod: String
+    - status: String
+    - externalTxnId: String
+    --
+    + verifySignature(checksum: String): Boolean
+    + markSuccess(): Void
+    + markFailed(): Void
+  }
+
+  BusinessPartner "1" --> "0..*" Product : owns >
+  BusinessPartner "1" --> "0..*" Service : offers >
+  Student "1" --> "0..*" CartItem : manages >
+  CartItem "0..*" --> "0..1" Product : selects >
+  CartItem "0..*" --> "0..1" Service : selects >
+  Student "1" --> "0..*" Order : places >
+  Order "1" *-- "1..*" OrderItem : composed of >
+  OrderItem "0..*" --> "0..1" Product : purchases >
+  OrderItem "0..*" --> "0..1" Service : purchases >
+  Order "1" -- "1" Transaction : settled by >
+}
+
+' ==============================================================================
+' 5. SCHOLARSHIP, CAREER & COMMUNITY (HỌC BỔNG, NGHỀ NGHIỆP & CỘNG ĐỒNG)
+' ==============================================================================
+package "5. Scholarship, Career & Social (Học bổng, Nghề nghiệp & Cộng đồng)" as PKG_SOCIAL #FFF1F2 {
+
+  class Scholarship {
+    - id: UUID
+    - title: String
+    - provider: String
+    - minGpa: Float
+    - scholarshipAmount: Decimal
+    - deadline: Date
+    --
+    + checkEligibility(gpa: Float, district: String): Boolean
+    + isExpired(): Boolean
+  }
+
+  class ScholarshipApplication {
+    - id: UUID
+    - submissionDate: Date
+    - status: String
+    - transcriptUrl: String
+    --
+    + submitApplication(): Void
+    + updateStatus(newStatus: String): Void
+  }
+
+  class CareerPath {
+    - id: UUID
+    - title: String
+    - industrySector: String
+    - requiredSkills: String[]
+    - targetGpa: Float
+    --
+    + calculateMatchScore(studentSkills: String[], gpa: Float): Float
+  }
+
+  class Group {
+    - id: UUID
+    - name: String
+    - description: String
+    - privacy: String
+    --
+    + addMember(user: User): Void
+    + removeMember(user: User): Void
+  }
+
+  class Post {
+    - id: UUID
+    - title: String
+    - content: String
+    - status: String
+    - likeCount: Int
+    --
+    + publish(): Void
+    + flagForReview(): Void
+    + incrementLikes(): Void
+  }
+
+  class Comment {
+    - id: UUID
+    - content: String
+    - createdAt: DateTime
+    --
+    + updateContent(newContent: String): Void
+  }
+
+  Student "1" --> "0..*" ScholarshipApplication : applies >
+  Scholarship "1" <-- "0..*" ScholarshipApplication : targeted to <
+  Student "0..*" --> "0..*" CareerPath : navigates >
+  Group "1" *-- "0..*" Post : contains >
+  User "1" --> "0..*" Post : authors >
+  Post "1" *-- "0..*" Comment : has >
+  User "1" --> "0..*" Comment : writes >
+}
+
+@enduml

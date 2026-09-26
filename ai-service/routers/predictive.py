@@ -19,58 +19,59 @@ async def analyze_market_trends(request_data: dict):
     try:
         from services.predictive_service import predictive_service
         from services.llm_service import llm_service
-        
+
         keywords = request_data.get('keywords', [])
         recent_logs = [{"keyword": kw} for kw in keywords]
         trends = predictive_service.analyze_trends(recent_logs)
-        
-        ai_analysis = {"status": "offline"}
+
+        ai_analysis = None
         try:
-            ai_analysis = await llm_service.analyze_market_trends(keywords)
-        except Exception:
-            pass
-        
+            if llm_service and llm_service.is_ready:
+                ai_analysis = await llm_service.analyze_market_trends(keywords)
+        except Exception as e:
+            print(f"AI trends error: {e}")
+
         return {
             "status": "success",
             "trends": trends,
             "ai_analysis": ai_analysis,
             "time_period": request_data.get('time_period', '30d')
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in predictive/trends: {e}")
-        return {"status": "error", "trends": [], "ai_analysis": {}, "time_period": "30d"}
+        raise HTTPException(status_code=503, detail="Không phân tích được xu hướng.")
 
 @router.post("/career-prediction")
 async def predict_career_path(request_data: dict):
     try:
         from services.predictive_service import predictive_service
         from services.llm_service import llm_service
-        
+
         skills = request_data.get('skills', [])
         interests = request_data.get('interests', [])
         user_history = skills + interests
-        
+
         prediction = predictive_service.predict_career_path(user_history)
-        
+
         ai_suggestion = []
         try:
-            ai_suggestion = await llm_service.get_suggestions()
-        except Exception:
-            pass
-        
+            if llm_service and llm_service.is_ready:
+                ai_suggestion = await llm_service.get_suggestions()
+        except Exception as e:
+            print(f"AI suggestion error: {e}")
+
         return {
             "status": "success",
             "prediction": prediction,
-            "ai_suggestion": ai_suggestion,
-            "career_paths": [
-                {"title": "AI Engineer", "match_score": 0.85, "reason": "Dựa trên kỹ năng"},
-                {"title": "Data Scientist", "match_score": 0.78, "reason": "Phù hợp phân tích"},
-                {"title": "Full-stack Developer", "match_score": 0.72, "reason": "Kỹ năng đa dạng"}
-            ]
+            "ai_suggestion": ai_suggestion
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in predictive/career-prediction: {e}")
-        return {"status": "error", "prediction": "", "ai_suggestion": [], "career_paths": []}
+        raise HTTPException(status_code=503, detail="Không dự đoán được lộ trình nghề nghiệp.")
 
 @router.get("/market-data")
 async def get_market_data():
@@ -84,4 +85,4 @@ async def get_market_data():
         }
     except Exception as e:
         print(f"Error in predictive/market-data: {e}")
-        return {"status": "success", "market_trends": {}, "last_updated": "2026-06-15", "source": "EduMap Analytics"}
+        raise HTTPException(status_code=503, detail="Không lấy được dữ liệu thị trường.")

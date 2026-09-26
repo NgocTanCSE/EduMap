@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any
 import logging
@@ -13,44 +13,44 @@ logger = logging.getLogger("analytics")
 
 @router.post("/daily-insight")
 async def get_daily_insight(request_data: dict):
+    from services.llm_service import llm_service
+    if not llm_service or not llm_service.is_ready:
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
     try:
-        from services.llm_service import llm_service
-        if llm_service and llm_service.is_ready:
-            insight = await llm_service.generate_daily_insight(request_data.get('dashboard_data', {}))
-            return insight
-        return {"insight": "AI Service chưa sẵn sàng."}
+        insight = await llm_service.generate_daily_insight(request_data.get('dashboard_data', {}))
+        return insight
     except Exception as e:
         logger.error(f"Error in get_daily_insight route: {str(e)}")
         traceback.print_exc()
-        return {"insight": "Hệ thống AI tạm thời không khả dụng."}
+        raise HTTPException(status_code=503, detail="Hệ thống AI tạm thời không khả dụng.")
 
 @router.get("/stats")
 async def get_stats():
-    avg_growth = 15.0
-    pred_2025 = 1200000
-    top_event = "N/A"
-    it_df = None
     stats_data = []
-    
+
+    # Chỉ nhận dữ liệu THẬT từ CSDL — bỏ mọi dữ liệu mẫu fallback
     try:
         from services.db_service import db_service
-        stats_data = db_service.get_education_stats(year=2024)
-        logger.info(f"Fetched {len(stats_data) if stats_data else 0} education stats records")
+        stats_data = db_service.get_education_stats(year=2024) or []
+        logger.info(f"Fetched {len(stats_data)} education stats records")
+        if not stats_data:
+            raise HTTPException(status_code=503, detail="Không có dữ liệu thống kê từ CSDL.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"DB error fetching education stats: {e}")
+        raise HTTPException(status_code=503, detail="Không kết nối được tới CSDL để lấy thống kê.")
 
-    if not stats_data or len(stats_data) == 0:
-        stats_data = [
-            {"region": "Hà Nội", "province": "Hà Nội", "metric_type": "IT Enrollment", "metric_value": 85.0, "year": 2024},
-            {"region": "Hà Nội", "province": "Hà Nội", "metric_type": "IT Enrollment", "metric_value": 72.0, "year": 2023},
-            {"region": "Hà Nội", "province": "Hà Nội", "metric_type": "IT Enrollment", "metric_value": 60.0, "year": 2022},
-        ]
+    avg_growth = 0.0
+    pred_2025 = 0
+    top_event = "N/A"
+    it_df = None
 
     try:
         import pandas as pd
         df = pd.DataFrame(stats_data)
         if df.empty:
-            return {"status": "success", "historical_data": [], "insights": {}}
+            raise HTTPException(status_code=503, detail="Dữ liệu thống kê rỗng.")
 
         if 'metric_type' in df.columns:
             it_df = df[df['metric_type'].str.contains('IT|Enrollment', case=False, na=False)]
@@ -65,15 +65,11 @@ async def get_stats():
         avg_growth = it_df['growth_rate'].mean() if not it_df['growth_rate'].isnull().all() else 15.0
         last_val = it_df['metric_value'].iloc[-1] if len(it_df) > 0 else 100
         pred_2025 = int(last_val * (1 + avg_growth/100)) if avg_growth else int(last_val * 1.15)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing stats data: {e}")
-        avg_growth = 15.0
-        pred_2025 = 1200000
-        try:
-            import pandas as pd
-            it_df = pd.DataFrame(stats_data)
-        except:
-            it_df = stats_data
+        raise HTTPException(status_code=500, detail="Lỗi khi xử lý dữ liệu thống kê.")
 
     try:
         from services.db_service import db_service

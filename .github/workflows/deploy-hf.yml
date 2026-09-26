@@ -26,9 +26,7 @@ jobs:
           # Exclude documentation, videos, and binary assets to comply with Hugging Face policies
           hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN \
             --exclude "docs/*" \
-            --exclude "Video/*" \
             --exclude "*.doc" \
             --exclude "*.docx" \
-            --exclude "*.xlsx" \
             --exclude ".git/*" \
             --exclude ".github/*"

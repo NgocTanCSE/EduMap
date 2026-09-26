@@ -1,0 +1,2507 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduMap – Bản Đồ Học Tập Tri Thức | Slide Báo Cáo 21 Slide (Xanh Sage + Trắng + Nâu Gỗ Nhạt)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sage-dark: #283D3B;
+      --sage-deep: #354F52;
+      --sage-primary: #52796F;
+      --sage-light: #84A59D;
+      --sage-tint: #CAD2C5;
+      --sage-subtle: #E8EFE9;
+
+      --wood-dark: #7F5539;
+      --wood-warm: #9C6644;
+      --wood-light: #E8D8C8;
+      --wood-soft: #F4EBE2;
+      --wood-gold: #F2CC8F;
+
+      --bg-light: #FAF8F5;
+      --card-white: #FFFFFF;
+      --charcoal: #2F3E46;
+      --charcoal-soft: #4B5563;
+      --charcoal-muted: #6B7280;
+
+      --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #EFECE6;
+      color: var(--charcoal);
+      font-family: var(--font-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+    }
+
+    /* Top Navigation Bar */
+    .top-bar {
+      height: 48px;
+      background: rgba(250, 248, 245, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--wood-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--sage-dark);
+    }
+
+    .brand-pill {
+      background: linear-gradient(135deg, var(--sage-deep), var(--sage-primary));
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .theme-tag {
+      font-size: 11px;
+      color: var(--wood-dark);
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tool-btn {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      color: var(--sage-dark);
+      font-family: var(--font-main);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .tool-btn:hover {
+      background: var(--sage-subtle);
+      border-color: var(--sage-primary);
+    }
+
+    .tool-btn.active {
+      background: var(--sage-subtle);
+      color: var(--sage-deep);
+      border-color: var(--sage-primary);
+    }
+
+    /* Presentation Container */
+    .deck-container {
+      position: absolute;
+      top: 48px;
+      bottom: 56px;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 24px;
+    }
+
+    .slide-stage {
+      width: 100%;
+      max-width: 1280px;
+      aspect-ratio: 16 / 9;
+      max-height: 100%;
+      background: var(--bg-light);
+      border: 1px solid #DED7CC;
+      border-radius: 12px;
+      box-shadow: 0 15px 35px -5px rgba(47, 62, 70, 0.12), 0 0 15px rgba(132, 165, 157, 0.2);
+      position: relative;
+      overflow: hidden;
+      display: none;
+      flex-direction: column;
+      padding: 22px 30px;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .slide-stage.active {
+      display: flex;
+    }
+
+    .slide-stage.theme-sage {
+      background: linear-gradient(145deg, #4A6E65, #5A8379);
+      color: #FFFFFF;
+      border-color: #6E948A;
+      box-shadow: 0 20px 40px -8px rgba(35, 53, 49, 0.35);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.99); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #E5DDD3;
+      padding-bottom: 10px;
+    }
+
+    .category-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--sage-deep);
+      background: var(--sage-subtle);
+      border: 1px solid var(--sage-tint);
+      padding: 2px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
+    }
+
+    .slide-title {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--sage-dark);
+      line-height: 1.25;
+      letter-spacing: -0.3px;
+    }
+
+    .slide-subtitle {
+      font-size: 12.5px;
+      color: var(--sage-primary);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    .slide-counter-badge {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--wood-dark);
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      padding: 4px 12px;
+      border-radius: 6px;
+    }
+
+    /* Theme Sage Overrides */
+    .theme-sage .slide-header {
+      border-bottom-color: rgba(255, 255, 255, 0.2);
+    }
+    .theme-sage .category-badge {
+      color: #FFFFFF;
+      background: rgba(40, 61, 59, 0.4);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .theme-sage .slide-title {
+      color: #FFFFFF;
+    }
+    .theme-sage .slide-subtitle {
+      color: var(--wood-light);
+    }
+    .theme-sage .slide-counter-badge {
+      color: var(--wood-gold);
+      background: rgba(40, 61, 59, 0.5);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Slide Body */
+    .slide-body {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Layout: Cover Slide */
+    .cover-layout {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .cover-hero .badge {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--wood-gold);
+      background: rgba(40, 61, 59, 0.5);
+      border: 1px solid var(--wood-gold);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+    }
+
+    .cover-hero h1 {
+      font-size: 30px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .cover-hero p {
+      font-size: 14.5px;
+      color: var(--wood-light);
+      font-weight: 500;
+    }
+
+    .cover-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .cover-card {
+      background: rgba(35, 55, 51, 0.6);
+      border: 1px solid rgba(202, 210, 197, 0.3);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .cover-card h3 {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--wood-gold);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 6px;
+    }
+
+    .author-item {
+      margin-bottom: 8px;
+    }
+
+    .author-item .role {
+      font-size: 11px;
+      color: var(--sage-tint);
+      display: block;
+    }
+
+    .author-item .name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .hl-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #FFFFFF;
+    }
+
+    .hl-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--wood-gold);
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Layout: Three Columns */
+    .three-cols-layout {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .col-card {
+      background: var(--card-white);
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    .col-badge {
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--sage-deep);
+      background: var(--sage-subtle);
+      border: 1px solid var(--sage-light);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+
+    .col-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--sage-dark);
+      margin-bottom: 10px;
+      border-bottom: 1px solid #EAE4DA;
+      padding-bottom: 6px;
+    }
+
+    .col-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .col-list li {
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--charcoal);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .col-list li::before {
+      content: "•";
+      color: var(--sage-primary);
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    /* Layout: Two Cards */
+    .two-cards-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel-card {
+      background: var(--card-white);
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    .panel-card.wood-tint {
+      background: var(--wood-soft);
+      border-color: var(--wood-light);
+    }
+
+    .panel-title {
+      font-size: 14.5px;
+      font-weight: 800;
+      color: var(--sage-dark);
+      margin-bottom: 10px;
+      border-bottom: 1px solid #EAE4DA;
+      padding-bottom: 6px;
+    }
+
+    .panel-title.wood {
+      color: var(--wood-dark);
+    }
+
+    .panel-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .panel-list li {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--charcoal);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .panel-list li::before {
+      content: "▸";
+      color: var(--wood-warm);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* Layout: Hero Diagram Side */
+    .hero-side-layout {
+      display: grid;
+      gap: 16px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-side-layout.landscape {
+      grid-template-columns: 1.8fr 1fr;
+    }
+
+    .hero-side-layout.portrait {
+      grid-template-columns: 1fr 1.3fr;
+    }
+
+    .hero-side-layout.square {
+      grid-template-columns: 1.5fr 1fr;
+    }
+
+    .hero-img-box {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: zoom-in;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .hero-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 8px;
+      transition: transform 0.2s ease;
+    }
+
+    .hero-img-box:hover img {
+      transform: scale(1.02);
+    }
+
+    .img-zoom-hint {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(250, 248, 245, 0.95);
+      border: 1px solid var(--sage-tint);
+      color: var(--sage-deep);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Layout: Stacked Panorama */
+    .stacked-pano-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .pano-box {
+      flex: 1;
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      cursor: zoom-in;
+      min-height: 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    .pano-badge {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      background: rgba(232, 239, 233, 0.96);
+      border: 1px solid var(--sage-light);
+      color: var(--sage-dark);
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 4px;
+      z-index: 2;
+    }
+
+    .pano-badge.wood {
+      background: rgba(244, 235, 226, 0.96);
+      border-color: var(--wood-light);
+      color: var(--wood-dark);
+    }
+
+    .pano-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 24px 8px 6px 8px;
+    }
+
+    /* Layout: Side by Side Max */
+    .side-by-side-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .side-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .side-img-card {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: zoom-in;
+      position: relative;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    .side-img-badge {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      right: 8px;
+      background: rgba(232, 239, 233, 0.96);
+      border: 1px solid var(--sage-light);
+      color: var(--sage-dark);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+    }
+
+    .side-img-badge.wood {
+      background: rgba(244, 235, 226, 0.96);
+      border-color: var(--wood-light);
+      color: var(--wood-dark);
+    }
+
+    .side-img-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 28px 8px 6px 8px;
+    }
+
+    .bottom-strip-badge {
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: var(--charcoal);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    /* Layout: Hero Diagram Wide (ERD) */
+    .hero-wide-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .wide-img-box {
+      flex: 1;
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: zoom-in;
+      min-height: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .wide-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 8px;
+    }
+
+    .wide-badges-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--charcoal);
+    }
+
+    .wide-pill {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-light);
+      color: var(--sage-deep);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    /* Layout: Table */
+    .table-layout {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      border: 1px solid var(--wood-light);
+      border-radius: 8px;
+      background: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      background: var(--sage-deep);
+      color: #FFFFFF;
+      font-weight: 700;
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 2px solid var(--sage-dark);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #EFEAE3;
+      color: var(--charcoal);
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    tr:nth-child(even) td {
+      background: var(--wood-soft);
+    }
+
+    td:first-child {
+      font-weight: 700;
+      color: var(--wood-dark);
+    }
+
+    /* Layout: Summary (Slide 20: Nền Sáng) */
+    .summary-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: var(--card-white);
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      padding: 10px 6px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    .metric-num {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--wood-dark);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      color: var(--charcoal);
+      line-height: 1.25;
+      font-weight: 500;
+    }
+
+    .achieve-card {
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      border-radius: 8px;
+      padding: 16px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .achieve-card h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--sage-dark);
+      margin-bottom: 10px;
+      border-bottom: 1px solid #E2D9CE;
+      padding-bottom: 6px;
+    }
+
+    .achieve-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .achieve-list li {
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--charcoal);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .achieve-list li::before {
+      content: "✓";
+      color: var(--sage-primary);
+      font-weight: 900;
+    }
+
+    /* Layout: Thank You Slide (Slide 21) */
+    .thankyou-layout {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .thankyou-banner {
+      background: rgba(40, 61, 59, 0.65);
+      border: 1.5px solid var(--wood-gold);
+      border-radius: 10px;
+      padding: 14px 20px;
+      text-align: center;
+    }
+
+    .thankyou-banner h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--wood-gold);
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .thankyou-banner p {
+      font-size: 13px;
+      color: var(--wood-light);
+      font-style: italic;
+    }
+
+    .thankyou-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 12px 0;
+      flex: 1;
+    }
+
+    .thankyou-card {
+      background: rgba(35, 55, 51, 0.6);
+      border: 1px solid rgba(202, 210, 197, 0.3);
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .thankyou-card h3 {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--wood-gold);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 6px;
+    }
+
+    .instructor-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+
+    .instructor-dept {
+      font-size: 11.5px;
+      color: var(--sage-tint);
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+
+    .instructor-msg {
+      font-size: 12px;
+      color: #F7F5F0;
+      line-height: 1.5;
+    }
+
+    .team-member {
+      font-size: 13px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 6px;
+    }
+
+    .team-project {
+      font-size: 12px;
+      color: var(--wood-gold);
+      font-style: italic;
+      margin-top: 6px;
+    }
+
+    .team-docs {
+      font-size: 11px;
+      color: var(--sage-tint);
+      margin-top: 4px;
+    }
+
+    .qa-bar {
+      background: rgba(28, 45, 41, 0.85);
+      border: 1.2px solid var(--wood-gold);
+      border-radius: 8px;
+      padding: 10px 16px;
+      text-align: center;
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--wood-gold);
+      letter-spacing: 0.5px;
+    }
+
+    /* Slide Footer */
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #E5DDD3;
+      font-size: 10.5px;
+      color: var(--charcoal-muted);
+    }
+
+    .theme-sage .slide-footer {
+      border-top-color: rgba(255, 255, 255, 0.15);
+      color: var(--sage-tint);
+    }
+
+    /* Bottom Control Bar */
+    .bottom-bar {
+      height: 56px;
+      background: rgba(250, 248, 245, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--wood-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .nav-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      color: var(--sage-dark);
+      font-family: var(--font-main);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: var(--sage-primary);
+      color: #FFFFFF;
+      border-color: var(--sage-primary);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      max-width: 480px;
+      margin: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .progress-track {
+      height: 5px;
+      background: #E5DDD3;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--sage-primary), var(--sage-deep), var(--wood-dark));
+      width: 5%;
+      transition: width 0.25s ease;
+    }
+
+    .shortcuts-hint {
+      font-size: 11px;
+      color: var(--charcoal-muted);
+      display: flex;
+      gap: 12px;
+    }
+
+    .key-badge {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      color: var(--charcoal);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    /* Notes Drawer */
+    .notes-drawer {
+      position: fixed;
+      bottom: 56px;
+      left: 0;
+      right: 0;
+      height: 240px;
+      background: rgba(40, 61, 59, 0.98);
+      backdrop-filter: blur(16px);
+      border-top: 2px solid var(--wood-gold);
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+      z-index: 90;
+      display: none;
+      flex-direction: column;
+      padding: 16px 24px;
+      animation: slideUp 0.2s ease-out;
+    }
+
+    .notes-drawer.open {
+      display: flex;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .notes-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--wood-gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notes-content {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #F7F5F0;
+      white-space: pre-wrap;
+      padding-right: 12px;
+    }
+
+    .stopwatch {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--wood-dark);
+      background: var(--wood-soft);
+      border: 1px solid var(--wood-light);
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Modal for Image Zoom */
+    .img-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(35, 55, 51, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      cursor: zoom-out;
+    }
+
+    .img-modal.open {
+      display: flex;
+    }
+
+    .img-modal img {
+      max-width: 96vw;
+      max-height: 92vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.35);
+      background: #FFFFFF;
+      padding: 10px;
+    }
+
+    /* Overview Modal */
+    .overview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(250, 248, 245, 0.98);
+      backdrop-filter: blur(12px);
+      z-index: 150;
+      display: none;
+      flex-direction: column;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .overview-modal.open {
+      display: flex;
+    }
+
+    .overview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--wood-light);
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .overview-card {
+      background: #FFFFFF;
+      border: 1px solid var(--sage-tint);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .overview-card:hover {
+      border-color: var(--sage-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .overview-card.active {
+      border-color: var(--sage-deep);
+      background: var(--sage-subtle);
+    }
+
+    .overview-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--wood-dark);
+    }
+
+    .overview-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--charcoal);
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span class="brand-pill">DNTU 2026</span>
+      <span>EduMap – Bản Đồ Học Tập Tri Thức</span>
+      <span class="theme-tag">🌿 21 Slide (Xanh Sage & Nâu Gỗ Nhạt)</span>
+    </div>
+
+    <div class="toolbar-actions">
+      <div class="stopwatch" id="stopwatchBtn" title="Bắt đầu / Tạm dừng đồng hồ">
+        ⏱ <span id="timerText">00:00</span>
+      </div>
+      <button class="tool-btn" id="btnNotes" title="Phím tắt: N">📝 Kịch Bản Nói</button>
+      <button class="tool-btn" id="btnOverview" title="Phím tắt: O">📑 Tổng Quan 21 Slide</button>
+      <button class="tool-btn" id="btnFullscreen" title="Phím tắt: F">⛶ Toàn Màn Hình</button>
+    </div>
+  </header>
+
+  <!-- Deck Container -->
+  <main class="deck-container">
+
+    <section class="slide-stage theme-sage active" id="slide-1" data-index="0">
+      
+      <div class="cover-layout">
+        <div class="cover-hero">
+          <span class="badge">BÁO CÁO PHÂN TÍCH THIẾT KẾ HỆ THỐNG THÔNG TIN</span>
+          <h1>EDUMAP – NỀN TẢNG BẢN ĐỒ HỌC TẬP TRI THỨC</h1>
+          <p>Báo cáo Phân tích và Thiết kế Hệ thống Thông tin (Chương 1 – Chương 3)</p>
+        </div>
+
+        <div class="cover-grid">
+          <div class="cover-card">
+            <h3>Thông Tin Đề Tài & Nhóm</h3>
+            
+              <div class="author-item">
+                <span class="role">Sinh viên thực hiện:</span>
+                <span class="name">Quách Khoa Đức – Lê Ngọc Tân (Khóa 2023 – 2027)</span>
+              </div>
+            
+              <div class="author-item">
+                <span class="role">Giảng viên hướng dẫn:</span>
+                <span class="name">ThS. Nguyễn Thị Liệu</span>
+              </div>
+            
+              <div class="author-item">
+                <span class="role">Cơ sở đào tạo:</span>
+                <span class="name">Trường Đại học Công nghệ Đồng Nai (DNTU) – Khoa CNTT</span>
+              </div>
+            
+              <div class="author-item">
+                <span class="role">Thời gian thực hiện:</span>
+                <span class="name">Tháng 8 – Tháng 10, Năm 2026</span>
+              </div>
+            
+          </div>
+
+          <div class="cover-card">
+            <h3>Đặc Trưng Nền Tảng Đã Thiết Kế</h3>
+            
+              <div class="hl-item">
+                <div class="hl-dot"></div>
+                <div>Số hóa mạng lưới giáo dục toàn tỉnh Đồng Nai trên bản đồ GIS tương tác</div>
+              </div>
+            
+              <div class="hl-item">
+                <div class="hl-dot"></div>
+                <div>Trợ lý Trí tuệ Nhân tạo RAG Chatbot tư vấn tuyển sinh và học bổng chuẩn xác</div>
+              </div>
+            
+              <div class="hl-item">
+                <div class="hl-dot"></div>
+                <div>Hệ sinh thái kết nối Cố vấn (Mentor) 1-1, Sàn học liệu số và Cơ hội hướng nghiệp</div>
+              </div>
+            
+          </div>
+        </div>
+
+        <div class="slide-footer">
+          <span>Trường Đại học Công nghệ Đồng Nai – Khoa Công nghệ Thông tin</span>
+          <span>Khóa luận / Báo cáo môn học 2026 - 2027</span>
+        </div>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-2" data-index="1">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">TỔNG QUAN KHỐI LƯỢNG</span>
+          <h2 class="slide-title">Mục tiêu Báo cáo &amp; Khối lượng Công việc Hoàn thành</h2>
+          <p class="slide-subtitle">Chuẩn hóa quy trình từ Khảo sát Hiện trạng đến Mô hình hóa Hướng đối tượng chuẩn UML 2.5</p>
+        </div>
+        <div class="slide-counter-badge">02 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="three-cols-layout">
+          
+            <div class="col-card">
+              <span class="col-badge">CHƯƠNG 1</span>
+              <h3 class="col-title">Khảo sát Hiện trạng &amp; Nghiệp vụ</h3>
+              <ul class="col-list">
+                <li>Khảo sát 3 quy trình thủ công (AS-IS) tại địa phương</li><li>Phân loại 4 nhóm vấn đề cốt lõi (Nghiệp vụ &amp; Công nghệ)</li><li>Bóc tách 6 Tác nhân (Actors) và 4 Thực thể Miền theo OOAD</li><li>Xây dựng bảng đối so sánh AS-IS vs TO-BE khẳng định giá trị số hóa</li>
+              </ul>
+            </div>
+          
+            <div class="col-card">
+              <span class="col-badge">CHƯƠNG 2</span>
+              <h3 class="col-title">Phân tích &amp; Thiết kế Kiến trúc</h3>
+              <ul class="col-list">
+                <li>Chuẩn hóa 19 Ca sử dụng (Use Cases) trên 6 phân hệ cốt lõi</li><li>Thiết kế Kiến trúc C4 Container Mức 2 và phân hệ NestJS/FastAPI</li><li>Mô hình hóa CSDL Không gian 85 Thực thể theo 7 Bounded Contexts</li><li>Xây dựng 6 Sơ đồ Tuần tự, 2 Máy Trạng thái &amp; Hạ tầng Kubernetes</li>
+              </ul>
+            </div>
+          
+            <div class="col-card">
+              <span class="col-badge">CHƯƠNG 3</span>
+              <h3 class="col-title">Mô hình Hướng đối tượng (OOP)</h3>
+              <ul class="col-list">
+                <li>Thiết kế Sơ đồ Lớp nghiệp vụ tổng thể (Domain Class Diagram)</li><li>Đặc tả chi tiết 28 Lớp Đối tượng (Thuộc tính &amp; Phương thức)</li><li>Ma trận hóa 30 Mối quan hệ Hướng đối tượng chuẩn UML 2.5</li><li>Bảo đảm đầy đủ tính kế thừa, bao đóng, đa hình và toàn vẹn dữ liệu</li>
+              </ul>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Phân tích & Thiết kế Hệ thống Thông tin</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-3" data-index="2">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <h2 class="slide-title">Bối cảnh Thực tiễn &amp; Vấn đề Phân mảnh Dữ liệu</h2>
+          <p class="slide-subtitle">Thực trạng tra cứu thông tin giáo dục tại Đồng Nai và tính cấp thiết của giải pháp EduMap</p>
+        </div>
+        <div class="slide-counter-badge">03 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cards-layout">
+          <div class="panel-card">
+            <h3 class="panel-title">Thực trạng Tồn đọng tại Địa phương</h3>
+            <ul class="panel-list">
+              <li>Dữ liệu giáo dục phân tán: Thông tin trường học, học phí, điểm chuẩn phân mảnh trên các file Word, Excel tĩnh.</li><li>Rào cản tra cứu người học: Học sinh chuyển cấp, phụ huynh khó tìm kiếm cơ sở giáo dục, điểm tự học, Wi-Fi công cộng.</li><li>Mạng xã hội thiếu kiểm chứng: Dễ nhầm lẫn với các địa điểm tự tạo trên Google Maps, đánh giá phiến diện.</li><li>Lãng phí nguồn lực tài trợ: Cơ hội học bổng và việc làm thực tập khó tiếp cận đúng học sinh, sinh viên cần hỗ trợ.</li>
+            </ul>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">4 Rào cản Cốt lõi Nhóm đã Xác định</h3>
+            <ul class="panel-list">
+              <li>Vấn đề Công nghệ: Thiếu CSDL không gian tập trung và bản đồ tương tác GIS chuyên ngành giáo dục.</li><li>Vấn đề Nghiệp vụ: Quy trình tổng hợp báo cáo qua email mất nhiều tuần lễ, dữ liệu nhanh chóng lỗi thời.</li><li>Vấn đề Tiếp cận: Học sinh vùng ven (Long Khánh, Xuân Lộc, Định Quán...) chịu thiệt thòi thông tin so với trung tâm.</li><li>Vấn đề Hướng nghiệp: Thiếu kênh kết nối trực tiếp 1-1 với Cố vấn (Mentors) và chuyên gia đi trước.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Mô hình Đối tượng & Đặc tả Nghiệp vụ OOP</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-4" data-index="3">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <h2 class="slide-title">Phân tích 3 Quy trình Nghiệp vụ Thủ công Hiện tại (AS-IS)</h2>
+          <p class="slide-subtitle">Kết quả điều tra hiện trạng xử lý quy trình tại các đơn vị giáo dục tỉnh Đồng Nai (Bảng 1)</p>
+        </div>
+        <div class="slide-counter-badge">04 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="table-layout">
+          <table>
+            <thead>
+              <tr>
+                <th>Tiêu chí Khảo sát</th><th>Quy trình 1: Thu thập Dữ liệu Trường học</th><th>Quy trình 2: Phân bổ Học bổng / Tuyển dụng</th><th>Quy trình 3: Tra cứu Tiện ích Giáo dục</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>Thao tác thực tế</td><td>Sở gửi công văn -&gt; Trường điền Excel -&gt; Gộp file thủ công -&gt; Xuất PDF</td><td>Doanh nghiệp gửi công văn -&gt; Duyệt giấy tờ -&gt; Dán bảng tin trường -&gt; Nộp hồ sơ giấy</td><td>Tải file PDF đọc danh sách -&gt; Tự gõ Google Maps ước đoán vị trí -&gt; Hỏi nhóm Facebook</td>
+                </tr>
+              
+                <tr>
+                  <td>Chủ thể thực hiện</td><td>Phòng Kế hoạch - Tài chính, Chuyên viên Sở</td><td>Phòng CTSV, Đoàn thanh niên, Doanh nghiệp</td><td>Học sinh, Sinh viên, Phụ huynh (Người dùng cuối)</td>
+                </tr>
+              
+                <tr>
+                  <td>Tần suất &amp; Chu kỳ</td><td>Định kỳ hàng năm (đầu năm học) hoặc theo quý</td><td>Không cố định, phụ thuộc thời điểm tài trợ</td><td>Liên tục 24/7, cao điểm mùa tuyển sinh (T5 - T8)</td>
+                </tr>
+              
+                <tr>
+                  <td>Hạn chế cốt lõi</td><td>Chậm trễ, dễ sai sót dữ liệu, thiếu tọa độ GPS</td><td>Thông tin lan tỏa hẹp, nộp hồ sơ giấy rườm rà</td><td>Mất thời gian, thiếu bản đồ trực quan, dễ gặp tin giả</td>
+                </tr>
+              
+                <tr>
+                  <td>Đầu ra hiện tại</td><td>File PDF danh sách tĩnh, không thể tương tác</td><td>Thông báo giấy dán tường; hồ sơ ứng viên giấy</td><td>Tìm kiếm mò mẫm, không có bán kính lân cận</td>
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Đối so sánh và Đánh giá Lựa chọn Giải pháp</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-5" data-index="4">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <h2 class="slide-title">Bóc tách Đối tượng theo Tư duy OOAD (Actors &amp; Entities)</h2>
+          <p class="slide-subtitle">Áp dụng phương pháp luận Hướng đối tượng bóc tách 6 Tác nhân &amp; 4 Thực thể Miền (Bảng 4 &amp; 5)</p>
+        </div>
+        <div class="slide-counter-badge">05 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cards-layout">
+          <div class="panel-card">
+            <h3 class="panel-title">6 Tác nhân Hệ thống (System Actors)</h3>
+            <ul class="panel-list">
+              <li>Administrator: Quản trị viên Sở/Hệ thống, phân quyền RBAC và cấu hình toàn tỉnh.</li><li>Moderator: Cán bộ kiểm duyệt nội dung bài viết cộng đồng và xử lý phản ánh vi phạm.</li><li>School Representative: Đại diện cơ sở đào tạo quản lý hồ sơ tuyển sinh và cơ sở vật chất.</li><li>Student / Citizen: Người học, phụ huynh tra cứu GIS, hỏi đáp AI, đặt lịch Mentor, nộp hồ sơ.</li><li>Donor / Employer: Doanh nghiệp, nhà tài trợ đăng học bổng, tin tuyển dụng và bán tài liệu.</li><li>Data Collector Service: Tác nhân ngầm tự động thu thập dữ liệu mở GIS và nạp vector.</li>
+            </ul>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">4 Thực thể Nghiệp vụ Miền (Domain Entities)</h3>
+            <ul class="panel-list">
+              <li>POI (Point of Interest): Thực thể không gian cốt lõi (Kinh độ, Vĩ độ, Địa chỉ, Danh mục, Đánh giá).</li><li>Educational Resource: Thực thể học liệu số, giáo trình, khóa học trực tuyến kèm bản quyền.</li><li>Opportunity: Cơ hội học bổng và việc làm thực tập kèm điều kiện xét tuyển, thời hạn nộp.</li><li>UserProfile: Hồ sơ đa vai trò (Student, Mentor, Business) lưu trữ GPA, kỹ năng, lịch sử giao dịch.</li><li>Ánh xạ thành công: Cả 6 nhóm đối tượng được ánh xạ trọn vẹn vào 6 phân hệ phần mềm EduMap.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Mô hình Đối tượng & Đặc tả Nghiệp vụ OOP</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-6" data-index="5">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <h2 class="slide-title">Đối so sánh AS-IS vs TO-BE &amp; Đề xuất Kiến trúc EduMap</h2>
+          <p class="slide-subtitle">Khẳng định bước chuyển đổi số toàn diện từ thủ công sang nền tảng số thông minh (Bảng 13)</p>
+        </div>
+        <div class="slide-counter-badge">06 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="table-layout">
+          <table>
+            <thead>
+              <tr>
+                <th>Khía cạnh Khảo sát</th><th>Hiện trạng Thủ công (AS-IS)</th><th>Nền tảng Số Đề xuất EduMap (TO-BE)</th><th>Lợi ích Đột phá</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>Hình thức dữ liệu</td><td>Phân mảnh trên nhiều file Word, Excel, văn bản giấy</td><td>Tập trung trong CSDL không gian PostgreSQL 16 + PostGIS</td><td>Dữ liệu chuẩn hóa, truy xuất tức thì</td>
+                </tr>
+              
+                <tr>
+                  <td>Trải nghiệm tra cứu</td><td>Tải file PDF đọc danh sách chữ; tự ước lượng vị trí</td><td>Bản đồ số tương tác GIS, tìm theo bán kính GPS (ST_DWithin)</td><td>Trực quan, chính xác đến từng mét</td>
+                </tr>
+              
+                <tr>
+                  <td>Cập nhật số liệu</td><td>Thu thập định kỳ theo quý/năm; phụ thuộc gộp file</td><td>Crawler tự động hóa + Cập nhật thời gian thực qua Web/App</td><td>Dữ liệu luôn tươi mới (Real-time)</td>
+                </tr>
+              
+                <tr>
+                  <td>Kết nối cơ hội</td><td>Dán bảng tin giấy hoặc đăng lẻ tẻ trên website trường</td><td>Sàng lọc học bổng bằng AI, nộp hồ sơ trực tuyến</td><td>Cơ hội đến đúng học sinh khó khăn</td>
+                </tr>
+              
+                <tr>
+                  <td>Hỗ trợ tư vấn</td><td>Gọi điện thoại giờ hành chính hoặc hỏi nhóm mạng xã hội</td><td>Trợ lý ảo RAG AI Chatbot 24/7 + Kết nối Mentor 1-1</td><td>Giải đáp tức thì, định hướng chuẩn xác</td>
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Đối so sánh và Đánh giá Lựa chọn Giải pháp</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-7" data-index="6">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: PHÂN TÍCH YÊU CẦU</span>
+          <h2 class="slide-title">Phân tích Yêu cầu Chức năng &amp; Sơ đồ Ca Sử Dụng (19 UCs)</h2>
+          <p class="slide-subtitle">Chuẩn hóa 19 Ca sử dụng cốt lõi trên 6 phân hệ và đặc tả chi tiết 6 ca trọng tâm (Hình 2.1 &amp; Bảng 2.1)</p>
+        </div>
+        <div class="slide-counter-badge">07 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="hero-side-layout portrait">
+          <div class="hero-img-box" onclick="zoomImage('uml/UML_usecase-overall.png')">
+            <img src="uml/UML_usecase-overall.png" alt="Phân tích Yêu cầu Chức năng &amp; Sơ đồ Ca Sử Dụng (19 UCs)" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">19 Ca Sử Dụng trên 6 Phân Hệ</h3>
+            <ul class="panel-list">
+              <li>Bản đồ &amp; GIS (MOD-MAP): UC01 Tra cứu GIS lân cận; UC02 Xe thư viện; UC03 Trạm Wi-Fi.</li><li>Trợ lý AI (MOD-AI): UC04 Chat RAG hỏi đáp; UC05 Trắc nghiệm lộ trình; UC06 AI khớp học bổng.</li><li>Cố vấn (MOD-MENTOR): UC07 Đặt lịch hẹn 1-1; UC08 Quản lý lịch rảnh; UC09 Jitsi Meet; UC10 Review.</li><li>Sàn Giáo dục (MOD-COMMERCE): UC11 Học liệu mở; UC12 Chứng chỉ số; UC13 Mua tài liệu; UC14 Gian hàng.</li><li>Cộng đồng (MOD-COMMUNITY): UC15 Thảo luận &amp; Bài viết; UC16 Thử thách xanh.</li><li>Quản trị (MOD-ADMIN): UC17 Phân quyền RBAC; UC18 Kiểm duyệt vi phạm; UC19 Dashboard.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Kiến trúc & Mô hình Hướng đối tượng</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-8" data-index="7">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ CÔNG NGHỆ</span>
+          <h2 class="slide-title">Nghiên cứu &amp; Ma trận Đánh giá Lựa chọn Stack Công nghệ</h2>
+          <p class="slide-subtitle">Luận cứ khoa học và cơ sở kỹ thuật khi lựa chọn các công nghệ hiện đại cho EduMap (Bảng 2.8)</p>
+        </div>
+        <div class="slide-counter-badge">08 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="table-layout">
+          <table>
+            <thead>
+              <tr>
+                <th>Thành phần Hệ thống</th><th>Công nghệ Lựa chọn</th><th>Vai trò trong EduMap</th><th>Ưu điểm Vượt trội &amp; Luận cứ Kỹ thuật</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>Frontend Web</td><td>Next.js 14 (App Router)</td><td>Web Portal &amp; Admin</td><td>Tối ưu hóa SEO vượt bậc qua SSR/SSG, tải trang nhanh qua React Server Components</td>
+                </tr>
+              
+                <tr>
+                  <td>Mobile Application</td><td>React Native (Expo SDK 50)</td><td>Ứng dụng Di động</td><td>1 Codebase đa nền tảng iOS/Android, tích hợp mượt cảm biến GPS và SQLite Offline cache</td>
+                </tr>
+              
+                <tr>
+                  <td>Backend Core API</td><td>NestJS (TypeScript)</td><td>Xử lý Nghiệp vụ &amp; API</td><td>Kiến trúc Module hóa chuẩn DDD, Dependency Injection mạnh mẽ, Type-safety toàn diện</td>
+                </tr>
+              
+                <tr>
+                  <td>AI Microservice</td><td>FastAPI (Python 3.11)</td><td>Vi dịch vụ AI &amp; RAG</td><td>Async ASGI hiệu năng cao, tích hợp mượt mà LangChain, HuggingFace và Google GenAI</td>
+                </tr>
+              
+                <tr>
+                  <td>Database Chính</td><td>PostgreSQL 16 + PostGIS</td><td>CSDL Quan hệ &amp; GIS</td><td>Hỗ trợ ACID, chỉ mục GiST không gian cực nhanh, xử lý dữ liệu GeoJSON và JSONB linh hoạt</td>
+                </tr>
+              
+                <tr>
+                  <td>Vector Database</td><td>ChromaDB / pgvector</td><td>CSDL Vector RAG</td><td>Lưu trữ vector nhúng, hỗ trợ tìm kiếm ngữ nghĩa Cosine Similarity cho Chatbot tuyển sinh</td>
+                </tr>
+              
+                <tr>
+                  <td>Cache &amp; Queue</td><td>Redis 7 + BullMQ</td><td>Bộ nhớ đệm &amp; Hàng đợi</td><td>Độ trễ &lt; 1ms, Rate Limiting chống DDoS và hàng đợi xử lý ngầm duyệt bài viết, gửi email</td>
+                </tr>
+              
+                <tr>
+                  <td>Container &amp; Hạ tầng</td><td>Docker &amp; Kubernetes</td><td>Đóng gói &amp; Điều phối</td><td>Tự động co giãn Horizontal Pod Autoscaling (HPA), tự phục hồi Self-healing trên cụm K8s</td>
+                </tr>
+              
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Đối so sánh và Đánh giá Lựa chọn Giải pháp</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-9" data-index="8">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ KIẾN TRÚC</span>
+          <h2 class="slide-title">Thiết kế Kiến trúc Tổng thể Hệ thống C4 Container Diagram</h2>
+          <p class="slide-subtitle">Mô hình kiến trúc phân tầng Mức 2 (Container Level) đảm bảo khả năng mở rộng độc lập (Hình 2.2)</p>
+        </div>
+        <div class="slide-counter-badge">09 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="hero-side-layout landscape">
+          <div class="hero-img-box" onclick="zoomImage('uml/UML_container-diagram.png')">
+            <img src="uml/UML_container-diagram.png" alt="Thiết kế Kiến trúc Tổng thể Hệ thống C4 Container Diagram" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">4 Tầng Phân Tách Rõ Rệt</h3>
+            <ul class="panel-list">
+              <li>Client Layer: Web Portal (Next.js 14), Mobile App (React Native/Expo) và Admin Dashboard.</li><li>Gateway Layer: NGINX Ingress Controller mã hóa SSL/TLS, Rate Limiting và định tuyến API.</li><li>Services Layer: Core Backend (NestJS API) + AI Service (FastAPI RAG) + Data Collector.</li><li>Storage Layer: PostgreSQL 16 (PostGIS), Redis 7 (Cache/Queue), MinIO (S3 Object Storage).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Kiến trúc & Mô hình Hướng đối tượng</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-10" data-index="9">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ CHI TIẾT</span>
+          <h2 class="slide-title">Thiết kế Chi tiết Backend NestJS &amp; Vi dịch vụ AI FastAPI</h2>
+          <p class="slide-subtitle">Kiến trúc mô-đun hóa độc lập và quy trình RAG suy luận tri thức với Gemini 1.5 Flash (Hình 2.3 &amp; 2.4)</p>
+        </div>
+        <div class="slide-counter-badge">10 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="stacked-pano-layout">
+          <div class="pano-box" onclick="zoomImage('uml/UML_backend-module-dependency.png')">
+            <span class="pano-badge">Hình 2.3: Mô-đun hóa Phụ thuộc Backend NestJS (Auth, User, Map, Mentor, Order, Community)</span>
+            <img src="uml/UML_backend-module-dependency.png" alt="Hình 2.3: Mô-đun hóa Phụ thuộc Backend NestJS (Auth, User, Map, Mentor, Order, Community)" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+
+          <div class="pano-box" onclick="zoomImage('uml/UML_ai-service-components.png')">
+            <span class="pano-badge wood">Hình 2.4: Kiến trúc Vi dịch vụ Trí tuệ Nhân tạo FastAPI (Embedding, pgvector, RAG Prompt, Gemini 1.5 Flash)</span>
+            <img src="uml/UML_ai-service-components.png" alt="Hình 2.4: Kiến trúc Vi dịch vụ Trí tuệ Nhân tạo FastAPI (Embedding, pgvector, RAG Prompt, Gemini 1.5 Flash)" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Mô-đun Backend NestJS & Vi dịch vụ AI FastAPI RAG</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-11" data-index="10">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ CHI TIẾT</span>
+          <h2 class="slide-title">Thiết kế Ứng dụng Di động &amp; Pipeline Thu thập Dữ liệu GIS</h2>
+          <p class="slide-subtitle">Kiến trúc Mobile App đa tầng và đường ống tự động hóa Geocoding - Vectorization (Hình 2.5 &amp; 2.6)</p>
+        </div>
+        <div class="slide-counter-badge">11 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="side-by-side-layout">
+          <div class="side-row">
+            <div class="side-img-card" onclick="zoomImage('uml/UML_mobile-app-architecture.png')">
+              <span class="side-img-badge">Hình 2.5: Kiến trúc Ứng dụng Di động React Native (View - State - Offline SQLite)</span>
+              <img src="uml/UML_mobile-app-architecture.png" alt="Hình 2.5: Kiến trúc Ứng dụng Di động React Native (View - State - Offline SQLite)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+
+            <div class="side-img-card" onclick="zoomImage('uml/UML_crawler-gis-pipeline.png')">
+              <span class="side-img-badge wood">Hình 2.6: Pipeline Thu thập Dữ liệu GIS &amp; Nạp Vector (Crawler -&gt; Geocoding -&gt; PostGIS)</span>
+              <img src="uml/UML_crawler-gis-pipeline.png" alt="Hình 2.6: Pipeline Thu thập Dữ liệu GIS &amp; Nạp Vector (Crawler -&gt; Geocoding -&gt; PostGIS)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+          </div>
+
+          
+            <div class="bottom-strip-badge">
+              <span>💡</span>
+              <span>Đột phá: Ứng dụng di động hỗ trợ lưu đệm ngoại tuyến SQLite; Pipeline thu thập dữ liệu GIS loại bỏ hoàn toàn việc gộp file Excel thủ công.</span>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Tuần tự Sequence & Máy Trạng thái State Machine</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-12" data-index="11">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ CƠ SỞ DỮ LIỆU</span>
+          <h2 class="slide-title">Thiết kế CSDL Toàn diện &amp; 7 Bounded Contexts (ERD 85 Thực thể)</h2>
+          <p class="slide-subtitle">Mô hình CSDL quan hệ chuẩn 3NF tích hợp không gian GIS và Vector Search (Hình 2.7)</p>
+        </div>
+        <div class="slide-counter-badge">12 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="hero-wide-layout">
+          <div class="wide-img-box" onclick="zoomImage('uml/UML_entity-relationship-diagram.png')">
+            <img src="uml/UML_entity-relationship-diagram.png" alt="Thiết kế CSDL Toàn diện &amp; 7 Bounded Contexts (ERD 85 Thực thể)" />
+            <span class="img-zoom-hint">🔍 Phóng to toàn màn hình</span>
+          </div>
+
+          <div class="wide-badges-row">
+            <span class="wide-pill">1. Identity &amp; Access: <b>12 bảng</b></span><span class="wide-pill">2. Geospatial &amp; Campus: <b>16 bảng</b></span><span class="wide-pill">3. Mentorship &amp; Booking: <b>14 bảng</b></span><span class="wide-pill">4. Commerce &amp; Escrow: <b>15 bảng</b></span><span class="wide-pill">5. Scholarship &amp; Career: <b>11 bảng</b></span><span class="wide-pill">6. Community &amp; Social: <b>10 bảng</b></span><span class="wide-pill">7. AI Knowledge &amp; Vector: <b>7 bảng</b></span>
+            <span style="color: var(--charcoal-muted);">★ Đánh chỉ mục GiST trên tọa độ không gian PostGIS và chỉ mục HNSW trên vector nhúng pgvector.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>CSDL Không gian PostGIS & 7 Bounded Contexts (ERD 85 Thực thể)</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-13" data-index="12">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <h2 class="slide-title">Thiết kế Luồng Động (Seq 1 &amp; 2): Xác thực RBAC &amp; Trợ lý Ảo RAG</h2>
+          <p class="slide-subtitle">Mô hình hóa chuỗi tương tác bảo mật hệ thống và xử lý suy luận hỏi đáp AI (Hình 2.8 &amp; 2.9)</p>
+        </div>
+        <div class="slide-counter-badge">13 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="side-by-side-layout">
+          <div class="side-row">
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-auth-login.png')">
+              <span class="side-img-badge">Hình 2.8: Sơ đồ Tuần tự Xác thực &amp; Đăng nhập Bảo mật (Argon2 + JWT + RBAC)</span>
+              <img src="uml/UML_seq-auth-login.png" alt="Hình 2.8: Sơ đồ Tuần tự Xác thực &amp; Đăng nhập Bảo mật (Argon2 + JWT + RBAC)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-ai-chat.png')">
+              <span class="side-img-badge wood">Hình 2.9: Sơ đồ Tuần tự Hỏi đáp RAG AI Chatbot (FastAPI + pgvector + Gemini 1.5)</span>
+              <img src="uml/UML_seq-ai-chat.png" alt="Hình 2.9: Sơ đồ Tuần tự Hỏi đáp RAG AI Chatbot (FastAPI + pgvector + Gemini 1.5)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+          </div>
+
+          
+            <div class="bottom-strip-badge">
+              <span>💡</span>
+              <span>Bảo mật: Cặp Access Token (15 phút) &amp; Refresh Token (7 ngày). RAG AI: Bóc tách câu hỏi, rút trích Top 5 ngữ cảnh và stream câu trả lời kèm nguồn.</span>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Tuần tự Sequence & Máy Trạng thái State Machine</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-14" data-index="13">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <h2 class="slide-title">Thiết kế Luồng Động (Seq 3 &amp; 4): Kiểm duyệt 2 Tầng &amp; Thanh toán 2 Pha</h2>
+          <p class="slide-subtitle">Kiểm soát an toàn nội dung cộng đồng và giao dịch thương mại bảo đảm chuẩn ACID (Hình 2.10 &amp; 2.11)</p>
+        </div>
+        <div class="slide-counter-badge">14 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="side-by-side-layout">
+          <div class="side-row">
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-community-post.png')">
+              <span class="side-img-badge">Hình 2.10: Kiểm duyệt Nội dung 2 Tầng (L1: Regex Blacklist -&gt; L2: AI Toxic Score qua BullMQ)</span>
+              <img src="uml/UML_seq-community-post.png" alt="Hình 2.10: Kiểm duyệt Nội dung 2 Tầng (L1: Regex Blacklist -&gt; L2: AI Toxic Score qua BullMQ)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-business-checkout.png')">
+              <span class="side-img-badge wood">Hình 2.11: Đặt hàng &amp; Thanh toán 2 Pha (Idempotency Key, Khóa tồn kho, Webhook IPN VNPay)</span>
+              <img src="uml/UML_seq-business-checkout.png" alt="Hình 2.11: Đặt hàng &amp; Thanh toán 2 Pha (Idempotency Key, Khóa tồn kho, Webhook IPN VNPay)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+          </div>
+
+          
+            <div class="bottom-strip-badge">
+              <span>💡</span>
+              <span>Kiểm duyệt: Tự động phê duyệt bài sạch, đẩy bài nghi vấn vào hàng đợi Admin. Giao dịch: Cam kết nguyên tắc ACID, tự động Rollback nếu lỗi.</span>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Tuần tự Sequence & Máy Trạng thái State Machine</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-15" data-index="14">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <h2 class="slide-title">Thiết kế Luồng Động (Seq 5 &amp; 6): Cố vấn Jitsi &amp; Nộp Học bổng</h2>
+          <p class="slide-subtitle">Cơ chế khóa giữ chỗ ký quỹ Escrow và quy trình tự động hóa thẩm định học bổng (Hình 2.12 &amp; 2.13)</p>
+        </div>
+        <div class="slide-counter-badge">15 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="side-by-side-layout">
+          <div class="side-row">
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-mentor-booking.png')">
+              <span class="side-img-badge">Hình 2.12: Ghép đôi Cố vấn &amp; Họp trực tuyến (Slot Lock 15m, Ví Ký quỹ Escrow, Auto Jitsi Meet)</span>
+              <img src="uml/UML_seq-mentor-booking.png" alt="Hình 2.12: Ghép đôi Cố vấn &amp; Họp trực tuyến (Slot Lock 15m, Ví Ký quỹ Escrow, Auto Jitsi Meet)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+
+            <div class="side-img-card" onclick="zoomImage('uml/UML_seq-scholarship-eligibility.png')">
+              <span class="side-img-badge wood">Hình 2.13: Đánh giá Điều kiện &amp; Nộp Học bổng (Rule Engine GPA, AI Match Score, MinIO Storage)</span>
+              <img src="uml/UML_seq-scholarship-eligibility.png" alt="Hình 2.13: Đánh giá Điều kiện &amp; Nộp Học bổng (Rule Engine GPA, AI Match Score, MinIO Storage)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+          </div>
+
+          
+            <div class="bottom-strip-badge">
+              <span>💡</span>
+              <span>Cố vấn: Chống tranh chấp lịch (Race condition) bằng Slot Locking, bảo vệ quyền lợi qua Escrow. Học bổng: Số hóa toàn bộ hồ sơ nộp trực tuyến.</span>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Tuần tự Sequence & Máy Trạng thái State Machine</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-16" data-index="15">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ TRẠNG THÁI</span>
+          <h2 class="slide-title">Thiết kế Máy Trạng thái: Đơn hàng &amp; Lịch hẹn Tư vấn 1-1</h2>
+          <p class="slide-subtitle">Kiểm soát chặt chẽ toàn bộ vòng đời đối tượng và điều kiện chuyển trạng thái (Hình 2.14 &amp; 2.15)</p>
+        </div>
+        <div class="slide-counter-badge">16 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="side-by-side-layout">
+          <div class="side-row">
+            <div class="side-img-card" onclick="zoomImage('uml/UML_state-order-lifecycle.png')">
+              <span class="side-img-badge">Hình 2.14: Máy Trạng thái Vòng đời Đơn hàng (DRAFT -&gt; PENDING -&gt; PAID -&gt; PROCESSING -&gt; COMPLETED)</span>
+              <img src="uml/UML_state-order-lifecycle.png" alt="Hình 2.14: Máy Trạng thái Vòng đời Đơn hàng (DRAFT -&gt; PENDING -&gt; PAID -&gt; PROCESSING -&gt; COMPLETED)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+
+            <div class="side-img-card" onclick="zoomImage('uml/UML_state-mentor-booking.png')">
+              <span class="side-img-badge wood">Hình 2.15: Máy Trạng thái Vòng đời Lịch hẹn Cố vấn (SLOT_LOCKED -&gt; ESCROW -&gt; IN_SESSION -&gt; COMPLETED)</span>
+              <img src="uml/UML_state-mentor-booking.png" alt="Hình 2.15: Máy Trạng thái Vòng đời Lịch hẹn Cố vấn (SLOT_LOCKED -&gt; ESCROW -&gt; IN_SESSION -&gt; COMPLETED)" />
+              <span class="img-zoom-hint">🔍 Phóng to</span>
+            </div>
+          </div>
+
+          
+            <div class="bottom-strip-badge">
+              <span>💡</span>
+              <span>Toàn vẹn: Tiền tư vấn chỉ giải ngân (PAYOUT_RELEASED) khi buổi học kết thúc hợp lệ; có trạng thái DISPUTED để xử lý tranh chấp công bằng.</span>
+            </div>
+          
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Tuần tự Sequence & Máy Trạng thái State Machine</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-17" data-index="16">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 2: THIẾT KẾ HẠ TẦNG</span>
+          <h2 class="slide-title">Thiết kế Triển khai Cụm Kubernetes Sản xuất (edumap-prod)</h2>
+          <p class="slide-subtitle">Mô hình triển khai container hóa đạt chuẩn Production-ready đảm bảo High Availability (Hình 2.16)</p>
+        </div>
+        <div class="slide-counter-badge">17 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="hero-side-layout landscape">
+          <div class="hero-img-box" onclick="zoomImage('uml/UML_deployment-diagram.png')">
+            <img src="uml/UML_deployment-diagram.png" alt="Thiết kế Triển khai Cụm Kubernetes Sản xuất (edumap-prod)" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">Hạ Tầng edumap-prod</h3>
+            <ul class="panel-list">
+              <li>Ingress L7: NGINX Ingress Controller cân bằng tải, quản lý chứng chỉ SSL tự động.</li><li>Backend Deployment: 3 Replicas NestJS, gắn HPA tự co giãn từ 3 đến 10 Pods khi CPU &gt; 70%.</li><li>AI Deployment: 2 Replicas FastAPI tối ưu hóa suy luận song song.</li><li>Frontend Deployment: 2 Replicas Next.js Web Portal.</li><li>Persistence: StatefulSet PostgreSQL &amp; MinIO gắn PVC riêng biệt.</li><li>Giám sát: Prometheus thu thập Metrics và Grafana Dashboard 24/7.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Kiến trúc & Mô hình Hướng đối tượng</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-18" data-index="17">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG</span>
+          <h2 class="slide-title">Tổng quan Sơ đồ Lớp Nghiệp vụ Toàn Hệ thống (Domain Class)</h2>
+          <p class="slide-subtitle">Chuẩn hóa 28 Lớp Đối tượng trên 5 phân hệ theo Tiêu chuẩn OOAD - UML 2.5 (Hình 3.1 &amp; Mục 3.1)</p>
+        </div>
+        <div class="slide-counter-badge">18 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="hero-side-layout square">
+          <div class="hero-img-box" onclick="zoomImage('class/Class_Diagram.png')">
+            <img src="class/Class_Diagram.png" alt="Tổng quan Sơ đồ Lớp Nghiệp vụ Toàn Hệ thống (Domain Class)" />
+            <span class="img-zoom-hint">🔍 Phóng to</span>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">28 Lớp Đối Tượng / 5 Phân Hệ</h3>
+            <ul class="panel-list">
+              <li>1. Quản trị &amp; Phân quyền (7 lớp): User (Abstract), Student, Mentor, BusinessPartner, Admin, Role, Notification.</li><li>2. Bản đồ &amp; Không gian (5 lớp): Location, MapPoint, School, WifiHotspot, MobileUnit.</li><li>3. Cố vấn &amp; Lịch hẹn (4 lớp): MentorAvailability, Booking, MentorSession, Review.</li><li>4. Thương mại &amp; Dịch vụ (6 lớp): Product, Service, CartItem, Order, OrderItem, Transaction.</li><li>5. Học bổng &amp; Cộng đồng (6 lớp): Scholarship, ScholarshipApplication, CareerPath, Group, Post, Comment.</li><li>Cấu trúc hộp 3 ngăn UML đầy đủ Thuộc tính, Kiểu dữ liệu và Phương thức.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Sơ đồ Kiến trúc & Mô hình Hướng đối tượng</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-19" data-index="18">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG</span>
+          <h2 class="slide-title">Đặc tả Chi tiết 28 Lớp &amp; Ma trận 30 Mối Quan hệ OOP</h2>
+          <p class="slide-subtitle">Minh chứng chiều sâu phân tích OOP: Kế thừa, Hợp thành, Thu nạp và Bản số quan hệ (Bảng 3.1 &amp; 3.2)</p>
+        </div>
+        <div class="slide-counter-badge">19 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cards-layout">
+          <div class="panel-card">
+            <h3 class="panel-title">Các Mối Quan Hệ OOP Nổi Bật (30 Quan Hệ)</h3>
+            <ul class="panel-list">
+              <li>Kế thừa (Inheritance): User -&gt; Student, Mentor, BusinessPartner, Admin (Tái sử dụng logic xác thực); MapPoint -&gt; School, WifiHotspot, MobileUnit (Đa hình không gian GIS).</li><li>Hợp thành (Composition - Kim cương đặc): Order *-&gt; OrderItem (Chi tiết phụ thuộc hoàn toàn vòng đời đơn hàng); Post *-&gt; Comment (Bình luận xóa theo bài viết).</li><li>Thu nạp (Aggregation - Kim cương rỗng): Group o-&gt; User; Product o-&gt; CartItem (Tồn tại độc lập vòng đời).</li><li>Kết hợp (Association): Booking &lt;-&gt; MentorSession; User &lt;-&gt; Notification.</li>
+            </ul>
+          </div>
+
+          <div class="panel-card wood-tint">
+            <h3 class="panel-title wood">Đặc tả Phương thức Nghiệp vụ &amp; Ma trận</h3>
+            <ul class="panel-list">
+              <li>Student: searchNearbyLocations(radiusKm), applyScholarship(id), bookMentor(id, slot), enrollCareerPath(id).</li><li>Mentor: setAvailability(slots), acceptBooking(id), startSession(id).</li><li>Order: calculateTotal(), applyDiscount(code), processPayment(method).</li><li>Scholarship: evaluateEligibility(studentGpa, criteria), closeApplication().</li><li>Ma trận Bảng 3.2: Quy chuẩn 100% Cardinality Multiplicity (1..1, 1..*, 0..*) giữa toàn bộ 28 lớp đối tượng.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Mô hình Đối tượng & Đặc tả Nghiệp vụ OOP</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage  " id="slide-20" data-index="19">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">TỔNG KẾT &amp; ĐÁNH GIÁ</span>
+          <h2 class="slide-title">Tổng kết Những Gì Đã Làm Được &amp; Sẵn sàng Triển khai</h2>
+          <p class="slide-subtitle">Thành quả toàn diện từ Chương 1 đến 3 khẳng định tính khả thi vượt trội của dự án EduMap</p>
+        </div>
+        <div class="slide-counter-badge">20 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="summary-layout">
+          <div class="metrics-grid">
+            
+              <div class="metric-card">
+                <div class="metric-num">3</div>
+                <div class="metric-label">Quy trình AS-IS khảo sát thực tế</div>
+              </div>
+            
+              <div class="metric-card">
+                <div class="metric-num">19</div>
+                <div class="metric-label">Ca sử dụng Use Cases chuẩn hóa</div>
+              </div>
+            
+              <div class="metric-card">
+                <div class="metric-num">85</div>
+                <div class="metric-label">Thực thể CSDL trên 7 Bounded Contexts</div>
+              </div>
+            
+              <div class="metric-card">
+                <div class="metric-num">6</div>
+                <div class="metric-label">Sơ đồ Tuần tự Sequence chi tiết</div>
+              </div>
+            
+              <div class="metric-card">
+                <div class="metric-num">28</div>
+                <div class="metric-label">Lớp Đối tượng chuẩn UML 2.5</div>
+              </div>
+            
+              <div class="metric-card">
+                <div class="metric-num">30</div>
+                <div class="metric-label">Mối quan hệ OOP được ma trận hóa</div>
+              </div>
+            
+          </div>
+
+          <div class="achieve-card">
+            <h3>KẾT LUẬN & ĐỊNH HƯỚNG HIỆN THỰC HÓA HỆ THỐNG</h3>
+            <ul class="achieve-list">
+              
+                <li>Khảo sát hiện trạng chuẩn xác, bóc tách thực tế bài toán phân mảnh dữ liệu giáo dục tỉnh Đồng Nai.</li>
+              
+                <li>Chuẩn hóa 19 Ca sử dụng (Use Cases) và thiết kế CSDL 85 thực thể trên 7 Bounded Contexts.</li>
+              
+                <li>Mô hình hóa 6 luồng động Sequence Diagrams, 2 State Machines và cụm hạ tầng Kubernetes sản xuất.</li>
+              
+                <li>Hoàn thiện Sơ đồ Lớp 28 đối tượng chuẩn UML 2.5 và ma trận 30 mối quan hệ hướng đối tượng chặt chẽ.</li>
+              
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Khoa Công nghệ Thông tin – DNTU 2026</span>
+      </div>
+    
+    </section>
+  
+    <section class="slide-stage theme-sage " id="slide-21" data-index="20">
+      
+      <div class="slide-header">
+        <div class="header-left">
+          <span class="category-badge">KẾT THÚC BÁO CÁO</span>
+          <h2 class="slide-title">LỜI CẢM ƠN &amp; PHẦN HỎI ĐÁP (Q&amp;A)</h2>
+          <p class="slide-subtitle">Trường Đại học Công nghệ Đồng Nai (DNTU) – Khoa Công nghệ Thông tin</p>
+        </div>
+        <div class="slide-counter-badge">21 / 21</div>
+      </div>
+
+      <div class="slide-body">
+        <div class="thankyou-layout" style="width: 100%;">
+          <div class="thankyou-banner">
+            <h2>CHÂN THÀNH CẢM ƠN QUÝ THẦY CÔ VÀ HỘI ĐỒNG!</h2>
+            <p>Đề tài: EduMap – Nền tảng Bản đồ Học tập Tri thức (Đồng Nai)</p>
+          </div>
+
+          <div class="thankyou-grid">
+            <div class="thankyou-card">
+              <h3>GIẢNG VIÊN HƯỚNG DẪN</h3>
+              <div class="instructor-name">ThS. NGUYỄN THỊ LIỆU</div>
+              <div class="instructor-dept">Khoa Công nghệ Thông tin – DNTU</div>
+              <div class="instructor-msg">Nhóm xin gửi lời tri ân sâu sắc nhất tới Cô vì sự định hướng tận tâm, chỉ bảo sát sao giúp nhóm hoàn thành đồ án này.</div>
+            </div>
+
+            <div class="thankyou-card">
+              <h3>NHÓM SINH VIÊN THỰC HIỆN</h3>
+              <div class="team-member">• Quách Khoa Đức (MSSV: Khóa 2023 – 2027)</div><div class="team-member">• Lê Ngọc Tân (MSSV: Khóa 2023 – 2027)</div>
+              <div class="team-project">Đề tài: EduMap – Bản đồ Học tập Tri thức Đồng Nai</div>
+              <div class="team-docs">Tài liệu & Mã nguồn: Thư mục docs/ và dự án EduMap</div>
+            </div>
+          </div>
+
+          <div class="qa-bar">
+            💬 KÍNH MỜI QUÝ THẦY CÔ VÀ CÁC BẠN ĐẶT CÂU HỎI PHẢN BIỆN!
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>EduMap – Nền tảng Bản đồ Học tập Tri thức Đồng Nai</span>
+        <span>Khoa Công nghệ Thông tin – DNTU 2026</span>
+      </div>
+    
+    </section>
+  
+  </main>
+
+  <!-- Bottom Control Bar -->
+  <footer class="bottom-bar">
+    <div class="nav-cluster">
+      <button class="nav-btn" id="btnPrev" onclick="prevSlide()">◀ Trước</button>
+      <button class="nav-btn" id="btnNext" onclick="nextSlide()">Sau ▶</button>
+      <span style="font-family: var(--font-mono); font-size: 13px; margin-left: 8px; font-weight: 700; color: var(--sage-dark);" id="slideIndicator">Slide 01 / 21</span>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div class="shortcuts-hint">
+      <span><span class="key-badge">←</span> <span class="key-badge">→</span> Di chuyển</span>
+      <span><span class="key-badge">N</span> Kịch bản</span>
+      <span><span class="key-badge">O</span> Tổng quan</span>
+      <span><span class="key-badge">F</span> Toàn màn hình</span>
+    </div>
+  </footer>
+
+  <!-- Speaker Notes Drawer -->
+  <div class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <span>🎙 KỊCH BẢN THUYẾT TRÌNH (SPEAKER SCRIPT)</span>
+        <span style="font-size: 11px; font-weight: normal; color: var(--wood-light);" id="notesSlideTag">Slide 1</span>
+      </div>
+      <button class="tool-btn" onclick="toggleNotes()">Đóng [N]</button>
+    </div>
+    <div class="notes-content" id="notesContent"></div>
+  </div>
+
+  <!-- Image Zoom Modal -->
+  <div class="img-modal" id="imgModal" onclick="closeImage()">
+    <img id="modalImg" src="" alt="Zoomed Diagram" />
+  </div>
+
+  <!-- Overview Modal -->
+  <div class="overview-modal" id="overviewModal">
+    <div class="overview-header">
+      <h2 style="font-size: 18px; font-weight: 800; color: var(--sage-dark);">TỔNG QUAN 21 SLIDE BÁO CÁO EDUMAP</h2>
+      <button class="tool-btn" onclick="toggleOverview()">Đóng [O]</button>
+    </div>
+    <div class="overview-grid">
+      
+        <div class="overview-card" id="ovCard-0" onclick="jumpToSlide(0)">
+          <span class="overview-num">SLIDE 01</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">BÁO CÁO MÔN HỌC</span>
+          <div class="overview-title">EDUMAP – NỀN TẢNG BẢN ĐỒ HỌC TẬP TRI THỨC</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-1" onclick="jumpToSlide(1)">
+          <span class="overview-num">SLIDE 02</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">TỔNG QUAN KHỐI LƯỢNG</span>
+          <div class="overview-title">Mục tiêu Báo cáo &amp; Khối lượng Công việc Hoàn thành</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-2" onclick="jumpToSlide(2)">
+          <span class="overview-num">SLIDE 03</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <div class="overview-title">Bối cảnh Thực tiễn &amp; Vấn đề Phân mảnh Dữ liệu</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-3" onclick="jumpToSlide(3)">
+          <span class="overview-num">SLIDE 04</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <div class="overview-title">Phân tích 3 Quy trình Nghiệp vụ Thủ công Hiện tại (AS-IS)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-4" onclick="jumpToSlide(4)">
+          <span class="overview-num">SLIDE 05</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <div class="overview-title">Bóc tách Đối tượng theo Tư duy OOAD (Actors &amp; Entities)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-5" onclick="jumpToSlide(5)">
+          <span class="overview-num">SLIDE 06</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG</span>
+          <div class="overview-title">Đối so sánh AS-IS vs TO-BE &amp; Đề xuất Kiến trúc EduMap</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-6" onclick="jumpToSlide(6)">
+          <span class="overview-num">SLIDE 07</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: PHÂN TÍCH YÊU CẦU</span>
+          <div class="overview-title">Phân tích Yêu cầu Chức năng &amp; Sơ đồ Ca Sử Dụng (19 UCs)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-7" onclick="jumpToSlide(7)">
+          <span class="overview-num">SLIDE 08</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ CÔNG NGHỆ</span>
+          <div class="overview-title">Nghiên cứu &amp; Ma trận Đánh giá Lựa chọn Stack Công nghệ</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-8" onclick="jumpToSlide(8)">
+          <span class="overview-num">SLIDE 09</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ KIẾN TRÚC</span>
+          <div class="overview-title">Thiết kế Kiến trúc Tổng thể Hệ thống C4 Container Diagram</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-9" onclick="jumpToSlide(9)">
+          <span class="overview-num">SLIDE 10</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ CHI TIẾT</span>
+          <div class="overview-title">Thiết kế Chi tiết Backend NestJS &amp; Vi dịch vụ AI FastAPI</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-10" onclick="jumpToSlide(10)">
+          <span class="overview-num">SLIDE 11</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ CHI TIẾT</span>
+          <div class="overview-title">Thiết kế Ứng dụng Di động &amp; Pipeline Thu thập Dữ liệu GIS</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-11" onclick="jumpToSlide(11)">
+          <span class="overview-num">SLIDE 12</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ CƠ SỞ DỮ LIỆU</span>
+          <div class="overview-title">Thiết kế CSDL Toàn diện &amp; 7 Bounded Contexts (ERD 85 Thực thể)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-12" onclick="jumpToSlide(12)">
+          <span class="overview-num">SLIDE 13</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <div class="overview-title">Thiết kế Luồng Động (Seq 1 &amp; 2): Xác thực RBAC &amp; Trợ lý Ảo RAG</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-13" onclick="jumpToSlide(13)">
+          <span class="overview-num">SLIDE 14</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <div class="overview-title">Thiết kế Luồng Động (Seq 3 &amp; 4): Kiểm duyệt 2 Tầng &amp; Thanh toán 2 Pha</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-14" onclick="jumpToSlide(14)">
+          <span class="overview-num">SLIDE 15</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG</span>
+          <div class="overview-title">Thiết kế Luồng Động (Seq 5 &amp; 6): Cố vấn Jitsi &amp; Nộp Học bổng</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-15" onclick="jumpToSlide(15)">
+          <span class="overview-num">SLIDE 16</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ TRẠNG THÁI</span>
+          <div class="overview-title">Thiết kế Máy Trạng thái: Đơn hàng &amp; Lịch hẹn Tư vấn 1-1</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-16" onclick="jumpToSlide(16)">
+          <span class="overview-num">SLIDE 17</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 2: THIẾT KẾ HẠ TẦNG</span>
+          <div class="overview-title">Thiết kế Triển khai Cụm Kubernetes Sản xuất (edumap-prod)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-17" onclick="jumpToSlide(17)">
+          <span class="overview-num">SLIDE 18</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG</span>
+          <div class="overview-title">Tổng quan Sơ đồ Lớp Nghiệp vụ Toàn Hệ thống (Domain Class)</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-18" onclick="jumpToSlide(18)">
+          <span class="overview-num">SLIDE 19</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG</span>
+          <div class="overview-title">Đặc tả Chi tiết 28 Lớp &amp; Ma trận 30 Mối Quan hệ OOP</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-19" onclick="jumpToSlide(19)">
+          <span class="overview-num">SLIDE 20</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">TỔNG KẾT &amp; ĐÁNH GIÁ</span>
+          <div class="overview-title">Tổng kết Những Gì Đã Làm Được &amp; Sẵn sàng Triển khai</div>
+        </div>
+      
+        <div class="overview-card" id="ovCard-20" onclick="jumpToSlide(20)">
+          <span class="overview-num">SLIDE 21</span>
+          <span style="font-size: 9.5px; color: var(--sage-deep); text-transform: uppercase; font-weight: 700;">KẾT THÚC BÁO CÁO</span>
+          <div class="overview-title">LỜI CẢM ƠN &amp; PHẦN HỎI ĐÁP (Q&amp;A)</div>
+        </div>
+      
+    </div>
+  </div>
+
+  <script>
+    const slidesData = [{"slideNum":1,"category":"BÁO CÁO MÔN HỌC","title":"EDUMAP – NỀN TẢNG BẢN ĐỒ HỌC TẬP TRI THỨC","subtitle":"Báo cáo Phân tích và Thiết kế Hệ thống Thông tin (Chương 1 – Chương 3)","type":"cover","authors":[{"role":"Sinh viên thực hiện","name":"Quách Khoa Đức – Lê Ngọc Tân (Khóa 2023 – 2027)"},{"role":"Giảng viên hướng dẫn","name":"ThS. Nguyễn Thị Liệu"},{"role":"Cơ sở đào tạo","name":"Trường Đại học Công nghệ Đồng Nai (DNTU) – Khoa CNTT"},{"role":"Thời gian thực hiện","name":"Tháng 8 – Tháng 10, Năm 2026"}],"highlights":["Số hóa mạng lưới giáo dục toàn tỉnh Đồng Nai trên bản đồ GIS tương tác","Trợ lý Trí tuệ Nhân tạo RAG Chatbot tư vấn tuyển sinh và học bổng chuẩn xác","Hệ sinh thái kết nối Cố vấn (Mentor) 1-1, Sàn học liệu số và Cơ hội hướng nghiệp"],"notes":"Kính thưa ThS. Nguyễn Thị Liệu cùng toàn thể quý Thầy Cô và các bạn sinh viên có mặt trong buổi báo cáo hôm nay.\nEm là Lê Ngọc Tân, cùng bạn Quách Khoa Đức, đại diện cho nhóm nghiên cứu đề tài \"EduMap – Nền tảng Bản đồ Học tập Tri thức\". Đây là dự án hệ thống thông tin phục vụ cộng đồng học sinh, sinh viên, phụ huynh và các cơ sở giáo dục trên địa bàn tỉnh Đồng Nai, giải quyết bài toán phân mảnh dữ liệu giáo dục bằng công nghệ Bản đồ số GIS và Trí tuệ nhân tạo RAG.\nHôm nay, nhóm chúng em xin phép được báo cáo chi tiết toàn bộ những kết quả phân tích và thiết kế mà nhóm đã thực hiện thành công từ Chương 1 đến Chương 3 trong cuốn báo cáo môn học."},{"slideNum":2,"category":"TỔNG QUAN KHỐI LƯỢNG","title":"Mục tiêu Báo cáo & Khối lượng Công việc Hoàn thành","subtitle":"Chuẩn hóa quy trình từ Khảo sát Hiện trạng đến Mô hình hóa Hướng đối tượng chuẩn UML 2.5","type":"three_columns","columns":[{"badge":"CHƯƠNG 1","title":"Khảo sát Hiện trạng & Nghiệp vụ","items":["Khảo sát 3 quy trình thủ công (AS-IS) tại địa phương","Phân loại 4 nhóm vấn đề cốt lõi (Nghiệp vụ & Công nghệ)","Bóc tách 6 Tác nhân (Actors) và 4 Thực thể Miền theo OOAD","Xây dựng bảng đối so sánh AS-IS vs TO-BE khẳng định giá trị số hóa"]},{"badge":"CHƯƠNG 2","title":"Phân tích & Thiết kế Kiến trúc","items":["Chuẩn hóa 19 Ca sử dụng (Use Cases) trên 6 phân hệ cốt lõi","Thiết kế Kiến trúc C4 Container Mức 2 và phân hệ NestJS/FastAPI","Mô hình hóa CSDL Không gian 85 Thực thể theo 7 Bounded Contexts","Xây dựng 6 Sơ đồ Tuần tự, 2 Máy Trạng thái & Hạ tầng Kubernetes"]},{"badge":"CHƯƠNG 3","title":"Mô hình Hướng đối tượng (OOP)","items":["Thiết kế Sơ đồ Lớp nghiệp vụ tổng thể (Domain Class Diagram)","Đặc tả chi tiết 28 Lớp Đối tượng (Thuộc tính & Phương thức)","Ma trận hóa 30 Mối quan hệ Hướng đối tượng chuẩn UML 2.5","Bảo đảm đầy đủ tính kế thừa, bao đóng, đa hình và toàn vẹn dữ liệu"]}],"notes":"Thưa Cô, khối lượng công việc nhóm đã hoàn thành trong 3 chương đầu được gói gọn trong 3 trụ cột chính:\nThứ nhất, ở Chương 1, nhóm đã khảo sát sâu sắc thực trạng nghiệp vụ quản lý và tra cứu giáo dục thủ công hiện tại, từ đó phân loại vấn đề và bóc tách các tác nhân theo đúng phương pháp OOAD.\nThứ hai, ở Chương 2, nhóm đã tiến hành phân tích 19 Use Cases, thiết kế kiến trúc phân tán hiện đại theo mô hình C4, thiết kế CSDL 85 thực thể và mô hình hóa chi tiết 6 luồng động cùng hạ tầng Kubernetes.\nVà thứ ba, ở Chương 3, nhóm đã đặc tả hoàn chỉnh 28 lớp đối tượng và ma trận 30 quan hệ hướng đối tượng theo chuẩn UML 2.5. Sau đây, em xin đi vào chi tiết từng nội dung nhóm đã làm được."},{"slideNum":3,"category":"CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG","title":"Bối cảnh Thực tiễn & Vấn đề Phân mảnh Dữ liệu","subtitle":"Thực trạng tra cứu thông tin giáo dục tại Đồng Nai và tính cấp thiết của giải pháp EduMap","type":"two_cards","cardLeft":{"title":"Thực trạng Tồn đọng tại Địa phương","items":["Dữ liệu giáo dục phân tán: Thông tin trường học, học phí, điểm chuẩn phân mảnh trên các file Word, Excel tĩnh.","Rào cản tra cứu người học: Học sinh chuyển cấp, phụ huynh khó tìm kiếm cơ sở giáo dục, điểm tự học, Wi-Fi công cộng.","Mạng xã hội thiếu kiểm chứng: Dễ nhầm lẫn với các địa điểm tự tạo trên Google Maps, đánh giá phiến diện.","Lãng phí nguồn lực tài trợ: Cơ hội học bổng và việc làm thực tập khó tiếp cận đúng học sinh, sinh viên cần hỗ trợ."]},"cardRight":{"title":"4 Rào cản Cốt lõi Nhóm đã Xác định","items":["Vấn đề Công nghệ: Thiếu CSDL không gian tập trung và bản đồ tương tác GIS chuyên ngành giáo dục.","Vấn đề Nghiệp vụ: Quy trình tổng hợp báo cáo qua email mất nhiều tuần lễ, dữ liệu nhanh chóng lỗi thời.","Vấn đề Tiếp cận: Học sinh vùng ven (Long Khánh, Xuân Lộc, Định Quán...) chịu thiệt thòi thông tin so với trung tâm.","Vấn đề Hướng nghiệp: Thiếu kênh kết nối trực tiếp 1-1 với Cố vấn (Mentors) và chuyên gia đi trước."]},"notes":"Bắt đầu với Chương 1: Bối cảnh xuất phát ý tưởng. Nhóm chúng em là những sinh viên đang sinh sống và học tập tại Đồng Nai, trực tiếp trải qua sự bất tiện khi tìm kiếm một trường học phù hợp, tìm một điểm Wi-Fi công cộng hay một không gian tự học đạt chuẩn. Hiện nay, dữ liệu của các cơ sở giáo dục trên địa bàn tỉnh chủ yếu tồn tại ở dạng văn bản hành chính hoặc file Excel gửi qua email. Người dân khi tìm kiếm phải tự mở Google Maps để ước lượng vị trí, rất dễ nhầm lẫn với các địa điểm tự tạo chưa xác thực. Hơn nữa, các suất học bổng quý giá từ doanh nghiệp lại bị 'nghẽn' ở khâu thông báo bảng tin giấy. Chính những bất cập này là động lực để nhóm tiến hành khảo sát bài bản nhằm đặt nền móng cho nền tảng số EduMap."},{"slideNum":4,"category":"CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG","title":"Phân tích 3 Quy trình Nghiệp vụ Thủ công Hiện tại (AS-IS)","subtitle":"Kết quả điều tra hiện trạng xử lý quy trình tại các đơn vị giáo dục tỉnh Đồng Nai (Bảng 1)","type":"table","headers":["Tiêu chí Khảo sát","Quy trình 1: Thu thập Dữ liệu Trường học","Quy trình 2: Phân bổ Học bổng / Tuyển dụng","Quy trình 3: Tra cứu Tiện ích Giáo dục"],"rows":[["Thao tác thực tế","Sở gửi công văn -> Trường điền Excel -> Gộp file thủ công -> Xuất PDF","Doanh nghiệp gửi công văn -> Duyệt giấy tờ -> Dán bảng tin trường -> Nộp hồ sơ giấy","Tải file PDF đọc danh sách -> Tự gõ Google Maps ước đoán vị trí -> Hỏi nhóm Facebook"],["Chủ thể thực hiện","Phòng Kế hoạch - Tài chính, Chuyên viên Sở","Phòng CTSV, Đoàn thanh niên, Doanh nghiệp","Học sinh, Sinh viên, Phụ huynh (Người dùng cuối)"],["Tần suất & Chu kỳ","Định kỳ hàng năm (đầu năm học) hoặc theo quý","Không cố định, phụ thuộc thời điểm tài trợ","Liên tục 24/7, cao điểm mùa tuyển sinh (T5 - T8)"],["Hạn chế cốt lõi","Chậm trễ, dễ sai sót dữ liệu, thiếu tọa độ GPS","Thông tin lan tỏa hẹp, nộp hồ sơ giấy rườm rà","Mất thời gian, thiếu bản đồ trực quan, dễ gặp tin giả"],["Đầu ra hiện tại","File PDF danh sách tĩnh, không thể tương tác","Thông báo giấy dán tường; hồ sơ ứng viên giấy","Tìm kiếm mò mẫm, không có bán kính lân cận"]],"notes":"Đi sâu vào khảo sát hiện trạng, nhóm đã mô hình hóa và chỉ ra 3 quy trình thủ công điển hình tại Bảng 1 của báo cáo:\nỞ quy trình thu thập dữ liệu: Việc tổng hợp mạng lưới trường học diễn ra theo cơ chế gửi nhận file Excel định kỳ. Chuyên viên phải sao chép gộp hàng chục file thành danh sách tổng, đầu ra chỉ là file PDF tĩnh không hề có kinh độ, vĩ độ để định vị.\nỞ quy trình học bổng: Nhà tài trợ muốn trao cơ hội nhưng quy trình văn bản hành chính và nộp hồ sơ giấy thủ công làm mất rất nhiều tuần lễ.\nVà ở quy trình tra cứu: Người dân hoàn toàn bị động, phải tìm kiếm phân tán trên nhiều nguồn không chính thống. Đây là căn cứ thực tế vững chắc để nhóm thiết kế các phân hệ số hóa tương ứng."},{"slideNum":5,"category":"CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG","title":"Bóc tách Đối tượng theo Tư duy OOAD (Actors & Entities)","subtitle":"Áp dụng phương pháp luận Hướng đối tượng bóc tách 6 Tác nhân & 4 Thực thể Miền (Bảng 4 & 5)","type":"two_cards","cardLeft":{"title":"6 Tác nhân Hệ thống (System Actors)","items":["Administrator: Quản trị viên Sở/Hệ thống, phân quyền RBAC và cấu hình toàn tỉnh.","Moderator: Cán bộ kiểm duyệt nội dung bài viết cộng đồng và xử lý phản ánh vi phạm.","School Representative: Đại diện cơ sở đào tạo quản lý hồ sơ tuyển sinh và cơ sở vật chất.","Student / Citizen: Người học, phụ huynh tra cứu GIS, hỏi đáp AI, đặt lịch Mentor, nộp hồ sơ.","Donor / Employer: Doanh nghiệp, nhà tài trợ đăng học bổng, tin tuyển dụng và bán tài liệu.","Data Collector Service: Tác nhân ngầm tự động thu thập dữ liệu mở GIS và nạp vector."]},"cardRight":{"title":"4 Thực thể Nghiệp vụ Miền (Domain Entities)","items":["POI (Point of Interest): Thực thể không gian cốt lõi (Kinh độ, Vĩ độ, Địa chỉ, Danh mục, Đánh giá).","Educational Resource: Thực thể học liệu số, giáo trình, khóa học trực tuyến kèm bản quyền.","Opportunity: Cơ hội học bổng và việc làm thực tập kèm điều kiện xét tuyển, thời hạn nộp.","UserProfile: Hồ sơ đa vai trò (Student, Mentor, Business) lưu trữ GPA, kỹ năng, lịch sử giao dịch.","Ánh xạ thành công: Cả 6 nhóm đối tượng được ánh xạ trọn vẹn vào 6 phân hệ phần mềm EduMap."]},"notes":"Điểm cốt lõi trong phương pháp tiếp cận của nhóm là áp dụng tư duy Phân tích Hướng đối tượng (OOAD) ngay từ khảo sát hiện trạng. Thay vì chỉ liệt kê chức năng bề nổi, nhóm đã phân rã hệ thống thành 6 Tác nhân chính (bao gồm cả con người và tác nhân ngầm tự động như Data Collector Service) cùng 4 Thực thể nghiệp vụ cốt lõi:\nMỗi Actor đều được nhóm gán trách nhiệm cụ thể và ánh xạ trực tiếp sang các phân hệ chức năng trong EduMap: từ Quản trị, Kiểm duyệt, Quản lý hồ sơ trường học đến Bản đồ số GIS. Đây chính là tiền đề then chốt để nhóm xây dựng biểu đồ Ca sử dụng và Biểu đồ lớp ở các chương sau."},{"slideNum":6,"category":"CHƯƠNG 1: KHẢO SÁT HIỆN TRẠNG","title":"Đối so sánh AS-IS vs TO-BE & Đề xuất Kiến trúc EduMap","subtitle":"Khẳng định bước chuyển đổi số toàn diện từ thủ công sang nền tảng số thông minh (Bảng 13)","type":"table","headers":["Khía cạnh Khảo sát","Hiện trạng Thủ công (AS-IS)","Nền tảng Số Đề xuất EduMap (TO-BE)","Lợi ích Đột phá"],"rows":[["Hình thức dữ liệu","Phân mảnh trên nhiều file Word, Excel, văn bản giấy","Tập trung trong CSDL không gian PostgreSQL 16 + PostGIS","Dữ liệu chuẩn hóa, truy xuất tức thì"],["Trải nghiệm tra cứu","Tải file PDF đọc danh sách chữ; tự ước lượng vị trí","Bản đồ số tương tác GIS, tìm theo bán kính GPS (ST_DWithin)","Trực quan, chính xác đến từng mét"],["Cập nhật số liệu","Thu thập định kỳ theo quý/năm; phụ thuộc gộp file","Crawler tự động hóa + Cập nhật thời gian thực qua Web/App","Dữ liệu luôn tươi mới (Real-time)"],["Kết nối cơ hội","Dán bảng tin giấy hoặc đăng lẻ tẻ trên website trường","Sàng lọc học bổng bằng AI, nộp hồ sơ trực tuyến","Cơ hội đến đúng học sinh khó khăn"],["Hỗ trợ tư vấn","Gọi điện thoại giờ hành chính hoặc hỏi nhóm mạng xã hội","Trợ lý ảo RAG AI Chatbot 24/7 + Kết nối Mentor 1-1","Giải đáp tức thì, định hướng chuẩn xác"]],"notes":"Khép lại Chương 1, nhóm đã tổng kết bảng đối so sánh toàn diện giữa hiện trạng AS-IS và giải pháp TO-BE. Thay vì dữ liệu phân mảnh trên file Word/Excel, EduMap gom toàn bộ dữ liệu vào CSDL không gian tập trung; thay vì đọc danh sách PDF, người dùng có bản đồ GIS trực quan lọc theo bán kính GPS; thay vì nộp hồ sơ giấy, sinh viên nộp hồ sơ số hóa và được trợ lý AI gợi ý học bổng tương thích. Sự chuyển đổi này đã định hình rõ nét toàn bộ các yêu cầu kỹ thuật mà nhóm tiến hành thiết kế trong Chương 2."},{"slideNum":7,"category":"CHƯƠNG 2: PHÂN TÍCH YÊU CẦU","title":"Phân tích Yêu cầu Chức năng & Sơ đồ Ca Sử Dụng (19 UCs)","subtitle":"Chuẩn hóa 19 Ca sử dụng cốt lõi trên 6 phân hệ và đặc tả chi tiết 6 ca trọng tâm (Hình 2.1 & Bảng 2.1)","type":"hero_diagram_side","image":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_usecase-overall.png","imgRatio":"portrait","cardRight":{"title":"19 Ca Sử Dụng trên 6 Phân Hệ","items":["Bản đồ & GIS (MOD-MAP): UC01 Tra cứu GIS lân cận; UC02 Xe thư viện; UC03 Trạm Wi-Fi.","Trợ lý AI (MOD-AI): UC04 Chat RAG hỏi đáp; UC05 Trắc nghiệm lộ trình; UC06 AI khớp học bổng.","Cố vấn (MOD-MENTOR): UC07 Đặt lịch hẹn 1-1; UC08 Quản lý lịch rảnh; UC09 Jitsi Meet; UC10 Review.","Sàn Giáo dục (MOD-COMMERCE): UC11 Học liệu mở; UC12 Chứng chỉ số; UC13 Mua tài liệu; UC14 Gian hàng.","Cộng đồng (MOD-COMMUNITY): UC15 Thảo luận & Bài viết; UC16 Thử thách xanh.","Quản trị (MOD-ADMIN): UC17 Phân quyền RBAC; UC18 Kiểm duyệt vi phạm; UC19 Dashboard."]},"notes":"Bước sang Chương 2, nhóm đã mô hình hóa toàn bộ yêu cầu chức năng thành Sơ đồ Ca sử dụng tổng quan tại Hình 2.1. Hệ thống gồm đúng 19 Use Cases cốt lõi được cấu trúc mạch lạc thành 6 phân hệ nghiệp vụ:\nĐiểm đặc sắc là nhóm không dừng lại ở mức liệt kê mà đã xây dựng bảng đặc tả chi tiết cho 6 Ca sử dụng trọng tâm nhất: từ UC01 Tra cứu GIS sử dụng hàm không gian ST_DWithin, UC04 Chat RAG đa luồng với Gemini API, UC07 Đặt lịch cố vấn có cơ chế khóa khung giờ 15 phút, UC13 Thanh toán thương mại 2 pha, UC15 Kiểm duyệt bài viết 2 tầng và UC17 Phân quyền RBAC. Mọi luồng sự kiện chính, luồng ngoại lệ và tiền điều kiện đều được quy chuẩn hóa chặt chẽ."},{"slideNum":8,"category":"CHƯƠNG 2: THIẾT KẾ CÔNG NGHỆ","title":"Nghiên cứu & Ma trận Đánh giá Lựa chọn Stack Công nghệ","subtitle":"Luận cứ khoa học và cơ sở kỹ thuật khi lựa chọn các công nghệ hiện đại cho EduMap (Bảng 2.8)","type":"table","headers":["Thành phần Hệ thống","Công nghệ Lựa chọn","Vai trò trong EduMap","Ưu điểm Vượt trội & Luận cứ Kỹ thuật"],"rows":[["Frontend Web","Next.js 14 (App Router)","Web Portal & Admin","Tối ưu hóa SEO vượt bậc qua SSR/SSG, tải trang nhanh qua React Server Components"],["Mobile Application","React Native (Expo SDK 50)","Ứng dụng Di động","1 Codebase đa nền tảng iOS/Android, tích hợp mượt cảm biến GPS và SQLite Offline cache"],["Backend Core API","NestJS (TypeScript)","Xử lý Nghiệp vụ & API","Kiến trúc Module hóa chuẩn DDD, Dependency Injection mạnh mẽ, Type-safety toàn diện"],["AI Microservice","FastAPI (Python 3.11)","Vi dịch vụ AI & RAG","Async ASGI hiệu năng cao, tích hợp mượt mà LangChain, HuggingFace và Google GenAI"],["Database Chính","PostgreSQL 16 + PostGIS","CSDL Quan hệ & GIS","Hỗ trợ ACID, chỉ mục GiST không gian cực nhanh, xử lý dữ liệu GeoJSON và JSONB linh hoạt"],["Vector Database","ChromaDB / pgvector","CSDL Vector RAG","Lưu trữ vector nhúng, hỗ trợ tìm kiếm ngữ nghĩa Cosine Similarity cho Chatbot tuyển sinh"],["Cache & Queue","Redis 7 + BullMQ","Bộ nhớ đệm & Hàng đợi","Độ trễ < 1ms, Rate Limiting chống DDoS và hàng đợi xử lý ngầm duyệt bài viết, gửi email"],["Container & Hạ tầng","Docker & Kubernetes","Đóng gói & Điều phối","Tự động co giãn Horizontal Pod Autoscaling (HPA), tự phục hồi Self-healing trên cụm K8s"]],"notes":"Để đảm bảo tính khả thi và hiệu năng cao, nhóm đã tiến hành khảo sát và lập ma trận đánh giá đối chiếu công nghệ tại Bảng 2.8:\nNhóm lựa chọn mô hình Microservices phân tách rõ ràng: NestJS đóng vai trò Backend API chính xử lý giao dịch dữ liệu chặt chẽ bằng TypeScript; kết hợp cùng vi dịch vụ FastAPI bằng Python để phục vụ riêng cho các tác vụ tính toán AI và xử lý vector nhúng RAG.\nVề CSDL, sự kết hợp giữa PostgreSQL và phần mở rộng PostGIS là lựa chọn tiêu chuẩn hàng đầu cho các hệ thống GIS, cho phép thực hiện các truy vấn không gian phức tạp như tính khoảng cách, tìm điểm lân cận với tốc độ tính bằng mili-giây."},{"slideNum":9,"category":"CHƯƠNG 2: THIẾT KẾ KIẾN TRÚC","title":"Thiết kế Kiến trúc Tổng thể Hệ thống C4 Container Diagram","subtitle":"Mô hình kiến trúc phân tầng Mức 2 (Container Level) đảm bảo khả năng mở rộng độc lập (Hình 2.2)","type":"hero_diagram_side","image":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_container-diagram.png","imgRatio":"landscape","cardRight":{"title":"4 Tầng Phân Tách Rõ Rệt","items":["Client Layer: Web Portal (Next.js 14), Mobile App (React Native/Expo) và Admin Dashboard.","Gateway Layer: NGINX Ingress Controller mã hóa SSL/TLS, Rate Limiting và định tuyến API.","Services Layer: Core Backend (NestJS API) + AI Service (FastAPI RAG) + Data Collector.","Storage Layer: PostgreSQL 16 (PostGIS), Redis 7 (Cache/Queue), MinIO (S3 Object Storage)."]},"notes":"Tại Hình 2.2, nhóm đã hoàn thành thiết kế Sơ đồ Kiến trúc C4 Container Diagram Mức 2. Kiến trúc này giải quyết triệt để sự phụ thuộc lẫn nhau bằng cách phân tầng rõ ràng:\nToàn bộ các yêu cầu từ Web Portal hay Mobile App khi gửi đến đều đi qua NGINX Ingress Controller để giải mã SSL và điều phối tải. Các yêu cầu nghiệp vụ thông thường sẽ vào Core Backend NestJS; trong khi các yêu cầu hỏi đáp tri thức hoặc trích xuất ngữ nghĩa sẽ được điều hướng sang Vi dịch vụ FastAPI. Nhờ vậy, ngay cả khi vi dịch vụ AI phải chịu tải nặng thì các nghiệp vụ cốt lõi như tra cứu bản đồ hay đặt hàng vẫn hoạt động hoàn toàn mượt mà."},{"slideNum":10,"category":"CHƯƠNG 2: THIẾT KẾ CHI TIẾT","title":"Thiết kế Chi tiết Backend NestJS & Vi dịch vụ AI FastAPI","subtitle":"Kiến trúc mô-đun hóa độc lập và quy trình RAG suy luận tri thức với Gemini 1.5 Flash (Hình 2.3 & 2.4)","type":"stacked_panorama","imageTop":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_backend-module-dependency.png","captionTop":"Hình 2.3: Mô-đun hóa Phụ thuộc Backend NestJS (Auth, User, Map, Mentor, Order, Community)","imageBottom":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_ai-service-components.png","captionBottom":"Hình 2.4: Kiến trúc Vi dịch vụ Trí tuệ Nhân tạo FastAPI (Embedding, pgvector, RAG Prompt, Gemini 1.5 Flash)","notes":"Tại Hình 2.3 và 2.4, nhóm đã thiết kế chi tiết các thành phần bên trong của hai dịch vụ trung tâm:\nPhía Backend NestJS, các module nghiệp vụ hoàn toàn độc lập, giao tiếp thông qua Service Layer và Dependency Injection, đảm bảo nguyên lý Single Responsibility.\nPhía Vi dịch vụ AI FastAPI, nhóm đã xây dựng một quy trình RAG (Retrieval-Augmented Generation) hoàn chỉnh: Khi sinh viên hỏi về quy chế học bổng, hệ thống không để AI đoán mò (ảo giác) mà tiến hành chuyển đổi câu hỏi thành vector nhúng, truy vấn vào kho tri thức vector trong CSDL, trích xuất chính xác văn bản nguồn của Sở GD&ĐT rồi mới đưa vào mô hình Gemini 1.5 Flash để tổng hợp câu trả lời chuẩn xác nhất."},{"slideNum":11,"category":"CHƯƠNG 2: THIẾT KẾ CHI TIẾT","title":"Thiết kế Ứng dụng Di động & Pipeline Thu thập Dữ liệu GIS","subtitle":"Kiến trúc Mobile App đa tầng và đường ống tự động hóa Geocoding - Vectorization (Hình 2.5 & 2.6)","type":"side_by_side_max","imageLeft":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_mobile-app-architecture.png","captionLeft":"Hình 2.5: Kiến trúc Ứng dụng Di động React Native (View - State - Offline SQLite)","imageRight":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_crawler-gis-pipeline.png","captionRight":"Hình 2.6: Pipeline Thu thập Dữ liệu GIS & Nạp Vector (Crawler -> Geocoding -> PostGIS)","bottomBadge":"Đột phá: Ứng dụng di động hỗ trợ lưu đệm ngoại tuyến SQLite; Pipeline thu thập dữ liệu GIS loại bỏ hoàn toàn việc gộp file Excel thủ công.","notes":"Trên ứng dụng di động (Hình 2.5), nhóm thiết kế theo mô hình phân tầng: giao diện bản đồ tối ưu chạm vuốt, Redux Toolkit quản lý đồng bộ trạng thái và hỗ trợ lưu đệm SQLite giúp học sinh có thể tra cứu thông tin cơ bản ngay cả khi vào vùng mất sóng 4G.\nĐặc biệt, tại Hình 2.6, nhóm đã thiết kế một đường ống tự động hóa GIS Crawler Pipeline: Hệ thống tự động thu thập thông tin trường học, làm sạch lỗi chính tả, tự động giải mã tọa độ qua Geocoding API và nạp vào CSDL với kiểu dữ liệu không gian chuẩn. Quy trình này xóa bỏ hoàn toàn thao tác gộp file Excel thủ công tốn hàng tuần lễ trước đây."},{"slideNum":12,"category":"CHƯƠNG 2: THIẾT KẾ CƠ SỞ DỮ LIỆU","title":"Thiết kế CSDL Toàn diện & 7 Bounded Contexts (ERD 85 Thực thể)","subtitle":"Mô hình CSDL quan hệ chuẩn 3NF tích hợp không gian GIS và Vector Search (Hình 2.7)","type":"hero_diagram_wide","image":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_entity-relationship-diagram.png","badges":[{"label":"1. Identity & Access","count":"12 bảng"},{"label":"2. Geospatial & Campus","count":"16 bảng"},{"label":"3. Mentorship & Booking","count":"14 bảng"},{"label":"4. Commerce & Escrow","count":"15 bảng"},{"label":"5. Scholarship & Career","count":"11 bảng"},{"label":"6. Community & Social","count":"10 bảng"},{"label":"7. AI Knowledge & Vector","count":"7 bảng"}],"footNote":"Đánh chỉ mục GiST trên tọa độ không gian PostGIS và chỉ mục HNSW trên vector nhúng pgvector.","notes":"Một trong những khối lượng công việc lớn nhất nhóm đã hoàn thành trong Chương 2 là Sơ đồ Thực thể Liên kết ERD tại Hình 2.7. Nhóm đã mô hình hóa chi tiết 85 thực thể theo phương pháp Domain-Driven Design, chia thành 7 Bounded Contexts rõ ràng.\nTừ các bảng quản trị danh tính RBAC, các bảng quản lý không gian địa lý lưu trữ định dạng ST_Geometry, đến các bảng ký quỹ Escrow cho giao dịch đặt lịch cố vấn và bảng lưu trữ vector nhúng. Toàn bộ cấu trúc bảng đều tuân thủ chuẩn hóa dạng 3 (3NF), được đánh chỉ mục GiST cho tìm kiếm không gian và chỉ mục HNSW cho tìm kiếm vector, đảm bảo hệ thống có thể mở rộng xử lý hàng triệu bản ghi."},{"slideNum":13,"category":"CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG","title":"Thiết kế Luồng Động (Seq 1 & 2): Xác thực RBAC & Trợ lý Ảo RAG","subtitle":"Mô hình hóa chuỗi tương tác bảo mật hệ thống và xử lý suy luận hỏi đáp AI (Hình 2.8 & 2.9)","type":"side_by_side_max","imageLeft":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-auth-login.png","captionLeft":"Hình 2.8: Sơ đồ Tuần tự Xác thực & Đăng nhập Bảo mật (Argon2 + JWT + RBAC)","imageRight":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-ai-chat.png","captionRight":"Hình 2.9: Sơ đồ Tuần tự Hỏi đáp RAG AI Chatbot (FastAPI + pgvector + Gemini 1.5)","bottomBadge":"Bảo mật: Cặp Access Token (15 phút) & Refresh Token (7 ngày). RAG AI: Bóc tách câu hỏi, rút trích Top 5 ngữ cảnh và stream câu trả lời kèm nguồn.","notes":"Để chứng minh tính khả thi của hệ thống, nhóm đã thiết kế 6 Sơ đồ Tuần tự cho các luồng động then chốt. Tại Slide này là Luồng Xác thực và Luồng Hỏi đáp AI:\nLuồng Xác thực (Hình 2.8) giải quyết bài toán an toàn thông tin: Nhóm áp dụng cơ chế xác thực JWT kết hợp Refresh Token luân phiên và kiểm tra quyền hạn RBAC tại từng Controller, ngăn chặn triệt để các lỗ hổng như giả mạo yêu cầu.\nLuồng Trợ lý Ảo RAG (Hình 2.9) thể hiện cơ chế phối hợp bất đồng bộ: Khi người dùng đặt câu hỏi, hệ thống tự động bóc tách từ khóa, tìm kiếm ngữ nghĩa trong kho tài liệu số hóa của Sở GD&ĐT, rồi mới yêu cầu Gemini sinh câu trả lời kèm link tài liệu gốc, giúp câu trả lời luôn trung thực và có căn cứ pháp lý."},{"slideNum":14,"category":"CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG","title":"Thiết kế Luồng Động (Seq 3 & 4): Kiểm duyệt 2 Tầng & Thanh toán 2 Pha","subtitle":"Kiểm soát an toàn nội dung cộng đồng và giao dịch thương mại bảo đảm chuẩn ACID (Hình 2.10 & 2.11)","type":"side_by_side_max","imageLeft":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-community-post.png","captionLeft":"Hình 2.10: Kiểm duyệt Nội dung 2 Tầng (L1: Regex Blacklist -> L2: AI Toxic Score qua BullMQ)","imageRight":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-business-checkout.png","captionRight":"Hình 2.11: Đặt hàng & Thanh toán 2 Pha (Idempotency Key, Khóa tồn kho, Webhook IPN VNPay)","bottomBadge":"Kiểm duyệt: Tự động phê duyệt bài sạch, đẩy bài nghi vấn vào hàng đợi Admin. Giao dịch: Cam kết nguyên tắc ACID, tự động Rollback nếu lỗi.","notes":"Tiếp theo là hai luồng nghiệp vụ phức tạp tại Hình 2.10 và 2.11:\nLuồng kiểm duyệt bài viết cộng đồng được nhóm thiết kế theo mô hình Hybrid Human-in-the-loop 2 tầng: Tầng 1 lọc tức thì bằng Regex Blacklist, Tầng 2 dùng AI chấm điểm ngữ nghĩa độc hại bất đồng bộ qua Redis Queue. Cách làm này vừa đảm bảo người dùng không phải chờ lâu, vừa giữ cho môi trường học tập luôn trong sạch.\nLuồng đặt hàng thương mại điện tử được áp dụng nguyên lý Two-Phase Checkout với cơ chế Idempotency Key và Database Transaction. Nếu người dùng hủy hoặc cổng thanh toán báo lỗi, hệ thống tự động Rollback hoàn trả số lượng hàng trong kho, đảm bảo không bao giờ xảy ra lỗi sai lệch tồn kho hoặc thanh toán trùng lặp."},{"slideNum":15,"category":"CHƯƠNG 2: THIẾT KẾ LUỒNG ĐỘNG","title":"Thiết kế Luồng Động (Seq 5 & 6): Cố vấn Jitsi & Nộp Học bổng","subtitle":"Cơ chế khóa giữ chỗ ký quỹ Escrow và quy trình tự động hóa thẩm định học bổng (Hình 2.12 & 2.13)","type":"side_by_side_max","imageLeft":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-mentor-booking.png","captionLeft":"Hình 2.12: Ghép đôi Cố vấn & Họp trực tuyến (Slot Lock 15m, Ví Ký quỹ Escrow, Auto Jitsi Meet)","imageRight":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_seq-scholarship-eligibility.png","captionRight":"Hình 2.13: Đánh giá Điều kiện & Nộp Học bổng (Rule Engine GPA, AI Match Score, MinIO Storage)","bottomBadge":"Cố vấn: Chống tranh chấp lịch (Race condition) bằng Slot Locking, bảo vệ quyền lợi qua Escrow. Học bổng: Số hóa toàn bộ hồ sơ nộp trực tuyến.","notes":"Hai luồng động cuối cùng hoàn thiện giải pháp kết nối học tập tại Hình 2.12 và 2.13:\nTại luồng Đặt lịch cố vấn: Nhóm thiết kế cơ chế khóa tạm thời khung giờ tư vấn trong 15 phút để chống tranh chấp lịch (Race Condition), kết hợp ví ký quỹ trung gian Escrow bảo vệ quyền lợi sinh viên. Sau khi thanh toán thành công, hệ thống tự động tích hợp API sinh phòng họp trực tuyến Jitsi Meet bảo mật mà người dùng không cần cài thêm ứng dụng ngoài.\nTại luồng Xét học bổng: Thay vì học sinh phải nộp hồ sơ giấy như hiện trạng khảo sát, hệ thống có Rule Engine tự động kiểm tra điều kiện điểm GPA và giấy tờ chứng nhận, giúp học sinh biết trước tỷ lệ đậu và doanh nghiệp lọc hồ sơ nhanh gấp nhiều lần."},{"slideNum":16,"category":"CHƯƠNG 2: THIẾT KẾ TRẠNG THÁI","title":"Thiết kế Máy Trạng thái: Đơn hàng & Lịch hẹn Tư vấn 1-1","subtitle":"Kiểm soát chặt chẽ toàn bộ vòng đời đối tượng và điều kiện chuyển trạng thái (Hình 2.14 & 2.15)","type":"side_by_side_max","imageLeft":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_state-order-lifecycle.png","captionLeft":"Hình 2.14: Máy Trạng thái Vòng đời Đơn hàng (DRAFT -> PENDING -> PAID -> PROCESSING -> COMPLETED)","imageRight":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_state-mentor-booking.png","captionRight":"Hình 2.15: Máy Trạng thái Vòng đời Lịch hẹn Cố vấn (SLOT_LOCKED -> ESCROW -> IN_SESSION -> COMPLETED)","bottomBadge":"Toàn vẹn: Tiền tư vấn chỉ giải ngân (PAYOUT_RELEASED) khi buổi học kết thúc hợp lệ; có trạng thái DISPUTED để xử lý tranh chấp công bằng.","notes":"Để đảm bảo tính toàn vẹn nghiệp vụ, nhóm đã thiết kế 2 Sơ đồ Máy trạng thái (State Machine Diagrams) tại Hình 2.14 và 2.15:\nMọi sự chuyển dịch trạng thái từ Đơn hàng mua tài liệu đến Lịch hẹn cố vấn 1-1 đều được kiểm soát bởi các điều kiện kích hoạt nghiêm ngặt. Tiền của sinh viên không bao giờ chuyển ngay cho Mentor mà được giữ ở trạng thái ESCROW_HOLDING. Chỉ khi buổi học diễn ra hợp lệ và chuyển sang trạng thái COMPLETED, hệ thống mới kích hoạt lệnh giải ngân. Mọi trường hợp bất thường như vắng mặt hoặc sự cố kỹ thuật đều có trạng thái DISPUTED để bảo đảm sự công bằng cho cả hai bên."},{"slideNum":17,"category":"CHƯƠNG 2: THIẾT KẾ HẠ TẦNG","title":"Thiết kế Triển khai Cụm Kubernetes Sản xuất (edumap-prod)","subtitle":"Mô hình triển khai container hóa đạt chuẩn Production-ready đảm bảo High Availability (Hình 2.16)","type":"hero_diagram_side","image":"/home/ngoctan/Downloads/EduMap/docs/uml/UML_deployment-diagram.png","imgRatio":"landscape","cardRight":{"title":"Hạ Tầng edumap-prod","items":["Ingress L7: NGINX Ingress Controller cân bằng tải, quản lý chứng chỉ SSL tự động.","Backend Deployment: 3 Replicas NestJS, gắn HPA tự co giãn từ 3 đến 10 Pods khi CPU > 70%.","AI Deployment: 2 Replicas FastAPI tối ưu hóa suy luận song song.","Frontend Deployment: 2 Replicas Next.js Web Portal.","Persistence: StatefulSet PostgreSQL & MinIO gắn PVC riêng biệt.","Giám sát: Prometheus thu thập Metrics và Grafana Dashboard 24/7."]},"notes":"Khép lại Chương 2 là Sơ đồ Triển khai Hạ tầng Cụm Kubernetes Sản xuất tại Hình 2.16. Nhóm đã thiết kế cụm hạ tầng edumap-prod đạt tiêu chuẩn sẵn sàng vận hành (Production-ready):\nToàn bộ các vi dịch vụ được container hóa bằng Docker và quản lý bởi Kubernetes. Nhóm đã cấu hình sẵn cơ chế tự động co giãn Horizontal Pod Autoscaler (HPA), cho phép Backend tự động tăng từ 3 lên 10 Pods trong các thời điểm cao điểm như kỳ tuyển sinh hay giờ vàng săn học bổng. Dữ liệu CSDL và tài liệu số được bảo vệ thông qua Persistent Volume Claim độc lập, đảm bảo dữ liệu không bao giờ bị thất lạc ngay cả khi các node phần cứng gặp sự cố."},{"slideNum":18,"category":"CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG","title":"Tổng quan Sơ đồ Lớp Nghiệp vụ Toàn Hệ thống (Domain Class)","subtitle":"Chuẩn hóa 28 Lớp Đối tượng trên 5 phân hệ theo Tiêu chuẩn OOAD - UML 2.5 (Hình 3.1 & Mục 3.1)","type":"hero_diagram_side","image":"/home/ngoctan/Downloads/EduMap/docs/class/Class_Diagram.png","imgRatio":"square","cardRight":{"title":"28 Lớp Đối Tượng / 5 Phân Hệ","items":["1. Quản trị & Phân quyền (7 lớp): User (Abstract), Student, Mentor, BusinessPartner, Admin, Role, Notification.","2. Bản đồ & Không gian (5 lớp): Location, MapPoint, School, WifiHotspot, MobileUnit.","3. Cố vấn & Lịch hẹn (4 lớp): MentorAvailability, Booking, MentorSession, Review.","4. Thương mại & Dịch vụ (6 lớp): Product, Service, CartItem, Order, OrderItem, Transaction.","5. Học bổng & Cộng đồng (6 lớp): Scholarship, ScholarshipApplication, CareerPath, Group, Post, Comment.","Cấu trúc hộp 3 ngăn UML đầy đủ Thuộc tính, Kiểu dữ liệu và Phương thức."]},"notes":"Bước sang Chương 3: Thiết kế Hướng đối tượng và Biểu đồ Lớp Chi tiết. Đây là minh chứng rõ ràng nhất cho việc nhóm đã hiện thực hóa toàn bộ các phân tích ở Chương 1 và Chương 2 thành các lớp mã nguồn hướng đối tượng.\nTại Hình 3.1, nhóm đã hoàn thành Sơ đồ Lớp tổng thể với đúng 28 lớp đối tượng được cấu trúc thành 5 phân hệ cốt lõi. Mỗi lớp đều được nhóm mô hình hóa theo cấu trúc hộp 3 ngăn chuẩn UML 2.5: định rõ kiểu dữ liệu mạnh cho từng thuộc tính và định nghĩa tường minh chữ ký hàm của từng phương thức nghiệp vụ. Cấu trúc này liên kết chặt chẽ với nhau thông qua đầy đủ các loại quan hệ hướng đối tượng."},{"slideNum":19,"category":"CHƯƠNG 3: MÔ HÌNH HƯỚNG ĐỐI TƯỢNG","title":"Đặc tả Chi tiết 28 Lớp & Ma trận 30 Mối Quan hệ OOP","subtitle":"Minh chứng chiều sâu phân tích OOP: Kế thừa, Hợp thành, Thu nạp và Bản số quan hệ (Bảng 3.1 & 3.2)","type":"two_cards","cardLeft":{"title":"Các Mối Quan Hệ OOP Nổi Bật (30 Quan Hệ)","items":["Kế thừa (Inheritance): User -> Student, Mentor, BusinessPartner, Admin (Tái sử dụng logic xác thực); MapPoint -> School, WifiHotspot, MobileUnit (Đa hình không gian GIS).","Hợp thành (Composition - Kim cương đặc): Order *-> OrderItem (Chi tiết phụ thuộc hoàn toàn vòng đời đơn hàng); Post *-> Comment (Bình luận xóa theo bài viết).","Thu nạp (Aggregation - Kim cương rỗng): Group o-> User; Product o-> CartItem (Tồn tại độc lập vòng đời).","Kết hợp (Association): Booking <-> MentorSession; User <-> Notification."]},"cardRight":{"title":"Đặc tả Phương thức Nghiệp vụ & Ma trận","items":["Student: searchNearbyLocations(radiusKm), applyScholarship(id), bookMentor(id, slot), enrollCareerPath(id).","Mentor: setAvailability(slots), acceptBooking(id), startSession(id).","Order: calculateTotal(), applyDiscount(code), processPayment(method).","Scholarship: evaluateEligibility(studentGpa, criteria), closeApplication().","Ma trận Bảng 3.2: Quy chuẩn 100% Cardinality Multiplicity (1..1, 1..*, 0..*) giữa toàn bộ 28 lớp đối tượng."]},"notes":"Để chứng minh chiều sâu phân tích hướng đối tượng, nhóm đã hoàn thành hai bảng tổng hợp đồ sộ tại Mục 3.3 và 3.4:\nTại Bảng 3.1, nhóm đặc tả chi tiết mọi phương thức của 28 lớp, như lớp Student có các hàm nghiệp vụ: searchNearbyLocations, applyScholarship, bookMentor; lớp Order có hàm calculateTotal, applyDiscount.\nĐặc biệt, tại Bảng 3.2, nhóm đã ma trận hóa chính xác 30 mối quan hệ hướng đối tượng: từ quan hệ Kế thừa phân cấp người dùng và điểm bản đồ, đến quan hệ Hợp thành chặt chẽ giữa Order với OrderItem (nếu hủy đơn hàng thì chi tiết đơn hàng cũng bị giải phóng), và quan hệ Kết hợp giữa Booking với MentorSession. Ma trận này là kim chỉ nam chính xác 100% giúp việc viết mã nguồn Backend và Frontend diễn ra liền mạch, không có sự sai lệch logic."},{"slideNum":20,"category":"TỔNG KẾT & ĐÁNH GIÁ","title":"Tổng kết Những Gì Đã Làm Được & Sẵn sàng Triển khai","subtitle":"Thành quả toàn diện từ Chương 1 đến 3 khẳng định tính khả thi vượt trội của dự án EduMap","type":"summary","metrics":[{"num":"3","label":"Quy trình AS-IS khảo sát thực tế"},{"num":"19","label":"Ca sử dụng Use Cases chuẩn hóa"},{"num":"85","label":"Thực thể CSDL trên 7 Bounded Contexts"},{"num":"6","label":"Sơ đồ Tuần tự Sequence chi tiết"},{"num":"28","label":"Lớp Đối tượng chuẩn UML 2.5"},{"num":"30","label":"Mối quan hệ OOP được ma trận hóa"}],"achievements":["Khảo sát hiện trạng chuẩn xác, bóc tách thực tế bài toán phân mảnh dữ liệu giáo dục tỉnh Đồng Nai.","Chuẩn hóa 19 Ca sử dụng (Use Cases) và thiết kế CSDL 85 thực thể trên 7 Bounded Contexts.","Mô hình hóa 6 luồng động Sequence Diagrams, 2 State Machines và cụm hạ tầng Kubernetes sản xuất.","Hoàn thiện Sơ đồ Lớp 28 đối tượng chuẩn UML 2.5 và ma trận 30 mối quan hệ hướng đối tượng chặt chẽ."],"notes":"Kính thưa ThS. Nguyễn Thị Liệu cùng toàn thể quý Thầy Cô:\nTổng kết lại chặng đường hoàn thành từ Chương 1 đến Chương 3 của cuốn báo cáo, nhóm chúng em đã xây dựng được một đồ án Phân tích Thiết kế Hệ thống Thông tin có tính thực tiễn cao, quy mô nghiệp vụ toàn diện và tuân thủ chặt chẽ các chuẩn mực thiết kế công nghệ quốc tế:\nTừ khảo sát thực tế địa phương, quy chuẩn 19 Use Cases, thiết kế CSDL 85 thực thể, mô hình hóa các luồng động bằng 6 Sequence Diagrams, cho đến xây dựng biểu đồ lớp 28 đối tượng và 30 quan hệ OOP. Tất cả đều là những sản phẩm thiết kế thực chất, hoàn chỉnh và có tính liên kết chặt chẽ, là tiền đề vững chắc cho các giai đoạn lập trình tiếp theo.\nSau đây, nhóm xin chuyển sang phần gửi lời cảm ơn và lắng nghe ý kiến phản biện từ Thầy Cô."},{"slideNum":21,"category":"KẾT THÚC BÁO CÁO","title":"LỜI CẢM ƠN & PHẦN HỎI ĐÁP (Q&A)","subtitle":"Trường Đại học Công nghệ Đồng Nai (DNTU) – Khoa Công nghệ Thông tin","type":"thank_you","instructor":{"title":"GIẢNG VIÊN HƯỚNG DẪN","name":"ThS. NGUYỄN THỊ LIỆU","dept":"Khoa Công nghệ Thông tin – DNTU","message":"Nhóm xin gửi lời tri ân sâu sắc nhất tới Cô vì sự định hướng tận tâm, chỉ bảo sát sao giúp nhóm hoàn thành đồ án này."},"team":{"title":"NHÓM SINH VIÊN THỰC HIỆN","members":["Quách Khoa Đức (MSSV: Khóa 2023 – 2027)","Lê Ngọc Tân (MSSV: Khóa 2023 – 2027)"],"project":"Đề tài: EduMap – Bản đồ Học tập Tri thức Đồng Nai"},"qaText":"KÍNH MỜI QUÝ THẦY CÔ VÀ CÁC BẠN ĐẶT CÂU HỎI PHẢN BIỆN!","notes":"Kính thưa ThS. Nguyễn Thị Liệu cùng toàn thể quý Thầy Cô trong Hội đồng phản biện.\nTrên đây là toàn bộ nội dung báo cáo kết quả nghiên cứu, khảo sát hiện trạng, phân tích yêu cầu kiến trúc và thiết kế mô hình hướng đối tượng từ Chương 1 đến Chương 3 của đề tài \"EduMap – Bản đồ Học tập Tri thức\".\nNhóm chúng em xin gửi lời cảm ơn chân thành và sâu sắc nhất tới ThS. Nguyễn Thị Liệu đã tận tình hướng dẫn, chỉ bảo nhóm từng bước để hoàn thiện cuốn báo cáo này.\nChúng em rất mong nhận được những câu hỏi, nhận xét và đóng góp quý báu từ quý Thầy Cô để hệ thống EduMap ngày càng hoàn thiện và sớm được hiện thực hóa trong thực tế.\nNhóm chúng em xin trân trọng cảm ơn và sẵn sàng trả lời các câu hỏi từ Hội đồng!"}];
+    let currentIndex = 0;
+    const totalSlides = slidesData.length;
+
+    let timerSeconds = 0;
+    let timerInterval = null;
+    let isTimerRunning = false;
+
+    function renderSlide(index) {
+      if (index < 0 || index >= totalSlides) return;
+      currentIndex = index;
+
+      document.querySelectorAll('.slide-stage').forEach((st, idx) => {
+        if (idx === currentIndex) {
+          st.classList.add('active');
+        } else {
+          st.classList.remove('active');
+        }
+      });
+
+      const num = String(currentIndex + 1).padStart(2, '0');
+      document.getElementById('slideIndicator').textContent = `Slide ${num} / ${String(totalSlides).padStart(2, '0')}`;
+      const progress = ((currentIndex + 1) / totalSlides) * 100;
+      document.getElementById('progressFill').style.width = `${progress}%`;
+
+      document.getElementById('btnPrev').disabled = currentIndex === 0;
+      document.getElementById('btnNext').disabled = currentIndex === totalSlides - 1;
+
+      const curData = slidesData[currentIndex];
+      document.getElementById('notesSlideTag').textContent = `Slide ${num}: ${curData.title}`;
+      document.getElementById('notesContent').textContent = curData.notes || 'Không có ghi chú cho slide này.';
+
+      document.querySelectorAll('.overview-card').forEach((c, idx) => {
+        if (idx === currentIndex) c.classList.add('active');
+        else c.classList.remove('active');
+      });
+    }
+
+    function nextSlide() {
+      if (currentIndex < totalSlides - 1) {
+        renderSlide(currentIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentIndex > 0) {
+        renderSlide(currentIndex - 1);
+      }
+    }
+
+    function jumpToSlide(idx) {
+      renderSlide(idx);
+      toggleOverview(false);
+    }
+
+    function toggleNotes(force) {
+      const drawer = document.getElementById('notesDrawer');
+      const btn = document.getElementById('btnNotes');
+      const isOpen = force !== undefined ? force : !drawer.classList.contains('open');
+      if (isOpen) {
+        drawer.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        drawer.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    function toggleOverview(force) {
+      const modal = document.getElementById('overviewModal');
+      const btn = document.getElementById('btnOverview');
+      const isOpen = force !== undefined ? force : !modal.classList.contains('open');
+      if (isOpen) {
+        modal.classList.add('open');
+        btn.classList.add('active');
+      } else {
+        modal.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    function zoomImage(src) {
+      const modal = document.getElementById('imgModal');
+      const img = document.getElementById('modalImg');
+      img.src = src;
+      modal.classList.add('open');
+    }
+
+    function closeImage() {
+      document.getElementById('imgModal').classList.remove('open');
+    }
+
+    function toggleStopwatch() {
+      if (isTimerRunning) {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        document.getElementById('stopwatchBtn').style.opacity = '0.7';
+      } else {
+        isTimerRunning = true;
+        document.getElementById('stopwatchBtn').style.opacity = '1';
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+          const secs = String(timerSeconds % 60).padStart(2, '0');
+          document.getElementById('timerText').textContent = `${mins}:${secs}`;
+        }, 1000);
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        toggleNotes();
+      } else if (e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        toggleOverview();
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'Escape') {
+        closeImage();
+        toggleOverview(false);
+        toggleNotes(false);
+      }
+    });
+
+    document.getElementById('btnNotes').addEventListener('click', () => toggleNotes());
+    document.getElementById('btnOverview').addEventListener('click', () => toggleOverview());
+    document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
+    document.getElementById('stopwatchBtn').addEventListener('click', toggleStopwatch);
+
+    renderSlide(0);
+    toggleStopwatch();
+  </script>
+</body>
+</html>

@@ -14,7 +14,7 @@ except Exception as e:
     print(f"2. pandas FAIL: {e}")
 
 try:
-    from fastapi import FastAPI
+    from fastapi import FastAPI, HTTPException
     print("3. fastapi OK")
 except Exception as e:
     print(f"3. fastapi FAIL: {e}")
@@ -42,7 +42,7 @@ if _llm_service is None:
         async def chat_with_rag(self, *args, **kwargs): 
             return {"reply": "AI Service chưa sẵn sàng.", "sources": []}
         async def analyze_market_trends(self, *args, **kwargs):
-            return {"status": "offline", "message": "AI Service not configured"}
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY.")
         async def generate_career_advice(self, *args, **kwargs):
             return "AI Service chưa sẵn sàng."
     _llm_service = MockLLMService()
@@ -51,10 +51,7 @@ if _llm_service is None:
 if _db_service is None:
     class MockDBService:
         def get_education_stats(self, year=2024):
-            return [
-                {"region": "Hà Nội", "province": "Hà Nội", "metric_type": "IT Enrollment", "metric_value": 85.0, "year": 2024},
-                {"region": "Hà Nội", "province": "Hà Nội", "metric_type": "IT Enrollment", "metric_value": 72.0, "year": 2023},
-            ]
+            return []
         def get_user_events(self, limit=1000):
             return []
     _db_service = MockDBService()
@@ -102,31 +99,9 @@ for name, router in router_modules.items():
 # Endpoints
 @app.get("/api/ai/trends")
 async def get_trends():
-    try:
-        if llm_service.is_ready:
-            return await llm_service.analyze_market_trends([{"keyword": "AI"}])
-        
-        stats_data = db_service.get_education_stats(year=2024)
-        if not stats_data:
-            return {"status": "offline", "message": "AI Service offline"}
-        
-        try:
-            df = pd.DataFrame(stats_data)
-            if 'metric_value' in df.columns:
-                df = df.rename(columns={'metric_value': 'value'})
-        except Exception:
-            df = None
-        
-        return {
-            "status": "success",
-            "historical_data": df.to_dict(orient="records") if df is not None and not df.empty else stats_data,
-            "insights": {"average_annual_growth_pct": 15.0, "top_user_activity": "view_ai_trends"},
-            "trending_skills": [{"name": "AI Engineering", "growth": "+95%"}, {"name": "Data Science", "growth": "+80%"}]
-        }
-    except Exception as e:
-        print(f"Trends error: {e}")
-        traceback.print_exc() if 'traceback' in dir() else None
-        return {"status": "offline", "message": "AI Service offline"}
+    if not llm_service.is_ready:
+        raise HTTPException(503, "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY để xem xu hướng thị trường.")
+    return await llm_service.analyze_market_trends([{"keyword": "AI"}])
 
 @app.post("/api/ai/predict")
 async def predict_user(data: dict):
@@ -134,7 +109,7 @@ async def predict_user(data: dict):
         return {"status": "success", "recommendation": await llm_service.generate_career_advice(data)}
     except Exception as e:
         print(f"Predict error: {e}")
-        return {"status": "error", "recommendation": "AI Service unavailable"}
+        raise HTTPException(503, f"AI Service error: {e}")
 
 @app.get("/health")
 async def health_check():
