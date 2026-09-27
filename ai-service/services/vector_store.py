@@ -86,11 +86,14 @@ class VectorStoreService:
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:
+            if not self.collection:
+                raise RuntimeError("Vector store collection chưa được khởi tạo.")
+            save_fn = getattr(self.collection, "upsert", self.collection.add)
             if self.has_api:
                 embeddings = [self.get_embedding(doc) for doc in documents]
-                self.collection.add(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
+                save_fn(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
             else:
-                self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
+                save_fn(documents=documents, metadatas=metadatas, ids=ids)
         except Exception as e:
             print(f"Error adding documents to vector store: {e}")
             raise

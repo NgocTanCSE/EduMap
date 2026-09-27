@@ -14,52 +14,25 @@ except Exception as e:
     print(f"2. pandas FAIL: {e}")
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, HTTPException, BackgroundTasks
     print("3. fastapi OK")
 except Exception as e:
     print(f"3. fastapi FAIL: {e}")
 
-# Import services with error handling
-_llm_service = None
-_db_service = None
-
+# Import services
 try:
-    from services.llm_service import llm_service as _llm_service
-    print(f"4. llm_service OK, is_ready={_llm_service.is_ready}")
+    from services.llm_service import llm_service
+    print(f"4. llm_service OK, is_ready={llm_service.is_ready}")
 except Exception as e:
     print(f"4. llm_service FAIL: {e}")
+    llm_service = None
 
 try:
-    from services.db_service import db_service as _db_service
+    from services.db_service import db_service
     print("5. db_service OK")
 except Exception as e:
     print(f"5. db_service FAIL: {e}")
-
-# Create mocks if services failed
-if _llm_service is None:
-    class MockLLMService:
-        is_ready = False
-        async def chat_with_rag(self, *args, **kwargs): 
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
-        async def analyze_market_trends(self, *args, **kwargs):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
-        async def generate_career_advice(self, *args, **kwargs):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
-    _llm_service = MockLLMService()
-    print("4b. mock llm_service used")
-
-if _db_service is None:
-    class MockDBService:
-        def get_education_stats(self, year=2024):
-            return []
-        def get_user_events(self, limit=1000):
-            return []
-    _db_service = MockDBService()
-    print("5b. mock db_service used")
-
-# Assign to expected names for routers
-llm_service = _llm_service
-db_service = _db_service
+    db_service = None
 
 # Import routers with error handling
 router_modules = {}
@@ -99,25 +72,66 @@ for name, router in router_modules.items():
 # Endpoints
 @app.get("/api/ai/trends")
 async def get_trends():
-    if not llm_service.is_ready:
-        raise HTTPException(503, "AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY để xem xu hướng thị trường.")
-    return await llm_service.analyze_market_trends([{"keyword": "AI"}])
+    if not llm_service or not getattr(llm_service, "is_ready", False):
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY để xem xu hướng thị trường.")
+    try:
+        return await llm_service.analyze_market_trends([{"keyword": "AI"}])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Lỗi khi phân tích xu hướng: {str(e)}")
 
 @app.post("/api/ai/predict")
 async def predict_user(data: dict):
+    if not llm_service or not getattr(llm_service, "is_ready", False):
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
     try:
         return {"status": "success", "recommendation": await llm_service.generate_career_advice(data)}
     except Exception as e:
         print(f"Predict error: {e}")
-        raise HTTPException(503, f"AI Service error: {e}")
+        raise HTTPException(status_code=502, detail=f"AI Service error: {str(e)}")
+
+@app.post("/api/ai/sync-knowledge")
+async def sync_knowledge(background: bool = False, background_tasks: BackgroundTasks = None):
+    """
+    Endpoint đồng bộ dữ liệu từ PostgreSQL sang AI Vector Database (ChromaDB).
+    - background=false (mặc định): Đồng bộ ngay và trả về số lượng tài liệu đã cập nhật.
+    - background=true: Chạy tiến trình đồng bộ ngầm trong nền.
+    """
+    try:
+        from seed_vector_db import seed_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Không thể tải module đồng bộ: {str(e)}")
+
+    if background and background_tasks:
+        background_tasks.add_task(seed_data)
+        return {
+            "status": "processing",
+            "message": "Quá trình đồng bộ tri thức từ Database sang AI Vector Store đang chạy ngầm trong nền."
+        }
+
+    try:
+        result = seed_data()
+        if result.get("status") == "error":
+            raise HTTPException(status_code=502, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Lỗi khi đồng bộ tri thức: {str(e)}")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "ai_ready": llm_service.is_ready}
+    ai_ready = bool(llm_service and getattr(llm_service, "is_ready", False))
+    db_ready = bool(db_service and getattr(db_service, "conn", None) is not None)
+    return {
+        "status": "ok" if ai_ready else "degraded",
+        "ai_ready": ai_ready,
+        "db_ready": db_ready
+    }
 
 @app.get("/metrics")
 async def metrics():
-    return "ai_service_ready 1\n"
+    ai_ready = 1 if (llm_service and getattr(llm_service, "is_ready", False)) else 0
+    return f"ai_service_ready {ai_ready}\n"
 
 @app.get("/")
 async def root():

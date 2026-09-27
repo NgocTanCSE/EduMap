@@ -243,6 +243,13 @@ export class MapService {
     });
 
     const saved = await this.mapPointRepo.save(point);
+    try {
+      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`, {}, { timeout: 3000 }).subscribe({
+        error: (err) => this.logger.warn(`Failed to auto-sync AI knowledge: ${err.message}`),
+      });
+    } catch (e) {
+      // Ignore background sync trigger error
+    }
     return this.mapPointToPoi(saved)!;
   }
 

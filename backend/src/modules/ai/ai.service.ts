@@ -25,6 +25,24 @@ export class AIService {
   }
 
   /**
+   * Kích hoạt đồng bộ tri thức từ Database sang AI Vector Store (ChromaDB) chạy ngầm
+   */
+  triggerKnowledgeSync(): void {
+    try {
+      this.httpService.post(
+        `${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`,
+        {},
+        { timeout: 5000 }
+      ).subscribe({
+        next: () => this.logger.log('Triggered AI knowledge sync in background'),
+        error: (err) => this.logger.warn(`Failed to trigger AI knowledge sync: ${err.message}`),
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to trigger AI knowledge sync: ${error.message}`);
+    }
+  }
+
+  /**
    * Lấy lịch sử chat của người dùng từ Database
    */
   async getUserHistory(userId: string) {

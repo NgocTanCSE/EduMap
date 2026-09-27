@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
+import { Controller, Post, Put, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ScholarshipService } from './scholarship.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -51,5 +51,21 @@ export class ScholarshipController {
       applyDto.personal_statement, 
       applyDto.cv_url
     );
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tạo học bổng mới (Tự động đồng bộ sang AI)' })
+  async create(@Body() createDto: any) {
+    return this.scholarService.createScholarship(createDto);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật học bổng (Tự động đồng bộ sang AI)' })
+  async update(@Param('id') id: string, @Body() updateDto: any) {
+    return this.scholarService.updateScholarship(id, updateDto);
   }
 }

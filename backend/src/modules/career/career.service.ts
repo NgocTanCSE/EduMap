@@ -119,7 +119,9 @@ export class CareerService {
    */
   async createCareerPath(data: any) {
     const career = this.careerPathRepo.create(data);
-    return this.careerPathRepo.save(career);
+    const saved = await this.careerPathRepo.save(career);
+    this.aiService.triggerKnowledgeSync();
+    return saved;
   }
 
   /**
@@ -181,7 +183,9 @@ export class CareerService {
       posted_by_user_id: userId,
       posted_by: user,
     });
-    return this.jobRepo.save(job);
+    const saved = await this.jobRepo.save(job);
+    this.aiService.triggerKnowledgeSync();
+    return saved;
   }
 
   /**

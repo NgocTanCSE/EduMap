@@ -2,11 +2,13 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StemLab } from './entities/stem.entity';
+import { AIService } from '../ai/ai.service';
 
 @Injectable()
 export class StemService {
   constructor(
     @InjectRepository(StemLab) private readonly labRepo: Repository<StemLab>,
+    private readonly aiService: AIService,
   ) {}
 
   /**
@@ -26,7 +28,9 @@ export class StemService {
       location,
       equipment: data.equipment || [],
     });
-    return this.labRepo.save(lab);
+    const saved = await this.labRepo.save(lab);
+    this.aiService.triggerKnowledgeSync();
+    return saved;
   }
 
   /**

@@ -43,6 +43,18 @@ export class AIController {
     return this.aiService.search(query, limit ? parseInt(limit, 10) : 5);
   }
 
+  @Post('sync-knowledge')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kích hoạt đồng bộ tri thức từ DB sang AI Vector Store' })
+  async syncKnowledge() {
+    this.aiService.triggerKnowledgeSync();
+    return {
+      success: true,
+      message: 'Đã kích hoạt đồng bộ dữ liệu sang AI Vector Store thành công.',
+    };
+  }
+
   @Post('learning-path')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -97,4 +97,28 @@ await this.notifyService.sendNotification(
       order: { created_at: 'DESC' }
     });
   }
+
+  /**
+   * Tạo học bổng mới - Tự động đồng bộ tri thức sang AI Vector Store
+   */
+  async createScholarship(data: Partial<Scholarship>) {
+    const scholar = this.scholarRepo.create(data);
+    const saved = await this.scholarRepo.save(scholar);
+    // Tự động kích hoạt đồng bộ sang AI Vector Store chạy ngầm
+    this.aiService.triggerKnowledgeSync();
+    return saved;
+  }
+
+  /**
+   * Cập nhật học bổng - Tự động đồng bộ tri thức sang AI Vector Store
+   */
+  async updateScholarship(id: string, data: Partial<Scholarship>) {
+    const scholar = await this.scholarRepo.findOne({ where: { id } });
+    if (!scholar) throw new NotFoundException('Học bổng không tồn tại');
+    Object.assign(scholar, data);
+    const saved = await this.scholarRepo.save(scholar);
+    // Tự động kích hoạt đồng bộ sang AI Vector Store chạy ngầm
+    this.aiService.triggerKnowledgeSync();
+    return saved;
+  }
 }
