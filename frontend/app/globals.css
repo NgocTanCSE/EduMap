@@ -20,3 +20,13 @@ body {
   background-color: var(--background);
   color: var(--foreground);
 }
+
+/* Leaflet Dark Mode Tile Filter (Watermark-free, 100% Free OpenStreetMap) */
+.leaflet-dark-tiles .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+.leaflet-dark-tiles.leaflet-container {
+  background: #09090b !important;
+}
+

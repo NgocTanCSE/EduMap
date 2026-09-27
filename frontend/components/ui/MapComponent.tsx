@@ -309,15 +309,20 @@ export default function InteractiveMap({
         </button>
       )}
 
+      {/* Fallback to free OpenStreetMap dark-filtered tiles if no Carto API key is set */}
       <MapContainer 
         center={defaultCenter} 
         zoom={13} 
         style={{ height: '100%', width: '100%' }}
-        className="z-0"
+        className={`z-0 ${!process.env.NEXT_PUBLIC_CARTO_API_KEY ? 'leaflet-dark-tiles' : ''}`}
       >
         <TileLayer 
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={
+            process.env.NEXT_PUBLIC_CARTO_API_KEY
+              ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${process.env.NEXT_PUBLIC_CARTO_API_KEY}`
+              : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          } 
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
         {/* Route Polyline */}
