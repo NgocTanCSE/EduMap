@@ -174,8 +174,8 @@ export class MentorService {
     });
   }
 
-  async bookMentor(studentId: string, mentorId: string, slotStart: Date, slotEnd: Date) {
-    if (studentId === mentorId) throw new BadRequestException('Bạn không thể tự đặt lịch với chính mình');
+  async bookSession(userId: string, mentorId: string, slotStart: Date, slotEnd: Date) {
+    if (userId === mentorId) throw new BadRequestException('Bạn không thể tự đặt lịch với chính mình');
 
     const mentor = await this.mentorRepo.findOne({ 
       where: { user_id: mentorId },
@@ -196,7 +196,7 @@ export class MentorService {
 
     const booking = this.bookingRepo.create({
       mentor_id: mentorId,
-      student_id: studentId,
+      student_id: userId,
       slot_start: slotStart,
       slot_end: slotEnd,
       status: 'pending',
@@ -208,7 +208,7 @@ export class MentorService {
     const saved = await this.bookingRepo.save(booking);
 
     await this.notifyService.sendNotification(
-      studentId,
+      userId,
       `Yêu cầu đặt lịch thành công: Bạn đã đặt lịch hẹn với cố vấn ${mentor.user?.full_name}. Vui lòng chờ cố vấn xác nhận.`,
       'in-app'
     );

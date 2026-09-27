@@ -1,5 +1,6 @@
 import { Controller, Post, Patch, Get, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { Public } from 'src/common/decorators/public.decorator';
@@ -10,7 +11,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly mfaService: MfaService,
+  ) {}
 
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -67,7 +71,7 @@ export class AuthController {
       return { success: true, data: { message: '2FA chưa được bật cho tài khoản này.' } };
     }
 
-    const isValid = await this.authService.validatePassword(body.token, user.twoFactorSecret || '', true);
+    const isValid = await this.mfaService.verifyTwoFactor(body.userId, body.token);
     if (!isValid) {
       throw new UnauthorizedException('Mã 2FA không hợp lệ');
     }
@@ -91,7 +95,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Get('me')
   async getProfile(@Req() req: any) {
-    return { success: true, data: { userId: req.user.id || req.user.sub, email: req.user.email } };
+    const profile = await this.authService.getProfile(req.user.id || req.user.sub);
+    return { success: true, data: profile };
   }
 
   @UseGuards(JwtAuthGuard)

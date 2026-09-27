@@ -42,13 +42,13 @@ export class GamificationController {
 
   @Get('my-badges')
   @UseGuards(JwtAuthGuard)
-  async getMyBadges(@Request() req: any) {
+  async getUserBadges(@Request() req: any) {
     try {
-      const progress = await this.gamificationService.getUserProgress(req.user.id);
-      return { success: true, data: progress.achievements };
+      const badges = await this.gamificationService.getUserBadges(req.user.id);
+      return { success: true, data: badges };
     } catch (error) {
-      console.error(`Error getting my badges: ${error.message}`);
-      throw new InternalServerErrorException('Failed to retrieve my badges');
+      console.error(`Error getting user badges: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve user badges');
     }
   }
 

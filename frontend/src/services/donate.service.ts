@@ -111,6 +111,42 @@ class DonateService {
       throw error;
     }
   }
+
+  /**
+   * Tạo URL thanh toán VNPay cho một giao dịch quyên góp
+   * Ánh xạ theo bảng 6.2 — STT 26: POST /api/donations/payment-url (createPaymentUrl)
+   */
+  async createPaymentUrl(
+    amount: number,
+    bankCode?: string,
+    orderInfo?: string,
+    orderType?: string,
+  ): Promise<{ paymentUrl: string }> {
+    const token = authService.getAccessToken();
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập để tạo liên kết thanh toán');
+    }
+
+    try {
+      const response = await fetch(`${this.API_URL}/payment-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount, bankCode, orderInfo, orderType }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Tạo liên kết thanh toán thất bại');
+      }
+      return data.data || data;
+    } catch (error) {
+      console.error("DonateService.createPaymentUrl Error:", error);
+      throw error;
+    }
+  }
 }
 
 export const donateService = new DonateService();

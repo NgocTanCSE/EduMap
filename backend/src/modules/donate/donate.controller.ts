@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DonateService } from './donate.service';
+import { VNPayService } from './vnpay.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('MOD-DONATE: Quyên góp & Hỗ trợ')
 @Controller('donations')
 export class DonateController {
-  constructor(private readonly donateService: DonateService) {}
+  constructor(
+    private readonly donateService: DonateService,
+    private readonly vnpayService: VNPayService,
+  ) {}
 
   @Get('campaigns')
   @ApiOperation({ summary: 'Lấy danh sách các chiến dịch quyên góp' })
@@ -32,6 +36,28 @@ export class DonateController {
   @ApiOperation({ summary: 'Tạo chiến dịch quyên góp mới' })
   async createCampaign(@Body() data: any) {
     return this.donateService.createCampaign(data);
+  }
+
+  @Post('payment-url')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tạo URL thanh toán VNPay (F-20)' })
+  async createPaymentUrl(
+    @Request() req: any,
+    @Body() body: { amount: number; bankCode?: string; orderInfo?: string; orderType?: string },
+  ) {
+    const ipAddr =
+      (req.headers && (req.headers['x-forwarded-for'] as string)) ||
+      req.socket?.remoteAddress ||
+      '127.0.0.1';
+    const paymentUrl = this.vnpayService.createPaymentUrl(
+      ipAddr,
+      Number(body.amount),
+      body.bankCode || '',
+      body.orderInfo || `Donation_${req.user.id}`,
+      body.orderType || 'donation',
+    );
+    return { success: true, data: { paymentUrl } };
   }
 
   @Post()

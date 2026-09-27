@@ -6,6 +6,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { MfaService } from './mfa.service';
 import { User } from './entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 
@@ -19,9 +20,9 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
     }),
     MailerModule,
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, MfaService, JwtStrategy],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule, PassportModule],
+  exports: [AuthService, JwtModule, PassportModule, MfaService],
 })
 export class AuthModule {}
 

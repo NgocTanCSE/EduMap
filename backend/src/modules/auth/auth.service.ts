@@ -164,6 +164,33 @@ export class AuthService {
     });
   }
 
+  /**
+   * Lấy hồ sơ cá nhân của người dùng (không trả về password_hash / secret).
+   * Ánh xạ theo bảng 6.2 — STT 29: auth.service.ts ↳ getProfile()
+   */
+  async getProfile(userId: string): Promise<any> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Người dùng không tồn tại.');
+    }
+    return {
+      userId: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      avatar_url: user.avatar_url,
+      phone: user.phone,
+      bio: user.bio,
+      mbti_type: user.mbti_type,
+      skills: user.skills,
+      interests: user.interests,
+      points: user.points,
+      level: user.level,
+      status: user.status,
+      email_verified: user.email_verified,
+    };
+  }
+
   async validatePassword(password: string, storedSecret: string, isTwoFactor = false): Promise<boolean> {
     if (isTwoFactor) {
       if (!storedSecret) return password.length >= 6;

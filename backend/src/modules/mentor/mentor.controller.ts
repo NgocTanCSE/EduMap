@@ -60,7 +60,7 @@ export class MentorController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đặt lịch hẹn tư vấn với Mentor' })
   async book(@Request() req: any, @Body() body: BookMentorDto) {
-    return this.mentorService.bookMentor(
+    return this.mentorService.bookSession(
       req.user.id,
       body.mentorId,
       new Date(body.slotStart),

@@ -40,6 +40,30 @@ export class GamificationService {
     }
   }
 
+  /**
+   * Lấy danh sách huy hiệu (badge) của người dùng.
+   * Ánh xạ theo bảng 6.2 — STT 25: gamification.service.ts ↳ getUserBadges()
+   */
+  async getUserBadges(userId: string): Promise<any[]> {
+    try {
+      const userBadges = await this.userBadgeRepo.find({
+        where: { user_id: userId },
+        relations: ['badge'],
+      });
+      return userBadges.map(ub => ({
+        id: ub.id,
+        badge_id: ub.badge_id,
+        name: ub.badge?.name,
+        category: ub.badge?.category,
+        rarity: ub.badge?.rarity,
+        earned_at: ub.earned_at,
+      }));
+    } catch (error) {
+      this.logger.error(`Error fetching user badges: ${error.message}`);
+      return [];
+    }
+  }
+
   async getLeaderboard() {
     try {
       const users = await this.userPointRepo

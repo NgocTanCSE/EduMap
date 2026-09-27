@@ -39,7 +39,7 @@ export class GreenService {
     }
   }
 
-  async getAllChallenges() {
+  async getChallenges() {
     try {
       const challenges = await this.challengeRepo.find({
         select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at'],
@@ -69,6 +69,34 @@ export class GreenService {
       this.logger.error(`Error fetching green challenges: ${error.message}`);
       // Return empty array instead of mock data to avoid hardcoded data
       return [];
+    }
+  }
+
+  /**
+   * Ghi nhận hoạt động tham gia thử thách Sống Xanh của người dùng.
+   * Ánh xạ theo bảng 6.2 — STT 24: green.service.ts ↳ logActivity()
+   */
+  async logActivity(userId: string, challengeId: string, carbonSavedKg: number = 0): Promise<any> {
+    try {
+      const pointsEarned = Math.round((carbonSavedKg || 0) * 2);
+      const activity = this.activityRepo.create({
+        user_id: userId,
+        challenge_id: challengeId,
+        carbon_saved_kg: carbonSavedKg,
+        points_earned: pointsEarned,
+      });
+      const saved = await this.activityRepo.save(activity);
+      return {
+        id: saved.id,
+        user_id: saved.user_id,
+        challenge_id: saved.challenge_id,
+        carbon_saved_kg: Number(saved.carbon_saved_kg),
+        points_earned: saved.points_earned,
+        created_at: saved.created_at,
+      };
+    } catch (error) {
+      this.logger.error(`Error logging green activity: ${error.message}`);
+      throw error;
     }
   }
 

@@ -11,6 +11,15 @@ export interface GreenChallenge {
   participants_count: number;
 }
 
+export interface GreenActivityLog {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  carbon_saved_kg: number;
+  points_earned: number;
+  created_at: string;
+}
+
 class GreenService {
   private readonly API_URL = '/api/green';
   private readonly GAMIFICATION_URL = '/api/gamification';
@@ -28,6 +37,37 @@ class GreenService {
       return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error("GreenService.getChallenges Error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ghi nhận hoạt động tham gia thử thách sống xanh
+   * Ánh xạ theo bảng 6.2 — STT 24: POST /api/green/activities (logActivity)
+   */
+  async logActivity(challengeId: string, carbonSavedKg: number = 0): Promise<GreenActivityLog> {
+    const token = authService.getAccessToken();
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập để ghi nhận hoạt động');
+    }
+
+    try {
+      const response = await fetch(`${this.API_URL}/activities`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ challengeId, carbonSavedKg }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Ghi nhận hoạt động thất bại');
+      }
+      return data?.data || data;
+    } catch (error) {
+      console.error("GreenService.logActivity Error:", error);
       throw error;
     }
   }

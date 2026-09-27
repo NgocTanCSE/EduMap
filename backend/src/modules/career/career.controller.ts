@@ -231,7 +231,7 @@ export class CareerController {
   @Get('ai-advice')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy tư vấn nghề nghiệp chuyên sâu từ AI Gemini' })
-  async getAIAdvice(@Request() req) {
+  async getAdvice(@Request() req) {
     return this.careerService.getAICareerAdvice(req.user.id);
   }
 }
