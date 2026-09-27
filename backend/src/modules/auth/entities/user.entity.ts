@@ -40,6 +40,14 @@ export class User {
   @Column({ name: 'role_id', default: 11 })
   role_id: number;
 
+  /** Ngày sinh (Date of Birth) — dùng để tính độ tuổi, lộ trình học tập */
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  date_of_birth: Date;
+
+  /** Ngành học / Chuyên ngành — ví dụ: Công nghệ Thông tin, Kế toán... */
+  @Column({ name: 'major', type: 'varchar', length: 255, nullable: true })
+  major: string;
+
   get role(): UserRole {
     const rolesMap: { [key: number]: UserRole } = {
       1: UserRole.ADMIN,

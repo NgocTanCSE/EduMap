@@ -21,7 +21,9 @@ class StorageService {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải danh sách tập tin');
-      return await response.json();
+      const data = await response.json();
+      // Hỗ trợ cả response bọc trong { success, data } và response raw
+      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error(error);
       throw error;
@@ -45,7 +47,17 @@ class StorageService {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Tải lên thất bại');
-      return data;
+      // Hỗ trợ cả response bọc trong { success, data } và response raw
+      const raw = data.data || data;
+      // Chuẩn hóa trường file_url cho UserFile interface
+      return {
+        id: raw.id || raw.fileName,
+        original_name: raw.original_name || file.name,
+        file_url: raw.file_url || raw.url,
+        mime_type: raw.mime_type || file.type,
+        size_kb: raw.size_kb || 0,
+        created_at: raw.created_at || new Date().toISOString(),
+      };
     } catch (error) {
       console.error(error);
       throw error;

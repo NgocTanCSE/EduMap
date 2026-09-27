@@ -22,6 +22,8 @@ export interface CurrentUser {
   avatar_url?: string;
   phone?: string;
   bio?: string;
+  date_of_birth?: string;
+  major?: string;
 }
 
 class AuthService {
@@ -73,6 +75,43 @@ class AuthService {
 
   getRefreshToken(): string | null {
     return this.refreshToken;
+  }
+
+  /**
+   * Gọi backend GET /api/auth/me để lấy hồ sơ đầy đủ (kèm date_of_birth, major...)
+   * và cập nhật cache người dùng trên thiết bị.
+   */
+  async fetchUserProfile(): Promise<CurrentUser | null> {
+    const token = this.getAccessToken();
+    if (!token) throw new Error('Vui lòng đăng nhập');
+
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Không thể tải hồ sơ người dùng');
+      const data = await response.json();
+      const profile = data.data || data;
+      const userInfo: CurrentUser = {
+        id: profile.userId || profile.id,
+        email: profile.email,
+        fullName: profile.full_name || profile.fullName || '',
+        role: profile.role || UserRole.STUDENT,
+        avatar_url: profile.avatar_url || '',
+        phone: profile.phone || '',
+        bio: profile.bio || '',
+        date_of_birth: profile.date_of_birth || '',
+        major: profile.major || '',
+      };
+      this.currentUser = userInfo;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo));
+      }
+      return userInfo;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      throw error;
+    }
   }
 
 
@@ -196,6 +235,42 @@ class AuthService {
       fullName: authData.full_name || authData.fullName || 'Học sinh EduMap',
       role: (authData.role || UserRole.STUDENT) as UserRole,
       avatar_url: authData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authData.full_name || 'U')}&background=random`,
+      phone: authData.phone || '',
+      bio: authData.bio || '',
+      date_of_birth: authData.date_of_birth || '',
+      major: authData.major || '',
+    };
+    this.setUserInfo(userInfo);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('edumap-auth-login'));
+    }
+    return userInfo;
+  }
+
+  async loginWithGoogle(googleData: { email: string; full_name?: string; avatar_url?: string; role?: UserRole; credential?: string }): Promise<CurrentUser> {
+    const response = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(googleData),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Đăng nhập Google thất bại.');
+    }
+
+    const authData = data.data || data;
+    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const userInfo: CurrentUser = {
+      id: authData.userId || authData.id,
+      email: authData.email,
+      fullName: authData.full_name || authData.fullName || 'Người dùng Google',
+      role: (authData.role || googleData.role || UserRole.STUDENT) as UserRole,
+      avatar_url: authData.avatar_url || googleData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authData.full_name || 'G')}&background=4285F4&color=fff`,
+      phone: authData.phone || '',
+      bio: authData.bio || '',
+      date_of_birth: authData.date_of_birth || '',
+      major: authData.major || '',
     };
     this.setUserInfo(userInfo);
     if (typeof window !== 'undefined') {
@@ -205,7 +280,7 @@ class AuthService {
   }
 
 
-  async updateProfile(updateData: { full_name?: string; phone?: string; bio?: string; avatar_url?: string; skills?: string[]; interests?: string[] }): Promise<any> {
+  async updateProfile(updateData: { full_name?: string; phone?: string; bio?: string; avatar_url?: string; date_of_birth?: string; major?: string; skills?: string[]; interests?: string[] }): Promise<any> {
     try {
       const response = await fetchWithRetry('/api/auth/profile', {
         method: 'PATCH',
@@ -231,6 +306,10 @@ class AuthService {
           fullName: updatedUser.full_name || this.currentUser?.fullName || '',
           role: updatedUser.role || this.currentUser?.role || UserRole.STUDENT,
           avatar_url: updatedUser.avatar_url || this.currentUser?.avatar_url || '',
+          phone: updatedUser.phone || this.currentUser?.phone || '',
+          bio: updatedUser.bio || this.currentUser?.bio || '',
+          date_of_birth: updatedUser.date_of_birth || this.currentUser?.date_of_birth || '',
+          major: updatedUser.major || this.currentUser?.major || '',
         };
         if (typeof window !== 'undefined') {
           localStorage.setItem(USER_INFO_KEY, JSON.stringify(this.currentUser));
@@ -274,6 +353,57 @@ class AuthService {
       console.error("Error refreshing tokens:", error);
       this.logout(); // Logout if refresh fails
       return false;
+    }
+  }
+
+  // === Preferences ===
+  async getPreferences(): Promise<any> {
+    const token = this.getAccessToken();
+    if (!token) throw new Error('Vui lòng đăng nhập');
+
+    try {
+      const response = await fetch('/api/auth/preferences', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Không thể tải cài đặt');
+      const data = await response.json();
+      return data.data || data;
+    } catch (error) {
+      console.error("Error fetching preferences:", error);
+      throw error;
+    }
+  }
+
+  async updatePreferences(prefs: {
+    language?: string;
+    theme?: string;
+    notifications_enabled?: boolean;
+    privacy_level?: string;
+    notification_settings?: string;
+  }): Promise<any> {
+    const token = this.getAccessToken();
+    if (!token) throw new Error('Vui lòng đăng nhập');
+
+    try {
+      const response = await fetchWithRetry('/api/auth/preferences', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        retries: 2,
+        body: JSON.stringify(prefs),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update preferences');
+      }
+
+      const data = await response.json();
+      return data.data || data;
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      throw error;
     }
   }
 }

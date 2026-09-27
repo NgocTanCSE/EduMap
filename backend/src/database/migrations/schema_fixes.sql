@@ -12,7 +12,11 @@
 ALTER TABLE users ADD CONSTRAINT chk_users_email_format 
     CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
 
-ALTER TABLE users ADD CONSTRAINT chk_users_status 
+-- Thêm cột date_of_birth và major nếu chưa tồn tại
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS major VARCHAR(255);
+
+ALTER TABLE users ADD CONSTRAINT chk_users_status
     CHECK (status IN ('active', 'inactive', 'suspended', 'deleted'));
 
 ALTER TABLE users ADD CONSTRAINT chk_users_provider 
@@ -75,6 +79,13 @@ ALTER TABLE events ADD CONSTRAINT chk_events_registered_count
 
 ALTER TABLE events ADD CONSTRAINT chk_events_price 
     CHECK (price >= 0);
+
+-- =====================================================
+-- 2. ADD MISSING PROFILE FIELDS
+-- =====================================================
+
+-- user_preferences: thêm cột lưu cài đặt thông báo chi tiết
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS notification_settings TEXT;
 
 -- Event Registrations constraints
 ALTER TABLE event_registrations ADD CONSTRAINT chk_event_registrations_status 

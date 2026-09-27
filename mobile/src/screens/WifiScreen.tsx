@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { apiService } from '../services/api';
-import { MapPin, Wifi } from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 
 interface WifiLocation {
   id: string;
@@ -41,7 +41,7 @@ export default function WifiScreen() {
   const renderItem = ({ item }: { item: WifiLocation }) => (
     <TouchableOpacity style={styles.card}>
       <View style={styles.iconContainer}>
-        <Wifi color="#06b6d4" size={20} />
+        <MapPin color="#06b6d4" size={20} />
       </View>
       <View style={styles.info}>
         <Text style={styles.name}>{item.name}</Text>

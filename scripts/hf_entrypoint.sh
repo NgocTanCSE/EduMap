@@ -51,6 +51,13 @@ psql -h 127.0.0.1 postgres -c "CREATE USER admin WITH SUPERUSER PASSWORD 'passwo
 createdb -h 127.0.0.1 -O admin edumap_db 2>/dev/null || true
 echo "✅ User and database ready."
 
+# Apply schema updates and ensure missing tables exist
+if [ -f "backend/src/database/phase1_updates.sql" ]; then
+    echo "🔄 Applying phase1_updates.sql schema updates..."
+    PGPASSWORD=password123 psql -h 127.0.0.1 -U admin -d edumap_db -f backend/src/database/phase1_updates.sql 2>/dev/null || true
+    echo "✅ Schema updates applied."
+fi
+
 # --- Redis Setup ---
 echo "--- Step 2: Redis Setup ---"
 redis-server --dir $REDIS_DIR --daemonize yes

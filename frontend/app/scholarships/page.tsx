@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
+import { storageService } from '@/src/services/storage.service';
+import FileUpload from '@/src/components/ui/FileUpload';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 
@@ -28,6 +30,7 @@ export default function ScholarshipPage() {
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
   const [personalStatement, setPersonalStatement] = useState('');
   const [cvUrl, setCvUrl] = useState('');
+  const [cvUploading, setCvUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -152,15 +155,27 @@ export default function ScholarshipPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Link CV / Portfolio *</label>
-                        <input 
+                        <label className="block text-xs font-bold text-white/60 uppercase mb-2 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Link CV / Portfolio hoặc tải lên</label>
+                        <div className="space-y-3">
+                          <input 
                             type="url" 
-                            required
+                            required={!cvUrl}
                             value={cvUrl}
                             onChange={e => setCvUrl(e.target.value)}
-                            placeholder="https://drive.google.com/..."
+                            placeholder="https://drive.google.com/... (dán link CV nếu có)"
                             className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" 
-                        />
+                          />
+                          <div className="text-xs text-white/40">Hoặc tải CV lên máy chủ (PDF, DOC, DOCX - tối đa 10MB):</div>
+                          <FileUpload
+                            accept=".pdf,.doc,.docx"
+                            label="Tải lên CV của bạn"
+                            maxSizeMB={10}
+                            onUploadSuccess={(url) => {
+                              setCvUrl(url);
+                              toast.success('CV đã sẵn sàng! Nhấn XÁC NHẬN NỘP ĐƠN để gửi.');
+                            }}
+                          />
+                        </div>
                     </div>
                     
                     <button 

@@ -25,6 +25,10 @@ export class UserPreference {
   @Column({ default: 'public' })
   privacy_level: string; // public, private
 
+  /** Cài đặt thông báo chi tiết (JSON string): {"push":true,"email":false,"community":true,"career":true} */
+  @Column({ type: 'text', nullable: true })
+  notification_settings: string;
+
   @CreateDateColumn()
   created_at: Date;
 

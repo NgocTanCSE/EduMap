@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# EduMap nationwide crawler — runs every day at 00:00:00 (Ho Chi Minh time).
+# Container TZ=Asia/Ho_Chi_Minh, so 0 0 * * * == 00:00 local.
+0 0 * * * root bash /app/scripts/run_crawl_pipeline.sh >> /app/crawlers/crawled_data/crawl.log 2>&1

@@ -23,4 +23,9 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsEnum(['public', 'private'])
   privacy_level?: string;
+
+  @ApiProperty({ description: 'Cài đặt thông báo chi tiết (JSON)', example: '{"push":true,"email":false,"community":true,"career":true}', required: false })
+  @IsString()
+  @IsOptional()
+  notification_settings?: string;
 }

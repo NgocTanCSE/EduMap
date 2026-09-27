@@ -23,7 +23,7 @@ export default function ScholarshipScreen() {
       else setLoadingMore(true);
       setErrorMsg(null);
 
-      const data = await apiService.getScholarships(pageNum, 10);
+      const data = await apiService.getScholarships({ page: pageNum, limit: 10 });
       const items = data.items || data.data || [];
       const meta = data.meta || {};
 

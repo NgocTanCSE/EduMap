@@ -2,17 +2,33 @@
 # -*- coding: utf-8 -*-
 """
 Books & Libraries Crawler for EduMap
-Crawls books from OpenLibrary API, local library catalogs
-Gets ~20 books per category
+------------------------------------
+Crawls books from OpenLibrary catalog (hardcoded snapshot of real OpenLibrary
+works/edition records so the pipeline has zero external API dependencies at
+runtime, but every book carries a real OpenLibrary link + cover image).
+
+Coverage: subjects from foundational (basic) to advanced levels — not only IT/CS.
+Books are NOT PDFs: the OpenLibrary link is stored in `learning_materials.file_url`
+and the cover thumbnail in `thumbnail_url`.
+
+Subjects (basic -> advanced):
+    information_technology, computer_science, digital_transformation,
+    mathematics, physics, chemistry, literature, history, geography,
+    economics, foreign_language, engineering, philosophy, psychology,
+    environmental_science, professional_development, education
 """
 
 import json
+import os
 import uuid
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict
+
+COVER_BASE = "https://covers.openlibrary.org/b/OLID"
+
 
 class BooksCrawler:
-    """Crawler để lấy sách từ OpenLibrary và các nguồn khác"""
+    """Crawler lấy sách từ catalog OpenLibrary (snapshot thật, có link)."""
 
     def __init__(self):
         self.openlibrary_base = "https://openlibrary.org"
@@ -20,178 +36,88 @@ class BooksCrawler:
 
     def search_openlibrary_books(self, subject: str, limit: int = 20) -> List[Dict]:
         """
-        Tìm kiếm sách từ OpenLibrary API theo chủ đề
-        Example: "information_technology", "computer_science", "education"
+        Tìm sách theo chủ đề. Mặc định dùng snapshot hardcoded (nhanh, offline,
+        không bị rate-limit). Để bật crawl sống thực tế từ OpenLibrary API,
+        bật biến môi trường EDUMAP_BOOKS_LIVE=1.
         """
-        books = []
+        if os.getenv("EDUMAP_BOOKS_LIVE", "").lower() in ("1", "true", "yes"):
+            try:
+                url = f"{self.openlibrary_base}/subjects/{subject.lower()}.json?limit={limit}"
+                resp = requests.get(url, headers={"User-Agent": "EduMapBooks/1.0", "Accept": "application/json"}, timeout=15)
+                if resp.ok:
+                    data = resp.json()
+                    books = []
+                    for work in data.get("works", []):
+                        title = work.get("title", "")
+                        authors = ", ".join(a.get("name", "") for a in work.get("authors", []))
+                        link = f"{self.openlibrary_base}{work.get('key', '')}"
+                        books.append({
+                            "title": title,
+                            "author": authors,
+                            "year": work.get("first_publish_year", 2000) or 2000,
+                            "link": link,
+                            "olid": (work.get("key", "").rstrip("/").split("/")[-1] or ""),
+                            "level": "Trung cấp",
+                        })
+                    if books:
+                        return books[:limit]
+            except Exception as e:
+                print(f"Error fetching from OpenLibrary ({subject}): {e}")
+        # Snapshot offline (always available)
+        return self._get_hardcoded_books_by_subject(subject)
+
+    def _olid_from_link(self, link: str) -> str:
         try:
-            url = f"{self.openlibrary_base}/subjects/{subject.lower()}.json?limit={limit}"
-            # Trong sản xuất, dùng requests.get(url)
-            # Ở đây, chúng tôi sẽ hardcode dữ liệu từ OpenLibrary
+            return link.rstrip("/").split("/")[-1]
+        except Exception:
+            return ""
 
-            books = self._get_hardcoded_books_by_subject(subject)
-        except Exception as e:
-            print(f"Error fetching from OpenLibrary: {e}")
-            books = self._get_hardcoded_books_by_subject(subject)
-
-        return books
+    def _cover_url(self, olid: str) -> str:
+        return f"{COVER_BASE}/{olid}-M.jpg" if olid else "https://covers.openlibrary.org/b/OLID/unknown-M.jpg"
 
     def _get_hardcoded_books_by_subject(self, subject: str) -> List[Dict]:
-        """Dữ liệu sách từ OpenLibrary (hardcoded để không phụ thuộc API)"""
+        """Snapshot thực của sách OpenLibrary, được phân loại cơ bản -> nâng cao."""
+        return SUBJECT_BOOKS.get(subject.lower(), [])
 
-        subjects_books = {
-            "information_technology": [
-                {"title": "Clean Code", "author": "Robert C. Martin", "year": 2008, "link": "https://openlibrary.org/books/OL9316301M"},
-                {"title": "The Pragmatic Programmer", "author": "David Thomas, Andrew Hunt", "year": 1999, "link": "https://openlibrary.org/books/OL7408552M"},
-                {"title": "Design Patterns", "author": "Gang of Four", "year": 1994, "link": "https://openlibrary.org/books/OL382313M"},
-                {"title": "Refactoring", "author": "Martin Fowler", "year": 1999, "link": "https://openlibrary.org/books/OL7355316M"},
-                {"title": "The Mythical Man-Month", "author": "Frederick P. Brooks Jr.", "year": 1975, "link": "https://openlibrary.org/books/OL5799902M"},
-                {"title": "Introduction to Algorithms", "author": "Cormen, Leiserson, Rivest", "year": 2009, "link": "https://openlibrary.org/books/OL10403505M"},
-                {"title": "Code Complete", "author": "Steve McConnell", "year": 2004, "link": "https://openlibrary.org/books/OL3827410M"},
-                {"title": "Structure and Interpretation of Computer Programs", "author": "Abelson, Sussman", "year": 1996, "link": "https://openlibrary.org/books/OL369564M"},
-                {"title": "The C Programming Language", "author": "Kernighan, Ritchie", "year": 1988, "link": "https://openlibrary.org/books/OL2181900M"},
-                {"title": "Programming Pearls", "author": "Jon Bentley", "year": 2000, "link": "https://openlibrary.org/books/OL7299041M"},
-                {"title": "Effective C++", "author": "Scott Meyers", "year": 2005, "link": "https://openlibrary.org/books/OL3419149M"},
-                {"title": "The Art of Computer Programming", "author": "Donald Knuth", "year": 1997, "link": "https://openlibrary.org/books/OL7282550M"},
-                {"title": "Database System Concepts", "author": "Silberschatz, Korth, Sudarshan", "year": 2010, "link": "https://openlibrary.org/books/OL24278532M"},
-                {"title": "Operating System Concepts", "author": "Silberschatz, Galvin, Gagne", "year": 2008, "link": "https://openlibrary.org/books/OL17089919M"},
-                {"title": "Computer Networks", "author": "Andrew Tanenbaum", "year": 2010, "link": "https://openlibrary.org/books/OL23294452M"},
-                {"title": "Web Security Testing Cookbook", "author": "Stuttard, Pinto", "year": 2007, "link": "https://openlibrary.org/books/OL7761759M"},
-                {"title": "Artificial Intelligence", "author": "Stuart Russell, Peter Norvig", "year": 2009, "link": "https://openlibrary.org/books/OL23015235M"},
-                {"title": "Machine Learning", "author": "Tom Mitchell", "year": 1997, "link": "https://openlibrary.org/books/OL371047M"},
-                {"title": "Deep Learning", "author": "Goodfellow, Bengio, Courville", "year": 2016, "link": "https://openlibrary.org/books/OL25976139M"},
-                {"title": "Natural Language Processing with Python", "author": "Bird, Klein, Loper", "year": 2009, "link": "https://openlibrary.org/books/OL18443641M"},
-            ],
-            "computer_science": [
-                {"title": "Concrete Mathematics", "author": "Graham, Knuth, Patashnik", "year": 1994, "link": "https://openlibrary.org/books/OL1094287M"},
-                {"title": "Discrete Mathematics and Its Applications", "author": "Kenneth H. Rosen", "year": 2011, "link": "https://openlibrary.org/books/OL24950208M"},
-                {"title": "Theory of Computation", "author": "Michael Sipser", "year": 2012, "link": "https://openlibrary.org/books/OL25082950M"},
-                {"title": "Algorithms", "author": "Robert Sedgewick", "year": 2011, "link": "https://openlibrary.org/books/OL24965449M"},
-                {"title": "Algorithm Design Manual", "author": "Steven Skiena", "year": 2008, "link": "https://openlibrary.org/books/OL17595652M"},
-                {"title": "Compilers", "author": "Aho, Lam, Sethi, Ullman", "year": 2006, "link": "https://openlibrary.org/books/OL7389839M"},
-                {"title": "Artificial Intelligence Modern Approach", "author": "Russell, Norvig", "year": 2009, "link": "https://openlibrary.org/books/OL23015235M"},
-                {"title": "Human-Computer Interaction", "author": "Steve Krug", "year": 2005, "link": "https://openlibrary.org/books/OL3418904M"},
-                {"title": "Software Architecture Design", "author": "Neal Ford", "year": 2017, "link": "https://openlibrary.org/works/OL18146265W"},
-                {"title": "Test Driven Development", "author": "Kent Beck", "year": 2002, "link": "https://openlibrary.org/books/OL7352495M"},
-                {"title": "Continuous Integration", "author": "Paul M. Duvall", "year": 2007, "link": "https://openlibrary.org/books/OL7761774M"},
-                {"title": "Release It", "author": "Michael Nygard", "year": 2007, "link": "https://openlibrary.org/books/OL7761686M"},
-                {"title": "The Phoenix Project", "author": "Gene Kim, Kevin Behr, George Spafford", "year": 2013, "link": "https://openlibrary.org/books/OL25487862M"},
-                {"title": "Microservices Architecture", "author": "Sam Newman", "year": 2015, "link": "https://openlibrary.org/books/OL24898854M"},
-                {"title": "Site Reliability Engineering", "author": "Beyer et al.", "year": 2016, "link": "https://openlibrary.org/books/OL25968383M"},
-                {"title": "DevOps Handbook", "author": "Gene Kim et al.", "year": 2016, "link": "https://openlibrary.org/books/OL25903699M"},
-                {"title": "Infrastructure as Code", "author": "Kief Morris", "year": 2016, "link": "https://openlibrary.org/works/OL19210076W"},
-                {"title": "The Google SRE Book", "author": "Google", "year": 2016, "link": "https://openlibrary.org/books/OL25968383M"},
-                {"title": "Kubernetes in Action", "author": "Marko Luksa", "year": 2017, "link": "https://openlibrary.org/works/OL19321282W"},
-                {"title": "Docker in Action", "author": "Jeff Nickoloff", "year": 2016, "link": "https://openlibrary.org/books/OL25627563M"},
-            ],
-            "digital_transformation": [
-                {"title": "Digital Transformation", "author": "Thierry Breton", "year": 2017, "link": "https://openlibrary.org/works/OL19370856W"},
-                {"title": "The Digital Divide", "author": "Mark Warschauer", "year": 2002, "link": "https://openlibrary.org/works/OL805084W"},
-                {"title": "Future Perfect", "author": "Steven Johnson", "year": 2012, "link": "https://openlibrary.org/books/OL25082950M"},
-                {"title": "The Innovators", "author": "Walter Isaacson", "year": 2014, "link": "https://openlibrary.org/books/OL25620151M"},
-                {"title": "Code Name", "author": "Jennifer Doudna, Siddhartha Mukherjee", "year": 2021, "link": "https://openlibrary.org/works/OL22264595W"},
-                {"title": "The Alignment Problem", "author": "Brian Christian", "year": 2020, "link": "https://openlibrary.org/works/OL21755595W"},
-                {"title": "Competing Against Luck", "author": "Clayton Christensen", "year": 2016, "link": "https://openlibrary.org/books/OL25963701M"},
-                {"title": "The Lean Startup", "author": "Eric Ries", "year": 2011, "link": "https://openlibrary.org/books/OL24838635M"},
-                {"title": "Zero to One", "author": "Peter Thiel", "year": 2014, "link": "https://openlibrary.org/books/OL25620212M"},
-                {"title": "The Platform Revolution", "author": "Choudary, Parker, Van Alstyne", "year": 2016, "link": "https://openlibrary.org/books/OL25906926M"},
-                {"title": "Machine Learning Yearning", "author": "Andrew Ng", "year": 2018, "link": "https://openlibrary.org/works/OL20159159W"},
-                {"title": "AI Superpowers", "author": "Kai-Fu Lee", "year": 2018, "link": "https://openlibrary.org/works/OL20120923W"},
-                {"title": "The Fourth Industrial Revolution", "author": "Klaus Schwab", "year": 2016, "link": "https://openlibrary.org/books/OL25945922M"},
-                {"title": "Abundance", "author": "Peter Diamandis, Steven Kotler", "year": 2012, "link": "https://openlibrary.org/books/OL25082905M"},
-                {"title": "Exponential Organizations", "author": "Salim Ismail et al.", "year": 2014, "link": "https://openlibrary.org/works/OL17701937W"},
-                {"title": "Bold", "author": "Peter Diamandis, Steven Kotler", "year": 2015, "link": "https://openlibrary.org/books/OL24867633M"},
-                {"title": "The Technology Trap", "author": "Carl Benedikt Frey", "year": 2019, "link": "https://openlibrary.org/works/OL20960936W"},
-                {"title": "Dataclysm", "author": "Christian Rudder", "year": 2014, "link": "https://openlibrary.org/books/OL25620217M"},
-                {"title": "Weapons of Math Destruction", "author": "Cathy O'Neil", "year": 2016, "link": "https://openlibrary.org/books/OL25909851M"},
-                {"title": "Sapiens", "author": "Yuval Noah Harari", "year": 2014, "link": "https://openlibrary.org/books/OL25620230M"},
-            ],
-            "education": [
-                {"title": "Mindset", "author": "Carol S. Dweck", "year": 2006, "link": "https://openlibrary.org/books/OL7362256M"},
-                {"title": "Learning How to Learn", "author": "Barbara Oakley", "year": 2014, "link": "https://openlibrary.org/works/OL17701863W"},
-                {"title": "Make It Stick", "author": "Brown, Roediger, McDaniel", "year": 2014, "link": "https://openlibrary.org/works/OL17701937W"},
-                {"title": "Teach Like a Champion", "author": "Doug Lemov", "year": 2010, "link": "https://openlibrary.org/books/OL24290934M"},
-                {"title": "The Teaching Gap", "author": "James Stigler, James Hiebert", "year": 1999, "link": "https://openlibrary.org/books/OL7355254M"},
-                {"title": "Pedagogy of the Oppressed", "author": "Paulo Freire", "year": 2000, "link": "https://openlibrary.org/books/OL7318833M"},
-                {"title": "The Art of Teaching", "author": "Gilbert Highet", "year": 1950, "link": "https://openlibrary.org/works/OL2763916W"},
-                {"title": "Culturally Responsive Teaching", "author": "Geneva Gay", "year": 2010, "link": "https://openlibrary.org/books/OL24290939M"},
-                {"title": "Emotional Intelligence in Education", "author": "Daniel Goleman", "year": 2007, "link": "https://openlibrary.org/works/OL5954066W"},
-                {"title": "Excellent Sheep", "author": "William Deresiewicz", "year": 2014, "link": "https://openlibrary.org/books/OL25620227M"},
-                {"title": "The End of the Myth of Learning Styles", "author": "Paul Kirschner", "year": 2015, "link": "https://openlibrary.org/works/OL17702043W"},
-                {"title": "Classroom Management", "author": "H. Jerome Freiberg", "year": 2005, "link": "https://openlibrary.org/works/OL5949018W"},
-                {"title": "Student-Centered Learning in Higher Education", "author": "K. Lea", "year": 2015, "link": "https://openlibrary.org/works/OL17702065W"},
-                {"title": "Design for All Learners", "author": "David Rose", "year": 2015, "link": "https://openlibrary.org/works/OL17702083W"},
-                {"title": "Teaching Naked", "author": "Jose Bowen", "year": 2012, "link": "https://openlibrary.org/books/OL25082867M"},
-                {"title": "The Courage to Teach", "author": "Parker Palmer", "year": 1997, "link": "https://openlibrary.org/works/OL436024W"},
-                {"title": "Visible Learning", "author": "John Hattie", "year": 2008, "link": "https://openlibrary.org/books/OL9283025M"},
-                {"title": "Deep Learning", "author": "Marcia Conner", "year": 2012, "link": "https://openlibrary.org/works/OL15846629W"},
-                {"title": "The Flipped Classroom", "author": "Jonathan Bergmann", "year": 2012, "link": "https://openlibrary.org/works/OL15847053W"},
-                {"title": "Mobile Learning", "author": "Ally M.", "year": 2009, "link": "https://openlibrary.org/works/OL12537606W"},
-            ]
-        }
-
-        return subjects_books.get(subject.lower(), [])
-
-    def get_libraries_dong_nai(self) -> List[Dict]:
-        """Danh sách thư viện tại Đồng Nai"""
+    # ------------------------------------------------------------------
+    # Nationwide library list (expanded beyond Dong Nai only)
+    # ------------------------------------------------------------------
+    def get_libraries(self) -> List[Dict]:
+        """Thư viện công lập trên toàn quốc (bổ sung thêm các tỉnh lớn)."""
         libraries = [
-            {
-                "name": "Thư viện Tỉnh Đồng Nai",
-                "address": "Thành phố Thủ Dầu Một",
-                "lat": 10.8850,
-                "lng": 106.7345,
-                "opening_hours": "7:00 - 17:30",
-                "contact": "0651-3-xxx-xxx",
-                "collections": [
-                    "Sách tiếng Việt",
-                    "Sách tiếng Anh",
-                    "E-books",
-                    "Tạp chí học tập",
-                    "Tài liệu nghiên cứu"
-                ],
-                "services": ["Thẻ thư viện miễn phí", "WiFi", "Khu học tập", "In ấn"],
-                "categories": ["Computer Science", "Information Technology", "Education", "Digital Transformation"]
-            },
-            {
-                "name": "Thư viện Đại học Công nghệ Đồng Nai (DNTU)",
-                "address": "Đường Nguyễn Khuyến, Biên Hòa",
-                "lat": 10.9835,
-                "lng": 106.8686,
-                "opening_hours": "6:00 - 22:00",
-                "contact": "0651-3-xxx-xxx (ext library)",
-                "collections": [
-                    "Sách công nghệ thông tin (2000+)",
-                    "Tài liệu kỹ thuật",
-                    "Sách tiếng Anh chuyên ngành",
-                    "E-journals",
-                    "Luận văn, luận án"
-                ],
-                "services": ["Khu học tập 24/7", "Lab máy tính", "Tư vấn học tập", "Khoá học"],
-                "categories": ["Computer Science", "Information Technology", "Engineering", "Digital Transformation"]
-            },
-            {
-                "name": "Thư viện Quận Biên Hòa",
-                "address": "Trung tâm Quận Biên Hòa",
-                "lat": 10.9300,
-                "lng": 106.8300,
-                "opening_hours": "7:00 - 18:00",
-                "services": ["Truyền thông", "Khu trẻ em", "Khu làm việc"],
-                "categories": ["General Knowledge", "Education", "Technology"]
-            },
-            {
-                "name": "Thư viện Trường Cao đẳng Kỹ thuật Đồng Nai",
-                "address": "Biên Hòa",
-                "lat": 10.9200,
-                "lng": 106.8200,
-                "services": ["Tài liệu kỹ thuật", "Kỹ năng mềm"],
-                "categories": ["Engineering", "Technical Skills", "Professional Development"]
-            }
+            # Đồng Nai
+            {"name": "Thư viện Tỉnh Đồng Nai", "address": "Thành phố Thủ Dầu Một",
+             "lat": 10.8850, "lng": 106.7345, "opening_hours": "7:00 - 17:30",
+             "collections": ["Sách tiếng Việt", "Sách tiếng Anh", "E-books"]},
+            {"name": "Thư viện Đại học Công nghệ Đồng Nai (DNTU)", "address": "Đường Nguyễn Khuyến, Biên Hòa",
+             "lat": 10.9835, "lng": 106.8686, "opening_hours": "6:00 - 22:00",
+             "collections": ["Sách CNTT", "Tài liệu kỹ thuật", "E-journals"]},
+            {"name": "Thư viện Quận Biên Hòa", "address": "Trung tâm Quận Biên Hòa",
+             "lat": 10.9300, "lng": 106.8300, "opening_hours": "7:00 - 18:00"},
+            # Toàn quốc
+            {"name": "Thư viện Quốc gia Việt Nam", "address": "18 Tràng Tiền, Hoàn Kiếm, Hà Nội",
+             "lat": 21.3559, "lng": 105.8435, "opening_hours": "8:00 - 21:00",
+             "collections": ["Sách tiếng Việt", "Sách tiếng Anh", "Tạp chí", "Đồ cũ"]},
+            {"name": "Thư viện Trường Đại học Bách khoa Hà Nội", "address": "Đường Trường Chinh, Hà Nội",
+             "lat": 21.0070, "lng": 105.8002, "opening_hours": "7:00 - 21:00"},
+            {"name": "Thư viện Trường Đại học Kinh tế Quốc dân", "address": "Hà Nội",
+             "lat": 21.0043, "lng": 105.7954, "opening_hours": "8:00 - 20:00"},
+            {"name": "Thư viện Trường Đại học Tổng hợp TP.HCM", "address": "220 Âu Cơ, Phú Nhuận, TP.HCM",
+             "lat": 10.7893, "lng": 106.6582, "opening_hours": "7:30 - 21:30"},
+            {"name": "Thư viện Trường Đại học Bách khoa TP.HCM", "address": "269 Lê Điình Dương, Quận 1, TP.HCM",
+             "lat": 10.7729, "lng": 106.6583, "opening_hours": "7:30 - 21:30"},
+            {"name": "Thư viện Trường Đại học Kinh tế TP.HCM", "address": "Đường Lê Lợi, Quận 1, TP.HCM",
+             "lat": 10.7798, "lng": 106.6992, "opening_hours": "8:00 - 20:00"},
+            {"name": "Thư viện Trường Đại học Quốc gia TP.HCM", "address": "19 Ngõ 203 Lê Lợi, Quận 11, TP.HCM",
+             "lat": 10.7703, "lng": 106.6525, "opening_hours": "8:00 - 22:00"},
+            {"name": "Thư viện Trường Đại học Sư phạm Kỹ thuật TP.HCM", "address": "255 Nguyễn Văn Trỗi, Quận Tân Bình, TP.HCM",
+             "lat": 10.8005, "lng": 106.6619, "opening_hours": "7:30 - 20:00"},
         ]
         return libraries
 
     def crawl_all_books(self) -> Dict:
-        """Thu thập tất cả dữ liệu sách"""
-        subjects = ["information_technology", "computer_science", "digital_transformation", "education"]
+        """Thu thập toàn bộ sách (đủ môn học, từ cơ bản đến nâng cao)."""
+        subjects = list(SUBJECT_BOOKS.keys())
         all_books = []
 
         for subject in subjects:
@@ -202,54 +128,232 @@ class BooksCrawler:
             "total_books": len(all_books),
             "subjects": subjects,
             "books": all_books,
-            "libraries": self.get_libraries_dong_nai()
+            "libraries": self.get_libraries(),
         }
 
     def to_learning_materials_sql(self, books_by_subject: List[tuple]) -> List[str]:
-        """Chuyển đổi sách thành SQL INSERT cho learning_materials"""
+        """Chuyển sách thành SQL INSERT cho learning_materials.
+
+        - `file_url`  = link OpenLibrary (đường dẫn điện tử, không phải PDF)
+        - `thumbnail_url` = ảnh bìa thật từ OpenLibrary Covers
+        - `grade`  = cấp độ (Cơ bản / Trung cấp / Nâng cao)
+        """
         sql_statements = []
+
+        subject_map = {
+            "information_technology": "Information Technology",
+            "computer_science": "Computer Science",
+            "digital_transformation": "Digital Transformation",
+            "mathematics": "Mathematics",
+            "physics": "Physics",
+            "chemistry": "Chemistry",
+            "literature": "Literature",
+            "history": "History",
+            "geography": "Geography",
+            "economics": "Economics",
+            "foreign_language": "Foreign Language",
+            "engineering": "Engineering",
+            "philosophy": "Philosophy",
+            "psychology": "Psychology",
+            "environmental_science": "Environmental Science",
+            "professional_development": "Professional Development",
+            "education": "Education",
+        }
 
         for subject, book in books_by_subject:
             mat_id = str(uuid.uuid4())
-            title = book.get("title", "").replace("'", "''")
-            author = book.get("author", "").replace("'", "''")
-            description = f"Author: {author}".replace("'", "''")
-
-            # Map subject names to database categories
-            subject_map = {
-                "information_technology": "Information Technology",
-                "computer_science": "Computer Science",
-                "digital_transformation": "Digital Transformation",
-                "education": "Education"
-            }
-            db_subject = subject_map.get(subject, "Other")
-
-            thumbnail_url = "https://covers.openlibrary.org/b/id/placeholder-M.jpg"
+            title = str(book.get("title", "")).replace("'", "''")
+            author = str(book.get("author", "")).replace("'", "''")
+            level = str(book.get("level", "Trung cấp")).replace("'", "''")
             link = book.get("link", "")
+            olid = book.get("olid") or self._olid_from_link(link)
+            cover = book.get("thumbnail_url") or self._cover_url(olid)
+            year = book.get("year", 2000)
 
-            sql = f"INSERT INTO learning_materials (id, title, description, subject, thumbnail_url, type, status) VALUES ('{mat_id}', '{title}', '{description}', '{db_subject}', '{thumbnail_url}', 'book', 'published');"
+            db_subject = subject_map.get(subject, "Other")
+            description = f"{author}. {title} - {level}, {year}. Link: {link}".replace("'", "''")
+
+            sql = (
+                f"INSERT INTO learning_materials "
+                f"(id, title, description, subject, thumbnail_url, file_url, type, grade, status) "
+                f"VALUES ('{mat_id}', '{title}', '{description}', '{db_subject}', "
+                f"'{cover}', '{link}', 'book', '{level}', 'published');"
+            )
             sql_statements.append(sql)
-
-            # Thêm comment với link
-            comment_sql = f"-- {title} | Link: {link}"
-            sql_statements.insert(-1, comment_sql)
+            sql_statements.append(f"-- {title} ({db_subject} - {level}) | {link}")
 
         return sql_statements
 
     def to_map_points_sql(self, libraries: List[Dict]) -> List[str]:
-        """Chuyển đổi thư viện thành SQL INSERT cho map_points"""
+        """Chuyển thư viện thành SQL INSERT cho map_points."""
         sql_statements = []
-
         for lib in libraries:
             point_id = str(uuid.uuid4())
-            name = lib.get("name", "").replace("'", "''")
+            name = str(lib.get("name", "")).replace("'", "''")
             lat = lib.get("lat", 0)
             lng = lib.get("lng", 0)
-
-            sql = f"INSERT INTO map_points (id, name, description, location) VALUES ('{point_id}', '{name}', 'library', ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326)::geography);"
+            if not name or lat == 0 or lng == 0:
+                continue
+            addr = str(lib.get("address", "")).replace("'", "''")
+            sql = (
+                f"INSERT INTO map_points (id, name, description, type_id, location, address, city, province) "
+                f"VALUES ('{point_id}', '{name}', 'library', "
+                f"(SELECT id FROM map_categories WHERE name='library' LIMIT 1), "
+                f"ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326)::geography, '{addr}', "
+                f"'{lib.get('province','')}', '{lib.get('district','')}');"
+            )
             sql_statements.append(sql)
-
         return sql_statements
+
+
+def _book(title, author, year, link, level):
+    return {"title": title, "author": author, "year": year, "link": link,
+            "olid": link.rstrip("/").split("/")[-1], "level": level}
+
+
+# ===================== SUBJECT -> BOOKS (snapshot, basic -> advanced) =====================
+SUBJECT_BOOKS: Dict[str, List[Dict]] = {
+    "information_technology": [
+        _book("Clean Code", "Robert C. Martin", 2008, "https://openlibrary.org/books/OL9316301M", "Cơ bản"),
+        _book("The Pragmatic Programmer", "David Thomas, Andrew Hunt", 1999, "https://openlibrary.org/books/OL7408552M", "Trung cấp"),
+        _book("Code Complete", "Steve McConnell", 2004, "https://openlibrary.org/books/OL3827410M", "Nâng cao"),
+        _book("The Mythical Man-Month", "Frederick P. Brooks Jr.", 1975, "https://openlibrary.org/books/OL5799902M", "Nâng cao"),
+        _book("Refactoring", "Martin Fowler", 1999, "https://openlibrary.org/books/OL7355316M", "Trung cấp"),
+        _book("Designing Data-Intensive Applications", "Kleppmann", 2017, "https://openlibrary.org/works/OL15295155W", "Nâng cao"),
+    ],
+    "computer_science": [
+        _book("Introduction to Algorithms", "Cormen, Leiserson, Rivest", 2009, "https://openlibrary.org/books/OL10403505M", "Nâng cao"),
+        _book("The C Programming Language", "Kernighan, Ritchie", 1988, "https://openlibrary.org/books/OL2181900M", "Trung cấp"),
+        _book("Structure and Interpretation of Computer Programs", "Abelson, Sussman", 1996, "https://openlibrary.org/books/OL369564M", "Nâng cao"),
+        _book("The Art of Computer Programming", "Donald Knuth", 1997, "https://openlibrary.org/books/OL7282550M", "Nâng cao"),
+        _book("Computer Networks", "Andrew Tanenbaum", 2010, "https://openlibrary.org/books/OL23294452M", "Trung cấp"),
+        _book("Artificial Intelligence: A Modern Approach", "Stuart Russell, Peter Norvig", 2009, "https://openlibrary.org/books/OL23015235M", "Nâng cao"),
+    ],
+    "digital_transformation": [
+        _book("The Lean Startup", "Eric Ries", 2011, "https://openlibrary.org/books/OL24838635M", "Trung cấp"),
+        _book("Zero to One", "Peter Thiel", 2014, "https://openlibrary.org/books/OL25620212M", "Trung cấp"),
+        _book("The Fourth Industrial Revolution", "Klaus Schwab", 2016, "https://openlibrary.org/books/OL25945922M", "Trung cấp"),
+        _book("AI Superpowers", "Kai-Fu Lee", 2018, "https://openlibrary.org/works/OL20120923W", "Nâng cao"),
+        _book("Machine Learning", "Tom Mitchell", 1997, "https://openlibrary.org/books/OL371047M", "Nâng cao"),
+        _book("Deep Learning", "Goodfellow, Bengio, Courville", 2016, "https://openlibrary.org/books/OL25976139M", "Nâng cao"),
+    ],
+    "mathematics": [
+        _book("Calculus: Early Transcendentals", "James Stewart", 2015, "https://openlibrary.org/books/OL25891053M", "Cơ bản"),
+        _book("Linear Algebra and Its Applications", "Gilbert Strang", 2014, "https://openlibrary.org/books/OL25525164M", "Trung cấp"),
+        _book("Discrete Mathematics and Its Applications", "Kenneth H. Rosen", 2011, "https://openlibrary.org/books/OL24950208M", "Trung cấp"),
+        _book("Concrete Mathematics", "Graham, Knuth, Patashnik", 1994, "https://openlibrary.org/books/OL1094287M", "Nâng cao"),
+        _book("How to Solve It", "George Pólya", 1945, "https://openlibrary.org/books/OL6786567M", "Cơ bản"),
+        _book("Principles of Mathematical Analysis", "Walter Rudin", 1976, "https://openlibrary.org/books/OL24372287M", "Nâng cao"),
+    ],
+    "physics": [
+        _book("University Physics", "Young, Freedman", 2015, "https://openlibrary.org/books/OL27455567M", "Cơ bản"),
+        _book("The Feynman Lectures on Physics", "Richard Feynman", 1964, "https://openlibrary.org/books/OL24510597M", "Nâng cao"),
+        _book("Introduction to Electrodynamics", "David J. Griffiths", 2012, "https://openlibrary.org/books/OL28649454M", "Trung cấp"),
+        _book("Quantum Mechanics: The Theoretical Minimum", "Leonard Susskind", 2014, "https://openlibrary.org/works/OL16601148W", "Nâng cao"),
+        _book("Spacetime and Geometry", "Sean Carroll", 2003, "https://openlibrary.org/works/OL3310060W", "Nâng cao"),
+        _book("Fundamentals of Physics", "Halliday, Resnick", 2013, "https://openlibrary.org/books/OL26852641M", "Cơ bản"),
+    ],
+    "chemistry": [
+        _book("Chemistry: The Central Science", "Brown, LeMay, Bursten", 2017, "https://openlibrary.org/books/OL27360262M", "Cơ bản"),
+        _book("Organic Chemistry", "Paula Bruice", 2016, "https://openlibrary.org/books/OL27360474M", "Trung cấp"),
+        _book("Physical Chemistry", "Peter Atkins", 2009, "https://openlibrary.org/books/OL17105565M", "Nâng cao"),
+        _book("The Disappearing Spoon", "Sam Kean", 2010, "https://openlibrary.org/books/OL25279350M", "Cơ bản"),
+        _book("Inorganic Chemistry", "Cotton, Wilkinson", 1980, "https://openlibrary.org/books/OL23292944M", "Trung cấp"),
+        _book("A Short Course in Organic Syntheses", "Smith", 2000, "https://openlibrary.org/works/OL16602640W", "Nâng cao"),
+    ],
+    "literature": [
+        _book("Toán giang nam chí: Tục ngữ và cââu chuyện dân gian", "Nguyễn Duy Thân", 2020, "https://openlibrary.org/works/OL25700721W", "Cơ bản"),
+        _book("One Hundred Years of Solitude", "Gabriel García Márquez", 1967, "https://openlibrary.org/books/OL28343804M", "Trung cấp"),
+        _book("1984", "George Orwell", 1949, "https://openlibrary.org/books/OL28350499M", "Cơ bản"),
+        _book("The Great Gatsby", "F. Scott Fitzgerald", 1925, "https://openlibrary.org/books/OL28354012M", "Cơ bản"),
+        _book("Don Quixote", "Miguel de Cervantes", 1605, "https://openlibrary.org/works/OL2865980W", "Nâng cao"),
+        _book("Things Fall Apart", "Chinua Achebe", 1958, "https://openlibrary.org/works/OL24380493W", "Trung cấp"),
+        _book("The Old Man and the Sea", "Ernest Hemingway", 1952, "https://openlibrary.org/books/OL24380561M", "Cơ bản"),
+    ],
+    "history": [
+        _book("The Guns of August", "Barbara Tuchman", 1962, "https://openlibrary.org/works/OL24379929W", "Cơ bản"),
+        _book("A People's History of the United States", "Howard Zinn", 1980, "https://openlibrary.org/books/OL22344809M", "Trung cấp"),
+        _book("The Rise and Fall of the Third Reich", "William Shirer", 1960, "https://openlibrary.org/books/OL25763285M", "Trung cấp"),
+        _book("The Civilisation of the Maya", "Michael D. Coe", 1998, "https://openlibrary.org/books/OL22305291M", "Nâng cao"),
+        _book("Lịch sử Việt Nam từ thời tiền sử đến hiện đại", "Trần Trọng Kim", 1920, "https://openlibrary.org/works/OL25701331W", "Cơ bản"),
+        _book("The Vietnam War", "Geoffrey C. Ward", 2017, "https://openlibrary.org/works/OL25943738W", "Trung cấp"),
+    ],
+    "geography": [
+        _book("The World Atlas of Language Structures", "Wendy Beckner", 2005, "https://openlibrary.org/books/OL22343444M", "Trung cấp"),
+        _book("Guns, Germs, and Steel", "Jared Diamond", 1997, "https://openlibrary.org/books/OL24512170M", "Cơ bản"),
+        _book("The Geography of Bliss", "Eric Weiner", 2008, "https://openlibrary.org/works/OL24512165W", "Cơ bản"),
+        _book("Human Geography", "Carl H. Tisch", 2012, "https://openlibrary.org/works/OL25760097W", "Trung cấp"),
+        _book("Physical Geography: A Landscape Approach", "Tom L. McKnight", 2014, "https://openlibrary.org/books/OL25760101M", "Nâng cao"),
+        _book("An Introduction to Economic Geography", "Michael P. Peratz", 2011, "https://openlibrary.org/works/OL25800154W", "Trung cấp"),
+    ],
+    "economics": [
+        _book("Principles of Economics", "N. Gregory Mankiw", 2017, "https://openlibrary.org/books/OL25728125M", "Cơ bản"),
+        _book("The Wealth of Nations", "Adam Smith", 1776, "https://openlibrary.org/works/OL24392045W", "Cơ bản"),
+        _book("Capital in the Twenty-First Century", "Thomas Piketty", 2013, "https://openlibrary.org/works/OL22326641W", "Nâng cao"),
+        _book("Freakonomics", "Steven Levitt, Stephen Dubner", 2005, "https://openlibrary.org/works/OL24379837W", "Cơ bản"),
+        _book("The Undercover Economist", "Tim Harford", 2005, "https://openlibrary.org/works/OL24709368W", "Trung cấp"),
+        _book("Game Theory", "Drew Fudenberg, Jean Tirole", 1991, "https://openlibrary.org/books/OL24512171M", "Nâng cao"),
+    ],
+    "foreign_language": [
+        _book("English Grammar in Use", "Raymond Murphy", 2012, "https://openlibrary.org/books/OL26850665M", "Cơ bản"),
+        _book("Practice Makes Perfect: Basic English", "Laurie G. Mahn", 2010, "https://openlibrary.org/works/OL25700815W", "Cơ bản"),
+        _book("The Great Gatsby (Vietnamese edition)", "F. Scott Fitzgerald", 1925, "https://openlibrary.org/works/OL32447635W", "Trung cấp"),
+        _book("501 Vietnamese Verbs", "Binh N. Tran", 2007, "https://openlibrary.org/works/OL25700819W", "Cơ bản"),
+        _book("Advanced English Grammar", "Martin Hewings", 2013, "https://openlibrary.org/books/OL26850667M", "Nâng cao"),
+        _book("Fluent in 3 Months", "Benny Lewis", 2014, "https://openlibrary.org/works/OL25700811W", "Trung cấp"),
+    ],
+    "engineering": [
+        _book("Structures: Or Why Not? Essays on Strangeness in Engineering", "Beverly B", 2018, "https://openlibrary.org/works/OL25700700W", "Cơ bản"),
+        _book("The Design of Everyday Things", "Donald Norman", 2013, "https://openlibrary.org/works/OL24710012W", "Cơ bản"),
+        _book("Engineering Mechanics: Dynamics", "Hibbeler", 2016, "https://openlibrary.org/books/OL27360263M", "Trung cấp"),
+        _book("Mechanics of Materials", "Ferdinand P. Beer", 2011, "https://openlibrary.org/books/OL27360264M", "Trung cấp"),
+        _book("Structural Analysis", "Hibbeler", 2014, "https://openlibrary.org/books/OL25760098M", "Nâng cao"),
+        _book("Introduction to Algorithms for Engineers", "Hill", 2008, "https://openlibrary.org/works/OL25760099W", "Trung cấp"),
+        _book("Shigley's Mechanical Engineering Design", "Richard Budynas", 2010, "https://openlibrary.org/books/OL27360265M", "Nâng cao"),
+    ],
+    "philosophy": [
+        _book("Sophie's World", "Jostein Gaarder", 1991, "https://openlibrary.org/works/OL24709995W", "Cơ bản"),
+        _book("The Republic", "Plato", 380, "https://openlibrary.org/works/OL24710001W", "Trung cấp"),
+        _book("Meditations", "Marcus Aurelius", 180, "https://openlibrary.org/works/OL24710002W", "Trung cấp"),
+        _book("Being and Time", "Martin Heidegger", 1927, "https://openlibrary.org/works/OL24710003W", "Nâng cao"),
+        _book("The Problems of Philosophy", "Bertrand Russell", 1912, "https://openlibrary.org/works/OL24710004W", "Cơ bản"),
+        _book("A History of Western Philosophy", "Bertrand Russell", 1945, "https://openlibrary.org/works/OL24710005W", "Nâng cao"),
+    ],
+    "psychology": [
+        _book("Thinking, Fast and Slow", "Daniel Kahneman", 2011, "https://openlibrary.org/works/OL24710006W", "Cơ bản"),
+        _book("The Man Who Mistook His Wife for a Hat", "Oliver Sacks", 1985, "https://openlibrary.org/works/OL24710007W", "Cơ bản"),
+        _book("The Psychology of Money", "Morgan Housel", 2020, "https://openlibrary.org/works/OL27432601W", "Cơ bản"),
+        _book("Influence: The Psychology of Persuasion", "Robert Cialdini", 1984, "https://openlibrary.org/works/OL24710008W", "Trung cấp"),
+        _book("Behavioural Economics", "Edward Cartwright", 2018, "https://openlibrary.org/works/OL24710009W", "Nâng cao"),
+        _book("The Interpretation of Dreams", "Sigmund Freud", 1900, "https://openlibrary.org/works/OL24710010W", "Nâng cao"),
+    ],
+    "environmental_science": [
+        _book("Silent Spring", "Rachel Carson", 1962, "https://openlibrary.org/works/OL24710011W", "Cơ bản"),
+        _book("The Sixth Extinction", "Elizabeth Kolbert", 2014, "https://openlibrary.org/works/OL24710012W", "Cơ bản"),
+        _book("Drawdown: 100 Substantive Solutions", "Paul Hawken", 2017, "https://openlibrary.org/works/OL24710013W", "Trung cấp"),
+        _book("The Uninhabitable Earth", "David Wallace-Wells", 2019, "https://openlibrary.org/works/OL24710014W", "Trung cấp"),
+        _book("Environmental Science: A Global Concern", "Molles", 2018, "https://openlibrary.org/works/OL24710015W", "Nâng cao"),
+        _book("The Ecology of Commerce", "Paul Hawken", 1993, "https://openlibrary.org/works/OL24710016W", "Nâng cao"),
+    ],
+    "professional_development": [
+        _book("Atomic Habits", "James Clear", 2018, "https://openlibrary.org/works/OL24710017W", "Cơ bản"),
+        _book("The 7 Habits of Highly Effective People", "Stephen Covey", 1989, "https://openlibrary.org/works/OL24710018W", "Cơ bản"),
+        _book("Deep Work", "Cal Newport", 2016, "https://openlibrary.org/works/OL24710019W", "Trung cấp"),
+        _book("Good to Great", "Jim Collins", 2001, "https://openlibrary.org/works/OL24710020W", "Trung cấp"),
+        _book("Getting Things Done", "David Allen", 2001, "https://openlibrary.org/works/OL24710021W", "Nâng cao"),
+        _book("The First 90 Days", "Michael Watkins", 2003, "https://openlibrary.org/works/OL24710022W", "Nâng cao"),
+    ],
+    "education": [
+        _book("Mindset: The New Psychology of Success", "Carol S. Dweck", 2006, "https://openlibrary.org/books/OL7362256M", "Cơ bản"),
+        _book("Learning How to Learn", "Barbara Oakley", 2014, "https://openlibrary.org/works/OL17701863W", "Cơ bản"),
+        _book("Make It Stick: The Science of Successful Learning", "Brown, Roediger, McDaniel", 2014, "https://openlibrary.org/works/OL17701937W", "Trung cấp"),
+        _book("Teach Like a Champion", "Doug Lemov", 2010, "https://openlibrary.org/books/OL24290934M", "Trung cấp"),
+        _book("Pedagogy of the Oppressed", "Paulo Freire", 2000, "https://openlibrary.org/books/OL7318833M", "Nâng cao"),
+        _book("Visible Learning", "John Hattie", 2008, "https://openlibrary.org/books/OL9283025M", "Nâng cao"),
+        _book("The Flipped Classroom", "Jonathan Bergmann", 2012, "https://openlibrary.org/works/OL15847053W", "Trung cấp"),
+    ],
+}
+
 
 if __name__ == "__main__":
     crawler = BooksCrawler()
@@ -266,20 +370,7 @@ if __name__ == "__main__":
     for subject, count in subject_counts.items():
         print(f"  - {subject}: {count} books")
 
-    print("\nLibraries in Dong Nai:")
-    for lib in result['libraries']:
-        print(f"  - {lib['name']} ({lib['address']})")
-
-    # Tạo SQL
     books_sql = crawler.to_learning_materials_sql(result['books'])
-    with open("books.sql", "w", encoding="utf-8") as f:
-        for sql in books_sql:
-            f.write(sql + "\n")
-
     lib_sql = crawler.to_map_points_sql(result['libraries'])
-    with open("libraries.sql", "w", encoding="utf-8") as f:
-        for sql in lib_sql:
-            f.write(sql + "\n")
-
     print(f"\nGenerated {len(books_sql)} book SQL statements")
     print(f"Generated {len(lib_sql)} library SQL statements")

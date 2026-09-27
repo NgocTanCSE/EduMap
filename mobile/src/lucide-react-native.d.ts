@@ -32,6 +32,7 @@ declare module 'lucide-react-native' {
   export const Trash2: LucideIcon;
   export const Settings: LucideIcon;
   export const LogOut: LucideIcon;
+  export const Key: LucideIcon;
   export const Star: LucideIcon;
   export const Trophy: LucideIcon;
   export const Shield: LucideIcon;

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserCertificate, CertificateStatus } from './entities/user-certificate.entity';
@@ -9,6 +9,8 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class CertificateService {
+  private readonly logger = new Logger(CertificateService.name);
+
   constructor(
     @InjectRepository(UserCertificate) private readonly certRepo: Repository<UserCertificate>,
     @InjectRepository(CertificateTemplate) private readonly templateRepo: Repository<CertificateTemplate>,
@@ -114,15 +116,23 @@ export class CertificateService {
   }
 
   async getUserPortfolio(userId: string) {
-    const certs = await this.certRepo.find({
-      where: { user_id: userId, status: CertificateStatus.ACTIVE },
-      relations: ['template', 'template.organization'],
-      order: { issued_at: 'DESC' },
-    });
+    try {
+      const certs = await this.certRepo.find({
+        where: { user_id: userId, status: CertificateStatus.ACTIVE },
+        relations: ['template', 'template.organization'],
+        order: { issued_at: 'DESC' },
+      });
 
-    return {
-      total: certs.length,
-      certificates: certs,
-    };
+      return {
+        total: certs.length,
+        certificates: certs,
+      };
+    } catch (error: any) {
+      this.logger.warn(`Could not load user certificates: ${error?.message || error}`);
+      return {
+        total: 0,
+        certificates: [],
+      };
+    }
   }
 }

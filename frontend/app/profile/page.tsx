@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal } from 'lucide-react';
+import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal, Calendar, Briefcase } from 'lucide-react';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { gamificationService, UserProgress, LeaderboardUser } from '@/src/services/gamification.service';
+import { storageService } from '@/src/services/storage.service';
+import FileUpload from '@/src/components/ui/FileUpload';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -13,16 +15,18 @@ export default function ProfilePage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [profileForm, setProfileForm] = useState({ full_name: '', phone: '', bio: '', avatar_url: '' });
+  const [profileForm, setProfileForm] = useState({ full_name: '', phone: '', bio: '', avatar_url: '', date_of_birth: '', major: '' });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState({
     notif_push: true,
     notif_email: false,
     notif_community: true,
     notif_career: true,
   });
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
     fetchProfileData();
@@ -31,7 +35,8 @@ export default function ProfilePage() {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const currentUser = authService.getUser();
+      // Lấy hồ sơ đầy đủ từ backend (bao gồm date_of_birth, major)
+      const currentUser = await authService.fetchUserProfile();
       setUser(currentUser);
 
       if (currentUser) {
@@ -40,7 +45,25 @@ export default function ProfilePage() {
           phone: (currentUser as any).phone || '',
           bio: (currentUser as any).bio || '',
           avatar_url: currentUser.avatar_url || '',
+          date_of_birth: (currentUser as any).date_of_birth || '',
+          major: (currentUser as any).major || '',
         });
+
+        // Tải cài đặt thông báo từ backend
+        try {
+          const prefs = await authService.getPreferences();
+          if (prefs) {
+            setNotificationPrefs({
+              notif_push: true,
+              notif_email: false,
+              notif_community: true,
+              notif_career: true,
+              ...(prefs.notification_settings ? JSON.parse(prefs.notification_settings) : {}),
+            });
+          }
+        } catch (e) {
+          // Dùng giá trị mặc định nếu chưa có cài đặt
+        }
 
         const [progressData, badgesData, leaderboardData] = await Promise.all([
             gamificationService.getMyProgress(),
@@ -53,8 +76,13 @@ export default function ProfilePage() {
       } else {
         window.location.href = '/auth/login';
       }
-    } catch (error) {
-      toast.error('Không thể tải thông tin hồ sơ');
+    } catch (error: any) {
+      // Nếu lỗi xác thực (token hết hạn/401) thì redirect về login
+      if (error.message?.includes('401') || error.message?.includes('Không thể tải hồ sơ')) {
+        authService.logout();
+      } else {
+        toast.error('Không thể tải thông tin hồ sơ');
+      }
     } finally {
       setLoading(false);
     }
@@ -114,11 +142,52 @@ export default function ProfilePage() {
           <div className="bg-card border border-white/5 rounded-[40px] p-8 relative overflow-hidden flex flex-col md:flex-row gap-8 items-center md:items-start shadow-xl">
             <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none" />
             
-            <div className="relative group cursor-pointer shrink-0">
+            <div className="relative group cursor-pointer shrink-0" onClick={() => !uploadingAvatar && document.getElementById('avatar-upload-input')?.click()}>
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-yellow-500/30">
                 <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+              {uploadingAvatar && (
+                <div className="absolute -bottom-2 -right-2">
+                  <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                </div>
+              )}
             </div>
+            {/* Hidden file input for avatar upload */}
+            <input
+              id="avatar-upload-input"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                  toast.error('Chỉ chấp nhận file ảnh (jpg, png, gif...)');
+                  return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                  toast.error('Kích thước ảnh không được vượt quá 5MB');
+                  return;
+                }
+                try {
+                  setUploadingAvatar(true);
+                  const uploaded = await storageService.uploadFile(file);
+                  const avatarUrl = uploaded.file_url;
+                  if (avatarUrl) {
+                    setProfileForm({ ...profileForm, avatar_url: avatarUrl });
+                    toast.success('Ảnh đã sẵn sàng! Nhấn "Lưu thay đổi" để cập nhật.');
+                  }
+                } catch (err: any) {
+                  toast.error(err.message || 'Tải ảnh lên thất bại');
+                } finally {
+                  setUploadingAvatar(false);
+                  e.target.value = '';
+                }
+              }}
+            />
             
             <div className="flex-1 text-center md:text-left space-y-3 relative z-10">
               <h1 className="text-3xl font-black">{user.fullName}</h1>
@@ -222,17 +291,21 @@ export default function ProfilePage() {
                     <form onSubmit={async (e) => {
                       e.preventDefault();
                       try {
-                        const formData = new FormData(e.target as HTMLFormElement);
+                        setSavingProfile(true);
                         await authService.updateProfile({
                           full_name: profileForm.full_name,
                           phone: profileForm.phone,
                           bio: profileForm.bio,
                           avatar_url: profileForm.avatar_url,
+                          date_of_birth: profileForm.date_of_birth,
+                          major: profileForm.major,
                         });
                         toast.success('Cập nhật hồ sơ thành công!');
                         setUser(authService.getUser());
                       } catch (err) {
                         toast.error('Cập nhật hồ sơ thất bại');
+                      } finally {
+                        setSavingProfile(false);
                       }
                     }} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -241,7 +314,7 @@ export default function ProfilePage() {
                           <input
                             type="text"
                             name="full_name"
-                            defaultValue={user?.fullName || ''}
+                            value={profileForm.full_name}
                             onChange={(e) => setProfileForm({...profileForm, full_name: e.target.value})}
                             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors"
                           />
@@ -251,29 +324,63 @@ export default function ProfilePage() {
                           <input
                             type="tel"
                             name="phone"
-                            defaultValue={user?.phone || ''}
+                            value={profileForm.phone}
                             onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
                             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors"
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="block text-xs font-bold text-white/60 uppercase tracking-widest">Avatar URL</label>
-                        <input
-                          type="url"
-                          name="avatar_url"
-                          defaultValue={user?.avatar_url || ''}
-                          onChange={(e) => setProfileForm({...profileForm, avatar_url: e.target.value})}
-                          placeholder="https://..."
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors"
-                        />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-2"><Calendar className="w-4 h-4 text-yellow-500" /> Ngày sinh</label>
+                          <input
+                            type="date"
+                            name="date_of_birth"
+                            value={profileForm.date_of_birth || ''}
+                            onChange={(e) => setProfileForm({...profileForm, date_of_birth: e.target.value})}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-2"><Briefcase className="w-4 h-4 text-yellow-500" /> Ngành học</label>
+                          <input
+                            type="text"
+                            name="major"
+                            value={profileForm.major}
+                            onChange={(e) => setProfileForm({...profileForm, major: e.target.value})}
+                            placeholder="VD: Công nghệ Thông tin, Kinh tế..."
+                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors"
+                          />
+                        </div>
                       </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-white/60 uppercase tracking-widest flex items-center gap-2"><Camera className="w-4 h-4 text-yellow-500" /> Ảnh đại diện (Upload ảnh)</label>
+                        <div className="text-sm text-white/40 mb-2">
+                          {profileForm.avatar_url ? (
+                            <span className="text-green-400">✓ Đã chọn ảnh (nhấn Lưu để cập nhật)</span>
+                          ) : (
+                            <span>Chọn ảnh jpg/png từ máy (tối đa 5MB)</span>
+                          )}
+                        </div>
+                        <FileUpload
+                          accept="image/*"
+                          label="Tải lên ảnh đại diện"
+                          maxSizeMB={5}
+                          onUploadSuccess={(url) => setProfileForm({...profileForm, avatar_url: url})}
+                        />
+                        {!profileForm.avatar_url && (
+                          <p className="text-xs text-white/30 mt-1">Nếu không tải lên, hệ thống sẽ tạo ảnh mặc định từ tên của bạn.</p>
+                        )}
+                      </div>
+
                       <div className="space-y-2">
                         <label className="block text-xs font-bold text-white/60 uppercase tracking-widest">Giới thiệu bản thân</label>
                         <textarea
                           name="bio"
                           rows={4}
-                          defaultValue={user?.bio || ''}
+                          value={profileForm.bio}
                           onChange={(e) => setProfileForm({...profileForm, bio: e.target.value})}
                           placeholder="Viết vài dòng về bản thân..."
                           className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-yellow-500 outline-none transition-colors resize-none"
@@ -370,10 +477,10 @@ export default function ProfilePage() {
                     </h2>
                     <div className="space-y-4">
                       {[
-                        { id: 'notif_push', label: 'Thông báo đẩy (Push)', desc: 'Nhận thông báo trực tiếp trên trình duyệt', checked: true },
-                        { id: 'notif_email', label: 'Thông báo qua Email', desc: 'Nhận email tóm tắt hoạt động hàng tuần', checked: false },
-                        { id: 'notif_community', label: 'Cộng đồng & Bài viết', desc: 'Thông báo khi có bình luận hoặc like', checked: true },
-                        { id: 'notif_career', label: 'Cơ hội nghề nghiệp', desc: 'Thông báo việc làm và học bổng phù hợp', checked: true },
+                        { id: 'notif_push', label: 'Thông báo đẩy (Push)', desc: 'Nhận thông báo trực tiếp trên trình duyệt' },
+                        { id: 'notif_email', label: 'Thông báo qua Email', desc: 'Nhận email tóm tắt hoạt động hàng tuần' },
+                        { id: 'notif_community', label: 'Cộng đồng & Bài viết', desc: 'Thông báo khi có bình luận hoặc like' },
+                        { id: 'notif_career', label: 'Cơ hội nghề nghiệp', desc: 'Thông báo việc làm và học bổng phù hợp' },
                       ].map((pref) => (
                         <div key={pref.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
                           <div>
@@ -390,6 +497,27 @@ export default function ProfilePage() {
                         </div>
                       ))}
                     </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setSavingPrefs(true);
+                          await authService.updatePreferences({
+                            notification_settings: JSON.stringify(notificationPrefs),
+                          });
+                          toast.success('Đã lưu cài đặt thông báo!');
+                        } catch (err) {
+                          toast.error('Lưu cài đặt thất bại');
+                        } finally {
+                          setSavingPrefs(false);
+                        }
+                      }}
+                      disabled={savingPrefs}
+                      className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {savingPrefs ? 'Đang lưu...' : 'Lưu cài đặt thông báo'}
+                    </button>
                   </div>
                 </section>
               )}

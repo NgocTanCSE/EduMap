@@ -3,11 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { UserPreference } from './entities/user-preference.entity';
 import { JwtService } from '@nestjs/jwt';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +19,8 @@ export class AuthService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(PasswordResetToken)
     private readonly resetTokenRepo: Repository<PasswordResetToken>,
+    @InjectRepository(UserPreference)
+    private readonly preferenceRepo: Repository<UserPreference>,
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
   ) {}
@@ -102,6 +106,77 @@ export class AuthService {
     };
   }
 
+  /**
+   * Đăng nhập / Đăng ký tự động qua Google Account
+   * Đồng bộ avatar, tên, email và gán vai trò (role) được chọn
+   */
+  async googleLogin(data: { email: string; full_name?: string; avatar_url?: string; role?: UserRole }): Promise<any> {
+    const { email, full_name, avatar_url, role } = data;
+
+    if (!email) {
+      throw new BadRequestException('Email từ tài khoản Google là bắt buộc.');
+    }
+
+    let user = await this.userRepo.findOne({
+      where: { email },
+    });
+
+    if (user) {
+      // Đã có tài khoản: Cập nhật thông tin mới nhất từ Google
+      let changed = false;
+      if (full_name && user.full_name !== full_name) {
+        user.full_name = full_name;
+        changed = true;
+      }
+      if (avatar_url && user.avatar_url !== avatar_url) {
+        user.avatar_url = avatar_url;
+        changed = true;
+      }
+      if (role && user.role !== role) {
+        user.role = role;
+        changed = true;
+      }
+      user.last_login = new Date();
+      if (changed) {
+        await this.userRepo.save(user);
+      }
+    } else {
+      // Người dùng mới: Tự động khởi tạo tài khoản với Google Profile
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const salt = await bcrypt.genSalt(10);
+      const password_hash = await bcrypt.hash(randomPassword, salt);
+
+      const newUser = this.userRepo.create({
+        email,
+        full_name: full_name || email.split('@')[0],
+        avatar_url: avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(full_name || email)}&background=4285F4&color=fff`,
+        password_hash,
+        role: role || UserRole.STUDENT,
+        status: 'active',
+        email_verified: true,
+        last_login: new Date(),
+      });
+
+      user = await this.userRepo.save(newUser);
+    }
+
+    const payload = { 
+      email: user.email, 
+      sub: user.id, 
+      role: user.role 
+    };
+
+    return {
+      userId: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      avatar_url: user.avatar_url,
+      role: user.role,
+      access_token: this.jwtService.sign(payload),
+      message: 'Đăng nhập Google thành công!',
+    };
+  }
+
   async forgotPassword(email: string): Promise<any> {
     const user = await this.userRepo.findOne({ where: { email } });
     if (!user) {
@@ -181,6 +256,8 @@ export class AuthService {
       avatar_url: user.avatar_url,
       phone: user.phone,
       bio: user.bio,
+      date_of_birth: user.date_of_birth,
+      major: user.major,
       mbti_type: user.mbti_type,
       skills: user.skills,
       interests: user.interests,
@@ -207,7 +284,7 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('Nguoi dung khong ton tai.');
     }
-    const allowedFields = ['full_name', 'avatar_url', 'phone', 'bio', 'mbti_type', 'skills', 'interests'];
+    const allowedFields = ['full_name', 'avatar_url', 'phone', 'bio', 'date_of_birth', 'major', 'mbti_type', 'skills', 'interests'];
     const updates: any = {};
     for (const field of allowedFields) {
       if (updateData[field] !== undefined) {
@@ -227,6 +304,8 @@ export class AuthService {
       avatar_url: updatedUser.avatar_url,
       phone: updatedUser.phone,
       bio: updatedUser.bio,
+      date_of_birth: updatedUser.date_of_birth,
+      major: updatedUser.major,
       mbti_type: updatedUser.mbti_type,
       skills: updatedUser.skills,
       interests: updatedUser.interests,
@@ -235,6 +314,51 @@ export class AuthService {
       access_token: this.jwtService.sign(payload),
       message: 'Cap nhat thong tin thanh cong!',
     };
+  }
+
+  /**
+   * Cập nhật tù preferences (ngôn ngữ, theme, thông báo...) của người dùng
+   */
+  async updatePreferences(userId: string, dto: UpdatePreferencesDto): Promise<any> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Nguoi dung khong ton tai.');
+    }
+
+    let prefs = await this.preferenceRepo.findOne({ where: { user_id: userId } });
+    if (!prefs) {
+      prefs = this.preferenceRepo.create({ user_id: userId });
+    }
+
+    const allowed: (keyof UpdatePreferencesDto)[] = ['language', 'theme', 'notifications_enabled', 'privacy_level', 'notification_settings'];
+    for (const field of allowed) {
+      if (dto[field] !== undefined) {
+        (prefs as any)[field] = dto[field];
+      }
+    }
+
+    await this.preferenceRepo.save(prefs);
+    return { ...prefs };
+  }
+
+  /**
+   * Lấy cài đặt preferences của người dùng (ngôn ngữ, theme, thông báo...)
+   */
+  async getPreferences(userId: string): Promise<any> {
+    let prefs = await this.preferenceRepo.findOne({ where: { user_id: userId } });
+    if (!prefs) {
+      // Tạo mặc định nếu chưa có
+      prefs = this.preferenceRepo.create({
+        user_id: userId,
+        language: 'vi',
+        theme: 'dark',
+        notifications_enabled: true,
+        privacy_level: 'public',
+        notification_settings: JSON.stringify({ push: true, email: false, community: true, career: true }),
+      });
+      await this.preferenceRepo.save(prefs);
+    }
+    return { ...prefs };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<any> {

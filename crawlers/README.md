@@ -15,10 +15,21 @@ This module contains crawlers to collect various types of data for the EduMap sy
 ## Data Coverage
 
 ### Geographic Focus
-- **Province**: Đồng Nai (Dong Nai)
-- **Main City**: Biên Hòa (Bien Hoa)
-- **Key Institution**: DNTU (Trường Đại học Công nghệ Đồng Nai)
-- **Industrial Hub**: Amata Industrial Park
+- **Entire Vietnam** (nationwide real crawl) via the Overpass API (OpenStreetMap).
+- The map is split into **5 regions** (North, North-Central, Central, South-Central,
+  South) and queried with combined category queries to avoid Overpass timeouts.
+- Each nightly run also merges **native** reference data (libraries, schools,
+  green spaces) — including detailed Đông Nai / DNTU points which act as
+  high-quality supplements to the nationwide OpenStreetMap feed.
+- Real-time WiFi hotspots (`internet_access=wlan`) are now fetched **nationwide**
+  (previously only Đông Nai).
+
+### Data Sources
+- **OpenStreetMap / Overpass API** → real, nationwide POIs (schools, universities,
+  libraries, hospitals, parks, green spaces, tourism, transport, food/shops, WiFi).
+- **OpenLibrary** → real book records (link + cover), 17 subjects.
+- **Native hard-coded reference sets** → high-fidelity local points (DNTU campus,
+  Đồng Nai institutions, …) used to enrich/fill gaps in OSM data.
 
 ### Data Types
 
@@ -36,23 +47,23 @@ This module contains crawlers to collect various types of data for the EduMap sy
 - Environmental initiatives
 - Agro-tourism sites
 
-#### Books (80+ books)
-Categories:
-- Information Technology (20 books)
-- Computer Science (20 books)
-- Digital Transformation (20 books)
-- Education (20 books)
+#### Books (100+ books, 17 subjects)
+Every book carries a **real OpenLibrary link** (`file_url` — a web link, never a PDF)
+and a **real cover thumbnail** (`thumbnail_url`). Subjects span foundational →
+advanced levels:
+- Information Technology, Computer Science, Digital Transformation
+- Mathematics, Physics, Chemistry
+- Literature, History, Geography, Economics
+- Foreign Language, Engineering, Philosophy, Psychology
+- Environmental Science, Professional Development, Education
 
-#### Libraries (4+ libraries)
-- Provincial Library
-- DNTU Library
-- District Libraries
+#### Libraries (11 libraries)
+- Nationwide public + university libraries (National Library of VN, ĐHQG HN/HCM,
+  Bách khoa HN/HCM, Kinh tế, …) and Đồng Nai provincial libraries.
 
-#### Educational Institutions (20+ locations)
-- Universities (2)
-- Secondary Schools (5+)
-- Training Centers (4+)
-- DNTU Specific Spaces (4+)
+#### Educational Institutions (nationwide + Đông Nai detail)
+- All Vietnamese universities, secondary schools & training centers via Overpass
+  (real OSM data), plus high-fidelity Đông Nai / DNTU reference points.
 
 ## Usage
 
@@ -176,6 +187,35 @@ Easy to add more crawlers by following the pattern:
 3. Provide SQL generation methods
 4. Integrate with aggregator
 
+## Automated Scheduling (Docker)
+
+A nightly **cron** job reloads the database with the latest real crawled data
+every day at **00:00:00 (Asia/Ho_Chi_Minh)**:
+
+```bash
+docker compose up -d crawler
+```
+
+The `crawler` service (`crawlers/Dockerfile`) runs `scripts/run_crawl_pipeline.sh`
+at 00:00 via cron (see `crawlers/crontab`). The pipeline:
+
+1. `python aggregator.py` → nationwide Overpass + native + books
+2. Stages `seed_crawled_data.sql` (consolidated real data)
+3. `python scripts/execute_db_setup.py` → **DROP SCHEMA + rebuild** with
+   `schema.sql` + `seed.sql` + `seed_crawled_data.sql` + analytics seed +
+   Python seed scripts, then deduplicates `map_points` (full refresh = always
+   latest).
+4. (Optional) refreshes the Chroma vector DB from the freshly loaded books.
+
+Run it **once now** to populate the DB with real nationwide data:
+
+```bash
+docker compose run --rm crawler /app/scripts/run_crawl_pipeline.sh
+```
+
+> The container also performs a best-effort crawl on start if
+> `EDUMAP_CRAWLER_BOOT_RUN=1` is set (default in `docker-compose.yml`).
+
 ## Extending the Crawlers
 
 ### Add New Data Source
@@ -259,16 +299,17 @@ git push origin main
 - **Total Learning Materials**: 80+
 
 ### Coverage Area
-- Geographic: Dong Nai Province, Vietnam
-- Thematic: Education, Technology, Sustainability, Innovation
+- Geographic: **All of Vietnam** (via Overpass OSM), with Đồng Nai / DNTU points as
+  native high-quality supplements.
+- Thematic: Education, Technology, Sustainability, Innovation, Books, WiFi,
+  Tourism/Transport, Food & Services, Healthcare.
 
 ## Future Enhancements
 
-- [ ] Real web scraping integration
-- [ ] API connections (OpenLibrary, Google Maps)
-- [ ] Scheduling for periodic data updates
+- [x] Real web scraping integration (Overpass API → nationwide OSM data)
+- [x] Scheduling for periodic data updates (Docker cron, daily 00:00:00)
 - [ ] Data validation pipeline
-- [ ] Duplicate detection
+- [ ] Duplicate detection (map_points dedup already runs in execute_db_setup)
 - [ ] Data versioning
 
 ## License

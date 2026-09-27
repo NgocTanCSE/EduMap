@@ -8,6 +8,7 @@ import asyncio
 
 router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
 
+@router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     # Chỉ trả về trả lời THẬT từ AI — bỏ lời nhắn "bảo trì" mẫu

@@ -9,10 +9,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { MfaService } from './mfa.service';
 import { User } from './entities/user.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { UserPreference } from './entities/user-preference.entity';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, PasswordResetToken]),
+    TypeOrmModule.forFeature([User, PasswordResetToken, UserPreference]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'edumap-default-secret-key-change-in-production',

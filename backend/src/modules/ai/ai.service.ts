@@ -48,7 +48,7 @@ export class AIService {
   async getUserHistory(userId: string) {
     try {
       return await this.historyRepo.find({
-        where: { user: { id: userId } },
+        where: { userId: userId },
         order: { createdAt: 'ASC' },
         take: 50
       });
@@ -349,10 +349,10 @@ throw new HttpException(
       if (userId) {
         try {
           const newChat = this.historyRepo.create({
+            userId: userId,
             message: message,
             response: aiReply,
             context: systemContext,
-            user: { id: userId } as any
           });
           await this.historyRepo.save(newChat);
         } catch (saveError) {
@@ -361,11 +361,21 @@ throw new HttpException(
       }
 
       return response.data;
-    } catch (error) {
-      this.logger.error(`Error in AI Chat: ${error.message}`);
+    } catch (error: any) {
+      const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
+      const detail = error?.response?.data?.detail 
+        || error?.response?.data?.message 
+        || error?.message;
+
+      this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);
+
+      if (error?.response?.data?.detail) {
+        throw new HttpException(error.response.data.detail, status);
+      }
+
       throw new HttpException(
-        'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL is configured correctly.',
-        HttpStatus.SERVICE_UNAVAILABLE,
+        detail || 'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and GEMINI_API_KEY are configured correctly.',
+        status,
       );
     }
   }

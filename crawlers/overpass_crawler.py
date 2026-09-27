@@ -43,7 +43,7 @@ class OverpassCrawler:
 
     def __init__(self, proxy_url: str = None):
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "EduMapNationwide/1.0"})
+        self.session.headers.update({"User-Agent": "EduMapNationwide/1.0", "Accept": "application/json"})
         self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
         if self.proxies:
             self.session.proxies.update(self.proxies)
@@ -203,25 +203,51 @@ class OverpassCrawler:
     # Nationwide crawl methods
     # ------------------------------------------------------------------
 
+    # Tile size (degrees) used when crawling a region. Keeps every Overpass
+    # request small enough (~50km) to avoid 504/timeout on large regions.
+    tile_size: float = 0.5
+
+    def _iter_tiles(self, bbox: str, size: float = None) -> List[str]:
+        """Split a bbox into smaller tiles to avoid Overpass timeouts on large regions."""
+        size = size or self.tile_size
+        parts = [float(x) for x in bbox.split(",")]
+        s, w, n, e = parts[0], parts[1], parts[2], parts[3]
+        tiles = []
+        lat = s
+        while lat < n:
+            lon = w
+            while lon < e:
+                t_s = lat
+                t_w = lon
+                t_n = min(lat + size, n)
+                t_e = min(lon + size, e)
+                tiles.append(f"{t_s},{t_w},{t_n},{t_e}")
+                lon += size
+            lat += size
+        return tiles
+
+    def _fetch_tiled(self, query_fn, bbox: str, label: str) -> List[Dict]:
+        """Run a category query_fn over each tile of bbox, aggregating results."""
+        tiles = self._iter_tiles(bbox)
+        total = 0
+        combined: List[Dict] = []
+        for i, tile in enumerate(tiles, 1):
+            data = query_fn(tile)
+            combined.extend(data)
+            total += len(data)
+            if i % 5 == 0 or i == len(tiles):
+                print(f"      {label}: {i}/{len(tiles)} tiles, {total} records so far")
+        return combined
+
     def _crawl_region(self, region_name: str, bbox: str) -> List[Dict]:
-        """Crawl all categories for a single region using combined queries."""
+        """Crawl all categories for a single region, tiled to avoid timeouts."""
         print(f"\n  [{region_name.upper()}] bbox={bbox}")
-        all_locs = []
+        all_locs: List[Dict] = []
 
-        print(f"    Education + Health...")
-        data1 = self.fetch_all_education_health(bbox)
-        all_locs.extend(data1)
-        print(f"    -> {len(data1)} records")
-
-        print(f"    Food + Shops...")
-        data2 = self.fetch_all_food_shops(bbox)
-        all_locs.extend(data2)
-        print(f"    -> {len(data2)} records")
-
-        print(f"    Tourism + Transport + Services...")
-        data3 = self.fetch_all_tourism_transport(bbox)
-        all_locs.extend(data3)
-        print(f"    -> {len(data3)} records")
+        all_locs.extend(self._fetch_tiled(self.fetch_all_education_health, bbox, "Edu+Health"))
+        all_locs.extend(self._fetch_tiled(self.fetch_all_food_shops,      bbox, "Food+Shops"))
+        all_locs.extend(self._fetch_tiled(self.fetch_all_tourism_transport, bbox, "Tourism+Transport"))
+        all_locs.extend(self._fetch_tiled(self.fetch_wifi,                 bbox, "WiFi"))
 
         print(f"  Region total: {len(all_locs)}")
         return all_locs

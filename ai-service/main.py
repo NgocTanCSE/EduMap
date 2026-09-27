@@ -34,40 +34,34 @@ except Exception as e:
     print(f"5. db_service FAIL: {e}")
     db_service = None
 
-# Import routers with error handling
-router_modules = {}
+# Create FastAPI app
+try:
+    app = FastAPI(title="EduMap AI Service")
+    print("FastAPI app created")
+except Exception as e:
+    print(f"FastAPI app FAIL: {e}")
+    raise
+
+# Import and include routers with robust error handling
 router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive']
 
 for name in router_names:
     try:
-        module = __import__(f'routers.{name}', fromlist=[name])
-        router_modules[name] = getattr(module, name, None)
-        print(f"6. router.{name} OK")
-    except Exception as e:
-        router_modules[name] = None
-        print(f"6. router.{name} FAIL: {e}")
-
-print("7. All routers attempted")
-
-# Create FastAPI app
-try:
-    app = FastAPI(title="EduMap AI Service")
-    print("8. FastAPI app created")
-except Exception as e:
-    print(f"8. FastAPI app FAIL: {e}")
-    raise
-
-# Include routers
-for name, router in router_modules.items():
-    if router:
-        try:
+        module = __import__(f'routers.{name}', fromlist=['router'])
+        r = getattr(module, 'router', None)
+        if r is not None:
             if name == 'chat':
-                app.include_router(router.router, prefix="/api/ai")
+                app.include_router(r, prefix="/api/ai")
+            elif name == 'suggestions':
+                app.include_router(r, prefix="/api/ai")
             else:
-                app.include_router(router.router)
-            print(f"9. router.{name} included")
-        except Exception as e:
-            print(f"9. router.{name} include FAIL: {e}")
+                app.include_router(r)
+            print(f"Router routers.{name} included successfully")
+        else:
+            print(f"Router module routers.{name} does not have 'router' attribute")
+    except Exception as e:
+        print(f"Router routers.{name} include FAIL: {e}")
+
 
 # Endpoints
 @app.get("/api/ai/trends")

@@ -44,7 +44,7 @@ export class StorageService implements OnModuleInit {
       'Content-Type': mimeType,
     });
     
-    const fileUrl = `/media/${objectName}`;
+    const fileUrl = `/api/storage/media/${objectName}`;
 
     // Save to database
     const userFile = this.fileRepo.create({
@@ -59,10 +59,11 @@ export class StorageService implements OnModuleInit {
 
     return {
       id: userFile.id,
-      fileName: objectName,
-      url: fileUrl,
       original_name: fileName,
-      size_kb: userFile.size_kb
+      file_url: fileUrl,
+      mime_type: mimeType,
+      size_kb: userFile.size_kb,
+      created_at: userFile.created_at,
     };
   }
 
@@ -71,6 +72,30 @@ export class StorageService implements OnModuleInit {
           where: { user_id: userId },
           order: { created_at: 'DESC' }
       });
+  }
+
+  /**
+   * Stream một file từ MinIO ra response HTTP (để frontend truy cập trực tiếp)
+   */
+  async serveFile(objectName: string): Promise<Buffer> {
+    try {
+      const exists = await this.minioClient.bucketExists(this.bucketName);
+      if (!exists) {
+        throw new NotFoundException('Bucket không tồn tại');
+      }
+      const data = await this.minioClient.getObject(this.bucketName, objectName);
+      const chunks: Buffer[] = [];
+      for await (const chunk of data) {
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    } catch (error: any) {
+      if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+        throw new NotFoundException('Không tìm thấy tập tin');
+      }
+      this.logger.error('Error serving file:', error);
+      throw new NotFoundException('Không tìm thấy tập tin');
+    }
   }
 
   async deleteFile(userId: string, fileId: string) {

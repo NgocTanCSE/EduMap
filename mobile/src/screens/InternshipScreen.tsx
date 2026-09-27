@@ -23,7 +23,7 @@ export default function InternshipScreen() {
       else setLoadingMore(true);
       setErrorMsg(null);
 
-      const data = await apiService.getInternships(pageNum, 10);
+      const data = await apiService.getInternships({ page: pageNum, limit: 10 });
       const items = data.items || data.data || [];
       const meta = data.meta || {};
 
