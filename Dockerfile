@@ -49,6 +49,7 @@ RUN wget https://dl.min.io/aistor/minio/release/linux-amd64/minio -O /usr/local/
 
 # Install OSRM
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
     g++ \
     cmake \
     libboost-all-dev \
@@ -65,7 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && make -j$(nproc) \
     && make install \
     && rm -rf /tmp/osrm-backend \
-    && apt-get remove -y g++ cmake libboost-all-dev liblua5.3-dev libstxxl-dev libxml2-dev libz-dev libtbb-dev libosmpbf-dev libbz2-dev \
+    && apt-get remove -y git g++ cmake libboost-all-dev liblua5.3-dev libstxxl-dev libxml2-dev libz-dev libtbb-dev libosmpbf-dev libbz2-dev \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
