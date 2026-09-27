@@ -53,6 +53,7 @@ import { FeatureModule } from './modules/feature/feature.module';
 import { RoleModule } from './modules/role/role.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { PinModule } from './modules/pin/pin.module';
 import { BlockchainModule } from './modules/blockchain/blockchain.module';
 
 @Module({
@@ -148,6 +149,7 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
     CrawlerModule,
     AnalyticsModule,
     PaymentModule,
+    PinModule,
     BlockchainModule,
   ],
   providers: [

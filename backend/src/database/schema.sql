@@ -120,6 +120,31 @@ CREATE TABLE map_points (
 CREATE INDEX idx_map_points_location ON map_points USING GIST(location);
 CREATE INDEX idx_map_points_type ON map_points(type_id);
 
+-- 7.5. pins (dang tin len ban do: su kien, quang ca, green, sach, wifi...)
+CREATE TABLE pins (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    type VARCHAR(50) DEFAULT 'event', -- event|ad|green|book|wifi|note|other
+    poster_name VARCHAR(255),
+    posted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    location GEOMETRY(Geometry, 4326), -- Point (cho co su kien) hoac LineString (tu khu nao den khu kia)
+    city VARCHAR(255),
+    district VARCHAR(255),
+    province VARCHAR(255),
+    status VARCHAR(100) DEFAULT 'pending', -- pending|published|rejected (quan tri vien duyet)
+    photos JSONB,
+    tags JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT chk_pins_type CHECK (type IN ('event','ad','green','book','wifi','note','other')),
+    CONSTRAINT chk_pins_status CHECK (status IN ('pending','published','rejected'))
+);
+CREATE INDEX idx_pins_location ON pins USING GIST(location);
+CREATE INDEX idx_pins_posted_by ON pins(posted_by);
+CREATE INDEX idx_pins_status_type ON pins(status, type);
+
 -- 7. map_reviews
 CREATE TABLE map_reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
