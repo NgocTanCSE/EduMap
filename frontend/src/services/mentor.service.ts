@@ -37,10 +37,10 @@ class MentorService {
     return this.fetchWithAuth(`${API_BASE_URL}/mentors/${mentorId}/slots?date=${queryDate}`);
   }
 
-  async bookMentor(mentorId: string, slotStart: string, slotEnd: string) {
+  async bookMentor(mentorId: string, slot: { start: string; end: string }) {
     return this.fetchWithAuth(`${API_BASE_URL}/book`, {
       method: 'POST',
-      body: JSON.stringify({ mentorId, slotStart, slotEnd }),
+      body: JSON.stringify({ mentorId, slot }),
     });
   }
 

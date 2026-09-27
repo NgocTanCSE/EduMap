@@ -56,6 +56,13 @@ export default function Header() {
       }
     };
     window.addEventListener('storage', handleStorageChange);
+
+    // Listen for custom same-tab login and logout events
+    const handleCustomAuth = () => {
+      checkAuth();
+    };
+    window.addEventListener('edumap-auth-login', handleCustomAuth);
+    window.addEventListener('edumap-auth-logout', handleCustomAuth);
     
     // Re-check auth when tab becomes visible (for same-tab logout in another component)
     const handleVisibilityChange = () => {
@@ -67,6 +74,8 @@ export default function Header() {
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('edumap-auth-login', handleCustomAuth);
+      window.removeEventListener('edumap-auth-logout', handleCustomAuth);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);

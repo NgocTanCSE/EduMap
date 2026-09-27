@@ -10,5 +10,5 @@ export function getBackendUrl(): string {
     return apiUrl;
   }
 
-  return 'http://localhost:3000';
+  return process.env.BACKEND_URL || 'http://127.0.0.1:3001';
 }

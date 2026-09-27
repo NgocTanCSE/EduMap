@@ -63,8 +63,7 @@ export class MentorController {
     return this.mentorService.bookSession(
       req.user.id,
       body.mentorId,
-      new Date(body.slotStart),
-      new Date(body.slotEnd)
+      { start: new Date(body.slot.start), end: new Date(body.slot.end) }
     );
   }
 

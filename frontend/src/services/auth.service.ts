@@ -6,21 +6,6 @@ export const ACCESS_TOKEN_KEY = 'edumap-access-token';
 export const REFRESH_TOKEN_KEY = 'edumap-refresh-token';
 export const USER_INFO_KEY = 'edumap-user-info';
 
-// --- DEMO MODE: Auto-login bypass ---
-// When no real token exists in storage, the service auto-seeds a mock JWT
-// and user profile so the entire frontend is accessible without logging in.
-// The backend JWT guard will still reject API calls that require a real token,
-// but all client-side route protection is bypassed.
-export const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJlbWFpbCI6Imd1ZXN0QGVkdW1hcC5sb2NhbCIsInJvbGUiOiJhZG1pbiIsImZ1bGxfbmFtZSI6Ikd1ZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTcwMDAwMDAwMH0.signature';
-
-export const MOCK_USER: CurrentUser = {
-  id: 'demo-user',
-  email: 'guest@edumap.local',
-  fullName: 'Guest User',
-  role: 'admin' as UserRole,
-  avatar_url: 'https://ui-avatars.com/api/?name=Guest+User&background=random',
-};
-
 interface DecodedToken {
   sub: string;
   email: string;
@@ -49,21 +34,24 @@ class AuthService {
     if (typeof window !== 'undefined') {
       this.accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
       this.refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      
+      // Auto-cleanup any old/fake demo tokens from browser cache
+      if (this.accessToken && (this.accessToken.includes('signature') || this.accessToken.includes('demo-user'))) {
+        this.clearAuthData();
+        return;
+      }
+
       const userInfoString = localStorage.getItem(USER_INFO_KEY);
       if (userInfoString) {
         try {
           this.currentUser = JSON.parse(userInfoString);
+          if (this.currentUser?.id === 'demo-user') {
+            this.clearAuthData();
+          }
         } catch (error) {
           console.error("Failed to parse user info from localStorage:", error);
           this.clearAuthData();
         }
-      }
-
-      // DEMO MODE: If no real token exists, auto-seed a mock user so the
-      // entire frontend is accessible without going through the login flow.
-      if (!this.accessToken) {
-        this.setTokens(MOCK_TOKEN, MOCK_TOKEN);
-        this.setUserInfo(MOCK_USER);
       }
     }
   }
@@ -162,6 +150,11 @@ class AuthService {
     if (!token) {
       return false;
     }
+    // Auto-purge any stale fake demo tokens
+    if (token.includes('signature') || token.includes('demo-user')) {
+      this.clearAuthData();
+      return false;
+    }
     const decoded = this.parseJwt(token);
     if (!decoded || !decoded.exp) {
       return false;
@@ -177,14 +170,40 @@ class AuthService {
 
   logout() {
     this.clearAuthData();
-    // DEMO MODE: Re-seed mock auth immediately so the app stays usable
-    // without requiring the user to go through the login flow again.
-    this.setTokens(MOCK_TOKEN, MOCK_TOKEN);
-    this.setUserInfo(MOCK_USER);
     if (typeof window !== 'undefined') {
-      window.location.href = '/'; // Redirect to home instead of login
+      window.dispatchEvent(new Event('edumap-auth-logout'));
+      window.location.href = '/auth/login';
     }
   }
+
+  async loginWithCredentials(email: string, password: string): Promise<any> {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Đăng nhập thất bại.');
+    }
+
+    const authData = data.data || data;
+    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const userInfo: CurrentUser = {
+      id: authData.userId || authData.id,
+      email: authData.email,
+      fullName: authData.full_name || authData.fullName || 'Học sinh EduMap',
+      role: (authData.role || UserRole.STUDENT) as UserRole,
+      avatar_url: authData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authData.full_name || 'U')}&background=random`,
+    };
+    this.setUserInfo(userInfo);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('edumap-auth-login'));
+    }
+    return userInfo;
+  }
+
 
   async updateProfile(updateData: { full_name?: string; phone?: string; bio?: string; avatar_url?: string; skills?: string[]; interests?: string[] }): Promise<any> {
     try {

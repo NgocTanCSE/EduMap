@@ -174,7 +174,9 @@ export class MentorService {
     });
   }
 
-  async bookSession(userId: string, mentorId: string, slotStart: Date, slotEnd: Date) {
+  async bookSession(userId: string, mentorId: string, slot: { start: Date; end: Date }) {
+    const slotStart = slot.start;
+    const slotEnd = slot.end;
     if (userId === mentorId) throw new BadRequestException('Bạn không thể tự đặt lịch với chính mình');
 
     const mentor = await this.mentorRepo.findOne({ 

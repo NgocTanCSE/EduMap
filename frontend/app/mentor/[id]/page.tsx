@@ -68,7 +68,7 @@ export default function MentorDetailPage() {
         const slotStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(startParts[0]), parseInt(startParts[1]));
         const slotEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), parseInt(endParts[0]), parseInt(endParts[1]));
 
-        await mentorService.bookMentor(mentorId, slotStart.toISOString(), slotEnd.toISOString());
+        await mentorService.bookMentor(mentorId, { start: slotStart.toISOString(), end: slotEnd.toISOString() });
         setBookingSuccess(true);
         toast.success('Đặt lịch thành công! Vui lòng chờ Mentor xác nhận.');
     } catch (error: any) {
