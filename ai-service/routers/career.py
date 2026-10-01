@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+import json
 
 router = APIRouter(prefix="/api/ai/career", tags=["2. Career Recommendation"])
 
@@ -28,7 +29,8 @@ async def recommend_career(request_data: dict):
         skills = request_data.get('skills', [])
         career_aspirations = request_data.get('career_aspirations', [])
         holland_code = request_data.get('holland_code', '')
-        json = lambda self: request_data
+        def json(self):
+            return json.dumps(request_data, default=str)
 
     try:
         ai_results = await llm_service.recommend_career(FakeRequest())

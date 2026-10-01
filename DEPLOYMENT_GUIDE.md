@@ -188,7 +188,7 @@ curl http://localhost:8000/docs
 
 2. **Automatic deployment**
    - GitHub Actions triggers automatically
-   - Dockerfile.hf renamed to Dockerfile
+   - Hugging Face Spaces dùng `Dockerfile` gốc (Unified) ở thư mục gốc repo để build toàn bộ stack (Postgres + Redis + Backend + Frontend + AI). Các module con không còn giữ `Dockerfile.hf` riêng.
    - Code pushed to HF Space
    - Database initialized with seed data
 

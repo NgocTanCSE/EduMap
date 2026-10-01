@@ -23,14 +23,27 @@ export class StorageService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    // MinIO may be unavailable in local/dev environments (no server running on
+    // 127.0.0.1:9000). The MinIO SDK can hang indefinitely on a refused/closed
+    // port (internal retry loop), which would block the entire NestJS bootstrap.
+    // Race the init against a timeout so the app always boots and storage only
+    // degrades gracefully instead of stalling startup.
     try {
-      const exists = await this.minioClient.bucketExists(this.bucketName);
-      if (!exists) {
-        await this.minioClient.makeBucket(this.bucketName);
-        this.logger.log(`Bucket '${this.bucketName}' created successfully.`);
-      }
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('MinIO initialization timed out (5s)')), 5000),
+      );
+      const init = (async () => {
+        const exists = await this.minioClient.bucketExists(this.bucketName);
+        if (!exists) {
+          await this.minioClient.makeBucket(this.bucketName);
+          this.logger.log(`Bucket '${this.bucketName}' created successfully.`);
+        } else {
+          this.logger.log(`MinIO bucket '${this.bucketName}' exists.`);
+        }
+      })();
+      await Promise.race([init, timeout]);
     } catch (error) {
-      this.logger.error('Error initializing MinIO:', error);
+      this.logger.warn(`StorageService: MinIO unavailable, storage disabled (${(error as Error).message}).`);
     }
   }
 

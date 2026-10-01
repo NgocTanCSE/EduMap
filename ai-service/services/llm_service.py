@@ -8,7 +8,12 @@ try:
     from services.cache_service import cache_service
 except Exception as e:
     print(f"Cache service import failed: {e}")
-    cache_service = None
+    class _NoOpCache:
+        def get(self, *a, **k):
+            return None
+        def set(self, *a, **k):
+            pass
+    cache_service = _NoOpCache()
 try:
     from models.career_models import CareerAnalysisRequest
 except Exception:
@@ -52,8 +57,25 @@ class LLMService:
             print("ERROR: GEMINI_API_KEY chua cau hinh. Dan Google API key (AIza...) vao GEMINI_API_KEY trong .env.")
             print("GEMINI_MODEL mac dinh: gemini-3.8-flash.")
 
+    # 404-style reasons that mean the model name itself is wrong/unavailable,
+    # so we should move on to the next candidate instead of retrying it.
+    # (429 = rate limit -> go to next model immediately; 502/503/504 = transient
+    #  -> retry once on the same model, then move on.)
+    _MODEL_NOT_FOUND_REASONS = ("not found", "not supported", "no longer available", "model not found", "could not find")
+
+    def _is_model_not_found(self, code, message):
+        low = (message or "").lower()
+        return code == 404 or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
+
     def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Goi Google :generateContent (urllib). Thu tu model trong GEMINI_MODEL (CSV); 404 -> thu ke."""
+        """Goi Google :generateContent (urllib). Thu tu model trong GEMINI_MODEL (CSV).
+
+        - 404 / model not found -> thu model ke tiep ngay (loi model, khong retry).
+        - 429 / 502 / 503 / 504 -> loi tam thai: retry cung model sau backoff ngan,
+          roi moi chuyen sang model tiep theo. Tranh that bai vi mot model bi qua tai.
+        - 401 / 403 -> loi xac thuc: dung ngay.
+        """
+        import time as _time
         if not self.is_ready:
             raise RuntimeError("AI Service chua san sang. Cau hinh GEMINI_API_KEY (Google).")
         cfg = {}
@@ -68,34 +90,49 @@ class LLMService:
             payload["generationConfig"] = cfg
         body_json = json.dumps(payload).encode("utf-8")
         last_err = None
+        per_model_retries = 1  # 429 thi chuyen model ngay; 503 chi retry 1 lan roi chuyen model
         for model in self.model_candidates:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
             req = urllib.request.Request(url, data=body_json, headers={"Content-Type": "application/json"}, method="POST")
-            try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as e:
-                b = e.read().decode("utf-8", "ignore")
-                low = b.lower()
-                if e.code == 404 or "not found" in low or "not supported" in low or "no longer available" in low:
-                    last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); continue
-                if e.code in (401, 403):
-                    raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {b[:200]}")
-                raise RuntimeError(f"Google Gemini API loi (HTTP {e.code}): {b[:200]}")
-            except Exception as e:
-                raise RuntimeError(f"Error calling Google Gemini API: {e}")
-            if "error" in data:
-                err = data["error"]; code = err.get("code"); msg = err.get("message", ""); mlow = msg.lower()
-                if code == 404 or "not found" in mlow or "not supported" in mlow or "no longer available" in mlow:
-                    last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); continue
-                raise RuntimeError(f"Google Gemini API error: {err}")
-            cands = data.get("candidates") or []
-            if not cands:
-                last_err = f"{model}: khong co candidate"; continue
-            text = "".join("".join(pt.get("text","") for pt in c.get("content",{}).get("parts",[])) for c in cands).strip()
-            if text:
-                return text
-            last_err = f"{model}: tra ve empty text"
+            attempt = 0
+            while True:
+                attempt += 1
+                try:
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                except urllib.error.HTTPError as e:
+                    b = e.read().decode("utf-8", "ignore")
+                    if self._is_model_not_found(e.code, b):
+                        last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); break  # next model
+                    if e.code in (401, 403):
+                        raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {b[:200]}")
+                    if e.code == 429:
+                        last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Gemini model {model} bi rate-limit (429), khong retry cung model, thu ke tiep..."); break  # rate limit -> next model
+                    if e.code in (502, 503, 504) and attempt <= per_model_retries:
+                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Gemini model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Gemini model {model} {e.code}, thu model ke tiep..."); break
+                except Exception as e:
+                    if attempt <= per_model_retries:
+                        last_err = f"{model}: {e}"; print(f"Loi ket noi {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                    last_err = f"{model}: {e}"; print(f"Loi ket noi {model}, thu model ke tiep..."); break
+                # Success path: inspect response body
+                if "error" in data:
+                    err = data["error"]; code = err.get("code"); msg = err.get("message", "")
+                    if self._is_model_not_found(code, msg):
+                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); break
+                    if code == 429:
+                        last_err = f"{model}: {msg[:80]}"; print(f"Gemini model {model} bi rate-limit (429), thu ke tiep..."); break
+                    if code in (502, 503, 504) and attempt <= per_model_retries:
+                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} {code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: {msg[:80]}"; print(f"Gemini model {model} {code}, thu model ke tiep..."); break
+                cands = data.get("candidates") or []
+                if not cands:
+                    last_err = f"{model}: khong co candidate"; break
+                text = "".join("".join(pt.get("text","") for pt in c.get("content",{}).get("parts",[])) for c in cands).strip()
+                if text:
+                    return text
+                last_err = f"{model}: tra ve empty text"; break
+            # end while True (per-model retries)
             continue
         raise RuntimeError(f"Khong the sinh noi dung tu Gemini. Loi: {last_err}")
 
@@ -110,7 +147,7 @@ class LLMService:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
 
         # Kiểm tra Cache
-        cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {{}})}".encode()).hexdigest()
+        cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
         cached_res = cache_service.get(cache_key)
         if cached_res:
             return cached_res

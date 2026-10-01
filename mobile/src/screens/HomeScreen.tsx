@@ -13,6 +13,8 @@ type Props = ScreenProps<'Home'>;
 export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
+  const [scholarshipCount, setScholarshipCount] = useState<number | null>(null);
+  const [mentorCount, setMentorCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,6 +22,18 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
       try {
         const data = await apiService.get('/ai/analytics/stats');
         setStats(data);
+        try {
+          const scholarships = await apiService.getScholarships({ page: 1, limit: 1 });
+          setScholarshipCount(scholarships?.meta?.totalItems ?? scholarships?.total ?? (Array.isArray(scholarships?.items) ? scholarships.items.length : null) ?? null);
+        } catch (e) {
+          setScholarshipCount(null);
+        }
+        try {
+          const mentors = await apiService.getMentors();
+          setMentorCount(mentors?.meta?.totalItems ?? mentors?.total ?? (Array.isArray(mentors) ? mentors.length : null) ?? null);
+        } catch (e) {
+          setMentorCount(null);
+        }
       } catch (err) {
         console.error('Failed to load stats:', err);
       } finally {
@@ -65,11 +79,11 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
           <Text style={styles.statLabel}>Học bổng</Text>
-          <Text style={statsCardValue}>84</Text>
+          <Text style={statsCardValue}>{scholarshipCount ?? '—'}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: '#FDE2F3' }]}>
           <Text style={styles.statLabel}>Mentor</Text>
-          <Text style={statsCardValue}>42</Text>
+          <Text style={statsCardValue}>{mentorCount ?? '—'}</Text>
         </View>
       </View>
 

@@ -1,0 +1,11 @@
+# Mobile build artifacts
+web-build/
+dist/
+node_modules/
+.expo/
+.expo-shared/
+.cache/
+
+# Generated
+*.log
+npm-debug.log*

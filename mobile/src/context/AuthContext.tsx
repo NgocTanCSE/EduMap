@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser((prev) =>
         prev
           ? { ...prev, fullName: data.full_name, email: data.email }
-          : { id: data.id, email: data.email, fullName: data.full_name, role: data.role }
+          : { id: data.userId || data.id, email: data.email, fullName: data.full_name, role: data.role }
       );
     }
     return res;

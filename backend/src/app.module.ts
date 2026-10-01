@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
 import { APP_GUARD } from '@nestjs/core';
+import { memoryStore } from 'cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { HttpModule } from '@nestjs/axios';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -13,6 +14,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.ad
 import { join } from 'path';
 
 // === CORE MODULES ===
+import { HealthController } from './modules/health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { AIModule } from './modules/ai/ai.module';
 import { MapModule } from './modules/map/map.module';
@@ -60,13 +62,23 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    // Cache falls back to an in-memory store if Redis is unavailable instead of
+    // crashing the whole application at bootstrap (mirrors the graceful
+    // degradation already used by RedisIoAdapter for the socket layer).
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => ({
-        store: await redisStore({
-          socket: { host: process.env.REDIS_HOST || 'localhost', port: 6379 },
-        }),
-      }),
+      useFactory: async () => {
+        try {
+          return {
+            store: await redisStore({
+              socket: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
+            }),
+          };
+        } catch (err) {
+          console.warn('[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:', (err as Error).message);
+          return { store: memoryStore() };
+        }
+      },
     }),
     BullModule.forRoot({
       redis: { host: process.env.REDIS_HOST || 'localhost', port: 6379 },
@@ -151,6 +163,10 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
     PaymentModule,
     PinModule,
     BlockchainModule,
+  ],
+  controllers: [
+    // Liveness probe used by the Dockerfile.hf HEALTHCHECK (GET /api/health).
+    HealthController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

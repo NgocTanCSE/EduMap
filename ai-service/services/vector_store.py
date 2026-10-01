@@ -23,6 +23,10 @@ class VectorStoreService:
         self.embed_models = [m.strip() for m in os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001,text-embedding-004").split(",") if m.strip()]
         self.embedding_model = self.embed_models[0] if self.embed_models else "gemini-embedding-001"
         self.has_api = bool(self.gemini_key)
+        # Pin the embedding dimension to the first model that successfully embeds.
+        # Prevents silently falling back to a different-dim model (e.g. 768 vs 3072),
+        # which would crash the existing ChromaDB collection with a dimension mismatch.
+        self._embed_dim = None
         if not self.gemini_key:
             print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY (Google) for semantic search.")
         if not os.getenv("GEMINI_EMBEDDING_MODEL"):
@@ -38,6 +42,17 @@ class VectorStoreService:
             self.client = chromadb.PersistentClient(path=db_path)
             self.collection = self.client.get_or_create_collection(name="edumap_docs")
             print(f"Vector store initialized at {db_path}")
+            # Pin the embedding dimension from the already-seeded collection (if any)
+            # so that get_embedding never returns a mismatched dim on the first query.
+            try:
+                if self.collection and self.collection.count() > 0:
+                    get_res = self.collection.get(limit=1, include=["embeddings"])
+                    _embs = get_res.get("embeddings") if isinstance(get_res, dict) else None
+                    if _embs is not None and len(_embs) > 0:
+                        self._embed_dim = len(_embs[0])
+                        print(f"Collection da pin dimension = {self._embed_dim}")
+            except Exception as e:
+                print(f"Could not read collection dim on startup: {e}")
         except Exception as e:
             print(f"Vector store initialization failed: {e}")
             self.collection = None
@@ -48,40 +63,59 @@ class VectorStoreService:
         if not text:
             return []
 
+        import time as _time
         last_err = None
         for model in self.embed_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
-            payload = json.dumps({"model": model, "content": {"parts": [{"text": text}]}}).encode("utf-8")
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-            try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as e:
-                body = e.read().decode("utf-8", "ignore")[:300]
-                low = body.lower()
-                if e.code == 404 or "not found" in low or "not supported" in low or "no longer available" in low:
-                    last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu ke tiep..."); continue
-                if e.code in (401, 403):
-                    raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {body[:200]}")
-                raise RuntimeError(f"Error getting embedding (HTTP {e.code}): {body}")
-            except Exception as e:
-                raise RuntimeError(f"Error getting embedding: {e}")
-            if "error" in data:
-                err = data["error"]; code = err.get("code"); msg = err.get("message",""); mlow = msg.lower()
-                if code == 404 or "not found" in mlow or "not supported" in mlow or "no longer available" in mlow:
-                    last_err = f"{model}: {msg[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu ke tiep..."); continue
-                raise RuntimeError(f"Google Gemini API error: {err}")
-            emb = data.get("embeddings") or data.get("embedding")
-            if isinstance(emb, list):
-                vec = (emb[0] if emb else {}).get("values")
-            elif isinstance(emb, dict):
-                vec = emb.get("values")
-            else:
-                vec = data.get("values")
-            if vec:
-                return [float(x) for x in vec]
-            last_err = f"{model}: response khong co gia tri embedding"
-            continue
+            # Retry loi tam thai (429/502/503/504) tren cung model truoc khi
+            # chuyen sang model ke tiep, tranh nham chan sang model co dimension khac.
+            for attempt in range(1, 3):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
+                payload = json.dumps({"model": model, "content": {"parts": [{"text": text}]}}).encode("utf-8")
+                req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+                data = None
+                try:
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                except urllib.error.HTTPError as e:
+                    body = e.read().decode("utf-8", "ignore")[:300]
+                    low = body.lower()
+                    if e.code == 404 or any(r in low for r in ("not found", "not supported", "no longer available", "model not found", "could not find")):
+                        last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu model ke tiep..."); break  # next model
+                    if e.code in (401, 403):
+                        raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {body[:200]}")
+                    if e.code in (429, 502, 503, 504) and attempt == 1:
+                        last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Gemini embed model {model} {e.code} (tam thai), retry..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Gemini embed model {model} {e.code}, chuyen model ke tiep..."); break  # next model
+                except Exception as e:
+                    last_err = f"{model}: {e}"
+                    if attempt == 1:
+                        print(f"Loi ket noi embed {model}, retry..."); _time.sleep(1.0); continue
+                    print(f"Loi ket noi embed {model}, chuyen model ke tiep..."); break  # next model
+                if "error" in data:
+                    err = data["error"]; code = err.get("code"); msg = err.get("message", "")
+                    if code == 404 or any(r in msg.lower() for r in ("not found", "not supported", "no longer available", "model not found", "could not find")):
+                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu model ke tiep..."); break
+                    if code in (429, 502, 503, 504) and attempt == 1:
+                        last_err = f"{model}: {msg[:80]}"; print(f"Gemini embed model {model} {code} (tam thai), retry..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: {msg[:80]}"; print(f"Gemini embed model {model} {code}, chuyen model ke tiep..."); break
+                emb = data.get("embeddings") or data.get("embedding")
+                if isinstance(emb, list):
+                    vec = (emb[0] if emb else {}).get("values")
+                elif isinstance(emb, dict):
+                    vec = emb.get("values")
+                else:
+                    vec = data.get("values")
+                if vec:
+                    vec = [float(x) for x in vec]
+                    # Dimension guard: never return a vector whose dim differs from
+                    # the dimension pinned when the collection was first populated.
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        last_err = f"{model}: dim {len(vec)} != da pin {self._embed_dim}"
+                        print(f"Gemini embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break  # dim khac -> thu model ke tiep
+                    self._embed_dim = len(vec)
+                    return vec
+                last_err = f"{model}: response khong co gia tri embedding"
+                continue
         raise RuntimeError(f"Khong the lay embedding tu Gemini. Loi: {last_err}")
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):

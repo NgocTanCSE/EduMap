@@ -16,13 +16,16 @@ export interface AuthUser {
 export const authService = {
   async login(email: string, password: string) {
     const res = await apiService.login({ email, password });
-    const access_token = res?.access_token || res?.data?.access_token;
-    const refresh_token = res?.refresh_token || res?.data?.refresh_token;
+    // Backend returns the auth payload nested under `data`
+    // ({ success, data: { access_token, refresh_token, userId, email, ... } }).
+    const payload = res?.data || res;
+    const access_token = payload?.access_token || res?.access_token;
+    const refresh_token = payload?.refresh_token || res?.refresh_token;
     const user: AuthUser = {
-      id: res?.userId || res?.data?.userId || res?.id,
-      email: res?.email,
-      fullName: res?.full_name || res?.data?.full_name,
-      role: res?.role,
+      id: payload?.userId || res?.userId || res?.id,
+      email: payload?.email || res?.email,
+      fullName: payload?.full_name || res?.full_name,
+      role: payload?.role || res?.role,
     };
     await this._store(access_token, refresh_token, user);
     apiService.setToken(access_token);

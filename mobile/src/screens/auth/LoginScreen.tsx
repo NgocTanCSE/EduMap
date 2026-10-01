@@ -10,8 +10,8 @@ type Props = ScreenProps<'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('nguyenhoangphuc@example.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {

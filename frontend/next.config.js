@@ -1,6 +1,12 @@
 const { withSentryConfig } = require("@sentry/nextjs");
 
-/** @type {import('next').NextConfig} */
+// EduMap Frontend — single Next.js configuration.
+//
+// NOTE: Previously this project shipped TWO config files (`next.config.js` and
+// `next.config.mjs`). Next.js loads only one of them, so one of the two sets of
+// options (PWA/Sentry/images vs. rewrites) was silently ignored depending on
+// which file Next.js picked. They are merged here into a single source of
+// truth so the build is now deterministic.
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
   cacheOnFrontEndNav: true,
@@ -28,10 +34,10 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: /\/api\/map\/.*/i,
+        urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)\//i,
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'map-api-cache',
+          cacheName: 'api-cache',
           expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
           networkTimeoutSeconds: 10,
         },
@@ -48,6 +54,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   },
 });
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -60,6 +67,23 @@ const nextConfig = {
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
+  // `/api/auth/login`, `/api/map/...`, etc. The BFF route handlers in
+  // `app/api/*` (notably `/api/ai/chat` and `/api/ai/history`) are kept
+  // out of the loop on purpose: they run in Next and add error handling +
+  // auth-token forwarding that a raw proxy would skip.
+  async rewrites() {
+    // `BACKEND_URL` is injected by Docker Compose (e.g. http://backend:3000).
+    // The NestJS backend listens on `PORT || 3000` (backend/src/main.ts), so
+    // 3000 — NOT 3001 — is the correct local-dev fallback.
+    const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+    return [
+      {
+        source: '/api/:path((?!ai/chat|ai/history).*)',
+        destination: `${backendUrl}/api/:path`,
+      },
+    ];
   },
 };
 

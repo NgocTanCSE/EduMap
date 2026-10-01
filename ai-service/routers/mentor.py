@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
+import json
 
 router = APIRouter(prefix="/api/ai/mentor", tags=["5. AI Mentor Matching"])
 
@@ -27,7 +28,8 @@ async def match_mentor(request_data: dict):
         student_mbti = request_data.get('student_mbti', '')
         preferred_days = request_data.get('preferred_days', [])
         available_mentors = request_data.get('available_mentors', [])
-        json = lambda self: request_data
+        def json(self):
+            return json.dumps(request_data, default=str)
 
     try:
         matches = await llm_service.match_mentors(FakeRequest())

@@ -86,7 +86,7 @@ class AuthService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch('/api/auth/profile', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Không thể tải hồ sơ người dùng');

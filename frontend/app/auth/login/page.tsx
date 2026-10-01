@@ -120,7 +120,7 @@ const ROLES = [
 function GoogleLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const redirectUrl = searchParams.get('redirect') || '/map';
 
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.STUDENT);
   const [loading, setLoading] = useState(false);

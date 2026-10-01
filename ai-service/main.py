@@ -84,7 +84,7 @@ async def predict_user(data: dict):
         raise HTTPException(status_code=502, detail=f"AI Service error: {str(e)}")
 
 @app.post("/api/ai/sync-knowledge")
-async def sync_knowledge(background: bool = False, background_tasks: BackgroundTasks = None):
+async def sync_knowledge(background_tasks: BackgroundTasks, background: bool = False):
     """
     Endpoint đồng bộ dữ liệu từ PostgreSQL sang AI Vector Database (ChromaDB).
     - background=false (mặc định): Đồng bộ ngay và trả về số lượng tài liệu đã cập nhật.

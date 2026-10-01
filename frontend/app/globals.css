@@ -30,3 +30,28 @@ body {
   background: #09090b !important;
 }
 
+/* Google-like thin scrollbar for overflow panels */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Smooth anchor scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Student map: category pin badge palette */
+.map-pin-badge {
+  @apply text-[10px] font-semibold uppercase tracking-wider;
+}

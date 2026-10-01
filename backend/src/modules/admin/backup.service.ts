@@ -25,7 +25,9 @@ export class BackupService {
     const port = this.configService.get<string>('DB_PORT') || '5432';
     const user = this.configService.get<string>('DB_USERNAME') || 'admin';
     const dbName = this.configService.get<string>('DB_DATABASE') || 'edumap_db';
-    const password = this.configService.get<string>('DB_PASSWORD') || 'password123';
+    // NOTE: read from process.env directly (same source data-source.ts uses for the
+    // working TypeORM connection) and never fall back to a hardcoded credential.
+    const password = process.env.DB_PASSWORD || this.configService.get<string>('DB_PASSWORD') || '';
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `backup-${dbName}-${timestamp}.sql`;

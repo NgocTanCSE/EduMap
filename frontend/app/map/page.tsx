@@ -1,48 +1,225 @@
-"use client";
-import React, { useEffect, useState, useRef } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Search, MapPin, Sparkles, BrainCircuit, Target, X, Info, Flame, Plus, Save } from 'lucide-react';
+import {
+  Search, MapPin, X, List, ChevronLeft, ChevronRight, ChevronDown, BrainCircuit,
+  ThermometerSun, Layers, Save, Info, Flame, LogOut,
+  Maximize, Minimize, GraduationCap, Heart, BookOpen, Users, Wifi, Atom,
+  Briefcase, Globe,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
 import { authService } from '@/src/services/auth.service';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { useRequireAuth } from '@/src/lib/require-auth';
 
-const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), { ssr: false });
+const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-screen w-full flex items-center justify-center bg-slate-100">
+      <span className="text-slate-500">Đang tải bản đồ…</span>
+    </div>
+  ),
+});
 
+// ---------- Feature tiles shown in the sidebar ----------
+const FEATURE_TILES = [
+  { name: 'Học bổng', desc: 'Tìm & kiểm tra điều kiện học bổng', href: '/scholarships', icon: GraduationCap, color: 'bg-amber-500' },
+  { name: 'Tài trợ / Đối tác', desc: 'Chương trình tài trợ & quyên góp', href: '/donate', icon: Heart, color: 'bg-rose-500' },
+  { name: 'Thư viện số', desc: 'Tài liệu, ebook, đề thi', href: '/library', icon: BookOpen, color: 'bg-indigo-500' },
+  { name: 'Mentor', desc: 'Đặt lịch tư vấn 1-on-1', href: '/mentor', icon: Users, color: 'bg-cyan-500' },
+  { name: 'Trạm Wifi', desc: 'Wifi học tập quanh bạn', href: '/wifi', icon: Wifi, color: 'bg-emerald-500' },
+  { name: 'STEM Labs', desc: 'Phòng lab & máy tính', href: '/stem', icon: Atom, color: 'bg-purple-500' },
+  { name: 'Thực tập', desc: 'Cơ hộp thực tập sinh', href: '/internships', icon: Briefcase, color: 'bg-blue-500' },
+  { name: 'Cộng đồng', desc: 'Học nhóm, diễn đàn', href: '/community', icon: Globe, color: 'bg-violet-500' },
+];
+interface Location {
+  id: string;
+  name: string;
+  address?: string;
+  description?: string;
+  category: string;
+  lat: number;
+  lng: number;
+}
+
+// ---------- Sub-components ----------
+function Avatar({ user }: { user: any }) {
+  if (!user) return null;
+  const src =
+    user.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || 'U')}&background=eee&color=333`;
+  return (
+    <div className="absolute top-3 right-3 z-20 flex items-center gap-2 rounded-full bg-white/80 pl-1 pr-3 py-1 shadow ring-1 ring-slate-200">
+      <img src={src} alt={user.fullName || 'user'} className="w-7 h-7 rounded-full object-cover" />
+      <span className="hidden sm:inline text-xs font-medium text-slate-700 max-w-[120px] truncate">
+        {user.fullName || user.email}
+      </span>
+    </div>
+  );
+}
+
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Tìm địa điểm (trường, thư viện, wifi ...)..."
+        className={`w-full pl-10 pr-3 py-2 text-sm text-slate-800 bg-white border rounded-lg outline-none transition-colors placeholder:text-slate-400 ${focused ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-slate-200'}`}
+      />
+    </div>
+  );
+}
+
+function CategoryChips({ categories, active, onSelect }: { categories: string[]; active: string; onSelect: (c: string) => void }) {
+  const chips = ['all', ...categories];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {chips.map((c) => {
+        const on = active === c;
+        return (
+          <button
+            key={c}
+            onClick={() => onSelect(c)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-all ${
+              on
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {c === 'all' ? 'Tất cả' : c}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LocationCard({ loc, selected, onSelect }: { loc: Location; selected: boolean; onSelect: (loc: Location) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(loc)}
+      className={`w-full text-left p-3 rounded-lg border transition-all ${
+        selected ? 'border-blue-500 bg-blue-50/60' : 'border-slate-200 hover:bg-slate-50'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-800 truncate">{loc.name}</p>
+          {loc.address && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{loc.address}</p>}
+        </div>
+        <MapPin className={`w-4 h-4 shrink-0 ${selected ? 'text-blue-600' : 'text-slate-400'}`} />
+      </div>
+    </button>
+  );
+}
+
+function LoadingList() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="text-center py-8 text-slate-400">
+      <MapPin className="w-8 h-8 mx-auto mb-2 opacity-40" />
+      <p className="text-sm">Không tìm thấy địa điểm nào.</p>
+      <p className="text-xs mt-1">Thử thay đổi bộ lọc hoặc kéo bản đồ.</p>
+    </div>
+  );
+}
+
+function AiPanel({ open, onClose, analysis, loading }: {
+  open: boolean; onClose: () => void; analysis: any; loading: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-y-0 right-0 z-40 w-96 bg-white border-l border-slate-200 shadow-xl flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+          <BrainCircuit className="w-5 h-5 text-blue-600" /> Phân tích khu vực
+        </h3>
+        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+        {loading ? (
+          <div className="space-y-2 text-sm text-slate-500">
+            <div className="h-4 bg-slate-100 rounded animate-pulse" />
+            <div className="h-3 bg-slate-100 rounded animate-pulse w-5/6" />
+            <div className="h-3 bg-slate-100 rounded animate-pulse w-4/6" />
+          </div>
+        ) : analysis ? (
+          <>
+            <div className="flex items-center gap-2">
+              <ThermometerSun className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium">Mật độ hoạt động: <b className="text-slate-800">{analysis.density_score}</b></span>
+            </div>
+            {analysis.summary && <p className="text-sm text-slate-600 leading-relaxed">{analysis.summary}</p>}
+            {analysis.recommendations && analysis.recommendations.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-400 uppercase">Gợi ý xung quanh bạn</p>
+                {analysis.recommendations.map((r: any, i: number) => (
+                  <div key={i} className="text-sm text-slate-700">• {r}</div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-slate-400">Nhấn "Phân tích AI" trên bản đồ để nhận gợi ý địa điểm học tập quanh Biên Hòa.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Main ----------
 export default function MapPage() {
-  const [locations, setLocations] = useState<any[]>([]);
+  // Auth guard: chưa đăng nhập → quay về Google login
+  const { user } = useRequireAuth('/auth/login');
+  const { logout } = useAuth();
+
+  // Map data
+  const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [filteredLocations, setFilteredLocations] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const [mapStats, setMapStats] = useState<any>(null);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [mapStats, setMapStats] = useState<any>(null);
 
-
-  // AI Analysis states
+  // UI
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [featuresOpen, setFeaturesOpen] = useState(true);
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
-  const [showAiPanel, setShowAiPanel] = useState(false);
 
-// Pinning states
-  const [pinningCoord, setPinningCoord] = useState<{lat: number, lng: number} | null>(null);
+  // Pin form
+  const [pinningCoord, setPinningCoord] = useState<{ lat: number; lng: number } | null>(null);
   const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
   const [isSavingPin, setIsSavingPin] = useState(false);
 
-  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [fs, setFs] = useState(false);
 
-  useEffect(() => {
-    fetchStats();
-    fetchCategoriesOnce();
-  }, []);
-
-  useEffect(() => {
-    fetchMapData(activeCategory);
-  }, [activeCategory]);
-
-  const fetchStats = async () => {
+  // --- Fetch: stats ---
+  const fetchStats = useCallback(async () => {
     try {
       const res = await fetch('/api/map/stats');
       const json = await res.json();
@@ -54,44 +231,12 @@ export default function MapPage() {
     } catch (err) {
       logger.error('Failed to fetch map stats', err);
     }
-  };
+  }, []);
 
-  const fetchMapData = async (category?: string, bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
-    try {
-      setLoading(true);
-      logger.info('Fetching map data', { category, bounds });
-
-      let url = '/api/map/pois';
-      const params = new URLSearchParams();
-      if (category && category !== 'all') params.set('category', category);
-      if (bounds) {
-        params.set('minLat', String(bounds.minLat));
-        params.set('maxLat', String(bounds.maxLat));
-        params.set('minLng', String(bounds.minLng));
-        params.set('maxLng', String(bounds.maxLng));
-      }
-      const qs = params.toString();
-      if (qs) url += '?' + qs;
-
-      const res = await fetch(url);
-      const json = await res.json();
-      const data = json.data || json;
-      const list = Array.isArray(data) ? data : [];
-      setLocations(list);
-      setFilteredLocations(list);
-      logger.info('Map data loaded', list.length);
-    } catch (err) {
-      logger.error('Error fetching map data', err);
-      toast.error('Failed to load map data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategoriesOnce = async () => {
+  // --- Fetch: categories (5-min cache) ---
+  const fetchCategoriesOnce = useCallback(async () => {
     const CACHE_KEY = 'map_categories';
     const CACHE_TTL = 5 * 60 * 1000;
-    
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -102,374 +247,408 @@ export default function MapPage() {
           return;
         }
       }
-      
       const catRes = await fetch('/api/map/categories');
       const catDataRes = await catRes.json();
       const catData = catDataRes.data || catDataRes;
       const categoriesList = Array.isArray(catData) ? catData : [];
       setCategories(categoriesList);
       setCategoriesLoaded(true);
-      
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data: categoriesList,
-        timestamp: Date.now()
-      }));
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: categoriesList, timestamp: Date.now() }));
     } catch (error) {
-      logger.error("Failed to fetch categories:", error);
+      logger.error('Error fetching categories', error);
     }
+  }, []);
+
+  // --- Fetch: POIs by bounds (GET) — UNCHANGED endpoint ---
+  const fetchMapData = useCallback(
+    async (
+      category?: string,
+      bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+    ) => {
+      try {
+        setLoading(true);
+        logger.info('Fetching map data', { category, bounds });
+
+        let url = '/api/map/pois';
+        const params = new URLSearchParams();
+        if (category && category !== 'all') params.set('category', category);
+        if (bounds) {
+          params.set('minLat', String(bounds.minLat));
+          params.set('maxLat', String(bounds.maxLat));
+          params.set('minLng', String(bounds.minLng));
+          params.set('maxLng', String(bounds.maxLng));
+        }
+        const qs = params.toString();
+        if (qs) url += '?' + qs;
+
+        const res = await fetch(url);
+        const json = await res.json();
+        const data = json.data || json;
+        const list = Array.isArray(data) ? data : [];
+        setLocations(list);
+      } catch (err) {
+        logger.error('Error fetching map data', err);
+        toast.error('Không tải được dữ liệu bản đồ');
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  // --- Fetch: AI analysis (POST) — UNCHANGED endpoint + body ---
+  const runAiAnalysis = useCallback(async () => {
+    setAnalyzing(true);
+    setAiAnalysis(null);
+    try {
+      const res = await fetch('/api/map/ai-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'Biên Hòa' }),
+      });
+      const json = await res.json();
+      const data = json.data || json;
+      setAiAnalysis({
+        density_score: data.density_score,
+        summary: data.summary,
+        recommendations: data.recommendations || [],
+      });
+    } catch (err) {
+      logger.error('AI analysis error', err);
+      toast.error('Phân tích AI thất bại');
+    } finally {
+      setAnalyzing(false);
+    }
+  }, []);
+
+  // Initial loads
+  useEffect(() => {
+    fetchStats();
+    fetchCategoriesOnce();
+    fetchMapData('all'); // initial load for default bounds
+  }, [fetchStats, fetchCategoriesOnce, fetchMapData]);
+
+  // Category change → refetch (bounds empty like initial)
+  const handleCategoryChange = (c: string) => {
+    setActiveCategory(c);
+    setSelectedLocation(null);
+    fetchMapData(c === 'all' ? undefined : c);
   };
 
-const boundsChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastBoundsRef = useRef<string | null>(null);
-
-  const handleBoundsChange = (bounds: any) => {
-    if (boundsChangeTimeoutRef.current) {
-      clearTimeout(boundsChangeTimeoutRef.current);
-    }
-
-    const boundsKey = `${bounds.minLat.toFixed(4)}-${bounds.maxLat.toFixed(4)}-${bounds.minLng.toFixed(4)}-${bounds.maxLng.toFixed(4)}`;
-    if (lastBoundsRef.current === boundsKey) return;
-
-    boundsChangeTimeoutRef.current = setTimeout(() => {
-      lastBoundsRef.current = boundsKey;
-      fetchMapData(activeCategory, bounds);
-    }, 1000);
+  const handleBoundsChange = (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
+    fetchMapData(activeCategory === 'all' ? undefined : activeCategory, bounds);
   };
 
   const handleMapClick = (lat: number, lng: number) => {
-    const user = authService.getUser();
-    if (!user) {
-        toast.error('Bạn cần đăng nhập để ghim vị trí mới.');
-        return;
+    if (!authService.isLoggedIn()) {
+      toast('Vui lòng đăng nhập để ghim vị trí mới', { description: 'Chuyển hướng đến trang đăng nhập Google' });
+      return;
     }
     setPinningCoord({ lat, lng });
-    logger.info(`Map clicked at: ${lat}, ${lng}`);
+    setPinForm({ name: '', category: 'school', description: '', address: '' });
   };
 
+  // client-side search filter on the loaded list (no new endpoint)
+  const filteredLocations = locations.filter((loc) => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    return (
+      loc.name.toLowerCase().includes(term) ||
+      (loc.category || '').toLowerCase().includes(term) ||
+      (loc.address || '').toLowerCase().includes(term)
+    );
+  });
+
+  const handleSelectLocation = (loc: Location) => {
+    setSelectedLocation(loc);
+  };
+
+  // --- Pin save (POST /api/map/pois) — UNCHANGED endpoint + body ---
   const handleSavePin = async () => {
     if (!pinForm.name || !pinningCoord) {
-        toast.warning('Vui lòng nhập tên địa điểm.');
-        return;
+      toast.warning('Vui lòng nhập tên địa điểm.');
+      return;
     }
-
     try {
-        setIsSavingPin(true);
-        const res = await fetch('/api/map/pois', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...pinForm,
-                lat: pinningCoord.lat,
-                lng: pinningCoord.lng
-            })
-        });
-
-if (res.ok) {
-             toast.success('Đã ghim vị trí thành công!');
-             setPinningCoord(null);
-             setPinForm({ name: '', category: 'school', description: '', address: '' });
-             fetchMapData(activeCategory);
-         } else {
-            const err = await res.json();
-            toast.error(err.message || 'Lỗi khi ghim vị trí.');
-        }
+      setIsSavingPin(true);
+      const res = await fetch('/api/map/pois', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...pinForm,
+          lat: pinningCoord.lat,
+          lng: pinningCoord.lng,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Đã ghim vị trí thành công!');
+        setPinningCoord(null);
+        fetchMapData(activeCategory === 'all' ? undefined : activeCategory);
+      } else {
+        const err = await res.json();
+        toast.error(err.message || 'Lỗi khi ghim vị trí.');
+      }
     } catch (error) {
-        toast.error('Lỗi kết nối máy chủ.');
+      logger.error('Save pin error', error);
+      toast.error('Lỗi khi ghim vị trí.');
     } finally {
-        setIsSavingPin(false);
+      setIsSavingPin(false);
     }
   };
 
-// Filter logic
-  useEffect(() => {
-    let result = locations;
-
-    if (activeCategory !== 'all') {
-       const catLower = activeCategory.toLowerCase();
-       result = result.filter(loc => {
-         const locCat = (loc.category || '').toLowerCase();
-         if (locCat === catLower) return true;
-         if (activeCategory === 'wifi' && (locCat.includes('wifi') || locCat.includes('education'))) return true;
-         if (activeCategory === 'green' && (locCat.includes('green') || locCat.includes('park'))) return true;
-         return locCat.includes(catLower);
-       });
-    }
-
-    if (searchTerm.trim() !== '') {
-      const q = searchTerm.toLowerCase();
-      result = result.filter(loc => 
-        loc.name.toLowerCase().includes(q) || 
-        (loc.address && loc.address.toLowerCase().includes(q)) ||
-        (loc.description && loc.description.toLowerCase().includes(q))
-      );
-    }
-
-    setFilteredLocations(result);
-  }, [searchTerm, activeCategory, locations]);
-
-  const handleAIAnalysis = async () => {
-    try {
-        setAnalyzing(true);
-        setShowAiPanel(true);
-        const res = await fetch('/api/map/ai-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: 'Biên Hòa' })
-        });
-        if (!res.ok) throw new Error('Analysis failed');
-        const data = await res.json();
-        setAiAnalysis(data);
-        toast.success('AI Geo-Analysis complete');
-    } catch (err) {
-        toast.error('AI Analysis failed');
-    } finally {
-        setAnalyzing(false);
+  // fullscreen toggle
+  const toggleFullscreen = () => {
+    if (!fs && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.();
+      setFs(true);
+    } else {
+      document.exitFullscreen?.();
+      setFs(false);
     }
   };
+
+  // Wait until the auth guard is ready so we don't flash the gate while logged out
+  if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a] text-white overflow-hidden p-6 gap-6 relative">
-      
-      {/* Sidebar */}
-      <div className="w-2/5 min-w-[420px] border border-white/10 rounded-[2.5rem] p-6 flex flex-col space-y-4 shadow-2xl bg-zinc-900/60 backdrop-blur-xl z-10">
-        <header>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-black uppercase tracking-widest mb-3">
-            <Sparkles className="w-3.5 h-3.5" /> PostGIS + AI Power
+    <div className="relative h-screen w-full bg-slate-100 overflow-hidden">
+      {/* --- Left collapsible sidebar (ẩn/hiện) --- */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 bg-white border-r border-slate-200 shadow-lg transition-transform duration-300 overflow-hidden flex flex-col py-14 ${
+          sidebarOpen ? 'translate-x-0 w-80' : '-translate-x-full w-80'
+        }`}
+      >
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pt-2 pb-6">
+          {/* Search */}
+          <div className="mb-4">
+            <SearchBar value={searchTerm} onChange={setSearchTerm} />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">Geo Education</h2>
-          <p className="opacity-50 text-sm mt-1">Discovering {filteredLocations.length} educational assets</p>
-        </header>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-          <input 
-            type="text" 
-            placeholder="Search schools, labs, libraries..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-1 focus:ring-yellow-500 transition-all placeholder:text-white/10 text-sm text-yellow-500" 
-          />
-        </div>
+          {/* Category chips */}
+          <div className="mb-4">
+            <CategoryChips
+              categories={categories}
+              active={activeCategory}
+              onSelect={handleCategoryChange}
+            />
+          </div>
 
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-                setShowHeatmap(!showHeatmap);
-                logger.action(`Heatmap toggled: ${!showHeatmap}`);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${showHeatmap ? 'bg-orange-600 border-orange-500 shadow-lg shadow-orange-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
-          >
-            <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'animate-pulse' : ''}`} />
-            {showHeatmap ? 'Disable Heatmap' : 'Enable Heatmap'}
-          </button>
-          <div className="w-full h-px bg-white/5 my-2" />
-          <button
-            onClick={() => setActiveCategory('all')}
-            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === 'all' ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
-          >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                  logger.action(`Category filter clicked: ${cat}`);
-                  setActiveCategory(cat);
-              }}
-              className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${activeCategory === cat ? 'bg-yellow-600 border-yellow-500 shadow-lg shadow-yellow-600/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-        
-        {/* Locations List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar max-h-[60vh]">
-          {loading ? (
-            <div className="text-center py-8 text-gray-500 italic">Synchronizing PostGIS data...</div>
-          ) : filteredLocations.length > 0 ? (
-            filteredLocations.map((item) => (
-              <div 
-                key={item.id} 
-                onClick={() => setSelectedLocation(item)}
-                className={`p-3 rounded-2xl border transition-all cursor-pointer group ${
-                  selectedLocation?.id === item.id 
-                    ? 'border-yellow-500/50 bg-yellow-500/10 shadow-lg shadow-yellow-500/5' 
-                    : 'border-white/5 bg-black/20 hover:border-white/20'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1 text-yellow-500">
-                    <h3 className="font-black text-gray-100 text-sm group-hover:text-yellow-400 transition-colors">{item.name}</h3>
-                    <span className="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">
-                        {item.category}
-                    </span>
-                </div>
-                <div className="flex items-start gap-2 text-xs text-white/40">
-                  <MapPin className="w-3 h-3 text-zinc-600 shrink-0 mt-0.5" />
-                  <span className="line-clamp-1 leading-tight">{item.address}</span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8 border border-dashed border-white/5 rounded-2xl">
-                <p className="text-sm text-white/20">No matching assets found.</p>
+          {/* POI list */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase">
+                Địa điểm ({filteredLocations.length})
+              </h3>
+              {categoryCounts.school !== undefined && (
+                <span className="text-[10px] text-slate-400">
+                  {categoryCounts.school} trường
+                </span>
+              )}
             </div>
-          )}
+            {loading ? (
+              <LoadingList />
+            ) : filteredLocations.length > 0 ? (
+              <div className="space-y-2">
+                {filteredLocations.map((loc) => (
+                  <LocationCard
+                    key={loc.id}
+                    loc={loc}
+                    selected={selectedLocation?.id === loc.id}
+                    onSelect={handleSelectLocation}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </div>
+
+          {/* Feature tiles (scholarship / sponsorship / ...) — collapsible */}
+          <div className="border-t border-slate-200 pt-4">
+            <button
+              onClick={() => setFeaturesOpen(!featuresOpen)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3"
+            >
+              <span>Công cụ sinh viên</span>
+              {featuresOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+            {featuresOpen && (
+              <div className="grid grid-cols-2 gap-2">
+                {FEATURE_TILES.map((f) => {
+                  const Icon = f.icon;
+                  return (
+                    <a
+                      key={f.href}
+                      href={f.href}
+                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-colors text-center"
+                    >
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${f.color} text-white`}>
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-700 leading-tight">{f.name}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        <button 
-            onClick={handleAIAnalysis}
-            disabled={analyzing}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 py-4 rounded-[1.5rem] font-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-purple-500/20 active:scale-[0.98] disabled:opacity-50"
-        >
-            <BrainCircuit className={analyzing ? "animate-spin" : ""} />
-            {analyzing ? "AI Analysis in progress..." : "Gemini Geo-Analysis"}
-        </button>
-      </div>
+        {/* Logout */}
+        <div className="p-3 border-t border-slate-200">
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg py-2 transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Đăng xuất
+          </button>
+        </div>
+      </aside>
 
-      {/* Map Area */}
-      <div className="flex-1 rounded-[3rem] shadow-2xl border border-white/10 relative overflow-hidden z-0 bg-zinc-950">
-        <InteractiveMap 
-          points={filteredLocations} 
+      {/* Sidebar toggle button (ẩn/hiện) */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed left-4 top-20 z-20 flex items-center justify-center w-9 h-9 rounded-lg bg-white border border-slate-200 shadow-md hover:bg-slate-50 text-slate-600"
+        title={sidebarOpen ? 'Ẩn bảng điều khiển' : 'Hiện bảng điều khiển'}
+      >
+        {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <List className="w-5 h-5" />}
+      </button>
+
+      {/* --- Map (main surface, full-bleed behind the slim top bar) --- */}
+      <main className="absolute inset-0">
+        <InteractiveMap
+          points={locations}
           selectedPoint={selectedLocation}
-          onSelectPoint={setSelectedLocation}
+          onSelectPoint={handleSelectLocation}
           onMapClick={handleMapClick}
           showHeatmap={showHeatmap}
           onBoundsChange={handleBoundsChange}
+          apiBaseUrl="/api"
         />
-        
-        {/* Pinning Modal */}
-        {pinningCoord && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                    <div className="p-8 space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-xl font-black text-yellow-500 flex items-center gap-2">
-                                <Plus size={24} /> Ghim Vị Trí Mới
-                            </h3>
-                            <button onClick={() => setPinningCoord(null)} className="text-gray-500 hover:text-white">
-                                <X size={24} />
-                            </button>
-                        </div>
+      </main>
 
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tên địa điểm</label>
-                                <input 
-                                    type="text" 
-                                    value={pinForm.name}
-                                    onChange={e => setPinForm({...pinForm, name: e.target.value})}
-                                    placeholder="VD: Thư viện X, Quán Cafe Y..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Thể loại</label>
-                                <select 
-                                    value={pinForm.category}
-                                    onChange={e => setPinForm({...pinForm, category: e.target.value})}
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
-                                >
-                                    {categories.map(cat => <option key={cat} value={cat} className="bg-zinc-900">{cat.toUpperCase()}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Địa chỉ (Tùy chọn)</label>
-                                <input 
-                                    type="text" 
-                                    value={pinForm.address}
-                                    onChange={e => setPinForm({...pinForm, address: e.target.value})}
-                                    placeholder="Số nhà, Tên đường..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Mô tả thêm</label>
-                                <textarea 
-                                    value={pinForm.description}
-                                    onChange={e => setPinForm({...pinForm, description: e.target.value})}
-                                    placeholder="Nhận xét của bạn về địa điểm này..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 outline-none focus:border-yellow-500 transition-all text-sm h-24"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4">
-                            <button 
-                                onClick={() => setPinningCoord(null)}
-                                className="flex-1 py-4 rounded-2xl border border-white/10 font-bold hover:bg-white/5 transition-all"
-                            >
-                                Hủy
-                            </button>
-                            <button 
-                                onClick={handleSavePin}
-                                disabled={isSavingPin}
-                                className="flex-1 bg-yellow-600 hover:bg-yellow-700 py-4 rounded-2xl font-black text-white shadow-xl shadow-yellow-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Save size={18} />
-                                {isSavingPin ? 'Đang lưu...' : 'Lưu Vị Trí'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* AI Results Overlay Panel */}
-        {showAiPanel && (
-            <div className="absolute top-8 right-8 w-80 bg-zinc-900/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl z-20 overflow-hidden animate-in slide-in-from-right duration-500">
-                <div className="p-6 space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-purple-400 font-black text-sm uppercase">
-                            <Target size={18} /> Density Report
-                        </div>
-                        <button onClick={() => setShowAiPanel(false)} className="text-gray-500 hover:text-white">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    {analyzing ? (
-                        <div className="space-y-4 py-8">
-                            <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mx-auto" />
-                            <p className="text-center text-xs text-gray-500 font-bold animate-pulse uppercase">AI Processing Layers...</p>
-                        </div>
-                    ) : aiAnalysis ? (
-                        <div className="space-y-6">
-                            <div className="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
-                                <p className="text-xs text-gray-500 font-black uppercase mb-1">AI Density Score</p>
-                                <p className="text-4xl font-black text-green-400">{aiAnalysis.density_score}/10</p>
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <h4 className="text-xs font-black text-gray-500 uppercase flex items-center gap-1"><Info size={14}/> Summary</h4>
-                                <p className="text-xs text-gray-300 leading-relaxed italic">"{aiAnalysis.summary}"</p>
-                            </div>
-
-                            <div className="space-y-3">
-                                <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Recommended Actions</h4>
-                                {aiAnalysis.recommendations?.map((rec: any, idx: number) => (
-                                    <div key={idx} className="bg-white/5 p-3 rounded-xl border border-white/5 space-y-1">
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-[10px] font-black text-blue-400 uppercase">{rec.area}</p>
-                                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${rec.priority === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                                {rec.priority}
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 leading-tight">{rec.reason}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : null}
-                </div>
-            </div>
-        )}
+      {/* --- Floating control panel (right) — toggles hiện/ẩn tính năng --- */}
+      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-center gap-2">
+        <div className="flex flex-col gap-2 rounded-xl bg-white border border-slate-200 shadow-lg p-1.5">
+          <button
+            onClick={() => setShowHeatmap(!showHeatmap)}
+            title="Bật/tắt lớp nhiệt độ"
+            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            <Flame className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
+            title="Phân tích AI khu vực"
+            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            <BrainCircuit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setShowHeatmap(true)}
+            title="Chế độ xem lớp"
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            title={fs ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            {fs ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* AI Analysis side panel */}
+      <AiPanel open={showAiPanel} onClose={() => setShowAiPanel(false)} analysis={aiAnalysis} loading={analyzing} />
+
+      {/* Pin modal */}
+      {pinningCoord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-slate-800">Ghim vị trí mới</h3>
+              <button
+                onClick={() => setPinningCoord(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <label className="text-xs font-medium text-slate-600 block mb-1">Tên địa điểm</label>
+            <input
+              type="text"
+              value={pinForm.name}
+              onChange={(e) => setPinForm({ ...pinForm, name: e.target.value })}
+              placeholder="VD: Thư viện ABC"
+              className="w-full text-sm text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-blue-500"
+            />
+
+            <label className="text-xs font-medium text-slate-600 block mb-1">Danh mục</label>
+            <select
+              value={pinForm.category}
+              onChange={(e) => setPinForm({ ...pinForm, category: e.target.value })}
+              className="w-full text-sm text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {categoriesLoaded && categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            <label className="text-xs font-medium text-slate-600 block mb-1">Địa chỉ</label>
+            <input
+              type="text"
+              value={pinForm.address}
+              onChange={(e) => setPinForm({ ...pinForm, address: e.target.value })}
+              placeholder="Số nhà, đường, phường..."
+              className="w-full text-sm text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-blue-500"
+            />
+
+            <label className="text-xs font-medium text-slate-600 block mb-1">Mô tả</label>
+            <textarea
+              value={pinForm.description}
+              onChange={(e) => setPinForm({ ...pinForm, description: e.target.value })}
+              placeholder="Mô tả ngắn gọn (giờ mở cửa, tiện ích...)"
+              className="w-full text-sm text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-blue-500"
+              rows={3}
+            />
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setPinningCoord(null)}
+                className="flex-1 h-10 text-sm font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSavePin}
+                disabled={isSavingPin || !pinForm.name}
+                className="flex-1 h-10 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+              >
+                {isSavingPin ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <Save className="w-4 h-4" />}
+                {isSavingPin ? 'Đang lưu...' : 'Lưu địa điểm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Map stats legend (subtle) */}
+      {mapStats && (
+        <div className="fixed bottom-6 left-4 z-20 rounded-xl bg-white/90 border border-slate-200 px-3 py-2 shadow-lg text-xs text-slate-600">
+          <div className="font-medium text-slate-700 mb-1 flex items-center gap-1">
+            <Info className="w-3 h-3" /> Thống kê khu vực
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            {Object.entries(categoryCounts).map(([k, v]) => (
+              <div key={k} className="flex justify-between"><span className="capitalize">{k}</span><b>{v as number}</b></div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

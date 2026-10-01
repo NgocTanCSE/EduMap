@@ -12,6 +12,13 @@ export CHROMA_DB_DIR=/data/chroma_db
 
 mkdir -p $PGDATA $REDIS_DIR $MINIO_DATA_DIR $CHROMA_DB_DIR
 
+# --- Resolve DB credentials from environment (HF Spaces Secrets win; safe defaults otherwise) ---
+# This MUST stay in sync with backend env (supervisord) and data-source.ts defaults,
+# otherwise the backend/seed connects with a different password than the Postgres user.
+export DB_USERNAME="${DB_USERNAME:-admin}"
+export DB_DATABASE="${DB_DATABASE:-edumap_db}"
+export DB_PASSWORD="${DB_PASSWORD:-password123}"
+
 
 # --- PostgreSQL Setup ---
 echo "--- Step 1: PostgreSQL Setup ---"
@@ -46,15 +53,15 @@ if ! pg_isready -h 127.0.0.1 -q 2>/dev/null; then
     exit 1
 fi
 
-# Create user and database
-psql -h 127.0.0.1 postgres -c "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';" 2>/dev/null || true
-createdb -h 127.0.0.1 -O admin edumap_db 2>/dev/null || true
+# Create user and database (password driven by DB_PASSWORD secret/default)
+psql -h 127.0.0.1 postgres -c "CREATE USER ${DB_USERNAME} WITH SUPERUSER PASSWORD '${DB_PASSWORD}';" 2>/dev/null || true
+psql -h 127.0.0.1 postgres -c "CREATE DATABASE ${DB_DATABASE} OWNER ${DB_USERNAME};" 2>/dev/null || true
 echo "✅ User and database ready."
 
 # Apply schema updates and ensure missing tables exist
 if [ -f "backend/src/database/phase1_updates.sql" ]; then
     echo "🔄 Applying phase1_updates.sql schema updates..."
-    PGPASSWORD=password123 psql -h 127.0.0.1 -U admin -d edumap_db -f backend/src/database/phase1_updates.sql 2>/dev/null || true
+    PGPASSWORD="${DB_PASSWORD}" psql -h 127.0.0.1 -U "${DB_USERNAME}" -d "${DB_DATABASE}" -f backend/src/database/phase1_updates.sql 2>/dev/null || true
     echo "✅ Schema updates applied."
 fi
 

@@ -463,7 +463,7 @@ sequenceDiagram
 | `tsconfig.json` | Cấu hình trình biên dịch TypeScript và alias đường dẫn `@/*`. |
 | `tsconfig.tsbuildinfo` | File cache tăng tốc biên dịch TypeScript. |
 | `next.config.js` | Cấu hình Next.js (PWA, API rewrites, domain ảnh, Sentry Webpack). |
-| `next.config.mjs` | Cấu hình Next.js dạng ES Module dự phòng. |
+| `next.config.mjs` | **Đã gỡ bỏ** — gộp toàn bộ (images, compiler, PWA, Sentry, rewrites) vào `next.config.js` duy nhất; Next.js chỉ nạp một trong hai file nên file còn lại trước đây đang được bỏ qua. |
 | `next-env.d.ts` | File khai báo kiểu tự động của Next.js cho TypeScript. |
 | `tailwind.config.ts` | Cấu hình hệ thống thiết kế Tailwind CSS (màu sắc, fonts, breakpoints). |
 | `postcss.config.js` | Cấu hình PostCSS để xử lý Tailwind CSS. |
@@ -471,7 +471,7 @@ sequenceDiagram
 | `sentry.server.config.ts` | Cấu hình Sentry bắt lỗi phía Node.js Server của Next.js. |
 | `sentry.edge.config.ts` | Cấu hình Sentry cho môi trường Edge Runtime. |
 | `Dockerfile` | Hướng dẫn build image Docker đa tầng tối ưu dung lượng khi deploy. |
-| `Dockerfile.hf` | Dockerfile tối ưu triển khai Frontend lên Hugging Face Spaces. |
+| `Dockerfile.hf` | **Đã gỡ bỏ** — Frontend build được thực hiện bởi `Dockerfile` gốc (Unified) ở thư mục gốc repo khi triển khai lên Hugging Face Spaces; file này không còn được build pipeline nào tham chiếu nên đã bị xóa để tránh nhầm lẫn. |
 | `README.md` | Tài liệu hướng dẫn cài đặt và khởi chạy Frontend. |
 
 ---

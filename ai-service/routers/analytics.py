@@ -61,9 +61,13 @@ async def get_stats():
             it_df = df
 
         it_df = it_df.sort_values('year')
+        it_df['metric_value'] = pd.to_numeric(it_df['metric_value'], errors='coerce')
         it_df['growth_rate'] = it_df['metric_value'].pct_change() * 100
         avg_growth = it_df['growth_rate'].mean() if not it_df['growth_rate'].isnull().all() else 15.0
-        last_val = it_df['metric_value'].iloc[-1] if len(it_df) > 0 else 100
+        avg_growth = float(avg_growth) if not pd.isna(avg_growth) else 15.0
+        last_val = float(it_df['metric_value'].iloc[-1]) if len(it_df) > 0 else 100
+        if pd.isna(last_val):
+            last_val = 100
         pred_2025 = int(last_val * (1 + avg_growth/100)) if avg_growth else int(last_val * 1.15)
     except HTTPException:
         raise

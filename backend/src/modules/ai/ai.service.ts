@@ -109,7 +109,7 @@ export class AIService {
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData, { timeout: 30000 })
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
@@ -340,7 +340,7 @@ throw new HttpException(
           message: message,
           history: history,
           context: systemContext,
-        }, { timeout: 15000 })
+        }, { timeout: 30000 })
       );
 
       const aiReply = response.data.reply || response.data.message;

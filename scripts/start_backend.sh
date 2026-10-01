@@ -5,7 +5,7 @@ echo "=== Backend Pre-flight Check ==="
 
 # Test PostgreSQL connection
 echo -n "Testing PostgreSQL connection... "
-if PGPASSWORD=password123 psql -h localhost -U admin -d edumap_db -c "SELECT 1;" > /dev/null 2>&1; then
+if PGPASSWORD="${DB_PASSWORD:-password123}" psql -h localhost -U "${DB_USERNAME:-admin}" -d "${DB_DATABASE:-edumap_db}" -c "SELECT 1;" > /dev/null 2>&1; then
     echo "OK ✅"
 else
     echo "FAILED ❌"

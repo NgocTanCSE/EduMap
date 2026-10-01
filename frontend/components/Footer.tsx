@@ -1,6 +1,12 @@
+'use client';
 import React from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+  // Footer không xuất hiện trên trang bản đồ (full-screen) và trang xác thực
+  if (pathname === '/map' || pathname?.startsWith('/map') || pathname?.startsWith('/auth')) return null;
+
   return (
     <footer className="border-t border-white/5 bg-card py-12 px-4 mt-auto">
       <div className="mx-auto max-w-7xl grid grid-cols-1 md:grid-cols-4 gap-8">

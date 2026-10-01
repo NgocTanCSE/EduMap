@@ -339,13 +339,21 @@ class ApiService {
   getProfile = () => this.get('/auth/me');
   updateProfile = (data: any) => this.patch('/auth/profile', data);
   changePassword = (payload: { old_password: string; new_password: string }) =>
-    this.post('/auth/change-password', payload);
+    this.post('/auth/change-password', {
+      currentPassword: payload.old_password,
+      newPassword: payload.new_password,
+    });
   forgotPassword = (email: string) => this.post('/auth/forgot-password', { email });
   resetPassword = (payload: { token: string; new_password: string }) =>
-    this.post('/auth/reset-password', payload);
+    this.post('/auth/reset-password', {
+      token: payload.token,
+      newPassword: payload.new_password,
+    });
   verifyTwoFactor = (payload: { userId: string; token: string }) => this.post('/auth/2fa/verify', payload);
   generate2FASecret = () => this.post('/auth/2fa/generate');
-  refreshToken = (refreshToken: string) => this.post('/auth/refresh', { refresh_token: refreshToken });
+  // Backend RefreshTokenDto expects { refreshToken, userId } (camelCase),
+  // not the snake_case `refresh_token` that was sent before.
+  refreshToken = (refreshToken: string, userId: string) => this.post('/auth/refresh', { refreshToken, userId });
   // Note: web FE calls GET /auth/profile but backend real route is GET /auth/me.
   getProfileLegacy = () => this.get('/auth/profile');
 }

@@ -198,8 +198,10 @@ def fetch_data_from_db(conn):
 
     # 6. Tai lieu hoc tap & Thu vien (learning_materials)
     try:
+        # schema thuc te: id, title, description, type, subject, grade, author_id, ...
+        # (khong co cot category/author nhu cu — da sua de gioi qua loi "column does not exist")
         cur.execute("""
-            SELECT id, title, description, category, author
+            SELECT id, title, description, type, subject, grade, author_id
             FROM learning_materials
             LIMIT 50
         """)
@@ -207,12 +209,13 @@ def fetch_data_from_db(conn):
         for r in rows:
             doc_text = (
                 f"Tai lieu hoc tap: {r['title']}. "
-                f"The loai / Nganh: {r.get('category') or 'Chung'}. "
-                f"Tac gia: {r.get('author') or 'DNTU'}. "
+                f"The loai / Nganh: {r.get('type') or r.get('subject') or 'Chung'}. "
+                f"Lop / khoi: {r.get('grade') or 'Chung'}. "
+                f"Tac gia (author_id): {r.get('author_id') or 'DNTU'}. "
                 f"Tom tat noi dung: {r.get('description') or ''}."
             )
             documents.append(doc_text)
-            metadatas.append({"title": r["title"], "category": "library", "source": "db_learning_materials"})
+            metadatas.append({"title": r["title"], "category": "library", "source": "db_learning_materials", "type": r.get("type"), "subject": r.get("subject")})
             ids.append(f"material_{r['id']}")
         if rows:
             print(f"  + Da doc {len(rows)} tai lieu tu bang learning_materials.")

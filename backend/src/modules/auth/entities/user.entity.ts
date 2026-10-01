@@ -117,6 +117,9 @@ export class User {
   @Column({ default: false })
   email_verified: boolean;
 
+  // `timestamp` is supported by both PostgreSQL and SQLite in TypeORM, so it is
+  // safe to use here for last_login (a `datetime` type is NOT supported by the
+  // Postgres driver and crashes bootstrap with DB_TYPE=postgres).
   @Column({ type: 'timestamp', nullable: true })
   last_login: Date;
 
