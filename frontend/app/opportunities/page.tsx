@@ -38,23 +38,23 @@ export default function OpportunitiesPage() {
         
         {/* Header */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-bold uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
                 <Compass className="w-4 h-4" /> Bản đồ Cơ hội
             </div>
             <h1 className="text-4xl md:text-5xl font-black tracking-tight">Mở Rộng Giới Hạn</h1>
-            <p className="text-white/60 leading-relaxed">
+            <p className="text-muted-foreground/60 leading-relaxed">
                 Khám phá các khóa học miễn phí, cuộc thi, hoạt động ngoại khóa và tìm kiếm đồng đội để cùng nhau chinh phục thử thách.
             </p>
         </div>
 
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card border border-white/10 p-4 rounded-3xl sticky top-20 z-10 backdrop-blur-md">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card border border-border p-4 rounded-3xl sticky top-20 z-10 backdrop-blur-md">
             <div className="flex overflow-x-auto w-full md:w-auto gap-2 pb-2 md:pb-0 custom-scrollbar">
                 {['', 'Cuộc thi', 'Khóa học', 'Hoạt động'].map(cat => (
                     <button 
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
-                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-orange-500 text-white' : 'bg-zinc-900 text-white/40 hover:text-white hover:bg-zinc-800 border border-white/5'}`}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-primary text-white' : 'bg-card text-muted-foreground/40 hover:text-white hover:bg-muted border border-border'}`}
                     >
                         {cat || 'Tất cả'}
                     </button>
@@ -62,70 +62,70 @@ export default function OpportunitiesPage() {
             </div>
             
             <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
                 <input 
                     type="text" 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Tìm kiếm..." 
-                    className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-orange-500 outline-none"
+                    className="w-full bg-card border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:border-primary outline-none"
                 />
             </div>
         </div>
 
         {/* Grid */}
         {loading ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-orange-500 animate-spin" /></div>
+            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
         ) : filteredData.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredData.map(opp => (
-                    <div key={opp.id} className="bg-card border border-white/10 rounded-3xl p-6 hover:border-orange-500/50 transition-all group flex flex-col h-full shadow-xl">
+                    <div key={opp.id} className="bg-card border border-border rounded-3xl p-6 hover:border-primary/50 transition-all group flex flex-col h-full shadow-xl">
                         <div className="flex justify-between items-start mb-4">
-                            <span className="px-3 py-1 bg-zinc-900 border border-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-orange-400">
+                            <span className="px-3 py-1 bg-card border border-border rounded-full text-[10px] font-bold uppercase tracking-widest text-primary/90">
                                 {opp.category}
                             </span>
                             {opp.is_team_finding_open && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg">
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-primary/10 px-2 py-1 rounded-lg">
                                     <Users className="w-3 h-3"/> TÌM ĐỒNG ĐỘI
                                 </span>
                             )}
                         </div>
                         
-                        <h3 className="text-xl font-bold mb-3 group-hover:text-orange-400 transition-colors line-clamp-2">
+                        <h3 className="text-xl font-bold mb-3 group-hover:text-primary/90 transition-colors line-clamp-2">
                             {opp.title}
                         </h3>
                         
-                        <p className="text-sm text-white/60 line-clamp-3 mb-6 flex-1">
+                        <p className="text-sm text-muted-foreground/60 line-clamp-3 mb-6 flex-1">
                             {opp.description}
                         </p>
                         
-                        <div className="space-y-3 pt-4 border-t border-white/5 mb-6">
-                            <div className="flex items-center gap-2 text-xs text-white/40">
-                                <MapPin className="w-4 h-4 text-white/20" />
+                        <div className="space-y-3 pt-4 border-t border-border mb-6">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                                <MapPin className="w-4 h-4 text-muted-foreground/20" />
                                 <span className="truncate">{opp.address || 'Trực tuyến'}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-white/40">
-                                <Calendar className="w-4 h-4 text-white/20" />
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                                <Calendar className="w-4 h-4 text-muted-foreground/20" />
                                 {opp.deadline ? `Hạn chót: ${new Date(opp.deadline).toLocaleDateString('vi-VN')}` : 'Không có hạn chót'}
                             </div>
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-6">
                             {opp.tags?.slice(0, 3).map((tag, i) => (
-                                <span key={i} className="text-[10px] bg-white/5 text-white/60 px-2 py-1 rounded border border-white/5">#{tag}</span>
+                                <span key={i} className="text-[10px] bg-card/20 text-muted-foreground/60 px-2 py-1 rounded border border-border">#{tag}</span>
                             ))}
                         </div>
                         
-                        <Link href={`/opportunities/${opp.id}`} className="w-full py-3 rounded-xl bg-zinc-900 border border-white/10 group-hover:bg-orange-500 group-hover:border-transparent group-hover:text-white transition-all text-sm font-bold flex justify-center items-center gap-2">
+                        <Link href={`/opportunities/${opp.id}`} className="w-full py-3 rounded-xl bg-card border border-border group-hover:bg-primary group-hover:border-transparent group-hover:text-white transition-all text-sm font-bold flex justify-center items-center gap-2">
                             XEM CHI TIẾT <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>
                 ))}
             </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">
-                <Target className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                <p className="text-white/40">Không tìm thấy cơ hội nào phù hợp.</p>
+            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                <Target className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
+                <p className="text-muted-foreground/40">Không tìm thấy cơ hội nào phù hợp.</p>
             </div>
         )}
 

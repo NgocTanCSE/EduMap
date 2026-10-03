@@ -102,7 +102,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+        <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
       </div>
     );
   }
@@ -111,8 +111,8 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-white/60 mb-8">Không tìm thấy cuộc thi Hackathon này.</p>
-        <Link href="/hackathon" className="px-8 py-3 rounded-full bg-purple-600 font-bold hover:bg-purple-500 transition-all">
+        <p className="text-muted-foreground/60 mb-8">Không tìm thấy cuộc thi Hackathon này.</p>
+        <Link href="/hackathon" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary/90 transition-all">
           Quay lại danh sách
         </Link>
       </div>
@@ -126,28 +126,28 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-[#050505] text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
-        <Link href="/hackathon" className="flex items-center gap-2 text-white/40 hover:text-white transition-colors group text-sm font-bold w-fit">
+        <Link href="/hackathon" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI
         </Link>
 
         {/* Hero Section */}
-        <div className="bg-card border border-white/5 rounded-[40px] p-8 md:p-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none" />
+        <div className="bg-card border border-border rounded-2xl p-8 md:p-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none" />
             
             <div className="relative z-10 max-w-3xl space-y-6">
                 <span className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border inline-block ${
                     isOngoing ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                    isCompleted ? 'bg-zinc-800 text-white/40 border-white/10' :
-                    'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                    isCompleted ? 'bg-zinc-800 text-muted-foreground/40 border-border' :
+                    'bg-primary/20 text-primary/70 border-primary/30'
                 }`}>
                     {isOngoing ? 'ĐANG DIỄN RA' : isCompleted ? 'ĐÃ KẾT THÚC' : 'SẮP MỞ ĐĂNG KÝ'}
                 </span>
                 
                 <h1 className="text-4xl md:text-5xl font-black leading-tight">{hackathon.title}</h1>
                 
-                <div className="flex flex-wrap items-center gap-6 pt-4 text-sm text-white/60">
+                <div className="flex flex-wrap items-center gap-6 pt-4 text-sm text-muted-foreground/60">
                     <div className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-purple-400" />
+                        <Calendar className="w-5 h-5 text-primary/70" />
                         {new Date(hackathon.start_date).toLocaleDateString('vi-VN')} - {new Date(hackathon.end_date).toLocaleDateString('vi-VN')}
                     </div>
                     <div className="flex items-center gap-2">
@@ -163,9 +163,9 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
             <div className="lg:col-span-2 space-y-8">
                 <div className="prose prose-invert max-w-none">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <Terminal className="text-purple-500 w-6 h-6" /> Thể lệ & Yêu cầu
+                        <Terminal className="text-primary/80 w-6 h-6" /> Thể lệ & Yêu cầu
                     </h2>
-                    <div className="text-white/70 leading-relaxed bg-zinc-900/50 p-6 rounded-3xl border border-white/5 whitespace-pre-wrap mt-4">
+                    <div className="text-foreground/70 leading-relaxed bg-card/50 p-6 rounded-3xl border border-border whitespace-pre-wrap mt-4">
                         {hackathon.description || 'Đang cập nhật thể lệ chi tiết cho cuộc thi này.'}
                     </div>
                 </div>
@@ -182,64 +182,64 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
                         <p className="text-sm font-bold text-white">Đội: {registeredTeam.team_name}</p>
                         
                         <div className="pt-6 mt-6 border-t border-green-500/20 space-y-4">
-                            <h4 className="font-bold text-sm text-left text-white/80">Khu vực nộp bài</h4>
-                            <p className="text-xs text-left text-white/60">Trưởng nhóm sử dụng các liên kết sau để nộp mã nguồn và video demo trước hạn chót.</p>
+                            <h4 className="font-bold text-sm text-left text-foreground/80">Khu vực nộp bài</h4>
+                            <p className="text-xs text-left text-muted-foreground/60">Trưởng nhóm sử dụng các liên kết sau để nộp mã nguồn và video demo trước hạn chót.</p>
                             
                             <div className="space-y-3">
-                                <button className="w-full py-3 rounded-xl bg-zinc-900 border border-white/10 hover:border-purple-500 text-sm font-bold flex items-center justify-center gap-2 transition-all">
-                                    <FileCode2 className="w-4 h-4 text-purple-400" /> Nộp Github Repo
+                                <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                                    <FileCode2 className="w-4 h-4 text-primary/70" /> Nộp Github Repo
                                 </button>
-                                <button className="w-full py-3 rounded-xl bg-zinc-900 border border-white/10 hover:border-blue-500 text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                                <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-all">
                                     <PlaySquare className="w-4 h-4 text-blue-400" /> Nộp Demo Video
                                 </button>
                             </div>
                         </div>
                     </div>
                 ) : isCompleted ? (
-                    <div className="bg-card border border-white/10 rounded-3xl p-8 text-center">
-                        <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                    <div className="bg-card border border-border rounded-3xl p-8 text-center">
+                        <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
                         <h3 className="text-xl font-bold mb-2">Cuộc thi đã kết thúc</h3>
-                        <p className="text-sm text-white/40">Cảm ơn các đội thi đã tham gia. Kết quả sẽ được công bố trên trang chủ.</p>
+                        <p className="text-sm text-muted-foreground/40">Cảm ơn các đội thi đã tham gia. Kết quả sẽ được công bố trên trang chủ.</p>
                     </div>
                 ) : (
-                    <form onSubmit={handleRegister} className="bg-card border border-white/10 rounded-3xl p-8 space-y-6 shadow-2xl">
+                    <form onSubmit={handleRegister} className="bg-card border border-border rounded-3xl p-8 space-y-6 shadow-2xl">
                         <div>
                             <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
-                                <Code className="text-purple-500 w-5 h-5" /> Đăng ký Đội thi
+                                <Code className="text-primary/80 w-5 h-5" /> Đăng ký Đội thi
                             </h3>
-                            <p className="text-xs text-white/40">Chỉ trưởng nhóm cần thực hiện thao tác này.</p>
+                            <p className="text-xs text-muted-foreground/40">Chỉ trưởng nhóm cần thực hiện thao tác này.</p>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Tên Đội</label>
+                                <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">Tên Đội</label>
                                 <input 
                                     type="text" 
                                     required
                                     value={teamName}
                                     onChange={e => setTeamName(e.target.value)}
                                     placeholder="VD: Tech Innovators"
-                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500 outline-none transition-all"
+                                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all"
                                 />
                             </div>
                             
                             <div>
-                                <label className="block text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Email các thành viên</label>
+                                <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">Email các thành viên</label>
                                 <textarea 
                                     rows={3}
                                     value={membersInput}
                                     onChange={e => setMembersInput(e.target.value)}
                                     placeholder="Phân cách bằng dấu phẩy (VD: a@gmail.com, b@gmail.com)"
-                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-purple-500 outline-none transition-all resize-none"
+                                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all resize-none"
                                 />
-                                <p className="text-[10px] text-white/40 mt-1 mt-2">Không bao gồm email của bạn (trưởng nhóm).</p>
+                                <p className="text-[10px] text-muted-foreground/40 mt-1 mt-2">Không bao gồm email của bạn (trưởng nhóm).</p>
                             </div>
                         </div>
 
                         <button 
                             type="submit"
                             disabled={submitting}
-                            className="w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                            className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex justify-center items-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                             XÁC NHẬN ĐĂNG KÝ

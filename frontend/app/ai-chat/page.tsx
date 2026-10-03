@@ -123,42 +123,42 @@ export default function AIChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] max-w-4xl mx-auto p-4 bg-[#050505]">
-      <div className="flex items-center justify-between mb-6 p-6 bg-zinc-900/50 rounded-[2rem] border border-white/5 backdrop-blur-xl">
+      <div className="flex items-center justify-between mb-6 p-6 bg-card/50 rounded-2xl border border-border backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          <div className="bg-yellow-500 p-2.5 rounded-2xl shadow-lg shadow-yellow-500/10">
+          <div className="bg-primary/80 p-2.5 rounded-2xl shadow-lg shadow-primary/10">
             <Bot className="w-6 h-6 text-black" />
           </div>
           <div>
             <h1 className="text-xl font-black text-white">DNTU Assistant</h1>
-            <p className="text-[10px] uppercase font-black text-white/40 tracking-widest flex items-center gap-1.5">
+            <p className="text-[10px] uppercase font-black text-muted-foreground/40 tracking-widest flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
               Gemini Pro + PostGIS RAG
             </p>
           </div>
         </div>
-        {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />}
+        {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
       </div>
 
       <ScrollArea className="flex-1 pr-4 mb-4">
         <div className="space-y-8">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <Avatar className={`h-10 w-10 border border-white/10 ${m.role === 'user' ? 'bg-yellow-500' : 'bg-zinc-800'}`}>
-                {m.role === 'user' ? <User className="w-5 h-5 text-black" /> : <Bot className="w-5 h-5 text-yellow-500" />}
+              <Avatar className={`h-10 w-10 border border-border ${m.role === 'user' ? 'bg-primary/80' : 'bg-zinc-800'}`}>
+                {m.role === 'user' ? <User className="w-5 h-5 text-black" /> : <Bot className="w-5 h-5 text-primary" />}
               </Avatar>
               <div className={`flex flex-col gap-2 max-w-[85%] ${m.role === 'user' ? 'items-end' : ''}`}>
-                <div className={`p-5 rounded-[1.8rem] text-sm leading-relaxed ${
+                <div className={`p-5 rounded-2xl text-sm leading-relaxed ${
                   m.role === 'user' 
                     ? 'bg-zinc-800 text-white rounded-tr-none' 
                     : m.isError
                       ? 'bg-red-950 border border-red-900 text-red-200 rounded-tl-none'
-                      : 'bg-zinc-900 border border-white/5 text-gray-200 rounded-tl-none'
+                      : 'bg-card border border-border text-muted-foreground/70 rounded-tl-none'
                 }`}>
                   {m.content === '...' ? (
                     <div className="flex gap-1.5 py-2">
-                      <span className="w-1.5 h-1.5 bg-yellow-500/50 rounded-full animate-bounce"></span>
-                      <span className="w-1.5 h-1.5 bg-yellow-500/50 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                      <span className="w-1.5 h-1.5 bg-yellow-500/50 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce"></span>
+                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap">{m.content}</div>
@@ -168,21 +168,21 @@ export default function AIChatPage() {
                 {/* Sources Display */}
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                    <div className="mt-2 flex flex-col gap-2">
-                      <p className="text-[9px] uppercase font-black text-white/20 tracking-widest flex items-center gap-1 ml-2">
+                      <p className="text-[9px] uppercase font-black text-muted-foreground/20 tracking-widest flex items-center gap-1 ml-2">
                          <BookOpen size={10} /> Tài liệu tham khảo
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {m.sources.map((s: any, idx: number) => (
-                          <div key={idx} className="bg-yellow-500/5 border border-yellow-500/10 px-3 py-1.5 rounded-full flex items-center gap-2 group cursor-pointer hover:bg-yellow-500/10 transition-all">
-                             <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                             <span className="text-[10px] font-bold text-yellow-500/70">{s.title || "Nguồn tin cậy"}</span>
+                          <div key={idx} className="bg-primary/10 border border-primary/10 px-3 py-1.5 rounded-full flex items-center gap-2 group cursor-pointer hover:bg-primary/10 transition-all">
+                             <div className="w-1.5 h-1.5 rounded-full bg-primary/80" />
+                             <span className="text-[10px] font-bold text-primary/70">{s.title || "Nguồn tin cậy"}</span>
                           </div>
                         ))}
                       </div>
                    </div>
                 )}
 
-                <span className="text-[9px] text-white/20 uppercase font-black tracking-[0.2em] px-2">
+                <span className="text-[9px] text-muted-foreground/20 uppercase font-black tracking-[0.2em] px-2">
                   {m.role === 'assistant' ? 'EduMap AI' : 'Sinh viên'}
                 </span>
               </div>
@@ -191,19 +191,19 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="flex gap-2 p-2 bg-zinc-900/80 rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-xl mb-4">
+      <div className="flex gap-2 p-2 bg-card/80 rounded-2xl border border-border shadow-2xl backdrop-blur-xl mb-4">
         <Input 
           placeholder={isLoading ? "AI đang xử lý tri thức..." : "Hỏi mình về học bổng, mentor hoặc bản đồ..."}
           value={input}
           disabled={isLoading}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          className="border-none bg-transparent focus-visible:ring-0 px-6 text-yellow-500 text-sm placeholder:text-white/10"
+          className="border-none bg-transparent focus-visible:ring-0 px-6 text-primary text-sm placeholder:text-muted-foreground/10"
         />
         <Button 
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
-          className="rounded-2xl shrink-0 h-12 w-12 bg-yellow-500 hover:bg-yellow-400 text-black shadow-lg shadow-yellow-500/20"
+          className="rounded-2xl shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-black shadow-lg shadow-primary/20"
         >
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </Button>

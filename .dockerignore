@@ -1,0 +1,36 @@
+# Build context optimization — these paths are NOT needed by the root Dockerfile
+# (which only COPYs backend/, frontend/, ai-service/, scripts/,
+#  infrastructure/, and seed_crawled_data.sql directly).
+
+# VCS
+.git
+.gitattributes
+.gitignore
+.github
+
+# Development data (large, not needed in HF Spaces Docker image)
+crawled_data
+data_raw
+osrm-data
+.seed_crawled_data.sql
+
+# Documentation (not needed at runtime in the container)
+docs
+
+# Testing & planning
+.kilo
+tests
+api
+
+# Mobile (separate deployment)
+mobile
+
+# Crawler (separate deployment)
+crawlers
+
+# Stale root artifacts
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db

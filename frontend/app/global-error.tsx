@@ -16,19 +16,19 @@ export default function GlobalError({
               <span className="text-3xl">🚨</span>
             </div>
             <h2 className="text-2xl font-bold">Lỗi hệ thống</h2>
-            <p className="text-white/60 text-sm">
+            <p className="text-muted-foreground/60 text-sm">
               {error.message || 'Đã xảy ra lỗi nghiêm trọng. Vui lòng liên hệ quản trị viên.'}
             </p>
             <div className="flex gap-4 justify-center">
               <button
                 onClick={reset}
-                className="px-6 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-bold rounded-xl transition-all"
+                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
               >
                 Thử lại
               </button>
               <button
                 onClick={() => window.location.href = '/'}
-                className="px-6 py-3 border border-white/10 hover:bg-white/5 font-bold rounded-xl transition-all"
+                className="px-6 py-3 border border-border hover:bg-card/20 font-bold rounded-xl transition-all"
               >
                 Về trang chủ
               </button>

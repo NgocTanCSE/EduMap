@@ -42,28 +42,28 @@ export default function EventsListPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <h1 className="text-4xl font-black tracking-tight mb-2 flex items-center gap-3">
-              <Sparkles className="text-yellow-500 w-8 h-8" />
+              <Sparkles className="text-primary w-8 h-8" />
               Workshop & Sự kiện
             </h1>
-            <p className="text-white/40 text-sm">Nâng cao kiến thức và kết nối cùng cộng đồng EduMap.</p>
+            <p className="text-muted-foreground/40 text-sm">Nâng cao kiến thức và kết nối cùng cộng đồng EduMap.</p>
           </div>
           
           <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
             <input 
               type="text" 
               placeholder="Tìm kiếm sự kiện, địa điểm..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-card border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-yellow-500 outline-none transition-all"
+              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-primary outline-none transition-all"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
-            <p className="text-white/40 animate-pulse">Đang tải danh sách sự kiện...</p>
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-muted-foreground/40 animate-pulse">Đang tải danh sách sự kiện...</p>
           </div>
         ) : filteredEvents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -73,7 +73,7 @@ export default function EventsListPage() {
               
               return (
                 <Link href={`/events/${event.id}`} key={event.id} className="group">
-                  <div className="bg-card border border-white/10 rounded-[40px] overflow-hidden hover:border-yellow-500/50 transition-all flex flex-col h-full shadow-xl hover:shadow-yellow-500/5">
+                  <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition-all flex flex-col h-full shadow-xl hover:shadow-primary/5">
                     {/* Image Area */}
                     <div className="aspect-[16/10] relative overflow-hidden">
                       <img 
@@ -83,7 +83,7 @@ export default function EventsListPage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
                       <div className="absolute top-4 left-4">
-                        <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold border border-white/10">
+                        <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold border border-border">
                           {event.status === 'active' ? 'SẮP DIỄN RA' : 'ĐÃ KẾT THÚC'}
                         </span>
                       </div>
@@ -91,21 +91,21 @@ export default function EventsListPage() {
 
                     {/* Content Area */}
                     <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-yellow-500 transition-colors">
+                      <h3 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-primary transition-colors">
                         {event.title}
                       </h3>
                       
                       <div className="space-y-3 mb-6 flex-1">
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <Calendar className="w-4 h-4 text-yellow-500" />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                          <Calendar className="w-4 h-4 text-primary" />
                           {startDate.toLocaleDateString('vi-VN')} • {startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <MapPin className="w-4 h-4 text-yellow-500" />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                          <MapPin className="w-4 h-4 text-primary" />
                           <span className="line-clamp-1">{event.location}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <Users className="w-4 h-4 text-yellow-500" />
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                          <Users className="w-4 h-4 text-primary" />
                           {event.registered_count}/{event.capacity} người tham gia
                         </div>
                       </div>
@@ -113,23 +113,23 @@ export default function EventsListPage() {
                       {/* Progress Bar */}
                       <div className="space-y-2 mb-6">
                         <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-yellow-500">Tình trạng chỗ</span>
-                          <span className={progress >= 90 ? 'text-red-500' : 'text-white/40'}>{progress}%</span>
+                          <span className="text-primary">Tình trạng chỗ</span>
+                          <span className={progress >= 90 ? 'text-red-500' : 'text-muted-foreground/40'}>{progress}%</span>
                         </div>
-                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-card/20 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full transition-all duration-1000 ${progress >= 90 ? 'bg-red-500' : 'bg-yellow-500'}`} 
+                            className={`h-full transition-all duration-1000 ${progress >= 90 ? 'bg-red-500' : 'bg-primary/80'}`} 
                             style={{ width: `${progress}%` }} 
                           />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                        <span className="text-xs font-bold text-yellow-500 flex items-center gap-2">
+                      <div className="flex items-center justify-between pt-4 border-t border-border">
+                        <span className="text-xs font-bold text-primary flex items-center gap-2">
                           CHI TIẾT <ArrowRight className="w-3 h-3" />
                         </span>
-                        <div className="bg-yellow-500/10 p-2 rounded-xl border border-yellow-500/20">
-                          <Ticket className="w-4 h-4 text-yellow-500" />
+                        <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
+                          <Ticket className="w-4 h-4 text-primary" />
                         </div>
                       </div>
                     </div>
@@ -139,9 +139,9 @@ export default function EventsListPage() {
             })}
           </div>
         ) : (
-          <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">
-            <Search className="w-12 h-12 text-white/10 mx-auto mb-4" />
-            <p className="text-white/40">Không tìm thấy sự kiện nào phù hợp với tìm kiếm của bạn.</p>
+          <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+            <Search className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
+            <p className="text-muted-foreground/40">Không tìm thấy sự kiện nào phù hợp với tìm kiếm của bạn.</p>
           </div>
         )}
       </div>

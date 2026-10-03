@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService } from '@/src/services/admin.service';
+import { adminService } from '@/reporting/services/admin.service';
 import { 
   FileText, Calendar, User, Activity, 
   ChevronLeft, ChevronRight, Clock, Database
@@ -35,35 +35,35 @@ export default function AdminAuditLogsPage() {
         {/* Header */}
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3 text-yellow-500">
+            <h1 className="text-3xl font-bold flex items-center gap-3 text-primary">
               <Activity className="w-8 h-8" />
               Nhật ký Hoạt động
             </h1>
-            <p className="text-white/40 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
+            <p className="text-muted-foreground/40 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
           </div>
         </div>
 
         {/* Logs Table */}
-        <div className="rounded-[32px] overflow-hidden border border-white/10 bg-zinc-900/30">
+        <div className="rounded-xl overflow-hidden border border-border bg-card/30">
           {loading ? (
-            <div className="p-20 text-center text-white/40">Đang tải dữ liệu...</div>
+            <div className="p-20 text-center text-muted-foreground/40">Đang tải dữ liệu...</div>
           ) : (
             <>
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-zinc-900/50">
-                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Thời gian</th>
-                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Người thực hiện</th>
-                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Hành động</th>
-                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Tài nguyên</th>
-                    <th className="p-6 text-xs font-bold text-white/40 uppercase">Chi tiết</th>
+                  <tr className="bg-card/50">
+                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Thời gian</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Người thực hiện</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Hành động</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Tài nguyên</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {logs.map(log => (
-                    <tr key={log.id} className="hover:bg-white/5 transition-colors text-sm">
+                    <tr key={log.id} className="hover:bg-card/20 transition-colors text-sm">
                       <td className="p-6">
-                        <div className="flex items-center gap-2 text-white/60">
+                        <div className="flex items-center gap-2 text-muted-foreground/60">
                           <Clock className="w-3.5 h-3.5" />
                           {new Date(log.created_at).toLocaleString('vi-VN')}
                         </div>
@@ -75,22 +75,22 @@ export default function AdminAuditLogsPage() {
                            </div>
                            <div>
                               <p className="font-bold">{log.user?.full_name || 'Hệ thống'}</p>
-                              <p className="text-[10px] text-white/30">{log.user?.email || ''}</p>
+                              <p className="text-[10px] text-muted-foreground/30">{log.user?.email || ''}</p>
                            </div>
                         </div>
                       </td>
                       <td className="p-6">
-                        <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20">
+                        <span className="px-2 py-1 rounded bg-primary/10 text-blue-400 text-[10px] font-bold border border-primary/20">
                           {log.action}
                         </span>
                       </td>
                       <td className="p-6">
                         <div className="flex items-center gap-2">
-                           <Database className="w-3.5 h-3.5 text-white/20" />
-                           <span className="text-white/60 uppercase text-[10px] font-bold">{log.resource}</span>
+                           <Database className="w-3.5 h-3.5 text-muted-foreground/20" />
+                           <span className="text-muted-foreground/60 uppercase text-[10px] font-bold">{log.resource}</span>
                         </div>
                       </td>
-                      <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-white/40 italic">
+                      <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground/40 italic">
                         {JSON.stringify(log.new_data)}
                       </td>
                     </tr>
@@ -99,22 +99,22 @@ export default function AdminAuditLogsPage() {
               </table>
 
               {/* Pagination */}
-              <div className="p-6 border-t border-white/5 flex justify-between items-center">
-                <p className="text-xs text-white/40">
+              <div className="p-6 border-t border-border flex justify-between items-center">
+                <p className="text-xs text-muted-foreground/40">
                   Hiển thị {logs.length} trên {meta.total} bản ghi
                 </p>
                 <div className="flex gap-2">
                   <button 
                     disabled={meta.page <= 1}
                     onClick={() => setMeta({...meta, page: meta.page - 1})}
-                    className="p-2 rounded-xl bg-zinc-900 border border-white/10 disabled:opacity-30"
+                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button 
                     disabled={meta.page >= meta.totalPages}
                     onClick={() => setMeta({...meta, page: meta.page + 1})}
-                    className="p-2 rounded-xl bg-zinc-900 border border-white/10 disabled:opacity-30"
+                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>

@@ -13,8 +13,8 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#09090b]">
-      <div className="flex items-center gap-3 text-white/70">
-        <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
+      <div className="flex items-center gap-3 text-foreground/70">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <span>Đang chuyển hướng đến cổng đăng nhập Google...</span>
       </div>
     </div>

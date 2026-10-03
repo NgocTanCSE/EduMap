@@ -26,9 +26,9 @@
   ✓  ReadFolder  mobile/lib/screens → Found 1 item(s).
   ✓  ReadFolder  mobile/lib/services → Directory is empty.
   ✓  ReadFolder  mobile/lib/providers → Directory is empty.
-  ✓  ReadFolder  ai-service/app/routers → Found 1 item(s).
-  ✓  ReadFolder  ai-service/app/models → Directory is empty.
-  ✓  ReadFolder  ai-service/app/services → Found 1 item(s).
+  ✓  ReadFolder  ai-service/routers → Found 1 item(s).
+  ✓  ReadFolder  ai-service/models → Directory is empty.
+  ✓  ReadFolder  ai-service/services → Found 1 item(s).
   ✓  ReadFolder  ai-service/models → Found 4 item(s).
 
 ✦ Here's a comprehensive analysis of the EduMap project's completeness, covering the database, backend, API, frontend, AI, and UI/UX components, presented
@@ -129,9 +129,9 @@
      client).
    * Độ hoàn thiện: Khoảng 65%.
        * Cấu hình: ai-service/requirements.txt liệt kê các thư viện Python cần thiết.
-       * Logic AI: ai-service/app/services/llm_service.py là file trung tâm, có thể chứa logic để tương tác với các mô hình ngôn ngữ lớn (LLM), có thể là
+       * Logic AI: ai-service/services/llm_service.py là file trung tâm, có thể chứa logic để tương tác với các mô hình ngôn ngữ lớn (LLM), có thể là
          Google Gemini.
-       * API AI: ai-service/app/routers/chat.py cho thấy ít nhất một API endpoint liên quan đến chat AI đã được định nghĩa.
+       * API AI: ai-service/routers/chat.py cho thấy ít nhất một API endpoint liên quan đến chat AI đã được định nghĩa.
        * Data Models: Thư mục ai-service/models chứa các file như career_models.py, chat_models.py, learning_models.py, mentor_models.py. Đây là các
          Pydantic models (hoặc tương tự) để định nghĩa cấu trúc dữ liệu đầu vào/đầu ra cho các tính năng AI khác nhau (ví dụ: phân tích nghề nghiệp, hỗ trợ
          học tập, tư vấn mentor). Điều này cho thấy nhiều tính năng AI đã được lên kế hoạch và có cấu trúc dữ liệu cụ thể.
@@ -223,14 +223,14 @@
        * Hoàn thiện ước tính: 60% (Dữ liệu chat_models.py cho thấy cấu trúc dữ liệu đã được định hình).
    * Backend (BE): Module ai trong backend/src/modules có thể đóng vai trò điều phối các yêu cầu đến AI Service.
        * Hoàn thiện ước tính: 60%.
-   * API: ai-service/app/routers/chat.py chỉ ra rằng API cho chat AI đã được định nghĩa trong AI Service. Backend có thể có một proxy API để chuyển tiếp các
+   * API: ai-service/routers/chat.py chỉ ra rằng API cho chat AI đã được định nghĩa trong AI Service. Backend có thể có một proxy API để chuyển tiếp các
      yêu cầu.
        * Hoàn thiện ước tính: 70%.
    * Frontend (Web): Thư mục ai-chat trong frontend/app cho thấy một giao diện chat đã được thiết kế hoặc đang triển khai.
        * Hoàn thiện ước tính: 50%.
    * Frontend (Mobile): Có thể có một màn hình chat AI cơ bản.
        * Hoàn thiện ước tính: 20%.
-   * AI (Nếu có): ai-service/app/routers/chat.py và ai-service/models/chat_models.py cho thấy logic cốt lõi của AI đã có. File llm_service.py chứa logic gọi
+   * AI (Nếu có): ai-service/routers/chat.py và ai-service/models/chat_models.py cho thấy logic cốt lõi của AI đã có. File llm_service.py chứa logic gọi
      mô hình ngôn ngữ lớn (LLM).
        * Hoàn thiện ước tính: 70%.
    * Tổng thể chức năng: 60%.
@@ -508,7 +508,7 @@
          hoặc các tác vụ AI.
        * DB: Không có DB riêng, tích hợp vào AI Service (hoặc sử dụng thư viện/dịch vụ ngoài).
        * BE: 0%, API: 0%, FE Web: 0%, FE Mobile: 0%.
-       * AI: ai-service/app/vectordb và ai-service/app/services/vector_store.py cho thấy đã có triển khai hoặc tích hợp. Hoàn thiện ước tính: 70%.
+       * AI: ai-service/app/vectordb và ai-service/services/vector_store.py cho thấy đã có triển khai hoặc tích hợp. Hoàn thiện ước tính: 70%.
        * Tổng thể chức năng: 70% (Là một thành phần hỗ trợ cho AI Service).
 
   ---

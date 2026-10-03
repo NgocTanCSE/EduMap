@@ -78,22 +78,22 @@ export default function MentorDetailPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white/50">Loading profile...</div>;
-  if (!mentor) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white/50">Mentor not found.</div>;
+  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-muted-foreground/50">Loading profile...</div>;
+  if (!mentor) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-muted-foreground/50">Mentor not found.</div>;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-8">
       <div className="max-w-5xl mx-auto space-y-8">
         
-        <Link href="/mentor" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4 w-max">
+        <Link href="/mentor" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-4 w-max">
             <ArrowLeft size={16} /> Quay lại danh sách
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Profile Info */}
             <div className="lg:col-span-2 space-y-8">
-                <div className="bg-zinc-900 border border-white/10 rounded-3xl p-8 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[80px] -mr-10 -mt-10" />
+                <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] -mr-10 -mt-10" />
                     <div className="flex flex-col md:flex-row gap-8 relative z-10">
                         <img 
                             src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random&size=200`} 
@@ -103,37 +103,37 @@ export default function MentorDetailPage() {
                         <div className="flex-1 space-y-4">
                             <div>
                                 <h1 className="text-3xl font-black mb-2">{mentor.user?.full_name}</h1>
-                                <div className="flex items-center gap-4 text-sm font-bold text-gray-400">
-                                    <span className="flex items-center gap-1.5"><Briefcase size={16} className="text-purple-400"/> {mentor.experience_years} năm kinh nghiệm</span>
-                                    <span className="flex items-center gap-1.5"><Star size={16} className="text-yellow-500 fill-current"/> {mentor.rating_avg} Rating</span>
+                                <div className="flex items-center gap-4 text-sm font-bold text-muted-foreground/40">
+                                    <span className="flex items-center gap-1.5"><Briefcase size={16} className="text-primary/70"/> {mentor.experience_years} năm kinh nghiệm</span>
+                                    <span className="flex items-center gap-1.5"><Star size={16} className="text-primary fill-current"/> {mentor.rating_avg} Rating</span>
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {mentor.specialties?.map((skill: string) => (
-                                    <span key={skill} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-bold text-gray-300 uppercase tracking-widest">{skill}</span>
+                                    <span key={skill} className="px-3 py-1 rounded-lg bg-card/20 border border-border text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">{skill}</span>
                                 ))}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-3xl space-y-4">
-                    <h2 className="text-xl font-bold border-b border-white/10 pb-2">Giới thiệu bản thân</h2>
-                    <p className="text-gray-400 leading-relaxed whitespace-pre-wrap">{mentor.bio || "Mentor này chưa cập nhật phần giới thiệu chi tiết."}</p>
+                <div className="bg-card/50 border border-border p-8 rounded-3xl space-y-4">
+                    <h2 className="text-xl font-bold border-b border-border pb-2">Giới thiệu bản thân</h2>
+                    <p className="text-muted-foreground/40 leading-relaxed whitespace-pre-wrap">{mentor.bio || "Mentor này chưa cập nhật phần giới thiệu chi tiết."}</p>
                 </div>
             </div>
 
             {/* Right Column - Booking & Actions */}
             <div className="space-y-6">
                 {!bookingSuccess ? (
-                    <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-8 rounded-3xl space-y-6 sticky top-8">
-                        <div className="text-center pb-6 border-b border-white/10">
+                    <div className="bg-card border border-border p-8 rounded-3xl space-y-6 sticky top-8">
+                        <div className="text-center pb-6 border-b border-border">
                             <h2 className="text-2xl font-black mb-2">Đặt lịch ngay</h2>
-                            <p className="text-3xl font-black text-yellow-500">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-gray-500 font-normal">/ buổi</span></p>
+                            <p className="text-3xl font-black text-primary">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-gray-500 font-normal">/ buổi</span></p>
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><Clock size={16}/> Khung giờ trống hôm nay</h3>
+                            <h3 className="text-sm font-bold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-2"><Clock size={16}/> Khung giờ trống hôm nay</h3>
                             {slots.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {slots.map((slot, idx) => (
@@ -143,10 +143,10 @@ export default function MentorDetailPage() {
                                             onClick={() => setSelectedSlot(slot)}
                                             className={`py-3 rounded-xl border text-sm font-bold transition-all ${
                                                 slot.is_booked 
-                                                    ? 'bg-zinc-900 border-transparent text-gray-600 cursor-not-allowed line-through'
+                                                    ? 'bg-card border-transparent text-gray-600 cursor-not-allowed line-through'
                                                     : selectedSlot?.start === slot.start
-                                                        ? 'bg-yellow-600 border-yellow-500 text-black shadow-lg shadow-yellow-600/20'
-                                                        : 'bg-black border-white/10 text-white hover:border-yellow-500/50'
+                                                        ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20'
+                                                        : 'bg-black border-border text-white hover:border-primary/50'
                                             }`}
                                         >
                                             {slot.start} - {slot.end}
@@ -162,7 +162,7 @@ export default function MentorDetailPage() {
                             <button 
                                 onClick={handleBookSession}
                                 disabled={isBooking || !selectedSlot}
-                                className="w-full bg-white hover:bg-gray-200 text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-white hover:bg-muted text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isBooking ? 'Đang xử lý...' : <><Calendar size={18} /> Xác nhận đặt lịch</>}
                             </button>
@@ -175,7 +175,7 @@ export default function MentorDetailPage() {
                             <CheckCircle2 size={40} className="text-black" />
                         </div>
                         <h2 className="text-2xl font-black text-emerald-400">Yêu cầu đã gửi!</h2>
-                        <p className="text-gray-400 text-sm leading-relaxed">
+                        <p className="text-muted-foreground/40 text-sm leading-relaxed">
                             Thông báo đã được gửi đến Mentor <strong>{mentor.user?.full_name}</strong>. 
                             Bạn sẽ nhận được phản hồi sớm nhất qua hệ thống.
                         </p>
@@ -185,7 +185,7 @@ export default function MentorDetailPage() {
                     </div>
                 )}
 
-                <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-2xl">
+                <div className="bg-card/30 border border-border p-6 rounded-2xl">
                     <p className="text-xs text-gray-500 flex items-center justify-center gap-2"><Video size={14}/> Các buổi tư vấn diễn ra online qua EduMap Meet.</p>
                 </div>
             </div>

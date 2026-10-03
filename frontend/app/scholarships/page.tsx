@@ -135,27 +135,27 @@ export default function ScholarshipPage() {
       {/* Application Modal */}
       {showApplyModal && selectedScholarship && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-white/10 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative">
-                <button onClick={() => setShowApplyModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white">
+            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative">
+                <button onClick={() => setShowApplyModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">
                     <X className="w-5 h-5" />
                 </button>
                 <h3 className="text-2xl font-bold mb-2">Nộp hồ sơ ứng tuyển</h3>
-                <p className="text-sm text-indigo-400 mb-6 font-bold">{selectedScholarship.title}</p>
+                <p className="text-sm text-primary/70 mb-6 font-bold">{selectedScholarship.title}</p>
                 
                 <form onSubmit={handleApply} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2 flex items-center gap-2"><FileText className="w-4 h-4"/> Bài luận cá nhân (Personal Statement) *</label>
+                        <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2 flex items-center gap-2"><FileText className="w-4 h-4"/> Bài luận cá nhân (Personal Statement) *</label>
                         <textarea 
                             required
                             rows={6}
                             value={personalStatement}
                             onChange={e => setPersonalStatement(e.target.value)}
                             placeholder="Giới thiệu về bản thân, mục tiêu học tập và lý do bạn xứng đáng nhận học bổng này..."
-                            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none resize-none" 
+                            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none resize-none" 
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Link CV / Portfolio hoặc tải lên</label>
+                        <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2 flex items-center gap-2"><UploadCloud className="w-4 h-4"/> Link CV / Portfolio hoặc tải lên</label>
                         <div className="space-y-3">
                           <input 
                             type="url" 
@@ -163,9 +163,9 @@ export default function ScholarshipPage() {
                             value={cvUrl}
                             onChange={e => setCvUrl(e.target.value)}
                             placeholder="https://drive.google.com/... (dán link CV nếu có)"
-                            className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" 
+                            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none" 
                           />
-                          <div className="text-xs text-white/40">Hoặc tải CV lên máy chủ (PDF, DOC, DOCX - tối đa 10MB):</div>
+                          <div className="text-xs text-muted-foreground/40">Hoặc tải CV lên máy chủ (PDF, DOC, DOCX - tối đa 10MB):</div>
                           <FileUpload
                             accept=".pdf,.doc,.docx"
                             label="Tải lên CV của bạn"
@@ -181,12 +181,12 @@ export default function ScholarshipPage() {
                     <button 
                         type="submit" 
                         disabled={submitting}
-                        className="w-full py-4 mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null} 
                         {submitting ? 'ĐANG GỬI HỒ SƠ...' : 'XÁC NHẬN NỘP ĐƠN'}
                     </button>
-                    <p className="text-[10px] text-center text-white/40 mt-2">EduMap sẽ đính kèm thêm dữ liệu thành tích và hoạt động ngoại khóa của bạn từ hệ thống.</p>
+                    <p className="text-[10px] text-center text-muted-foreground/40 mt-2">EduMap sẽ đính kèm thêm dữ liệu thành tích và hoạt động ngoại khóa của bạn từ hệ thống.</p>
                 </form>
             </div>
         </div>
@@ -195,20 +195,20 @@ export default function ScholarshipPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-gradient-to-br from-indigo-600/10 to-violet-600/10 p-12 rounded-[40px] border border-white/5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
           <div className="relative z-10">
-            <div className="inline-block px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 text-xs font-bold mb-4 uppercase tracking-wider border border-indigo-500/30">
-              🎓 EduMap Opportunities
+            <div className="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary/70 text-xs font-bold mb-4 uppercase tracking-wider border border-primary/30">
+              EduMap Opportunities
             </div>
             <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">Quỹ Học bổng Tương lai</h1>
-            <p className="text-white/60 max-w-md leading-relaxed">
+            <p className="text-muted-foreground/60 max-w-md leading-relaxed">
               EduMap tự động đối sánh hồ sơ học thuật và hoạt động ngoại khóa của bạn để tìm ra những học bổng phù hợp nhất.
             </p>
           </div>
           <div className="flex gap-4 relative z-10">
-            <div className="p-6 rounded-3xl bg-black/40 border border-white/10 text-center min-w-[130px]">
-              <p className="text-3xl font-extrabold text-indigo-400">{scholarships.length}</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mt-1">Chương trình</p>
+            <div className="p-6 rounded-3xl bg-card/40 border border-border text-center min-w-[130px]">
+              <p className="text-3xl font-extrabold text-primary/70">{scholarships.length}</p>
+              <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mt-1">Chương trình</p>
             </div>
           </div>
           <div className="absolute top-0 right-0 p-12 opacity-5">
@@ -219,13 +219,13 @@ export default function ScholarshipPage() {
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
             <input 
               type="text" 
               placeholder="Tìm tên học bổng, nhà tài trợ..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20 text-sm text-yellow-500" 
+              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary transition-colors placeholder:text-muted-foreground/20 text-sm text-primary" 
             />
           </div>
           <div className="flex gap-2">
@@ -235,8 +235,8 @@ export default function ScholarshipPage() {
                 onClick={() => setActiveFilter(tab)}
                 className={`px-6 py-4 rounded-2xl border text-xs font-bold uppercase tracking-wider transition-all ${
                   activeFilter === tab 
-                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' 
-                    : 'bg-card border-white/10 text-white/60 hover:bg-card'
+                    ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
+                    : 'bg-card border-border text-muted-foreground/60 hover:bg-card'
                 }`}
               >
                 {tab === 'all' ? 'Tất cả' : 'Giá trị lớn (>$10k)'}
@@ -247,16 +247,16 @@ export default function ScholarshipPage() {
 
         {/* Scholarship List */}
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary/90 animate-spin" /></div>
         ) : filteredScholarships.length > 0 ? (
           <div className="space-y-6">
             {filteredScholarships.map(item => (
               <div 
                 key={item.id} 
-                className="p-8 rounded-[32px] bg-card border border-white/10 hover:border-indigo-500/30 transition-all duration-300 flex flex-col md:flex-row gap-6 relative overflow-hidden group"
+                className="p-8 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-300 flex flex-col md:flex-row gap-6 relative overflow-hidden group"
               >
                 {/* Logo Box */}
-                <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-3xl font-black text-white shadow-lg self-start`}>
+                <div className={`w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-3xl font-black text-white shadow-lg self-start`}>
                   {item.provider?.charAt(0) || 'S'}
                 </div>
 
@@ -264,23 +264,23 @@ export default function ScholarshipPage() {
                 <div className="flex-1 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-2xl font-bold tracking-tight text-white group-hover:text-indigo-300 transition-colors duration-300">
+                      <h3 className="text-2xl font-bold tracking-tight text-white group-hover:text-primary/80 transition-colors duration-300">
                         {item.title}
                       </h3>
-                      <p className="text-sm text-indigo-400 font-semibold mt-1">{item.provider || "Tổ chức EduMap"}</p>
+                      <p className="text-sm text-primary/70 font-semibold mt-1">{item.provider || "Tổ chức EduMap"}</p>
                     </div>
-                    <button className="text-white/20 hover:text-white transition-colors">
+                    <button className="text-muted-foreground/20 hover:text-white transition-colors">
                       <Bookmark className="w-6 h-6" />
                     </button>
                   </div>
 
-                  <p className="text-sm text-white/60 leading-relaxed max-w-3xl line-clamp-2">
+                  <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-3xl line-clamp-2">
                     {item.description}
                   </p>
 
                   {/* Tags */}
-                  <div className="flex flex-wrap gap-4 text-xs text-white/50">
-                    <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-indigo-400" /> Toàn quốc</span>
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground/50">
+                    <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary/70" /> Toàn quốc</span>
                     <span className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-emerald-400" /> {Number(item.value_amount).toLocaleString()} USD</span>
                     <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-amber-400" /> Hạn nộp: {new Date(item.deadline).toLocaleDateString()}</span>
                   </div>
@@ -303,19 +303,19 @@ export default function ScholarshipPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col gap-3 justify-center min-w-[200px] border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
+                <div className="flex flex-col gap-3 justify-center min-w-[200px] border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
                   <Button 
                     onClick={() => handleCheckEligibility(item.id)}
                     disabled={checkingId === item.id}
                     variant="outline"
-                    className="w-full py-6 rounded-xl border-white/15 text-xs font-bold hover:bg-white/5 text-white"
+                    className="w-full py-6 rounded-xl border-white/15 text-xs font-bold hover:bg-card/20 text-white"
                   >
                     {checkingId === item.id ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Kiểm tra độ phù hợp'}
                   </Button>
                   
                   <Button 
                     onClick={() => openApplyModal(item)}
-                    className="w-full py-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/15"
+                    className="w-full py-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-lg shadow-primary/15"
                   >
                     Nộp đơn ngay
                   </Button>
@@ -329,7 +329,7 @@ export default function ScholarshipPage() {
                   onClick={handleLoadMore} 
                   disabled={loadingMore}
                   variant="outline"
-                  className="rounded-full border-white/20 text-white hover:bg-white/10 px-8"
+                  className="rounded-full border-border text-white hover:bg-card/20 px-8"
                 >
                   {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : null}
                   {loadingMore ? 'Đang tải...' : 'Tải thêm học bổng'}
@@ -338,9 +338,9 @@ export default function ScholarshipPage() {
             )}
           </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">
-                <GraduationCap className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                <p className="text-white/40">Không tìm thấy học bổng nào.</p>
+            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                <GraduationCap className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
+                <p className="text-muted-foreground/40">Không tìm thấy học bổng nào.</p>
             </div>
         )}
 

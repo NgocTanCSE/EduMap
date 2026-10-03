@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation } from 'lucide-react';
+import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store } from 'lucide-react';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
@@ -54,10 +54,33 @@ const getIconForCategory = (categoryName: string) => {
       return icons.yellow;
     case 'cafe':
       return icons.orange;
+    case 'market':
+      return icons.orange;
+    case 'convenience':
+      return icons.yellow;
+    case 'restaurant':
+      return icons.red;
     default:
       return icons.grey;
   }
 };
+
+// Mini-icons used inside the popup to label a POI's nearby facilities.
+const facilityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  university: GraduationCap,
+  school: GraduationCap,
+  library: BookOpen,
+  bookstore: BookOpen,
+  lab: Atom,
+  wifi: Wifi,
+  green: Leaf,
+  park: Leaf,
+  cafe: Coffee,
+  restaurant: Coffee,
+  market: ShoppingCart,
+  convenience: Store,
+};
+const facilityIconFor = (category?: string) => facilityIcons[category?.toLowerCase() ?? ''] ?? MapPinIcon;
 
 // Origin marker (blue pin)
 function OriginMarker({ position }: { position: [number, number] }) {
@@ -94,11 +117,17 @@ function DestinationMarker({ position }: { position: [number, number] }) {
 // Map controller component to move camera to selected point
 function MapController({ selectedPoint }: { selectedPoint: any }) {
   const map = useMap();
-
   useEffect(() => {
-    if (selectedPoint && selectedPoint.lat !== undefined && selectedPoint.lng !== undefined) {
-      map.flyTo([selectedPoint.lat, selectedPoint.lng], 16, { animate: true, duration: 1.5 });
-    }
+    if (!selectedPoint || selectedPoint.lat == null || selectedPoint.lng == null) return;
+    const lat = Number(selectedPoint.lat);
+    const lng = Number(selectedPoint.lng);
+    // Guard against non-finite / NaN coords (e.g. string-typed from backend).
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    // Mark this as a programmatic fly so MapEvents does NOT treat the following
+    // moveend as a user pan (which would trigger a bounds refetch and wipe the
+    // markers we just selected — the cause of "click → jumps to a wrong point").
+    (map as any).__edumapProgrammaticFly = true;
+    map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 });
   }, [selectedPoint, map]);
 
   return null;
@@ -111,6 +140,11 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     if (!onBoundsChange) return;
     let didInitialLoad = false;
     const handleMoveEnd = () => {
+      // Skip the moveend emitted by a programmatic flyTo (see MapController).
+      if ((map as any).__edumapProgrammaticFly) {
+        (map as any).__edumapProgrammaticFly = false;
+        return;
+      }
       if (!didInitialLoad) {
         didInitialLoad = true;
         return;
@@ -124,7 +158,7 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
       });
     };
     map.on('moveend', handleMoveEnd);
-    return () => { map.off('moveend', handleMoveEnd); };
+    return () => { (map as any).__edumapProgrammaticFly = false; map.off('moveend', handleMoveEnd); };
   }, [map, onBoundsChange]);
   return null;
 }
@@ -152,6 +186,7 @@ interface InteractiveMapProps {
   showHeatmap?: boolean;
   onBoundsChange?: (bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => void;
   apiBaseUrl?: string;
+  nearbyPoints?: any[];
 }
 
 export default function InteractiveMap({ 
@@ -161,11 +196,10 @@ export default function InteractiveMap({
   onMapClick = () => {},
   showHeatmap = false,
   onBoundsChange,
-  apiBaseUrl = '/api'
+  apiBaseUrl = '/api',
+  nearbyPoints = [],
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
-  
-  // Routing state
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<any>(null);
@@ -284,6 +318,30 @@ export default function InteractiveMap({
     setRoutingMode(mode);
   }, []);
 
+  // Navigate to a POI using EduMap's INTERNAL OSRM routing (NOT Google Maps).
+  // Origin = device geolocation; if unavailable/blocked, falls back to the map's default center.
+  const routeToPoi = useCallback((p: any) => {
+    const lat = Number(p.lat);
+    const lng = Number(p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const dest = { lat, lng };
+    const start = (o: { lat: number; lng: number }) => {
+      setOrigin(o);
+      setDestination(dest);
+      setRoutingMode('idle'); // clears the origin/destination step mode; shows route panel
+      void fetchRoute(o, dest);
+    };
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => start({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => start({ lat: defaultCenter[0], lng: defaultCenter[1] }),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 10000 }
+      );
+    } else {
+      start({ lat: defaultCenter[0], lng: defaultCenter[1] });
+    }
+  }, [fetchRoute, defaultCenter]);
+
   return (
     <div className="w-full h-full relative">
       {/* Routing Panel */}
@@ -329,14 +387,14 @@ export default function InteractiveMap({
         {routeGeometry && <RoutePolyline geometry={routeGeometry} />}
         
         {showHeatmap ? (
-          <HeatmapLayer points={points.filter(p => p.lat !== undefined && p.lng !== undefined).map(p => ({ lat: p.lat, lng: p.lng, intensity: 0.8 }))} />
+          <HeatmapLayer points={points.filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).map(p => ({ lat: Number(p.lat), lng: Number(p.lng), intensity: 0.8 }))} />
         ) : (
           <MarkerClusterGroup chunkedLoading>
             {points
-              .filter(p => p.lat !== undefined && p.lng !== undefined)
+              .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
               .map((p) => {
-                const lat = p.lat;
-                const lng = p.lng;
+                const lat = Number(p.lat);
+                const lng = Number(p.lng);
 
                 return (
                   <Marker 
@@ -361,16 +419,43 @@ export default function InteractiveMap({
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                        {p.id === selectedPoint?.id && nearbyPoints.length > 0 && (
+                          <div className="pt-2 border-t border-zinc-100">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                              Tiện ích xung quanh (≤1km)
+                            </p>
+                            <ul className="space-y-1 max-h-40 overflow-y-auto">
+                              {nearbyPoints.map((f: any) => {
+                                const Fi = facilityIconFor(f.category);
+                                return (
+                                  <li key={f.id} className="flex items-center justify-between gap-1 text-[10px] text-zinc-700">
+                                    <span className="flex items-center gap-1 truncate">
+                                      <Fi className="w-3 h-3 text-sky-600" />
+                                      <span>{f.name}</span>
+                                    </span>
+                                    <button
+                                      onClick={() => routeToPoi(f)}
+                                      className="underline text-[9px] font-bold text-sky-700"
+                                    >
+                                      Đến
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 mt-2">
                           <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                             <span className="text-emerald-700">Verified</span>
                           </div>
-                          <button 
-                              className="bg-zinc-900 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-zinc-800"
-                              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')}
+                          <button
+                            className="bg-zinc-900 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-zinc-800"
+                            onClick={() => routeToPoi(p)}
                           >
-                              Dẫn đường
+                            Dẫn đường
                           </button>
                         </div>
                       </div>

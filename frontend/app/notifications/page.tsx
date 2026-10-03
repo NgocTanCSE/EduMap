@@ -1,7 +1,7 @@
 // Simple Notification Center placeholder with pagination & mark‑as‑read
 "use client";
 import { useEffect, useState } from "react";
-import { notificationService } from "@/src/services/notification.service";
+import { notificationService } from "@/reporting/services/notification.service";
 import { authService } from "@/src/services/auth.service";
 import { Button } from "@/components/ui/button";
 

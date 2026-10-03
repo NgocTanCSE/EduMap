@@ -32,7 +32,7 @@ export default function VerifyCertificatePage() {
     window.print();
   };
 
-  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white/50">Verifying on Blockchain...</div>;
+  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-muted-foreground/50">Verifying on Blockchain...</div>;
 
   if (!data?.isValid) {
       return (
@@ -42,7 +42,7 @@ export default function VerifyCertificatePage() {
                       <XCircle size={40} className="text-red-500" />
                   </div>
                   <h1 className="text-2xl font-black text-red-400">Invalid Certificate</h1>
-                  <p className="text-gray-400 text-sm leading-relaxed">{data?.message || 'The verification code provided is invalid or the certificate has been revoked.'}</p>
+                  <p className="text-muted-foreground/40 text-sm leading-relaxed">{data?.message || 'The verification code provided is invalid or the certificate has been revoked.'}</p>
               </div>
           </div>
       );
@@ -55,7 +55,7 @@ export default function VerifyCertificatePage() {
         
         {/* Actions - Hidden when printing */}
         <div className="max-w-4xl mx-auto flex justify-end gap-4 mb-8 print:hidden">
-            <button onClick={handlePrint} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2">
+            <button onClick={handlePrint} className="bg-card/20 hover:bg-card/30 text-white px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2">
                 <Printer size={18} /> Print / Save PDF
             </button>
             <div className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2">
@@ -67,8 +67,8 @@ export default function VerifyCertificatePage() {
         <div className="max-w-[1122px] mx-auto bg-white text-zinc-900 rounded-none md:rounded-lg shadow-2xl relative overflow-hidden print:shadow-none print:w-[1122px] print:h-[793px] print:mx-0 flex flex-col justify-center items-center aspect-[1.414/1] border-[20px] border-zinc-900">
             
             {/* Corner Decorations */}
-            <div className="absolute top-0 left-0 w-64 h-64 border-t-8 border-l-8 border-yellow-500 m-8 opacity-20" />
-            <div className="absolute bottom-0 right-0 w-64 h-64 border-b-8 border-r-8 border-yellow-500 m-8 opacity-20" />
+            <div className="absolute top-0 left-0 w-64 h-64 border-t-8 border-l-8 border-primary m-8 opacity-20" />
+            <div className="absolute bottom-0 right-0 w-64 h-64 border-b-8 border-r-8 border-primary m-8 opacity-20" />
             
             <div className="text-center z-10 w-full px-20">
                 <h2 className="text-2xl font-bold tracking-[0.5em] text-zinc-400 uppercase mb-8">Certificate of Completion</h2>
@@ -84,7 +84,7 @@ export default function VerifyCertificatePage() {
                     <p className="text-lg text-zinc-600 leading-relaxed">
                         has successfully completed the requirements and is hereby awarded this certificate for the program:
                     </p>
-                    <h3 className="text-3xl font-black text-yellow-600 mt-4 leading-tight">{details.title}</h3>
+                    <h3 className="text-3xl font-black text-primary mt-4 leading-tight">{details.title}</h3>
                 </div>
 
                 <div className="flex justify-between items-end w-full max-w-4xl mx-auto border-t-2 border-zinc-200 pt-8 mt-16">

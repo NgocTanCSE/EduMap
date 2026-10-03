@@ -1,8 +1,32 @@
 # Binary files not supported by HuggingFace Spaces git-upload
 # These stay on GitHub only
-docs/*.docx
-docs/*.doc
-docs/uml/*
+docs/all-documents/*.docx
+docs/all-documents/*.doc
+docs/all-documents/*.xlsx
 
-# OSM data for OSRM (downloaded at runtime, ~50MB)
+# Large data directories (not needed by the HF Spaces Docker image)
+crawled_data/
+data_raw/
 osrm-data/vietnam-latest.osm.pbf
+
+# AI Vector DB (regenerated at runtime inside Docker)
+ai-service/chroma_db/
+
+# Large binary assets
+docs/all-documents/*.png
+docs/all-documents/*.puml
+
+# Planning files (GitHub-only, not needed in deployment)
+.kilo/
+
+# Mobile app (separate deployment, not part of HF Spaces unified Docker)
+mobile/
+
+# Crawler (separate deployment, not part of HF Spaces unified Docker)
+crawlers/
+
+# API docs folder (specifications only, not runtime code)
+api/
+
+# CI/CD workflow files (GitHub-only)
+.github/

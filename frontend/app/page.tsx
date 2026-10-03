@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Loader2, Map as MapIcon } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { EduMapLogo } from '@/components/ui/Logo';
 
 /**
  * Trang gốc `/`.
@@ -22,13 +23,13 @@ export default function HomeGate() {
   }, [user, loading, router]);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 text-slate-700">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
       <div className="flex items-center gap-3 text-2xl font-semibold">
-        <MapIcon className="w-7 h-7 text-blue-600" />
-        <span className="font-extrabold">Edu<span className="text-blue-600">Map</span></span>
+        <EduMapLogo className="h-7 w-7 text-primary" />
+        <span className="font-extrabold">Edu<span className="text-primary">Map</span></span>
       </div>
-      <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
-        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+      <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin text-primary" />
         <span>Đang chuyển hướng bạn tới bản đồ…</span>
       </div>
     </div>

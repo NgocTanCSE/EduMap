@@ -85,7 +85,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
+        <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
       return (
           <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center">
               <h1 className="text-2xl font-bold mb-4">Không tìm thấy bài viết</h1>
-              <Link href="/community" className="text-purple-500 hover:underline">Quay lại Cộng đồng</Link>
+              <Link href="/community" className="text-primary/80 hover:underline">Quay lại Cộng đồng</Link>
           </div>
       );
   }
@@ -103,12 +103,12 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         
-        <Link href="/community" className="flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm font-bold w-fit">
+        <Link href="/community" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
         {/* Original Post */}
-        <article className="bg-zinc-900 border border-white/10 rounded-3xl p-6 md:p-8">
+        <article className="bg-card border border-border rounded-3xl p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                     <img 
@@ -117,10 +117,10 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         className="w-12 h-12 rounded-full bg-zinc-800"
                     />
                     <div>
-                        <h4 className="font-bold text-gray-200">{post.author?.full_name}</h4>
+                        <h4 className="font-bold text-muted-foreground/70">{post.author?.full_name}</h4>
                         <p className="text-xs text-gray-500 flex items-center gap-2">
                             <Clock className="w-3 h-3"/> {new Date(post.created_at).toLocaleString('vi-VN')}
-                            {post.group && <span className="bg-white/5 px-2 py-0.5 rounded text-purple-400 border border-white/5">{post.group.name}</span>}
+                            {post.group && <span className="bg-card/20 px-2 py-0.5 rounded text-primary/70 border border-border">{post.group.name}</span>}
                         </p>
                     </div>
                 </div>
@@ -129,35 +129,35 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
             <div className="space-y-4">
                 <h1 className="text-2xl md:text-3xl font-black text-white leading-snug">{post.title}</h1>
-                <div className="text-gray-300 text-base leading-relaxed whitespace-pre-wrap">
+                <div className="text-muted-foreground/60 text-base leading-relaxed whitespace-pre-wrap">
                     {post.content}
                 </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-white/10 flex items-center gap-6">
-                <button onClick={handleLike} className="flex items-center gap-2 text-gray-400 hover:text-pink-500 transition-colors font-bold group">
+            <div className="mt-8 pt-4 border-t border-border flex items-center gap-6">
+                <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/40 hover:text-pink-500 transition-colors font-bold group">
                     <Heart size={20} className="group-active:scale-75 transition-transform" /> 
                     {post.like_count}
                 </button>
-                <div className="flex items-center gap-2 text-gray-400 font-bold">
+                <div className="flex items-center gap-2 text-muted-foreground/40 font-bold">
                     <MessageSquare size={20} /> 
                     {post.comment_count}
                 </div>
-                <button className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors font-bold ml-auto">
+                <button className="flex items-center gap-2 text-muted-foreground/40 hover:text-blue-400 transition-colors font-bold ml-auto">
                     <Share2 size={20} />
                 </button>
             </div>
         </article>
 
         {/* Comments Section */}
-        <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 md:p-8 space-y-8">
+        <div className="bg-card/50 border border-border rounded-3xl p-6 md:p-8 space-y-8">
             <h3 className="text-xl font-bold flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-purple-500"/> Bình luận ({comments.length})
+                <MessageSquare className="w-5 h-5 text-primary/80"/> Bình luận ({comments.length})
             </h3>
 
             {/* Comment Form */}
             <form onSubmit={handleComment} className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center border border-white/10 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center border border-border overflow-hidden">
                     {authService.isLoggedIn() ? (
                          <img src={authService.getUser()?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authService.getUser()?.fullName || 'U')}&background=random`} alt="" className="w-full h-full object-cover"/>
                     ) : (
@@ -171,7 +171,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         onChange={e => setNewComment(e.target.value)}
                         placeholder={authService.isLoggedIn() ? "Viết bình luận của bạn..." : "Vui lòng đăng nhập để bình luận"}
                         disabled={!authService.isLoggedIn()}
-                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-purple-500 transition-colors resize-none disabled:opacity-50"
+                        className="w-full bg-card/40 border border-border rounded-2xl p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"
                     />
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] text-gray-500 flex items-center gap-1">
@@ -180,7 +180,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         <button 
                             type="submit"
                             disabled={!authService.isLoggedIn() || submitting || !newComment.trim()}
-                            className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                            className="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Gửi
                         </button>
@@ -198,10 +198,10 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         />
                         <div className="flex-1 space-y-1">
                             <div className="flex items-baseline gap-2">
-                                <span className="font-bold text-sm text-gray-200">{comment.author?.full_name}</span>
+                                <span className="font-bold text-sm text-muted-foreground/70">{comment.author?.full_name}</span>
                                 <span className="text-[10px] text-gray-500">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
                             </div>
-                            <div className="bg-black/40 border border-white/5 rounded-2xl rounded-tl-none p-4 text-sm text-gray-300">
+                            <div className="bg-card/40 border border-border rounded-2xl rounded-tl-none p-4 text-sm text-muted-foreground/60">
                                 {comment.content}
                             </div>
                         </div>

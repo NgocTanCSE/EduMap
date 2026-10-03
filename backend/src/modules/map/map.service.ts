@@ -164,7 +164,9 @@ export class MapService {
       'wifi': 6,
       'green': 7,
       'cafe': 8,
-      'restaurant': 10,
+      'restaurant': 9,
+      'market': 10,
+      'convenience': 11,
     };
     
     const catLower = category.toLowerCase();
@@ -213,7 +215,7 @@ export class MapService {
   }
 
   async getCategories(): Promise<string[]> {
-    return ['university', 'school', 'library', 'bookstore', 'lab', 'wifi', 'green', 'cafe', 'restaurant'];
+    return ['university', 'school', 'library', 'bookstore', 'lab', 'wifi', 'green', 'cafe', 'restaurant', 'market', 'convenience'];
   }
 
   async createPoi(data: any): Promise<PointOfInterest> {
@@ -226,7 +228,9 @@ export class MapService {
       'wifi': 6,
       'green': 7,
       'cafe': 8,
-      'restaurant': 9
+      'restaurant': 9,
+      'market': 10,
+      'convenience': 11
     };
 
     const point = this.mapPointRepo.create({

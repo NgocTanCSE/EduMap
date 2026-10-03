@@ -78,6 +78,14 @@ ios/Pods/
 # Databases / Data
 *.sqlite3
 *.db
-History_Chat/
 Video/
 EduMap_Documentation.xlsx
+
+# AI Vector DB (regenerated at runtime, not needed in version control)
+ai-service/chroma_db/
+chroma_db/
+
+# Build artifacts (rebuilt in Docker, not needed locally)
+ai-service/.venv/
+backend/node_modules/
+backend/dist/

@@ -257,13 +257,16 @@ Sau khi được approve, PR sẽ được merge vào main branch.
 
 ```
 edumap/
-├── backend/          # NestJS API server
-├── frontend/         # Next.js frontend
-├── ai-service/       # Python FastAPI AI service
-├── crawlers/         # Data collection scripts
-├── docs/             # Documentation
-├── scripts/          # Utility scripts
-├── tests/            # Test files
+├── frontend/          # Next.js frontend (split into test-app/ + reporting/)
+├── backend/        # NestJS API server (BE)
+├── ai-service/     # Python AI service (AI)
+│   ├── backend/       # NestJS API server
+│   └── ai-service/    # Python FastAPI AI service
+├── api/               # API specifications & Postman collection
+├── crawlers/          # Data collection scripts
+├── docs/              # Documentation
+├── scripts/           # Utility scripts
+├── tests/             # Test files
 └── docker-compose.yml
 ```
 
@@ -273,6 +276,7 @@ edumap/
 # Backend tests
 cd backend
 npm run test
+npm run test:e2e
 npm run test:e2e
 
 # Frontend tests

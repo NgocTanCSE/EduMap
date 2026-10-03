@@ -45,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isAuthorized === null) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -53,11 +53,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isAuthorized === false) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-8 text-center">
-        <div className="bg-red-500/10 border border-red-500/20 p-12 rounded-[40px] max-w-md">
+        <div className="bg-red-500/10 border border-red-500/20 p-12 rounded-2xl max-w-md">
            <Lock className="w-16 h-16 text-red-500 mx-auto mb-6" />
            <h2 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h2>
-           <p className="text-white/40 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về trang chủ.</p>
-           <Link href="/" className="px-8 py-3 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition-all">
+           <p className="text-muted-foreground/40 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về trang chủ.</p>
+           <Link href="/" className="px-8 py-3 bg-white text-black font-bold rounded-2xl hover:bg-muted transition-all">
               VỀ TRANG CHỦ
            </Link>
         </div>
@@ -68,15 +68,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen bg-[#050505]">
       {/* Sidebar */}
-      <aside className="w-72 border-r border-white/5 bg-zinc-900/50 backdrop-blur-xl flex flex-col fixed h-full z-50">
+      <aside className="w-72 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col fixed h-full z-50">
         <div className="p-8">
            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-2xl bg-yellow-600 flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg shadow-yellow-600/20">
+              <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center group-hover:rotate-12 transition-transform shadow-lg shadow-primary/20">
                  <Globe className="w-6 h-6 text-white" />
               </div>
               <div>
                  <h2 className="font-black text-lg tracking-tighter">EDUMAP</h2>
-                 <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">Admin Panel</p>
+                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Admin Panel</p>
               </div>
            </Link>
         </div>
@@ -91,12 +91,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 className={`flex items-center justify-between p-4 rounded-2xl transition-all group ${
                   isActive 
-                  ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-600/10' 
-                  : 'text-white/40 hover:bg-white/5 hover:text-white'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/10' 
+                  : 'text-muted-foreground/40 hover:bg-card/20 hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'group-hover:text-yellow-500'} transition-colors`} />
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'group-hover:text-primary'} transition-colors`} />
                   <span className="text-sm font-bold">{item.name}</span>
                 </div>
                 {isActive && <ChevronRight className="w-4 h-4" />}
@@ -105,8 +105,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="p-8 border-t border-white/5 space-y-4">
-           <button className="flex items-center gap-3 text-white/40 hover:text-white transition-colors w-full group">
+        <div className="p-8 border-t border-border space-y-4">
+           <button className="flex items-center gap-3 text-muted-foreground/40 hover:text-white transition-colors w-full group">
               <div className="p-2 rounded-lg bg-zinc-800 group-hover:bg-zinc-700 transition-colors">
                  <Settings className="w-4 h-4" />
               </div>

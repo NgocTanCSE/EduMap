@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Toaster } from 'sonner';
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { AuthProvider } from "@/src/contexts/AuthContext";
+import TopBar from "@/components/TopBar";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "EduMap - Bản đồ Giáo dục Thông minh Biên Hòa",
@@ -47,11 +54,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="dark">
-      <body className="flex flex-col min-h-screen bg-background text-foreground selection:bg-yellow-500/20 antialiased">
+      <body className={`${inter.variable} font-sans flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/20 antialiased`}>
         <LanguageProvider>
           <AuthProvider>
             <Toaster richColors position="top-right" closeButton />
-            <Header />
+            <TopBar />
             <div className="flex-grow">
             {children}
             </div>

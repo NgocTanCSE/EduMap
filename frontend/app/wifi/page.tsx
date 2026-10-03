@@ -129,32 +129,32 @@ export default function WifiPage() {
       {/* Report Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white">X</button>
+            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-sky-500 w-6 h-6"/> Chia sẻ điểm Wifi</h3>
-                <p className="text-sm text-white/40 mb-6">Đóng góp mạng Wifi miễn phí để hỗ trợ cộng đồng sinh viên.</p>
+                <p className="text-sm text-muted-foreground/40 mb-6">Đóng góp mạng Wifi miễn phí để hỗ trợ cộng đồng sinh viên.</p>
                 
                 <form onSubmit={handleReportWifi} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2">Tên địa điểm (VD: Thư viện KHTN) *</label>
-                        <input type="text" required value={reportForm.name} onChange={e => setReportForm({...reportForm, name: e.target.value})} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                        <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Tên địa điểm (VD: Thư viện KHTN) *</label>
+                        <input type="text" required value={reportForm.name} onChange={e => setReportForm({...reportForm, name: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2">Tên mạng (SSID) *</label>
-                        <input type="text" required value={reportForm.ssid} onChange={e => setReportForm({...reportForm, ssid: e.target.value})} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                        <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Tên mạng (SSID) *</label>
+                        <input type="text" required value={reportForm.ssid} onChange={e => setReportForm({...reportForm, ssid: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-white/60 uppercase mb-2">Mật khẩu (Nếu có)</label>
-                        <input type="text" value={reportForm.password} onChange={e => setReportForm({...reportForm, password: e.target.value})} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" placeholder="Để trống nếu không có mật khẩu" />
+                        <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Mật khẩu (Nếu có)</label>
+                        <input type="text" value={reportForm.password} onChange={e => setReportForm({...reportForm, password: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" placeholder="Để trống nếu không có mật khẩu" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-white/60 uppercase mb-2">Vĩ độ *</label>
-                            <input type="number" step="any" required value={reportForm.latitude} onChange={e => setReportForm({...reportForm, latitude: e.target.value})} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                            <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Vĩ độ *</label>
+                            <input type="number" step="any" required value={reportForm.latitude} onChange={e => setReportForm({...reportForm, latitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-white/60 uppercase mb-2">Kinh độ *</label>
-                            <input type="number" step="any" required value={reportForm.longitude} onChange={e => setReportForm({...reportForm, longitude: e.target.value})} className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                            <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Kinh độ *</label>
+                            <input type="number" step="any" required value={reportForm.longitude} onChange={e => setReportForm({...reportForm, longitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
                         </div>
                     </div>
                     <button type="button" onClick={() => {
@@ -178,20 +178,20 @@ export default function WifiPage() {
       {/* Speed Test Modal */}
       {showSpeedTestModal && selectedWifi && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl relative text-center">
-                <button onClick={() => setShowSpeedTestModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white">X</button>
+            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative text-center">
+                <button onClick={() => setShowSpeedTestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <Gauge className="w-12 h-12 text-sky-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-1">Kiểm tra tốc độ</h3>
                 <p className="text-sm text-sky-400 font-bold mb-8">{selectedWifi.name}</p>
                 
                 <div className="flex justify-center gap-8 mb-8">
                     <div>
-                        <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Download</p>
-                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.dl.toFixed(1)} <span className="text-sm text-white/40">Mbps</span></p>
+                        <p className="text-xs text-muted-foreground/40 uppercase tracking-widest font-bold mb-2">Download</p>
+                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.dl.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
                     </div>
                     <div>
-                        <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Upload</p>
-                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.ul.toFixed(1)} <span className="text-sm text-white/40">Mbps</span></p>
+                        <p className="text-xs text-muted-foreground/40 uppercase tracking-widest font-bold mb-2">Upload</p>
+                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.ul.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
                     </div>
                 </div>
 
@@ -206,7 +206,7 @@ export default function WifiPage() {
                                 <Star 
                                     key={star} 
                                     onClick={() => setSpeedTestResult({...speedTestResult, rating: star})}
-                                    className={`w-8 h-8 cursor-pointer transition-colors ${speedTestResult.rating >= star ? 'text-yellow-500 fill-yellow-500' : 'text-white/10'}`} 
+                                    className={`w-8 h-8 cursor-pointer transition-colors ${speedTestResult.rating >= star ? 'text-primary fill-primary' : 'text-muted-foreground/10'}`} 
                                 />
                             ))}
                         </div>
@@ -226,17 +226,17 @@ export default function WifiPage() {
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-gradient-to-br from-sky-600/20 to-indigo-600/10 p-12 rounded-[40px] border border-white/5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="text-4xl md:text-5xl font-black mb-4">EduMap WiFi</h1>
-            <p className="text-white/60 max-w-xl leading-relaxed">
+            <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
               Bản đồ phủ sóng Wifi miễn phí tại các điểm trường và khu vực công cộng. Chia sẻ và cùng nhau xây dựng cộng đồng học tập không rào cản.
             </p>
           </div>
           <div className="relative z-10 flex gap-4">
              <button 
                 onClick={handleGetNearby}
-                className="px-6 py-4 bg-zinc-900 border border-white/10 hover:border-sky-500 rounded-2xl font-bold flex items-center gap-2 transition-all"
+                className="px-6 py-4 bg-card border border-border hover:border-sky-500 rounded-2xl font-bold flex items-center gap-2 transition-all"
              >
                 <Navigation className="w-5 h-5 text-sky-400" /> TÌM GẦN ĐÂY
              </button>
@@ -260,13 +260,13 @@ export default function WifiPage() {
 
         {/* Search */}
         <div className="relative max-w-md mx-auto md:mx-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
             <input 
                 type="text" 
                 placeholder="Tìm tên địa điểm, SSID..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-sky-500 transition-colors" 
+                className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-sky-500 transition-colors" 
             />
         </div>
 
@@ -276,30 +276,30 @@ export default function WifiPage() {
         ) : filteredLocations.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredLocations.map(wifi => (
-              <div key={wifi.id} className="bg-card border border-white/10 rounded-[32px] p-6 hover:border-sky-500/30 transition-all group relative overflow-hidden flex flex-col h-full">
+              <div key={wifi.id} className="bg-card border border-border rounded-xl p-6 hover:border-sky-500/30 transition-all group relative overflow-hidden flex flex-col h-full">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-[40px] rounded-full -mr-10 -mt-10 pointer-events-none" />
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
-                      <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center">
-                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-green-500' : wifi.speed_mbps >= 10 ? 'text-yellow-500' : 'text-red-500'}`} />
+                      <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center">
+                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-green-500' : wifi.speed_mbps >= 10 ? 'text-primary' : 'text-red-500'}`} />
                       </div>
-                      <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-sky-400">
+                      <span className="px-2 py-1 rounded bg-card/20 border border-border text-[10px] font-bold uppercase tracking-widest text-sky-400">
                           {wifi.verified ? 'ĐÃ XÁC THỰC' : 'CỘNG ĐỒNG'}
                       </span>
                   </div>
                   
                   <h3 className="text-xl font-bold mb-1 group-hover:text-sky-400 transition-colors line-clamp-1">{wifi.name}</h3>
-                  <p className="text-sm font-mono text-white/60 mb-6 bg-black/40 px-3 py-2 rounded-lg border border-white/5 w-fit">
+                  <p className="text-sm font-mono text-muted-foreground/60 mb-6 bg-card/40 px-3 py-2 rounded-lg border border-border w-fit">
                       SSID: {wifi.ssid}
                   </p>
                   
-                  <div className="space-y-3 pt-4 border-t border-white/5 mt-auto relative z-10">
+                  <div className="space-y-3 pt-4 border-t border-border mt-auto relative z-10">
                       <div className="flex items-center justify-between text-xs">
-                          <span className="text-white/40 flex items-center gap-2"><ShieldCheck className="w-4 h-4"/> Mật khẩu</span>
-                          <span className="font-mono text-white/80">{wifi.is_free ? 'Không có' : (wifi.password || 'Đã ẩn')}</span>
+                          <span className="text-muted-foreground/40 flex items-center gap-2"><ShieldCheck className="w-4 h-4"/> Mật khẩu</span>
+                          <span className="font-mono text-foreground/80">{wifi.is_free ? 'Không có' : (wifi.password || 'Đã ẩn')}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                          <span className="text-white/40 flex items-center gap-2"><Gauge className="w-4 h-4"/> Tốc độ (Đám đông)</span>
+                          <span className="text-muted-foreground/40 flex items-center gap-2"><Gauge className="w-4 h-4"/> Tốc độ (Đám đông)</span>
                           <span className="font-mono font-bold text-sky-400">{wifi.speed_mbps || 0} Mbps</span>
                       </div>
                   </div>
@@ -313,7 +313,7 @@ export default function WifiPage() {
                           setSelectedWifi(wifi);
                           setShowSpeedTestModal(true);
                       }}
-                      className="w-full mt-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-bold transition-all relative z-10"
+                      className="w-full mt-6 py-3 rounded-xl bg-card hover:bg-zinc-800 border border-border text-xs font-bold transition-all relative z-10"
                   >
                       ĐO TỐC ĐỘ LẠI
                   </button>
@@ -321,9 +321,9 @@ export default function WifiPage() {
             ))}
           </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">
-                <Wifi className="w-12 h-12 text-white/10 mx-auto mb-4 opacity-50" />
-                <p className="text-white/40">Không tìm thấy điểm Wifi nào.</p>
+            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                <Wifi className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground/40">Không tìm thấy điểm Wifi nào.</p>
             </div>
         )}
 

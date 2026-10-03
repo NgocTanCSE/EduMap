@@ -183,7 +183,7 @@ def main():
     print("\nNext steps:")
     print("1. Run: python ../scripts/execute_db_setup.py")
     print("2. Or manually: psql -d edumap -f seed_crawled_data_new.sql")
-    print("3. Update AI vector DB: cd ai-service && python seed_vector_db.py")
+    print("3. Update AI vector DB: cd ../ai-service && python seed_vector_db.py")
 
     return True
 

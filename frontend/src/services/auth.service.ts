@@ -37,8 +37,9 @@ class AuthService {
       this.accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
       this.refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
       
-      // Auto-cleanup any old/fake demo tokens from browser cache
-      if (this.accessToken && (this.accessToken.includes('signature') || this.accessToken.includes('demo-user'))) {
+      // Clean any stale tokens from a previous version that may have used
+      // hardcoded demo credentials — ensures only real JWT tokens are trusted.
+      if (this.accessToken && this.isDemoToken(this.accessToken)) {
         this.clearAuthData();
         return;
       }
@@ -47,7 +48,7 @@ class AuthService {
       if (userInfoString) {
         try {
           this.currentUser = JSON.parse(userInfoString);
-          if (this.currentUser?.id === 'demo-user') {
+          if (this.currentUser?.id === 'demo-user' || this.isDemoToken(this.currentUser?.id || '')) {
             this.clearAuthData();
           }
         } catch (error) {
@@ -138,6 +139,16 @@ class AuthService {
   }
 
   // === User Info & Status ===
+  /**
+   * Detects tokens that were not issued by the real backend auth service.
+   * Used as a safety net to purge any stale demo/mocked credentials
+   * left over from development or previous versions.
+   */
+  private isDemoToken(token: string): boolean {
+    if (!token) return false;
+    return token.includes('signature') || token.includes('demo-user');
+  }
+
   private parseJwt(token: string): DecodedToken | null {
     try {
       return jwtDecode<DecodedToken>(token);
@@ -189,8 +200,8 @@ class AuthService {
     if (!token) {
       return false;
     }
-    // Auto-purge any stale fake demo tokens
-    if (token.includes('signature') || token.includes('demo-user')) {
+    // Reject stale demo tokens that may have been written by a previous version
+    if (this.isDemoToken(token)) {
       this.clearAuthData();
       return false;
     }

@@ -73,7 +73,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-white/60 mb-8">Không tìm thấy cuộc khảo sát này.</p>
+        <p className="text-muted-foreground/60 mb-8">Không tìm thấy cuộc khảo sát này.</p>
         <Link href="/surveys" className="px-8 py-3 rounded-full bg-teal-600 font-bold hover:bg-teal-500 transition-all">
           Quay lại danh sách
         </Link>
@@ -87,17 +87,17 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen bg-[#050505] text-white p-8">
       <div className="max-w-3xl mx-auto space-y-8">
         
-        <Link href="/surveys" className="flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm font-bold w-fit">
+        <Link href="/surveys" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
         {isCompleted ? (
-            <div className="bg-card border border-teal-500/30 rounded-[40px] p-12 text-center space-y-6 shadow-2xl shadow-teal-500/10">
+            <div className="bg-card border border-teal-500/30 rounded-2xl p-12 text-center space-y-6 shadow-2xl shadow-teal-500/10">
                 <div className="w-24 h-24 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle2 className="w-12 h-12 text-teal-500" />
                 </div>
                 <h2 className="text-3xl font-black text-teal-400">Khảo sát hoàn tất!</h2>
-                <p className="text-white/60 leading-relaxed max-w-md mx-auto">
+                <p className="text-muted-foreground/60 leading-relaxed max-w-md mx-auto">
                     Cảm ơn bạn đã dành thời gian đóng góp ý kiến. Thông tin của bạn sẽ giúp chúng tôi cải thiện hệ thống tốt hơn.
                 </p>
                 <div className="pt-8">
@@ -108,20 +108,20 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
             </div>
         ) : (
             <>
-                <div className="bg-gradient-to-br from-teal-900/30 to-emerald-900/10 border border-teal-500/20 rounded-[40px] p-8 md:p-12 relative overflow-hidden">
+                <div className="bg-card border border-primary/20 rounded-2xl p-8 md:p-12 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 blur-[80px] rounded-full -mr-10 -mt-10 pointer-events-none" />
                     <div className="relative z-10">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-widest mb-4 border border-teal-500/30">
                             Khảo sát
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black leading-tight mb-2">{survey.title}</h1>
-                        <p className="text-white/60 text-sm">Vui lòng trả lời trung thực các câu hỏi dưới đây.</p>
+                        <p className="text-muted-foreground/60 text-sm">Vui lòng trả lời trung thực các câu hỏi dưới đây.</p>
                     </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-8">
                     {questions.map((q: any, index: number) => (
-                        <div key={index} className="bg-card border border-white/10 rounded-3xl p-8">
+                        <div key={index} className="bg-card border border-border rounded-3xl p-8">
                             <h3 className="font-bold mb-4 text-lg">
                                 <span className="text-teal-500 mr-2">Câu {index + 1}:</span>
                                 {q.text || q.question}
@@ -135,12 +135,12 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
                                     value={answers[index] || ''}
                                     onChange={(e) => handleAnswerChange(index, e.target.value)}
                                     placeholder="Nhập câu trả lời của bạn..."
-                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-teal-500 outline-none resize-none"
+                                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-teal-500 outline-none resize-none"
                                 />
                             ) : (
                                 <div className="space-y-3">
                                     {q.options.map((opt: string, i: number) => (
-                                        <label key={i} className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${answers[index] === opt ? 'bg-teal-500/10 border-teal-500/50' : 'bg-zinc-900 border-white/10 hover:border-white/20'}`}>
+                                        <label key={i} className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${answers[index] === opt ? 'bg-teal-500/10 border-teal-500/50' : 'bg-card border-border hover:border-border'}`}>
                                             <input 
                                                 type="radio" 
                                                 name={`question_${index}`}
@@ -148,7 +148,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
                                                 checked={answers[index] === opt}
                                                 onChange={(e) => handleAnswerChange(index, e.target.value)}
                                                 required
-                                                className="w-4 h-4 accent-teal-500 bg-zinc-800 border-white/10"
+                                                className="w-4 h-4 accent-teal-500 bg-zinc-800 border-border"
                                             />
                                             <span className="text-sm">{opt}</span>
                                         </label>
@@ -158,8 +158,8 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
                         </div>
                     ))}
 
-                    <div className="bg-card border border-white/10 rounded-3xl p-8 text-center space-y-4">
-                        <p className="text-xs text-white/40 mb-4">Bằng việc nộp khảo sát, bạn đồng ý cung cấp các thông tin trên cho EduMap phục vụ mục đích phân tích.</p>
+                    <div className="bg-card border border-border rounded-3xl p-8 text-center space-y-4">
+                        <p className="text-xs text-muted-foreground/40 mb-4">Bằng việc nộp khảo sát, bạn đồng ý cung cấp các thông tin trên cho EduMap phục vụ mục đích phân tích.</p>
                         <button 
                             type="submit"
                             disabled={submitting}

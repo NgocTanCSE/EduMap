@@ -21,11 +21,11 @@ export default function Error({
           <span className="text-3xl">⚠️</span>
         </div>
         <h2 className="text-2xl font-bold">Không thể tải trang</h2>
-        <p className="text-white/60 text-sm">
+        <p className="text-muted-foreground/60 text-sm">
           {error.message || 'Đã xảy ra lỗi khi tải nội dung này.'}
         </p>
         <div className="flex gap-4 justify-center">
-          <Button onClick={reset} className="bg-yellow-600 hover:bg-yellow-500 text-black">
+          <Button onClick={reset} className="bg-primary hover:bg-primary/80 text-black">
             Thử lại
           </Button>
           <Button variant="outline" onClick={() => window.location.href = '/'}>

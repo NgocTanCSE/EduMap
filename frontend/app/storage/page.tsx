@@ -66,7 +66,7 @@ export default function StoragePage() {
   const getFileIcon = (mimeType: string) => {
       if (mimeType.startsWith('image/')) return <ImageIcon className="w-8 h-8 text-blue-400" />;
       if (mimeType === 'application/pdf') return <FileText className="w-8 h-8 text-red-400" />;
-      return <File className="w-8 h-8 text-gray-400" />;
+      return <File className="w-8 h-8 text-muted-foreground/40" />;
   };
 
   const totalSizeKb = files.reduce((acc, f) => acc + f.size_kb, 0);
@@ -77,21 +77,21 @@ export default function StoragePage() {
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-br from-blue-900/20 to-purple-900/10 p-12 rounded-[40px] border border-white/5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
             <h1 className="text-4xl font-black mb-4">Kho Lưu Trữ Đám Mây</h1>
-            <p className="text-white/60 max-w-md leading-relaxed">
+            <p className="text-muted-foreground/60 max-w-md leading-relaxed">
               Quản lý CV, chứng chỉ, hình ảnh và tài liệu học tập của bạn. Các file này có thể dễ dàng đính kèm khi ứng tuyển học bổng hoặc thực tập.
             </p>
           </div>
           <div className="flex gap-4 relative z-10">
-            <div className="p-6 rounded-3xl bg-black/40 border border-white/10 text-center min-w-[140px] shadow-xl">
+            <div className="p-6 rounded-3xl bg-card/40 border border-border text-center min-w-[140px] shadow-xl">
               <p className="text-3xl font-extrabold text-blue-400">{files.length}</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mt-1">Tập tin</p>
+              <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mt-1">Tập tin</p>
             </div>
-            <div className="p-6 rounded-3xl bg-black/40 border border-white/10 text-center min-w-[140px] shadow-xl">
-              <p className="text-3xl font-extrabold text-purple-400">{totalSizeMb} MB</p>
-              <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mt-1">Đã sử dụng</p>
+            <div className="p-6 rounded-3xl bg-card/40 border border-border text-center min-w-[140px] shadow-xl">
+              <p className="text-3xl font-extrabold text-primary/70">{totalSizeMb} MB</p>
+              <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mt-1">Đã sử dụng</p>
             </div>
           </div>
           <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
@@ -102,13 +102,13 @@ export default function StoragePage() {
         {/* Upload & Search Area */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
                 <input 
                     type="text" 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Tìm kiếm tài liệu..." 
-                    className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-blue-500 transition-colors" 
+                    className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary transition-colors" 
                 />
             </div>
             <div className="md:col-span-1">
@@ -121,7 +121,7 @@ export default function StoragePage() {
                 <button 
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="w-full h-full min-h-[56px] bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50"
+                    className="w-full h-full min-h-[56px] bg-primary hover:bg-primary rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
                 >
                     {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
                     {uploading ? 'ĐANG TẢI LÊN...' : 'TẢI LÊN TẬP TIN'}
@@ -130,20 +130,20 @@ export default function StoragePage() {
         </div>
 
         {/* Files Grid */}
-        <div className="bg-card border border-white/5 rounded-3xl p-6 md:p-8 min-h-[400px]">
-            <div className="flex items-center gap-2 mb-8 border-b border-white/5 pb-4">
+        <div className="bg-card border border-border rounded-3xl p-6 md:p-8 min-h-[400px]">
+            <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
                 <HardDrive className="w-5 h-5 text-blue-400" />
                 <h2 className="text-xl font-bold">Tài liệu của tôi</h2>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /></div>
+                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
             ) : filteredFiles.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {filteredFiles.map(file => (
-                        <div key={file.id} className="bg-zinc-900 border border-white/10 rounded-2xl p-4 hover:border-blue-500/50 transition-colors group relative flex flex-col h-full">
+                        <div key={file.id} className="bg-card border border-border rounded-2xl p-4 hover:border-primary/50 transition-colors group relative flex flex-col h-full">
                             <div className="flex justify-between items-start mb-4">
-                                <div className="p-3 bg-black/40 rounded-xl border border-white/5">
+                                <div className="p-3 bg-card/40 rounded-xl border border-border">
                                     {getFileIcon(file.mime_type)}
                                 </div>
                                 <button 
@@ -158,7 +158,7 @@ export default function StoragePage() {
                                 {file.original_name}
                             </h3>
                             
-                            <div className="mt-auto pt-4 flex justify-between items-center text-[10px] text-white/40">
+                            <div className="mt-auto pt-4 flex justify-between items-center text-[10px] text-muted-foreground/40">
                                 <span>{(file.size_kb / 1024).toFixed(2)} MB</span>
                                 <span>{new Date(file.created_at).toLocaleDateString('vi-VN')}</span>
                             </div>
@@ -175,8 +175,8 @@ export default function StoragePage() {
             ) : (
                 <div className="text-center py-20">
                     <Cloud className="w-16 h-16 text-white/5 mx-auto mb-4" />
-                    <p className="text-white/40 mb-2">Kho lưu trữ trống</p>
-                    <p className="text-xs text-white/20">Hãy tải lên các tài liệu học tập của bạn.</p>
+                    <p className="text-muted-foreground/40 mb-2">Kho lưu trữ trống</p>
+                    <p className="text-xs text-muted-foreground/20">Hãy tải lên các tài liệu học tập của bạn.</p>
                 </div>
             )}
         </div>

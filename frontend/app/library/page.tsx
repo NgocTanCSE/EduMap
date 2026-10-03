@@ -106,10 +106,10 @@ export default function LibraryPage() {
             <p className="text-gray-500 font-medium">Khám phá hàng ngàn tài liệu chất lượng cao được AI phân tích</p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-zinc-900 border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-zinc-800 transition-all">
+            <button className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-zinc-800 transition-all">
               <Bookmark className="w-4 h-4" /> Đã lưu
             </button>
-            <button className="bg-yellow-600 px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-yellow-700 transition-all shadow-lg shadow-yellow-600/20">
+            <button className="bg-primary px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-yellow-700 transition-all shadow-lg shadow-primary/20">
               <Download className="w-4 h-4" /> Tải app desktop
             </button>
           </div>
@@ -117,17 +117,17 @@ export default function LibraryPage() {
 
         {/* AI Search Bar */}
         <form onSubmit={handleSearch} className="relative mb-12 group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-yellow-600 to-purple-600 rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
-          <div className="relative bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
-            <div className="pl-4 pr-2"><Sparkles className="w-6 h-6 text-yellow-500" /></div>
+          <div className="absolute -inset-1 bg-primary rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
+          <div className="relative bg-card/80 backdrop-blur-md border border-border rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+            <div className="pl-4 pr-2"><Sparkles className="w-6 h-6 text-primary" /></div>
             <input 
               type="text" 
               placeholder="Bạn muốn tìm tài liệu gì?..."
-              className="flex-1 bg-transparent py-4 text-lg focus:outline-none placeholder:text-gray-600 text-yellow-500"
+              className="flex-1 bg-transparent py-4 text-lg focus:outline-none placeholder:text-gray-600 text-primary"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <button type="submit" className="bg-yellow-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center gap-2">
+            <button type="submit" className="bg-primary text-white px-8 py-4 rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center gap-2">
               Tìm kiếm AI <ArrowRight className="w-5 h-5" />
             </button>
           </div>
@@ -141,8 +141,8 @@ export default function LibraryPage() {
               onClick={() => setActiveTab(cat)}
               className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border ${
                 activeTab === cat 
-                ? 'bg-yellow-600 border-yellow-500 text-white shadow-lg shadow-yellow-600/20' 
-                : 'bg-zinc-900 border-white/5 text-gray-400 hover:border-white/20'
+                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
+                : 'bg-card border-border text-muted-foreground/40 hover:border-border'
               }`}
             >
               {cat}
@@ -165,27 +165,27 @@ export default function LibraryPage() {
               <div 
                 key={res.id} 
                 onClick={() => handleViewDetails(res)}
-                className="bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden hover:border-yellow-600/50 transition-all group cursor-pointer flex flex-col h-full"
+                className="bg-card border border-border rounded-3xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer flex flex-col h-full"
               >
                 <div className={`h-48 bg-zinc-950 flex items-center justify-center relative overflow-hidden shrink-0`}>
                   {res.cover_image_url ? (
                       <img src={res.cover_image_url} alt={res.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                   ) : (
                       <>
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent opacity-60"></div>
-                        {res.type === "video" ? <Video className="w-16 h-16 text-white/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-white/10 group-hover:scale-110 transition-transform duration-500" />}
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent opacity-60"></div>
+                        {res.type === "video" ? <Video className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" />}
                       </>
                   )}
-                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-yellow-500 border border-yellow-500/20">{res.type}</div>
+                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-1 text-amber-500 text-[10px] font-black mb-3 bg-amber-500/10 px-2 py-0.5 rounded-full w-max border border-amber-500/20 uppercase tracking-widest">
                     <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> POPULAR
                   </div>
-                  <h3 className="font-bold text-lg mb-1 group-hover:text-yellow-500 transition-colors line-clamp-2">{res.title}</h3>
+                  <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h3>
                   <p className="text-gray-500 text-sm mb-4 line-clamp-1">{res.author || 'EduMap Library'}</p>
                   
-                  <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
+                  <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-500">{res.view_count} views</span>
                     <button className="text-gray-500 hover:text-white transition-colors">
                       <Bookmark className="w-4 h-4" />
@@ -196,7 +196,7 @@ export default function LibraryPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-500 border border-dashed border-white/10 rounded-3xl">
+          <div className="text-center py-20 text-gray-500 border border-dashed border-border rounded-3xl">
               Không tìm thấy tài liệu phù hợp.
           </div>
         )}
@@ -206,7 +206,7 @@ export default function LibraryPage() {
             <button 
               onClick={handleLoadMore} 
               disabled={loadingMore}
-              className="px-8 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-8 py-3 rounded-full border border-border text-white hover:bg-card/20 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {loadingMore ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
               {loadingMore ? 'Đang tải...' : 'Tải thêm tài liệu'}
@@ -219,18 +219,18 @@ export default function LibraryPage() {
       {selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedMaterial(null)}></div>
-            <div className="relative bg-zinc-900 border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+            <div className="relative bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-300">
                 
                 {/* Header */}
-                <div className="p-6 border-b border-white/10 flex justify-between items-start bg-zinc-950/50">
+                <div className="p-6 border-b border-border flex justify-between items-start bg-zinc-950/50">
                     <div className="pr-8">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 px-2 py-1 rounded-full mb-3 inline-block">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/70 bg-primary/10 px-2 py-1 rounded-full mb-3 inline-block">
                             {selectedMaterial.category}
                         </span>
                         <h2 className="text-2xl font-black text-white leading-tight mb-2">{selectedMaterial.title}</h2>
-                        <p className="text-sm text-gray-400">{selectedMaterial.author || 'Unknown Author'}</p>
+                        <p className="text-sm text-muted-foreground/40">{selectedMaterial.author || 'Unknown Author'}</p>
                     </div>
-                    <button onClick={() => setSelectedMaterial(null)} className="text-gray-500 hover:text-white bg-white/5 p-2 rounded-full">
+                    <button onClick={() => setSelectedMaterial(null)} className="text-gray-500 hover:text-white bg-card/20 p-2 rounded-full">
                         <X size={20} />
                     </button>
                 </div>
@@ -240,12 +240,12 @@ export default function LibraryPage() {
                     
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                        <button className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-black font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
+                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-black font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
                             {selectedMaterial.type === 'video' ? <Video size={18}/> : <FileText size={18}/>}
                             Open Material
                         </button>
                         {selectedMaterial.file_url && (
-                            <a href={selectedMaterial.file_url} download className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-white/5 transition-all">
+                            <a href={selectedMaterial.file_url} download className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
                                 <Download size={18}/> Download
                             </a>
                         )}
@@ -253,50 +253,50 @@ export default function LibraryPage() {
 
                     <div className="space-y-3">
                         <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest">Description</h3>
-                        <p className="text-gray-300 leading-relaxed text-sm">{selectedMaterial.description || 'No description available.'}</p>
+                        <p className="text-muted-foreground/60 leading-relaxed text-sm">{selectedMaterial.description || 'No description available.'}</p>
                     </div>
 
                     {/* AI Analysis Section */}
-                    <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-2xl p-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full -mr-10 -mt-10" />
+                    <div className="bg-card border border-primary/30 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-10 -mt-10" />
                         
-                        <div className="flex items-center gap-2 text-purple-400 font-black mb-6 relative z-10">
+                        <div className="flex items-center gap-2 text-primary/70 font-black mb-6 relative z-10">
                             <BrainCircuit className={analyzing ? "animate-pulse" : ""} />
                             <h3>AI Insight & Summary</h3>
                         </div>
 
                         {analyzing ? (
                             <div className="space-y-4 py-4 text-center">
-                                <div className="w-8 h-8 border-2 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mx-auto" />
+                                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
                                 <p className="text-xs text-gray-500 uppercase font-bold animate-pulse">Gemini is reading...</p>
                             </div>
                         ) : aiSummary ? (
                             <div className="space-y-6 relative z-10">
-                                <p className="text-gray-200 text-sm leading-relaxed italic border-l-2 border-purple-500 pl-4">
+                                <p className="text-muted-foreground/70 text-sm leading-relaxed italic border-l-2 border-primary pl-4">
                                     "{aiSummary.summary}"
                                 </p>
                                 
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                                        <Lightbulb size={14} className="text-yellow-500"/> Key Concepts
+                                    <h4 className="text-xs font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
+                                        <Lightbulb size={14} className="text-primary"/> Key Concepts
                                     </h4>
                                     <div className="grid grid-cols-1 gap-2">
                                         {aiSummary.key_concepts?.map((kc: any, idx: number) => (
-                                            <div key={idx} className="bg-black/40 p-3 rounded-lg border border-white/5">
+                                            <div key={idx} className="bg-card/40 p-3 rounded-lg border border-border">
                                                 <span className="text-sm font-bold text-blue-400 block mb-1">{kc.concept}</span>
-                                                <span className="text-xs text-gray-400 leading-snug">{kc.explanation}</span>
+                                                <span className="text-xs text-muted-foreground/40 leading-snug">{kc.explanation}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                    <h4 className="text-xs font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
                                         <Target size={14} className="text-green-500"/> Study Tips
                                     </h4>
                                     <ul className="space-y-2">
                                         {aiSummary.study_tips?.map((tip: string, idx: number) => (
-                                            <li key={idx} className="text-xs text-gray-300 flex items-start gap-2">
+                                            <li key={idx} className="text-xs text-muted-foreground/60 flex items-start gap-2">
                                                 <span className="text-green-500 mt-0.5">•</span> {tip}
                                             </li>
                                         ))}

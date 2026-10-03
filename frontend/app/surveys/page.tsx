@@ -30,10 +30,10 @@ export default function SurveysPage() {
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-gradient-to-br from-teal-900/30 to-emerald-900/20 p-12 rounded-[40px] border border-white/5 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-black mb-4">Ý Kiến Đóng Góp</h1>
-            <p className="text-white/60 max-w-xl leading-relaxed">
+            <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
               Lắng nghe tiếng nói của học sinh, sinh viên. Mọi ý kiến của bạn đều giúp EduMap cải thiện chất lượng giáo dục và các hoạt động cộng đồng.
             </p>
           </div>
@@ -52,7 +52,7 @@ export default function SurveysPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {surveys.map(survey => (
                         <Link href={`/surveys/${survey.id}`} key={survey.id} className="group">
-                            <div className="bg-card border border-white/10 rounded-3xl p-6 hover:border-teal-500/50 transition-all flex flex-col h-full shadow-xl">
+                            <div className="bg-card border border-border rounded-3xl p-6 hover:border-primary/50 transition-all flex flex-col h-full shadow-xl">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="p-3 bg-teal-500/10 rounded-xl">
                                         <ClipboardList className="w-6 h-6 text-teal-500" />
@@ -64,7 +64,7 @@ export default function SurveysPage() {
                                 <h3 className="text-xl font-bold mb-4 group-hover:text-teal-400 transition-colors line-clamp-2 flex-1">
                                     {survey.title}
                                 </h3>
-                                <div className="flex items-center gap-2 text-xs text-white/40 mb-6 pt-4 border-t border-white/5">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground/40 mb-6 pt-4 border-t border-border">
                                     <Calendar className="w-4 h-4" /> Đăng ngày {new Date(survey.created_at).toLocaleDateString('vi-VN')}
                                 </div>
                                 <div className="flex items-center justify-between text-xs font-bold text-teal-500 group-hover:translate-x-2 transition-transform w-fit">
@@ -75,9 +75,9 @@ export default function SurveysPage() {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-card border border-dashed border-white/10 rounded-[40px]">
-                    <ClipboardList className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                    <p className="text-white/40">Hiện tại không có cuộc khảo sát nào.</p>
+                <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                    <ClipboardList className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
+                    <p className="text-muted-foreground/40">Hiện tại không có cuộc khảo sát nào.</p>
                 </div>
             )}
         </div>

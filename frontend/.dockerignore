@@ -5,3 +5,6 @@ node_modules
 .env*
 .dockerignore
 Dockerfile
+
+# Local-only mock testing app — not needed in the production Docker image
+test-app

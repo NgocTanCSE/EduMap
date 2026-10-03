@@ -1,0 +1,11 @@
+{
+  "name": "edumap-test-app",
+  "version": "1.0.0",
+  "description": "Mock application for testing EduMap frontend features locally (NOT used in Docker/HF deployment)",
+  "private": true,
+  "scripts": {
+    "start:mock": "node mock-server.js",
+    "test": "node --test __tests__/mock-handlers.test.js"
+  },
+  "dependencies": {}
+}

@@ -45,19 +45,19 @@ export default function ModeratorPage() {
     <div className="max-w-4xl mx-auto p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Clock className="w-6 h-6 text-yellow-500" />
+          <Clock className="w-6 h-6 text-primary" />
           Bảng điều khiển Moderator
         </h1>
         <button 
           onClick={() => window.location.reload()}
-          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 flex items-center gap-2"
+          className="px-4 py-2 rounded-xl bg-card/20 hover:bg-card/20 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" /> Làm mới
         </button>
       </div>
       
       {tasks.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-white/10 rounded-2xl">
+        <div className="text-center py-16 bg-card border border-border rounded-2xl">
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
           <p>Không có nội dung cần duyệt.</p>
         </div>
@@ -66,9 +66,9 @@ export default function ModeratorPage() {
           {tasks.map((t: any) => (
             <div key={t.id} className="p-4 border rounded-lg bg-card space-y-3">
               <h3 className="font-bold text-lg">{t.title}</h3>
-              <p className="text-sm text-white/60 line-clamp-2">{t.content}</p>
+              <p className="text-sm text-muted-foreground/60 line-clamp-2">{t.content}</p>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-white/40">
+                <span className="text-xs text-muted-foreground/40">
                   Bởi: {t.author?.full_name || 'N/A'} • {new Date(t.created_at).toLocaleDateString('vi-VN')}
                 </span>
                 <div className="flex gap-2">

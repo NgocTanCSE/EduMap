@@ -4,7 +4,7 @@ import {
   Trophy, Medal, Crown, Star, 
   TrendingUp, Users, Loader2, Target, Award
 } from 'lucide-react';
-import { gamificationService, LeaderboardUser, UserProgress } from '@/src/services/gamification.service';
+import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 
@@ -39,7 +39,7 @@ export default function LeaderboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
   }
@@ -53,11 +53,11 @@ export default function LeaderboardPage() {
         
         {/* Header */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
             <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
           </div>
           <h1 className="text-5xl font-black tracking-tight">Vinh danh những nỗ lực</h1>
-          <p className="text-white/40 max-w-2xl mx-auto">
+          <p className="text-muted-foreground/40 max-w-2xl mx-auto">
             Càng học tập, quyên góp và tham gia hoạt động cộng đồng, thứ hạng của bạn càng cao.
             Hãy cùng nhau xây dựng cộng đồng học tập tích cực!
           </p>
@@ -65,36 +65,36 @@ export default function LeaderboardPage() {
 
         {/* My Progress Card (If logged in) */}
         {progress && (
-          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-white/10 rounded-[40px] p-8 flex flex-col md:flex-row items-center gap-8 shadow-2xl">
+          <div className="bg-card border border-border rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8 shadow-2xl">
             <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-yellow-500/30 flex items-center justify-center bg-black/40">
-                    <span className="text-3xl font-black text-yellow-500">{progress.level}</span>
+                <div className="w-24 h-24 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card/40">
+                    <span className="text-3xl font-black text-primary">{progress.level}</span>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-yellow-600 rounded-lg px-2 py-1 text-[10px] font-black text-white">LEVEL</div>
+                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-black text-white">LEVEL</div>
             </div>
             
             <div className="flex-1 space-y-4 w-full text-center md:text-left">
                 <div className="flex justify-between items-end">
                     <div>
                         <h2 className="text-xl font-bold">Thứ hạng của bạn</h2>
-                        <p className="text-white/40 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
+                        <p className="text-muted-foreground/40 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
                     </div>
                     <div className="text-right">
                         <span className="text-2xl font-black text-white">{progress.points.toLocaleString()}</span>
-                        <span className="text-xs text-white/40 font-bold ml-1">XP</span>
+                        <span className="text-xs text-muted-foreground/40 font-bold ml-1">XP</span>
                     </div>
                 </div>
                 
-                <div className="h-4 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 p-0.5">
+                <div className="h-4 w-full bg-card/40 rounded-full overflow-hidden border border-border p-0.5">
                     <div 
-                        className="h-full bg-gradient-to-r from-yellow-600 via-purple-600 to-blue-600 rounded-full transition-all duration-1000" 
+                        className="h-full bg-primary rounded-full transition-all duration-1000" 
                         style={{ width: `${progress.progress_percent}%` }}
                     />
                 </div>
                 
-                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-white/40">
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
                     <span>Cấp độ {progress.level}</span>
-                    <span className="text-yellow-500">{progress.progress_percent}% hoàn thành</span>
+                    <span className="text-primary">{progress.progress_percent}% hoàn thành</span>
                     <span>Cấp độ {progress.level + 1}</span>
                 </div>
             </div>
@@ -117,7 +117,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div>
                         <p className="font-bold">{topThree[1].full_name}</p>
-                        <p className="text-xs text-white/40">Level {topThree[1].level} • {topThree[1].points.toLocaleString()} XP</p>
+                        <p className="text-xs text-muted-foreground/40">Level {topThree[1].level} • {topThree[1].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
@@ -126,17 +126,17 @@ export default function LeaderboardPage() {
             {topThree[0] && (
                 <div className="order-1 md:order-2 space-y-6 text-center">
                     <div className="relative inline-block">
-                        <div className="w-32 h-32 rounded-full border-4 border-yellow-500 overflow-hidden bg-zinc-800 shadow-[0_0_30px_rgba(234,179,8,0.3)]">
+                        <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-zinc-800 shadow-lg shadow-primary/20">
                             <img src={topThree[0].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[0].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-500 animate-bounce">
-                            <Crown className="w-10 h-10 fill-yellow-500" />
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
+                            <Crown className="w-10 h-10 fill-primary" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black px-4 py-1.5 rounded-lg text-base">#1</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-black font-black px-4 py-1.5 rounded-lg text-base">#1</div>
                     </div>
                     <div>
-                        <p className="text-xl font-black text-yellow-500">{topThree[0].full_name}</p>
-                        <p className="text-sm text-white/40">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
+                        <p className="text-xl font-black text-primary">{topThree[0].full_name}</p>
+                        <p className="text-sm text-muted-foreground/40">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
@@ -155,36 +155,36 @@ export default function LeaderboardPage() {
                     </div>
                     <div>
                         <p className="font-bold">{topThree[2].full_name}</p>
-                        <p className="text-xs text-white/40">Level {topThree[2].level} • {topThree[2].points.toLocaleString()} XP</p>
+                        <p className="text-xs text-muted-foreground/40">Level {topThree[2].level} • {topThree[2].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
         </div>
 
         {/* Others List */}
-        <div className="bg-card border border-white/5 rounded-[40px] overflow-hidden shadow-2xl max-w-4xl mx-auto">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <span className="text-xs font-black uppercase tracking-widest text-white/40">Bảng xếp hạng chi tiết</span>
-                <span className="text-xs font-bold text-yellow-500 flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
+        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xl max-w-4xl mx-auto">
+            <div className="p-6 border-b border-border flex justify-between items-center bg-card/20">
+                <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Bảng xếp hạng chi tiết</span>
+                <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
             </div>
             <div className="divide-y divide-white/5">
                 {others.map((user, index) => (
-                    <div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-white/5 group ${user.id === currentUser?.id ? 'bg-yellow-500/5' : ''}`}>
-                        <div className="w-8 text-center font-mono font-bold text-white/20 group-hover:text-white/60">
+                    <div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-card/20 group ${user.id === currentUser?.id ? 'bg-primary/10' : ''}`}>
+                        <div className="w-8 text-center font-mono font-bold text-muted-foreground/20 group-hover:text-muted-foreground/60">
                             {index + 4}
                         </div>
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
                             <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1">
-                            <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-yellow-500' : ''}`}>
+                            <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-primary' : ''}`}>
                                 {user.full_name} {user.id === currentUser?.id && '(Bạn)'}
                             </p>
-                            <p className="text-[10px] text-white/40 uppercase font-black">Cấp độ {user.level}</p>
+                            <p className="text-[10px] text-muted-foreground/40 uppercase font-black">Cấp độ {user.level}</p>
                         </div>
                         <div className="text-right">
                             <p className="font-mono font-bold text-sm">{user.points.toLocaleString()}</p>
-                            <p className="text-[10px] text-white/40 uppercase font-black">XP</p>
+                            <p className="text-[10px] text-muted-foreground/40 uppercase font-black">XP</p>
                         </div>
                     </div>
                 ))}

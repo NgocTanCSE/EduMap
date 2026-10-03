@@ -23,10 +23,21 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # Upload to HuggingFace Space via HTTP API
-          # Exclude documentation, videos, and binary assets to comply with Hugging Face policies
+          # Exclude documentation, videos, binary assets, and unused services
+          # to comply with Hugging Face policies and keep the Space slim.
+          # The root Dockerfile only needs: backend/, frontend/, ai-service/,
+          # scripts/, infrastructure/, seed_crawled_data.sql, .env.hf.example
           hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN \
             --exclude "docs/*" \
             --exclude "*.doc" \
             --exclude "*.docx" \
             --exclude ".git/*" \
-            --exclude ".github/*"
+            --exclude ".github/*" \
+            --exclude "mobile/*" \
+            --exclude "crawlers/*" \
+            --exclude "crawled_data/*" \
+            --exclude "data_raw/*" \
+            --exclude "osrm-data/*" \
+            --exclude ".kilo/*" \
+            --exclude "tests/*" \
+            --exclude "api/*"

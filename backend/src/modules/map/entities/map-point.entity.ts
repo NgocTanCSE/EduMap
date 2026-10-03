@@ -26,6 +26,8 @@ export class MapPoint {
       7: 'green',
       8: 'cafe',
       9: 'restaurant',
+      10: 'market',
+      11: 'convenience',
     };
     return typesMap[this.type_id] || 'other';
   }
@@ -41,6 +43,8 @@ export class MapPoint {
       'green': 7,
       'cafe': 8,
       'restaurant': 9,
+      'market': 10,
+      'convenience': 11,
     };
     this.type_id = idsMap[val] || 1;
   }

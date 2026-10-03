@@ -17,6 +17,11 @@ COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 COPY frontend/ .
 ENV NEXT_PUBLIC_API_URL=/api
+# GOOGLE_CLIENT_ID is read at runtime via the BFF /api/config route
+# (Space Secrets on HF are runtime-only, so NEXT_PUBLIC_* alone won't reach
+#  the client bundle).  Set a default so the build never breaks.
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=""
+ENV GOOGLE_CLIENT_ID=""
 RUN npm run build
 
 # Stage 3: Final Image
