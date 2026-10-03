@@ -84,8 +84,9 @@ RUN useradd -m -u 1000 user && \
 COPY scripts/ ./scripts/
 COPY scripts/hf_entrypoint.sh /usr/local/bin/hf_entrypoint.sh
 COPY seed_crawled_data*.sql ./
+COPY crawled_data/dongnai_unis.json ./crawled_data/dongnai_unis.json
 RUN chmod +x /usr/local/bin/hf_entrypoint.sh && \
-    chown user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data*.sql
+    chown -R user:user /usr/local/bin/hf_entrypoint.sh seed_crawled_data*.sql ./crawled_data
 
 # HF Spaces requires port 7860 + non-root nginx
 RUN mkdir -p /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi && \

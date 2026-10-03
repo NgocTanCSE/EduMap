@@ -9,7 +9,8 @@
 .github
 
 # Development data (large, not needed in HF Spaces Docker image)
-crawled_data
+crawled_data/*
+!crawled_data/dongnai_unis.json
 data_raw
 osrm-data
 .seed_crawled_data.sql

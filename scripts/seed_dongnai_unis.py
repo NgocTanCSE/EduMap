@@ -24,6 +24,14 @@ def get_db_connection():
 
 def seed_dongnai_unis(cur):
     json_path = os.path.join(os.path.dirname(__file__), '..', 'crawled_data', 'dongnai_unis.json')
+    if not os.path.exists(json_path):
+        alt_path = os.path.join(os.path.dirname(__file__), 'dongnai_unis.json')
+        if os.path.exists(alt_path):
+            json_path = alt_path
+        else:
+            print(f"Warning: File not found at {json_path}. Skipping Dong Nai unis seed.")
+            return
+
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     

@@ -5,7 +5,8 @@ docs/all-documents/*.doc
 docs/all-documents/*.xlsx
 
 # Large data directories (not needed by the HF Spaces Docker image)
-crawled_data/
+crawled_data/*
+!crawled_data/dongnai_unis.json
 data_raw/
 osrm-data/vietnam-latest.osm.pbf
 
