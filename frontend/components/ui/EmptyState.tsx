@@ -21,7 +21,7 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={`flex flex-col items-center justify-center py-12 px-4 ${className}`}>
-      <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-full bg-muted/20 border border-white/10 flex items-center justify-center mb-4">
         {icon || <Inbox className="w-8 h-8 text-white/30" />}
       </div>
       <h3 className="text-lg font-medium text-white/80 mb-2">{title}</h3>

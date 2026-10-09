@@ -90,14 +90,14 @@ export default function CartPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">Đang tải giỏ hàng...</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-white">Đang tải giỏ hàng...</div>;
 
   if (checkoutStep === 3) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="max-w-md w-full bg-card border border-border rounded-2xl p-10 text-center space-y-6">
-          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-10 h-10 text-primary" />
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-white">Đặt hàng thành công!</h1>
@@ -118,12 +118,12 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         
         <div className="flex items-center gap-4">
           <Link href="/marketplace">
-            <button className="p-2 rounded-xl bg-card border border-border hover:bg-zinc-800 transition-all">
+            <button className="p-2 rounded-xl bg-card border border-border hover:bg-card transition-all">
               <ArrowLeft className="w-5 h-5" />
             </button>
           </Link>
@@ -209,7 +209,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground/40">Phí vận chuyển</span>
-                    <span className="text-green-500">Miễn phí</span>
+                    <span className="text-primary">Miễn phí</span>
                   </div>
                   <div className="h-px bg-card/20" />
                   <div className="flex justify-between items-end">
@@ -235,7 +235,7 @@ export default function CartPage() {
                     </button>
                     <button 
                       onClick={() => setCheckoutStep(1)}
-                      className="w-full py-4 bg-card hover:bg-zinc-800 text-muted-foreground/60 rounded-2xl font-bold transition-all"
+                      className="w-full py-4 bg-card hover:bg-card text-muted-foreground/60 rounded-2xl font-bold transition-all"
                     >
                       Quay lại giỏ hàng
                     </button>

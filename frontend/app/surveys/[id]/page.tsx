@@ -63,7 +63,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-teal-500 animate-spin" />
       </div>
     );
@@ -71,7 +71,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
 
   if (!survey) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cuộc khảo sát này.</p>
         <Link href="/surveys" className="px-8 py-3 rounded-full bg-teal-600 font-bold hover:bg-teal-500 transition-all">
@@ -84,7 +84,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
   const questions = survey.questions_json || [];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-3xl mx-auto space-y-8">
         
         <Link href="/surveys" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
@@ -148,7 +148,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
                                                 checked={answers[index] === opt}
                                                 onChange={(e) => handleAnswerChange(index, e.target.value)}
                                                 required
-                                                className="w-4 h-4 accent-teal-500 bg-zinc-800 border-border"
+                                                className="w-4 h-4 accent-teal-500 bg-card border-border"
                                             />
                                             <span className="text-sm">{opt}</span>
                                         </label>

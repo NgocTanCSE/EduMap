@@ -38,9 +38,9 @@ async def moderate_content(request: ContentRequest):
             action_taken="AUTO_REJECTED"
         )
 
-    # Layer 2: phân tích ngữ nghĩa sâu (cần kết nối AI/Gemini)
+    # Layer 2: phân tích ngữ nghĩa sâu (cần kết nối AI/Cloudflare)
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
 
     try:
         ai_result = await llm_service.moderate_text(request.text)

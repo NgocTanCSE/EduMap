@@ -60,7 +60,7 @@ export default function NotificationsPage() {
               <div className="flex-1">
                 <p className="font-medium">{n.title ?? n.message}</p>
                 {n.body && <p className="text-sm text-foreground/70 mt-1">{n.body}</p>}
-                <small className="text-gray-500 block mt-2">{new Date(n.sent_at ?? n.timestamp).toLocaleString()}</small>
+                <small className="text-muted-foreground block mt-2">{new Date(n.sent_at ?? n.timestamp).toLocaleString()}</small>
               </div>
               {!n.is_read && (
                 <Button variant="outline" size="sm" onClick={() => handleMarkRead(n.id)}>

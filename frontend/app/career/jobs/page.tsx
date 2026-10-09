@@ -36,7 +36,7 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="space-y-4">
           <h1 className="text-4xl font-bold text-primary">
@@ -48,7 +48,7 @@ export default function JobsPage() {
         {/* Search & Filter Bar */}
         <form onSubmit={handleSearch} className="bg-card/50 p-4 rounded-2xl border border-border flex flex-wrap gap-4 items-center">
           <div className="flex-1 min-w-[200px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input 
               type="text" 
               placeholder="Job title, keywords, or company" 
@@ -58,7 +58,7 @@ export default function JobsPage() {
             />
           </div>
           <div className="min-w-[150px] relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input 
               type="text" 
               placeholder="Location" 
@@ -79,7 +79,7 @@ export default function JobsPage() {
           ) : jobs.length > 0 ? (
             jobs.map(job => (
               <Link key={job.id} href={`/career/jobs/${job.id}`} className="block">
-                <div className="bg-card border border-border p-6 rounded-2xl flex justify-between items-center hover:border-primary/50 transition-all hover:bg-zinc-800/50 group">
+                <div className="bg-card border border-border p-6 rounded-2xl flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                         <span className="bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
@@ -97,7 +97,7 @@ export default function JobsPage() {
                         <MapPin size={16} />
                         <span>{job.location}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-green-400 font-medium">
+                      <div className="flex items-center gap-1 text-primary font-medium">
                         <Briefcase size={16} />
                         <span>{job.salary_range}</span>
                       </div>
@@ -105,21 +105,21 @@ export default function JobsPage() {
 
                     <div className="flex flex-wrap gap-2 pt-2">
                         {job.required_skills?.slice(0, 3).map((skill: string) => (
-                            <span key={skill} className="text-[10px] bg-zinc-800 text-muted-foreground/40 px-2 py-1 rounded">
+                            <span key={skill} className="text-[10px] bg-card text-muted-foreground/40 px-2 py-1 rounded">
                                 {skill}
                             </span>
                         ))}
                     </div>
                   </div>
                   
-                  <div className="text-gray-500 group-hover:text-primary transition-all transform group-hover:translate-x-1">
+                  <div className="text-muted-foreground group-hover:text-primary transition-all transform group-hover:translate-x-1">
                     <ChevronRight size={32} strokeWidth={1} />
                   </div>
                 </div>
               </Link>
             ))
           ) : (
-            <div className="text-center py-20 text-gray-500 border border-dashed border-border rounded-3xl">
+            <div className="text-center py-20 text-muted-foreground border border-dashed border-border rounded-3xl">
                 No opportunities found matching your criteria.
             </div>
           )}

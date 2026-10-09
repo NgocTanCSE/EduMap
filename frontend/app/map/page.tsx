@@ -18,8 +18,8 @@ import { EduMapLogo } from '@/components/ui/Logo';
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
   ssr: false,
   loading: () => (
-    <div className="h-screen w-full flex items-center justify-center bg-slate-100">
-      <span className="text-slate-500">Đang tải bản đồ…</span>
+    <div className="h-screen w-full flex items-center justify-center bg-background">
+      <span className="text-muted-foreground">Đang tải bản đồ…</span>
     </div>
   ),
 });
@@ -41,18 +41,18 @@ const FACILITY_ICONS: Record<string, { label: string; color: string; Icon: React
   wifi: { label: 'WiFi', color: 'text-amber-500', Icon: Wifi },
   library: { label: 'Thư viện', color: 'text-primary', Icon: BookOpen },
   bookstore: { label: 'Nhà sách', color: 'text-red-600', Icon: BookOpen },
-  lab: { label: 'Lab', color: 'text-fuchsia-600', Icon: Atom },
-  stem: { label: 'STEM', color: 'text-fuchsia-600', Icon: Atom },
+  lab: { label: 'Lab', color: 'text-primary', Icon: Atom },
+  stem: { label: 'STEM', color: 'text-primary', Icon: Atom },
   green: { label: 'Không gian xanh', color: 'text-emerald-600', Icon: Leaf },
   park: { label: 'Công viên', color: 'text-emerald-600', Icon: Leaf },
   cafe: { label: 'Cà phê', color: 'text-amber-800', Icon: Coffee },
   restaurant: { label: 'Nhà hàng', color: 'text-primary', Icon: Globe },
-  university: { label: 'Trường', color: 'text-blue-700', Icon: GraduationCap },
-  school: { label: 'Trường', color: 'text-blue-700', Icon: GraduationCap },
+  university: { label: 'Trường', color: 'text-blue-500', Icon: GraduationCap },
+  school: { label: 'Trường', color: 'text-blue-500', Icon: GraduationCap },
 };
 const facilityIconFor = (cat?: string) => {
   const key = String(cat || '').toLowerCase();
-  return FACILITY_ICONS[key] || { label: cat || 'Địa điểm', color: 'text-slate-500', Icon: MapPin as React.ComponentType<{ className?: string }> };
+  return FACILITY_ICONS[key] || { label: cat || 'Địa điểm', color: 'text-muted-foreground', Icon: MapPin as React.ComponentType<{ className?: string }> };
 };
 
 interface Location {
@@ -84,6 +84,40 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
+/** Dropdown of matching locations shown when the user types a search term. */
+function SearchResults({
+  results,
+  onSelect,
+}: {
+  results: Location[];
+  onSelect: (loc: Location) => void;
+}) {
+  if (results.length === 0) return null;
+  return (
+    <div className="absolute top-full left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg custom-scrollbar">
+      {results.map((loc) => (
+        <button
+          key={loc.id}
+          onClick={() => onSelect(loc)}
+          className="w-full flex items-start gap-3 p-3 text-left hover:bg-muted/50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+        >
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            {facilityIconFor(loc.category).Icon && (
+              React.createElement(facilityIconFor(loc.category).Icon, { className: "w-4 h-4 text-primary" })
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-foreground truncate">{loc.name}</div>
+            <div className="text-[10px] text-muted-foreground/60 mt-0.5 line-clamp-1">
+              {loc.category} · {loc.address || 'Chưa có địa chỉ'}
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function CategoryChips({ categories, active, onSelect }: { categories: string[]; active: string; onSelect: (c: string) => void }) {
   const chips = ['all', ...categories];
   return (
@@ -97,7 +131,7 @@ function CategoryChips({ categories, active, onSelect }: { categories: string[];
             className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-all ${
               on
                 ? 'bg-primary text-white shadow'
-                : 'bg-card text-slate-600 border border-border hover:bg-slate-50'
+                : 'bg-muted/30 text-muted-foreground hover:bg-muted border-border'
             }`}
           >
             {c === 'all' ? 'Tất cả' : c}
@@ -118,29 +152,29 @@ function AiPanel({ open, onClose, analysis, loading }: {
         <h3 className="font-semibold text-foreground flex items-center gap-2">
           <BrainCircuit className="w-5 h-5 text-primary" /> Phân tích khu vực
         </h3>
-        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500">
+        <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
           <X className="w-4 h-4" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
         {loading ? (
-          <div className="space-y-2 text-sm text-slate-500">
-            <div className="h-4 bg-slate-100 rounded animate-pulse" />
-            <div className="h-3 bg-slate-100 rounded animate-pulse w-5/6" />
-            <div className="h-3 bg-slate-100 rounded animate-pulse w-4/6" />
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="h-4 bg-muted rounded animate-pulse" />
+            <div className="h-3 bg-muted rounded animate-pulse w-5/6" />
+            <div className="h-3 bg-muted rounded animate-pulse w-4/6" />
           </div>
         ) : analysis ? (
           <>
             <div className="flex items-center gap-2">
-              <ThermometerSun className="w-5 h-5 text-amber-500" />
+              <ThermometerSun className="w-5 h-5 text-primary" />
               <span className="text-sm font-medium">Mật độ hoạt động: <b className="text-foreground">{analysis.density_score}</b></span>
             </div>
-            {analysis.summary && <p className="text-sm text-slate-600 leading-relaxed">{analysis.summary}</p>}
+            {analysis.summary && <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>}
             {analysis.recommendations && analysis.recommendations.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground/40 uppercase">Gợi ý xung quanh bạn</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Gợi ý xung quanh bạn</p>
                 {analysis.recommendations.map((r: any, i: number) => (
-                  <div key={i} className="text-sm text-slate-700">• {r}</div>
+                  <div key={i} className="text-sm text-muted-foreground/70">• {r}</div>
                 ))}
               </div>
             )}
@@ -413,7 +447,7 @@ export default function MapPage() {
   if (!user) return null;
 
   return (
-    <div className="relative h-screen w-full bg-slate-100 overflow-hidden">
+    <div className="relative h-screen w-full bg-background overflow-hidden">
       {/* Slim overlay top bar (map is full-screen; no global header on /map) */}
       <div className="fixed top-0 inset-x-0 z-40 flex items-center justify-between h-14 px-4 bg-card/75 backdrop-blur border-b border-border/60 shadow-sm">
         <div className="flex items-center gap-2 text-base font-semibold text-foreground">
@@ -424,19 +458,19 @@ export default function MapPage() {
           <button
             onClick={() => setShowAiPanel(true)}
             title="Phân tích AI khu vực"
-            className="p-1.5 rounded-md text-slate-500 hover:text-primary hover:bg-muted/50 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
           >
             <BrainCircuit className="w-4 h-4" />
           </button>
           <img
             src={user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=eee&color=333`}
             alt={user?.fullName || 'user'}
-            className="w-8 h-8 rounded-full border-2 border-white shadow object-cover"
+            className="w-8 h-8 rounded-full border-2 border-border shadow object-cover"
           />
           <button
             onClick={logout}
             title="Đăng xuất"
-            className="p-1.5 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -451,8 +485,17 @@ export default function MapPage() {
       >
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pt-2 pb-6">
           {/* Search */}
-          <div className="mb-4">
+          <div className="mb-4 relative">
             <SearchBar value={searchTerm} onChange={setSearchTerm} />
+            {searchTerm.trim() && (
+              <SearchResults
+                results={filteredLocations.slice(0, 8)}
+                onSelect={(loc) => {
+                  setSelectedLocation(loc);
+                  setSearchTerm('');
+                }}
+              />
+            )}
             <p className="text-[11px] text-muted-foreground/40 mt-1">{filteredLocations.length} địa điểm</p>
           </div>
 
@@ -469,7 +512,7 @@ export default function MapPage() {
           <div className="border-t border-border pt-4">
             <button
               onClick={() => setFeaturesOpen(!featuresOpen)}
-              className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3"
+              className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3"
             >
               <span>Công cụ sinh viên</span>
               {featuresOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -487,7 +530,7 @@ export default function MapPage() {
                       <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${f.color} text-white`}>
                         <Icon className="w-4 h-4" />
                       </span>
-                      <span className="text-[10px] font-medium text-slate-700 leading-tight">{f.name}</span>
+                      <span className="text-[10px] font-medium text-foreground/60 leading-tight">{f.name}</span>
                     </a>
                   );
                 })}
@@ -500,7 +543,7 @@ export default function MapPage() {
         <div className="p-3 border-t border-border">
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg py-2 transition-colors"
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground/60 hover:text-red-600 hover:bg-red-50 rounded-lg py-2 transition-colors"
           >
             <LogOut className="w-4 h-4" /> Đăng xuất
           </button>
@@ -510,7 +553,7 @@ export default function MapPage() {
       {/* Sidebar toggle button (ẩn/hiện) */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed left-4 top-20 z-20 flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border shadow-md hover:bg-slate-50 text-slate-600"
+        className="fixed left-4 top-20 z-20 flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border shadow-md hover:bg-muted/30 text-muted-foreground/60"
         title={sidebarOpen ? 'Ẩn bảng điều khiển' : 'Hiện bảng điều khiển'}
       >
         {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <List className="w-5 h-5" />}
@@ -536,28 +579,28 @@ export default function MapPage() {
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             title="Bật/tắt lớp nhiệt độ"
-            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-white' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <Flame className="w-4 h-4" />
           </button>
           <button
             onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
             title="Phân tích AI khu vực"
-            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-white' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <BrainCircuit className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowHeatmap(true)}
             title="Chế độ xem lớp"
-            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors"
           >
             <Layers className="w-4 h-4" />
           </button>
           <button
             onClick={toggleFullscreen}
             title={fs ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
-            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors"
           >
             {fs ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
@@ -575,13 +618,13 @@ export default function MapPage() {
               <h3 className="font-semibold text-foreground">Ghim vị trí mới</h3>
               <button
                 onClick={() => setPinningCoord(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
+                className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <label className="text-xs font-medium text-slate-600 block mb-1">Tên địa điểm</label>
+            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Tên địa điểm</label>
             <input
               type="text"
               value={pinForm.name}
@@ -590,7 +633,7 @@ export default function MapPage() {
               className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
             />
 
-            <label className="text-xs font-medium text-slate-600 block mb-1">Danh mục</label>
+            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Danh mục</label>
             <select
               value={pinForm.category}
               onChange={(e) => setPinForm({ ...pinForm, category: e.target.value })}
@@ -601,7 +644,7 @@ export default function MapPage() {
               ))}
             </select>
 
-            <label className="text-xs font-medium text-slate-600 block mb-1">Địa chỉ</label>
+            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Địa chỉ</label>
             <input
               type="text"
               value={pinForm.address}
@@ -610,7 +653,7 @@ export default function MapPage() {
               className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
             />
 
-            <label className="text-xs font-medium text-slate-600 block mb-1">Mô tả</label>
+            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Mô tả</label>
             <textarea
               value={pinForm.description}
               onChange={(e) => setPinForm({ ...pinForm, description: e.target.value })}
@@ -622,14 +665,14 @@ export default function MapPage() {
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setPinningCoord(null)}
-                className="flex-1 h-10 text-sm font-medium text-slate-600 hover:bg-slate-100 border border-border rounded-lg transition-colors"
+                className="flex-1 h-10 text-sm font-medium text-muted-foreground/60 hover:bg-muted/50 border border-border rounded-lg transition-colors"
               >
                 Hủy
               </button>
               <button
                 onClick={handleSavePin}
                 disabled={isSavingPin || !pinForm.name}
-                className="flex-1 h-10 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 h-10 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
               >
                 {isSavingPin ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <Save className="w-4 h-4" />}
                 {isSavingPin ? 'Đang lưu...' : 'Lưu địa điểm'}
@@ -641,8 +684,8 @@ export default function MapPage() {
 
       {/* Map stats legend (subtle) */}
       {mapStats && (
-        <div className="fixed bottom-6 left-4 z-20 rounded-xl bg-card/90 border border-border px-3 py-2 shadow-lg text-xs text-slate-600">
-          <div className="font-medium text-slate-700 mb-1 flex items-center gap-1">
+        <div className="fixed bottom-6 left-4 z-20 rounded-xl bg-card/90 border border-border px-3 py-2 shadow-lg text-xs text-muted-foreground/60">
+          <div className="font-medium text-foreground/60 mb-1 flex items-center gap-1">
             <Info className="w-3 h-3" /> Thống kê khu vực
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1">

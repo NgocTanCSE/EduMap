@@ -12,7 +12,7 @@ export default function RegisterPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#09090b]">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background">
       <div className="flex items-center gap-3 text-foreground/70">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <span>Đang chuyển hướng đến cổng đăng nhập Google...</span>

@@ -84,7 +84,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
       </div>
     );
@@ -92,7 +92,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
   if (!post) {
       return (
-          <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center">
+          <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center">
               <h1 className="text-2xl font-bold mb-4">Không tìm thấy bài viết</h1>
               <Link href="/community" className="text-primary/80 hover:underline">Quay lại Cộng đồng</Link>
           </div>
@@ -100,7 +100,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8">
+    <div className="min-h-screen bg-background text-white p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         
         <Link href="/community" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
@@ -114,17 +114,17 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                     <img 
                         src={post.author?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author?.full_name || 'U')}&background=random`} 
                         alt="" 
-                        className="w-12 h-12 rounded-full bg-zinc-800"
+                        className="w-12 h-12 rounded-full bg-card"
                     />
                     <div>
                         <h4 className="font-bold text-muted-foreground/70">{post.author?.full_name}</h4>
-                        <p className="text-xs text-gray-500 flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground flex items-center gap-2">
                             <Clock className="w-3 h-3"/> {new Date(post.created_at).toLocaleString('vi-VN')}
                             {post.group && <span className="bg-card/20 px-2 py-0.5 rounded text-primary/70 border border-border">{post.group.name}</span>}
                         </p>
                     </div>
                 </div>
-                <button className="text-gray-500 hover:text-white p-2"><MoreHorizontal size={20}/></button>
+                <button className="text-muted-foreground hover:text-white p-2"><MoreHorizontal size={20}/></button>
             </div>
 
             <div className="space-y-4">
@@ -143,7 +143,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                     <MessageSquare size={20} /> 
                     {post.comment_count}
                 </div>
-                <button className="flex items-center gap-2 text-muted-foreground/40 hover:text-blue-400 transition-colors font-bold ml-auto">
+                <button className="flex items-center gap-2 text-muted-foreground/40 hover:text-primary transition-colors font-bold ml-auto">
                     <Share2 size={20} />
                 </button>
             </div>
@@ -157,11 +157,11 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
             {/* Comment Form */}
             <form onSubmit={handleComment} className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center border border-border overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-card shrink-0 flex items-center justify-center border border-border overflow-hidden">
                     {authService.isLoggedIn() ? (
                          <img src={authService.getUser()?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authService.getUser()?.fullName || 'U')}&background=random`} alt="" className="w-full h-full object-cover"/>
                     ) : (
-                        <User className="w-5 h-5 text-gray-500" />
+                        <User className="w-5 h-5 text-muted-foreground" />
                     )}
                 </div>
                 <div className="flex-1 space-y-3">
@@ -174,7 +174,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         className="w-full bg-card/40 border border-border rounded-2xl p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"
                     />
                     <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3"/> AI sẽ kiểm duyệt nội dung
                         </span>
                         <button 
@@ -194,12 +194,12 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         <img 
                             src={comment.author?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.full_name || 'U')}&background=random`} 
                             alt="" 
-                            className="w-10 h-10 rounded-full bg-zinc-800 shrink-0"
+                            className="w-10 h-10 rounded-full bg-card shrink-0"
                         />
                         <div className="flex-1 space-y-1">
                             <div className="flex items-baseline gap-2">
                                 <span className="font-bold text-sm text-muted-foreground/70">{comment.author?.full_name}</span>
-                                <span className="text-[10px] text-gray-500">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
+                                <span className="text-[10px] text-muted-foreground">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
                             </div>
                             <div className="bg-card/40 border border-border rounded-2xl rounded-tl-none p-4 text-sm text-muted-foreground/60">
                                 {comment.content}
@@ -207,7 +207,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </div>
                 )) : (
-                    <div className="text-center py-8 text-gray-500 text-sm italic">
+                    <div className="text-center py-8 text-muted-foreground text-sm italic">
                         Chưa có bình luận nào. Hãy là người đầu tiên!
                     </div>
                 )}

@@ -61,7 +61,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -69,7 +69,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy sự kiện này.</p>
         <Link 
@@ -87,7 +87,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const isFull = event.registered_count >= event.capacity;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         <Link href="/events" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold">
@@ -105,7 +105,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               </div>
               
               <div className="p-10 flex flex-col md:flex-row gap-10 items-center">
-                <div className="bg-white p-4 rounded-3xl shrink-0">
+                <div className="bg-card p-4 rounded-3xl shrink-0">
                   <img src={ticket.ticket_qr} alt="Ticket QR" className="w-40 h-40" />
                 </div>
                 
@@ -124,7 +124,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
 
                   <div className="pt-6 border-t border-border flex gap-4">
-                    <button className="flex-1 py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 transition-all text-xs font-bold flex items-center justify-center gap-2">
+                    <button className="flex-1 py-4 rounded-2xl bg-card hover:bg-card/50 transition-all text-xs font-bold flex items-center justify-center gap-2">
                       <Download className="w-4 h-4" /> TẢI VÉ
                     </button>
                     <button onClick={() => setTicket(null)} className="flex-1 py-4 rounded-2xl border border-border hover:bg-card/20 transition-all text-xs font-bold">
@@ -206,7 +206,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                       <button 
                         onClick={handleRegister}
                         disabled={submitting || isFull || event.status !== 'active'}
-                        className="w-full py-5 rounded-xl bg-primary hover:bg-primary/80 text-white font-bold transition-all shadow-xl shadow-primary/20 disabled:bg-zinc-800 disabled:shadow-none flex items-center justify-center gap-2"
+                        className="w-full py-5 rounded-xl bg-primary hover:bg-primary/80 text-white font-bold transition-all shadow-xl shadow-primary/20 disabled:bg-card disabled:shadow-none flex items-center justify-center gap-2"
                       >
                         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Ticket className="w-5 h-5" />}
                         {isFull ? 'HẾT CHỖ' : event.status !== 'active' ? 'ĐÃ KẾT THÚC' : 'ĐĂNG KÝ THAM GIA'}
@@ -214,7 +214,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                    </div>
 
                    <div className="pt-8 border-t border-border space-y-4">
-                      <button className="w-full py-4 rounded-2xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all">
+                      <button className="w-full py-4 rounded-2xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-card transition-all">
                         <Share2 className="w-4 h-4" /> CHIA SẺ SỰ KIỆN
                       </button>
                       <button className="w-full py-4 rounded-2xl border border-border text-xs font-bold flex items-center justify-center gap-2 text-muted-foreground/40 hover:text-white transition-all">

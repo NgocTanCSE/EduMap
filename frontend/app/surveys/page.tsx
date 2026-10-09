@@ -26,7 +26,7 @@ export default function SurveysPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -57,7 +57,7 @@ export default function SurveysPage() {
                                     <div className="p-3 bg-teal-500/10 rounded-xl">
                                         <ClipboardList className="w-6 h-6 text-teal-500" />
                                     </div>
-                                    <span className="px-3 py-1 bg-green-500/10 text-green-400 text-[10px] font-bold uppercase rounded border border-green-500/20">
+                                    <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded border border-green-500/20">
                                         ĐANG MỞ
                                     </span>
                                 </div>

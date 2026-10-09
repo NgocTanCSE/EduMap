@@ -186,7 +186,7 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
     await this.resetTokenRepo.save(
-      this.resetTokenRepo.create({ userId: user.id, token, expiresAt, isUsed: false })
+      this.resetTokenRepo.create({ user_id: user.id, token, expiresAt, isUsed: false })
     );
     try {
       await this.mailerService.sendMail({
@@ -217,7 +217,7 @@ export class AuthService {
     }
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(newPassword, salt);
-    await this.userRepo.update(resetToken.userId, { password_hash });
+    await this.userRepo.update(resetToken.user_id, { password_hash });
     await this.resetTokenRepo.update(resetToken.id, { isUsed: true });
     return { success: true, message: 'Dat lai mat khau thanh cong!' };
   }

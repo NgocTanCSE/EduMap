@@ -33,7 +33,7 @@ export default function OpportunitiesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -85,7 +85,7 @@ export default function OpportunitiesPage() {
                                 {opp.category}
                             </span>
                             {opp.is_team_finding_open && (
-                                <span className="flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-primary/10 px-2 py-1 rounded-lg">
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-lg">
                                     <Users className="w-3 h-3"/> TÌM ĐỒNG ĐỘI
                                 </span>
                             )}

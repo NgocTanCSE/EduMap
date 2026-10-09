@@ -31,7 +31,7 @@ export default function HackathonListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-7xl mx-auto space-y-12">
         
         {/* Header & Search */}
@@ -111,9 +111,9 @@ export default function HackathonListPage() {
                                     <div className="p-6 flex-1 flex flex-col">
                                         <div className="flex justify-between items-start mb-4">
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                                                hackathon.status === 'ongoing' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                hackathon.status === 'ongoing' ? 'bg-primary/20 text-primary border border-green-500/30' :
                                                 hackathon.status === 'upcoming' ? 'bg-primary/20 text-primary/70 border border-primary/30' :
-                                                'bg-zinc-800 text-muted-foreground/40 border border-border'
+                                                'bg-card text-muted-foreground/40 border border-border'
                                             }`}>
                                                 {hackathon.status === 'ongoing' ? 'ĐANG DIỄN RA' : 
                                                  hackathon.status === 'upcoming' ? 'SẮP MỞ ĐĂNG KÝ' : 'ĐÃ KẾT THÚC'}
@@ -133,7 +133,7 @@ export default function HackathonListPage() {
                                                 {startDate.toLocaleDateString('vi-VN')} - {endDate.toLocaleDateString('vi-VN')}
                                             </div>
                                             <div className="flex items-center gap-3 text-xs text-muted-foreground/60">
-                                                <Users className="w-4 h-4 text-blue-400" />
+                                                <Users className="w-4 h-4 text-primary" />
                                                 Đăng ký theo Đội (3-5 người)
                                             </div>
                                         </div>

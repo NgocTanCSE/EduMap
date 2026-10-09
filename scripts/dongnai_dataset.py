@@ -25,7 +25,7 @@ class DongNaiEducation(datasets.GeneratorBasedBuilder):
                     "description": datasets.Value("string"),
                 }
             ),
-            homepage="https://huggingface.co/datasets/username/dongnai-education",
+            homepage="https://github.com/ngoctan2005/EduMap",
             license="cc-by-sa-4.0",
         )
 

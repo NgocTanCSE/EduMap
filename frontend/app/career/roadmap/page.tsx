@@ -87,7 +87,7 @@ export default function CareerRoadmapPage() {
                  <button 
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-primary/80 hover:bg-primary/80 text-black font-black py-4 rounded-2xl transition-all shadow-xl shadow-primary/10 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                    className="w-full bg-primary/80 hover:bg-primary/80 text-foreground font-black py-4 rounded-2xl transition-all shadow-xl shadow-primary/10 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
                  >
                     {loading ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     {loading ? "Đang xử lý..." : "Tạo lộ trình"}

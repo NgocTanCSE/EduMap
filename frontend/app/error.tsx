@@ -15,7 +15,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505] text-white p-8">
+    <div className="min-h-screen flex items-center justify-center bg-background text-white p-8">
       <div className="max-w-md w-full text-center space-y-6">
         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
           <span className="text-3xl">⚠️</span>
@@ -25,7 +25,7 @@ export default function Error({
           {error.message || 'Đã xảy ra lỗi khi tải nội dung này.'}
         </p>
         <div className="flex gap-4 justify-center">
-          <Button onClick={reset} className="bg-primary hover:bg-primary/80 text-black">
+          <Button onClick={reset} className="bg-primary hover:bg-primary/80 text-foreground">
             Thử lại
           </Button>
           <Button variant="outline" onClick={() => window.location.href = '/'}>

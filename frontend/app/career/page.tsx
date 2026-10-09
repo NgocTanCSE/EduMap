@@ -55,7 +55,7 @@ export default function CareerDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-7xl mx-auto space-y-12">
         
         {/* Hero Section */}
@@ -69,10 +69,10 @@ export default function CareerDashboardPage() {
               EduMap Career is your AI-powered companion for navigating the evolving landscape of skills and opportunities.
             </p>
             <div className="flex flex-wrap gap-4 pt-4">
-              <Link href="/career/jobs" className="bg-white text-black px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-muted transition-all">
+              <Link href="/career/jobs" className="bg-card text-foreground px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-muted transition-all">
                 <Search size={20} /> Find Opportunities
               </Link>
-              <Link href="/career/profile" className="bg-zinc-800 text-white border border-border px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-zinc-700 transition-all">
+              <Link href="/career/profile" className="bg-card text-white border border-border px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-card/50 transition-all">
                 <UserCircle size={20} /> My Career Profile
               </Link>
             </div>
@@ -86,11 +86,11 @@ export default function CareerDashboardPage() {
           ) : [
             { label: 'Skills Mastered', value: stats.skillsCount, color: 'text-primary/70', icon: Rocket },
             { label: 'Career Goals', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
-            { label: 'Applications', value: stats.applicationsCount, color: 'text-blue-400', icon: Briefcase }
+            { label: 'Applications', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
           ].map((stat, i) => (
             <div key={i} className="bg-card/50 border border-border p-8 rounded-3xl flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-gray-500 font-bold text-sm uppercase tracking-widest">{stat.label}</p>
+                <p className="text-muted-foreground font-bold text-sm uppercase tracking-widest">{stat.label}</p>
                 <p className={`text-4xl font-black ${stat.color}`}>{stat.value}</p>
               </div>
               <stat.icon size={48} className="text-gray-800" />
@@ -118,7 +118,7 @@ export default function CareerDashboardPage() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-gray-100">{s.career_title}</h3>
-                                <p className="text-xs text-gray-500">{s.field}</p>
+                                <p className="text-xs text-muted-foreground">{s.field}</p>
                             </div>
                         </div>
                         <ChevronRight className="text-gray-700 group-hover:text-primary/70 transition-colors" />
@@ -126,7 +126,7 @@ export default function CareerDashboardPage() {
                 </Link>
               )) : (
                 <div className="bg-card/30 border border-dashed border-border p-10 rounded-2xl text-center">
-                    <p className="text-gray-500 italic">No suggestions yet. Update your profile to see AI recommendations.</p>
+                    <p className="text-muted-foreground italic">No suggestions yet. Update your profile to see AI recommendations.</p>
                 </div>
               )}
             </div>
@@ -150,7 +150,7 @@ export default function CareerDashboardPage() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-gray-100">{job.title}</h3>
-                                <p className="text-xs text-gray-500">{job.company_name} • {job.location}</p>
+                                <p className="text-xs text-muted-foreground">{job.company_name} • {job.location}</p>
                             </div>
                         </div>
                         <ChevronRight className="text-gray-700 group-hover:text-primary/70 transition-colors" />
@@ -158,7 +158,7 @@ export default function CareerDashboardPage() {
                 </Link>
               )) : (
                 <div className="bg-card/30 border border-dashed border-border p-10 rounded-2xl text-center">
-                    <p className="text-gray-500 italic">No new jobs available at the moment.</p>
+                    <p className="text-muted-foreground italic">No new jobs available at the moment.</p>
                 </div>
               )}
               <Link href="/career/jobs" className="text-muted-foreground/40 hover:text-white text-sm font-bold flex items-center gap-1 justify-center pt-2">

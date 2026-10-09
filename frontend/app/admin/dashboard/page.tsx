@@ -42,13 +42,13 @@ export default function AdminDashboardPage() {
 
   const cards = [
     { title: 'Tổng người dùng', value: stats?.total_users || 0, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Chiến dịch hoạt động', value: stats?.active_campaigns || 0, icon: Activity, color: 'text-green-500', bg: 'bg-green-500/10' },
+    { title: 'Chiến dịch hoạt động', value: stats?.active_campaigns || 0, icon: Activity, color: 'text-primary', bg: 'bg-primary/10' },
     { title: 'Chờ xác minh', value: stats?.pending_verifications || 0, icon: Shield, color: 'text-primary', bg: 'bg-primary/10' },
     { title: 'Tăng trưởng', value: stats?.revenue_growth || '+0%', icon: TrendingUp, color: 'text-primary/80', bg: 'bg-primary/10' },
   ];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -84,7 +84,7 @@ export default function AdminDashboardPage() {
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Tổng lượt dự đoán</p>
                  <div className="flex items-end gap-2">
                     <p className="text-4xl font-black text-white">{aiStats?.total_predictions || 0}</p>
-                    <span className="text-sm text-green-400 mb-1">+12%</span>
+                    <span className="text-sm text-primary mb-1">+12%</span>
                  </div>
                  {/* Visual Bar representation */}
                  <div className="w-full h-2 bg-card/20 rounded-full mt-4 overflow-hidden">
@@ -96,10 +96,10 @@ export default function AdminDashboardPage() {
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Độ chính xác (Accuracy)</p>
                  <div className="flex items-end gap-2">
                     <p className="text-4xl font-black text-white">{(aiStats?.accuracy_rate * 100) || 0}%</p>
-                    <span className="text-sm text-green-400 mb-1">Tối ưu</span>
+                    <span className="text-sm text-primary mb-1">Tối ưu</span>
                  </div>
                  <div className="w-full h-2 bg-card/20 rounded-full mt-4 overflow-hidden">
-                    <div className="h-full bg-green-500 w-[92%] rounded-full"></div>
+                    <div className="h-full bg-primary w-[92%] rounded-full"></div>
                  </div>
               </div>
 
@@ -107,7 +107,7 @@ export default function AdminDashboardPage() {
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Mô hình AI Active</p>
                  <div className="flex items-end gap-2">
                     <p className="text-4xl font-black text-white">{aiStats?.active_models || 0}</p>
-                    <span className="text-sm text-blue-400 mb-1">RAG, Gemini</span>
+                    <span className="text-sm text-primary mb-1">RAG, Gemini</span>
                  </div>
                  <div className="flex gap-2 mt-4">
                     <div className="w-1/3 h-2 bg-primary rounded-full animate-pulse"></div>
@@ -137,7 +137,7 @@ export default function AdminDashboardPage() {
                           <mod.icon className="w-5 h-5 text-muted-foreground/20" />
                           <span className="text-sm font-bold">{mod.name}</span>
                        </div>
-                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${mod.status === 'Hoạt động' ? 'text-green-500 bg-green-500/10' : 'text-primary bg-primary/10'}`}>
+                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${mod.status === 'Hoạt động' ? 'text-primary bg-primary/10' : 'text-primary bg-primary/10'}`}>
                           {mod.status}
                        </span>
                     </div>
@@ -147,14 +147,14 @@ export default function AdminDashboardPage() {
 
             <div className="p-8 rounded-2xl bg-card border border-border flex flex-col justify-center items-center text-center space-y-4">
                <div className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center shadow-xl shadow-primary/20">
-                  <Shield className="w-8 h-8 text-black" />
+                  <Shield className="w-8 h-8 text-foreground" />
                </div>
                <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
                <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-sm">
                   Mọi thao tác quản trị đều được mã hóa và ghi nhật ký hệ thống. Đảm bảo tuân thủ các quy tắc bảo mật dữ liệu người dùng.
                </p>
                <a href="/admin/reports">
-                  <button className="px-8 py-3 rounded-2xl bg-white text-black text-sm font-bold hover:bg-primary/80 transition-colors">
+                  <button className="px-8 py-3 rounded-2xl bg-card text-foreground text-sm font-bold hover:bg-primary/80 transition-colors">
                      KIỂM TRA AUDIT LOGS
                   </button>
                </a>

@@ -30,7 +30,7 @@ export default function AITrendsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-white p-8 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <span className="ml-2">Đang tải dữ liệu xu hướng...</span>
       </div>
@@ -38,7 +38,7 @@ export default function AITrendsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -76,7 +76,7 @@ export default function AITrendsPage() {
             <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest">Tăng trưởng hàng năm</p>
           </div>
           <div className="p-8 rounded-2xl bg-card border border-border relative overflow-hidden group">
-            <Target className="w-12 h-12 text-green-500 mb-6 group-hover:scale-110 transition-transform" />
+            <Target className="w-12 h-12 text-primary mb-6 group-hover:scale-110 transition-transform" />
             <h3 className="text-3xl font-bold mb-1">18.5k</h3>
             <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest">Kỹ năng được săn đón</p>
           </div>
@@ -111,7 +111,7 @@ export default function AITrendsPage() {
                           </div>
                        </div>
                        <div className="text-right">
-                          <p className="text-green-400 text-xs font-bold">{skill.growth || '+0%'}</p>
+                          <p className="text-primary text-xs font-bold">{skill.growth || '+0%'}</p>
                           <ArrowUpRight className="w-4 h-4 text-muted-foreground/20 ml-auto group-hover:text-white transition-colors" />
                        </div>
                     </div>
@@ -134,7 +134,7 @@ export default function AITrendsPage() {
                  {data?.insights?.conclusion || "Dựa trên xu hướng hiện tại, chúng tôi nhận thấy các kỹ năng liên quan đến **Phát triển bền vững** và **AI Ethic** đang có tốc độ tăng trưởng phi mã."}
               </p>
            </div>
-           <button className="px-8 py-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-primary/80 transition-colors whitespace-nowrap">
+           <button className="px-8 py-4 rounded-2xl bg-card text-foreground font-bold text-sm hover:bg-primary/80 transition-colors whitespace-nowrap">
               Xem lộ trình gợi ý
            </button>
         </div>

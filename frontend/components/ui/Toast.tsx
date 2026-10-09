@@ -60,7 +60,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           setIsExiting(true);
           setTimeout(() => onDismiss(toast.id), 300);
         }}
-        className="flex-shrink-0 p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+        className="flex-shrink-0 p-1 rounded-lg text-white/40 hover:text-white hover:bg-muted/30 transition-colors"
       >
         <X className="w-4 h-4" />
       </button>

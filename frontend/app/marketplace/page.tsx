@@ -92,12 +92,12 @@ export default function ShareMarketplacePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       
       {/* Share Modal */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                 <button onClick={() => setShowShareModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Share2 className="text-pink-500 w-6 h-6"/> Chia sẻ tài liệu</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Đóng góp sách hoặc học cụ của bạn cho cộng đồng.</p>
@@ -152,7 +152,7 @@ export default function ShareMarketplacePage() {
       {/* Request Modal */}
       {showRequestModal && selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                 <button onClick={() => setShowRequestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2">Mượn tài liệu</h3>
                 <p className="text-sm text-pink-400 font-bold mb-6">{selectedItem.name}</p>

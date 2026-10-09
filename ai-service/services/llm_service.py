@@ -45,17 +45,18 @@ load_dotenv()
 
 class LLMService:
     def __init__(self):
-        # CHU Y: chat + embedding deu qua Google Gemini. Dung 1 key Google: GEMINI_API_KEY cho ca 2.
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        # DSS model theo thu tu tu GEMINI_MODEL (CSV). Model dau tien = primary; con lai la fallback tu dong.
-        self.model_candidates = [m.strip() for m in os.getenv("GEMINI_MODEL", "gemini-3.8-flash,gemini-3.6-flash,gemini-1.5-flash,gemini-flash-latest").split(",") if m.strip()]
-        self.model_name = self.model_candidates[0] if self.model_candidates else "gemini-3.8-flash"
-        if self.api_key:
+        # AI qua Cloudflare Workers AI — dùng 1 token Cloudflare cho cả text-generation và embedding.
+        self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
+        self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        # DSS model theo thứ tự từ CLOUDFLARE_MODEL (CSV). Model đầu tiên = primary; các model sau là fallback tự động.
+        self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3-8b-instruct,@cf/meta/llama-3-70b-instruct,@cf/google/gemma-2b-it").split(",") if m.strip()]
+        self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3-8b-instruct"
+        if self.api_token and self.account_id:
             self.is_ready = True
         else:
             self.is_ready = False
-            print("ERROR: GEMINI_API_KEY chua cau hinh. Dan Google API key (AIza...) vao GEMINI_API_KEY trong .env.")
-            print("GEMINI_MODEL mac dinh: gemini-3.8-flash.")
+            print("ERROR: CLOUDFLARE_API_TOKEN hoặc CLOUDFLARE_ACCOUNT_ID chưa cấu hình. Điền Cloudflare API token + account ID vào .env.")
+            print(f"CLOUDFLARE_MODEL mặc định: {self.model_name}.")
 
     # 404-style reasons that mean the model name itself is wrong/unavailable,
     # so we should move on to the next candidate instead of retrying it.
@@ -67,84 +68,104 @@ class LLMService:
         low = (message or "").lower()
         return code == 404 or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
 
-    def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Goi Google :generateContent (urllib). Thu tu model trong GEMINI_MODEL (CSV).
+    def _cloudflare_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Gọi Cloudflare Workers AI :generateContent. Thử từng model trong CLOUDFLARE_MODEL (CSV).
 
-        - 404 / model not found -> thu model ke tiep ngay (loi model, khong retry).
-        - 429 / 502 / 503 / 504 -> loi tam thai: retry cung model sau backoff ngan,
-          roi moi chuyen sang model tiep theo. Tranh that bai vi mot model bi qua tai.
-        - 401 / 403 -> loi xac thuc: dung ngay.
+        - 404 / model not found -> thử model kế tiếp ngay (lỗi model, không retry).
+        - 429 / 502 / 503 / 504 -> lỗi tạm thời: retry cùng model sau backoff ngắn,
+          rồi mới chuyển sang model tiếp theo. Tránh thất bại vì một model bị quá tải.
+        - 401 / 403 -> lỗi xác thực: dừng ngay.
         """
         import time as _time
         if not self.is_ready:
-            raise RuntimeError("AI Service chua san sang. Cau hinh GEMINI_API_KEY (Google).")
-        cfg = {}
-        if temperature is not None:
-            cfg["temperature"] = temperature
-        if max_tokens is not None:
-            cfg["maxOutputTokens"] = max_tokens
-        if top_p is not None:
-            cfg["topP"] = top_p
-        payload = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
-        if cfg:
-            payload["generationConfig"] = cfg
-        body_json = json.dumps(payload).encode("utf-8")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
         last_err = None
-        per_model_retries = 1  # 429 thi chuyen model ngay; 503 chi retry 1 lan roi chuyen model
+        per_model_retries = 1  # 429 thì chuyển model ngay; 503 thì retry 1 lần rồi chuyển model
+
         for model in self.model_candidates:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
-            req = urllib.request.Request(url, data=body_json, headers={"Content-Type": "application/json"}, method="POST")
+            url = f"{base_url}/{model}"
+            payload = {
+                "prompt": prompt,
+                "max_tokens": max_tokens or 2048,
+                "temperature": temperature,
+            }
+            if top_p is not None:
+                payload["top_p"] = top_p
+            body_json = json.dumps(payload).encode("utf-8")
+
             attempt = 0
             while True:
                 attempt += 1
+                req = urllib.request.Request(
+                    url,
+                    data=body_json,
+                    headers={
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                data = None
                 try:
                     with urllib.request.urlopen(req, timeout=30) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
                 except urllib.error.HTTPError as e:
-                    b = e.read().decode("utf-8", "ignore")
+                    b = e.read().decode("utf-8", "ignore")[:300]
                     if self._is_model_not_found(e.code, b):
-                        last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); break  # next model
+                        last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break  # next model
                     if e.code in (401, 403):
-                        raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {b[:200]}")
+                        raise RuntimeError(f"Cloudflare auth lỗi (HTTP {e.code}): {b[:200]}")
                     if e.code == 429:
-                        last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Gemini model {model} bi rate-limit (429), khong retry cung model, thu ke tiep..."); break  # rate limit -> next model
+                        last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break  # rate limit -> next model
                     if e.code in (502, 503, 504) and attempt <= per_model_retries:
-                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Gemini model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Gemini model {model} {e.code}, thu model ke tiep..."); break
+                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code}, thử model kế tiếp..."); break
                 except Exception as e:
                     if attempt <= per_model_retries:
-                        last_err = f"{model}: {e}"; print(f"Loi ket noi {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                    last_err = f"{model}: {e}"; print(f"Loi ket noi {model}, thu model ke tiep..."); break
-                # Success path: inspect response body
-                if "error" in data:
-                    err = data["error"]; code = err.get("code"); msg = err.get("message", "")
+                        last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                    last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, thử model kế tiếp..."); break
+
+                # Success path: parse Cloudflare response
+                if "error" in data and data.get("success") is False:
+                    err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
+                    code = err.get("code", 0)
+                    msg = err.get("message", "")
                     if self._is_model_not_found(code, msg):
-                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} khong kha dung, thu model ke tiep..."); break
+                        last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
                     if code == 429:
-                        last_err = f"{model}: {msg[:80]}"; print(f"Gemini model {model} bi rate-limit (429), thu ke tiep..."); break
+                        last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), thử kế tiếp..."); break
                     if code in (502, 503, 504) and attempt <= per_model_retries:
-                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini model {model} {code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: {msg[:80]}"; print(f"Gemini model {model} {code}, thu model ke tiep..."); break
-                cands = data.get("candidates") or []
-                if not cands:
-                    last_err = f"{model}: khong co candidate"; break
-                text = "".join("".join(pt.get("text","") for pt in c.get("content",{}).get("parts",[])) for c in cands).strip()
+                        last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} {code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} {code}, thử model kế tiếp..."); break
+
+                result = data.get("result", {})
+                if isinstance(result, dict):
+                    text = result.get("response", "").strip()
+                elif isinstance(result, str):
+                    text = result.strip()
+                else:
+                    last_err = f"{model}: unexpected result format"; break
+
                 if text:
                     return text
-                last_err = f"{model}: tra ve empty text"; break
+                last_err = f"{model}: trả về empty response"
+                break
             # end while True (per-model retries)
             continue
-        raise RuntimeError(f"Khong the sinh noi dung tu Gemini. Loi: {last_err}")
+
+        raise RuntimeError(f"Không thể sinh nội dung từ Cloudflare Workers AI. Lỗi: {last_err}")
 
     # --- Methods from Legacy LLMService ---
 
     async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
         """
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
-        Kết hợp dữ liệu từ ChromaDB, hệ thống và Google Gemini Engine.
+        Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -219,7 +240,7 @@ class LLMService:
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
         
         try:
-            response = self._gemini_generate(prompt,
+            response = self._cloudflare_generate(prompt,
                 max_tokens=2048,
                 temperature=0.3,
                 top_p=0.8)
@@ -242,20 +263,20 @@ class LLMService:
 
     async def generate_career_advice(self, user_info: dict):
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             return response
         except Exception as e:
             raise RuntimeError(f"Error in generate_career_advice: {e}")
 
     async def analyze_market_trends(self, market_data: list):
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         prompt = f"Dựa trên dữ liệu thị trường sau: {json.dumps(market_data)}, hãy phân tích ngắn gọn xu hướng kỹ năng/nghề nghề nổi bật. Trả về JSON: {{status, analysis}}."
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             return result if result else {"status": "ai", "analysis": response.strip()}
         except Exception as e:
@@ -264,11 +285,11 @@ class LLMService:
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             return {"insight": response}
         except Exception as e:
             print(f"Error in generate_daily_insight: {e}")
@@ -324,7 +345,7 @@ class LLMService:
 
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
@@ -346,7 +367,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             
             if result and isinstance(result, list):
@@ -365,7 +386,7 @@ class LLMService:
         Tạo lộ trình học tập cá nhân hóa dựa trên trình độ và mục tiêu nghề nghiệp.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
@@ -388,7 +409,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             
             if result:
@@ -404,7 +425,7 @@ class LLMService:
 
     async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         prompt = f"""
         Phân tích mật độ giáo dục tại {data.city}.
@@ -419,7 +440,7 @@ class LLMService:
         Trả về JSON: {{summary, density_score, recommendations: []}}
         """
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho analyze_geo_density.")
@@ -430,11 +451,11 @@ class LLMService:
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho summarize_material.")
@@ -445,11 +466,11 @@ class LLMService:
 
     async def match_mentors(self, data: MatchRequest) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho match_mentors.")
@@ -461,7 +482,7 @@ class LLMService:
 
     async def moderate_text(self, text: str) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
@@ -476,7 +497,7 @@ class LLMService:
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho moderate_text.")
@@ -487,10 +508,10 @@ class LLMService:
 
     async def get_suggestions(self) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
-            response = self._gemini_generate(prompt)
+            response = self._cloudflare_generate(prompt)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho get_suggestions.")

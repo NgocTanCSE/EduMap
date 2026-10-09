@@ -67,7 +67,7 @@ for name in router_names:
 @app.get("/api/ai/trends")
 async def get_trends():
     if not llm_service or not getattr(llm_service, "is_ready", False):
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY để xem xu hướng thị trường.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID để xem xu hướng thị trường.")
     try:
         return await llm_service.analyze_market_trends([{"keyword": "AI"}])
     except Exception as e:
@@ -76,7 +76,7 @@ async def get_trends():
 @app.post("/api/ai/predict")
 async def predict_user(data: dict):
     if not llm_service or not getattr(llm_service, "is_ready", False):
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
     try:
         return {"status": "success", "recommendation": await llm_service.generate_career_advice(data)}
     except Exception as e:

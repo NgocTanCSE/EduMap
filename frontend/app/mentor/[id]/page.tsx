@@ -78,11 +78,11 @@ export default function MentorDetailPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-muted-foreground/50">Loading profile...</div>;
-  if (!mentor) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-muted-foreground/50">Mentor not found.</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Loading profile...</div>;
+  if (!mentor) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Mentor not found.</div>;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-5xl mx-auto space-y-8">
         
         <Link href="/mentor" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-4 w-max">
@@ -98,7 +98,7 @@ export default function MentorDetailPage() {
                         <img 
                             src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random&size=200`} 
                             alt={mentor.user?.full_name} 
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-3xl object-cover border-4 border-zinc-800 shadow-2xl" 
+                            className="w-32 h-32 md:w-40 md:h-40 rounded-3xl object-cover border-4 border-card-foreground/20 shadow-2xl" 
                         />
                         <div className="flex-1 space-y-4">
                             <div>
@@ -129,7 +129,7 @@ export default function MentorDetailPage() {
                     <div className="bg-card border border-border p-8 rounded-3xl space-y-6 sticky top-8">
                         <div className="text-center pb-6 border-b border-border">
                             <h2 className="text-2xl font-black mb-2">Đặt lịch ngay</h2>
-                            <p className="text-3xl font-black text-primary">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-gray-500 font-normal">/ buổi</span></p>
+                            <p className="text-3xl font-black text-primary">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-muted-foreground font-normal">/ buổi</span></p>
                         </div>
 
                         <div className="space-y-4">
@@ -145,7 +145,7 @@ export default function MentorDetailPage() {
                                                 slot.is_booked 
                                                     ? 'bg-card border-transparent text-gray-600 cursor-not-allowed line-through'
                                                     : selectedSlot?.start === slot.start
-                                                        ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20'
+                                                        ? 'bg-primary border-primary text-foreground shadow-lg shadow-primary/20'
                                                         : 'bg-black border-border text-white hover:border-primary/50'
                                             }`}
                                         >
@@ -154,7 +154,7 @@ export default function MentorDetailPage() {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-sm text-gray-500 italic text-center py-4">Mentor hiện không có khung giờ rảnh nào hôm nay.</p>
+                                <p className="text-sm text-muted-foreground italic text-center py-4">Mentor hiện không có khung giờ rảnh nào hôm nay.</p>
                             )}
                         </div>
 
@@ -162,31 +162,31 @@ export default function MentorDetailPage() {
                             <button 
                                 onClick={handleBookSession}
                                 disabled={isBooking || !selectedSlot}
-                                className="w-full bg-white hover:bg-muted text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-card hover:bg-muted/30 text-foreground font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isBooking ? 'Đang xử lý...' : <><Calendar size={18} /> Xác nhận đặt lịch</>}
                             </button>
-                            <p className="text-[10px] text-gray-500 text-center mt-3">Lịch hẹn sẽ chờ Mentor xác nhận trước khi chính thức bắt đầu.</p>
+                            <p className="text-[10px] text-muted-foreground text-center mt-3">Lịch hẹn sẽ chờ Mentor xác nhận trước khi chính thức bắt đầu.</p>
                         </div>
                     </div>
                 ) : (
                     <div className="bg-emerald-900/20 border border-emerald-500/30 p-8 rounded-3xl space-y-6 text-center sticky top-8">
                         <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <CheckCircle2 size={40} className="text-black" />
+                            <CheckCircle2 size={40} className="text-foreground" />
                         </div>
                         <h2 className="text-2xl font-black text-emerald-400">Yêu cầu đã gửi!</h2>
                         <p className="text-muted-foreground/40 text-sm leading-relaxed">
                             Thông báo đã được gửi đến Mentor <strong>{mentor.user?.full_name}</strong>. 
                             Bạn sẽ nhận được phản hồi sớm nhất qua hệ thống.
                         </p>
-                        <Link href="/mentor" className="block w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-2xl transition-colors mt-6">
+                        <Link href="/mentor" className="block w-full bg-card hover:bg-card/50 text-white font-bold py-4 rounded-2xl transition-colors mt-6">
                             Quay lại danh sách
                         </Link>
                     </div>
                 )}
 
                 <div className="bg-card/30 border border-border p-6 rounded-2xl">
-                    <p className="text-xs text-gray-500 flex items-center justify-center gap-2"><Video size={14}/> Các buổi tư vấn diễn ra online qua EduMap Meet.</p>
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-2"><Video size={14}/> Các buổi tư vấn diễn ra online qua EduMap Meet.</p>
                 </div>
             </div>
         </div>

@@ -84,7 +84,7 @@ export default function JobDetailPage() {
   if (!job) return <div className="text-white text-center mt-20">Opportunity not found.</div>;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         
         <Link href="/career/jobs" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-4">
@@ -110,14 +110,14 @@ export default function JobDetailPage() {
                             <span>{job.location}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Briefcase size={20} className="text-green-500" />
-                            <span className="text-green-400 font-bold">{job.salary_range}</span>
+                            <Briefcase size={20} className="text-primary" />
+                            <span className="text-primary font-bold">{job.salary_range}</span>
                         </div>
                     </div>
                 </div>
                 {job.views > 0 && (
                     <div className="text-right">
-                        <p className="text-xs text-gray-500 uppercase font-black">Views</p>
+                        <p className="text-xs text-muted-foreground uppercase font-black">Views</p>
                         <p className="text-2xl font-black text-white">{job.views}</p>
                     </div>
                 )}
@@ -135,7 +135,7 @@ export default function JobDetailPage() {
                     <h2 className="text-xl font-bold border-b border-border pb-2">Required Skills</h2>
                     <div className="flex flex-wrap gap-3">
                         {job.required_skills?.map((skill: string) => (
-                            <span key={skill} className="bg-zinc-800 text-gray-100 px-4 py-2 rounded-xl border border-border font-medium">
+                            <span key={skill} className="bg-card text-gray-100 px-4 py-2 rounded-xl border border-border font-medium">
                                 {skill}
                             </span>
                         ))}
@@ -149,7 +149,7 @@ export default function JobDetailPage() {
                         <h2 className="text-2xl font-black text-center">Ready to apply?</h2>
                         <form onSubmit={handleApply} className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cover Letter (Optional)</label>
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Cover Letter (Optional)</label>
                                 <textarea 
                                     placeholder="Introduce yourself briefly..."
                                     className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[120px]"
@@ -159,7 +159,7 @@ export default function JobDetailPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Upload CV (PDF)</label>
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Upload CV (PDF)</label>
                                 <div className="relative group">
                                     <input 
                                         type="file" 
@@ -168,7 +168,7 @@ export default function JobDetailPage() {
                                         onChange={e => setCvFile(e.target.files?.[0] || null)}
                                     />
                                     <div className="bg-card/40 border border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 group-hover:border-primary/50 transition-all">
-                                        <FileUp className="text-gray-500 group-hover:text-primary" />
+                                        <FileUp className="text-muted-foreground group-hover:text-primary" />
                                         <span className="text-xs text-muted-foreground/40">
                                             {cvFile ? cvFile.name : "Select your CV file"}
                                         </span>
@@ -186,20 +186,20 @@ export default function JobDetailPage() {
                         </form>
                     </aside>
                 ) : (
-                    <aside className="bg-green-500/10 border border-green-500/30 p-8 rounded-3xl space-y-4 text-center">
-                        <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle2 size={32} className="text-black" />
+                    <aside className="bg-primary/10 border border-green-500/30 p-8 rounded-3xl space-y-4 text-center">
+                        <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 size={32} className="text-foreground" />
                         </div>
-                        <h2 className="text-2xl font-black text-green-400">Applied Successfully!</h2>
+                        <h2 className="text-2xl font-black text-primary">Applied Successfully!</h2>
                         <p className="text-muted-foreground/40 text-sm">Your application has been sent to {job.company_name}. You can track its status in your dashboard.</p>
-                        <Link href="/career/jobs" className="block w-full bg-zinc-800 py-3 rounded-xl font-bold mt-4">
+                        <Link href="/career/jobs" className="block w-full bg-card py-3 rounded-xl font-bold mt-4">
                             Back to Search
                         </Link>
                     </aside>
                 )}
                 
                 <div className="bg-card/30 border border-border p-6 rounded-2xl space-y-2">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">About this role</h4>
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">About this role</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground/40">
                         <Calendar size={16} />
                         <span>Posted on {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'N/A'}</span>

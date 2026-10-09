@@ -26,7 +26,7 @@ export default function MobileUnitPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -56,8 +56,8 @@ export default function MobileUnitPage() {
                                         <Truck className="w-8 h-8 text-cyan-400" />
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                                        unit.status === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 
-                                        'bg-zinc-800 text-muted-foreground/40 border-border'
+                                        unit.status === 'active' ? 'bg-primary/20 text-primary border-green-500/30' : 
+                                        'bg-card text-muted-foreground/40 border-border'
                                     }`}>
                                         {unit.status === 'active' ? 'ĐANG HOẠT ĐỘNG' : 'ĐANG BẢO TRÌ'}
                                     </span>

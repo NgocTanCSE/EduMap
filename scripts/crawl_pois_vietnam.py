@@ -25,7 +25,7 @@ Run
   CRAWL_DRY_RUN=1 python3 /app/scripts/crawl_pois_vietnam.py   # summary only
   python3 /app/scripts/crawl_pois_vietnam.py --tile 1.0 --sleep 0.8
 
-Scheduled (supervisord, see infrastructure/docker/supervisord.conf) — loops
+Scheduled (cron in Docker container) — loops
 forever, sleeping until 00:30 each night, then runs once.
 """
 from __future__ import annotations

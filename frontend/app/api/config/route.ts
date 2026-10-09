@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 /**
  * Runtime configuration endpoint.
  *
- * NEXT_PUBLIC_* environment variables are inlined at *build* time by Next.js,
- * which means Space Secrets on Hugging Face (available only at *runtime*)
- * cannot reach the client bundle.  This route reads env vars at runtime
- * (server-side) and exposes them to the frontend via a normal fetch call.
+ * NEXT_PUBLIC_* environment variables are inlined at *build* time by Next.js.
+ * This route reads env vars at runtime (server-side) and exposes them to the
+ * frontend via a normal fetch call, so values injected by Docker Compose
+ * environment are available even when inlined at build time.
  *
  * Add any public config here, e.g.:
  *   { googleClientId: "123-abc.apps.googleusercontent.com" }

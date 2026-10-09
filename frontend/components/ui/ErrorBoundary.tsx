@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#050505] text-white p-8">
+        <div className="min-h-screen flex items-center justify-center bg-background text-white p-8">
           <div className="max-w-md w-full text-center space-y-6 bg-card border border-white/10 rounded-[40px] p-10">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-8 h-8 text-red-500" />
@@ -52,7 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => window.location.href = '/'}
-                className="flex items-center gap-2 px-6 py-3 border border-white/10 hover:bg-white/5 font-bold rounded-xl transition-all"
+                className="flex items-center gap-2 px-6 py-3 border border-white/10 hover:bg-muted/20 font-bold rounded-xl transition-all"
               >
                 <Home className="w-4 h-4" /> Về trang chủ
               </button>

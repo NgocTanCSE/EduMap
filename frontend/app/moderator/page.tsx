@@ -58,7 +58,7 @@ export default function ModeratorPage() {
       
       {tasks.length === 0 ? (
         <div className="text-center py-16 bg-card border border-border rounded-2xl">
-          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+          <CheckCircle className="w-12 h-12 text-primary mx-auto mb-4" />
           <p>Không có nội dung cần duyệt.</p>
         </div>
       ) : (
@@ -74,7 +74,7 @@ export default function ModeratorPage() {
                 <div className="flex gap-2">
                   <button 
                     onClick={() => handleApprove(t.id)}
-                    className="px-3 py-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 flex items-center gap-1 text-sm"
+                    className="px-3 py-1 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 flex items-center gap-1 text-sm"
                   >
                     <CheckCircle className="w-4 h-4" /> Duyệt
                   </button>

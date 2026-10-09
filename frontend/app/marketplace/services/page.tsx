@@ -47,7 +47,7 @@ export default function ServiceMarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -57,7 +57,7 @@ export default function ServiceMarketplacePage() {
               <p className="text-muted-foreground/40 text-sm">Gia sư, tư vấn và các khóa đào tạo kỹ năng chuyên sâu.</p>
            </div>
            <div className="flex gap-4">
-              <button className="relative p-3 rounded-2xl bg-card border border-border hover:bg-zinc-800 transition-all">
+              <button className="relative p-3 rounded-2xl bg-card border border-border hover:bg-card transition-all">
                 <ShoppingCart className="w-6 h-6 text-primary" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
@@ -98,7 +98,7 @@ export default function ServiceMarketplacePage() {
                   <div className="aspect-video relative overflow-hidden bg-card flex items-center justify-center">
                     <GraduationCap className="w-20 h-20 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute top-4 left-4">
-                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border bg-primary/20 border-primary/30 text-blue-400">
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border bg-primary/20 border-primary/30 text-primary">
                           {service.category || 'Dịch vụ'}
                         </span>
                     </div>
@@ -125,7 +125,7 @@ export default function ServiceMarketplacePage() {
                     </div>
 
                     <div className="mt-auto flex justify-between items-center">
-                        <p className="font-mono text-sm font-bold text-blue-400">
+                        <p className="font-mono text-sm font-bold text-primary">
                           {Number(service.price).toLocaleString()}đ
                         </p>
                         <button 

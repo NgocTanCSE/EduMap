@@ -29,7 +29,7 @@ export default function AdminAuditLogsPage() {
   }, [meta.page]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -70,7 +70,7 @@ export default function AdminAuditLogsPage() {
                       </td>
                       <td className="p-6">
                         <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-[10px] font-bold">
+                           <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center text-[10px] font-bold">
                               {log.user?.full_name?.charAt(0) || 'U'}
                            </div>
                            <div>
@@ -80,7 +80,7 @@ export default function AdminAuditLogsPage() {
                         </div>
                       </td>
                       <td className="p-6">
-                        <span className="px-2 py-1 rounded bg-primary/10 text-blue-400 text-[10px] font-bold border border-primary/20">
+                        <span className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold border border-primary/20">
                           {log.action}
                         </span>
                       </td>

@@ -80,15 +80,15 @@ export default function SummerCampaignsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       
       {/* Report Modal */}
       {showReportModal && selectedCampaign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
-                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Activity className="w-6 h-6 text-green-500" /> Báo cáo Hoạt động</h3>
-                <p className="text-sm text-green-400 font-bold mb-6">{selectedCampaign.name}</p>
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Activity className="w-6 h-6 text-primary" /> Báo cáo Hoạt động</h3>
+                <p className="text-sm text-primary font-bold mb-6">{selectedCampaign.name}</p>
                 
                 <div className="mb-6 flex items-center gap-4">
                     <label className="text-sm font-bold text-muted-foreground/60">Chọn ngày:</label>
@@ -101,17 +101,17 @@ export default function SummerCampaignsPage() {
                 </div>
 
                 {loadingReport ? (
-                    <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-green-500 animate-spin" /></div>
+                    <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                 ) : reportData ? (
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 bg-card border border-border rounded-2xl">
                                 <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mb-1">Tình nguyện viên</p>
-                                <p className="text-2xl font-black text-blue-400">{reportData.total_volunteers_active}</p>
+                                <p className="text-2xl font-black text-primary">{reportData.total_volunteers_active}</p>
                             </div>
                             <div className="p-4 bg-card border border-border rounded-2xl">
                                 <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mb-1">Tiến độ chung</p>
-                                <p className="text-2xl font-black text-green-400">{reportData.completed_percentage}</p>
+                                <p className="text-2xl font-black text-primary">{reportData.completed_percentage}</p>
                             </div>
                         </div>
 
@@ -127,7 +127,7 @@ export default function SummerCampaignsPage() {
                                                 <span className="flex items-center gap-1"><Users className="w-3 h-3"/> {act.volunteers} TNV</span>
                                             </p>
                                         </div>
-                                        <span className="px-3 py-1 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-lg border border-green-500/20">{act.status}</span>
+                                        <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-lg border border-green-500/20">{act.status}</span>
                                     </div>
                                 ))}
                             </div>
@@ -157,33 +157,33 @@ export default function SummerCampaignsPage() {
 
         {/* Campaigns List */}
         <div>
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Leaf className="text-green-500 w-6 h-6"/> Các chiến dịch đang diễn ra</h2>
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Leaf className="text-primary w-6 h-6"/> Các chiến dịch đang diễn ra</h2>
             
             {loading ? (
-                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-green-500 animate-spin" /></div>
+                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
             ) : campaigns.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {campaigns.map(camp => (
                         <div key={camp.id} className="bg-card border border-border rounded-xl p-8 hover:border-green-500/30 transition-all group flex flex-col h-full relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-[40px] rounded-full -mr-10 -mt-10" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[40px] rounded-full -mr-10 -mt-10" />
                             
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                                    camp.status === 'active' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-zinc-800 text-muted-foreground/40 border-border'
+                                    camp.status === 'active' ? 'bg-primary/20 text-primary border-green-500/30' : 'bg-card text-muted-foreground/40 border-border'
                                 }`}>
                                     {camp.status === 'active' ? 'ĐANG TUYỂN QUÂN' : 'ĐÃ KẾT THÚC'}
                                 </span>
                                 <span className="text-2xl font-black text-muted-foreground/10">{camp.year}</span>
                             </div>
                             
-                            <h3 className="text-2xl font-bold mb-3 group-hover:text-green-400 transition-colors relative z-10">{camp.name}</h3>
+                            <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors relative z-10">{camp.name}</h3>
                             <p className="text-sm text-muted-foreground/60 mb-6 flex-1 relative z-10 line-clamp-3">
                                 {camp.description || 'Chiến dịch tình nguyện chung tay xây dựng cộng đồng và hỗ trợ các em nhỏ vùng sâu vùng xa.'}
                             </p>
                             
                             <div className="space-y-3 pt-4 border-t border-border relative z-10 mb-6">
                                 <div className="flex items-center gap-3 text-xs text-foreground/70">
-                                    <MapPin className="w-4 h-4 text-green-500" />
+                                    <MapPin className="w-4 h-4 text-primary" />
                                     Địa bàn: <strong className="text-white">{camp.location}</strong>
                                 </div>
                             </div>
@@ -191,14 +191,14 @@ export default function SummerCampaignsPage() {
                             <div className="flex gap-3 relative z-10">
                                 <button 
                                     onClick={() => handleViewReport(camp)}
-                                    className="flex-1 py-3 rounded-xl bg-card hover:bg-zinc-800 border border-border text-xs font-bold transition-all flex justify-center items-center gap-2"
+                                    className="flex-1 py-3 rounded-xl bg-card hover:bg-card border border-border text-xs font-bold transition-all flex justify-center items-center gap-2"
                                 >
-                                    <TrendingUp className="w-4 h-4 text-blue-400" /> XEM BÁO CÁO
+                                    <TrendingUp className="w-4 h-4 text-primary" /> XEM BÁO CÁO
                                 </button>
                                 <button 
                                     onClick={() => handleRegister(camp.id)}
                                     disabled={registeringId === camp.id || camp.status !== 'active'}
-                                    className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white text-xs font-bold transition-all shadow-lg shadow-green-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                                    className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-primary text-white text-xs font-bold transition-all shadow-lg shadow-green-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
                                 >
                                     {registeringId === camp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <HeartHandshake className="w-4 h-4" />} 
                                     {camp.status === 'active' ? 'ĐĂNG KÝ THAM GIA' : 'ĐÃ ĐÓNG'}

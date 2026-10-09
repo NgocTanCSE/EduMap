@@ -65,7 +65,7 @@ export default function MentorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header & AI Match */}
@@ -87,7 +87,7 @@ export default function MentorPage() {
             </div>
             <div className="relative z-10 w-full max-w-sm">
                 <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <input 
                         type="text" 
                         placeholder="Search by name, role, or skills..." 
@@ -115,7 +115,7 @@ export default function MentorPage() {
                                     {match.match_score}% Match
                                 </div>
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-16 h-16 bg-zinc-800 rounded-full border-2 border-primary/50 flex items-center justify-center font-black text-xl text-primary/70 overflow-hidden shrink-0">
+                                    <div className="w-16 h-16 bg-card rounded-full border-2 border-primary/50 flex items-center justify-center font-black text-xl text-primary/70 overflow-hidden shrink-0">
                                         {mentorData.user?.avatar_url ? (
                                             <img src={mentorData.user.avatar_url} alt="" className="w-full h-full object-cover" />
                                         ) : (
@@ -128,7 +128,7 @@ export default function MentorPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-2 mb-6 flex-1">
-                                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Why it's a match:</h4>
+                                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Why it's a match:</h4>
                                     <ul className="text-xs text-muted-foreground/60 space-y-1.5">
                                         {match.match_reasons?.map((r: string, i: number) => (
                                             <li key={i} className="flex items-start gap-1.5 leading-snug">
@@ -154,7 +154,7 @@ export default function MentorPage() {
             <button 
                 key={cat} 
                 onClick={() => setActiveCategory(cat)}
-                className={`px-6 py-2.5 rounded-xl border text-sm font-bold transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-white text-black border-white' : 'bg-transparent border-border text-muted-foreground/40 hover:text-white hover:border-border'}`}
+                className={`px-6 py-2.5 rounded-xl border text-sm font-bold transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-card text-foreground border-white' : 'bg-transparent border-border text-muted-foreground/40 hover:text-white hover:border-border'}`}
             >
               {cat}
             </button>
@@ -171,14 +171,14 @@ export default function MentorPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredMentors.map(mentor => (
-              <div key={mentor.user_id} className="p-6 rounded-3xl bg-card border border-border hover:border-border hover:bg-zinc-800/50 transition-all group flex flex-col justify-between">
+              <div key={mentor.user_id} className="p-6 rounded-3xl bg-card border border-border hover:border-border hover:bg-card/50 transition-all group flex flex-col justify-between">
                 <div>
                     <div className="flex gap-6 mb-6">
                     <div className="relative">
                         <img src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random`} alt="" className="w-24 h-24 rounded-2xl object-cover border border-border" />
                         {mentor.is_verified && (
-                        <div className="absolute -bottom-2 -right-2 p-1 bg-[#050505] rounded-full">
-                            <div className="w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#050505]" />
+                        <div className="absolute -bottom-2 -right-2 p-1 bg-background rounded-full">
+                            <div className="w-4 h-4 bg-emerald-500 rounded-full border-2 border-background" />
                         </div>
                         )}
                     </div>
@@ -211,7 +211,7 @@ export default function MentorPage() {
               </div>
             ))}
             {filteredMentors.length === 0 && (
-                <div className="col-span-1 md:col-span-2 text-center py-20 border border-dashed border-border rounded-3xl text-gray-500">
+                <div className="col-span-1 md:col-span-2 text-center py-20 border border-dashed border-border rounded-3xl text-muted-foreground">
                     No mentors found matching your criteria.
                 </div>
             )}

@@ -152,11 +152,11 @@ export default function VideoCallPage() {
   };
 
   return (
-    <div className="h-screen bg-[#0a0a0a] flex flex-col overflow-hidden">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Main Video Area */}
       <div className="flex-1 p-6 relative flex gap-4">
         {/* Main Peer Video (Remote) */}
-        <div className="flex-1 bg-slate-900 rounded-xl overflow-hidden relative border border-border shadow-2xl">
+        <div className="flex-1 bg-background rounded-xl overflow-hidden relative border border-border shadow-2xl">
           <div className="absolute inset-0 bg-card" />
           
           {isConnected ? (
@@ -179,7 +179,7 @@ export default function VideoCallPage() {
           )}
           
           <div className="absolute bottom-6 left-6 p-3 rounded-xl bg-card/40 border border-border flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-primary' : 'bg-red-500 animate-pulse'}`} />
             <span className="text-xs font-medium text-foreground/80">{formatDuration(callDuration)}</span>
           </div>
           
@@ -189,7 +189,7 @@ export default function VideoCallPage() {
         </div>
 
         {/* Local Self Video */}
-        <div className="w-72 bg-slate-800 rounded-3xl overflow-hidden relative border border-border shadow-xl self-end mb-4 mr-4">
+        <div className="w-72 bg-card rounded-3xl overflow-hidden relative border border-border shadow-xl self-end mb-4 mr-4">
           {isCamOn ? (
             <video
               ref={localVideoRef}
@@ -213,7 +213,7 @@ export default function VideoCallPage() {
 
         {/* Chat Panel */}
         {showChat && (
-          <div className="w-80 bg-slate-900 rounded-3xl border border-border flex flex-col">
+          <div className="w-80 bg-background rounded-3xl border border-border flex flex-col">
             <div className="p-4 border-b border-border">
               <p className="text-sm font-medium text-foreground/80">Chat</p>
             </div>
@@ -250,7 +250,7 @@ export default function VideoCallPage() {
       </div>
 
       {/* Control Bar */}
-      <div className="h-28 bg-[#111] border-t border-border px-12 flex items-center justify-between">
+      <div className="h-28 bg-card border-t border-border px-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-2xl bg-card border border-border">
             <p className="text-xs font-bold text-foreground/80">Session: AI Career Roadmaps</p>

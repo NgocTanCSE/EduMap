@@ -27,7 +27,7 @@ export default function CertificatesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -46,7 +46,7 @@ export default function CertificatesPage() {
                     <span className="text-5xl font-black text-primary">
                         {portfolio.total_certs}
                     </span>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Certificates Earned</span>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Certificates Earned</span>
                 </div>
             )}
         </div>
@@ -58,7 +58,7 @@ export default function CertificatesPage() {
                     <Award className="text-primary" /> Collection
                 </h2>
                 {portfolio?.portfolio_link && (
-                    <button className="flex items-center gap-2 text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors bg-primary/10 px-4 py-2 rounded-xl border border-primary/20">
+                    <button className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-4 py-2 rounded-xl border border-primary/20">
                         <LinkIcon size={16} /> Share Portfolio
                     </button>
                 )}
@@ -76,7 +76,7 @@ export default function CertificatesPage() {
                                 <div className="flex justify-between items-start">
                                     <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-2 shadow-inner">
                                         {/* Mock Logo */}
-                                        <div className="w-full h-full bg-zinc-200 rounded-md" />
+                                        <div className="w-full h-full bg-muted/40 rounded-md" />
                                     </div>
                                     <span className="bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-primary/20">
                                         {cert.template?.type || 'Certificate'}
@@ -85,14 +85,14 @@ export default function CertificatesPage() {
                                 
                                 <div>
                                     <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-primary/70 transition-colors">{cert.template?.name}</h3>
-                                    <p className="text-xs text-gray-500">{cert.template?.organization?.name}</p>
+                                    <p className="text-xs text-muted-foreground">{cert.template?.organization?.name}</p>
                                 </div>
 
                                 <div className="space-y-2 pt-4 border-t border-border">
                                     <p className="text-[10px] text-muted-foreground/40 flex items-center gap-1.5 font-mono">
                                         <Hash size={12}/> {cert.verify_code}
                                     </p>
-                                    <p className="text-[10px] text-gray-500">
+                                    <p className="text-[10px] text-muted-foreground">
                                         Issued: {new Date(cert.issued_at).toLocaleDateString('vi-VN')}
                                     </p>
                                 </div>
@@ -108,7 +108,7 @@ export default function CertificatesPage() {
                                 <a 
                                     href={`/certificates/verify/${cert.verify_code}`}
                                     target="_blank"
-                                    className="bg-primary hover:bg-yellow-700 text-black text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                                    className="bg-primary hover:bg-yellow-700 text-foreground text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
                                 >
                                     <ExternalLink size={14} /> View
                                 </a>
@@ -118,11 +118,11 @@ export default function CertificatesPage() {
                 </div>
             ) : (
                 <div className="text-center py-20 bg-card/30 border border-dashed border-border rounded-3xl">
-                    <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Award size={24} className="text-gray-500" />
+                    <div className="w-16 h-16 bg-card rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Award size={24} className="text-muted-foreground" />
                     </div>
                     <p className="text-muted-foreground/40 font-medium">Bạn chưa có chứng chỉ nào.</p>
-                    <p className="text-gray-500 text-sm mt-1">Hoàn thành các khóa học hoặc dự án để nhận chứng chỉ.</p>
+                    <p className="text-muted-foreground text-sm mt-1">Hoàn thành các khóa học hoặc dự án để nhận chứng chỉ.</p>
                 </div>
             )}
         </div>

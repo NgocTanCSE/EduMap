@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const authHeader = req.headers.get('Authorization');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = {};
     if (authHeader) headers['Authorization'] = authHeader;
     const response = await fetch(`${getBackendUrl()}/storage/upload`, {
       method: 'POST',

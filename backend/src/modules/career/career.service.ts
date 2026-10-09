@@ -220,7 +220,7 @@ export class CareerService {
     }
 
     const [jobs, total] = await query
-      .where('job.status = :status', { status: JobStatus.ACTIVE }) // Chỉ hiển thị các công việc đang hoạt động
+      .andWhere('job.status = :status', { status: JobStatus.ACTIVE }) // Chỉ hiển thị các công việc đang hoạt động
       .orderBy('job.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)

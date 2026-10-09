@@ -56,7 +56,7 @@ export default function InternshipPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -127,7 +127,7 @@ export default function InternshipPage() {
                         </div>
                         <div className="flex gap-2">
                             <span className="px-2 py-1 rounded-md bg-card/20 border border-border text-[10px] text-muted-foreground/60">{job.field || "Thực tập"}</span>
-                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${job.status === 'open' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${job.status === 'open' ? 'bg-primary/20 text-primary border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
                                 {job.status === 'open' ? 'ĐANG MỞ' : 'ĐÃ ĐÓNG'}
                             </span>
                         </div>

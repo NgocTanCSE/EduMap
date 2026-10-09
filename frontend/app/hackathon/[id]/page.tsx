@@ -101,7 +101,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
       </div>
     );
@@ -109,7 +109,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
 
   if (!hackathon) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cuộc thi Hackathon này.</p>
         <Link href="/hackathon" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary/90 transition-all">
@@ -123,7 +123,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
   const isOngoing = hackathon.status === 'ongoing';
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         <Link href="/hackathon" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold w-fit">
@@ -136,8 +136,8 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
             
             <div className="relative z-10 max-w-3xl space-y-6">
                 <span className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border inline-block ${
-                    isOngoing ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                    isCompleted ? 'bg-zinc-800 text-muted-foreground/40 border-border' :
+                    isOngoing ? 'bg-primary/20 text-primary border-green-500/30' :
+                    isCompleted ? 'bg-card text-muted-foreground/40 border-border' :
                     'bg-primary/20 text-primary/70 border-primary/30'
                 }`}>
                     {isOngoing ? 'ĐANG DIỄN RA' : isCompleted ? 'ĐÃ KẾT THÚC' : 'SẮP MỞ ĐĂNG KÝ'}
@@ -151,7 +151,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
                         {new Date(hackathon.start_date).toLocaleDateString('vi-VN')} - {new Date(hackathon.end_date).toLocaleDateString('vi-VN')}
                     </div>
                     <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-blue-400" />
+                        <Users className="w-5 h-5 text-primary" />
                         Team (3-5 thành viên)
                     </div>
                 </div>
@@ -174,11 +174,11 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
             {/* Right: Registration / Status Panel */}
             <div className="space-y-6 sticky top-8">
                 {registeredTeam ? (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-3xl p-8 text-center space-y-4">
-                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <CheckCircle2 className="w-8 h-8 text-green-500" />
+                    <div className="bg-primary/10 border border-green-500/30 rounded-3xl p-8 text-center space-y-4">
+                        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <CheckCircle2 className="w-8 h-8 text-primary" />
                         </div>
-                        <h3 className="text-xl font-bold text-green-400">Đã đăng ký thành công!</h3>
+                        <h3 className="text-xl font-bold text-primary">Đã đăng ký thành công!</h3>
                         <p className="text-sm font-bold text-white">Đội: {registeredTeam.team_name}</p>
                         
                         <div className="pt-6 mt-6 border-t border-green-500/20 space-y-4">
@@ -190,7 +190,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
                                     <FileCode2 className="w-4 h-4 text-primary/70" /> Nộp Github Repo
                                 </button>
                                 <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-all">
-                                    <PlaySquare className="w-4 h-4 text-blue-400" /> Nộp Demo Video
+                                    <PlaySquare className="w-4 h-4 text-primary" /> Nộp Demo Video
                                 </button>
                             </div>
                         </div>

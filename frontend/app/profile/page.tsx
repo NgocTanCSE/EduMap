@@ -94,7 +94,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -103,10 +103,10 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background text-white flex flex-col md:flex-row">
       
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-[#0a0a0a] p-6 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-background p-6 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
         <h2 className="text-xl font-bold mb-6 hidden md:block px-2 text-primary">My Profile</h2>
         {[
           { id: 'overview', icon: Shield, label: 'Tổng quan' },
@@ -119,7 +119,7 @@ export default function ProfilePage() {
             className={`flex items-center gap-3 p-3 rounded-xl transition-all whitespace-nowrap ${
               activeTab === tab.id 
                 ? 'bg-primary/10 text-primary font-bold border border-primary/20' 
-                : 'text-gray-500 hover:text-white hover:bg-card/20'
+                : 'text-muted-foreground hover:text-white hover:bg-card/20'
             }`}
           >
             <tab.icon className="w-5 h-5" />
@@ -223,7 +223,7 @@ export default function ProfilePage() {
               
               {activeTab === 'overview' && (
                 <section className="bg-card border border-border rounded-xl p-8 space-y-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2"><Activity className="text-green-500" /> Hoạt động gần đây</h2>
+                    <h2 className="text-xl font-bold flex items-center gap-2"><Activity className="text-primary" /> Hoạt động gần đây</h2>
                     <p className="text-sm text-muted-foreground/40">Tính năng lịch sử hoạt động đang được cập nhật.</p>
                 </section>
               )}
@@ -359,7 +359,7 @@ export default function ProfilePage() {
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-2"><Camera className="w-4 h-4 text-primary" /> Ảnh đại diện (Upload ảnh)</label>
                         <div className="text-sm text-muted-foreground/40 mb-2">
                           {profileForm.avatar_url ? (
-                            <span className="text-green-400">✓ Đã chọn ảnh (nhấn Lưu để cập nhật)</span>
+                            <span className="text-primary">✓ Đã chọn ảnh (nhấn Lưu để cập nhật)</span>
                           ) : (
                             <span>Chọn ảnh jpg/png từ máy (tối đa 5MB)</span>
                           )}
@@ -389,7 +389,7 @@ export default function ProfilePage() {
                       <button
                         type="submit"
                         disabled={savingProfile}
-                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-zinc-800 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -462,7 +462,7 @@ export default function ProfilePage() {
                       <button
                         type="submit"
                         disabled={savingPassword}
-                        className="px-8 py-3 bg-red-600 hover:bg-red-500 disabled:bg-zinc-800 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-red-600 hover:bg-red-500 disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                         {savingPassword ? 'Đang xử lý...' : 'Đổi mật khẩu'}
@@ -473,7 +473,7 @@ export default function ProfilePage() {
                   {/* Notification Preferences */}
                   <div className="bg-card border border-border rounded-xl p-8">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Bell className="w-5 h-5 text-blue-400" /> Tùy chọn thông báo
+                      <Bell className="w-5 h-5 text-primary" /> Tùy chọn thông báo
                     </h2>
                     <div className="space-y-4">
                       {[
@@ -490,7 +490,7 @@ export default function ProfilePage() {
                           <button
                             type="button"
                             onClick={() => setNotificationPrefs({...notificationPrefs, [pref.id]: !notificationPrefs[pref.id as keyof typeof notificationPrefs]})}
-                            className={`w-12 h-6 rounded-full transition-colors ${notificationPrefs[pref.id as keyof typeof notificationPrefs] ? 'bg-primary' : 'bg-zinc-700'}`}
+                            className={`w-12 h-6 rounded-full transition-colors ${notificationPrefs[pref.id as keyof typeof notificationPrefs] ? 'bg-primary' : 'bg-card/50'}`}
                           >
                             <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${notificationPrefs[pref.id as keyof typeof notificationPrefs] ? 'translate-x-6' : 'translate-x-0.5'}`} />
                           </button>
@@ -513,7 +513,7 @@ export default function ProfilePage() {
                         }
                       }}
                       disabled={savingPrefs}
-                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-zinc-800 text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                     >
                       {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       {savingPrefs ? 'Đang lưu...' : 'Lưu cài đặt thông báo'}
@@ -537,7 +537,7 @@ export default function ProfilePage() {
                 <div className="space-y-3">
                   {leaderboard.map((u, index) => (
                     <div key={u.id} className={`flex items-center gap-3 p-3 rounded-2xl transition-colors border ${u.id === user.id ? 'bg-primary/10 border-primary/20' : 'bg-card/40 border-border hover:border-border'}`}>
-                      <span className={`text-sm font-black w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-slate-400' : index === 2 ? 'text-amber-700' : 'text-muted-foreground/20'}`}>
+                      <span className={`text-sm font-black w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-muted-foreground/60' : index === 2 ? 'text-amber-700' : 'text-muted-foreground/20'}`}>
                         #{index + 1}
                       </span>
                       <div className="flex-1">

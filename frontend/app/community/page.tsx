@@ -125,7 +125,7 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex justify-center p-4 md:p-8">
+    <div className="min-h-screen bg-background text-white flex justify-center p-4 md:p-8">
       <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-8">
         
         {/* Main Feed */}
@@ -147,7 +147,7 @@ export default function CommunityPage() {
                     setSelectedGroupId(null);
                     setPage(1);
                   }}
-                  className="text-muted-foreground/40 hover:text-white text-sm px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                  className="text-muted-foreground/40 hover:text-white text-sm px-3 py-1 rounded-lg bg-card hover:bg-card/50 transition-colors"
                 >
                   Xóa bộ lọc
                 </button>
@@ -165,11 +165,11 @@ export default function CommunityPage() {
           {isCreating && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
                   <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative">
-                      <button onClick={() => setIsCreating(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X size={24}/></button>
+                      <button onClick={() => setIsCreating(false)} className="absolute top-6 right-6 text-muted-foreground hover:text-white"><X size={24}/></button>
                       <h2 className="text-2xl font-black mb-6">Tạo bài viết mới</h2>
                       <div className="bg-primary/10 border border-primary/20 p-4 rounded-xl flex items-start gap-3 mb-6">
-                          <ShieldAlert className="text-blue-400 shrink-0 mt-0.5" size={18} />
-                          <p className="text-xs text-blue-300 leading-relaxed">Nội dung của bạn sẽ được AI kiểm duyệt tự động trước khi hiển thị. Vui lòng sử dụng ngôn từ lịch sự và tôn trọng cộng đồng.</p>
+                          <ShieldAlert className="text-primary shrink-0 mt-0.5" size={18} />
+                          <p className="text-xs text-primary/80 leading-relaxed">Nội dung của bạn sẽ được AI kiểm duyệt tự động trước khi hiển thị. Vui lòng sử dụng ngôn từ lịch sự và tôn trọng cộng đồng.</p>
                       </div>
                       <form onSubmit={handleCreatePost} className="space-y-4">
                           <input 
@@ -214,20 +214,20 @@ export default function CommunityPage() {
                                 <img 
                                     src={post.author?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author?.full_name || 'U')}&background=random`} 
                                     alt="" 
-                                    className="w-10 h-10 rounded-full bg-zinc-800"
+                                    className="w-10 h-10 rounded-full bg-card"
                                 />
                                 <div>
                                     <h4 className="font-bold text-sm text-muted-foreground/70 flex items-center gap-2">
                                         {post.author?.full_name}
                                         {post.author?.role === 'admin' && <span className="bg-red-500/20 text-red-400 text-[9px] uppercase px-1.5 py-0.5 rounded">Admin</span>}
-                                        {post.group && <span className="text-xs font-normal text-gray-500">trong <strong className="text-primary/70">{post.group.name}</strong></span>}
+                                        {post.group && <span className="text-xs font-normal text-muted-foreground">trong <strong className="text-primary/70">{post.group.name}</strong></span>}
                                     </h4>
-                                    <p className="text-[11px] text-gray-500">
+                                    <p className="text-[11px] text-muted-foreground">
                                         {new Date(post.created_at).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                             </div>
-                            <button className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-card/20"><MoreHorizontal size={18}/></button>
+                            <button className="text-muted-foreground hover:text-white p-2 rounded-full hover:bg-card/20"><MoreHorizontal size={18}/></button>
                         </div>
 
                         <Link href={`/community/post/${post.id}`}>
@@ -242,16 +242,16 @@ export default function CommunityPage() {
                         <div className="mt-6 pt-4 border-t border-border flex items-center gap-6">
                             <button 
                                 onClick={() => handleLike(post.id)}
-                                className="flex items-center gap-2 text-gray-500 hover:text-pink-500 transition-colors text-sm font-bold group"
+                                className="flex items-center gap-2 text-muted-foreground hover:text-pink-500 transition-colors text-sm font-bold group"
                             >
                                 <Heart size={18} className="group-active:scale-75 transition-transform" /> 
                                 {post.like_count}
                             </button>
-                            <Link href={`/community/post/${post.id}`} className="flex items-center gap-2 text-gray-500 hover:text-blue-400 transition-colors text-sm font-bold">
+                            <Link href={`/community/post/${post.id}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold">
                                 <MessageSquare size={18} /> 
                                 {post.comment_count}
                             </Link>
-                            <button className="flex items-center gap-2 text-gray-500 hover:text-green-400 transition-colors text-sm font-bold ml-auto">
+                            <button className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold ml-auto">
                                 <Share2 size={18} />
                             </button>
                         </div>
@@ -261,7 +261,7 @@ export default function CommunityPage() {
                     <button 
                         onClick={() => setPage(p => p + 1)} 
                         disabled={loading}
-                        className="w-full py-4 text-sm font-bold text-gray-500 hover:text-white hover:bg-card rounded-2xl transition-all"
+                        className="w-full py-4 text-sm font-bold text-muted-foreground hover:text-white hover:bg-card rounded-2xl transition-all"
                     >
                         {loading ? 'Đang tải...' : 'Tải thêm bài viết'}
                     </button>
@@ -269,7 +269,7 @@ export default function CommunityPage() {
                 </>
             ) : (
                 <div className="text-center py-20 bg-card/30 border border-dashed border-border rounded-3xl">
-                    <p className="text-gray-500">Chưa có bài viết nào.</p>
+                    <p className="text-muted-foreground">Chưa có bài viết nào.</p>
                 </div>
             )}
           </div>
@@ -279,7 +279,7 @@ export default function CommunityPage() {
         <aside className="w-full lg:w-80 space-y-6">
             <div className="bg-card border border-border rounded-3xl p-6 space-y-4 sticky top-6">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input 
                         type="text" 
                         placeholder="Tìm kiếm nội dung..." 
@@ -298,7 +298,7 @@ export default function CommunityPage() {
                                 {tag}
                             </li>
                         )) : (
-                            <li className="text-sm text-gray-500 italic">Đang tải xu hướng...</li>
+                            <li className="text-sm text-muted-foreground italic">Đang tải xu hướng...</li>
                         )}
                     </ul>
                 </div>
@@ -311,13 +311,13 @@ export default function CommunityPage() {
                                 className="flex items-center gap-3 group cursor-pointer"
                                 onClick={() => handleGroupClick(group.id)}
                             >
-                                <div className={`w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-xs font-black text-gray-500 group-hover:text-blue-400 group-hover:bg-primary/10 transition-all ${selectedGroupId === group.id ? 'bg-primary/20 text-blue-400' : ''}`}>
+                                <div className={`w-8 h-8 rounded-lg bg-card flex items-center justify-center text-xs font-black text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-all ${selectedGroupId === group.id ? 'bg-primary/20 text-primary' : ''}`}>
                                     {(group.name || 'G')[0]}
                                 </div>
                                 <span className={`text-sm text-muted-foreground/40 group-hover:text-white font-medium transition-colors ${selectedGroupId === group.id ? 'text-white font-bold' : ''}`}>{group.name}</span>
                             </div>
                         )) : (
-                            <div className="text-sm text-gray-500 italic">Chưa có nhóm nào</div>
+                            <div className="text-sm text-muted-foreground italic">Chưa có nhóm nào</div>
                         )}
                     </div>
                 </div>

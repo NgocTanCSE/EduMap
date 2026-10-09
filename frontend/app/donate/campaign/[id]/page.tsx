@@ -69,7 +69,7 @@ export default function DonationDetailPage({ params }: { params: Promise<{ id: s
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -77,7 +77,7 @@ export default function DonationDetailPage({ params }: { params: Promise<{ id: s
 
   if (!campaign) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy chiến dịch quyên góp này.</p>
         <button 
@@ -106,7 +106,7 @@ export default function DonationDetailPage({ params }: { params: Promise<{ id: s
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-12">
         
         {/* Left: Campaign Info */}
@@ -219,7 +219,7 @@ export default function DonationDetailPage({ params }: { params: Promise<{ id: s
                <button 
                 onClick={() => handleDonation()}
                 disabled={submitting || campaign.status !== 'active'}
-                className="w-full py-5 rounded-xl bg-primary hover:bg-primary/80 text-white font-bold transition-all shadow-xl shadow-primary/20 disabled:bg-zinc-700 disabled:shadow-none flex items-center justify-center gap-2"
+                className="w-full py-5 rounded-xl bg-primary hover:bg-primary/80 text-white font-bold transition-all shadow-xl shadow-primary/20 disabled:bg-card/50 disabled:shadow-none flex items-center justify-center gap-2"
                >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {campaign.status === 'active' ? 'QUYÊN GÓP NGAY' : 'CHIẾN DỊCH ĐÃ ĐÓNG'}

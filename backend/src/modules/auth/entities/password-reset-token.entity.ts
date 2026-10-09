@@ -16,11 +16,11 @@ export class PasswordResetToken {
   isUsed: boolean;
 
   @ManyToOne(() => User, user => user.id) // Assuming User has a relation
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column()
-  userId: string; // Foreign key to User entity
+  @Column({ name: 'user_id' })
+  user_id: string; // Foreign key to User entity
 
   @CreateDateColumn()
   createdAt: Date;

@@ -53,11 +53,11 @@ export default function ConfirmDialog({
       />
       
       {/* Dialog */}
-      <div className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+      <div className="relative bg-popover border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 p-1 rounded-lg text-white/40 hover:text-white hover:bg-muted/30 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -75,7 +75,7 @@ export default function ConfirmDialog({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-white/5 border border-white/10 text-white rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+            className="px-4 py-2 bg-muted/20 border border-white/10 text-white rounded-lg text-sm font-medium hover:bg-muted/30 transition-colors"
           >
             {cancelLabel}
           </button>

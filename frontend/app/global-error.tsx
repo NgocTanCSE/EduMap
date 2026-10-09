@@ -10,7 +10,7 @@ export default function GlobalError({
   return (
     <html lang="vi">
       <body>
-        <div className="min-h-screen flex items-center justify-center bg-[#050505] text-white p-8">
+        <div className="min-h-screen flex items-center justify-center bg-background text-white p-8">
           <div className="max-w-md w-full text-center space-y-6">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
               <span className="text-3xl">🚨</span>
@@ -22,7 +22,7 @@ export default function GlobalError({
             <div className="flex gap-4 justify-center">
               <button
                 onClick={reset}
-                className="px-6 py-3 bg-primary hover:bg-primary/80 text-black font-bold rounded-xl transition-all"
+                className="px-6 py-3 bg-primary hover:bg-primary/80 text-foreground font-bold rounded-xl transition-all"
               >
                 Thử lại
               </button>

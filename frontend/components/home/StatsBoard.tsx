@@ -30,7 +30,7 @@ export default function StatsBoard() {
   }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 sm:p-8 rounded-3xl border border-white/10 bg-zinc-900/60 shadow-xl">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 sm:p-8 rounded-3xl border border-white/10 bg-background/60 shadow-xl">
       <div className="text-center md:border-r border-white/5 py-2">
         <div className="text-3xl sm:text-4xl font-extrabold text-yellow-500">{stats.total_locations}</div>
         <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Ghim PostGIS Đã Seed</div>

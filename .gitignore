@@ -89,3 +89,4 @@ chroma_db/
 ai-service/.venv/
 backend/node_modules/
 backend/dist/
+osrm-data/

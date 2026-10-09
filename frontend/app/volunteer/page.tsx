@@ -79,7 +79,7 @@ export default function VolunteerPage() {
 
   if (!authService.isLoggedIn()) {
       return (
-          <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
+          <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
               <HeartHandshake className="w-20 h-20 text-primary mx-auto" />
               <h1 className="text-3xl font-bold">Nhật ký Tình nguyện</h1>
               <p className="text-muted-foreground/60">Vui lòng đăng nhập để xem và ghi nhận giờ tình nguyện của bạn.</p>
@@ -93,12 +93,12 @@ export default function VolunteerPage() {
   const progress = Math.min(100, (totalHours / 50) * 100);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       
       {/* Log Activity Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                 <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-primary w-6 h-6"/> Ghi nhận giờ</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Thêm hoạt động tình nguyện mới của bạn vào hệ thống.</p>
@@ -209,7 +209,7 @@ export default function VolunteerPage() {
                      <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress}%` }} />
                  </div>
                  {progress >= 100 && (
-                     <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-green-400 bg-green-500/10 py-2 rounded-xl">
+                     <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-primary bg-primary/10 py-2 rounded-xl">
                          <Award className="w-4 h-4"/> ĐỦ ĐIỀU KIỆN NHẬN CHỨNG NHẬN
                      </div>
                  )}
@@ -235,7 +235,7 @@ export default function VolunteerPage() {
                                 <div className="flex items-center gap-3 mb-1">
                                     <h3 className="text-lg font-bold">{act.title}</h3>
                                     <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-lg border ${
-                                        act.status === 'verified' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-primary/10 text-primary/70 border-primary/20'
+                                        act.status === 'verified' ? 'bg-primary/10 text-primary border-green-500/20' : 'bg-primary/10 text-primary/70 border-primary/20'
                                     }`}>
                                         {act.status === 'verified' ? 'Đã xác thực' : 'Đang chờ duyệt'}
                                     </span>

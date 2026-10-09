@@ -51,7 +51,7 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="p-6">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-primary/10 text-primary' : 'bg-red-500/10 text-red-500'}`}>
                           {user.status === 'active' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                           {user.status}
                         </span>
@@ -162,7 +162,7 @@ export default function AdminUsersPage() {
                           ) : (
                             <button 
                               onClick={() => handleUpdateStatus(user.id, 'active')}
-                              className="p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-500 transition-colors title='Bỏ chặn'"
+                              className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors title='Bỏ chặn'"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>

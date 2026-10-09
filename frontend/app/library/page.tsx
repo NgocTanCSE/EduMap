@@ -97,16 +97,16 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8 relative">
+    <div className="min-h-screen bg-background text-white p-8 relative">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <h1 className="text-4xl font-bold mb-2">Thư viện học liệu</h1>
-            <p className="text-gray-500 font-medium">Khám phá hàng ngàn tài liệu chất lượng cao được AI phân tích</p>
+            <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao được AI phân tích</p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-zinc-800 transition-all">
+            <button className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all">
               <Bookmark className="w-4 h-4" /> Đã lưu
             </button>
             <button className="bg-primary px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-yellow-700 transition-all shadow-lg shadow-primary/20">
@@ -167,7 +167,7 @@ export default function LibraryPage() {
                 onClick={() => handleViewDetails(res)}
                 className="bg-card border border-border rounded-3xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer flex flex-col h-full"
               >
-                <div className={`h-48 bg-zinc-950 flex items-center justify-center relative overflow-hidden shrink-0`}>
+                <div className={`h-48 bg-background flex items-center justify-center relative overflow-hidden shrink-0`}>
                   {res.cover_image_url ? (
                       <img src={res.cover_image_url} alt={res.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                   ) : (
@@ -183,11 +183,11 @@ export default function LibraryPage() {
                     <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> POPULAR
                   </div>
                   <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h3>
-                  <p className="text-gray-500 text-sm mb-4 line-clamp-1">{res.author || 'EduMap Library'}</p>
+                  <p className="text-muted-foreground text-sm mb-4 line-clamp-1">{res.author || 'EduMap Library'}</p>
                   
                   <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-500">{res.view_count} views</span>
-                    <button className="text-gray-500 hover:text-white transition-colors">
+                    <span className="text-xs font-bold text-muted-foreground">{res.view_count} views</span>
+                    <button className="text-muted-foreground hover:text-white transition-colors">
                       <Bookmark className="w-4 h-4" />
                     </button>
                   </div>
@@ -196,7 +196,7 @@ export default function LibraryPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 text-gray-500 border border-dashed border-border rounded-3xl">
+          <div className="text-center py-20 text-muted-foreground border border-dashed border-border rounded-3xl">
               Không tìm thấy tài liệu phù hợp.
           </div>
         )}
@@ -222,7 +222,7 @@ export default function LibraryPage() {
             <div className="relative bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-300">
                 
                 {/* Header */}
-                <div className="p-6 border-b border-border flex justify-between items-start bg-zinc-950/50">
+                <div className="p-6 border-b border-border flex justify-between items-start bg-background/50">
                     <div className="pr-8">
                         <span className="text-[10px] font-black uppercase tracking-widest text-primary/70 bg-primary/10 px-2 py-1 rounded-full mb-3 inline-block">
                             {selectedMaterial.category}
@@ -230,7 +230,7 @@ export default function LibraryPage() {
                         <h2 className="text-2xl font-black text-white leading-tight mb-2">{selectedMaterial.title}</h2>
                         <p className="text-sm text-muted-foreground/40">{selectedMaterial.author || 'Unknown Author'}</p>
                     </div>
-                    <button onClick={() => setSelectedMaterial(null)} className="text-gray-500 hover:text-white bg-card/20 p-2 rounded-full">
+                    <button onClick={() => setSelectedMaterial(null)} className="text-muted-foreground hover:text-white bg-card/20 p-2 rounded-full">
                         <X size={20} />
                     </button>
                 </div>
@@ -240,19 +240,19 @@ export default function LibraryPage() {
                     
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-black font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
+                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-foreground font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
                             {selectedMaterial.type === 'video' ? <Video size={18}/> : <FileText size={18}/>}
                             Open Material
                         </button>
                         {selectedMaterial.file_url && (
-                            <a href={selectedMaterial.file_url} download className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
+                            <a href={selectedMaterial.file_url} download className="flex-1 bg-card hover:bg-card/50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
                                 <Download size={18}/> Download
                             </a>
                         )}
                     </div>
 
                     <div className="space-y-3">
-                        <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest">Description</h3>
+                        <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest">Description</h3>
                         <p className="text-muted-foreground/60 leading-relaxed text-sm">{selectedMaterial.description || 'No description available.'}</p>
                     </div>
 
@@ -268,7 +268,7 @@ export default function LibraryPage() {
                         {analyzing ? (
                             <div className="space-y-4 py-4 text-center">
                                 <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-                                <p className="text-xs text-gray-500 uppercase font-bold animate-pulse">Gemini is reading...</p>
+                                <p className="text-xs text-muted-foreground uppercase font-bold animate-pulse">Gemini is reading...</p>
                             </div>
                         ) : aiSummary ? (
                             <div className="space-y-6 relative z-10">
@@ -283,7 +283,7 @@ export default function LibraryPage() {
                                     <div className="grid grid-cols-1 gap-2">
                                         {aiSummary.key_concepts?.map((kc: any, idx: number) => (
                                             <div key={idx} className="bg-card/40 p-3 rounded-lg border border-border">
-                                                <span className="text-sm font-bold text-blue-400 block mb-1">{kc.concept}</span>
+                                                <span className="text-sm font-bold text-primary block mb-1">{kc.concept}</span>
                                                 <span className="text-xs text-muted-foreground/40 leading-snug">{kc.explanation}</span>
                                             </div>
                                         ))}
@@ -292,19 +292,19 @@ export default function LibraryPage() {
 
                                 <div className="space-y-3">
                                     <h4 className="text-xs font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
-                                        <Target size={14} className="text-green-500"/> Study Tips
+                                        <Target size={14} className="text-primary"/> Study Tips
                                     </h4>
                                     <ul className="space-y-2">
                                         {aiSummary.study_tips?.map((tip: string, idx: number) => (
                                             <li key={idx} className="text-xs text-muted-foreground/60 flex items-start gap-2">
-                                                <span className="text-green-500 mt-0.5">•</span> {tip}
+                                                <span className="text-primary mt-0.5">•</span> {tip}
                                             </li>
                                         ))}
                                     </ul>
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500 italic text-center py-4">AI analysis is not available for this material.</p>
+                            <p className="text-sm text-muted-foreground italic text-center py-4">AI analysis is not available for this material.</p>
                         )}
                     </div>
                 </div>

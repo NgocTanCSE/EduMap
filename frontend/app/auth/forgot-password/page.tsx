@@ -37,17 +37,17 @@ export default function ForgotPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-card/50 border border-border rounded-3xl p-8 text-center backdrop-blur-xl">
-          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
+          <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold mb-2">Kiểm tra email của bạn</h1>
           <p className="text-muted-foreground/60 mb-8">
             Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến <strong>{email}</strong>.
           </p>
           <Link href="/auth">
-            <button className="w-full h-12 rounded-xl bg-primary text-black font-bold hover:bg-primary/80 transition-all">
+            <button className="w-full h-12 rounded-xl bg-primary text-foreground font-bold hover:bg-primary/80 transition-all">
               Quay lại đăng nhập
             </button>
           </Link>
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-card/50 border border-border rounded-3xl p-8 backdrop-blur-xl">
         <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-8 text-sm group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -94,7 +94,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-14 bg-primary hover:bg-yellow-50 text-black rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-14 bg-primary hover:bg-yellow-50 text-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

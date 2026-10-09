@@ -86,12 +86,12 @@ export default function StemLabsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8 relative">
+    <div className="min-h-screen bg-background text-white p-8 relative">
       
       {/* Booking Modal */}
       {showBookingModal && selectedLab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                 <button onClick={() => setShowBookingModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Cpu className="text-cyan-500 w-6 h-6"/> Đặt thiết bị STEM</h3>
                 <p className="text-sm text-cyan-400 font-bold mb-6">{selectedLab.name}</p>
@@ -143,7 +143,7 @@ export default function StemLabsPage() {
                     <button 
                         type="submit" 
                         disabled={bookingInProgress}
-                        className="w-full py-4 mt-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-black transition-all shadow-lg shadow-cyan-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-foreground font-black transition-all shadow-lg shadow-cyan-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {bookingInProgress ? <Loader2 className="w-5 h-5 animate-spin" /> : null} XÁC NHẬN ĐẶT LỊCH
                     </button>
@@ -194,7 +194,7 @@ export default function StemLabsPage() {
                 <div className="flex-1 space-y-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-green-500/10 text-green-400 text-[10px] font-bold uppercase rounded border border-green-500/20 flex items-center gap-1">
+                            <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded border border-green-500/20 flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3"/> Đang mở cửa
                             </span>
                         </div>

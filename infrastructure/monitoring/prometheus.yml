@@ -2,9 +2,6 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: 'backend'
+  - job_name: 'edumap'
     static_configs:
-      - targets: ['backend:3000']
-  - job_name: 'ai-service'
-    static_configs:
-      - targets: ['ai-service:8000']
+      - targets: ['backend:3000', 'ai-service:8000', 'frontend:3000']

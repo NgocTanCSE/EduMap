@@ -15,7 +15,7 @@ export default function Skeleton({
   height,
   animation = true
 }: SkeletonProps) {
-  const baseClasses = 'bg-white/5';
+  const baseClasses = 'bg-muted/20';
   const animationClasses = animation ? 'animate-pulse' : '';
   
   const variantClasses = {
@@ -59,7 +59,7 @@ export function SkeletonText({
 
 export function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`p-4 bg-white/5 rounded-xl border border-white/10 ${className}`} aria-hidden="true">
+    <div className={`p-4 bg-muted/20 rounded-xl border border-white/10 ${className}`} aria-hidden="true">
       <div className="flex items-center gap-4 mb-4">
         <Skeleton variant="circular" width={48} height={48} />
         <div className="flex-1">

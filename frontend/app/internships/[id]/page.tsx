@@ -64,7 +64,7 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -72,7 +72,7 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
 
   if (!internship) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cơ hội thực tập này.</p>
         <Link href="/internships" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary/80 transition-all">
@@ -85,7 +85,7 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
   const isOpen = internship.status === 'open';
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
         <Link href="/internships" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold w-fit">
@@ -110,16 +110,16 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
                     <h1 className="text-3xl md:text-4xl font-black mb-2">{internship.title}</h1>
                     <p className="text-xl text-primary font-bold">{internship.company?.full_name || 'Doanh nghiệp ẩn danh'}</p>
                 </div>
-                <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border ${isOpen ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
+                <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border ${isOpen ? 'bg-primary/20 text-primary border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                     {isOpen ? 'ĐANG MỞ ĐĂNG KÝ' : 'ĐÃ ĐÓNG ĐĂNG KÝ'}
                 </span>
             </div>
             
             <div className="flex flex-wrap gap-6 text-sm text-muted-foreground/60 pt-4 border-t border-border">
                 <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> {internship.location ? 'Xem trên bản đồ' : 'Chưa cập nhật địa chỉ'}</span>
-                <span className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-green-400" /> {internship.salary_range || "Thỏa thuận"}</span>
+                <span className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-primary" /> {internship.salary_range || "Thỏa thuận"}</span>
                 <span className="flex items-center gap-2"><Briefcase className="w-4 h-4 text-primary/70" /> {internship.field}</span>
-                <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-400" /> Đăng ngày {new Date(internship.created_at).toLocaleDateString('vi-VN')}</span>
+                <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Đăng ngày {new Date(internship.created_at).toLocaleDateString('vi-VN')}</span>
             </div>
           </div>
         </div>
@@ -138,15 +138,15 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
             {/* Right: Apply Panel */}
             <div className="space-y-6 sticky top-8">
                 {applicationResult ? (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-3xl p-8 text-center space-y-4">
-                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <CheckCircle2 className="w-8 h-8 text-green-500" />
+                    <div className="bg-primary/10 border border-green-500/30 rounded-3xl p-8 text-center space-y-4">
+                        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <CheckCircle2 className="w-8 h-8 text-primary" />
                         </div>
-                        <h3 className="text-xl font-bold text-green-400">Đã nộp đơn thành công!</h3>
+                        <h3 className="text-xl font-bold text-primary">Đã nộp đơn thành công!</h3>
                         <p className="text-xs text-muted-foreground/60">Mã theo dõi hồ sơ của bạn:</p>
                         <p className="text-sm font-mono bg-card/40 p-2 rounded-lg border border-border break-all">{applicationResult.tracking_id}</p>
                         <p className="text-xs text-muted-foreground/60 pt-4 border-t border-green-500/20">Nhà tuyển dụng sẽ sớm liên hệ với bạn nếu hồ sơ phù hợp. Chúc bạn may mắn!</p>
-                        <Link href="/internships" className="block mt-4 text-xs font-bold text-green-400 hover:text-green-300">
+                        <Link href="/internships" className="block mt-4 text-xs font-bold text-primary hover:text-green-300">
                             Tìm thêm cơ hội khác
                         </Link>
                     </div>
@@ -179,7 +179,7 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
                         <button 
                             type="submit"
                             disabled={submitting}
-                            className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-black font-black transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:bg-zinc-700 disabled:text-muted-foreground/40 flex justify-center items-center gap-2"
+                            className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-foreground font-black transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:bg-card/50 disabled:text-muted-foreground/40 flex justify-center items-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
                             GỬI HỒ SƠ ỨNG TUYỂN

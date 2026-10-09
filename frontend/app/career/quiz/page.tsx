@@ -50,7 +50,7 @@ setLoading(true);
 
   if (isFinished) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-white p-8 flex items-center justify-center">
         <div className="max-w-4xl w-full">
           <div className="text-center mb-12">
             <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary/50">
@@ -78,8 +78,8 @@ setLoading(true);
                   <h2 className="text-2xl font-bold mb-3">{item.title}</h2>
                   <p className="text-muted-foreground/40 text-sm mb-6 line-clamp-2">{item.explanation || item.description}</p>
                   <div className="space-y-3 mb-8">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground/60"><Target className="w-4 h-4 text-green-500" /> Nhu cầu: {item.demand_level || 'Cao'}</div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground/60"><Map className="w-4 h-4 text-green-500" /> Kỹ năng: {item.missing_skills?.slice(0, 2).join(', ') || 'Đang cập nhật'}</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground/60"><Target className="w-4 h-4 text-primary" /> Nhu cầu: {item.demand_level || 'Cao'}</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground/60"><Map className="w-4 h-4 text-primary" /> Kỹ năng: {item.missing_skills?.slice(0, 2).join(', ') || 'Đang cập nhật'}</div>
                   </div>
                   <button 
                     onClick={() => window.location.href = `/career/roadmap?title=${encodeURIComponent(item.title)}`}
@@ -104,13 +104,13 @@ setLoading(true);
   const progress = ((currentStep + 1) / QUESTIONS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-background text-white flex items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px]" />
       
       <div className="max-w-2xl w-full relative z-10">
         {/* Progress Bar */}
         <div className="mb-12">
-          <div className="flex justify-between text-sm text-gray-500 mb-2">
+          <div className="flex justify-between text-sm text-muted-foreground mb-2">
             <span>Câu hỏi {currentStep + 1} / {QUESTIONS.length}</span>
             <span>{Math.round(progress)}% hoàn thành</span>
           </div>
@@ -138,7 +138,7 @@ setLoading(true);
 
         <button 
           onClick={() => currentStep > 0 && setCurrentStep(currentStep - 1)}
-          className={`mt-8 flex items-center gap-2 text-gray-500 hover:text-white transition-colors ${currentStep === 0 ? 'opacity-0 pointer-events-none' : ''}`}
+          className={`mt-8 flex items-center gap-2 text-muted-foreground hover:text-white transition-colors ${currentStep === 0 ? 'opacity-0 pointer-events-none' : ''}`}
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại câu trước
         </button>

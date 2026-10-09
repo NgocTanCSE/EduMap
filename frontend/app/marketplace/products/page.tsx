@@ -47,7 +47,7 @@ export default function ProductMarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -57,7 +57,7 @@ export default function ProductMarketplacePage() {
               <p className="text-muted-foreground/40 text-sm">Dụng cụ học tập chất lượng từ các đối tác tin cậy.</p>
            </div>
            <div className="flex gap-4">
-              <button className="relative p-3 rounded-2xl bg-card border border-border hover:bg-zinc-800 transition-all">
+              <button className="relative p-3 rounded-2xl bg-card border border-border hover:bg-card transition-all">
                 <ShoppingCart className="w-6 h-6 text-primary" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">

@@ -61,19 +61,19 @@ export default function HSConnectionPage() {
 
     if (loading && !network) {
         return (
-            <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+            <div className="min-h-screen bg-background flex items-center justify-center">
                 <Loader2 className="w-10 h-10 text-primary animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-8">
+        <div className="min-h-screen bg-background text-white p-8">
             <div className="max-w-6xl mx-auto space-y-12">
                 
                 {/* Header */}
                 <div className="text-center space-y-4 max-w-2xl mx-auto">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-blue-400 text-xs font-bold uppercase tracking-widest">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
                         <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
                     </div>
                     <h1 className="text-4xl font-black tracking-tight">Kết nối & Học hỏi</h1>
@@ -89,7 +89,7 @@ export default function HSConnectionPage() {
                         {network?.requests && network.requests.length > 0 && (
                             <div className="bg-card border border-border rounded-3xl p-6 shadow-xl">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <UserPlus className="w-5 h-5 text-blue-400" /> 
+                                    <UserPlus className="w-5 h-5 text-primary" /> 
                                     Lời mời kết bạn ({network.requests.length})
                                 </h2>
                                 <div className="space-y-4">
@@ -117,7 +117,7 @@ export default function HSConnectionPage() {
                                                 <button 
                                                     disabled={actionLoading === req.connection_id}
                                                     onClick={() => handleRespond(req.connection_id!, false)}
-                                                    className="p-2 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50"
+                                                    className="p-2 bg-card hover:bg-red-500/20 hover:text-red-400 text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50"
                                                 >
                                                     <X className="w-5 h-5" />
                                                 </button>
@@ -132,7 +132,7 @@ export default function HSConnectionPage() {
                         <div className="bg-card border border-border rounded-3xl p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-bold flex items-center gap-2">
-                                    <Users className="w-5 h-5 text-green-400" /> Bạn bè ({network?.friends?.length || 0})
+                                    <Users className="w-5 h-5 text-primary" /> Bạn bè ({network?.friends?.length || 0})
                                 </h2>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
@@ -150,10 +150,10 @@ export default function HSConnectionPage() {
                                                     alt="" 
                                                     className="w-12 h-12 rounded-full border border-border"
                                                 />
-                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0a0a0a]"></div>
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
                                             </div>
                                             <div className="flex-1">
-                                                <p className="font-bold text-sm group-hover:text-blue-400 transition-colors">{friend.full_name}</p>
+                                                <p className="font-bold text-sm group-hover:text-primary transition-colors">{friend.full_name}</p>
                                                 <p className="text-xs text-muted-foreground/40">Level {friend.level} • {friend.points.toLocaleString()} XP</p>
                                             </div>
                                         </div>

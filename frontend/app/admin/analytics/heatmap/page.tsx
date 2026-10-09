@@ -28,7 +28,7 @@ export default function AdminHeatmapPage() {
   }, []);
 
   return (
-    <div className="h-screen bg-[#050505] text-white flex flex-col">
+    <div className="h-screen bg-background text-white flex flex-col">
       {/* Top Controls */}
       <div className="p-6 bg-card border-b border-border flex justify-between items-center z-20">
          <div className="flex items-center gap-4">
@@ -70,7 +70,7 @@ export default function AdminHeatmapPage() {
                <div className="space-y-4">
                   {[
                     { name: 'Tổng người dùng', count: stats?.total_users || '...', color: 'bg-primary' },
-                    { name: 'Tổng điểm bản đồ', count: stats?.total_map_points || '...', color: 'bg-green-500' },
+                    { name: 'Tổng điểm bản đồ', count: stats?.total_map_points || '...', color: 'bg-primary' },
                     { name: 'Chờ phê duyệt', count: stats?.pending_approval_points || '...', color: 'bg-primary/80' },
                   ].map(region => (
                     <div key={region.name} className="flex justify-between items-center">
@@ -126,7 +126,7 @@ export default function AdminHeatmapPage() {
             {/* Map Overlay Badge */}
             <div className="absolute top-6 right-6 p-4 rounded-2xl bg-card border border-border z-10">
                <p className="text-[10px] text-muted-foreground/40 font-bold uppercase mb-1">Cập nhật lúc</p>
-               <p className="text-xs font-mono font-bold text-green-400">{lastUpdated}</p>
+               <p className="text-xs font-mono font-bold text-primary">{lastUpdated}</p>
             </div>
          </div>
       </div>

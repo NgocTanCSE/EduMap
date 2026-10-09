@@ -1,9 +1,9 @@
 /**
- * EduMap Mobile (Web) — lightweight static server for Hugging Face Spaces.
+ * EduMap Mobile (Web) — lightweight static server for local Docker.
  *
  * Expo's `export:web` produces a static `web-build/` directory. This server
- * serves it with a SPA fallback (any unknown route → index.html) on the port
- * HF requires (7860 by default, overridable via PORT).
+ * serves it with a SPA fallback (any unknown route → index.html) on port
+ * 3005 (overridable via PORT env).
  *
  * No runtime dependencies — uses only Node's built-in modules so the final
  * image stays tiny and needs no package install at runtime.
@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, 'web-build');
-const PORT = process.env.PORT || 7860;
+const PORT = process.env.PORT || 3005;
 const HOST = process.env.HOST || '0.0.0.0';
 
 const MIME = {

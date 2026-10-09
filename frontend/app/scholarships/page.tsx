@@ -130,12 +130,12 @@ export default function ScholarshipPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       
       {/* Application Modal */}
       {showApplyModal && selectedScholarship && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative">
                 <button onClick={() => setShowApplyModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">
                     <X className="w-5 h-5" />
                 </button>

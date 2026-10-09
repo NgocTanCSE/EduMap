@@ -297,17 +297,17 @@ function GoogleLoginContent() {
 
           {/* Step 2: Google Login Button */}
           <div className="space-y-4 pt-2 border-t border-border">
-            {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+            {googleReady ? (
               <>
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={loading || !googleReady}
-                  className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 text-zinc-900 font-medium py-3 px-6 rounded-xl text-sm transition-all shadow-md disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 bg-white hover:bg-muted/30 text-foreground font-medium py-3 px-6 rounded-xl text-sm transition-all shadow-md disabled:opacity-50"
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin text-zinc-900" />
+                      <Loader2 className="w-5 h-5 animate-spin text-foreground" />
                       <span>Đang kết nối tài khoản Google…</span>
                     </>
                   ) : (

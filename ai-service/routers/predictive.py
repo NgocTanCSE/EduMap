@@ -1,3 +1,4 @@
+from datetime import date as _date
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -80,7 +81,7 @@ async def get_market_data():
         return {
             "status": "success",
             "market_trends": predictive_service.get_market_trends(),
-            "last_updated": "2026-06-15",
+            "last_updated": _date.today().isoformat(),
             "source": "EduMap Analytics"
         }
     except Exception as e:

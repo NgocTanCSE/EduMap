@@ -51,7 +51,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -59,7 +59,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
 
   if (!opportunity) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cơ hội này.</p>
         <Link href="/opportunities" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary transition-all">
@@ -70,7 +70,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         
         <Link href="/opportunities" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
@@ -94,7 +94,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
                 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/60 pt-4 border-t border-border">
                     <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary/90" /> {opportunity.address || 'Trực tuyến'}</span>
-                    <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-blue-400" /> Hạn chót: {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString('vi-VN') : 'Không có'}</span>
+                    <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-primary" /> Hạn chót: {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString('vi-VN') : 'Không có'}</span>
                 </div>
             </div>
         </div>
@@ -114,7 +114,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
             <div className="space-y-6">
                 <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-3xl p-6 text-center space-y-4">
                     <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto border border-primary/30">
-                        <Users className="w-8 h-8 text-blue-400" />
+                        <Users className="w-8 h-8 text-primary" />
                     </div>
                     <div>
                         <h3 className="font-bold mb-2">Tìm Đồng Đội</h3>

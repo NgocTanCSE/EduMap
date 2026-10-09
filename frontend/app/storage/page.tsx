@@ -64,7 +64,7 @@ export default function StoragePage() {
   const filteredFiles = files.filter(f => f.original_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const getFileIcon = (mimeType: string) => {
-      if (mimeType.startsWith('image/')) return <ImageIcon className="w-8 h-8 text-blue-400" />;
+      if (mimeType.startsWith('image/')) return <ImageIcon className="w-8 h-8 text-primary" />;
       if (mimeType === 'application/pdf') return <FileText className="w-8 h-8 text-red-400" />;
       return <File className="w-8 h-8 text-muted-foreground/40" />;
   };
@@ -73,7 +73,7 @@ export default function StoragePage() {
   const totalSizeMb = (totalSizeKb / 1024).toFixed(2);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -86,7 +86,7 @@ export default function StoragePage() {
           </div>
           <div className="flex gap-4 relative z-10">
             <div className="p-6 rounded-3xl bg-card/40 border border-border text-center min-w-[140px] shadow-xl">
-              <p className="text-3xl font-extrabold text-blue-400">{files.length}</p>
+              <p className="text-3xl font-extrabold text-primary">{files.length}</p>
               <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mt-1">Tập tin</p>
             </div>
             <div className="p-6 rounded-3xl bg-card/40 border border-border text-center min-w-[140px] shadow-xl">
@@ -132,7 +132,7 @@ export default function StoragePage() {
         {/* Files Grid */}
         <div className="bg-card border border-border rounded-3xl p-6 md:p-8 min-h-[400px]">
             <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
-                <HardDrive className="w-5 h-5 text-blue-400" />
+                <HardDrive className="w-5 h-5 text-primary" />
                 <h2 className="text-xl font-bold">Tài liệu của tôi</h2>
             </div>
 
@@ -154,7 +154,7 @@ export default function StoragePage() {
                                 </button>
                             </div>
                             
-                            <h3 className="font-bold text-sm mb-1 truncate group-hover:text-blue-400 transition-colors" title={file.original_name}>
+                            <h3 className="font-bold text-sm mb-1 truncate group-hover:text-primary transition-colors" title={file.original_name}>
                                 {file.original_name}
                             </h3>
                             

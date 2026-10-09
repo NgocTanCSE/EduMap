@@ -20,7 +20,7 @@ export default function MobileNav() {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-xl bg-[#111] border border-white/10 text-white"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-xl bg-card border border-white/10 text-white"
       >
         <Menu className="w-6 h-6" />
       </button>
@@ -35,7 +35,7 @@ export default function MobileNav() {
           />
           
           {/* Menu Panel */}
-          <div className="absolute left-0 top-0 h-full w-72 bg-[#111] border-r border-white/10 overflow-y-auto">
+          <div className="absolute left-0 top-0 h-full w-72 bg-card border-r border-white/10 overflow-y-auto">
             {/* Header */}
             <div className="p-6 border-b border-white/10">
               <div className="flex items-center justify-between">

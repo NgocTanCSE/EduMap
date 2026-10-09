@@ -3,3 +3,6 @@ dist
 npm-debug.log
 .git
 .venv
+
+# Local environment files (secrets)
+.env*

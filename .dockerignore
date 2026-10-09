@@ -8,7 +8,7 @@
 .gitignore
 .github
 
-# Development data (large, not needed in HF Spaces Docker image)
+# Development data (large, not needed in Docker image)
 crawled_data/*
 !crawled_data/dongnai_unis.json
 data_raw

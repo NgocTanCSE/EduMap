@@ -67,15 +67,15 @@ export default function GreenPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-8 rounded-3xl bg-green-500/10 border border-green-500/20">
-            <Leaf className="w-8 h-8 text-green-500 mb-4" />
+          <div className="p-8 rounded-3xl bg-primary/10 border border-green-500/20">
+            <Leaf className="w-8 h-8 text-primary mb-4" />
             <h3 className="text-3xl font-bold">{((progress as any)?.carbon_saved || 0).toFixed(1)}kg</h3>
-            <p className="text-sm text-green-500/60 font-medium uppercase tracking-wider">CO2 đã tiết kiệm</p>
+            <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">CO2 đã tiết kiệm</p>
           </div>
           <div className="p-8 rounded-3xl bg-primary/10 border border-primary/20">
             <Clock className="w-8 h-8 text-primary mb-4" />
@@ -96,14 +96,14 @@ export default function GreenPage() {
               <h2 className="text-2xl font-bold mb-2">Thử thách Xanh</h2>
               <p className="text-muted-foreground/40 text-sm">Tham gia bảo vệ môi trường và nhận điểm thưởng.</p>
             </div>
-            <button className="text-green-500 text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
+            <button className="text-primary text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
               Xem tất cả <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           
           {loading ? (
              <div className="flex justify-center py-10">
-                 <Loader2 className="w-8 h-8 text-green-500 animate-spin" />
+                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
              </div>
           ) : challenges.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -116,17 +116,17 @@ export default function GreenPage() {
                   <div className="p-6 relative">
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold">{item.title}</h3>
-                      <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-bold">+{item.points} XP</span>
+                      <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold">+{item.points} XP</span>
                     </div>
                     <div className="flex gap-4 mb-6">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
-                        <Leaf className="w-3 h-3 text-green-500" /> {(item.carbon_saved_kg || 0).toFixed(1)}kg CO2
+                        <Leaf className="w-3 h-3 text-primary" /> {(item.carbon_saved_kg || 0).toFixed(1)}kg CO2
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
                         <CheckCircle className="w-3 h-3 text-primary" /> {item.participants_count || 0} tham gia
                       </div>
                     </div>
-                    <button className="w-full py-3 rounded-2xl bg-white text-black font-bold text-sm hover:bg-green-400 transition-colors">
+                    <button className="w-full py-3 rounded-2xl bg-card text-foreground font-bold text-sm hover:bg-primary/80 transition-colors">
                       Tham gia ngay
                     </button>
                   </div>
@@ -144,7 +144,7 @@ export default function GreenPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="p-8 rounded-3xl bg-card border border-border shadow-2xl">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <Camera className="w-5 h-5 text-green-400" />
+              <Camera className="w-5 h-5 text-primary" />
               Nộp minh chứng Sống Xanh
             </h2>
             <div className="space-y-5">
@@ -179,9 +179,9 @@ export default function GreenPage() {
                 {!mockProofUrl ? (
                     <div 
                         onClick={handleMockUpload}
-                        className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-green-500/50 hover:bg-green-500/5 cursor-pointer transition-all group"
+                        className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-green-500/50 hover:bg-primary/5 cursor-pointer transition-all group"
                     >
-                    <UploadCloud className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2 group-hover:text-green-500 transition-colors" />
+                    <UploadCloud className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2 group-hover:text-primary transition-colors" />
                     <p className="text-xs text-muted-foreground/40 group-hover:text-muted-foreground/60">Nhấn để tải ảnh minh chứng lên</p>
                     </div>
                 ) : (
@@ -197,7 +197,7 @@ export default function GreenPage() {
               <button 
                 onClick={handleSubmitProof}
                 disabled={submitting || !activityType || !mockProofUrl}
-                className="w-full py-4 rounded-2xl bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:shadow-none text-white font-bold text-sm transition-all shadow-lg shadow-green-600/20 flex justify-center items-center gap-2"
+                className="w-full py-4 rounded-2xl bg-green-600 hover:bg-primary disabled:bg-card disabled:shadow-none text-white font-bold text-sm transition-all shadow-lg shadow-green-600/20 flex justify-center items-center gap-2"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {submitting ? 'ĐANG XỬ LÝ...' : 'GỬI CHO AI KIỂM DUYỆT'}
@@ -206,10 +206,10 @@ export default function GreenPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="p-6 rounded-3xl bg-green-500/5 border border-green-500/10">
+            <div className="p-6 rounded-3xl bg-primary/5 border border-green-500/10">
               <div className="flex gap-4 items-start">
-                <div className="p-3 bg-green-500/10 rounded-2xl">
-                  <ShieldCheck className="w-6 h-6 text-green-500" />
+                <div className="p-3 bg-primary/10 rounded-2xl">
+                  <ShieldCheck className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                   <h4 className="font-bold mb-2 text-sm">Quy trình duyệt tự động bởi AI</h4>

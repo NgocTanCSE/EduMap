@@ -88,7 +88,7 @@ export default function CareerProfilePage() {
   if (loading && skills.length === 0) return <div className="text-white text-center mt-20">Loading profile...</div>;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-4xl mx-auto space-y-12">
         <header className="flex justify-between items-center border-b border-border pb-6">
           <h1 className="text-4xl font-bold">Career Profile</h1>
@@ -112,12 +112,12 @@ export default function CareerProfilePage() {
                   <h3 className="font-bold text-gray-100">{skill.skill_name}</h3>
                   <p className="text-[10px] text-primary/70 uppercase tracking-widest font-bold mt-1">{skill.proficiency_level}</p>
                 </div>
-                <button onClick={() => handleDeleteSkill(skill.id)} className="text-gray-500 hover:text-red-400 transition-colors">
+                <button onClick={() => handleDeleteSkill(skill.id)} className="text-muted-foreground hover:text-red-400 transition-colors">
                   <Trash2 size={18} />
                 </button>
               </div>
             ))}
-            {skills.length === 0 && <p className="text-gray-500 italic col-span-2">No skills added yet.</p>}
+            {skills.length === 0 && <p className="text-muted-foreground italic col-span-2">No skills added yet.</p>}
           </div>
 
           <form onSubmit={handleAddSkill} className="flex gap-2 bg-card/40 p-2 rounded-xl border border-border">
@@ -130,7 +130,7 @@ export default function CareerProfilePage() {
               required
             />
             <select 
-              className="bg-zinc-800 border-none rounded-lg px-2 py-2 text-sm outline-none"
+              className="bg-card border-none rounded-lg px-2 py-2 text-sm outline-none"
               value={newSkill.proficiency_level}
               onChange={e => setNewSkill({...newSkill, proficiency_level: e.target.value})}
             >
@@ -159,7 +159,7 @@ export default function CareerProfilePage() {
                 <p className="text-muted-foreground/40 text-sm mt-1">{asp.description}</p>
               </div>
             ))}
-            {aspirations.length === 0 && <p className="text-gray-500 italic">No career goals defined yet.</p>}
+            {aspirations.length === 0 && <p className="text-muted-foreground italic">No career goals defined yet.</p>}
           </div>
 
           <form onSubmit={handleAddAspiration} className="space-y-4 bg-card/40 p-4 rounded-xl border border-border">
@@ -204,31 +204,31 @@ export default function CareerProfilePage() {
           {aiAdvice ? (
             <div className="bg-black/60 p-8 rounded-2xl space-y-6 border border-border relative z-10 backdrop-blur-sm">
               <div>
-                <h3 className="text-2xl font-bold text-blue-400 mb-2">{aiAdvice.title}</h3>
+                <h3 className="text-2xl font-bold text-primary mb-2">{aiAdvice.title}</h3>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Match Score:</span>
-                    <span className="text-lg font-black text-green-400">{aiAdvice.match_score}%</span>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Match Score:</span>
+                    <span className="text-lg font-black text-primary">{aiAdvice.match_score}%</span>
                 </div>
               </div>
               
               <p className="text-muted-foreground/60 leading-relaxed text-lg">{aiAdvice.explanation}</p>
               
               <div className="space-y-4 pt-4 border-t border-border">
-                <h4 className="font-bold text-sm uppercase text-gray-500 tracking-wider">Recommended Skills to Master:</h4>
+                <h4 className="font-bold text-sm uppercase text-muted-foreground tracking-wider">Recommended Skills to Master:</h4>
                 <div className="flex flex-wrap gap-2">
                   {aiAdvice.missing_skills?.map((skill: string) => (
-                    <span key={skill} className="bg-primary/10 text-blue-400 px-4 py-1.5 rounded-full text-sm border border-primary/20 font-medium">
+                    <span key={skill} className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm border border-primary/20 font-medium">
                       {skill}
                     </span>
                   ))}
-                  {(!aiAdvice.missing_skills || aiAdvice.missing_skills.length === 0) && <p className="text-gray-500 text-sm italic">Hồ sơ của bạn đã rất hoàn thiện cho nghề này!</p>}
+                  {(!aiAdvice.missing_skills || aiAdvice.missing_skills.length === 0) && <p className="text-muted-foreground text-sm italic">Hồ sơ của bạn đã rất hoàn thiện cho nghề này!</p>}
                 </div>
               </div>
             </div>
           ) : (
             <div className="py-12 text-center relative z-10">
                 <p className="text-muted-foreground/40 text-lg italic mb-2">"The best way to predict the future is to create it."</p>
-                <p className="text-gray-500">Let our AI analyze your current profile to suggest the most optimal career paths and skill upgrades.</p>
+                <p className="text-muted-foreground">Let our AI analyze your current profile to suggest the most optimal career paths and skill upgrades.</p>
             </div>
           )}
         </section>

@@ -122,16 +122,16 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] max-w-4xl mx-auto p-4 bg-[#050505]">
+    <div className="flex flex-col h-[calc(100vh-80px)] max-w-4xl mx-auto p-4 bg-background">
       <div className="flex items-center justify-between mb-6 p-6 bg-card/50 rounded-2xl border border-border backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <div className="bg-primary/80 p-2.5 rounded-2xl shadow-lg shadow-primary/10">
-            <Bot className="w-6 h-6 text-black" />
+            <Bot className="w-6 h-6 text-foreground" />
           </div>
           <div>
             <h1 className="text-xl font-black text-white">DNTU Assistant</h1>
             <p className="text-[10px] uppercase font-black text-muted-foreground/40 tracking-widest flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
               Gemini Pro + PostGIS RAG
             </p>
           </div>
@@ -143,13 +143,13 @@ export default function AIChatPage() {
         <div className="space-y-8">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <Avatar className={`h-10 w-10 border border-border ${m.role === 'user' ? 'bg-primary/80' : 'bg-zinc-800'}`}>
-                {m.role === 'user' ? <User className="w-5 h-5 text-black" /> : <Bot className="w-5 h-5 text-primary" />}
+              <Avatar className={`h-10 w-10 border border-border ${m.role === 'user' ? 'bg-primary/80' : 'bg-card'}`}>
+                {m.role === 'user' ? <User className="w-5 h-5 text-foreground" /> : <Bot className="w-5 h-5 text-primary" />}
               </Avatar>
               <div className={`flex flex-col gap-2 max-w-[85%] ${m.role === 'user' ? 'items-end' : ''}`}>
                 <div className={`p-5 rounded-2xl text-sm leading-relaxed ${
                   m.role === 'user' 
-                    ? 'bg-zinc-800 text-white rounded-tr-none' 
+                    ? 'bg-card text-white rounded-tr-none' 
                     : m.isError
                       ? 'bg-red-950 border border-red-900 text-red-200 rounded-tl-none'
                       : 'bg-card border border-border text-muted-foreground/70 rounded-tl-none'
@@ -203,7 +203,7 @@ export default function AIChatPage() {
         <Button 
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
-          className="rounded-2xl shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-black shadow-lg shadow-primary/20"
+          className="rounded-2xl shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-foreground shadow-lg shadow-primary/20"
         >
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </Button>

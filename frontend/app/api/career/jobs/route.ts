@@ -7,7 +7,12 @@ export async function GET(req: NextRequest) {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) headers['Authorization'] = authHeader;
 
-    const response = await fetch(`${getBackendUrl()}/career/jobs`, { headers });
+    // Forward the original query string so search/pagination params (limit,
+    // keyword, job_type, etc.) reach the NestJS backend correctly.
+    const backendUrl = new URL(`${getBackendUrl()}/career/jobs`);
+    backendUrl.search = req.nextUrl.search;
+
+    const response = await fetch(backendUrl.toString(), { headers });
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

@@ -11,26 +11,27 @@ except ImportError:
 
 
 class VectorStoreService:
-    """Semantic search. Chat + EMBEDDING deu qua GOOGLE GEMINI (1 key: GEMINI_API_KEY).
+    """Semantic search. Chat (LLM) + EMBEDDING đều qua Cloudflare Workers AI (1 token: CLOUDFLARE_API_TOKEN).
 
-    - Chat (LLM)  -> Google Gemini  : GEMINI_API_KEY / GEMINI_MODEL (gemini-3.8-flash)
-    - Embedding   -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL (gemini-embedding-001)
+    - Chat (LLM)  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_MODEL (@cf/meta/llama-3-8b-instruct)
+    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL (@cf/baai/bge-1280)
     """
 
     def __init__(self):
-        # --- Gemini Embedding config (always set; independent of ChromaDB) ---
-        self.gemini_key = os.getenv("GEMINI_API_KEY")
-        self.embed_models = [m.strip() for m in os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001,text-embedding-004").split(",") if m.strip()]
-        self.embedding_model = self.embed_models[0] if self.embed_models else "gemini-embedding-001"
-        self.has_api = bool(self.gemini_key)
+        # --- Cloudflare Embedding config (always set; independent of ChromaDB) ---
+        self.cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
+        self.cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-1280,@cf/snowflake/snowflake-arctic-embed-l").split(",") if m.strip()]
+        self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-1280"
+        self.has_api = bool(self.cf_api_token) and bool(self.cf_account_id)
         # Pin the embedding dimension to the first model that successfully embeds.
-        # Prevents silently falling back to a different-dim model (e.g. 768 vs 3072),
-        # which would crash the existing ChromaDB collection with a dimension mismatch.
+        # Prevents silently falling back to a different-dim model, which would
+        # crash the existing ChromaDB collection with a dimension mismatch.
         self._embed_dim = None
-        if not self.gemini_key:
-            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY (Google) for semantic search.")
-        if not os.getenv("GEMINI_EMBEDDING_MODEL"):
-            print("WARNING: GEMINI_EMBEDDING_MODEL not set -> default gemini-embedding-001")
+        if not self.has_api:
+            print("WARNING: Vector store without embeddings. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare) for semantic search.")
+        if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
+            print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-1280")
 
         # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
@@ -59,19 +60,30 @@ class VectorStoreService:
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY + GEMINI_EMBEDDING_MODEL để dùng semantic search.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_EMBEDDING_MODEL để dùng semantic search.")
         if not text:
             return []
 
         import time as _time
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
         last_err = None
+        per_model_retries = 1
+
         for model in self.embed_models:
-            # Retry loi tam thai (429/502/503/504) tren cung model truoc khi
-            # chuyen sang model ke tiep, tranh nham chan sang model co dimension khac.
-            for attempt in range(1, 3):
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={self.gemini_key}"
-                payload = json.dumps({"model": model, "content": {"parts": [{"text": text}]}}).encode("utf-8")
-                req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+            url = f"{base_url}/{model}"
+            payload = json.dumps({"text": text}).encode("utf-8")
+            attempt = 0
+            while True:
+                attempt += 1
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={
+                        "Authorization": f"Bearer {self.cf_api_token}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
                 data = None
                 try:
                     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -80,43 +92,62 @@ class VectorStoreService:
                     body = e.read().decode("utf-8", "ignore")[:300]
                     low = body.lower()
                     if e.code == 404 or any(r in low for r in ("not found", "not supported", "no longer available", "model not found", "could not find")):
-                        last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu model ke tiep..."); break  # next model
+                        last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Cloudflare embed model {model} khong kha dung, thu model ke tiep..."); break  # next model
                     if e.code in (401, 403):
-                        raise RuntimeError(f"Google Gemini auth loi (HTTP {e.code}): {body[:200]}")
-                    if e.code in (429, 502, 503, 504) and attempt == 1:
-                        last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Gemini embed model {model} {e.code} (tam thai), retry..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Gemini embed model {model} {e.code}, chuyen model ke tiep..."); break  # next model
+                        raise RuntimeError(f"Cloudflare auth loi (HTTP {e.code}): {body[:200]}")
+                    if e.code == 429:
+                        last_err = f"{model}: HTTP 429 {body[:80]}"; print(f"Cloudflare embed model {model} bi rate-limit (429), thu model ke tiep..."); break
+                    if e.code in (502, 503, 504) and attempt <= per_model_retries:
+                        last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Cloudflare embed model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                    last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Cloudflare embed model {model} {e.code}, thu model ke tiep..."); break  # next model
                 except Exception as e:
-                    last_err = f"{model}: {e}"
-                    if attempt == 1:
-                        print(f"Loi ket noi embed {model}, retry..."); _time.sleep(1.0); continue
-                    print(f"Loi ket noi embed {model}, chuyen model ke tiep..."); break  # next model
-                if "error" in data:
-                    err = data["error"]; code = err.get("code"); msg = err.get("message", "")
-                    if code == 404 or any(r in msg.lower() for r in ("not found", "not supported", "no longer available", "model not found", "could not find")):
-                        last_err = f"{model}: {msg[:120]}"; print(f"Gemini embed model {model} khong kha dung, thu model ke tiep..."); break
-                    if code in (429, 502, 503, 504) and attempt == 1:
-                        last_err = f"{model}: {msg[:80]}"; print(f"Gemini embed model {model} {code} (tam thai), retry..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: {msg[:80]}"; print(f"Gemini embed model {model} {code}, chuyen model ke tiep..."); break
-                emb = data.get("embeddings") or data.get("embedding")
-                if isinstance(emb, list):
-                    vec = (emb[0] if emb else {}).get("values")
-                elif isinstance(emb, dict):
-                    vec = emb.get("values")
-                else:
-                    vec = data.get("values")
+                    if attempt <= per_model_retries:
+                        last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                    last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, thu model ke tiep..."); break  # next model
+
+                # Success path: parse Cloudflare embedding response
+                if isinstance(data, dict) and data.get("success") is False:
+                    errors = data.get("errors", [])
+                    if isinstance(errors, list) and len(errors) > 0:
+                        err = errors[0] if isinstance(errors[0], dict) else {"message": str(errors[0])}
+                        code = err.get("code", 0)
+                        msg = err.get("message", "")
+                        if self._is_embed_model_not_found(code, msg):
+                            last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare embed model {model} khong kha dung, thu model ke tiep..."); break
+                        if code == 429:
+                            last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare embed model {model} bi rate-limit (429), thu model ke tiep..."); break
+                        last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare embed model {model} {code}, thu model ke tiep..."); break
+
+                result = data.get("result", {}) if isinstance(data, dict) else {}
+                vec = None
+                if isinstance(result, dict):
+                    # Cloudflare BGE returns: {"result": {"data": [{"embedding": [...]}]}}
+                    data_list = result.get("data")
+                    if isinstance(data_list, list) and len(data_list) > 0:
+                        item = data_list[0]
+                        if isinstance(item, dict):
+                            vec = item.get("embedding")
+                    if vec is None:
+                        # Fallback shape: {"result": {"embedding": [...]}}
+                        vec = result.get("embedding") or result.get("values")
+                elif isinstance(result, list) and len(result) > 0:
+                    vec = result[0] if isinstance(result[0], list) else result
+
                 if vec:
                     vec = [float(x) for x in vec]
                     # Dimension guard: never return a vector whose dim differs from
                     # the dimension pinned when the collection was first populated.
                     if self._embed_dim and len(vec) != self._embed_dim:
                         last_err = f"{model}: dim {len(vec)} != da pin {self._embed_dim}"
-                        print(f"Gemini embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break  # dim khac -> thu model ke tiep
+                        print(f"Cloudflare embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break  # dim khac -> thu model ke tiep
                     self._embed_dim = len(vec)
                     return vec
                 last_err = f"{model}: response khong co gia tri embedding"
-                continue
-        raise RuntimeError(f"Khong the lay embedding tu Gemini. Loi: {last_err}")
+                break
+            # end while True (per-model)
+            continue
+
+        raise RuntimeError(f"Khong the lay embedding tu Cloudflare Workers AI. Loi: {last_err}")
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:

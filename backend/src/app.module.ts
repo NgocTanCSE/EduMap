@@ -165,7 +165,7 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
     BlockchainModule,
   ],
   controllers: [
-    // Liveness probe used by the Dockerfile.hf HEALTHCHECK (GET /api/health).
+    // Liveness probe used by the healthcheck (GET /api/health).
     HealthController,
   ],
   providers: [

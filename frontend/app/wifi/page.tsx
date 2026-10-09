@@ -124,12 +124,12 @@ export default function WifiPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       
       {/* Report Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
                 <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-sky-500 w-6 h-6"/> Chia sẻ điểm Wifi</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Đóng góp mạng Wifi miễn phí để hỗ trợ cộng đồng sinh viên.</p>
@@ -178,7 +178,7 @@ export default function WifiPage() {
       {/* Speed Test Modal */}
       {showSpeedTestModal && selectedWifi && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-[#121215] border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative text-center">
+            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative text-center">
                 <button onClick={() => setShowSpeedTestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <Gauge className="w-12 h-12 text-sky-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-1">Kiểm tra tốc độ</h3>
@@ -196,7 +196,7 @@ export default function WifiPage() {
                 </div>
 
                 {!speedTestResult.testing && speedTestResult.dl === 0 ? (
-                    <button onClick={runSimulatedSpeedTest} className="w-full py-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold transition-all flex items-center justify-center gap-2">
+                    <button onClick={runSimulatedSpeedTest} className="w-full py-4 rounded-xl bg-card hover:bg-card/50 text-white font-bold transition-all flex items-center justify-center gap-2">
                         <SignalHigh className="w-5 h-5" /> BẮT ĐẦU ĐO
                     </button>
                 ) : !speedTestResult.testing && speedTestResult.dl > 0 ? (
@@ -281,7 +281,7 @@ export default function WifiPage() {
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
                       <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center">
-                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-green-500' : wifi.speed_mbps >= 10 ? 'text-primary' : 'text-red-500'}`} />
+                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-primary' : wifi.speed_mbps >= 10 ? 'text-primary' : 'text-red-500'}`} />
                       </div>
                       <span className="px-2 py-1 rounded bg-card/20 border border-border text-[10px] font-bold uppercase tracking-widest text-sky-400">
                           {wifi.verified ? 'ĐÃ XÁC THỰC' : 'CỘNG ĐỒNG'}
@@ -313,7 +313,7 @@ export default function WifiPage() {
                           setSelectedWifi(wifi);
                           setShowSpeedTestModal(true);
                       }}
-                      className="w-full mt-6 py-3 rounded-xl bg-card hover:bg-zinc-800 border border-border text-xs font-bold transition-all relative z-10"
+                      className="w-full mt-6 py-3 rounded-xl bg-card hover:bg-card border border-border text-xs font-bold transition-all relative z-10"
                   >
                       ĐO TỐC ĐỘ LẠI
                   </button>

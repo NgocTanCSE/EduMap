@@ -406,29 +406,29 @@ export default function InteractiveMap({
                     }}
                   >
                     <Tooltip direction="top" offset={[0, -30]} opacity={0.9}>
-                      <span className="font-bold text-xs text-zinc-900">{p.name}</span>
+                      <span className="font-bold text-xs text-foreground">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-zinc-950 font-sans max-w-[240px]">
-                        <h4 className="font-extrabold text-sm text-zinc-900 leading-tight mb-1">{p.name}</h4>
+                      <div className="p-2 text-foreground font-sans max-w-[240px]">
+                        <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
                         <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
                         
                         {p.description && (
-                          <p className="text-[10px] bg-zinc-50 p-2 rounded-lg mt-2 text-zinc-700 italic border-l-2 border-yellow-500 mb-3">
+                          <p className="text-[10px] bg-muted/30 p-2 rounded-lg mt-2 text-muted-foreground/70 italic border-l-2 border-primary mb-3">
                             "{p.description}"
                           </p>
                         )}
 
                         {p.id === selectedPoint?.id && nearbyPoints.length > 0 && (
-                          <div className="pt-2 border-t border-zinc-100">
-                            <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                          <div className="pt-2 border-t border-border">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">
                               Tiện ích xung quanh (≤1km)
                             </p>
                             <ul className="space-y-1 max-h-40 overflow-y-auto">
                               {nearbyPoints.map((f: any) => {
                                 const Fi = facilityIconFor(f.category);
                                 return (
-                                  <li key={f.id} className="flex items-center justify-between gap-1 text-[10px] text-zinc-700">
+                                  <li key={f.id} className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground/70">
                                     <span className="flex items-center gap-1 truncate">
                                       <Fi className="w-3 h-3 text-sky-600" />
                                       <span>{f.name}</span>
@@ -446,13 +446,13 @@ export default function InteractiveMap({
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 mt-2">
+                        <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
                           <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                             <span className="text-emerald-700">Verified</span>
                           </div>
                           <button
-                            className="bg-zinc-900 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-zinc-800"
+                            className="bg-card text-foreground text-[9px] font-bold px-2 py-1 rounded hover:bg-primary/20"
                             onClick={() => routeToPoi(p)}
                           >
                             Dẫn đường

@@ -44,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Trạng thái đang kiểm tra hoặc không có quyền
   if (isAuthorized === null) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
@@ -52,12 +52,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (isAuthorized === false) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-8 text-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
         <div className="bg-red-500/10 border border-red-500/20 p-12 rounded-2xl max-w-md">
            <Lock className="w-16 h-16 text-red-500 mx-auto mb-6" />
            <h2 className="text-2xl font-bold mb-4">Truy cập bị từ chối</h2>
            <p className="text-muted-foreground/40 mb-8">Bạn không có quyền truy cập vào khu vực quản trị viên. Hệ thống sẽ tự động đưa bạn về trang chủ.</p>
-           <Link href="/" className="px-8 py-3 bg-white text-black font-bold rounded-2xl hover:bg-muted transition-all">
+           <Link href="/" className="px-8 py-3 bg-card text-foreground font-bold rounded-2xl hover:bg-muted transition-all">
               VỀ TRANG CHỦ
            </Link>
         </div>
@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen bg-[#050505]">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="w-72 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col fixed h-full z-50">
         <div className="p-8">
@@ -107,7 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <div className="p-8 border-t border-border space-y-4">
            <button className="flex items-center gap-3 text-muted-foreground/40 hover:text-white transition-colors w-full group">
-              <div className="p-2 rounded-lg bg-zinc-800 group-hover:bg-zinc-700 transition-colors">
+              <div className="p-2 rounded-lg bg-card group-hover:bg-card/50 transition-colors">
                  <Settings className="w-4 h-4" />
               </div>
               <span className="text-sm font-bold">Cài đặt</span>

@@ -3,7 +3,7 @@ import { Controller, Get } from '@nestjs/common';
 /**
  * Lightweight liveness probe.
  *
- * The Docker/Swarm healthcheck in `Dockerfile.hf` probes `GET /api/health`
+ * The healthcheck probes `GET /api/health`
  * (under the global `api` prefix) and expects HTTP 200. This controller
  * provides that endpoint so the healthcheck succeeds instead of 404-ing.
  *

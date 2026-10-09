@@ -38,7 +38,7 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
       </div>
     );
@@ -48,7 +48,7 @@ export default function LeaderboardPage() {
   const others = users.slice(3);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-8">
+    <div className="min-h-screen bg-background text-white p-8">
       <div className="max-w-6xl mx-auto space-y-12">
         
         {/* Header */}
@@ -107,13 +107,13 @@ export default function LeaderboardPage() {
             {topThree[1] && (
                 <div className="order-2 md:order-1 space-y-4 text-center pb-8">
                     <div className="relative inline-block">
-                        <div className="w-24 h-24 rounded-full border-4 border-slate-400 overflow-hidden bg-zinc-800">
+                        <div className="w-24 h-24 rounded-full border-4 border-muted-foreground/30 overflow-hidden bg-card">
                             <img src={topThree[1].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[1].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-400 text-white rounded-full p-2">
                             <Medal className="w-5 h-5" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-400 text-black font-black px-3 py-1 rounded-lg text-sm">#2</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground font-black px-3 py-1 rounded-lg text-sm">#2</div>
                     </div>
                     <div>
                         <p className="font-bold">{topThree[1].full_name}</p>
@@ -126,13 +126,13 @@ export default function LeaderboardPage() {
             {topThree[0] && (
                 <div className="order-1 md:order-2 space-y-6 text-center">
                     <div className="relative inline-block">
-                        <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-zinc-800 shadow-lg shadow-primary/20">
+                        <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-card shadow-lg shadow-primary/20">
                             <img src={topThree[0].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[0].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
                             <Crown className="w-10 h-10 fill-primary" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-black font-black px-4 py-1.5 rounded-lg text-base">#1</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-foreground font-black px-4 py-1.5 rounded-lg text-base">#1</div>
                     </div>
                     <div>
                         <p className="text-xl font-black text-primary">{topThree[0].full_name}</p>
@@ -145,7 +145,7 @@ export default function LeaderboardPage() {
             {topThree[2] && (
                 <div className="order-3 space-y-4 text-center pb-4">
                     <div className="relative inline-block">
-                        <div className="w-20 h-20 rounded-full border-4 border-amber-700 overflow-hidden bg-zinc-800">
+                        <div className="w-20 h-20 rounded-full border-4 border-amber-700 overflow-hidden bg-card">
                             <img src={topThree[2].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[2].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-700 text-white rounded-full p-2">
@@ -173,7 +173,7 @@ export default function LeaderboardPage() {
                         <div className="w-8 text-center font-mono font-bold text-muted-foreground/20 group-hover:text-muted-foreground/60">
                             {index + 4}
                         </div>
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 shrink-0">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-card shrink-0">
                             <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1">

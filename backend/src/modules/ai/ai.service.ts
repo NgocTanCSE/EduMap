@@ -374,7 +374,7 @@ throw new HttpException(
       }
 
       throw new HttpException(
-        detail || 'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and GEMINI_API_KEY are configured correctly.',
+        detail || 'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and CLOUDFLARE_API_TOKEN are configured correctly.',
         status,
       );
     }

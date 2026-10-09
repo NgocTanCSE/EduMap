@@ -1,9 +1,9 @@
 # =========================================================
-# EDUMAP MOBILE (Web) — Hugging Face Spaces Docker
+# EDUMAP MOBILE (Web) — Local Docker
 # =========================================================
 # Expo's `export:web` (Webpack) produces a static `web-build/`
-# directory. This Dockerfile builds it and serves it on the
-# port HF requires (7860) via a dependency-free Node static
+# directory. This Dockerfile builds it and serves it on
+# port 3005 via a dependency-free Node static
 # server (server.js).
 #
 # Env handling:
@@ -11,8 +11,6 @@
 #   static bundle can call the backend (mobile/api.ts reads it).
 #   If unset/empty, the mobile app falls back to its own
 #   default (http://localhost:3000/api on web).
-# On HF Spaces you can set EXPO_PUBLIC_API_BASE_URL as a Space
-# Secret before the first build so it is baked into the image.
 #
 # Note on react-native@0.73.2 web shims:
 #   RN 0.73.2 omits several `.web.js` files that its own
@@ -38,7 +36,7 @@ RUN npm install --legacy-peer-deps --no-audit --no-fund
 COPY . .
 
 # Allow API base URL to be baked at build time (optional).
-# Empty -> the app uses http://localhost:3001/api (web default).
+# Empty -> the app uses http://localhost:3000/api (web default).
 ARG EXPO_PUBLIC_API_BASE_URL
 ENV EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
 ENV NODE_OPTIONS=--max_old_space_size=4096
@@ -52,12 +50,12 @@ RUN npx expo export:web --clear
 # Sanity check the export landed
 RUN test -f web-build/index.html
 
-# ── Stage 2: Serve the static site on HF port 7860 ──
+# ── Stage 2: Serve the static site on port 3005 ──
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Non-root user (HF best practice)
+# Non-root user for security
 RUN addgroup -S appgroup && adduser -S -G appgroup appuser
 USER appuser
 
@@ -66,11 +64,11 @@ COPY --from=builder --chown=appuser:appgroup /app/web-build ./web-build
 COPY --chown=appuser:appgroup server.js ./
 
 ENV NODE_ENV=production
-ENV PORT=7860
+ENV PORT=3005
 ENV HOST=0.0.0.0
 
-# HF Spaces requires the container to listen on 7860.
-EXPOSE 7860
+# Listen on port 3005 for local Docker.
+EXPOSE 3005
 
 # Single process: static file server with SPA fallback.
 CMD ["node", "server.js"]

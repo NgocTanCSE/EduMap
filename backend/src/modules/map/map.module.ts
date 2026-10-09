@@ -7,7 +7,7 @@ import { RoutingController } from './routing.controller';
 import { RoutingService } from './routing.service';
 import { FloodRoutingService } from './flood-routing.service';
 import { TrafficRoutingService } from './traffic-routing.service';
-import { GoogleAIService } from '../../services/google-ai.service';
+import { CloudflareAIService } from '../../services/cloudflare-ai.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MapPoint } from './entities/map-point.entity';
 import { Location } from './entities/location.entity';
@@ -23,7 +23,7 @@ import { TrafficSegment } from './entities/traffic-segment.entity';
     }),
     ConfigModule,
   ],
-  providers: [MapService, RoutingService, FloodRoutingService, TrafficRoutingService, GoogleAIService],
+  providers: [MapService, RoutingService, FloodRoutingService, TrafficRoutingService, CloudflareAIService],
   controllers: [MapController, RoutingController],
   exports: [MapService, RoutingService, FloodRoutingService, TrafficRoutingService],
 })
