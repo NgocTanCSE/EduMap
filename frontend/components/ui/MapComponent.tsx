@@ -35,23 +35,24 @@ const _divIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
 // Tear-drop pin glyph; fill="currentColor" inherits the category color.
 const PIN_GLYPH = `<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2.5C8.17 2.5 5 5.67 5 9.5 5 14.85 11.25 20.15 11.53 20.46a1 1 0 001.46-.01C12.75 20.15 19 14.85 19 9.5 19 5.67 15.83 2.5 12 2.5zm0 13.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>`;
 
+const renderIconToHtml = (Component: any, className: string = 'w-3 h-3'): string => {
+  if (!Component) return '';
+  const Resolved = (Component && Component.default) ? Component.default : Component;
+  try {
+    return renderToStaticMarkup(React.createElement(Resolved, { className }));
+  } catch (e) {
+    return '';
+  }
+};
+
 const getIconForCategory = (categoryName: string) => {
   const cat = (categoryName || '').toLowerCase();
   const key = cat || '_default';
   const cached = _divIconCache.get(key);
   if (cached) return cached;
-  // lucide-react icons resolve as namespace objects under this webpack/CJS
-  // interop (typeof === 'object', NOT directly callable). Calling Icon({...})
-  // throws "Icon is not a function" and kills marker rendering — unwrap the real
-  // render fn (.default or .render, whichever is a function) before passing to
-  // renderToStaticMarkup. Falls back to '' (plain pin) if it can't be resolved.
-  const RawIcon: any = CATEGORY_ICON[cat] || MapPinIcon;
-  const IconFn = typeof RawIcon === 'function' ? RawIcon
-    : RawIcon && typeof RawIcon.default === 'function' ? RawIcon.default
-    : RawIcon && typeof RawIcon.render === 'function' ? RawIcon.render
-    : null;
+  const RawIcon = CATEGORY_ICON[cat] || MapPinIcon;
   const color = CATEGORY_COLOR[cat] || 'text-muted-foreground';
-  const iconSvg = IconFn ? renderToStaticMarkup(IconFn({ className: 'w-3 h-3' })) : '';
+  const iconSvg = renderIconToHtml(RawIcon, 'w-3 h-3');
   const html = `<div class="${color} relative flex items-center justify-center" style="width:28px;height:28px">${PIN_GLYPH}<span class="relative text-white flex items-center justify-center w-3 h-3">${iconSvg}</span></div>`;
   const icon = L.divIcon({
     className: 'edumap-poi-marker shadow',
@@ -96,9 +97,11 @@ const amenityIconFor = (key: string): LucideIcon => amenityIcons[key] ?? MapPinI
 function OriginMarker({ position }: { position: [number, number] }) {
   const map = useMap();
   useEffect(() => {
+    const iconSvg = renderIconToHtml(Navigation, 'w-3 h-3 text-foreground') ||
+      '<svg viewBox="0 0 24 24" class="w-3 h-3 text-foreground" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>';
     const icon = L.divIcon({
       className: 'custom-origin-marker',
-      html: `<div class="w-6 h-6 bg-accent border-3 border-border rounded-full shadow-lg flex items-center justify-center">${renderToStaticMarkup(Navigation({ className: 'w-3 h-3 text-foreground' }))}</div>`,
+      html: `<div class="w-6 h-6 bg-accent border-3 border-border rounded-full shadow-lg flex items-center justify-center">${iconSvg}</div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 24],
     });
@@ -112,9 +115,11 @@ function OriginMarker({ position }: { position: [number, number] }) {
 function DestinationMarker({ position }: { position: [number, number] }) {
   const map = useMap();
   useEffect(() => {
+    const iconSvg = renderIconToHtml(MapPinIcon, 'w-3 h-3 text-foreground') ||
+      '<svg viewBox="0 0 24 24" class="w-3 h-3 text-foreground" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
     const icon = L.divIcon({
       className: 'custom-dest-marker',
-      html: `<div class="w-6 h-6 bg-destructive border-3 border-border rounded-full shadow-lg flex items-center justify-center">${renderToStaticMarkup(MapPinIcon({ className: 'w-3 h-3 text-foreground' }))}</div>`,
+      html: `<div class="w-6 h-6 bg-destructive border-3 border-border rounded-full shadow-lg flex items-center justify-center">${iconSvg}</div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 24],
     });
