@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post, Comment, Group } from './entities/community.entity';
@@ -7,6 +7,8 @@ import { NotificationsService } from '../notifications/notifications.service'; /
 
 @Injectable()
 export class CommunityService {
+  private readonly logger = new Logger(CommunityService.name);
+
   constructor(
     @InjectRepository(Post) private readonly postRepo: Repository<Post>,
     @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
@@ -19,8 +21,14 @@ export class CommunityService {
    * Tạo bài thảo luận có kiểm duyệt AI
    */
   async createPost(userId: string, data: any) {
-    // 1. Kiểm duyệt nội dung bằng AI
-    const moderationResult = await this.aiService.moderateContent(userId, data.content);
+    // 1. Kiểm duyệt nội dung bằng AI (với fallback nếu service gián đoạn)
+    let moderationResult;
+    try {
+      moderationResult = await this.aiService.moderateContent(userId, data.content);
+    } catch (moderationError) {
+      this.logger.warn(`AI moderation unavailable, creating post with pending_review status: ${moderationError.message}`);
+      moderationResult = { action_taken: 'SEND_TO_HUMAN_REVIEW', flags: ['AI_MODERATION_UNAVAILABLE'] };
+    }
 
     if (moderationResult.action_taken === 'AUTO_REJECTED') {
         throw new BadRequestException(`Nội dung vi phạm tiêu chuẩn cộng đồng: ${moderationResult.flags.join(', ')}`);

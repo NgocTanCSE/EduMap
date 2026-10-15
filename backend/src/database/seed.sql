@@ -379,10 +379,10 @@ INSERT INTO ai_conversations (id, user_id, title) VALUES ('81eff0a2-edaf-495a-bc
 INSERT INTO ai_conversations (id, user_id, title) VALUES ('216c6ae1-e58b-4fb5-b4af-52260da4aa04', '5d4417d6-a755-48f8-92aa-c694b0f9dd50', 'Hỏi đáp về Lộ trình học AI & Blockchain LHU');
 INSERT INTO ai_conversations (id, user_id, title) VALUES ('6a8feeb7-86ab-49ef-a789-81fadd832ef1', 'a956f65c-9004-48d9-819a-b94a0b2784dd', 'Hỏi đáp về Lộ trình học AI & Blockchain LHU');
 INSERT INTO ai_conversations (id, user_id, title) VALUES ('6e7224d2-334b-4623-a85e-d08695d21e93', '9ecf377b-b600-4a9f-a306-dba8ce171de2', 'Hỏi đáp về Lộ trình học AI & Blockchain LHU');
-INSERT INTO career_paths (id, title, description) VALUES (1, 'Kỹ sư Phần mềm (Software Engineer)', 'Lộ trình kỹ năng lập trình web, di động và phân tích thuật toán ứng dụng.');
-INSERT INTO career_paths (id, title, description) VALUES (2, 'Chuyên gia Tự động hóa & Robotics', 'Định hướng lập trình vi điều khiển, thiết kế robot công nghiệp Biên Hòa 2.');
-INSERT INTO career_paths (id, title, description) VALUES (3, 'Kỹ sư Phân tích Dữ liệu (Data Analyst)', 'Lộ trình kỹ năng SQL, Python, Excel và trực quan hóa số liệu thống kê.');
-INSERT INTO career_paths (id, title, description) VALUES (4, 'Giáo viên STEM & Khoa học máy tính', 'Đào tạo kỹ năng giảng dạy khoa học tích hợp cho học sinh phổ thông.');
+INSERT INTO career_paths (id, title, field, description) VALUES (1, 'Kỹ sư Phần mềm (Software Engineer)', 'IT', 'Lộ trình kỹ năng lập trình web, di động và phân tích thuật toán ứng dụng.');
+INSERT INTO career_paths (id, title, field, description) VALUES (2, 'Chuyên gia Tự động hóa & Robotics', 'Automation', 'Định hướng lập trình vi điều khiển, thiết kế robot công nghiệp Biên Hòa 2.');
+INSERT INTO career_paths (id, title, field, description) VALUES (3, 'Kỹ sư Phân tích Dữ liệu (Data Analyst)', 'Data', 'Lộ trình kỹ năng SQL, Python, Excel và trực quan hóa số liệu thống kê.');
+INSERT INTO career_paths (id, title, field, description) VALUES (4, 'Giáo viên STEM & Khoa học máy tính', 'Education', 'Đào tạo kỹ năng giảng dạy khoa học tích hợp cho học sinh phổ thông.');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('efe3440b-ceb9-41ed-a822-0dcc4121f642', 'Thử thách gom chai nhựa tái chế - Nhận quà xanh Lạc Hồng', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'b3326d93-9920-4a16-aa27-5dec61efb352');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('b8060056-94c1-45f0-8877-fa1ddddf329d', 'Ngày hội trồng cây bảo vệ hành lang xanh sông Đồng Nai', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', '00f42ddf-59e7-4d80-b7c7-042745ef0595');
 INSERT INTO green_challenges (id, title, description, created_by) VALUES ('56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'Thử thách 7 ngày đi bộ/xe đạp đến trường - THPT Trấn Biên', 'Thử thách nhằm xây dựng thói quen thân thiện với môi trường xanh trong giới học đường Biên Hòa.', 'f575c928-4899-4c7e-b56b-501ed4367783');
@@ -437,11 +437,16 @@ INSERT INTO applications (id, user_id, job_id, cover_letter, status) VALUES
 ('a1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'b2345678-1234-1234-1234-123456789012', 'Em là sinh viên đam mê lập trình, mong muốn được học hỏi và cống hiến cho công ty.', 'pending')
 ON CONFLICT DO NOTHING;
 
--- Seed Certificates Data
-INSERT INTO certificates (id, user_id, type, title, description, issued_at, issuer, verify_code) VALUES
-('c1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'course', 'Chứng nhận Hoàn thành Khóa học ReactJS', 'Hoàn thành xuất sắc khóa đào tạo ReactJS cơ bản.', '2025-10-15', 'EduMap Academy', 'CERT-REACT-2025-001'),
-('d1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'volunteer', 'Chiến sĩ Mùa Hè Xanh 2025', 'Chứng nhận thành tích xuất sắc trong chiến dịch Mùa Hè Xanh.', '2025-08-30', 'Hội Sinh Viên Tỉnh Đồng Nai', 'CERT-VOL-2025-089')
-ON CONFLICT DO NOTHING;
+-- Seed Certificates Data (into user_certificates table matching UserCertificate entity)
+-- First ensure template exists, then insert certificates
+INSERT INTO certificate_templates (id, organization_id, name, description, type, created_at, updated_at)
+VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', NULL, 'Chứng nhận Khóa học', 'Mẫu chứng nhận hoàn thành khóa học', 'course', '2025-01-01', '2025-01-01')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO user_certificates (id, user_id, template_id, issued_at, verify_code, qr_url, pdf_url, blockchain_metadata, status) VALUES
+('c1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '2025-10-15', 'CERT-REACT-2025-001', '/api/certificates/verify-qr/CERT-REACT-2025-001', '/api/certificates/download/CERT-REACT-2025-001.pdf', '{"issuer":"EduMap Academy","tx_hash":"0xabc123"}', 'active'),
+('d1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '2025-08-30', 'CERT-VOL-2025-089', '/api/certificates/verify-qr/CERT-VOL-2025-089', '/api/certificates/download/CERT-VOL-2025-089.pdf', '{"issuer":"Hội Sinh Viên Tỉnh Đồng Nai","tx_hash":"0xdef456"}', 'active')
+ON CONFLICT (id) DO NOTHING;
 
 -- Seed Mentors (using existing user_ids with role_id = 9)
 INSERT INTO mentors (user_id, bio, specialties, experience_years, rating_avg, total_sessions, hourly_rate, is_verified) VALUES

@@ -13,11 +13,23 @@ export interface ApiResponse<T> {
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      })),
+      map((data) => {
+        // Skip wrapping if the response is already in {success, data} format
+        if (data !== null && typeof data === 'object' && 'success' in data && 'data' in data) {
+          return data;
+        }
+        // Skip wrapping for binary/stream responses (file downloads)
+        const ctx = context.switchToHttp();
+        const res = ctx.getResponse();
+        if (res && typeof res.writeHead === 'function' && !res.writableEnded && res.get('Content-Type')?.includes('application/pdf')) {
+          return data;
+        }
+        return {
+          success: true,
+          data,
+          timestamp: new Date().toISOString(),
+        };
+      }),
     );
   }
 }

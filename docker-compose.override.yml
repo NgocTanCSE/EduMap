@@ -74,6 +74,10 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
       - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+      - VNP_TMN_CODE=${VNP_TMN_CODE:-DEV1234567}
+      - VNP_HASH_SECRET=${VNP_HASH_SECRET:-wJ9Q5D2F8K7H3M1N}
+      - VNP_URL=${VNP_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      - VNP_RETURN_URL=${VNP_RETURN_URL:-http://localhost:3001/donations/callback}
     ports:
       - "3003:3000"
     depends_on:
@@ -92,6 +96,7 @@ services:
       - BACKEND_URL=http://backend:3000
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-me}
       - NODE_ENV=development
     ports:
       - "3001:3000"

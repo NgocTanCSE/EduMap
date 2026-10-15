@@ -70,8 +70,9 @@ const nextConfig = {
   },
   // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
   // `/api/auth/login`, `/api/map/...`, etc. The BFF route handlers in
-  // `app/api/*` (notably `/api/ai/chat`, `/api/ai/history` and `/api/ai/learning-path`) are kept
-  // out of the loop on purpose: they run in Next and add error handling +
+  // `app/api/*` (notably `/api/ai/chat`, `/api/ai/history`,
+  // `/api/ai/learning-path`, and `/api/ai/search`) are kept out of the
+  // rewrite loop on purpose: they run in Next and add error handling +
   // auth-token forwarding that a raw proxy would skip.
   async rewrites() {
     // `BACKEND_URL` is injected by Docker Compose (e.g. http://backend:3000).
@@ -80,7 +81,7 @@ const nextConfig = {
     const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
     return [
       {
-        source: '/api/:path((?!ai/chat|ai/history|ai/learning-path).*)',
+        source: '/api/:path((?!ai/chat|ai/history|ai/learning-path|ai/search).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

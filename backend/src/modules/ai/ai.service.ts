@@ -109,7 +109,7 @@ export class AIService {
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData, { timeout: 30000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData, { timeout: 35000 })
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
@@ -148,7 +148,7 @@ throw new HttpException(
       const response = await firstValueFrom(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight`, {
             dashboard_data: dashboardData
-        })
+        }, { timeout: 35000 })
       );
       return response.data;
     } catch (error) {
@@ -184,7 +184,7 @@ throw new HttpException(
   async summarizeMaterial(materialData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize`, materialData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize`, materialData, { timeout: 35000 })
       );
       return response.data;
     } catch (error) {
@@ -202,7 +202,7 @@ throw new HttpException(
   async generateLearningPath(data: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path`, data)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path`, data, { timeout: 35000 })
       );
       return response.data;
     } catch (error) {
@@ -238,10 +238,10 @@ throw new HttpException(
   async moderateContent(userId: string, text: string) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/moderate`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/moderate/`, {
           user_id: userId,
           text: text
-        })
+        }, { timeout: 15000 })
       );
       return response.data;
     } catch (error) {

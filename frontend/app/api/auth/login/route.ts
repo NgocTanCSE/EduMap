@@ -5,9 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const backendUrl = getBackendUrl();
-    const targetUrl = backendUrl.endsWith('/api')
-      ? `${backendUrl}/auth/login`
-      : `${backendUrl}/api/auth/login`;
+    const targetUrl = `${backendUrl}/auth/login`;
 
     const response = await fetch(targetUrl, {
       method: 'POST',

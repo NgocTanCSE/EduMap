@@ -107,6 +107,26 @@
   background: hsl(var(--card)) !important;
 }
 
+/* Leaflet popup — sync nền với theme (card / background) thay vì trắng cứng */
+.leaflet-popup-content-wrapper {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: 0.5rem !important;
+}
+
+.leaflet-popup-tip {
+  background: hsl(var(--card)) !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-close-button {
+  color: hsl(var(--foreground)) !important;
+}
+
 /* Custom scrollbar for overflow panels */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

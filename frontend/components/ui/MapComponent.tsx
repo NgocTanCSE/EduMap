@@ -438,7 +438,7 @@ export default function InteractiveMap({
                       <span className="font-bold text-xs text-foreground">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-foreground font-sans max-w-[240px]">
+                      <div className="p-2 text-foreground font-sans max-w-[240px] bg-card border border-border rounded-lg shadow-lg">
                         <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
                         <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
 

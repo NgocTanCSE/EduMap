@@ -37,7 +37,7 @@ export class DashboardService {
     today.setHours(0, 0, 0, 0);
 
     const results = await Promise.allSettled([
-      this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role'] }),
+      this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role_id'] }),
       this.historyRepo.count({ where: { user: { id: userId } as any } }),
       this.skillRepo.count({ where: { user_id: userId } }),
       this.careerRepo.find({ where: { user_id: userId, status: 'active' as any }, take: 3 }),
@@ -86,16 +86,16 @@ export class DashboardService {
       this.userEventRepository.count(),
       this.educationStatRepo.find({ take: 10 }), // Get recent education stats
       
-      // 1. Phân bổ vai trò người dùng
-      this.userRepository.createQueryBuilder('user')
-        .select('user.role', 'role')
+      // 1. Phân bổ vai trò người dùng (alias 'u' tránh reserved keyword 'user' trong PostgreSQL)
+      this.userRepository.createQueryBuilder('u')
+        .select('u.role_id', 'role')
         .addSelect('COUNT(*)', 'count')
-        .groupBy('user.role')
+        .groupBy('u.role_id')
         .getRawMany(),
 
       // 2. Xu hướng đăng ký người dùng mới (6 tháng gần nhất)
-      this.userRepository.createQueryBuilder('user')
-        .select("TO_CHAR(user.created_at, 'YYYY-MM')", 'month')
+      this.userRepository.createQueryBuilder('u')
+        .select("TO_CHAR(u.created_at, 'YYYY-MM')", 'month')
         .addSelect('COUNT(*)', 'count')
         .groupBy('month')
         .orderBy('month', 'DESC')

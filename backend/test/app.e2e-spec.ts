@@ -1,42 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ResponseInterceptor } from './../src/common/interceptors/response.interceptor';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication;
+/**
+ * Helper: create a fully-configured Nest app identical to production.
+ * - Sets the `/api` global prefix
+ * - Registers the global ValidationPipe (whitelist + forbidNonWhitelisted)
+ * - Registers the ResponseInterceptor for consistent `{ success, data }` shape
+ * - Registers the AllExceptionsFilter
+ */
+async function createApp(): Promise<INestApplication> {
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+  const app = moduleFixture.createNestApplication();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-  });
+  app.setGlobalPrefix('api');
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
-  afterEach(async () => {
-    await app.close();
-  });
-
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
-  });
-});
+  await app.init();
+  return app;
+}
 
 describe('Auth API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -51,11 +51,13 @@ describe('Auth API (e2e)', () => {
           email: 'test@example.com',
           password: 'password123',
           full_name: 'Test User',
+          role: 'student',
         })
         .expect(201)
         .expect((res) => {
-          expect(res.body).toHaveProperty('id');
-          expect(res.body.email).toBe('test@example.com');
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('userId');
+          expect(res.body.data.email).toBe('test@example.com');
         });
     });
 
@@ -66,6 +68,7 @@ describe('Auth API (e2e)', () => {
           email: 'invalid-email',
           password: 'password123',
           full_name: 'Test User',
+          role: 'student',
         })
         .expect(400);
     });
@@ -80,18 +83,20 @@ describe('Auth API (e2e)', () => {
           email: 'login-test@example.com',
           password: 'password123',
           full_name: 'Login Test User',
+          role: 'student',
         });
 
-      // Then login
+      // Then login — controller uses @HttpCode(OK) so 200, not 201
       return request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
           email: 'login-test@example.com',
           password: 'password123',
         })
-        .expect(201)
+        .expect(200)
         .expect((res) => {
-          expect(res.body).toHaveProperty('access_token');
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('access_token');
         });
     });
 
@@ -111,12 +116,7 @@ describe('Map API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -129,7 +129,8 @@ describe('Map API (e2e)', () => {
         .get('/api/map/pois')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(Array.isArray(res.body.data)).toBe(true);
         });
     });
   });
@@ -140,7 +141,8 @@ describe('Map API (e2e)', () => {
         .get('/api/map/categories')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(Array.isArray(res.body.data)).toBe(true);
         });
     });
   });
@@ -150,12 +152,7 @@ describe('Career API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -168,18 +165,21 @@ describe('Career API (e2e)', () => {
         .get('/api/career/paths')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(Array.isArray(res.body.data)).toBe(true);
         });
     });
   });
 
   describe('/api/career/jobs (GET)', () => {
-    it('should return list of jobs', () => {
+    it('should return list of Jobs', () => {
       return request(app.getHttpServer())
         .get('/api/career/jobs')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('jobs');
+          expect(Array.isArray(res.body.data.jobs)).toBe(true);
         });
     });
   });
@@ -189,12 +189,7 @@ describe('Community API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -207,7 +202,9 @@ describe('Community API (e2e)', () => {
         .get('/api/community/posts')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('posts');
+          expect(Array.isArray(res.body.data.posts)).toBe(true);
         });
     });
   });
@@ -217,12 +214,7 @@ describe('Events API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -235,7 +227,8 @@ describe('Events API (e2e)', () => {
         .get('/api/events')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(Array.isArray(res.body.data)).toBe(true);
         });
     });
   });
@@ -245,12 +238,7 @@ describe('Library API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -263,7 +251,9 @@ describe('Library API (e2e)', () => {
         .get('/api/library/resources')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('items');
+          expect(Array.isArray(res.body.data.items)).toBe(true);
         });
     });
   });
@@ -273,12 +263,7 @@ describe('Scholarships API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
@@ -291,7 +276,9 @@ describe('Scholarships API (e2e)', () => {
         .get('/api/scholarships')
         .expect(200)
         .expect((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.success).toBe(true);
+          expect(res.body.data).toHaveProperty('items');
+          expect(Array.isArray(res.body.data.items)).toBe(true);
         });
     });
   });

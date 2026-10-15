@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as querystring from 'qs';
@@ -14,6 +14,12 @@ export class VNPayService {
     const secretKey = this.configService.get<string>('VNP_HASH_SECRET');
     let vnpUrl = this.configService.get<string>('VNP_URL') || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
     const returnUrl = this.configService.get<string>('VNP_RETURN_URL');
+
+    if (!tmnCode || !secretKey) {
+      throw new InternalServerErrorException(
+        'VNPay configuration is missing. Please set VNP_TMN_CODE and VNP_HASH_SECRET environment variables.',
+      );
+    }
 
     const date = new Date();
     const createDate = this.formatDate(date);

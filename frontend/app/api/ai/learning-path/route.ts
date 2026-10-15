@@ -1,18 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as crypto from 'crypto';
 
 // The ai-service runs on the same Docker network as the frontend container
 // (the backend reaches it at http://ai-service:8000). The frontend compose
 // override does not export AI_SERVICE_URL, so fall back to that address.
 const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'http://ai-service:8000').replace(/\/$/, '');
+const JWT_SECRET = process.env.JWT_SECRET || '';
 
-/** Decode a JWT payload (base64url) WITHOUT verifying the signature. */
-function decodeJwtPayload(token: string): Record<string, any> | null {
+/**
+ * Verify a JWT signature (HS256) using the Node.js crypto module.
+ * Returns the decoded payload only if the signature is valid and the token
+ * has not expired; otherwise returns null.
+ */
+function verifyJwt(token: string): Record<string, any> | null {
+  if (!JWT_SECRET) return null;
   try {
     const parts = token.split('.');
-    if (parts.length < 2 || !parts[1]) return null;
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    if (parts.length !== 3) return null;
+    const [encodedHeader, encodedPayload, signature] = parts;
+
+    // Reconstruct the signing input and recompute the HMAC.
+    const expectedSig = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(`${encodedHeader}.${encodedPayload}`)
+      .digest('base64url');
+
+    // Constant-time comparison to prevent timing attacks.
+    const valid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig));
+    if (!valid) return null;
+
+    const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
-    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    const payload = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+
+    // Check expiration.
+    if (payload.exp && Date.now() >= payload.exp * 1000) return null;
+
+    return payload;
   } catch {
     return null;
   }
@@ -32,7 +56,7 @@ export async function POST(req: NextRequest) {
     //    normally augments user_id from req.user — but `/api/ai/learning-path`
     //    is now handled right here (excluded from the backend rewrite), so we
     //    extract the identity ourselves. The ai-service requires user_id.
-    const payload = decodeJwtPayload(token);
+    const payload = verifyJwt(token);
     const userId = payload?.sub;
     if (!userId) {
       return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });

@@ -246,6 +246,7 @@ CREATE TABLE opportunities (
     type VARCHAR(100), -- scholarship/internship/hackathon/research
     organization VARCHAR(255),
     location_point GEOGRAPHY(POINT),
+    address VARCHAR(255),
     deadline TIMESTAMP WITH TIME ZONE,
     requirements TEXT,
     benefits TEXT,
@@ -254,6 +255,8 @@ CREATE TABLE opportunities (
     region VARCHAR(100),
     status VARCHAR(50) DEFAULT 'open',
     created_by UUID REFERENCES users(id),
+    is_team_finding_open BOOLEAN DEFAULT false,
+    tags JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -544,6 +547,7 @@ CREATE TABLE green_challenge_activities (
 CREATE TABLE career_paths (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
+    field VARCHAR(100),
     description TEXT,
     skills_required JSONB,
     roadmap_json JSONB,
@@ -1000,3 +1004,12 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     CONSTRAINT uq_bookmarks_user_type_target UNIQUE (user_id, target_type, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user_type ON bookmarks(user_id, target_type);
+
+-- User Events Analytics
+CREATE TABLE IF NOT EXISTS user_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(100) NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);

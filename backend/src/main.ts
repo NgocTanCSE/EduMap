@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -40,6 +41,9 @@ async function bootstrap() {
 
   // 🐛 EXCEPTION FILTER: Log full stack traces
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // 📦 RESPONSE INTERCEPTOR: Normalize all responses to { success, data, timestamp }
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // REDIS WEBSOCKET ADAPTER
   const redisIoAdapter = new RedisIoAdapter(app);
