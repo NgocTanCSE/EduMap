@@ -989,3 +989,14 @@ CREATE TABLE IF NOT EXISTS wifi_connections (
     disconnected_at TIMESTAMP WITH TIME ZONE
 );
 
+
+-- 62. bookmarks (Saved/bookmarked items per user — internships & scholarships)
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(50) NOT NULL,
+    target_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_bookmarks_user_type_target UNIQUE (user_id, target_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_type ON bookmarks(user_id, target_type);

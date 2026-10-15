@@ -49,7 +49,7 @@ export default function NotificationsPage() {
   if (loading) return <div className="p-8 text-center">Đang tải thông báo…</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
+    <div className="w-full mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Thông báo</h1>
       {displayed.length === 0 ? (
         <p>Không có thông báo nào.</p>

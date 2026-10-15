@@ -33,28 +33,28 @@ export default function OpportunitiesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
                 <Compass className="w-4 h-4" /> Bản đồ Cơ hội
             </div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">Mở Rộng Giới Hạn</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Mở Rộng Giới Hạn</h1>
             <p className="text-muted-foreground/60 leading-relaxed">
                 Khám phá các khóa học miễn phí, cuộc thi, hoạt động ngoại khóa và tìm kiếm đồng đội để cùng nhau chinh phục thử thách.
             </p>
         </div>
 
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card border border-border p-4 rounded-3xl sticky top-20 z-10 backdrop-blur-md">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card border border-border p-4 rounded-xl sticky top-20 z-10">
             <div className="flex overflow-x-auto w-full md:w-auto gap-2 pb-2 md:pb-0 custom-scrollbar">
                 {['', 'Cuộc thi', 'Khóa học', 'Hoạt động'].map(cat => (
                     <button 
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
-                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-primary text-white' : 'bg-card text-muted-foreground/40 hover:text-white hover:bg-muted border border-border'}`}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-primary text-foreground' : 'bg-card text-muted-foreground/40 hover:text-foreground hover:bg-muted border border-border'}`}
                     >
                         {cat || 'Tất cả'}
                     </button>
@@ -75,11 +75,11 @@ export default function OpportunitiesPage() {
 
         {/* Grid */}
         {loading ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
         ) : filteredData.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredData.map(opp => (
-                    <div key={opp.id} className="bg-card border border-border rounded-3xl p-6 hover:border-primary/50 transition-all group flex flex-col h-full shadow-xl">
+                    <div key={opp.id} className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all group flex flex-col h-full">
                         <div className="flex justify-between items-start mb-4">
                             <span className="px-3 py-1 bg-card border border-border rounded-full text-[10px] font-bold uppercase tracking-widest text-primary/90">
                                 {opp.category}
@@ -116,14 +116,14 @@ export default function OpportunitiesPage() {
                             ))}
                         </div>
                         
-                        <Link href={`/opportunities/${opp.id}`} className="w-full py-3 rounded-xl bg-card border border-border group-hover:bg-primary group-hover:border-transparent group-hover:text-white transition-all text-sm font-bold flex justify-center items-center gap-2">
+                        <Link href={`/opportunities/${opp.id}`} className="w-full py-3 rounded-xl bg-card border border-border group-hover:bg-primary group-hover:border-transparent group-hover:text-foreground transition-all text-sm font-bold flex justify-center items-center gap-2">
                             XEM CHI TIẾT <ArrowRight className="w-4 h-4" />
                         </Link>
                     </div>
                 ))}
             </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+            <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <Target className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                 <p className="text-muted-foreground/40">Không tìm thấy cơ hội nào phù hợp.</p>
             </div>

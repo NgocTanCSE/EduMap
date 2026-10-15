@@ -79,7 +79,7 @@ export default function VolunteerPage() {
 
   if (!authService.isLoggedIn()) {
       return (
-          <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
+          <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center space-y-6">
               <HeartHandshake className="w-20 h-20 text-primary mx-auto" />
               <h1 className="text-3xl font-bold">Nhật ký Tình nguyện</h1>
               <p className="text-muted-foreground/60">Vui lòng đăng nhập để xem và ghi nhận giờ tình nguyện của bạn.</p>
@@ -93,13 +93,13 @@ export default function VolunteerPage() {
   const progress = Math.min(100, (totalHours / 50) * 100);
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
       
       {/* Log Activity Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-                <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
+                <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-primary w-6 h-6"/> Ghi nhận giờ</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Thêm hoạt động tình nguyện mới của bạn vào hệ thống.</p>
                 
@@ -162,7 +162,7 @@ export default function VolunteerPage() {
                     <button 
                         type="submit" 
                         disabled={submitting}
-                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-all shadow-lg disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null} LƯU HOẠT ĐỘNG
                     </button>
@@ -172,31 +172,31 @@ export default function VolunteerPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-12">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-card p-8 md:p-12 rounded-2xl border border-border relative overflow-hidden flex flex-col justify-center">
+          <div className="md:col-span-2 bg-card p-8 md:p-6 rounded-lg border border-border relative overflow-hidden flex flex-col justify-center">
              <div className="relative z-10">
-                <h1 className="text-4xl font-black mb-4">Sổ tay Tình nguyện</h1>
+                <h1 className="text-2xl font-semibold mb-4">Sổ tay Tình nguyện</h1>
                 <p className="text-muted-foreground/60 max-w-md leading-relaxed mb-8">
                   Mỗi giờ bạn đóng góp đều mang lại giá trị cho cộng đồng. EduMap sẽ ghi nhận và cấp chứng nhận tự động khi bạn đạt các cột mốc.
                 </p>
                 <button 
                     onClick={() => setShowForm(true)}
-                    className="px-8 py-3 bg-primary hover:bg-primary/90 rounded-xl font-bold flex items-center gap-2 shadow-xl shadow-primary/20 transition-all w-fit"
+                    className="px-8 py-3 bg-primary hover:bg-primary/90 rounded-xl font-bold flex items-center gap-2 transition-all w-fit"
                 >
                     <Plus className="w-5 h-5" /> GHI NHẬN GIỜ MỚI
                 </button>
              </div>
-             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-                <HeartHandshake className="w-64 h-64" />
+             <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                <HeartHandshake className="w-24 h-24" />
              </div>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-8 text-center flex flex-col justify-center items-center shadow-2xl relative overflow-hidden">
+          <div className="bg-card border border-border rounded-lg p-8 text-center flex flex-col justify-center items-center relative overflow-hidden">
              <div className="w-24 h-24 rounded-full bg-card/40 flex items-center justify-center mb-4 border-4 border-primary/30">
-                <span className="text-3xl font-black text-primary/90">{totalHours}</span>
+                <span className="text-3xl font-semibold text-primary/90">{totalHours}</span>
              </div>
              <h3 className="font-bold text-foreground/80">Tổng giờ Tình nguyện</h3>
              
@@ -222,20 +222,20 @@ export default function VolunteerPage() {
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Clock className="text-primary w-6 h-6"/> Lịch sử hoạt động</h2>
             
             {loading ? (
-                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-primary animate-spin" /></div>
             ) : activities.length > 0 ? (
                 <div className="space-y-4">
                     {activities.map(act => (
-                        <div key={act.id} className="bg-card border border-border rounded-3xl p-6 flex flex-col md:flex-row md:items-center gap-6 hover:border-primary/30 transition-colors">
-                            <div className="w-16 h-16 shrink-0 rounded-2xl bg-card border border-border flex items-center justify-center">
-                                <span className="text-xl font-black text-primary/90">{act.hours}h</span>
+                        <div key={act.id} className="bg-card border border-border rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-6 hover:border-primary/30 transition-colors">
+                            <div className="w-16 h-16 shrink-0 rounded-lg bg-card border border-border flex items-center justify-center">
+                                <span className="text-xl font-semibold text-primary/90">{act.hours}h</span>
                             </div>
                             
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-1">
                                     <h3 className="text-lg font-bold">{act.title}</h3>
                                     <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-lg border ${
-                                        act.status === 'verified' ? 'bg-primary/10 text-primary border-green-500/20' : 'bg-primary/10 text-primary/70 border-primary/20'
+                                        act.status === 'verified' ? 'bg-primary/10 text-primary border-accent/20' : 'bg-primary/10 text-primary/70 border-primary/20'
                                     }`}>
                                         {act.status === 'verified' ? 'Đã xác thực' : 'Đang chờ duyệt'}
                                     </span>
@@ -250,7 +250,7 @@ export default function VolunteerPage() {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                     <FileText className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                     <p className="text-muted-foreground/40 mb-4">Bạn chưa ghi nhận hoạt động tình nguyện nào.</p>
                     <button onClick={() => setShowForm(true)} className="px-6 py-2 rounded-xl border border-border hover:bg-card/20 text-sm font-bold transition-all">

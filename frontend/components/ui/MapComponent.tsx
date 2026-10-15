@@ -4,65 +4,64 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store } from 'lucide-react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, type LucideIcon } from 'lucide-react';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
 
-// Configure standard Leaflet markers
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// EduMap POI markers are themeable CSS divIcons — no external PNG/CDN.
+// Each category maps to a Tailwind color token + a Lucide glyph, rendered to
+// static markup once and cached per category. The pin fill uses `currentColor` so
+// it follows the page dark/light theme; the category glyph is white-on-pin.
 
-// Helper for dynamic colors
-const createCustomIcon = (color: string) => new L.Icon({
-  iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-
-const icons: Record<string, L.Icon> = {
-  blue: createCustomIcon('blue'),
-  violet: createCustomIcon('violet'),
-  red: createCustomIcon('red'),
-  green: createCustomIcon('green'),
-  orange: createCustomIcon('orange'),
-  yellow: createCustomIcon('yellow'),
-  grey: createCustomIcon('grey'),
+const CATEGORY_COLOR: Record<string, string> = {
+  university: 'text-accent', school: 'text-accent',
+  lab: 'text-destructive', stem: 'text-destructive',
+  bookstore: 'text-destructive',
+  green: 'text-green-600', park: 'text-green-600',
+  cafe: 'text-orange-500',
+  wifi: 'text-amber-400', convenience: 'text-amber-400',
+  library: 'text-primary', restaurant: 'text-primary', market: 'text-primary',
 };
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  university: GraduationCap, school: GraduationCap,
+  library: BookOpen, bookstore: BookOpen,
+  lab: Atom, stem: Atom, green: Leaf, park: Leaf, wifi: Wifi, cafe: Coffee,
+  restaurant: Globe, market: ShoppingCart, convenience: Store,
+};
+const _divIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
+
+// Tear-drop pin glyph; fill="currentColor" inherits the category color.
+const PIN_GLYPH = `<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2.5C8.17 2.5 5 5.67 5 9.5 5 14.85 11.25 20.15 11.53 20.46a1 1 0 001.46-.01C12.75 20.15 19 14.85 19 9.5 19 5.67 15.83 2.5 12 2.5zm0 13.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>`;
 
 const getIconForCategory = (categoryName: string) => {
-  switch (categoryName?.toLowerCase()) {
-    case 'school':
-    case 'university':
-      return icons.blue;
-    case 'library':
-    case 'bookstore':
-      return icons.violet;
-    case 'lab':
-    case 'stem':
-      return icons.red;
-    case 'green':
-    case 'park':
-      return icons.green;
-    case 'wifi':
-      return icons.yellow;
-    case 'cafe':
-      return icons.orange;
-    case 'market':
-      return icons.orange;
-    case 'convenience':
-      return icons.yellow;
-    case 'restaurant':
-      return icons.red;
-    default:
-      return icons.grey;
-  }
+  const cat = (categoryName || '').toLowerCase();
+  const key = cat || '_default';
+  const cached = _divIconCache.get(key);
+  if (cached) return cached;
+  // lucide-react icons resolve as namespace objects under this webpack/CJS
+  // interop (typeof === 'object', NOT directly callable). Calling Icon({...})
+  // throws "Icon is not a function" and kills marker rendering — unwrap the real
+  // render fn (.default or .render, whichever is a function) before passing to
+  // renderToStaticMarkup. Falls back to '' (plain pin) if it can't be resolved.
+  const RawIcon: any = CATEGORY_ICON[cat] || MapPinIcon;
+  const IconFn = typeof RawIcon === 'function' ? RawIcon
+    : RawIcon && typeof RawIcon.default === 'function' ? RawIcon.default
+    : RawIcon && typeof RawIcon.render === 'function' ? RawIcon.render
+    : null;
+  const color = CATEGORY_COLOR[cat] || 'text-muted-foreground';
+  const iconSvg = IconFn ? renderToStaticMarkup(IconFn({ className: 'w-3 h-3' })) : '';
+  const html = `<div class="${color} relative flex items-center justify-center" style="width:28px;height:28px">${PIN_GLYPH}<span class="relative text-white flex items-center justify-center w-3 h-3">${iconSvg}</span></div>`;
+  const icon = L.divIcon({
+    className: 'edumap-poi-marker shadow',
+    html,
+    iconSize: [28, 28],
+    iconAnchor: [14, 29],
+    popupAnchor: [0, -36],
+  });
+  _divIconCache.set(key, icon);
+  return icon;
 };
 
 // Mini-icons used inside the popup to label a POI's nearby facilities.
@@ -82,13 +81,24 @@ const facilityIcons: Record<string, React.ComponentType<{ className?: string }>>
 };
 const facilityIconFor = (category?: string) => facilityIcons[category?.toLowerCase() ?? ''] ?? MapPinIcon;
 
+// Icons for a POI's OWN amenities (wifi, parking, toilets, wheelchair, opening
+// hours) — surfaced inside the POI's pin popup, resolved from elToLocation tags.
+const amenityIcons: Record<string, LucideIcon> = {
+  wifi: Wifi,
+  parking: ParkingCircle,
+  toilets: Bath,
+  wheelchair: Accessibility,
+  hours: Clock,
+};
+const amenityIconFor = (key: string): LucideIcon => amenityIcons[key] ?? MapPinIcon;
+
 // Origin marker (blue pin)
 function OriginMarker({ position }: { position: [number, number] }) {
   const map = useMap();
   useEffect(() => {
     const icon = L.divIcon({
       className: 'custom-origin-marker',
-      html: `<div class="w-6 h-6 bg-blue-500 border-3 border-white rounded-full shadow-lg flex items-center justify-center"><Navigation className="w-3 h-3 text-white" /></div>`,
+      html: `<div class="w-6 h-6 bg-accent border-3 border-border rounded-full shadow-lg flex items-center justify-center">${renderToStaticMarkup(Navigation({ className: 'w-3 h-3 text-foreground' }))}</div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 24],
     });
@@ -104,7 +114,7 @@ function DestinationMarker({ position }: { position: [number, number] }) {
   useEffect(() => {
     const icon = L.divIcon({
       className: 'custom-dest-marker',
-      html: `<div class="w-6 h-6 bg-red-500 border-3 border-white rounded-full shadow-lg flex items-center justify-center"><MapPinIcon className="w-3 h-3 text-white" /></div>`,
+      html: `<div class="w-6 h-6 bg-destructive border-3 border-border rounded-full shadow-lg flex items-center justify-center">${renderToStaticMarkup(MapPinIcon({ className: 'w-3 h-3 text-foreground' }))}</div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 24],
     });
@@ -133,32 +143,51 @@ function MapController({ selectedPoint }: { selectedPoint: any }) {
   return null;
 }
 
+// Lightweight debounce (no-lodash) — a drag/zoom burst collapses into ONE fetch.
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number) {
+  let timer: any;
+  const debounced = (...args: any[]) => {
+    timer = clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+  debounced.cancel = () => { if (timer) clearTimeout(timer); };
+  return debounced as typeof debounced & { cancel: () => void };
+}
+
 // Bounding Box Event Tracker
 function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void }) {
   const map = useMap();
   useEffect(() => {
     if (!onBoundsChange) return;
-    let didInitialLoad = false;
-    const handleMoveEnd = () => {
-      // Skip the moveend emitted by a programmatic flyTo (see MapController).
+    let cancelled = false;
+    let initialFired = false;
+    const fire = () => {
+      // Skip the moveend emitted by a programmatic flyTo (see MapController) so
+      // we don't refetch + wipe the markers right after the user tapped a pin.
       if ((map as any).__edumapProgrammaticFly) {
         (map as any).__edumapProgrammaticFly = false;
         return;
       }
-      if (!didInitialLoad) {
-        didInitialLoad = true;
-        return;
-      }
-      const bounds = map.getBounds();
+      const b = map.getBounds();
+      if (cancelled) return;
       onBoundsChange({
-        minLat: bounds.getSouth(),
-        maxLat: bounds.getNorth(),
-        minLng: bounds.getWest(),
-        maxLng: bounds.getEast()
+        minLat: b.getSouth(),
+        maxLat: b.getNorth(),
+        minLng: b.getWest(),
+        maxLng: b.getEast(),
       });
     };
-    map.on('moveend', handleMoveEnd);
-    return () => { (map as any).__edumapProgrammaticFly = false; map.off('moveend', handleMoveEnd); };
+    // First call = current viewport (replaces the old DEFAULT_BBOX whole-province fetch).
+    const onReady = () => { if (!initialFired) { initialFired = true; fire(); } };
+    map.whenReady(onReady);
+    // Subsequent pans/zooms: debounced (400ms trailing) → single fetch per gesture.
+    const debounced = debounce(fire, 400);
+    map.on('moveend', debounced);
+    return () => {
+      cancelled = true; debounced.cancel();
+      (map as any).__edumapProgrammaticFly = false;
+      map.off('moveend', debounced);
+    };
   }, [map, onBoundsChange]);
   return null;
 }
@@ -241,8 +270,8 @@ export default function InteractiveMap({
         alternatives: 'true',
         steps: 'true',
         overview: 'full',
-        avoidFlood: (options?.avoidFlood !== false).toString(),
-        avoidTraffic: (options?.avoidTraffic !== false).toString(),
+        avoidFlood: (options?.avoidFlood === true).toString(),
+        avoidTraffic: (options?.avoidTraffic === true).toString(),
       });
 
       const response = await fetch(`${apiBaseUrl}/map/routing/route?${params}`);
@@ -360,7 +389,7 @@ export default function InteractiveMap({
       ) : (
         <button
           onClick={() => startRouting('setting_origin')}
-          className="fixed top-4 right-4 z-40 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="fixed top-4 right-4 z-40 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg hover:bg-primary/80 transition-colors flex items-center gap-2"
         >
           <Navigation className="w-4 h-4" />
           Chỉ đường
@@ -412,10 +441,25 @@ export default function InteractiveMap({
                       <div className="p-2 text-foreground font-sans max-w-[240px]">
                         <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
                         <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
-                        
+
+                        {/* This POI's OWN amenities (wifi, parking, ...) — compact icon+label row */}
+                        {p.amenities?.length > 0 && (
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            {p.amenities.map((a: any) => {
+                              const Ai = amenityIconFor(a.icon);
+                              return (
+                                <span key={a.icon} className="flex items-center gap-1 text-[9px] text-muted-foreground/80">
+                                  <Ai className="w-3.5 h-3.5 opacity-70" />
+                                  <span>{a.label}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {p.description && (
-                          <p className="text-[10px] bg-muted/30 p-2 rounded-lg mt-2 text-muted-foreground/70 italic border-l-2 border-primary mb-3">
-                            "{p.description}"
+                          <p className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
+                            {p.description}
                           </p>
                         )}
 
@@ -430,12 +474,12 @@ export default function InteractiveMap({
                                 return (
                                   <li key={f.id} className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground/70">
                                     <span className="flex items-center gap-1 truncate">
-                                      <Fi className="w-3 h-3 text-sky-600" />
+                                      <Fi className="w-3 h-3 text-accent" />
                                       <span>{f.name}</span>
                                     </span>
                                     <button
                                       onClick={() => routeToPoi(f)}
-                                      className="underline text-[9px] font-bold text-sky-700"
+                                      className="underline text-[9px] font-bold text-accent"
                                     >
                                       Đến
                                     </button>
@@ -448,8 +492,8 @@ export default function InteractiveMap({
 
                         <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
                           <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="text-emerald-700">Verified</span>
+                            <ShieldCheck className="w-3.5 h-3.5 text-accent" />
+                            <span className="text-accent">Verified</span>
                           </div>
                           <button
                             className="bg-card text-foreground text-[9px] font-bold px-2 py-1 rounded hover:bg-primary/20"

@@ -1,0 +1,130 @@
+# EduMap — Minimal Local Development Override (auto-loaded by `docker compose up`)
+# Docker Compose tự động merge file này với docker-compose.yml.
+# Chỉ 5 service core được start. Các service phụ (minio, nginx, osrm,
+# crawler, prometheus, grafana, mobile, db-init) được chuyển sang
+# profile "dev-optional" để KHÔNG pull/start trong lúc dev.
+#
+# Usage (tối giản — chỉ có lệnh này thôi):
+#   docker compose up --build
+#
+# Có thể bật thêm service khi cần:
+#   docker compose up --profile dev-optional           # bật minio, nginx, osrm, monitoring
+#   docker compose up --profile dev-optional db-init   # init DB schema (chạy một lần)
+#   docker compose up minio                            # bật riêng minio để upload file
+#
+# Hoặc chạy backend/frontend/ai-service local ngoài Docker:
+#   npm run start:dev (backend) && npm run dev (frontend) && uvicorn main:app --reload (ai-service)
+
+services:
+  # --- Override các service không cần thiết trong dev ---
+  minio:
+    profiles: ["dev-optional"]
+
+  nginx:
+    profiles: ["dev-optional"]
+
+  osrm:
+    profiles: ["dev-optional"]
+
+  crawler:
+    profiles: ["dev-optional"]
+
+  prometheus:
+    profiles: ["dev-optional"]
+
+  grafana:
+    profiles: ["dev-optional"]
+
+  mobile:
+    profiles: ["dev-optional"]
+
+  db-init:
+    profiles: ["dev-optional"]
+
+  postgres:
+    ports:
+      - "5433:5432"
+
+  redis:
+    ports:
+      - "6380:6379"
+
+  backend:
+    image: edumap-backend
+    container_name: edumap_backend_dev
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-edumap}
+      - DB_PASSWORD=${DB_PASSWORD:-edumap_password}
+      - DB_DATABASE=${DB_DATABASE:-edumap_db}
+      - DB_TYPE=postgres
+      - DB_SYNC=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVICE_URL=http://ai-service:8000
+      - OSRM_URL=https://router.project-osrm.org
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-me}
+      - JWT_EXPIRES_IN=7d
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - PORT=3000
+      - MINIO_ENDPOINT=minio
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+    ports:
+      - "3003:3000"
+    depends_on:
+      - postgres
+      - redis
+    restart: "no"
+
+  frontend:
+    image: edumap-frontend
+    container_name: edumap_frontend_dev
+    command: ["npx", "next", "dev", "-p", "3000"]
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - BACKEND_URL=http://backend:3000
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - NODE_ENV=development
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    restart: "no"
+
+  ai-service:
+    image: edumap-ai-service
+    container_name: edumap_ai_dev
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
+      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL:-@cf/meta/llama-3.1-8b-instruct-fp8}
+      - CLOUDFLARE_EMBEDDING_MODEL=${CLOUDFLARE_EMBEDDING_MODEL:-@cf/baai/bge-base-en-v1.5}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-edumap_db}
+      - DB_USERNAME=${DB_USERNAME:-edumap}
+      - DB_PASSWORD=${DB_PASSWORD:-edumap_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    # ports removed (FIX #audit): ai-service has NO auth layer, so publishing
+    # it on 0.0.0.0:8002 exposed /api/ai/* (incl. /sync-knowledge) to the
+    # network. Backend still reaches it internally at http://ai-service:8000
+    # (Docker DNS), which is the only caller today. Re-add a published port
+    # ONLY after adding API-key auth to ai-service/main.py.
+    volumes:
+      - chroma_db_data_dev:/app/chroma_db
+    depends_on:
+      - postgres
+      - redis
+    restart: "no"
+
+volumes:
+  chroma_db_data_dev:

@@ -1,4 +1,5 @@
 import { Controller, Post, Patch, Get, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +17,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly mfaService: MfaService,
+    private readonly jwtService: JwtService,
   ) {}
 
   @Public()
@@ -59,6 +61,37 @@ export class AuthController {
       console.error(`Google auth failed: ${error.message}`);
       throw new BadRequestException(error.message || 'Xác thực Google thất bại');
     }
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('dev-login')
+  async devLogin() {
+    // Dev-only bypass: ensures a DB-backed user exists, then signs a
+    // properly JWT (using the real JWT_SECRET) so that both frontend
+    // isLoggedIn() checks and backend JwtAuthGuard pass.
+    const user = await this.authService.createDevUser();
+
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    };
+    const access_token = this.jwtService.sign(payload);
+
+    return {
+      success: true,
+      data: {
+        userId: user.id,
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: user.role,
+        access_token,
+        message: 'Dev login successful!',
+      },
+    };
   }
 
   @Public()

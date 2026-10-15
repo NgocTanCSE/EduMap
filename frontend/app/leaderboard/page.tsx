@@ -48,15 +48,15 @@ export default function LeaderboardPage() {
   const others = users.slice(3);
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
             <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
           </div>
-          <h1 className="text-5xl font-black tracking-tight">Vinh danh những nỗ lực</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Vinh danh những nỗ lực</h1>
           <p className="text-muted-foreground/40 max-w-2xl mx-auto">
             Càng học tập, quyên góp và tham gia hoạt động cộng đồng, thứ hạng của bạn càng cao.
             Hãy cùng nhau xây dựng cộng đồng học tập tích cực!
@@ -65,12 +65,12 @@ export default function LeaderboardPage() {
 
         {/* My Progress Card (If logged in) */}
         {progress && (
-          <div className="bg-card border border-border rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8 shadow-2xl">
+          <div className="bg-card border border-border rounded-lg p-8 flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
                 <div className="w-24 h-24 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card/40">
-                    <span className="text-3xl font-black text-primary">{progress.level}</span>
+                    <span className="text-3xl font-semibold text-primary">{progress.level}</span>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-black text-white">LEVEL</div>
+                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-white">LEVEL</div>
             </div>
             
             <div className="flex-1 space-y-4 w-full text-center md:text-left">
@@ -80,7 +80,7 @@ export default function LeaderboardPage() {
                         <p className="text-muted-foreground/40 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
                     </div>
                     <div className="text-right">
-                        <span className="text-2xl font-black text-white">{progress.points.toLocaleString()}</span>
+                        <span className="text-2xl font-semibold text-foreground">{progress.points.toLocaleString()}</span>
                         <span className="text-xs text-muted-foreground/40 font-bold ml-1">XP</span>
                     </div>
                 </div>
@@ -102,7 +102,7 @@ export default function LeaderboardPage() {
         )}
 
         {/* Podium (Top 3) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end max-w-4xl mx-auto pt-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end w-full mx-auto pt-12">
             {/* 2nd Place */}
             {topThree[1] && (
                 <div className="order-2 md:order-1 space-y-4 text-center pb-8">
@@ -110,10 +110,10 @@ export default function LeaderboardPage() {
                         <div className="w-24 h-24 rounded-full border-4 border-muted-foreground/30 overflow-hidden bg-card">
                             <img src={topThree[1].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[1].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-400 text-white rounded-full p-2">
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground rounded-full p-2">
                             <Medal className="w-5 h-5" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground font-black px-3 py-1 rounded-lg text-sm">#2</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground font-semibold px-3 py-1 rounded-lg text-sm">#2</div>
                     </div>
                     <div>
                         <p className="font-bold">{topThree[1].full_name}</p>
@@ -126,16 +126,16 @@ export default function LeaderboardPage() {
             {topThree[0] && (
                 <div className="order-1 md:order-2 space-y-6 text-center">
                     <div className="relative inline-block">
-                        <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-card shadow-lg shadow-primary/20">
+                        <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-card shadow-lg">
                             <img src={topThree[0].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[0].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
                             <Crown className="w-10 h-10 fill-primary" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-foreground font-black px-4 py-1.5 rounded-lg text-base">#1</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-foreground font-semibold px-4 py-1.5 rounded-lg text-base">#1</div>
                     </div>
                     <div>
-                        <p className="text-xl font-black text-primary">{topThree[0].full_name}</p>
+                        <p className="text-xl font-semibold text-primary">{topThree[0].full_name}</p>
                         <p className="text-sm text-muted-foreground/40">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
                     </div>
                 </div>
@@ -148,10 +148,10 @@ export default function LeaderboardPage() {
                         <div className="w-20 h-20 rounded-full border-4 border-amber-700 overflow-hidden bg-card">
                             <img src={topThree[2].avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(topThree[2].full_name)}&background=random`} alt="" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-700 text-white rounded-full p-2">
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-700 text-foreground rounded-full p-2">
                             <Medal className="w-4 h-4" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-amber-700 text-white font-black px-3 py-1 rounded-lg text-xs">#3</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-amber-700 text-foreground font-semibold px-3 py-1 rounded-lg text-xs">#3</div>
                     </div>
                     <div>
                         <p className="font-bold">{topThree[2].full_name}</p>
@@ -162,9 +162,9 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Others List */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xl max-w-4xl mx-auto">
+        <div className="bg-card border border-border rounded-lg overflow-hidden w-full mx-auto">
             <div className="p-6 border-b border-border flex justify-between items-center bg-card/20">
-                <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/40">Bảng xếp hạng chi tiết</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/40">Bảng xếp hạng chi tiết</span>
                 <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
             </div>
             <div className="divide-y divide-white/5">
@@ -180,11 +180,11 @@ export default function LeaderboardPage() {
                             <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-primary' : ''}`}>
                                 {user.full_name} {user.id === currentUser?.id && '(Bạn)'}
                             </p>
-                            <p className="text-[10px] text-muted-foreground/40 uppercase font-black">Cấp độ {user.level}</p>
+                            <p className="text-[10px] text-muted-foreground/40 uppercase font-semibold">Cấp độ {user.level}</p>
                         </div>
                         <div className="text-right">
                             <p className="font-mono font-bold text-sm">{user.points.toLocaleString()}</p>
-                            <p className="text-[10px] text-muted-foreground/40 uppercase font-black">XP</p>
+                            <p className="text-[10px] text-muted-foreground/40 uppercase font-semibold">XP</p>
                         </div>
                     </div>
                 ))}

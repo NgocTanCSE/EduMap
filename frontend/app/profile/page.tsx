@@ -103,7 +103,7 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background text-white flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
       
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-background p-6 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
@@ -119,7 +119,7 @@ export default function ProfilePage() {
             className={`flex items-center gap-3 p-3 rounded-xl transition-all whitespace-nowrap ${
               activeTab === tab.id 
                 ? 'bg-primary/10 text-primary font-bold border border-primary/20' 
-                : 'text-muted-foreground hover:text-white hover:bg-card/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-card/20'
             }`}
           >
             <tab.icon className="w-5 h-5" />
@@ -128,26 +128,25 @@ export default function ProfilePage() {
         ))}
         
         <div className="mt-auto hidden md:block pt-6 border-t border-border">
-          <button onClick={handleLogout} className="flex items-center gap-3 p-3 w-full rounded-xl text-red-500 hover:bg-red-500/10 transition-all font-bold">
+          <button onClick={handleLogout} className="flex items-center gap-3 p-3 w-full rounded-xl text-destructive hover:bg-destructive/10 transition-all font-bold">
             <LogOut className="w-5 h-5" /> Đăng xuất
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-12 overflow-y-auto">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="flex-1 p-6 md:p-6 overflow-y-auto">
+        <div className="w-full mx-auto space-y-8">
           
           {/* Header Profile Card */}
-          <div className="bg-card border border-border rounded-2xl p-8 relative overflow-hidden flex flex-col md:flex-row gap-8 items-center md:items-start shadow-xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none" />
+          <div className="bg-card border border-border rounded-lg p-8 relative overflow-hidden flex flex-col md:flex-row gap-8 items-center md:items-start">
             
             <div className="relative group cursor-pointer shrink-0" onClick={() => !uploadingAvatar && document.getElementById('avatar-upload-input')?.click()}>
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30">
                 <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
               <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-6 h-6 text-white" />
+                <Camera className="w-6 h-6 text-foreground" />
               </div>
               {uploadingAvatar && (
                 <div className="absolute -bottom-2 -right-2">
@@ -190,7 +189,7 @@ export default function ProfilePage() {
             />
             
             <div className="flex-1 text-center md:text-left space-y-3 relative z-10">
-              <h1 className="text-3xl font-black">{user.fullName}</h1>
+              <h1 className="text-3xl font-semibold">{user.fullName}</h1>
               <p className="text-muted-foreground/60 max-w-lg leading-relaxed text-sm">{user.email}</p>
               
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2">
@@ -203,12 +202,12 @@ export default function ProfilePage() {
             {/* Quick Stats */}
             {progress && (
               <div className="flex md:flex-col gap-4 w-full md:w-auto relative z-10 shrink-0">
-                <div className="flex-1 bg-primary/10 border border-primary/20 rounded-2xl p-4 text-center min-w-[100px]">
-                  <div className="text-2xl font-black text-primary">{progress.level}</div>
+                <div className="flex-1 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center min-w-[100px]">
+                  <div className="text-2xl font-semibold text-primary">{progress.level}</div>
                   <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">Level</div>
                 </div>
-                <div className="flex-1 bg-primary/10 border border-primary/20 rounded-2xl p-4 text-center min-w-[100px]">
-                  <div className="text-2xl font-black text-primary/70">{progress.points.toLocaleString()}</div>
+                <div className="flex-1 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center min-w-[100px]">
+                  <div className="text-2xl font-semibold text-primary/70">{progress.points.toLocaleString()}</div>
                   <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">XP</div>
                 </div>
               </div>
@@ -231,7 +230,7 @@ export default function ProfilePage() {
               {activeTab === 'gamification' && progress && (
                 <section className="space-y-8">
                   {/* Progress Card */}
-                  <div className="bg-card border border-border rounded-xl p-8 shadow-xl">
+                  <div className="bg-card border border-border rounded-xl p-8">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Award className="text-primary" /> Tiến độ Thăng cấp</h2>
                     
                     <div className="flex items-center justify-between mb-4">
@@ -261,12 +260,12 @@ export default function ProfilePage() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {badges.length > 0 ? (
                             badges.map((userBadge) => (
-                                <div key={userBadge.id} className="aspect-square bg-card/40 rounded-3xl border border-border flex flex-col items-center justify-center p-4 text-center group relative cursor-help hover:border-primary/50 hover:bg-primary/10 transition-all">
+                                <div key={userBadge.id} className="aspect-square bg-card/40 rounded-xl border border-border flex flex-col items-center justify-center p-4 text-center group relative cursor-help hover:border-primary/50 hover:bg-primary/10 transition-all">
                                     <img src={'https://cdn-icons-png.flaticon.com/512/5753/5753065.png'} alt="Badge" className="w-12 h-12 mb-3 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-lg" />
                                     <span className="text-xs font-bold w-full truncate">{userBadge.badge.name}</span>
                                     
                                     {/* Tooltip */}
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-black/90 backdrop-blur-md text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border text-left">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-black/90 text-foreground text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-border text-left">
                                         <p className="font-bold text-primary mb-1">{userBadge.badge.name}</p>
                                         <p className="text-muted-foreground/60 mb-2">{userBadge.badge.description}</p>
                                         <p className="text-[8px] uppercase tracking-wider">Mở khóa: {new Date(userBadge.earned_at).toLocaleDateString('vi-VN')}</p>
@@ -389,7 +388,7 @@ export default function ProfilePage() {
                       <button
                         type="submit"
                         disabled={savingProfile}
-                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-card text-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -400,7 +399,7 @@ export default function ProfilePage() {
                   {/* Change Password Form */}
                   <div className="bg-card border border-border rounded-xl p-8">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Lock className="w-5 h-5 text-red-400" /> Đổi mật khẩu
+                      <Lock className="w-5 h-5 text-destructive" /> Đổi mật khẩu
                     </h2>
                     <form onSubmit={async (e) => {
                       e.preventDefault();
@@ -436,7 +435,7 @@ export default function ProfilePage() {
                           type="password"
                           value={passwordForm.currentPassword}
                           onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                          className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-red-400 outline-none transition-colors"
+                          className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-destructive outline-none transition-colors"
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -446,7 +445,7 @@ export default function ProfilePage() {
                             type="password"
                             value={passwordForm.newPassword}
                             onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                            className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-red-400 outline-none transition-colors"
+                            className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-destructive outline-none transition-colors"
                           />
                         </div>
                         <div className="space-y-2">
@@ -455,14 +454,14 @@ export default function ProfilePage() {
                             type="password"
                             value={passwordForm.confirmPassword}
                             onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                            className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-red-400 outline-none transition-colors"
+                            className="w-full bg-card/40 border border-border rounded-xl px-4 py-3 text-sm focus:border-destructive outline-none transition-colors"
                           />
                         </div>
                       </div>
                       <button
                         type="submit"
                         disabled={savingPassword}
-                        className="px-8 py-3 bg-red-600 hover:bg-red-500 disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-destructive hover:bg-destructive disabled:bg-card text-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                         {savingPassword ? 'Đang xử lý...' : 'Đổi mật khẩu'}
@@ -513,7 +512,7 @@ export default function ProfilePage() {
                         }
                       }}
                       disabled={savingPrefs}
-                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-card text-white font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-card text-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                     >
                       {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       {savingPrefs ? 'Đang lưu...' : 'Lưu cài đặt thông báo'}
@@ -531,13 +530,13 @@ export default function ProfilePage() {
               <div className="bg-card border border-border rounded-xl p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold flex items-center gap-2"><Trophy className="w-4 h-4 text-primary" /> Bảng xếp hạng</h3>
-                  <Link href="/leaderboard" className="text-[10px] uppercase font-bold text-muted-foreground/40 hover:text-white transition-colors">Xem tất cả</Link>
+                  <Link href="/leaderboard" className="text-[10px] uppercase font-bold text-muted-foreground/40 hover:text-foreground transition-colors">Xem tất cả</Link>
                 </div>
                 
                 <div className="space-y-3">
                   {leaderboard.map((u, index) => (
-                    <div key={u.id} className={`flex items-center gap-3 p-3 rounded-2xl transition-colors border ${u.id === user.id ? 'bg-primary/10 border-primary/20' : 'bg-card/40 border-border hover:border-border'}`}>
-                      <span className={`text-sm font-black w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-muted-foreground/60' : index === 2 ? 'text-amber-700' : 'text-muted-foreground/20'}`}>
+                    <div key={u.id} className={`flex items-center gap-3 p-3 rounded-lg transition-colors border ${u.id === user.id ? 'bg-primary/10 border-primary/20' : 'bg-card/40 border-border hover:border-border'}`}>
+                      <span className={`text-sm font-semibold w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-muted-foreground/60' : index === 2 ? 'text-primary-foreground' : 'text-muted-foreground/20'}`}>
                         #{index + 1}
                       </span>
                       <div className="flex-1">

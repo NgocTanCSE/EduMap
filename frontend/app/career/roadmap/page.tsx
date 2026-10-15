@@ -51,15 +51,15 @@ export default function CareerRoadmapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-card text-white p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-card text-foreground p-8">
+      <div className="w-full mx-auto">
         
         {/* Input Section */}
-        <div className="mb-12 p-8 rounded-2xl bg-card/50 border border-border backdrop-blur-xl">
-           <div className="flex items-center gap-2 text-primary mb-6 uppercase text-[10px] font-black tracking-[0.2em]">
+        <div className="mb-12 p-8 rounded-lg bg-card/50 border border-border">
+           <div className="flex items-center gap-2 text-primary mb-6 uppercase text-[10px] font-semibold tracking-[0.2em]">
               <BrainCircuit className="w-4 h-4" /> AI Personalized Generator
            </div>
-           <h2 className="text-3xl font-black mb-8">Bạn muốn trở thành ai?</h2>
+           <h2 className="text-3xl font-semibold mb-8">Bạn muốn trở thành ai?</h2>
            
            <form onSubmit={generateRoadmap} className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
@@ -67,7 +67,7 @@ export default function CareerRoadmapPage() {
                  <input 
                     value={targetRole}
                     onChange={(e) => setTargetRole(e.target.value)}
-                    className="w-full bg-card/40 border border-border rounded-2xl py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm"
+                    className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm"
                     placeholder="VD: Data Scientist"
                  />
               </div>
@@ -76,7 +76,7 @@ export default function CareerRoadmapPage() {
                  <select 
                     value={currentLevel}
                     onChange={(e) => setCurrentLevel(e.target.value)}
-                    className="w-full bg-card/40 border border-border rounded-2xl py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm appearance-none"
+                    className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm appearance-none"
                  >
                     <option value="Beginner">Beginner</option>
                     <option value="Intermediate">Intermediate</option>
@@ -87,7 +87,7 @@ export default function CareerRoadmapPage() {
                  <button 
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-primary/80 hover:bg-primary/80 text-foreground font-black py-4 rounded-2xl transition-all shadow-xl shadow-primary/10 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                    className="w-full bg-primary/80 hover:bg-primary/80 text-foreground font-semibold py-4 rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
                  >
                     {loading ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     {loading ? "Đang xử lý..." : "Tạo lộ trình"}
@@ -99,15 +99,15 @@ export default function CareerRoadmapPage() {
         {roadmap && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* Header */}
-            <div className="flex items-center gap-6 mb-12 p-8 rounded-3xl bg-primary/10 border border-primary/20 relative overflow-hidden">
-              <div className="p-4 bg-primary rounded-2xl shadow-lg shadow-primary/40">
-                <TrendingUp className="w-8 h-8 text-white" />
+            <div className="flex items-center gap-6 mb-12 p-8 rounded-xl bg-primary/10 border border-primary/20 relative overflow-hidden">
+              <div className="p-4 bg-primary rounded-lg shadow-lg">
+                <TrendingUp className="w-8 h-8 text-foreground" />
               </div>
               <div className="flex-1">
                 <h1 className="text-2xl font-bold">Lộ trình: {roadmap.target_role}</h1>
                 <p className="text-sm text-muted-foreground/50">Dự kiến hoàn thành trong {roadmap.total_estimated_months} tháng</p>
               </div>
-              <div className="absolute top-0 right-0 p-8 opacity-5">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
                  <MapIcon className="w-32 h-32" />
               </div>
             </div>
@@ -121,14 +121,14 @@ export default function CareerRoadmapPage() {
                   <div className={`w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center border-4 z-10 transition-all ${
                     index === 0 ? 'bg-primary border-yellow-400' : 'bg-card border-border group-hover:border-primary/50'
                   }`}>
-                    <span className="text-xl font-bold text-white">{step.step_number}</span>
+                    <span className="text-xl font-bold text-foreground">{step.step_number}</span>
                   </div>
 
-                  <div className="flex-1 p-8 rounded-2xl border border-border bg-card/30 backdrop-blur-sm group-hover:border-primary/50 transition-all">
+                  <div className="flex-1 p-8 rounded-lg border border-border bg-card/30 group-hover:border-primary/50 transition-all">
                     <div className="flex justify-between items-start mb-4">
                        <div>
-                          <h3 className="text-xl font-black mb-1 text-primary/90">{step.title}</h3>
-                          <div className="flex gap-4 text-[10px] text-muted-foreground/30 uppercase font-black tracking-widest">
+                          <h3 className="text-xl font-semibold mb-1 text-primary/90">{step.title}</h3>
+                          <div className="flex gap-4 text-[10px] text-muted-foreground/30 uppercase font-semibold tracking-widest">
                              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {step.estimated_weeks} tuần</span>
                              <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> AI Curated Resources</span>
                           </div>
@@ -145,8 +145,8 @@ export default function CareerRoadmapPage() {
         )}
 
         {!roadmap && !loading && (
-            <div className="text-center py-20 border border-dashed border-border rounded-2xl">
-                <p className="text-muted-foreground/20 font-black uppercase tracking-widest text-xs">Vui lòng nhập mục tiêu để bắt đầu</p>
+            <div className="text-center py-12 border border-dashed border-border rounded-lg">
+                <p className="text-muted-foreground/20 font-semibold uppercase tracking-widest text-xs">Vui lòng nhập mục tiêu để bắt đầu</p>
             </div>
         )}
       </div>

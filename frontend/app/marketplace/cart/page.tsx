@@ -90,25 +90,25 @@ export default function CartPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-white">Đang tải giỏ hàng...</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Đang tải giỏ hàng...</div>;
 
   if (checkoutStep === 3) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-8">
-        <div className="max-w-md w-full bg-card border border-border rounded-2xl p-10 text-center space-y-6">
+        <div className="max-w-md w-full bg-card border border-border rounded-lg p-10 text-center space-y-6">
           <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-10 h-10 text-primary" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">Đặt hàng thành công!</h1>
+            <h1 className="text-2xl font-bold text-foreground">Đặt hàng thành công!</h1>
             <p className="text-muted-foreground/40 text-sm">Mã đơn hàng: {orderInfo?.orderId}</p>
           </div>
-          <div className="p-4 bg-card rounded-2xl">
+          <div className="p-4 bg-card rounded-lg">
             <p className="text-xs text-muted-foreground/40">Tổng thanh toán</p>
             <p className="text-xl font-mono font-bold text-primary">{orderInfo?.totalAmount.toLocaleString()}đ</p>
           </div>
           <Link href="/marketplace">
-            <button className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-2xl font-bold transition-all">
+            <button className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-lg font-bold transition-all">
               Quay lại sàn giao dịch
             </button>
           </Link>
@@ -118,8 +118,8 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-8">
         
         <div className="flex items-center gap-4">
           <Link href="/marketplace">
@@ -131,11 +131,11 @@ export default function CartPage() {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="text-center py-20 bg-card border border-border rounded-2xl">
+          <div className="text-center py-12 bg-card border border-border rounded-lg">
             <ShoppingCart className="w-20 h-20 text-white/5 mx-auto mb-4" />
             <p className="text-muted-foreground/40">Giỏ hàng của bạn đang trống.</p>
             <Link href="/marketplace">
-              <button className="mt-6 px-8 py-3 bg-primary rounded-2xl font-bold hover:bg-primary/80 transition-all">Bắt đầu mua sắm</button>
+              <button className="mt-6 px-8 py-3 bg-primary rounded-lg font-bold hover:bg-primary/80 transition-all">Bắt đầu mua sắm</button>
             </Link>
           </div>
         ) : (
@@ -143,8 +143,8 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-4">
               {checkoutStep === 1 ? (
                 cartItems.map(item => (
-                  <div key={item.id} className="p-4 bg-card border border-border rounded-3xl flex items-center gap-4">
-                    <div className="w-20 h-20 bg-card rounded-2xl flex items-center justify-center overflow-hidden">
+                  <div key={item.id} className="p-4 bg-card border border-border rounded-xl flex items-center gap-4">
+                    <div className="w-20 h-20 bg-card rounded-lg flex items-center justify-center overflow-hidden">
                       {item.product?.image_url ? (
                         <img src={item.product.image_url} className="w-full h-full object-cover" />
                       ) : (
@@ -164,14 +164,14 @@ export default function CartPage() {
                   </div>
                 ))
               ) : (
-                <div className="p-8 bg-card border border-border rounded-2xl space-y-6">
+                <div className="p-8 bg-card border border-border rounded-lg space-y-6">
                   <div className="space-y-4">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-primary" /> Thông tin nhận hàng
                     </h2>
                     <textarea 
                       placeholder="Nhập địa chỉ đầy đủ của bạn..."
-                      className="w-full bg-card border border-border rounded-2xl p-4 text-sm outline-none focus:border-primary transition-colors h-32"
+                      className="w-full bg-card border border-border rounded-lg p-4 text-sm outline-none focus:border-primary transition-colors h-32"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                     />
@@ -183,13 +183,13 @@ export default function CartPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => setPaymentMethod('COD')}
-                        className={`p-4 rounded-2xl border ${paymentMethod === 'COD' ? 'border-primary bg-primary/10' : 'border-border bg-card'} text-sm font-bold transition-all`}
+                        className={`p-4 rounded-lg border ${paymentMethod === 'COD' ? 'border-primary bg-primary/10' : 'border-border bg-card'} text-sm font-bold transition-all`}
                       >
                         Thanh toán khi nhận hàng (COD)
                       </button>
                       <button 
                         onClick={() => setPaymentMethod('BANK_TRANSFER')}
-                        className={`p-4 rounded-2xl border ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary bg-primary/10' : 'border-border bg-card'} text-sm font-bold transition-all`}
+                        className={`p-4 rounded-lg border ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary bg-primary/10' : 'border-border bg-card'} text-sm font-bold transition-all`}
                       >
                         Chuyển khoản ngân hàng
                       </button>
@@ -200,7 +200,7 @@ export default function CartPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="p-8 bg-card border border-border rounded-2xl space-y-6">
+              <div className="p-8 bg-card border border-border rounded-lg space-y-6">
                 <h2 className="text-xl font-bold">Tổng quan đơn hàng</h2>
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm">
@@ -221,7 +221,7 @@ export default function CartPage() {
                 {checkoutStep === 1 ? (
                   <button 
                     onClick={() => setCheckoutStep(2)}
-                    className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-2xl font-bold transition-all shadow-lg shadow-primary/20"
+                    className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-lg font-bold transition-all shadow-lg"
                   >
                     Tiến hành đặt hàng
                   </button>
@@ -229,13 +229,13 @@ export default function CartPage() {
                   <div className="space-y-3">
                     <button 
                       onClick={handleCheckout}
-                      className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-2xl font-bold transition-all"
+                      className="w-full py-4 bg-primary hover:bg-primary/80 text-white rounded-lg font-bold transition-all"
                     >
                       Xác nhận thanh toán
                     </button>
                     <button 
                       onClick={() => setCheckoutStep(1)}
-                      className="w-full py-4 bg-card hover:bg-card text-muted-foreground/60 rounded-2xl font-bold transition-all"
+                      className="w-full py-4 bg-card hover:bg-card text-muted-foreground/60 rounded-lg font-bold transition-all"
                     >
                       Quay lại giỏ hàng
                     </button>

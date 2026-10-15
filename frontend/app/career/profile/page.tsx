@@ -85,13 +85,13 @@ export default function CareerProfilePage() {
     }
   };
 
-  if (loading && skills.length === 0) return <div className="text-white text-center mt-20">Loading profile...</div>;
+  if (loading && skills.length === 0) return <div className="text-foreground text-center mt-20">Loading profile...</div>;
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-4xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         <header className="flex justify-between items-center border-b border-border pb-6">
-          <h1 className="text-4xl font-bold">Career Profile</h1>
+          <h1 className="text-2xl font-bold">Career Profile</h1>
           <div className="text-right">
              <p className="text-muted-foreground/40 text-sm">Managing aspirations for</p>
              <p className="text-primary/70 font-medium">{authService.getUser()?.email}</p>
@@ -99,7 +99,7 @@ export default function CareerProfilePage() {
         </header>
 
         {/* Skills Section */}
-        <section className="space-y-6 bg-card/30 p-6 rounded-2xl border border-border">
+        <section className="space-y-6 bg-card/30 p-6 rounded-lg border border-border">
           <div className="flex items-center gap-2 text-2xl font-semibold text-primary/70">
             <BrainCircuit />
             <h2>Your Skills</h2>
@@ -109,10 +109,10 @@ export default function CareerProfilePage() {
             {skills.map(skill => (
               <div key={skill.id} className="bg-card border border-border p-4 rounded-xl flex justify-between items-center transition-all hover:border-primary/50">
                 <div>
-                  <h3 className="font-bold text-gray-100">{skill.skill_name}</h3>
+                  <h3 className="font-bold text-foreground">{skill.skill_name}</h3>
                   <p className="text-[10px] text-primary/70 uppercase tracking-widest font-bold mt-1">{skill.proficiency_level}</p>
                 </div>
-                <button onClick={() => handleDeleteSkill(skill.id)} className="text-muted-foreground hover:text-red-400 transition-colors">
+                <button onClick={() => handleDeleteSkill(skill.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 size={18} />
                 </button>
               </div>
@@ -146,7 +146,7 @@ export default function CareerProfilePage() {
         </section>
 
         {/* Aspirations Section */}
-        <section className="space-y-6 bg-card/30 p-6 rounded-2xl border border-border">
+        <section className="space-y-6 bg-card/30 p-6 rounded-lg border border-border">
           <div className="flex items-center gap-2 text-2xl font-semibold text-primary/70">
             <Target />
             <h2>Career Aspirations</h2>
@@ -155,7 +155,7 @@ export default function CareerProfilePage() {
           <div className="space-y-4">
             {aspirations.map(asp => (
               <div key={asp.id} className="bg-card border border-border p-4 rounded-xl border-l-4 border-l-primary">
-                <h3 className="font-bold text-lg text-gray-100">{asp.goal_title}</h3>
+                <h3 className="font-bold text-lg text-foreground">{asp.goal_title}</h3>
                 <p className="text-muted-foreground/40 text-sm mt-1">{asp.description}</p>
               </div>
             ))}
@@ -177,37 +177,37 @@ export default function CareerProfilePage() {
               value={newAspiration.description}
               onChange={e => setNewAspiration({...newAspiration, description: e.target.value})}
             />
-            <button type="submit" className="w-full bg-primary hover:bg-yellow-700 py-3 rounded-xl font-bold transition-all shadow-lg shadow-primary/20 active:scale-[0.98]">
+            <button type="submit" className="w-full bg-primary hover:bg-primary py-3 rounded-xl font-bold transition-all shadow-lg active:scale-[0.98]">
               Add Career Goal
             </button>
           </form>
         </section>
 
         {/* AI Advice Section */}
-        <section className="bg-card border border-primary/30 p-8 rounded-3xl space-y-8 relative overflow-hidden">
+        <section className="bg-card border border-primary/30 p-8 rounded-xl space-y-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16" />
           
           <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-3 text-2xl font-semibold text-muted-foreground/70">
               <BrainCircuit className="w-8 h-8 text-primary/70 animate-pulse" />
-              <h2>Gemini AI Career Mentor</h2>
+              <h2>Career Mentor</h2>
             </div>
             <button 
               onClick={handleGetAIAdvice}
               disabled={loading}
-              className="bg-primary hover:bg-primary/90 px-8 py-3 rounded-full font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+              className="bg-primary hover:bg-primary/90 px-8 py-3 rounded-full font-bold transition-all shadow-lg disabled:opacity-50"
             >
               {loading ? 'Analyzing...' : 'Generate New Advice'}
             </button>
           </div>
 
           {aiAdvice ? (
-            <div className="bg-black/60 p-8 rounded-2xl space-y-6 border border-border relative z-10 backdrop-blur-sm">
+            <div className="bg-black/60 p-8 rounded-lg space-y-6 border border-border relative z-10 backdrop-blur-sm">
               <div>
                 <h3 className="text-2xl font-bold text-primary mb-2">{aiAdvice.title}</h3>
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Match Score:</span>
-                    <span className="text-lg font-black text-primary">{aiAdvice.match_score}%</span>
+                    <span className="text-lg font-semibold text-primary">{aiAdvice.match_score}%</span>
                 </div>
               </div>
               

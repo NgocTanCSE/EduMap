@@ -68,15 +68,15 @@ export default function HSConnectionPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background text-white p-8">
-            <div className="max-w-6xl mx-auto space-y-12">
+        <div className="min-h-screen bg-background text-foreground p-8">
+            <div className="w-full mx-auto space-y-12">
                 
                 {/* Header */}
                 <div className="text-center space-y-4 max-w-2xl mx-auto">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
                         <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
                     </div>
-                    <h1 className="text-4xl font-black tracking-tight">Kết nối & Học hỏi</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">Kết nối & Học hỏi</h1>
                     <p className="text-muted-foreground/40">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
                 </div>
 
@@ -87,14 +87,14 @@ export default function HSConnectionPage() {
                         
                         {/* Pending Requests */}
                         {network?.requests && network.requests.length > 0 && (
-                            <div className="bg-card border border-border rounded-3xl p-6 shadow-xl">
+                            <div className="bg-card border border-border rounded-xl p-6">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                                     <UserPlus className="w-5 h-5 text-primary" /> 
                                     Lời mời kết bạn ({network.requests.length})
                                 </h2>
                                 <div className="space-y-4">
                                     {network.requests.map(req => (
-                                        <div key={req.id} className="flex items-center justify-between p-4 bg-card/50 rounded-2xl border border-border hover:bg-card transition-colors">
+                                        <div key={req.id} className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-border hover:bg-card transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <img 
                                                     src={req.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.full_name)}&background=random`} 
@@ -110,14 +110,14 @@ export default function HSConnectionPage() {
                                                 <button 
                                                     disabled={actionLoading === req.connection_id}
                                                     onClick={() => handleRespond(req.connection_id!, true)}
-                                                    className="p-2 bg-primary hover:bg-primary text-white rounded-xl transition-colors disabled:opacity-50"
+                                                    className="p-2 bg-primary hover:bg-primary text-foreground rounded-xl transition-colors disabled:opacity-50"
                                                 >
                                                     {actionLoading === req.connection_id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                                                 </button>
                                                 <button 
                                                     disabled={actionLoading === req.connection_id}
                                                     onClick={() => handleRespond(req.connection_id!, false)}
-                                                    className="p-2 bg-card hover:bg-red-500/20 hover:text-red-400 text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50"
+                                                    className="p-2 bg-card hover:bg-destructive/20 hover:text-destructive text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50"
                                                 >
                                                     <X className="w-5 h-5" />
                                                 </button>
@@ -129,7 +129,7 @@ export default function HSConnectionPage() {
                         )}
 
                         {/* Friend List */}
-                        <div className="bg-card border border-border rounded-3xl p-6">
+                        <div className="bg-card border border-border rounded-xl p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-bold flex items-center gap-2">
                                     <Users className="w-5 h-5 text-primary" /> Bạn bè ({network?.friends?.length || 0})
@@ -143,7 +143,7 @@ export default function HSConnectionPage() {
                             {network?.friends && network.friends.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {network.friends.map(friend => (
-                                        <div key={friend.id} className="flex items-center gap-4 p-4 bg-card/30 rounded-2xl border border-border hover:border-border transition-colors cursor-pointer group">
+                                        <div key={friend.id} className="flex items-center gap-4 p-4 bg-card/30 rounded-lg border border-border hover:border-border transition-colors cursor-pointer group">
                                             <div className="relative">
                                                 <img 
                                                     src={friend.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.full_name)}&background=random`} 
@@ -170,14 +170,14 @@ export default function HSConnectionPage() {
 
                     {/* Right Column: Suggestions */}
                     <div className="space-y-6">
-                        <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-3xl p-6 sticky top-8">
+                        <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-xl p-6 sticky top-8">
                             <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-primary/70" /> Gợi ý kết bạn
                             </h2>
                             <div className="space-y-4">
                                 {network?.suggestions && network.suggestions.length > 0 ? (
                                     network.suggestions.map(suggest => (
-                                        <div key={suggest.id} className="bg-card/40 rounded-2xl p-4 border border-border relative overflow-hidden group">
+                                        <div key={suggest.id} className="bg-card/40 rounded-lg p-4 border border-border relative overflow-hidden group">
                                             <div className="flex flex-col items-center text-center space-y-3">
                                                 <img 
                                                     src={suggest.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(suggest.full_name)}&background=random`} 

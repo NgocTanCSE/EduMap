@@ -21,9 +21,9 @@ export class AdminController {
   ) {}
 
   @Post('crawl-map')
-  @ApiOperation({ summary: 'Kích hoạt thủ công Crawler để tìm địa điểm mới quanh DNTU' })
+  @ApiOperation({ summary: 'Kích hoạt thủ công Crawler toàn quốc (Overpass, 5 vùng) — incremental upsert' })
   async triggerMapCrawler() {
-    return this.crawlerService.crawlDNTUSurroundings();
+    return this.crawlerService.crawlNationwide();
   }
   
   @Get('dashboard')

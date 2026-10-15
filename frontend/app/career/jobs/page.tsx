@@ -36,17 +36,17 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-8">
         <header className="space-y-4">
-          <h1 className="text-4xl font-bold text-primary">
+          <h1 className="text-2xl font-bold text-primary">
             Career Opportunities
           </h1>
           <p className="text-muted-foreground/40">Discover jobs and courses tailored to your professional growth.</p>
         </header>
 
         {/* Search & Filter Bar */}
-        <form onSubmit={handleSearch} className="bg-card/50 p-4 rounded-2xl border border-border flex flex-wrap gap-4 items-center">
+        <form onSubmit={handleSearch} className="bg-card/50 p-4 rounded-lg border border-border flex flex-wrap gap-4 items-center">
           <div className="flex-1 min-w-[200px] relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <input 
@@ -67,7 +67,7 @@ export default function JobsPage() {
               onChange={e => setSearchParams({...searchParams, location: e.target.value})}
             />
           </div>
-          <button type="submit" className="bg-primary hover:bg-yellow-700 px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-primary/20">
+          <button type="submit" className="bg-primary hover:bg-yellow-700 px-8 py-3 rounded-xl font-bold transition-all shadow-lg">
             Find Opportunities
           </button>
         </form>
@@ -79,10 +79,10 @@ export default function JobsPage() {
           ) : jobs.length > 0 ? (
             jobs.map(job => (
               <Link key={job.id} href={`/career/jobs/${job.id}`} className="block">
-                <div className="bg-card border border-border p-6 rounded-2xl flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
+                <div className="bg-card border border-border p-6 rounded-lg flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                        <span className="bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
+                        <span className="bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
                             {job.job_type.replace('_', ' ')}
                         </span>
                         <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{job.title}</h3>
@@ -119,7 +119,7 @@ export default function JobsPage() {
               </Link>
             ))
           ) : (
-            <div className="text-center py-20 text-muted-foreground border border-dashed border-border rounded-3xl">
+            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
                 No opportunities found matching your criteria.
             </div>
           )}

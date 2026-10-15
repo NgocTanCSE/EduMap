@@ -226,6 +226,43 @@ class AuthService {
     }
   }
 
+  /**
+   * Dev-only login bypass — generates a properly-signed JWT via backend
+   * /api/auth/dev-login endpoint. Bypasses Google OAuth entirely.
+   * The resulting token passes both frontend isLoggedIn() checks and
+   * backend JwtAuthGuard validation (signed with the real JWT_SECRET).
+   */
+  async devLogin(): Promise<CurrentUser> {
+    const response = await fetch('/api/auth/dev-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Dev login failed.');
+    }
+
+    const authData = data.data || data;
+    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const userInfo: CurrentUser = {
+      id: authData.userId || authData.id,
+      email: authData.email,
+      fullName: authData.full_name || authData.fullName || 'Dev User',
+      role: (authData.role || UserRole.STUDENT) as UserRole,
+      avatar_url: authData.avatar_url || 'https://ui-avatars.com/api/?name=Dev+User&background=4285F4&color=fff',
+      phone: authData.phone || '',
+      bio: authData.bio || '',
+      date_of_birth: authData.date_of_birth || '',
+      major: authData.major || '',
+    };
+    this.setUserInfo(userInfo);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('edumap-auth-login'));
+    }
+    return userInfo;
+  }
+
   async loginWithCredentials(email: string, password: string): Promise<any> {
     const response = await fetch('/api/auth/login', {
       method: 'POST',

@@ -30,22 +30,22 @@ export default function StatsBoard() {
   }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 sm:p-8 rounded-3xl border border-white/10 bg-background/60 shadow-xl">
-      <div className="text-center md:border-r border-white/5 py-2">
-        <div className="text-3xl sm:text-4xl font-extrabold text-yellow-500">{stats.total_locations}</div>
-        <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Ghim PostGIS Đã Seed</div>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 sm:p-8 rounded-3xl border border-border/10 bg-background/60 shadow-xl">
+      <div className="text-center md:border-r border-border/5 py-2">
+        <div className="text-3xl sm:text-4xl font-extrabold text-primary">{stats.total_locations}</div>
+        <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Địa điểm</div>
       </div>
-      <div className="text-center md:border-r border-white/5 py-2">
-        <div className="text-3xl sm:text-4xl font-extrabold text-emerald-500">{stats.total_materials}</div>
+      <div className="text-center md:border-r border-border/5 py-2">
+        <div className="text-3xl sm:text-4xl font-extrabold text-accent">{stats.total_materials}</div>
         <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Học liệu Đã Nạp</div>
       </div>
-      <div className="text-center md:border-r border-white/5 py-2">
-        <div className="text-3xl sm:text-4xl font-extrabold text-indigo-500">{stats.total_users}</div>
+      <div className="text-center md:border-r border-border/5 py-2">
+        <div className="text-3xl sm:text-4xl font-extrabold text-foreground">{stats.total_users}</div>
         <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Tài khoản & Nhóm Học</div>
       </div>
       <div className="text-center py-2">
-        <div className="text-3xl sm:text-4xl font-extrabold text-violet-500">{stats.system_ready}</div>
-        <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">PostgreSQL & PostGIS Sẵn sàng</div>
+        <div className="text-3xl sm:text-4xl font-extrabold text-accent">{stats.system_ready}</div>
+        <div className="text-xs sm:text-sm text-foreground/50 font-medium mt-1">Hệ thống</div>
       </div>
     </div>
   );

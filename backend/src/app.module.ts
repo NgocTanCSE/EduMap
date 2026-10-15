@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -12,6 +12,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 import { join } from 'path';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 // === CORE MODULES ===
 import { HealthController } from './modules/health/health.controller';
@@ -57,6 +58,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { PinModule } from './modules/pin/pin.module';
 import { BlockchainModule } from './modules/blockchain/blockchain.module';
+import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 
 @Module({
   imports: [
@@ -81,7 +83,11 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
       },
     }),
     BullModule.forRoot({
-      redis: { host: process.env.REDIS_HOST || 'localhost', port: 6379 },
+      // FIX(#audit): honor REDIS_PORT so Bull queues keep working when Redis
+      // runs on a non-default port (e.g. this project's 6379 internal vs 6380
+      // external). Previously hardcoded to 6379 while CacheModule used
+      // Number(REDIS_PORT), causing silent queue starvation on non-standard ports.
+      redis: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
@@ -163,6 +169,7 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
     PaymentModule,
     PinModule,
     BlockchainModule,
+    BookmarksModule,
   ],
   controllers: [
     // Liveness probe used by the healthcheck (GET /api/health).
@@ -172,4 +179,11 @@ import { BlockchainModule } from './modules/blockchain/blockchain.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Activate the single HTTP request logger + correlation ID.
+    // Replaces LoggingInterceptor (now unused, kept on disk) which
+    // duplicated this logging without a request id.
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
+}

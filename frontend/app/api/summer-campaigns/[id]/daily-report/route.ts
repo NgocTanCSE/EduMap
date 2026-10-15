@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
+  const authHeader = req.headers.get('Authorization');
+  const headers: Record<string, string> = {};
+  if (authHeader) headers['Authorization'] = authHeader;
   try {
-    const id = req.nextUrl.pathname.split('/').filter(Boolean).pop();
     const url = new URL(`${getBackendUrl()}/summer-campaigns/${id}/daily-report`);
     req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
-    const response = await fetch(url.toString());
-    const data = await response.json();
+    const response = await fetch(url.toString(), { headers });
+    const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối' }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

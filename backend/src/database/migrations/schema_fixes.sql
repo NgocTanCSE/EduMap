@@ -103,7 +103,7 @@ ALTER TABLE opportunities ADD CONSTRAINT chk_opportunities_status
 
 -- AI Conversations constraints
 ALTER TABLE ai_conversations ADD CONSTRAINT chk_ai_conversations_model 
-    CHECK (model IN ('@cf/meta/llama-3-8b-instruct', '@cf/meta/llama-3-70b-instruct', 'gpt-4', 'gpt-3.5', 'claude', 'other'));
+    CHECK (model IN ('@cf/meta/llama-3.1-8b-instruct-fp8', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/google/gemma-7b-it-lora', '@cf/mistralai/mistral-small-3.1-24b-instruct', 'gpt-4', 'gpt-3.5', 'claude', 'other'));
 
 -- AI Messages constraints
 ALTER TABLE ai_messages ADD CONSTRAINT chk_ai_messages_role 

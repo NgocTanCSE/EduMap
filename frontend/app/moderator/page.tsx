@@ -42,7 +42,7 @@ export default function ModeratorPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
+    <div className="w-full mx-auto p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Clock className="w-6 h-6 text-primary" />
@@ -57,7 +57,7 @@ export default function ModeratorPage() {
       </div>
       
       {tasks.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border rounded-2xl">
+        <div className="text-center py-16 bg-card border border-border rounded-lg">
           <CheckCircle className="w-12 h-12 text-primary mx-auto mb-4" />
           <p>Không có nội dung cần duyệt.</p>
         </div>
@@ -80,7 +80,7 @@ export default function ModeratorPage() {
                   </button>
                   <button 
                     onClick={() => handleReject(t.id)}
-                    className="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center gap-1 text-sm"
+                    className="px-3 py-1 rounded-lg bg-destructive/20 text-destructive hover:bg-destructive/30 flex items-center gap-1 text-sm"
                   >
                     <XCircle className="w-4 h-4" /> Từ chối
                   </button>

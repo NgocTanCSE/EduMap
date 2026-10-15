@@ -11,6 +11,13 @@ services:
       - "${POSTGRES_PORT_EXTERNAL}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Auto-seed schema + base data on a FRESH volume (docker-entrypoint-initdb.d).
+      # Runs ONLY on first start of an empty data dir (safe: CREATE/INSERT only,
+      # no DROP). Keeps backend from 500-ing on an empty DB after a fresh build.
+      - ./backend/src/database/schema.sql:/edumap-init/01-schema.sql:ro
+      - ./backend/src/database/seed.sql:/edumap-init/02-seed.sql:ro
+      - ./seed_crawled_data.sql:/edumap-init/03-crawled.sql:ro
+      - ./infrastructure/postgres/docker-entrypoint-initdb.d/00-edumap-init.sh:/docker-entrypoint-initdb.d/00-edumap-init.sh:ro
     restart: unless-stopped
 
   redis:
@@ -98,8 +105,8 @@ services:
     environment:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
       - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
-      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL:-@cf/meta/llama-3-8b-instruct}
-      - CLOUDFLARE_EMBEDDING_MODEL=${CLOUDFLARE_EMBEDDING_MODEL:-@cf/baai/bge-1280}
+      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL:-@cf/meta/llama-3.1-8b-instruct-fp8}
+      - CLOUDFLARE_EMBEDDING_MODEL=${CLOUDFLARE_EMBEDDING_MODEL:-@cf/baai/bge-base-en-v1.5}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE}
@@ -174,7 +181,7 @@ services:
 
   # --- ROUTING SERVICE (OSRM) ---
   osrm:
-    image: osrm/osrm-backend:v5.27.0
+    image: osrm/osrm-backend:latest
     container_name: edumap_osrm
     volumes:
       - ./osrm-data:/data

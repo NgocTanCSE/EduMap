@@ -38,8 +38,11 @@ export default function RoutingPanel({
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
-  const [avoidFlood, setAvoidFlood] = useState(true);
-  const [avoidTraffic, setAvoidTraffic] = useState(true);
+  // Default OFF in dev: EduMap's internal OSRM + flood/traffic datasets are heavy
+  // and are NOT available against the public OSRM demo fallback. Toggle on to
+  // opt into flood/traffic-aware routing when the full backend infra is running.
+  const [avoidFlood, setAvoidFlood] = useState(false);
+  const [avoidTraffic, setAvoidTraffic] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   const formatDuration = (seconds: number) => {
@@ -57,10 +60,10 @@ export default function RoutingPanel({
 
   const getCongestionColor = (level: number) => {
     switch (level) {
-      case 0: return 'bg-emerald-500';
-      case 1: return 'bg-amber-400';
-      case 2: return 'bg-orange-500';
-      case 3: return 'bg-red-500';
+      case 0: return 'bg-accent';
+      case 1: return 'bg-primary';
+      case 2: return 'bg-primary/70';
+      case 3: return 'bg-destructive';
       default: return 'bg-muted/50';
     }
   };
@@ -164,20 +167,20 @@ export default function RoutingPanel({
         <div className="relative">
           <label className="block text-xs font-medium text-muted-foreground/60 mb-1">Điểm đến</label>
           <div className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <MapPin className="w-5 h-5 text-destructive flex-shrink-0" />
             <input
               type="text"
               value={destInput}
               onChange={(e) => setDestInput(e.target.value)}
               placeholder="Click vào bản đồ hoặc nhập tọa độ"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
               readOnly
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
             <button
               onClick={() => handleUseCurrentLocation('destination')}
-              className="text-xs px-2 py-1 bg-red-500/10 text-red-500 rounded hover:bg-red-500/20 transition-colors"
+              className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors"
             >
               Vị trí hiện tại
             </button>
@@ -209,10 +212,10 @@ export default function RoutingPanel({
               type="checkbox"
               checked={avoidTraffic}
               onChange={(e) => setAvoidTraffic(e.target.checked)}
-              className="w-4 h-4 text-orange-500 border-border rounded focus:ring-primary"
+              className="w-4 h-4 text-primary/90 border-border rounded focus:ring-primary"
             />
             <div className="flex items-center gap-1">
-              <Car className="w-4 h-4 text-orange-500" />
+              <Car className="w-4 h-4 text-primary/90" />
               <span className="text-sm text-muted-foreground/80">Tránh kẹt xe (giờ cao điểm)</span>
             </div>
           </label>
@@ -241,33 +244,33 @@ export default function RoutingPanel({
               <Clock className="w-4 h-4 text-primary" />
               <span>Thời gian: <strong className="text-foreground">{formatDuration(routeInfo.duration)}</strong></span>
               {routeInfo.trafficAnalysis && routeInfo.trafficAnalysis.totalDelay > 60 && (
-                <span className="text-xs bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded">
+                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                   +{formatDuration(routeInfo.trafficAnalysis.totalDelay)} do kẹt
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground/80">
-              <MapPin className="w-4 h-4 text-red-500" />
+              <MapPin className="w-4 h-4 text-destructive" />
               <span>Quãng đường: <strong className="text-foreground">{formatDistance(routeInfo.distance)}</strong></span>
             </div>
 
             {/* Flood Warnings */}
             {routeInfo.floodWarnings && routeInfo.floodWarnings.length > 0 && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2">
-                <div className="flex items-center gap-2 text-xs text-red-400 mb-1">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2">
+                <div className="flex items-center gap-2 text-xs text-destructive mb-1">
                   <AlertTriangle className="w-4 h-4" />
                   <strong>CẢNH BÁO NGẬP:</strong> Lộ trình đi qua {routeInfo.floodWarnings.length} khu vực ngập
                 </div>
-                <ul className="text-xs text-red-400/80 space-y-1 ml-6">
+                <ul className="text-xs text-destructive/80 space-y-1 ml-6">
                   {routeInfo.floodWarnings.map((fw, i) => (
                     <li key={i} className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                      <span className="w-1.5 h-1.5 bg-destructive rounded-full" />
                       {fw.name} ({fw.riskLevel})
                     </li>
                   ))}
                 </ul>
                 {routeInfo.avoidedFloodZones && routeInfo.avoidedFloodZones.length > 0 && (
-                  <div className="mt-1 text-xs text-emerald-400">
+                  <div className="mt-1 text-xs text-accent">
                     Đã tránh {routeInfo.avoidedFloodZones.length} khu vực ngập bằng lộ trình thay thế
                   </div>
                 )}
@@ -276,8 +279,8 @@ export default function RoutingPanel({
 
             {/* Traffic Analysis */}
             {routeInfo.trafficAnalysis && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2">
-                <div className="flex items-center gap-2 text-xs text-blue-400 mb-2">
+              <div className="bg-accent/10 border border-accent/20 rounded-lg p-2">
+                <div className="flex items-center gap-2 text-xs text-accent mb-2">
                   <Car className="w-4 h-4" />
                   <strong>PHÂN TÍCH KẾT XE:</strong>
                   <span className="ml-auto">
@@ -303,7 +306,7 @@ export default function RoutingPanel({
                           <span className="text-muted-foreground/80">{seg.roadName || `Đoạn ${i+1}`} ({seg.roadType})</span>
                         </div>
                         <div className="flex items-center gap-2 text-right">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getCongestionColor(seg.congestionLevel)} text-white`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getCongestionColor(seg.congestionLevel)} text-foreground`}>
                             {getCongestionLabel(seg.congestionLevel)}
                           </span>
                           <span className="text-muted-foreground/60">

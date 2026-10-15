@@ -7,7 +7,7 @@ import { adminService } from '@/reporting/services/admin.service';
 // Import Map component dynamic to avoid SSR issues
 const MapWithNoSSR = dynamic(() => import('@/components/ui/MapComponent'), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-card animate-pulse rounded-3xl" />
+  loading: () => <div className="h-full w-full bg-card animate-pulse rounded-xl" />
 });
 
 export default function AdminHeatmapPage() {
@@ -28,16 +28,15 @@ export default function AdminHeatmapPage() {
   }, []);
 
   return (
-    <div className="h-screen bg-background text-white flex flex-col">
+    <div className="h-screen bg-background text-foreground flex flex-col">
       {/* Top Controls */}
       <div className="p-6 bg-card border-b border-border flex justify-between items-center z-20">
          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary rounded-2xl">
-               <MapIcon className="w-6 h-6 text-white" />
+            <div className="p-3 bg-primary rounded-lg">
+               <MapIcon className="w-6 h-6 text-foreground" />
             </div>
             <div>
                <h1 className="text-xl font-bold">Phân tích Mật độ Địa lý</h1>
-               <p className="text-xs text-muted-foreground/40">Dữ liệu thời gian thực từ PostGIS Engine.</p>
             </div>
          </div>
          <div className="flex gap-4">
@@ -62,7 +61,7 @@ export default function AdminHeatmapPage() {
       <div className="flex-1 flex overflow-hidden">
          {/* Sidebar Stats */}
          <div className="w-80 border-r border-border p-6 space-y-8 overflow-y-auto no-scrollbar">
-            <div className="p-6 rounded-3xl bg-primary/10 border border-primary/20">
+            <div className="p-6 rounded-xl bg-primary/10 border border-primary/20">
                <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-primary/70" />
                   Vùng hoạt động mạnh
@@ -84,7 +83,7 @@ export default function AdminHeatmapPage() {
                </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-card border border-border">
+            <div className="p-6 rounded-xl bg-card border border-border">
                <h3 className="text-sm font-bold mb-2">Chỉ số giáo dục (AI)</h3>
                <div className="space-y-2">
                   <div className="flex justify-between text-[11px]">
@@ -98,7 +97,7 @@ export default function AdminHeatmapPage() {
                </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-card border border-border">
+            <div className="p-6 rounded-xl bg-card border border-border">
                <h3 className="text-sm font-bold mb-2">Chú giải Heatmap</h3>
                <div className="h-2 w-full bg-primary transition-all rounded-full mb-4" />
                <div className="flex justify-between text-[10px] text-muted-foreground/40 uppercase font-bold">
@@ -108,7 +107,7 @@ export default function AdminHeatmapPage() {
                </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-primary/10 border border-primary/10">
+            <div className="p-6 rounded-xl bg-primary/10 border border-primary/10">
                <p className="text-[10px] text-primary font-bold mb-2 flex items-center gap-1">
                   <Info className="w-3 h-3" /> THÔNG TIN
                </p>
@@ -124,7 +123,7 @@ export default function AdminHeatmapPage() {
                <MapWithNoSSR />
             </div>
             {/* Map Overlay Badge */}
-            <div className="absolute top-6 right-6 p-4 rounded-2xl bg-card border border-border z-10">
+            <div className="absolute top-6 right-6 p-4 rounded-lg bg-card border border-border z-10">
                <p className="text-[10px] text-muted-foreground/40 font-bold uppercase mb-1">Cập nhật lúc</p>
                <p className="text-xs font-mono font-bold text-primary">{lastUpdated}</p>
             </div>

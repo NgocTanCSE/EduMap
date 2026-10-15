@@ -10,7 +10,7 @@ interface RoutePolylineProps {
   opacity?: number;
 }
 
-export function RoutePolyline({ geometry, color = '#3b82f6', weight = 5, opacity = 0.8 }: RoutePolylineProps) {
+export function RoutePolyline({ geometry, color = '#E07A5F', weight = 5, opacity = 0.8 }: RoutePolylineProps) {
   const map = useMap();
 
   useEffect(() => {

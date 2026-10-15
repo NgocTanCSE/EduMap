@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState, use } from 'react';
-import { Terminal, Code, Users, Calendar, Trophy, ArrowLeft, Loader2, CheckCircle2, FileCode2, PlaySquare } from 'lucide-react';
+import { Code, Users, Calendar, Trophy, ArrowLeft, Loader2, CheckCircle2, FileCode2, PlaySquare } from 'lucide-react';
+import Link from 'next/link';
 import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
-import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function HackathonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -12,14 +13,14 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
 
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Registration Form States
+
+  /* Registration Form States */
   const [teamName, setTeamName] = useState('');
   const [membersInput, setMembersInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [registeredTeam, setRegisteredTeam] = useState<any>(null); // State if already registered
+  const [registeredTeam, setRegisteredTeam] = useState<any>(null);
 
-  // Submission Modal States
+  /* Submission Modal States */
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
   const [demoVideo, setDemoVideo] = useState('');
@@ -52,23 +53,18 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
       window.location.href = `/auth/login?redirect=/hackathon/${hackathonId}`;
       return;
     }
-
     if (!teamName.trim()) {
-        toast.error('Tên đội không được để trống');
-        return;
+      toast.error('Tên đội không được để trống');
+      return;
     }
-
     try {
       setSubmitting(true);
-      // Split members by comma and clean up
       const members = membersInput.split(',').map(m => m.trim()).filter(m => m);
-      
       const result = await hackathonService.registerTeam({
-          team_name: teamName,
-          hackathon_id: hackathonId,
-          members: members
+        team_name: teamName,
+        hackathon_id: hackathonId,
+        members: members,
       });
-      
       setRegisteredTeam(result);
       toast.success('Đăng ký đội thi thành công! Chúc đội của bạn thi đấu tốt.');
     } catch (error: any) {
@@ -79,25 +75,23 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
   };
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!repoUrl.trim()) {
-          toast.error('Link mã nguồn (Github) là bắt buộc');
-          return;
-      }
-
-      try {
-          setSubmittingProject(true);
-          const result = await hackathonService.submitProject(registeredTeam.id, repoUrl, demoVideo);
-          toast.success(result.message || 'Nộp sản phẩm dự thi thành công!');
-          setShowSubmitModal(false);
-          // Update local state to reflect submission
-          setRegisteredTeam({ ...registeredTeam, status: 'submitted', repo_url: repoUrl, demo_video: demoVideo });
-      } catch (error: any) {
-          toast.error(error.message || 'Nộp sản phẩm thất bại');
-      } finally {
-          setSubmittingProject(false);
-      }
-  }
+    e.preventDefault();
+    if (!repoUrl.trim()) {
+      toast.error('Link mã nguồn (Github) là bắt buộc');
+      return;
+    }
+    try {
+      setSubmittingProject(true);
+      const result = await hackathonService.submitProject(registeredTeam.id, repoUrl, demoVideo);
+      toast.success(result.message || 'Nộp sản phẩm dự thi thành công!');
+      setShowSubmitModal(false);
+      setRegisteredTeam({ ...registeredTeam, status: 'submitted', repo_url: repoUrl, demo_video: demoVideo });
+    } catch (error: any) {
+      toast.error(error.message || 'Nộp sản phẩm thất bại');
+    } finally {
+      setSubmittingProject(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -109,10 +103,13 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
 
   if (!hackathon) {
     return (
-      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cuộc thi Hackathon này.</p>
-        <Link href="/hackathon" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary/90 transition-all">
+        <Link
+          href="/hackathon"
+          className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/90 transition-colors"
+        >
           Quay lại danh sách
         </Link>
       </div>
@@ -123,132 +120,148 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
   const isOngoing = hackathon.status === 'ongoing';
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
-        
-        <Link href="/hackathon" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold w-fit">
+    <div className="min-h-screen bg-background text-foreground py-8">
+      <div className="w-full mx-auto space-y-8">
+        <Link
+          href="/hackathon"
+          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors group text-sm font-bold w-fit"
+        >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI
         </Link>
 
-        {/* Hero Section */}
-        <div className="bg-card border border-border rounded-2xl p-8 md:p-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -mr-20 -mt-20 pointer-events-none" />
-            
-            <div className="relative z-10 max-w-3xl space-y-6">
-                <span className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border inline-block ${
-                    isOngoing ? 'bg-primary/20 text-primary border-green-500/30' :
-                    isCompleted ? 'bg-card text-muted-foreground/40 border-border' :
-                    'bg-primary/20 text-primary/70 border-primary/30'
-                }`}>
-                    {isOngoing ? 'ĐANG DIỄN RA' : isCompleted ? 'ĐÃ KẾT THÚC' : 'SẮP MỞ ĐĂNG KÝ'}
-                </span>
-                
-                <h1 className="text-4xl md:text-5xl font-black leading-tight">{hackathon.title}</h1>
-                
-                <div className="flex flex-wrap items-center gap-6 pt-4 text-sm text-muted-foreground/60">
-                    <div className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-primary/70" />
-                        {new Date(hackathon.start_date).toLocaleDateString('vi-VN')} - {new Date(hackathon.end_date).toLocaleDateString('vi-VN')}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        Team (3-5 thành viên)
-                    </div>
-                </div>
+        {/* Hero Section — clean card, no blur orb / tilt */}
+        <Card className="p-6 md:p-8">
+          <div className="max-w-3xl space-y-5">
+            <span
+              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-block ${
+                isOngoing
+                  ? 'bg-primary/20 text-primary border-accent/30'
+                  : isCompleted
+                  ? 'bg-foreground/5 text-muted-foreground/50 border-border'
+                  : 'bg-primary/20 text-primary/70 border-primary/30'
+              }`}
+            >
+              {isOngoing ? 'ĐANG DIỄN RA' : isCompleted ? 'ĐÃ KẾT THÚC' : 'SẮP MỞ ĐĂNG KÝ'}
+            </span>
+
+            <h1 className="text-2xl font-semibold leading-tight">{hackathon.title}</h1>
+
+            <div className="flex flex-wrap items-center gap-6 pt-2 text-sm text-foreground/55">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary/70" />
+                {new Date(hackathon.start_date).toLocaleDateString('vi-VN')} -{' '}
+                {new Date(hackathon.end_date).toLocaleDateString('vi-VN')}
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" /> Team (3-5 thành viên)
+              </div>
             </div>
-        </div>
+          </div>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Left: Detail Info */}
-            <div className="lg:col-span-2 space-y-8">
-                <div className="prose prose-invert max-w-none">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <Terminal className="text-primary/80 w-6 h-6" /> Thể lệ & Yêu cầu
-                    </h2>
-                    <div className="text-foreground/70 leading-relaxed bg-card/50 p-6 rounded-3xl border border-border whitespace-pre-wrap mt-4">
-                        {hackathon.description || 'Đang cập nhật thể lệ chi tiết cho cuộc thi này.'}
-                    </div>
+          {/* Left: Detail Info */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="prose prose-invert max-w-none">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Code className="text-primary/80 w-5 h-5" /> Thể lệ & Yêu cầu
+              </h2>
+              <Card className="mt-4 p-6 border-border">
+                <div className="text-foreground/70 leading-relaxed whitespace-pre-wrap">
+                  {hackathon.description || 'Đang cập nhật thể lệ chi tiết cho cuộc thi này.'}
                 </div>
+              </Card>
             </div>
+          </div>
 
-            {/* Right: Registration / Status Panel */}
-            <div className="space-y-6 sticky top-8">
-                {registeredTeam ? (
-                    <div className="bg-primary/10 border border-green-500/30 rounded-3xl p-8 text-center space-y-4">
-                        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <CheckCircle2 className="w-8 h-8 text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold text-primary">Đã đăng ký thành công!</h3>
-                        <p className="text-sm font-bold text-white">Đội: {registeredTeam.team_name}</p>
-                        
-                        <div className="pt-6 mt-6 border-t border-green-500/20 space-y-4">
-                            <h4 className="font-bold text-sm text-left text-foreground/80">Khu vực nộp bài</h4>
-                            <p className="text-xs text-left text-muted-foreground/60">Trưởng nhóm sử dụng các liên kết sau để nộp mã nguồn và video demo trước hạn chót.</p>
-                            
-                            <div className="space-y-3">
-                                <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-all">
-                                    <FileCode2 className="w-4 h-4 text-primary/70" /> Nộp Github Repo
-                                </button>
-                                <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-all">
-                                    <PlaySquare className="w-4 h-4 text-primary" /> Nộp Demo Video
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ) : isCompleted ? (
-                    <div className="bg-card border border-border rounded-3xl p-8 text-center">
-                        <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
-                        <h3 className="text-xl font-bold mb-2">Cuộc thi đã kết thúc</h3>
-                        <p className="text-sm text-muted-foreground/40">Cảm ơn các đội thi đã tham gia. Kết quả sẽ được công bố trên trang chủ.</p>
-                    </div>
-                ) : (
-                    <form onSubmit={handleRegister} className="bg-card border border-border rounded-3xl p-8 space-y-6 shadow-2xl">
-                        <div>
-                            <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
-                                <Code className="text-primary/80 w-5 h-5" /> Đăng ký Đội thi
-                            </h3>
-                            <p className="text-xs text-muted-foreground/40">Chỉ trưởng nhóm cần thực hiện thao tác này.</p>
-                        </div>
+          {/* Right: Registration / Status Panel */}
+          <div className="space-y-6">
+            {registeredTeam ? (
+              <Card className="p-8 text-center space-y-4 border-accent/30">
+                <div className="w-14 h-14 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle2 className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-primary">Đã đăng ký thành công!</h3>
+                <p className="text-sm font-bold text-foreground">Đội: {registeredTeam.team_name}</p>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">Tên Đội</label>
-                                <input 
-                                    type="text" 
-                                    required
-                                    value={teamName}
-                                    onChange={e => setTeamName(e.target.value)}
-                                    placeholder="VD: Tech Innovators"
-                                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">Email các thành viên</label>
-                                <textarea 
-                                    rows={3}
-                                    value={membersInput}
-                                    onChange={e => setMembersInput(e.target.value)}
-                                    placeholder="Phân cách bằng dấu phẩy (VD: a@gmail.com, b@gmail.com)"
-                                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all resize-none"
-                                />
-                                <p className="text-[10px] text-muted-foreground/40 mt-1 mt-2">Không bao gồm email của bạn (trưởng nhóm).</p>
-                            </div>
-                        </div>
+                <div className="pt-6 mt-6 border-t border-accent/20 space-y-3">
+                  <h4 className="font-bold text-sm text-left text-foreground/80">Khu vực nộp bài</h4>
+                  <p className="text-xs text-left text-muted-foreground/60">
+                    Trưởng nhóm sử dụng các liên kết sau để nộp mã nguồn và video demo trước hạn chót.
+                  </p>
+                  <div className="space-y-2.5">
+                    <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                      <FileCode2 className="w-4 h-4 text-primary/70" /> Nộp Github Repo
+                    </button>
+                    <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                      <PlaySquare className="w-4 h-4 text-primary" /> Nộp Demo Video
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ) : isCompleted ? (
+              <Card className="p-8 text-center">
+                <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">Cuộc thi đã kết thúc</h3>
+                <p className="text-sm text-muted-foreground/50">
+                  Cảm ơn các đội thi đã tham gia. Kết quả sẽ được công bố trên trang chủ.
+                </p>
+              </Card>
+            ) : (
+              <form onSubmit={handleRegister} className="bg-card border border-border rounded-xl p-8 space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
+                    <Code className="text-primary/80 w-5 h-5" /> Đăng ký Đội thi
+                  </h3>
+                  <p className="text-xs text-muted-foreground/40">
+                    Chỉ trưởng nhóm cần thực hiện thao tác này.
+                  </p>
+                </div>
 
-                        <button 
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex justify-center items-center gap-2"
-                        >
-                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-                            XÁC NHẬN ĐĂNG KÝ
-                        </button>
-                    </form>
-                )}
-            </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
+                      Tên Đội
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={teamName}
+                      onChange={e => setTeamName(e.target.value)}
+                      placeholder="VD: Tech Innovators"
+                      className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
+                      Email các thành viên
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={membersInput}
+                      onChange={e => setMembersInput(e.target.value)}
+                      placeholder="Phân cách bằng dấu phẩy (VD: a@gmail.com, b@gmail.com)"
+                      className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all resize-none"
+                    />
+                    <p className="text-[10px] text-muted-foreground/40 mt-1">
+                      Không bao gồm email của bạn (trưởng nhóm).
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                >
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                  XÁC NHẬN ĐĂNG KÝ
+                </button>
+              </form>
+            )}
+          </div>
         </div>
-
       </div>
     </div>
   );

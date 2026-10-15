@@ -21,6 +21,7 @@ interface AuthContextValue {
     avatar_url?: string;
     role?: any;
   }) => Promise<CurrentUser>;
+  devLogin: () => Promise<CurrentUser>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -79,6 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   };
 
+  const devLogin = async () => {
+    const u = await authService.devLogin();
+    setUser(u);
+    return u;
+  };
+
   const logout = () => {
     authService.logout();
     setUser(null);
@@ -99,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isLoggedIn: !!user,
       loginWithGoogle,
+      devLogin,
       logout,
       refreshUser,
     }),

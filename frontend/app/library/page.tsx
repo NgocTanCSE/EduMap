@@ -97,28 +97,25 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8 relative">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background text-foreground p-8 relative">
+      <div className="w-full">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Thư viện học liệu</h1>
-            <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao được AI phân tích</p>
+            <h1 className="text-2xl font-bold mb-2">Thư viện học liệu</h1>
+            <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao</p>
           </div>
           <div className="flex gap-3">
             <button className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all">
               <Bookmark className="w-4 h-4" /> Đã lưu
-            </button>
-            <button className="bg-primary px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold hover:bg-yellow-700 transition-all shadow-lg shadow-primary/20">
-              <Download className="w-4 h-4" /> Tải app desktop
             </button>
           </div>
         </div>
 
         {/* AI Search Bar */}
         <form onSubmit={handleSearch} className="relative mb-12 group">
-          <div className="absolute -inset-1 bg-primary rounded-2xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
-          <div className="relative bg-card/80 backdrop-blur-md border border-border rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+          <div className="absolute -inset-1 bg-primary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
+          <div className="relative bg-card/80 border border-border rounded-lg p-2 flex items-center gap-2">
             <div className="pl-4 pr-2"><Sparkles className="w-6 h-6 text-primary" /></div>
             <input 
               type="text" 
@@ -141,7 +138,7 @@ export default function LibraryPage() {
               onClick={() => setActiveTab(cat)}
               className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border ${
                 activeTab === cat 
-                ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
+                ? 'bg-primary border-primary text-white shadow-lg ' 
                 : 'bg-card border-border text-muted-foreground/40 hover:border-border'
               }`}
             >
@@ -165,7 +162,7 @@ export default function LibraryPage() {
               <div 
                 key={res.id} 
                 onClick={() => handleViewDetails(res)}
-                className="bg-card border border-border rounded-3xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer flex flex-col h-full"
+                className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer flex flex-col h-full"
               >
                 <div className={`h-48 bg-background flex items-center justify-center relative overflow-hidden shrink-0`}>
                   {res.cover_image_url ? (
@@ -176,10 +173,10 @@ export default function LibraryPage() {
                         {res.type === "video" ? <Video className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" />}
                       </>
                   )}
-                  <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
+                  <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
                 </div>
                 <div className="p-6 flex flex-col flex-1">
-                  <div className="flex items-center gap-1 text-amber-500 text-[10px] font-black mb-3 bg-amber-500/10 px-2 py-0.5 rounded-full w-max border border-amber-500/20 uppercase tracking-widest">
+                  <div className="flex items-center gap-1 text-amber-500 text-[10px] font-semibold mb-3 bg-amber-500/10 px-2 py-0.5 rounded-full w-max border border-amber-500/20 uppercase tracking-widest">
                     <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> POPULAR
                   </div>
                   <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h3>
@@ -196,7 +193,7 @@ export default function LibraryPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 text-muted-foreground border border-dashed border-border rounded-3xl">
+          <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
               Không tìm thấy tài liệu phù hợp.
           </div>
         )}
@@ -206,7 +203,7 @@ export default function LibraryPage() {
             <button 
               onClick={handleLoadMore} 
               disabled={loadingMore}
-              className="px-8 py-3 rounded-full border border-border text-white hover:bg-card/20 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-8 py-3 rounded-full border border-border text-foreground hover:bg-card/20 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {loadingMore ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
               {loadingMore ? 'Đang tải...' : 'Tải thêm tài liệu'}
@@ -218,16 +215,16 @@ export default function LibraryPage() {
       {/* AI Detail Modal Overlay */}
       {selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedMaterial(null)}></div>
-            <div className="relative bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+            <div className="absolute inset-0 bg-black/80" onClick={() => setSelectedMaterial(null)}></div>
+            <div className="relative bg-card border border-border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
                 
                 {/* Header */}
                 <div className="p-6 border-b border-border flex justify-between items-start bg-background/50">
                     <div className="pr-8">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/70 bg-primary/10 px-2 py-1 rounded-full mb-3 inline-block">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70 bg-primary/10 px-2 py-1 rounded-full mb-3 inline-block">
                             {selectedMaterial.category}
                         </span>
-                        <h2 className="text-2xl font-black text-white leading-tight mb-2">{selectedMaterial.title}</h2>
+                        <h2 className="text-2xl font-semibold text-foreground leading-tight mb-2">{selectedMaterial.title}</h2>
                         <p className="text-sm text-muted-foreground/40">{selectedMaterial.author || 'Unknown Author'}</p>
                     </div>
                     <button onClick={() => setSelectedMaterial(null)} className="text-muted-foreground hover:text-white bg-card/20 p-2 rounded-full">
@@ -240,27 +237,27 @@ export default function LibraryPage() {
                     
                     {/* Action Buttons */}
                     <div className="flex gap-3">
-                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-foreground font-black py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
+                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
                             {selectedMaterial.type === 'video' ? <Video size={18}/> : <FileText size={18}/>}
                             Open Material
                         </button>
                         {selectedMaterial.file_url && (
-                            <a href={selectedMaterial.file_url} download className="flex-1 bg-card hover:bg-card/50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
+                            <a href={selectedMaterial.file_url} download className="flex-1 bg-card hover:bg-card/50 text-foreground font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
                                 <Download size={18}/> Download
                             </a>
                         )}
                     </div>
 
                     <div className="space-y-3">
-                        <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest">Description</h3>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Description</h3>
                         <p className="text-muted-foreground/60 leading-relaxed text-sm">{selectedMaterial.description || 'No description available.'}</p>
                     </div>
 
                     {/* AI Analysis Section */}
-                    <div className="bg-card border border-primary/30 rounded-2xl p-6 relative overflow-hidden">
+                    <div className="bg-card border border-primary/30 rounded-lg p-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-10 -mt-10" />
                         
-                        <div className="flex items-center gap-2 text-primary/70 font-black mb-6 relative z-10">
+                        <div className="flex items-center gap-2 text-primary/70 font-semibold mb-6 relative z-10">
                             <BrainCircuit className={analyzing ? "animate-pulse" : ""} />
                             <h3>AI Insight & Summary</h3>
                         </div>
@@ -277,7 +274,7 @@ export default function LibraryPage() {
                                 </p>
                                 
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
+                                    <h4 className="text-xs font-semibold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
                                         <Lightbulb size={14} className="text-primary"/> Key Concepts
                                     </h4>
                                     <div className="grid grid-cols-1 gap-2">
@@ -291,7 +288,7 @@ export default function LibraryPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h4 className="text-xs font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
+                                    <h4 className="text-xs font-semibold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
                                         <Target size={14} className="text-primary"/> Study Tips
                                     </h4>
                                     <ul className="space-y-2">

@@ -1,9 +1,15 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { Code, Users, Calendar, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { Terminal, Code, Users, Calendar, Trophy, Search, ArrowRight, Loader2, Rocket } from 'lucide-react';
 import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
 import { toast } from 'sonner';
+import ContentShell from '@/components/ui/ContentShell';
+import SectionHeader from '@/components/ui/SectionHeader';
+import SearchInput from '@/components/ui/SearchInput';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import Skeleton from '@/components/ui/skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function HackathonListPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
@@ -26,136 +32,118 @@ export default function HackathonListPage() {
     }
   };
 
-  const filteredHackathons = hackathons.filter(h => 
+  const filteredHackathons = hackathons.filter(h =>
     h.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        {/* Header & Search */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="text-4xl font-black tracking-tight mb-2 flex items-center gap-3">
-              <Terminal className="text-primary/80 w-8 h-8" />
-              Sân chơi Hackathon
-            </h1>
-            <p className="text-muted-foreground/40 text-sm">Nơi hội tụ những ý tưởng đột phá và giải pháp công nghệ.</p>
-          </div>
-          
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm cuộc thi..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-primary outline-none transition-all"
-            />
-          </div>
-        </div>
+    <ContentShell>
+      <SectionHeader
+        title="Sân chơi Hackathon"
+        subtitle="Nơi hội tụ những ý tưởng đột phá và giải pháp công nghệ."
+        icon={Trophy}
+      />
 
-        {/* Highlight Banner */}
-        <div className="bg-card border border-primary/30 rounded-2xl p-8 md:p-12 relative overflow-hidden flex flex-col md:flex-row gap-8 items-center">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-20 -mt-20 pointer-events-none" />
-            
-            <div className="flex-1 relative z-10 space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary/70 text-xs font-bold uppercase tracking-widest border border-primary/30">
-                    <Rocket className="w-3 h-3" /> Mùa giải mới
-                </div>
-                <h2 className="text-3xl md:text-4xl font-black">Hackathon Mùa Hè 2026: AI & Education</h2>
-                <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
-                    Sử dụng Trí tuệ nhân tạo để giải quyết các thách thức trong giáo dục tại các vùng sâu vùng xa. Tổng giải thưởng lên đến 100,000,000 VNĐ.
-                </p>
-                <div className="flex items-center gap-4 pt-4">
-                    <button className="px-8 py-3 rounded-2xl bg-primary hover:bg-primary/90 font-bold transition-all shadow-lg shadow-primary/20">
-                        Đăng ký ngay
-                    </button>
-                    <button className="px-8 py-3 rounded-2xl border border-border hover:bg-card/20 font-bold transition-all">
-                        Thể lệ
-                    </button>
-                </div>
+      {/* Highlight banner — de-generified (no blur orb / rotate-3 / giant code block) */}
+      <Card className="border-primary/20 p-6 md:p-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30">
+              <Code className="w-3 h-3" /> Mùa giải mới
+            </span>
+            <h2 className="text-xl md:text-2xl font-bold">Hackathon Mùa Hè 2026: AI & Education</h2>
+            <p className="text-sm text-foreground/55 max-w-xl">
+              Ứng dụng trí tuệ nhân tạo để giải quyết thách thức giáo dục ở các vùng sâu, xã.
+              Tổng giải thưởng lên đến 100,000,000 VNĐ.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button className="px-5 py-2 rounded-lg bg-primary text-foreground font-medium">
+                Đăng ký ngay
+              </button>
+              <button className="px-5 py-2 rounded-lg border border-border font-medium">
+                Thể lệ
+              </button>
             </div>
-
-            <div className="hidden lg:block relative z-10 w-1/3">
-                {/* Decorative Elements */}
-                <div className="w-full aspect-square bg-card rounded-3xl border border-primary/20 flex flex-col items-center justify-center p-8 backdrop-blur-sm transform rotate-3">
-                    <Code className="w-16 h-16 text-primary/70 mb-4" />
-                    <p className="font-mono text-xs text-muted-foreground/70 text-center">{`function buildFuture() { \n  return impact; \n}`}</p>
-                </div>
+          </div>
+          <div className="hidden lg:block">
+            <div className="w-24 h-24 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Code className="w-10 h-10 text-primary" />
             </div>
+          </div>
         </div>
+      </Card>
 
-        {/* Hackathon List */}
-        <div>
-            <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <Trophy className="w-6 h-6 text-primary" /> Các cuộc thi đang diễn ra
-            </h3>
+      <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Tìm kiếm cuộc thi..." />
 
-            {loading ? (
-                <div className="flex justify-center py-20">
-                    <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
-                </div>
-            ) : filteredHackathons.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredHackathons.map((hackathon) => {
-                        const startDate = new Date(hackathon.start_date);
-                        const endDate = new Date(hackathon.end_date);
-                        const isActive = hackathon.status === 'ongoing' || hackathon.status === 'upcoming';
-                        
-                        return (
-                            <Link href={`/hackathon/${hackathon.id}`} key={hackathon.id} className="group">
-                                <div className="bg-card border border-border rounded-3xl overflow-hidden hover:border-primary/50 transition-all flex flex-col h-full hover:shadow-xl hover:shadow-primary/10">
-                                    <div className="h-2 w-full bg-primary" />
-                                    <div className="p-6 flex-1 flex flex-col">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                                                hackathon.status === 'ongoing' ? 'bg-primary/20 text-primary border border-green-500/30' :
-                                                hackathon.status === 'upcoming' ? 'bg-primary/20 text-primary/70 border border-primary/30' :
-                                                'bg-card text-muted-foreground/40 border border-border'
-                                            }`}>
-                                                {hackathon.status === 'ongoing' ? 'ĐANG DIỄN RA' : 
-                                                 hackathon.status === 'upcoming' ? 'SẮP MỞ ĐĂNG KÝ' : 'ĐÃ KẾT THÚC'}
-                                            </span>
-                                        </div>
-                                        
-                                        <h4 className="text-xl font-bold mb-3 group-hover:text-primary/70 transition-colors line-clamp-2">
-                                            {hackathon.title}
-                                        </h4>
-                                        <p className="text-sm text-muted-foreground/40 line-clamp-2 mb-6 flex-1">
-                                            {hackathon.description || 'Chưa có thông tin chi tiết.'}
-                                        </p>
-                                        
-                                        <div className="space-y-3 pt-4 border-t border-border mb-6">
-                                            <div className="flex items-center gap-3 text-xs text-muted-foreground/60">
-                                                <Calendar className="w-4 h-4 text-primary/70" />
-                                                {startDate.toLocaleDateString('vi-VN')} - {endDate.toLocaleDateString('vi-VN')}
-                                            </div>
-                                            <div className="flex items-center gap-3 text-xs text-muted-foreground/60">
-                                                <Users className="w-4 h-4 text-primary" />
-                                                Đăng ký theo Đội (3-5 người)
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center justify-between text-xs font-bold text-primary/70 group-hover:translate-x-2 transition-transform w-fit">
-                                            XEM CHI TIẾT <ArrowRight className="w-4 h-4 ml-1" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
-                    <Terminal className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                    <p className="text-muted-foreground/40">Không tìm thấy cuộc thi nào.</p>
-                </div>
-            )}
-        </div>
+      <div>
+        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-primary" /> Các cuộc thi đang diễn ra
+        </h3>
 
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="h-56">
+                <CardContent className="p-0"><Skeleton className="h-full w-full" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredHackathons.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredHackathons.map(hackathon => {
+              const startDate = new Date(hackathon.start_date);
+              const endDate = new Date(hackathon.end_date);
+              return (
+                <Link href={`/hackathon/${hackathon.id}`} key={hackathon.id} className="group">
+                  <Card className="flex flex-col h-full">
+                    <div className="h-1.5 w-full bg-primary rounded-t-lg" />
+                    <CardHeader>
+                      <span
+                        className={`px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full self-start ${
+                          hackathon.status === 'ongoing'
+                            ? 'bg-primary/15 text-primary'
+                            : hackathon.status === 'upcoming'
+                            ? 'bg-primary/10 text-primary/70'
+                            : 'bg-foreground/5 text-foreground/40'
+                        }`}
+                      >
+                        {hackathon.status === 'ongoing'
+                          ? 'ĐANG DIỄN RA'
+                          : hackathon.status === 'upcoming'
+                          ? 'SẮP MỞ ĐĂNG KÝ'
+                          : 'ĐÃ KẾT THÚC'}
+                      </span>
+                      <CardTitle className="text-base mt-2 line-clamp-2 group-hover:text-primary transition-colors">
+                        {hackathon.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-2 text-sm text-foreground/60">
+                      <p className="line-clamp-2 flex-1">
+                        {hackathon.description || 'Chưa có thông tin chi tiết.'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        {startDate.toLocaleDateString('vi-VN')} - {endDate.toLocaleDateString('vi-VN')}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary" /> Đăng ký theo đội (3-5 người)
+                      </div>
+                      <div className="flex items-center justify-between pt-2 text-xs font-medium text-primary">
+                        XEM CHI TIẾT <ArrowRight className="w-3 h-3" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title="Chưa có cuộc thi nào"
+            description="Các cuộc thi sẽ xuất hiện tại đây khi có cập nhật."
+          />
+        )}
       </div>
-    </div>
+    </ContentShell>
   );
 }

@@ -54,7 +54,6 @@ export default function AdminDashboardPage() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-primary">Tổng quan Hệ thống</h1>
-          <p className="text-muted-foreground/40 text-sm mt-1">Dữ liệu thời gian thực từ hệ sinh thái EduMap (PostgreSQL & Redis).</p>
         </div>
 
         {/* Stats Grid */}
@@ -63,7 +62,7 @@ export default function AdminDashboardPage() {
             const Icon = card.icon;
             return (
               <div key={idx} className="p-6 rounded-xl bg-card/50 border border-border hover:border-primary/50 transition-all">
-                <div className={`w-12 h-12 rounded-2xl ${card.bg} ${card.color} flex items-center justify-center mb-4`}>
+                <div className={`w-12 h-12 rounded-lg ${card.bg} ${card.color} flex items-center justify-center mb-4`}>
                    <Icon className="w-6 h-6" />
                 </div>
                 <p className="text-3xl font-bold">{card.value}</p>
@@ -74,16 +73,16 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* AI Analytics Section */}
-        <div className="p-8 rounded-2xl bg-card/40 border border-border space-y-6">
+        <div className="p-8 rounded-lg bg-card/40 border border-border space-y-6">
            <h3 className="text-xl font-bold flex items-center gap-2 text-primary/70">
              <BrainCircuit className="w-6 h-6" />
              AI Analytics & Predictive Models
            </h3>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-black/30 p-6 rounded-3xl border border-primary/20">
+              <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Tổng lượt dự đoán</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-4xl font-black text-white">{aiStats?.total_predictions || 0}</p>
+                    <p className="text-2xl font-semibold text-white">{aiStats?.total_predictions || 0}</p>
                     <span className="text-sm text-primary mb-1">+12%</span>
                  </div>
                  {/* Visual Bar representation */}
@@ -92,10 +91,10 @@ export default function AdminDashboardPage() {
                  </div>
               </div>
 
-              <div className="bg-black/30 p-6 rounded-3xl border border-primary/20">
+              <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Độ chính xác (Accuracy)</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-4xl font-black text-white">{(aiStats?.accuracy_rate * 100) || 0}%</p>
+                    <p className="text-2xl font-semibold text-white">{(aiStats?.accuracy_rate * 100) || 0}%</p>
                     <span className="text-sm text-primary mb-1">Tối ưu</span>
                  </div>
                  <div className="w-full h-2 bg-card/20 rounded-full mt-4 overflow-hidden">
@@ -103,11 +102,10 @@ export default function AdminDashboardPage() {
                  </div>
               </div>
 
-              <div className="bg-black/30 p-6 rounded-3xl border border-primary/20">
+              <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
                  <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Mô hình AI Active</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-4xl font-black text-white">{aiStats?.active_models || 0}</p>
-                    <span className="text-sm text-primary mb-1">RAG, Gemini</span>
+                    <p className="text-2xl font-semibold text-white">{aiStats?.active_models || 0}</p>
                  </div>
                  <div className="flex gap-2 mt-4">
                     <div className="w-1/3 h-2 bg-primary rounded-full animate-pulse"></div>
@@ -120,19 +118,19 @@ export default function AdminDashboardPage() {
 
 {/* Quick Links / Module Status */}
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="p-8 rounded-2xl bg-card/30 border border-border space-y-6">
+            <div className="p-8 rounded-lg bg-card/30 border border-border space-y-6">
                <h3 className="text-xl font-bold flex items-center gap-2">
                   <Activity className="w-5 h-5 text-primary" />
                   Trạng thái Module
                </h3>
                <div className="space-y-4">
                   {[
-                    { name: 'Bản đồ PostGIS', status: 'Hoạt động', icon: MapPin, href: '/map' },
+                    { name: 'Bản đồ', status: 'Hoạt động', icon: MapPin, href: '/map' },
                     { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
                     { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/green' },
                     { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
                   ].map((mod, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-card/20 border border-border">
+                    <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-card/20 border border-border">
                        <div className="flex items-center gap-3">
                           <mod.icon className="w-5 h-5 text-muted-foreground/20" />
                           <span className="text-sm font-bold">{mod.name}</span>
@@ -145,8 +143,8 @@ export default function AdminDashboardPage() {
                </div>
             </div>
 
-            <div className="p-8 rounded-2xl bg-card border border-border flex flex-col justify-center items-center text-center space-y-4">
-               <div className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center shadow-xl shadow-primary/20">
+            <div className="p-8 rounded-lg bg-card border border-border flex flex-col justify-center items-center text-center space-y-4">
+               <div className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center  ">
                   <Shield className="w-8 h-8 text-foreground" />
                </div>
                <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
@@ -154,7 +152,7 @@ export default function AdminDashboardPage() {
                   Mọi thao tác quản trị đều được mã hóa và ghi nhật ký hệ thống. Đảm bảo tuân thủ các quy tắc bảo mật dữ liệu người dùng.
                </p>
                <a href="/admin/reports">
-                  <button className="px-8 py-3 rounded-2xl bg-card text-foreground text-sm font-bold hover:bg-primary/80 transition-colors">
+                  <button className="px-8 py-3 rounded-lg bg-card text-foreground text-sm font-bold hover:bg-primary/80 transition-colors">
                      KIỂM TRA AUDIT LOGS
                   </button>
                </a>

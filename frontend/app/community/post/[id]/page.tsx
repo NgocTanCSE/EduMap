@@ -92,7 +92,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
   if (!post) {
       return (
-          <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center">
+          <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center">
               <h1 className="text-2xl font-bold mb-4">Không tìm thấy bài viết</h1>
               <Link href="/community" className="text-primary/80 hover:underline">Quay lại Cộng đồng</Link>
           </div>
@@ -100,15 +100,15 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-background text-white p-4 md:p-8">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         
-        <Link href="/community" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
+        <Link href="/community" className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
         {/* Original Post */}
-        <article className="bg-card border border-border rounded-3xl p-6 md:p-8">
+        <article className="bg-card border border-border rounded-xl p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                     <img 
@@ -124,18 +124,18 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         </p>
                     </div>
                 </div>
-                <button className="text-muted-foreground hover:text-white p-2"><MoreHorizontal size={20}/></button>
+                <button className="text-muted-foreground hover:text-foreground p-2"><MoreHorizontal size={20}/></button>
             </div>
 
             <div className="space-y-4">
-                <h1 className="text-2xl md:text-3xl font-black text-white leading-snug">{post.title}</h1>
+                <h1 className="text-2xl md:text-3xl font-semibold text-foreground leading-snug">{post.title}</h1>
                 <div className="text-muted-foreground/60 text-base leading-relaxed whitespace-pre-wrap">
                     {post.content}
                 </div>
             </div>
 
             <div className="mt-8 pt-4 border-t border-border flex items-center gap-6">
-                <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/40 hover:text-pink-500 transition-colors font-bold group">
+                <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/40 hover:text-primary transition-colors font-bold group">
                     <Heart size={20} className="group-active:scale-75 transition-transform" /> 
                     {post.like_count}
                 </button>
@@ -150,7 +150,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
         </article>
 
         {/* Comments Section */}
-        <div className="bg-card/50 border border-border rounded-3xl p-6 md:p-8 space-y-8">
+        <div className="bg-card/50 border border-border rounded-xl p-6 md:p-8 space-y-8">
             <h3 className="text-xl font-bold flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-primary/80"/> Bình luận ({comments.length})
             </h3>
@@ -171,7 +171,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         onChange={e => setNewComment(e.target.value)}
                         placeholder={authService.isLoggedIn() ? "Viết bình luận của bạn..." : "Vui lòng đăng nhập để bình luận"}
                         disabled={!authService.isLoggedIn()}
-                        className="w-full bg-card/40 border border-border rounded-2xl p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"
+                        className="w-full bg-card/40 border border-border rounded-lg p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"
                     />
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -180,7 +180,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                         <button 
                             type="submit"
                             disabled={!authService.isLoggedIn() || submitting || !newComment.trim()}
-                            className="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                            className="bg-primary hover:bg-primary/90 text-foreground font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Gửi
                         </button>
@@ -201,7 +201,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
                                 <span className="font-bold text-sm text-muted-foreground/70">{comment.author?.full_name}</span>
                                 <span className="text-[10px] text-muted-foreground">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
                             </div>
-                            <div className="bg-card/40 border border-border rounded-2xl rounded-tl-none p-4 text-sm text-muted-foreground/60">
+                            <div className="bg-card/40 border border-border rounded-lg rounded-tl-none p-4 text-sm text-muted-foreground/60">
                                 {comment.content}
                             </div>
                         </div>

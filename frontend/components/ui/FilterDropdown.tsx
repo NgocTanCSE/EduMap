@@ -41,16 +41,16 @@ export default function FilterDropdown({
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/20 border border-white/10 rounded-xl text-sm text-white hover:bg-muted/30 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/20 border border-border/10 rounded-xl text-sm text-foreground hover:bg-muted/30 transition-colors"
       >
-        <span className={selectedOption ? 'text-white' : 'text-white/40'}>
+        <span className={selectedOption ? 'text-foreground' : 'text-foreground/40'}>
           {selectedOption?.label || placeholder}
         </span>
-        <ChevronDown className={`w-4 h-4 text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-foreground/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-white/10 rounded-xl shadow-xl overflow-hidden z-50">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border/10 rounded-xl shadow-xl overflow-hidden z-50">
           <div className="py-2 max-h-60 overflow-y-auto">
             {options.map((option) => (
               <button
@@ -61,13 +61,13 @@ export default function FilterDropdown({
                 }}
                 className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
                   value === option.value
-                    ? 'bg-yellow-600/20 text-yellow-400'
-                    : 'text-white/70 hover:bg-muted/20 hover:text-white'
+                    ? 'bg-primary/20 text-primary'
+                    : 'text-foreground/70 hover:bg-muted/20 hover:text-foreground'
                 }`}
               >
                 <span>{option.label}</span>
                 {value === option.value && (
-                  <Check className="w-4 h-4 text-yellow-400" />
+                  <Check className="w-4 h-4 text-primary" />
                 )}
               </button>
             ))}

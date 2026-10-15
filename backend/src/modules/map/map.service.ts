@@ -154,7 +154,7 @@ export class MapService {
     return locations.map(l => this.locationToPoi(l)).filter((p): p is PointOfInterest => p !== null);
   }
 
-  async findPoisByCategory(category: string): Promise<PointOfInterest[]> {
+  async findPoisByCategory(category: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
     const typeIdsMap: { [key: string]: number } = {
       'university': 1,
       'school': 2,
@@ -174,8 +174,8 @@ export class MapService {
     
     // Fetch from both tables
     const [mapPoints, locations] = await Promise.all([
-      this.fetchMapPointsByCategory(typeId, catLower),
-      this.fetchLocationsByCategory(catLower)
+      this.fetchMapPointsByCategory(typeId, catLower, bounds),
+      this.fetchLocationsByCategory(catLower, bounds)
     ]);
     
     // Merge and deduplicate
@@ -187,7 +187,7 @@ export class MapService {
     return uniquePois;
   }
 
-  private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string): Promise<PointOfInterest[]> {
+  private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
     let query = this.mapPointRepo.createQueryBuilder('map_points');
     
     if (typeId) {
@@ -197,18 +197,30 @@ export class MapService {
     } else {
       query = query.where('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` });
     }
+    if (bounds) {
+      query = query.andWhere(
+        `ST_Intersects(map_points.location, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))`,
+        { ...bounds }
+      );
+    }
     const points = await query.getMany();
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
-  private async fetchLocationsByCategory(catLower: string): Promise<PointOfInterest[]> {
-    const query = this.locationRepo.createQueryBuilder('locations')
+  private async fetchLocationsByCategory(catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
+    let query = this.locationRepo.createQueryBuilder('locations')
       .leftJoinAndSelect('locations.category', 'category')
       .where(
         `(LOWER(category.name) LIKE :cat OR LOWER(locations.description) LIKE :desc OR LOWER(locations.description) LIKE :desc2)`,
         { cat: `%${catLower}%`, desc: `%${catLower}%`, desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` }
       )
       .limit(2000);
+    if (bounds) {
+      query = query.andWhere(
+        `ST_Intersects(locations.coordinates, ST_MakeEnvelope(:minLng, :minLat, :maxLng, :maxLat, 4326))`,
+        { ...bounds }
+      );
+    }
     
     const locations = await query.getMany();
     return locations.map(l => this.locationToPoi(l)).filter((p): p is PointOfInterest => p !== null);
@@ -309,5 +321,23 @@ export class MapService {
       return { total: 0, categories: {} };
     }
   }
-}
 
+  async getPoiDetails(id: string): Promise<{ poi: PointOfInterest | null; nearby: PointOfInterest[] }> {
+    let poi: PointOfInterest | null = null;
+    const mp = await this.mapPointRepo.findOne({ where: { id } });
+    if (mp) poi = this.mapPointToPoi(mp);
+    if (!poi) {
+      const loc = await this.locationRepo.findOne({ where: { id }, relations: ['category'] });
+      if (loc) poi = this.locationToPoi(loc);
+    }
+    if (!poi) return { poi: null, nearby: [] };
+    const nearby = await this.findAllPois({
+      minLat: poi.lat - 0.02, maxLat: poi.lat + 0.02,
+      minLng: poi.lng - 0.02, maxLng: poi.lng + 0.02,
+    });
+    return {
+      poi,
+      nearby: nearby.filter((p) => p.id !== poi!.id).slice(0, 12),
+    };
+  }
+}

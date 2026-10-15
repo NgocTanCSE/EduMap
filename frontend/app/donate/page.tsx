@@ -1,9 +1,14 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Heart, Target, Users, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { Heart } from 'lucide-react';
+import Link from 'next/link';
 import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { toast } from 'sonner';
-import Link from 'next/link';
+import ContentShell from '@/components/ui/ContentShell';
+import SectionHeader from '@/components/ui/SectionHeader';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import Skeleton from '@/components/ui/skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 
 export default function DonationListPage() {
   const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
@@ -26,62 +31,70 @@ export default function DonationListPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        {/* Header */}
-        <div className="text-center space-y-4 py-12">
-           <h1 className="text-5xl font-black tracking-tight">Quyên góp & Đồng hành</h1>
-           <p className="text-muted-foreground/40 max-w-2xl mx-auto">
-             Mỗi đóng góp của bạn, dù nhỏ nhất, đều góp phần xây dựng tương lai bền vững cho cộng đồng EduMap.
-           </p>
-        </div>
+    <ContentShell>
+      <SectionHeader
+        title="Quyên góp & Đồng hành"
+        subtitle="Mỗi đóng góp của bạn, dù nhỏ nhất, đều góp phần xây dựng tương lai bền vững cho cộng đồng EduMap."
+        icon={Heart}
+      />
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {campaigns.map(campaign => {
-              const progress = Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) || 0;
-              return (
-                <Link href={`/donate/campaign/${campaign.id}`} key={campaign.id} className="group">
-                  <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition-all flex flex-col h-full shadow-xl">
-                    <div className="aspect-video relative overflow-hidden">
-                       <img 
-                         src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800" 
-                         alt={campaign.title} 
-                         className="w-full h-full object-cover transition-transform group-hover:scale-110 opacity-70"
-                       />
-                       <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
-                    </div>
-                    <div className="p-8 flex-1 flex flex-col">
-                      <h3 className="text-xl font-bold mb-4 line-clamp-2">{campaign.title}</h3>
-                      <p className="text-muted-foreground/40 text-sm mb-6 line-clamp-3 flex-1">{campaign.description}</p>
-                      
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-end">
-                          <span className="text-lg font-bold">{(campaign.current_amount / 1000000).toFixed(1)}tr</span>
-                          <span className="text-xs text-muted-foreground/40">Mục tiêu: {(campaign.target_amount / 1000000).toFixed(1)}tr</span>
-                        </div>
-                        <div className="h-2 w-full bg-card/20 rounded-full overflow-hidden">
-                           <div className="h-full bg-primary/80" style={{ width: `${progress}%` }} />
-                        </div>
-                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                          <span className="text-primary">{progress}% hoàn thành</span>
-                          <span className="text-muted-foreground/40">Sắp kết thúc</span>
-                        </div>
-                      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-60">
+              <CardContent className="p-0"><Skeleton className="h-full w-full" /></CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : campaigns.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {campaigns.map(campaign => {
+            const progress = Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) || 0;
+            return (
+              <Link href={`/donate/campaign/${campaign.id}`} key={campaign.id} className="group">
+                <Card className="flex flex-col h-full">
+                  <div className="aspect-video relative">
+                    {/* Branded placeholder (no Unsplash stock) */}
+                    <div className="h-4 w-4 absolute top-3 left-3 bg-foreground/10 rounded-full flex items-center justify-center">
+                      <Heart className="w-4 h-4 text-destructive" />
                     </div>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-      </div>
-    </div>
+                  <CardHeader>
+                    <CardTitle className="text-base line-clamp-2 group-hover:text-primary transition-colors">
+                      {campaign.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col">
+                    <p className="text-sm text-foreground/60 line-clamp-3 mb-4 flex-1">
+                      {campaign.description}
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-primary">{progress}% hoàn thành</span>
+                        <span className="text-foreground/50">
+                          {(campaign.current_amount / 1000000).toFixed(1)}tr /{' '}
+                          {(campaign.target_amount / 1000000).toFixed(1)}tr
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-foreground/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState
+          title="Chưa có chiến dịch nào"
+          description="Hãy quay lại sau, các chiến dịch sẽ được cập nhật liên tục."
+        />
+      )}
+    </ContentShell>
   );
 }

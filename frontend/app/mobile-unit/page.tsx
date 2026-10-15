@@ -26,15 +26,15 @@ export default function MobileUnitPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold uppercase tracking-widest">
                 <Truck className="w-4 h-4" /> EduMap Mobile Library
             </div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">Xe Tri Thức Lưu Động</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Xe Tri Thức Lưu Động</h1>
             <p className="text-muted-foreground/60 leading-relaxed">
                 Hệ thống xe thư viện di động mang sách, công nghệ và các lớp học STEM đến với trẻ em ở những khu vực vùng sâu, vùng xa chưa có điều kiện tiếp cận.
             </p>
@@ -43,35 +43,35 @@ export default function MobileUnitPage() {
         {/* Units List */}
         <div>
             {loading ? (
-                <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>
+                <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-accent animate-spin" /></div>
             ) : units.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {units.map(unit => (
                         <Link href={`/mobile-unit/${unit.id}`} key={unit.id} className="group">
-                            <div className="bg-card border border-border rounded-xl p-8 hover:border-cyan-500/50 transition-all hover:bg-cyan-500/5 relative overflow-hidden h-full flex flex-col">
-                                <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 blur-[60px] rounded-full -mr-10 -mt-10 pointer-events-none" />
+                            <div className="bg-card border border-border rounded-xl p-8 hover:border-accent/50 transition-all hover:bg-accent/5 relative overflow-hidden h-full flex flex-col">
+                                <div className="absolute top-0 right-0 w-48 h-40 bg-accent/10 blur-[60px] rounded-full -mr-10 -mt-10 pointer-events-none" />
                                 
                                 <div className="flex justify-between items-start mb-6 relative z-10">
-                                    <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
-                                        <Truck className="w-8 h-8 text-cyan-400" />
+                                    <div className="w-16 h-16 rounded-lg bg-accent/20 border border-accent/30 flex items-center justify-center">
+                                        <Truck className="w-8 h-8 text-accent" />
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                                        unit.status === 'active' ? 'bg-primary/20 text-primary border-green-500/30' : 
+                                        unit.status === 'active' ? 'bg-primary/20 text-primary border-accent/30' : 
                                         'bg-card text-muted-foreground/40 border-border'
                                     }`}>
                                         {unit.status === 'active' ? 'ĐANG HOẠT ĐỘNG' : 'ĐANG BẢO TRÌ'}
                                     </span>
                                 </div>
                                 
-                                <h3 className="text-2xl font-bold mb-2 group-hover:text-cyan-400 transition-colors relative z-10">{unit.name}</h3>
+                                <h3 className="text-2xl font-bold mb-2 group-hover:text-accent transition-colors relative z-10">{unit.name}</h3>
                                 <p className="text-muted-foreground/50 text-sm mb-6 flex-1 relative z-10 line-clamp-3">
                                     {unit.description || 'Chưa có thông tin mô tả cho xe tri thức này.'}
                                 </p>
                                 
                                 <div className="space-y-3 pt-6 border-t border-border relative z-10">
                                     <div className="flex items-center gap-3 text-xs text-foreground/70">
-                                        <ShieldCheck className="w-4 h-4 text-cyan-500" />
-                                        Biển số: <strong className="text-white">{unit.vehicle_plate}</strong>
+                                        <ShieldCheck className="w-4 h-4 text-accent" />
+                                        Biển số: <strong className="text-foreground">{unit.vehicle_plate}</strong>
                                     </div>
                                     <div className="flex items-center gap-3 text-xs text-foreground/70">
                                         <MapPin className="w-4 h-4 text-primary" />
@@ -79,7 +79,7 @@ export default function MobileUnitPage() {
                                     </div>
                                 </div>
                                 
-                                <div className="mt-8 flex items-center justify-between text-xs font-bold text-cyan-400 group-hover:translate-x-2 transition-transform w-fit relative z-10">
+                                <div className="mt-8 flex items-center justify-between text-xs font-bold text-accent group-hover:translate-x-2 transition-transform w-fit relative z-10">
                                     XEM LỊCH TRÌNH & VỊ TRÍ <ArrowRight className="w-4 h-4 ml-1" />
                                 </div>
                             </div>
@@ -87,7 +87,7 @@ export default function MobileUnitPage() {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                     <Truck className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                     <p className="text-muted-foreground/40">Hệ thống chưa có xe tri thức lưu động nào.</p>
                 </div>

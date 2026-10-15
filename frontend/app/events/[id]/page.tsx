@@ -1,14 +1,15 @@
 "use client";
 import React, { useEffect, useState, use } from 'react';
-import { 
-  Calendar, MapPin, Users, Ticket, ArrowLeft, 
-  Share2, ShieldCheck, MessageCircle, Loader2,
-  CheckCircle2, Download, ExternalLink, Clock
+import {
+  Calendar, MapPin, Ticket, ArrowLeft, Share2, ShieldCheck,
+  MessageCircle, Loader2, CheckCircle2, Download, Clock
 } from 'lucide-react';
+import Link from 'next/link';
 import { eventsService, Event, EventRegistrationResponse } from '@/src/services/events.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
-import Link from 'next/link';
+import Thumb from '@/components/ui/Thumb';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -45,7 +46,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       window.location.href = `/auth/login?redirect=/events/${eventId}`;
       return;
     }
-
     try {
       setSubmitting(true);
       const result = await eventsService.registerEvent(eventId);
@@ -69,12 +69,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy sự kiện này.</p>
-        <Link 
+        <Link
           href="/events"
-          className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary/80 transition-all"
+          className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80 transition-colors"
         >
           Quay lại danh sách
         </Link>
@@ -87,94 +87,99 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const isFull = event.registered_count >= event.capacity;
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
-        
-        <Link href="/events" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors group text-sm font-bold">
+    <div className="min-h-screen bg-background text-foreground py-8">
+      <div className="w-full mx-auto space-y-8">
+        <Link
+          href="/events"
+          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors group text-sm font-bold w-fit"
+        >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI DANH SÁCH
         </Link>
 
         {ticket ? (
           /* Ticket View after successful registration */
           <div className="max-w-2xl mx-auto">
-            <div className="bg-card border border-primary/30 rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
+            <div className="border border-primary/30 rounded-xl overflow-hidden">
               <div className="bg-primary p-8 text-center">
-                <CheckCircle2 className="w-16 h-16 text-white mx-auto mb-4" />
-                <h2 className="text-2xl font-black">VÉ THAM GIA CỦA BẠN</h2>
+                <CheckCircle2 className="w-14 h-14 text-foreground mx-auto mb-4" />
+                <h2 className="text-xl font-semibold">VÉ THAM GIA CỦA BẠN</h2>
                 <p className="text-foreground/80 text-sm mt-2">Mã vé: {ticket.ticket_code}</p>
               </div>
-              
-              <div className="p-10 flex flex-col md:flex-row gap-10 items-center">
-                <div className="bg-card p-4 rounded-3xl shrink-0">
-                  <img src={ticket.ticket_qr} alt="Ticket QR" className="w-40 h-40" />
+
+              <div className="p-8 flex flex-col md:flex-row gap-8 items-center">
+                <div className="shrink-0">
+                  <img src={ticket.ticket_qr} alt="Ticket QR" className="w-32 h-32 rounded-lg" />
                 </div>
-                
-                <div className="space-y-6 flex-1 text-center md:text-left">
+
+                <div className="space-y-4 flex-1 text-center md:text-left">
                   <div>
-                    <h3 className="text-xl font-bold mb-1">{ticket.event_title}</h3>
-                    <p className="text-muted-foreground/40 text-sm flex items-center justify-center md:justify-start gap-2">
+                    <h3 className="text-lg font-semibold mb-1">{ticket.event_title}</h3>
+                    <p className="text-muted-foreground/50 text-sm flex items-center justify-center md:justify-start gap-2">
                       <Calendar className="w-4 h-4" /> {new Date(ticket.start_date).toLocaleString('vi-VN')}
                     </p>
                   </div>
-                  
-                  <div className="grid grid-cols-1 gap-4 text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <MapPin className="w-4 h-4 text-primary" /> {ticket.location}
-                    </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+                    <MapPin className="w-4 h-4 text-primary" /> {ticket.location}
                   </div>
 
-                  <div className="pt-6 border-t border-border flex gap-4">
-                    <button className="flex-1 py-4 rounded-2xl bg-card hover:bg-card/50 transition-all text-xs font-bold flex items-center justify-center gap-2">
+                  <div className="pt-6 border-t border-border flex gap-3">
+                    <button className="flex-1 py-3 rounded-xl bg-card hover:bg-card/50 transition-colors text-xs font-bold flex items-center justify-center gap-2">
                       <Download className="w-4 h-4" /> TẢI VÉ
                     </button>
-                    <button onClick={() => setTicket(null)} className="flex-1 py-4 rounded-2xl border border-border hover:bg-card/20 transition-all text-xs font-bold">
+                    <button
+                      onClick={() => setTicket(null)}
+                      className="flex-1 py-3 rounded-xl border border-border text-xs font-bold hover:bg-foreground/5 transition-colors"
+                    >
                       XEM SỰ KIỆN
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            <p className="text-center mt-8 text-muted-foreground/40 text-xs px-10">
-              * Vui lòng xuất trình mã QR này tại quầy check-in để được vào cổng. 
+            <p className="text-center mt-6 text-muted-foreground/40 text-xs px-6">
+              * Vui lòng xuất trình mã QR này tại quầy check-in để được vào cổng.
               Thông tin vé cũng đã được gửi đến email của bạn.
             </p>
           </div>
         ) : (
           /* Normal Detail View */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left: Info */}
             <div className="lg:col-span-2 space-y-8">
-              <div className="rounded-2xl overflow-hidden border border-border aspect-video relative group">
-                <img src={event.image_url || `https://images.unsplash.com/photo-1540575861501-7ad05823c9f5?q=80&w=1200`} alt={event.title} className="w-full h-full object-cover opacity-80" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-                <div className="absolute bottom-8 left-8 right-8">
-                  <span className="px-4 py-2 rounded-full bg-primary text-xs font-bold mb-4 inline-block">WORKSHOP</span>
-                  <h1 className="text-4xl font-bold leading-tight">{event.title}</h1>
+              <div className="rounded-xl overflow-hidden border border-border aspect-video relative">
+                <Thumb src={event.image_url || undefined} alt={event.title} aspect="16/10" />
+                <div className="absolute bottom-6 left-6 right-6">
+                  <span className="px-3 py-1 rounded-full bg-primary text-[10px] font-bold mb-3 inline-block">
+                    WORKSHOP
+                  </span>
+                  <h1 className="text-2xl font-semibold text-foreground">{event.title}</h1>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-6 rounded-3xl bg-card border border-border space-y-2">
+                <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <Calendar className="text-primary w-5 h-5" />
                   <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Thời gian</p>
-                  <p className="text-sm font-bold">{startDate.toLocaleDateString('vi-VN')}</p>
+                  <p className="text-sm font-medium">{startDate.toLocaleDateString('vi-VN')}</p>
                 </div>
-                <div className="p-6 rounded-3xl bg-card border border-border space-y-2">
+                <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <Clock className="text-primary w-5 h-5" />
                   <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Bắt đầu</p>
-                  <p className="text-sm font-bold">{startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-sm font-medium">
+                    {startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
-                <div className="p-6 rounded-3xl bg-card border border-border space-y-2">
+                <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <MapPin className="text-primary w-5 h-5" />
                   <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Địa điểm</p>
-                  <p className="text-sm font-bold truncate">{event.location}</p>
+                  <p className="text-sm font-medium truncate">{event.location}</p>
                 </div>
               </div>
 
               <div className="prose prose-invert max-w-none">
-                <h2 className="text-2xl font-bold">Nội dung sự kiện</h2>
-                <div className="text-muted-foreground/60 leading-relaxed whitespace-pre-wrap">
+                <h2 className="text-xl font-semibold">Nội dung sự kiện</h2>
+                <div className="text-foreground/70 leading-relaxed whitespace-pre-wrap">
                   {event.description || 'Đang cập nhật nội dung chi tiết cho sự kiện này...'}
                 </div>
               </div>
@@ -182,52 +187,57 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
             {/* Right: Registration Card */}
             <div className="space-y-6">
-              <div className="p-8 rounded-2xl bg-card border border-border sticky top-8">
-                <div className="space-y-8">
-                   <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest">Tình trạng chỗ</span>
-                        <span className="text-xs font-bold text-primary">{event.registered_count} / {event.capacity}</span>
-                      </div>
-                      <div className="h-3 w-full bg-card/40 rounded-full overflow-hidden border border-border">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
-                      </div>
-                   </div>
+              <Card className="p-6 sticky top-8">
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider">
+                        Tình trạng chỗ
+                      </span>
+                      <span className="text-xs font-bold text-primary">
+                        {event.registered_count} / {event.capacity}
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full bg-foreground/10 rounded-full overflow-hidden mt-2">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
 
-                   <div className="space-y-4">
-                      <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/10 border border-primary/10">
-                        <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">EduMap Verified</p>
-                          <p className="text-[10px] text-muted-foreground/40">Sự kiện đã được kiểm duyệt nội dung bởi đội ngũ EduMap.</p>
-                        </div>
-                      </div>
-                      
-                      <button 
-                        onClick={handleRegister}
-                        disabled={submitting || isFull || event.status !== 'active'}
-                        className="w-full py-5 rounded-xl bg-primary hover:bg-primary/80 text-white font-bold transition-all shadow-xl shadow-primary/20 disabled:bg-card disabled:shadow-none flex items-center justify-center gap-2"
-                      >
-                        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Ticket className="w-5 h-5" />}
-                        {isFull ? 'HẾT CHỖ' : event.status !== 'active' ? 'ĐÃ KẾT THÚC' : 'ĐĂNG KÝ THAM GIA'}
-                      </button>
-                   </div>
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/10 border border-primary/10">
+                    <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold">EduMap Verified</p>
+                      <p className="text-[10px] text-muted-foreground/40">
+                        Sự kiện đã được kiểm duyệt nội dung bởi đội ngũ EduMap.
+                      </p>
+                    </div>
+                  </div>
 
-                   <div className="pt-8 border-t border-border space-y-4">
-                      <button className="w-full py-4 rounded-2xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-card transition-all">
-                        <Share2 className="w-4 h-4" /> CHIA SẺ SỰ KIỆN
-                      </button>
-                      <button className="w-full py-4 rounded-2xl border border-border text-xs font-bold flex items-center justify-center gap-2 text-muted-foreground/40 hover:text-white transition-all">
-                        <MessageCircle className="w-4 h-4" /> HỎI ĐÁP VỀ SỰ KIỆN
-                      </button>
-                   </div>
+                  <button
+                    onClick={handleRegister}
+                    disabled={submitting || isFull || event.status !== 'active'}
+                    className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-foreground font-bold transition-all disabled:bg-card disabled:shadow-none disabled:text-muted-foreground/40 flex items-center justify-center gap-2"
+                  >
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Ticket className="w-5 h-5" />}
+                    {isFull ? 'HẾT CHỖ' : event.status !== 'active' ? 'ĐÃ KẾT THÚC' : 'ĐĂNG KÝ THAM GIA'}
+                  </button>
+
+                  <div className="pt-6 border-t border-border space-y-3">
+                    <button className="w-full py-3 rounded-xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-foreground/5 transition-colors">
+                      <Share2 className="w-4 h-4" /> CHIA SẺ SỰ KIỆN
+                    </button>
+                    <button className="w-full py-3 rounded-xl border border-border text-xs font-bold flex items-center justify-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors">
+                      <MessageCircle className="w-4 h-4" /> HỎI ĐÁP VỀ SỰ KIỆN
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </Card>
             </div>
-
           </div>
         )}
-
       </div>
     </div>
   );

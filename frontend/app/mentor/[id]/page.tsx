@@ -82,8 +82,8 @@ export default function MentorDetailPage() {
   if (!mentor) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Mentor not found.</div>;
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-8">
         
         <Link href="/mentor" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-4 w-max">
             <ArrowLeft size={16} /> Quay lại danh sách
@@ -92,17 +92,16 @@ export default function MentorDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Profile Info */}
             <div className="lg:col-span-2 space-y-8">
-                <div className="bg-card border border-border rounded-3xl p-8 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] -mr-10 -mt-10" />
+                <div className="bg-card border border-border rounded-xl p-8 relative overflow-hidden">
                     <div className="flex flex-col md:flex-row gap-8 relative z-10">
                         <img 
                             src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random&size=200`} 
                             alt={mentor.user?.full_name} 
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-3xl object-cover border-4 border-card-foreground/20 shadow-2xl" 
+                            className="w-32 h-32 md:w-40 md:h-40 rounded-xl object-cover border-4 border-card-foreground/20" 
                         />
                         <div className="flex-1 space-y-4">
                             <div>
-                                <h1 className="text-3xl font-black mb-2">{mentor.user?.full_name}</h1>
+                                <h1 className="text-3xl font-semibold mb-2">{mentor.user?.full_name}</h1>
                                 <div className="flex items-center gap-4 text-sm font-bold text-muted-foreground/40">
                                     <span className="flex items-center gap-1.5"><Briefcase size={16} className="text-primary/70"/> {mentor.experience_years} năm kinh nghiệm</span>
                                     <span className="flex items-center gap-1.5"><Star size={16} className="text-primary fill-current"/> {mentor.rating_avg} Rating</span>
@@ -117,7 +116,7 @@ export default function MentorDetailPage() {
                     </div>
                 </div>
 
-                <div className="bg-card/50 border border-border p-8 rounded-3xl space-y-4">
+                <div className="bg-card/50 border border-border p-8 rounded-xl space-y-4">
                     <h2 className="text-xl font-bold border-b border-border pb-2">Giới thiệu bản thân</h2>
                     <p className="text-muted-foreground/40 leading-relaxed whitespace-pre-wrap">{mentor.bio || "Mentor này chưa cập nhật phần giới thiệu chi tiết."}</p>
                 </div>
@@ -126,10 +125,10 @@ export default function MentorDetailPage() {
             {/* Right Column - Booking & Actions */}
             <div className="space-y-6">
                 {!bookingSuccess ? (
-                    <div className="bg-card border border-border p-8 rounded-3xl space-y-6 sticky top-8">
+                    <div className="bg-card border border-border p-8 rounded-xl space-y-6 sticky top-8">
                         <div className="text-center pb-6 border-b border-border">
-                            <h2 className="text-2xl font-black mb-2">Đặt lịch ngay</h2>
-                            <p className="text-3xl font-black text-primary">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-muted-foreground font-normal">/ buổi</span></p>
+                            <h2 className="text-2xl font-semibold mb-2">Đặt lịch ngay</h2>
+                            <p className="text-3xl font-semibold text-primary">{mentor.hourly_rate ? `${mentor.hourly_rate}k` : 'Miễn phí'} <span className="text-sm text-muted-foreground font-normal">/ buổi</span></p>
                         </div>
 
                         <div className="space-y-4">
@@ -145,7 +144,7 @@ export default function MentorDetailPage() {
                                                 slot.is_booked 
                                                     ? 'bg-card border-transparent text-gray-600 cursor-not-allowed line-through'
                                                     : selectedSlot?.start === slot.start
-                                                        ? 'bg-primary border-primary text-foreground shadow-lg shadow-primary/20'
+                                                        ? 'bg-primary border-primary text-foreground shadow-lg '
                                                         : 'bg-black border-border text-white hover:border-primary/50'
                                             }`}
                                         >
@@ -162,7 +161,7 @@ export default function MentorDetailPage() {
                             <button 
                                 onClick={handleBookSession}
                                 disabled={isBooking || !selectedSlot}
-                                className="w-full bg-card hover:bg-muted/30 text-foreground font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-card hover:bg-muted/30 text-foreground font-semibold py-4 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isBooking ? 'Đang xử lý...' : <><Calendar size={18} /> Xác nhận đặt lịch</>}
                             </button>
@@ -170,22 +169,22 @@ export default function MentorDetailPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-8 rounded-3xl space-y-6 text-center sticky top-8">
+                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-8 rounded-xl space-y-6 text-center sticky top-8">
                         <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2">
                             <CheckCircle2 size={40} className="text-foreground" />
                         </div>
-                        <h2 className="text-2xl font-black text-emerald-400">Yêu cầu đã gửi!</h2>
+                        <h2 className="text-2xl font-semibold text-emerald-400">Yêu cầu đã gửi!</h2>
                         <p className="text-muted-foreground/40 text-sm leading-relaxed">
                             Thông báo đã được gửi đến Mentor <strong>{mentor.user?.full_name}</strong>. 
                             Bạn sẽ nhận được phản hồi sớm nhất qua hệ thống.
                         </p>
-                        <Link href="/mentor" className="block w-full bg-card hover:bg-card/50 text-white font-bold py-4 rounded-2xl transition-colors mt-6">
+                        <Link href="/mentor" className="block w-full bg-card hover:bg-card/50 text-foreground font-bold py-4 rounded-lg transition-colors mt-6">
                             Quay lại danh sách
                         </Link>
                     </div>
                 )}
 
-                <div className="bg-card/30 border border-border p-6 rounded-2xl">
+                <div className="bg-card/30 border border-border p-6 rounded-lg">
                     <p className="text-xs text-muted-foreground flex items-center justify-center gap-2"><Video size={14}/> Các buổi tư vấn diễn ra online qua EduMap Meet.</p>
                 </div>
             </div>

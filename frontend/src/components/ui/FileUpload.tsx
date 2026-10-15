@@ -72,8 +72,8 @@ export default function FileUpload({ onUploadSuccess, accept = ".pdf,.docx,.doc"
         onClick={() => !uploading && !uploadedUrl && fileInputRef.current?.click()}
         className={`p-6 rounded-[32px] border-2 border-dashed transition-all flex flex-col items-center justify-center text-center space-y-3 cursor-pointer group ${
           uploadedUrl
-            ? 'bg-emerald-500/5 border-emerald-500/30'
-            : 'bg-[#111111] border-white/10 hover:border-yellow-500/50'
+            ? 'bg-accent/5 border-accent/30'
+            : 'bg-muted border-border hover:border-primary/50'
         }`}
       >
         <input
@@ -84,29 +84,29 @@ export default function FileUpload({ onUploadSuccess, accept = ".pdf,.docx,.doc"
           onChange={handleFileChange}
         />
         {uploading ? (
-          <Loader2 className="w-10 h-10 text-yellow-500 animate-spin" />
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
         ) : uploadedUrl ? (
-          <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+          <CheckCircle2 className="w-10 h-10 text-accent" />
         ) : (
-          <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 text-yellow-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
             <Upload className="w-6 h-6" />
           </div>
         )}
         <div>
-          <p className="text-xs font-bold text-white">
+          <p className="text-xs font-bold text-foreground">
             {uploadedUrl ? "Đã tải lên thành công" : file ? file.name : label}
           </p>
-          <p className="text-[10px] text-white/40 mt-1">
+          <p className="text-[10px] text-foreground/40 mt-1">
             {uploadedUrl ? "File đã sẵn sàng" : `Định dạng: ${accept.split(',').join(' ')} (Max ${maxSizeMB}MB)`}
           </p>
         </div>
       </div>
-      {error && <p className="text-[10px] text-red-500 font-bold ml-2">{error}</p>}
+      {error && <p className="text-[10px] text-destructive font-bold ml-2">{error}</p>}
       {uploadedUrl && (
         <button
           type="button"
           onClick={resetUpload}
-          className="text-xs text-red-400 hover:text-red-300"
+          className="text-xs text-destructive hover:text-destructive"
         >
           <X className="w-3 h-3 inline mr-1" />Chọn lại
         </button>

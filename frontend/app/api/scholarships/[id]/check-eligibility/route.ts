@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 
-export async function POST(req: NextRequest) {
+// GET + params.id. (Was POST w/ split('...').pop() -> grabbed the literal
+// 'check-eligibility' token, and POST mismatched the backend @Get route, so the
+// scholarship 'Kiểm tra phù hợp' button always failed.)
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
+  const authHeader = req.headers.get('Authorization');
+  const headers: Record<string, string> = {};
+  if (authHeader) headers['Authorization'] = authHeader;
   try {
-    const id = req.nextUrl.pathname.split('/').filter(Boolean).pop();
-    const body = await req.json();
-    const authHeader = req.headers.get('Authorization');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authHeader) headers['Authorization'] = authHeader;
     const response = await fetch(`${getBackendUrl()}/scholarships/${id}/check-eligibility`, {
-      method: 'POST',
       headers,
-      body: JSON.stringify(body),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối' }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

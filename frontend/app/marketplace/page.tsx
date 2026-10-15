@@ -92,12 +92,12 @@ export default function ShareMarketplacePage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
       
       {/* Share Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in">
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowShareModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Share2 className="text-pink-500 w-6 h-6"/> Chia sẻ tài liệu</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Đóng góp sách hoặc học cụ của bạn cho cộng đồng.</p>
@@ -140,7 +140,7 @@ export default function ShareMarketplacePage() {
                     <button 
                         type="submit" 
                         disabled={sharing}
-                        className="w-full py-4 mt-4 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all shadow-lg shadow-pink-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-pink-600 hover:bg-pink-500 text-foreground font-bold transition-all shadow-lg shadow-pink-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {sharing ? <Loader2 className="w-5 h-5 animate-spin" /> : null} ĐĂNG TÀI LIỆU
                     </button>
@@ -151,8 +151,8 @@ export default function ShareMarketplacePage() {
 
       {/* Request Modal */}
       {showRequestModal && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in">
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowRequestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2">Mượn tài liệu</h3>
                 <p className="text-sm text-pink-400 font-bold mb-6">{selectedItem.name}</p>
@@ -173,7 +173,7 @@ export default function ShareMarketplacePage() {
                     <button 
                         type="submit" 
                         disabled={requesting}
-                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary text-white font-bold transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary text-white font-bold transition-all shadow-lg disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {requesting ? <Loader2 className="w-5 h-5 animate-spin" /> : null} GỬI YÊU CẦU MƯỢN
                     </button>
@@ -182,12 +182,12 @@ export default function ShareMarketplacePage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="w-full mx-auto space-y-8">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-4">Góc Chia Sẻ & Trao Đổi</h1>
+            <h1 className="text-2xl font-semibold mb-4">Góc Chia Sẻ & Trao Đổi</h1>
             <p className="text-muted-foreground/60 max-w-md leading-relaxed">
               Mua bán, trao đổi sách cũ, giáo trình và đồ dùng học tập từ cộng đồng học sinh, sinh viên EduMap.
             </p>
@@ -195,13 +195,13 @@ export default function ShareMarketplacePage() {
           <div className="relative z-10">
             <button 
                 onClick={() => setShowShareModal(true)}
-                className="px-8 py-4 bg-pink-600 hover:bg-pink-500 rounded-2xl font-bold flex items-center gap-2 shadow-xl shadow-pink-600/20 transition-all"
+                className="px-8 py-4 bg-pink-600 hover:bg-pink-500 rounded-lg font-bold flex items-center gap-2 shadow-pink-600/20 transition-all"
             >
                 <Plus className="w-5 h-5" /> ĐĂNG TÀI LIỆU MỚI
             </button>
           </div>
-          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-            <Box className="w-64 h-64" />
+          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+            <Box className="w-24 h-24" />
           </div>
         </div>
 
@@ -214,7 +214,7 @@ export default function ShareMarketplacePage() {
               placeholder="Tìm kiếm sách, học cụ..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-pink-500 transition-colors" 
+              className="w-full bg-card border border-border rounded-lg py-4 pl-12 pr-4 outline-none focus:border-pink-500 transition-colors" 
             />
           </div>
           <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 sm:pb-0">
@@ -227,7 +227,7 @@ export default function ShareMarketplacePage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveCategory(tab.id)}
-                className={`px-6 py-4 rounded-2xl border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                className={`px-6 py-4 rounded-lg border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                   activeCategory === tab.id 
                     ? 'bg-pink-600 border-pink-500 text-white' 
                     : 'bg-card border-border text-muted-foreground/60 hover:bg-card/20'
@@ -241,11 +241,11 @@ export default function ShareMarketplacePage() {
 
         {/* Items List */}
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-pink-500 animate-spin" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-pink-500 animate-spin" /></div>
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map(item => (
-              <div key={item.id} className="p-6 rounded-3xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
+              <div key={item.id} className="p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
                 <div className="flex items-center gap-3 mb-4">
                     <img src={item.owner?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.owner?.full_name || 'U')}&background=random`} alt="" className="w-10 h-10 rounded-full border border-border"/>
                     <div>
@@ -267,7 +267,7 @@ export default function ShareMarketplacePage() {
                 <div className="pt-6 mt-6 border-t border-border flex gap-3">
                     <button 
                         onClick={() => openRequestModal(item)}
-                        className="flex-1 py-3 bg-primary hover:bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-primary/20"
+                        className="flex-1 py-3 bg-primary hover:bg-primary text-white rounded-xl text-xs font-bold transition-all shadow-lg"
                     >
                         MƯỢN TÀI LIỆU
                     </button>
@@ -276,7 +276,7 @@ export default function ShareMarketplacePage() {
             ))}
           </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+            <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <BookOpen className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                 <p className="text-muted-foreground/40">Chưa có tài liệu nào trong chuyên mục này.</p>
             </div>

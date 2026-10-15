@@ -49,8 +49,8 @@ class LLMService:
         self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
         # DSS model theo thứ tự từ CLOUDFLARE_MODEL (CSV). Model đầu tiên = primary; các model sau là fallback tự động.
-        self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3-8b-instruct,@cf/meta/llama-3-70b-instruct,@cf/google/gemma-2b-it").split(",") if m.strip()]
-        self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3-8b-instruct"
+        self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
+        self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
         if self.api_token and self.account_id:
             self.is_ready = True
         else:
@@ -58,15 +58,21 @@ class LLMService:
             print("ERROR: CLOUDFLARE_API_TOKEN hoặc CLOUDFLARE_ACCOUNT_ID chưa cấu hình. Điền Cloudflare API token + account ID vào .env.")
             print(f"CLOUDFLARE_MODEL mặc định: {self.model_name}.")
 
-    # 404-style reasons that mean the model name itself is wrong/unavailable,
+    # Reasons that mean the model name itself is wrong/unavailable/deprecated,
     # so we should move on to the next candidate instead of retrying it.
     # (429 = rate limit -> go to next model immediately; 502/503/504 = transient
     #  -> retry once on the same model, then move on.)
-    _MODEL_NOT_FOUND_REASONS = ("not found", "not supported", "no longer available", "model not found", "could not find")
+    _MODEL_NOT_FOUND_REASONS = (
+        "not found", "not supported", "no longer available",
+        "model not found", "could not find", "deprecated", "does not exist",
+    )
 
     def _is_model_not_found(self, code, message):
         low = (message or "").lower()
-        return code == 404 or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
+        return (
+            code in (404, 410)  # 410 = Gone / deprecated model
+            or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
+        )
 
     def _cloudflare_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Gọi Cloudflare Workers AI :generateContent. Thử từng model trong CLOUDFLARE_MODEL (CSV).

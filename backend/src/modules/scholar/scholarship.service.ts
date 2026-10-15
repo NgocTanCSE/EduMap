@@ -44,9 +44,8 @@ export class ScholarshipService {
     const scholar = await this.scholarRepo.findOne({ where: { id: scholarshipId } });
     if (!scholar) throw new NotFoundException('Học bổng không tồn tại');
 
-    const user = await this.userRepo.findOne({ 
+    const user = await this.userRepo.findOne({
       where: { id: userId as any },
-      relations: ['profile'] // Assuming user has a profile relation
     });
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 

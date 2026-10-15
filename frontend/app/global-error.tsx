@@ -10,9 +10,9 @@ export default function GlobalError({
   return (
     <html lang="vi">
       <body>
-        <div className="min-h-screen flex items-center justify-center bg-background text-white p-8">
+        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-8">
           <div className="max-w-md w-full text-center space-y-6">
-            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
               <span className="text-3xl">🚨</span>
             </div>
             <h2 className="text-2xl font-bold">Lỗi hệ thống</h2>

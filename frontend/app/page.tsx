@@ -26,7 +26,7 @@ export default function HomeGate() {
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
       <div className="flex items-center gap-3 text-2xl font-semibold">
         <EduMapLogo className="h-7 w-7 text-primary" />
-        <span className="font-extrabold">Edu<span className="text-primary">Map</span></span>
+        <span className="font-bold">Edu<span className="text-primary">Map</span></span>
       </div>
       <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="w-4 h-4 animate-spin text-primary" />

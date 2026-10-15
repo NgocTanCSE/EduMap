@@ -6,7 +6,6 @@ import helmet from 'helmet';
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 async function bootstrap() {
@@ -24,7 +23,6 @@ async function bootstrap() {
   });
 
   const app = await NestFactory.create(AppModule);
-  app.useGlobalInterceptors(new LoggingInterceptor());
 
   // 🛡️ SECURITY: Helmet bảo mật HTTP Header
   app.use(helmet());
@@ -70,8 +68,8 @@ Sử dụng JWT Bearer Token để xác thực. Lấy token từ endpoint \`\\\$
 
 ### Rate Limiting
 - API công khai: 100 requests/phút
-- API xác thực: 20 requests/phút
-- API AI: 10 requests/phút
+- Xác thực: 100 requests/phút (cùng giới hạn toàn cục tại AppModule; chưa tách riêng; dùng @Throttle() per-controller khi cần).
+- AI: 100 requests/phút (cùng giới hạn toàn cục; chưa tách riêng; dùng @Throttle() per-controller khi cần).
     `)
     .setVersion('2.0')
     .setContact('EduMap Team', 'https://edumap.vn', 'admin@edumap.vn')

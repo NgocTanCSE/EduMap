@@ -29,7 +29,7 @@ export default function AdminAuditLogsPage() {
   }, [meta.page]);
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}

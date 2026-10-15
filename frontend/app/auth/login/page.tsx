@@ -196,6 +196,19 @@ function GoogleLoginContent() {
     }
   };
 
+  const handleDevLogin = async () => {
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      await authService.devLogin();
+      router.replace(redirectUrl);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Dev login thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (checking) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
@@ -216,7 +229,7 @@ function GoogleLoginContent() {
       <div className="absolute bottom-[-15%] right-[20%] w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-2xl relative z-10">
-        <div className="bg-card border border-border rounded-2xl p-6 sm:p-10 shadow-xl">
+        <div className="bg-card border border-border rounded-lg p-6 sm:p-10 ">
 
           {/* Header */}
           <div className="text-center mb-8">
@@ -336,6 +349,26 @@ function GoogleLoginContent() {
               <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
               <p className="leading-relaxed">
                 Hệ thống sẽ đồng bộ hóa Avatar, Họ tên và Email từ tài khoản Google của bạn.
+              </p>
+            </div>
+
+            {/* Dev Login — bypass Google OAuth for local testing */}
+            <div className="border-t border-border pt-4 mt-2">
+              <button
+                type="button"
+                onClick={handleDevLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary-foreground dark:text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                <span>Dev Login (bypass Google OAuth)</span>
+              </button>
+              <p className="text-[10px] text-muted-foreground/60 text-center mt-1.5">
+                Dành cho môi trường phát triển — tạo JWT hợp lệ để test toàn bộ tính năng.
               </p>
             </div>
           </div>

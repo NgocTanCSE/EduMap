@@ -177,6 +177,34 @@ export class AuthService {
     };
   }
 
+  /** Dev-only helper: ensures a test user exists in the database so that
+   * `/api/auth/me` (and other DB-backed endpoints) don't 500 on a missing user.
+   * Called by AuthController.devLogin(). Creates with a deterministic email
+   * so repeated calls are idempotent. */
+  async createDevUser(): Promise<User> {
+    const email = 'dev@edumap.com';
+    let user = await this.userRepo.findOne({ where: { email } });
+    if (user) return user;
+
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(randomPassword, salt);
+
+    const newUser = this.userRepo.create({
+      email,
+      full_name: 'Dev User',
+      avatar_url: 'https://ui-avatars.com/api/?name=Dev+User&background=4285F4&color=fff',
+      password_hash,
+      role_id: 11, // Student
+      status: 'active',
+      email_verified: true,
+      last_login: new Date(),
+    });
+
+    user = await this.userRepo.save(newUser);
+    return user;
+  }
+
   async forgotPassword(email: string): Promise<any> {
     const user = await this.userRepo.findOne({ where: { email } });
     if (!user) {

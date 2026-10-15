@@ -124,37 +124,37 @@ export default function WifiPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
       
       {/* Report Modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
-                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-sky-500 w-6 h-6"/> Chia sẻ điểm Wifi</h3>
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
+                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-accent w-6 h-6"/> Chia sẻ điểm Wifi</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Đóng góp mạng Wifi miễn phí để hỗ trợ cộng đồng sinh viên.</p>
                 
                 <form onSubmit={handleReportWifi} className="space-y-4">
                     <div>
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Tên địa điểm (VD: Thư viện KHTN) *</label>
-                        <input type="text" required value={reportForm.name} onChange={e => setReportForm({...reportForm, name: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                        <input type="text" required value={reportForm.name} onChange={e => setReportForm({...reportForm, name: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Tên mạng (SSID) *</label>
-                        <input type="text" required value={reportForm.ssid} onChange={e => setReportForm({...reportForm, ssid: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                        <input type="text" required value={reportForm.ssid} onChange={e => setReportForm({...reportForm, ssid: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Mật khẩu (Nếu có)</label>
-                        <input type="text" value={reportForm.password} onChange={e => setReportForm({...reportForm, password: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" placeholder="Để trống nếu không có mật khẩu" />
+                        <input type="text" value={reportForm.password} onChange={e => setReportForm({...reportForm, password: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" placeholder="Để trống nếu không có mật khẩu" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Vĩ độ *</label>
-                            <input type="number" step="any" required value={reportForm.latitude} onChange={e => setReportForm({...reportForm, latitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                            <input type="number" step="any" required value={reportForm.latitude} onChange={e => setReportForm({...reportForm, latitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2">Kinh độ *</label>
-                            <input type="number" step="any" required value={reportForm.longitude} onChange={e => setReportForm({...reportForm, longitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-sky-500 outline-none" />
+                            <input type="number" step="any" required value={reportForm.longitude} onChange={e => setReportForm({...reportForm, longitude: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" />
                         </div>
                     </div>
                     <button type="button" onClick={() => {
@@ -163,11 +163,11 @@ export default function WifiPage() {
                                 setReportForm({...reportForm, latitude: pos.coords.latitude.toString(), longitude: pos.coords.longitude.toString()});
                             });
                         }
-                    }} className="w-full py-2 bg-sky-500/10 text-sky-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-sky-500/20">
+                    }} className="w-full py-2 bg-accent/10 text-accent rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-accent/20">
                         <Navigation className="w-3 h-3" /> Lấy vị trí hiện tại
                     </button>
                     
-                    <button type="submit" disabled={reporting} className="w-full py-4 mt-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition-all shadow-lg shadow-sky-600/20 disabled:opacity-50">
+                    <button type="submit" disabled={reporting} className="w-full py-4 mt-4 rounded-xl bg-accent hover:bg-accent text-foreground font-bold transition-all shadow-lg shadow-accent/20 disabled:opacity-50">
                         {reporting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'CHIA SẺ NGAY'}
                     </button>
                 </form>
@@ -178,25 +178,25 @@ export default function WifiPage() {
       {/* Speed Test Modal */}
       {showSpeedTestModal && selectedWifi && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative text-center">
-                <button onClick={() => setShowSpeedTestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
-                <Gauge className="w-12 h-12 text-sky-500 mx-auto mb-4" />
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative text-center">
+                <button onClick={() => setShowSpeedTestModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <Gauge className="w-12 h-12 text-accent mx-auto mb-4" />
                 <h3 className="text-2xl font-bold mb-1">Kiểm tra tốc độ</h3>
-                <p className="text-sm text-sky-400 font-bold mb-8">{selectedWifi.name}</p>
+                <p className="text-sm text-accent font-bold mb-8">{selectedWifi.name}</p>
                 
                 <div className="flex justify-center gap-8 mb-8">
                     <div>
                         <p className="text-xs text-muted-foreground/40 uppercase tracking-widest font-bold mb-2">Download</p>
-                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.dl.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
+                        <p className="text-3xl font-mono font-semibold text-foreground">{speedTestResult.dl.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground/40 uppercase tracking-widest font-bold mb-2">Upload</p>
-                        <p className="text-3xl font-mono font-black text-white">{speedTestResult.ul.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
+                        <p className="text-3xl font-mono font-semibold text-foreground">{speedTestResult.ul.toFixed(1)} <span className="text-sm text-muted-foreground/40">Mbps</span></p>
                     </div>
                 </div>
 
                 {!speedTestResult.testing && speedTestResult.dl === 0 ? (
-                    <button onClick={runSimulatedSpeedTest} className="w-full py-4 rounded-xl bg-card hover:bg-card/50 text-white font-bold transition-all flex items-center justify-center gap-2">
+                    <button onClick={runSimulatedSpeedTest} className="w-full py-4 rounded-xl bg-card hover:bg-card/50 text-foreground font-bold transition-all flex items-center justify-center gap-2">
                         <SignalHigh className="w-5 h-5" /> BẮT ĐẦU ĐO
                     </button>
                 ) : !speedTestResult.testing && speedTestResult.dl > 0 ? (
@@ -210,12 +210,12 @@ export default function WifiPage() {
                                 />
                             ))}
                         </div>
-                        <button onClick={handleSubmitSpeedTest} disabled={submittingTest} className="w-full py-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition-all shadow-lg shadow-sky-600/20 flex justify-center items-center gap-2">
+                        <button onClick={handleSubmitSpeedTest} disabled={submittingTest} className="w-full py-4 rounded-xl bg-accent hover:bg-accent text-foreground font-bold transition-all shadow-lg shadow-accent/20 flex justify-center items-center gap-2">
                             {submittingTest ? <Loader2 className="w-5 h-5 animate-spin" /> : 'GỬI ĐÁNH GIÁ'}
                         </button>
                     </div>
                 ) : (
-                    <div className="w-full py-4 rounded-xl bg-sky-600/20 text-sky-400 font-bold flex justify-center items-center gap-2">
+                    <div className="w-full py-4 rounded-xl bg-accent/20 text-accent font-bold flex justify-center items-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" /> ĐANG ĐO...
                     </div>
                 )}
@@ -223,12 +223,12 @@ export default function WifiPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-12">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-6 bg-card p-8 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10">
-            <h1 className="text-4xl md:text-5xl font-black mb-4">EduMap WiFi</h1>
+            <h1 className="text-3xl md:text-2xl font-semibold mb-3">EduMap WiFi</h1>
             <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
               Bản đồ phủ sóng Wifi miễn phí tại các điểm trường và khu vực công cộng. Chia sẻ và cùng nhau xây dựng cộng đồng học tập không rào cản.
             </p>
@@ -236,9 +236,9 @@ export default function WifiPage() {
           <div className="relative z-10 flex gap-4">
              <button 
                 onClick={handleGetNearby}
-                className="px-6 py-4 bg-card border border-border hover:border-sky-500 rounded-2xl font-bold flex items-center gap-2 transition-all"
+                className="px-6 py-4 bg-card border border-border hover:border-accent rounded-lg font-bold flex items-center gap-2 transition-all"
              >
-                <Navigation className="w-5 h-5 text-sky-400" /> TÌM GẦN ĐÂY
+                <Navigation className="w-5 h-5 text-accent" /> TÌM GẦN ĐÂY
              </button>
              <button 
                 onClick={() => {
@@ -248,13 +248,13 @@ export default function WifiPage() {
                     }
                     setShowReportModal(true);
                 }}
-                className="px-6 py-4 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-bold flex items-center gap-2 shadow-xl shadow-sky-600/20 transition-all"
+                className="px-6 py-4 bg-accent hover:bg-accent text-foreground rounded-lg font-bold flex items-center gap-2 shadow-accent/20 transition-all"
              >
                 <Plus className="w-5 h-5" /> CHIA SẺ WIFI
              </button>
           </div>
-          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-            <Wifi className="w-64 h-64" />
+          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+            <Wifi className="w-40 h-40" />
           </div>
         </div>
 
@@ -266,30 +266,30 @@ export default function WifiPage() {
                 placeholder="Tìm tên địa điểm, SSID..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-card border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-sky-500 transition-colors" 
+                className="w-full bg-card border border-border rounded-xl py-3 pl-12 pr-4 outline-none focus:border-accent transition-colors text-sm" 
             />
         </div>
 
         {/* List */}
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-sky-500 animate-spin" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-accent animate-spin" /></div>
         ) : filteredLocations.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredLocations.map(wifi => (
-              <div key={wifi.id} className="bg-card border border-border rounded-xl p-6 hover:border-sky-500/30 transition-all group relative overflow-hidden flex flex-col h-full">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-[40px] rounded-full -mr-10 -mt-10 pointer-events-none" />
+              <div key={wifi.id} className="bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-all group relative overflow-hidden flex flex-col h-full">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-[40px] rounded-full -mr-10 -mt-10 pointer-events-none" />
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
-                      <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center">
-                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-primary' : wifi.speed_mbps >= 10 ? 'text-primary' : 'text-red-500'}`} />
+                      <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center">
+                          <Wifi className={`w-6 h-6 ${wifi.speed_mbps >= 30 ? 'text-primary' : wifi.speed_mbps >= 10 ? 'text-primary' : 'text-destructive'}`} />
                       </div>
-                      <span className="px-2 py-1 rounded bg-card/20 border border-border text-[10px] font-bold uppercase tracking-widest text-sky-400">
+                      <span className="px-2 py-1 rounded bg-card/20 border border-border text-[10px] font-bold uppercase tracking-widest text-accent">
                           {wifi.verified ? 'ĐÃ XÁC THỰC' : 'CỘNG ĐỒNG'}
                       </span>
                   </div>
                   
-                  <h3 className="text-xl font-bold mb-1 group-hover:text-sky-400 transition-colors line-clamp-1">{wifi.name}</h3>
-                  <p className="text-sm font-mono text-muted-foreground/60 mb-6 bg-card/40 px-3 py-2 rounded-lg border border-border w-fit">
+                  <h3 className="text-lg font-bold mb-1 group-hover:text-accent transition-colors line-clamp-1">{wifi.name}</h3>
+                  <p className="text-sm font-mono text-muted-foreground/60 mb-3 bg-card/40 px-3 py-1.5 rounded-lg border border-border w-fit">
                       SSID: {wifi.ssid}
                   </p>
                   
@@ -300,7 +300,7 @@ export default function WifiPage() {
                       </div>
                       <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground/40 flex items-center gap-2"><Gauge className="w-4 h-4"/> Tốc độ (Đám đông)</span>
-                          <span className="font-mono font-bold text-sky-400">{wifi.speed_mbps || 0} Mbps</span>
+                          <span className="font-mono font-bold text-accent">{wifi.speed_mbps || 0} Mbps</span>
                       </div>
                   </div>
 
@@ -313,7 +313,7 @@ export default function WifiPage() {
                           setSelectedWifi(wifi);
                           setShowSpeedTestModal(true);
                       }}
-                      className="w-full mt-6 py-3 rounded-xl bg-card hover:bg-card border border-border text-xs font-bold transition-all relative z-10"
+                      className="w-full mt-4 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-foreground border border-border text-xs font-bold transition-all relative z-10"
                   >
                       ĐO TỐC ĐỘ LẠI
                   </button>
@@ -321,7 +321,7 @@ export default function WifiPage() {
             ))}
           </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+            <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <Wifi className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4 opacity-50" />
                 <p className="text-muted-foreground/40">Không tìm thấy điểm Wifi nào.</p>
             </div>

@@ -57,7 +57,7 @@ export default function PredictiveCareerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
         <p className="text-primary font-bold animate-pulse uppercase tracking-widest text-xs">AI đang đọc hồ sơ của bạn...</p>
       </div>
@@ -66,22 +66,22 @@ export default function PredictiveCareerPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
-        <div className="bg-red-500/10 border border-red-500/20 p-10 rounded-2xl max-w-lg">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        <div className="bg-destructive/10 border border-destructive/20 p-10 rounded-lg max-w-lg">
+          <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-6" />
           <h2 className="text-2xl font-bold mb-4">Ối! Đã có lỗi xảy ra</h2>
           <p className="text-muted-foreground/60 mb-8">{error}</p>
           {!authService.isLoggedIn() ? (
             <button 
               onClick={() => window.location.href = '/auth/login?redirect=/career/predictive'}
-              className="px-8 py-3 bg-card text-foreground font-bold rounded-2xl hover:bg-muted transition-all"
+              className="px-8 py-3 bg-card text-foreground font-bold rounded-lg hover:bg-muted transition-all"
             >
               ĐĂNG NHẬP NGAY
             </button>
           ) : (
             <button 
               onClick={fetchAIAdvice}
-              className="px-8 py-3 bg-card font-bold rounded-2xl hover:bg-card/50 transition-all"
+              className="px-8 py-3 bg-card font-bold rounded-lg hover:bg-card/50 transition-all"
             >
               THỬ LẠI
             </button>
@@ -92,18 +92,18 @@ export default function PredictiveCareerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-4xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Profile Analysis */}
-        <div className="p-10 rounded-2xl bg-card border border-border flex flex-col md:flex-row gap-10 items-center">
+        <div className="p-10 rounded-lg bg-card border border-border flex flex-col md:flex-row gap-10 items-center">
            <div className="relative">
               <div className="w-32 h-32 rounded-full border-4 border-primary/20 flex items-center justify-center relative">
                  <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin-slow" />
                  <BrainCircuit className="w-12 h-12 text-primary" />
               </div>
               <div className="absolute -bottom-2 -right-2 bg-primary p-2 rounded-xl shadow-lg">
-                 <Zap className="w-4 h-4 text-white" />
+                 <Zap className="w-4 h-4 text-foreground" />
               </div>
            </div>
            <div className="flex-1 text-center md:text-left">
@@ -112,7 +112,7 @@ export default function PredictiveCareerPage() {
                  Dựa trên lịch sử học tập, kỹ năng hiện tại và các tương tác của bạn trên hệ thống EduMap, AI đã mô phỏng các kịch bản nghề nghiệp phù hợp nhất.
               </p>
               <div className="flex gap-4 justify-center md:justify-start">
-                 <div className="flex items-center gap-2 text-[10px] text-primary font-bold uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full border border-green-500/20">
+                 <div className="flex items-center gap-2 text-[10px] text-primary font-bold uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full border border-accent/20">
                     <ShieldCheck className="w-3 h-3" /> Profile Verified
                  </div>
                  <div className="flex items-center gap-2 text-[10px] text-primary/70 font-bold uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
@@ -129,7 +129,7 @@ export default function PredictiveCareerPage() {
               {paths.length > 0 ? paths.map(path => (
                 <div key={path.title} className="p-8 rounded-xl bg-card border border-border hover:border-primary/50 transition-all group flex flex-col md:flex-row items-center justify-between gap-6">
                    <div className="flex items-center gap-6">
-                      <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <div className="w-16 h-16 rounded-lg bg-card border border-border flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                          <Compass className={`w-8 h-8 ${path.color}`} />
                       </div>
                       <div>
@@ -174,7 +174,7 @@ export default function PredictiveCareerPage() {
               </ul>
               <button 
                 onClick={() => window.location.href = '/library'}
-                className="w-full mt-8 py-3 rounded-2xl bg-primary hover:bg-primary/80 text-white text-xs font-bold transition-all"
+                className="w-full mt-8 py-3 rounded-lg bg-primary hover:bg-primary/80 text-foreground text-xs font-bold transition-all"
               >
                  KHÁM PHÁ HỌC LIỆU
               </button>

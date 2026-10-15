@@ -59,7 +59,7 @@ export function SkeletonText({
 
 export function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`p-4 bg-muted/20 rounded-xl border border-white/10 ${className}`} aria-hidden="true">
+    <div className={`p-4 bg-muted/20 rounded-xl border border-border/10 ${className}`} aria-hidden="true">
       <div className="flex items-center gap-4 mb-4">
         <Skeleton variant="circular" width={48} height={48} />
         <div className="flex-1">

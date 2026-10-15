@@ -1,119 +1,235 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Loader2,
+  LogOut,
+  User,
+  Settings,
+  ShieldCheck,
+  BookOpen,
+  Award,
+  Users,
+} from "lucide-react";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
-import { authService } from "@/src/services/auth.service";
 
+/**
+ * Dashboard — the user's home hub inside the unified left-sidebar shell.
+ *
+ * Features are navigated through the fixed left sidebar (see components/Sidebar.tsx),
+ * so this page focuses on DISPLAYING the things a user needs to manage their account
+ * and get a quick read on their activity:
+ *  1. Account card: real identity (fullName / email / role / avatar) + quick actions
+ *     (profile, password, logout) — a one-glance account-management surface.
+ *  2. Quick stats: learning materials, skills, community, certificates.
+ *  3. Engagement recap: upcoming mentoring slots + today's AI insight
+ *     (best-effort: hidden gracefully if the dashboard BFF / AI service is down).
+ */
 export default function DashboardPage() {
+  const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
   const [overview, setOverview] = useState<any>(null);
   const [insight, setInsight] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authService.isLoggedIn()) {
-      window.location.href = "/auth/login";
-      return;
-    }
-    
-    async function load() {
+    if (authLoading || !isLoggedIn) return;
+    let cancelled = false;
+    (async () => {
       try {
-        const user = authService.getUser();
-        if (!user?.id) return;
-        
-        const [ov, ins] = await Promise.all([
+        // allSettled so a failing insight/overview can't wipe the whole page.
+        const [ov, ins] = await Promise.allSettled([
           dashboardService.getOverview(),
-          dashboardService.getDailyInsight()
+          dashboardService.getDailyInsight(),
         ]);
-        setOverview(ov);
-        setInsight(ins);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          if (ov.status === "fulfilled") setOverview(ov.value);
+          if (ins.status === "fulfilled") setInsight(ins.value);
+        }
+      } catch {
+        // overview/insight are non-critical; account info still renders.
       }
-    }
-    load();
-  }, []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isLoggedIn]);
 
-  if (loading) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-          <p className="text-foreground/60 text-sm font-medium animate-pulse">Dang tai Dashboard...</p>
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  const user = overview?.user ?? {};
+  // Not authenticated — show a real surface (login CTA) instead of a blank page.
+  if (!isLoggedIn || !user) {
+    return (
+      <main className="w-full min-h-full px-6 py-10 md:px-8">
+        <div className="mx-auto max-w-xl rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+          <User className="mx-auto h-10 w-10 text-muted-foreground/40" />
+          <h1 className="mt-4 text-2xl font-semibold">Chào bạn!</h1>
+          <p className="mt-2 text-sm text-muted-foreground/70">
+            Đăng nhập để quản lý tài khoản, xem thống kê và hoạt động của bạn
+            trên EduMap. Các tính năng chính (Bản đồ, Thư viện, Sự kiện, Nghề
+            nghiệp...) đều có sẵn ở thanh bên trái.
+          </p>
+          <Link
+            href="/auth/login"
+            className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <User className="h-4 w-4" /> Đăng nhập
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   const stats = overview?.stats ?? {};
   const mentoring = overview?.upcoming_mentoring ?? [];
 
+  const STAT_CARDS = [
+    { title: "Học liệu", value: stats.learning_materials ?? 0, icon: BookOpen },
+    { title: "Kỹ năng", value: stats.skills_mastered ?? 0, icon: Award },
+    { title: "Cộng đồng", value: stats.community_contributions ?? 0, icon: Users },
+    { title: "Chứng chỉ", value: stats.certificates_earned ?? 0, icon: ShieldCheck },
+  ];
+
   return (
-    <main className="min-h-screen bg-background text-foreground pb-12">
-      <div className="max-w-5xl mx-auto p-6 space-y-8">
-        <section className="relative overflow-hidden rounded-2xl bg-card border border-border p-8 shadow-2xl">
-          <div className="flex items-center gap-6">
-            <Avatar className="h-20 w-20 ring-4 ring-primary/30">
-              {user.avatar_url ? (
-                <AvatarImage src={user.avatar_url} alt={user.full_name} />
-              ) : (
-                <AvatarFallback className="text-2xl font-black bg-primary/20 text-primary">{user.full_name?.[0] ?? "?"}</AvatarFallback>
-              )}
-            </Avatar>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">Chao {user.full_name ?? "Ban"}!</h1>
-              <p className="text-sm text-foreground/60 mt-1">Vai tro: {user.role ?? "N/A"} Hom nay la mot ngay tuyet voi de hoc tap</p>
-            </div>
+    <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-8">
+      {/* ===== Account management ===== */}
+      <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-6">
+          <Avatar className="h-16 w-16 border-2 border-border">
+            <AvatarImage
+              src={
+                user.avatar_url ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || "U")}&background=eee&color=333`
+              }
+              alt={user.fullName}
+            />
+            <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
+              {user.fullName?.[0]?.toUpperCase() ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-semibold leading-tight">
+              Chào, {user.fullName || "bạn"}!
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground/70">
+              {user.email}
+            </p>
+            {user.role && (
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+                <ShieldCheck className="h-3 w-3" /> {user.role}
+              </span>
+            )}
           </div>
-        </section>
+        </div>
 
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { title: "Hoc lieu", value: stats.learning_materials ?? 0, icon: "BookOpen", color: "bg-primary/10 border-primary/20", accent: "text-primary/70" },
-            { title: "Ky nang", value: stats.skills_mastered ?? 0, icon: "Award", color: "from-primary/20 to-primary/5 border-primary/20", accent: "text-primary/70" },
-            { title: "Cong dong", value: stats.community_contributions ?? 0, icon: "Users", color: "from-primary/10 to-primary/5 border-primary/20", accent: "text-primary/70" },
-            { title: "Chung chi", value: stats.certificates_earned ?? 0, icon: "ShieldCheck", color: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/20", accent: "text-emerald-400" },
-          ].map((item) => (
-            <div key={item.title} className={`relative overflow-hidden rounded-2xl border ${item.color.replace("bg-", "bg-")} p-6 shadow-lg transition-transform hover:-translate-y-1`}>
-              <p className="text-[10px] font-black uppercase tracking-widest text-foreground/50">{item.title}</p>
-              <p className={`text-3xl font-black mt-2 ${item.accent}`}>{item.value}</p>
-            </div>
-          ))}
-        </section>
+        {/* Quick account-management actions */}
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link
+            href="/profile"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <User className="h-3.5 w-3.5" /> Hồ sơ & bảo mật
+          </Link>
+          <Link
+            href="/profile"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <Settings className="h-3.5 w-3.5" /> Đổi mật khẩu
+          </Link>
+          <button
+            onClick={() => logout()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <LogOut className="h-3.5 w-3.5" /> Đăng xuất
+          </button>
+        </div>
+      </section>
 
-        <section className="rounded-2xl border border-border bg-black/20 p-6 shadow-xl">
-          <h2 className="text-lg font-black tracking-tight mb-4">Lich Mentoring sap toi</h2>
+      {/* ===== Quick stats (best-effort) ===== */}
+      {overview?.stats && (
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {STAT_CARDS.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Card key={s.title} className="border border-border bg-card">
+                <CardContent className="p-5 text-center">
+                  <div className="mb-1 flex justify-center text-primary/70">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-2xl font-semibold text-primary">{s.value}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                    {s.title}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </section>
+      )}
+
+      {/* ===== Mentoring + AI insight (best-effort) ===== */}
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+        <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold tracking-tight">
+            Lịch mentoring sắp tới
+          </h2>
           {mentoring.length === 0 ? (
-            <p className="text-foreground/50 text-sm">Khong co lich hen mentoring nao.</p>
+            <p className="text-sm text-muted-foreground/50">
+              Chưa có lịch mentoring nào.
+            </p>
           ) : (
-            <div className="space-y-3">
+            <ul className="space-y-3">
               {mentoring.map((m: any) => (
-                <div key={m.id} className="flex items-center justify-between rounded-2xl border border-border bg-card/20 p-4">
+                <li
+                  key={m.id}
+                  className="flex items-center justify-between rounded-xl border border-border bg-background/40 p-3"
+                >
                   <div>
-                    <p className="font-bold">{m.mentor_name}</p>
-                    <small className="text-xs text-foreground/50">{new Date(m.start).toLocaleString()}</small>
+                    <p className="font-semibold">{m.mentor_name}</p>
+                    <small className="text-xs text-muted-foreground/60">
+                      {new Date(m.start).toLocaleString("vi-VN")}
+                    </small>
                   </div>
                   {m.meeting_url && (
-                    <a href={m.meeting_url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-primary hover:underline">Tham gia</a>
+                    <Link
+                      href={m.meeting_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      Tham gia
+                    </Link>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </section>
 
-        <section className="rounded-2xl border border-border bg-black/20 p-6 shadow-xl">
-          <h2 className="text-lg font-black tracking-tight mb-4">AI Daily Insight</h2>
+        <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold tracking-tight">
+            AI Insight hôm nay
+          </h2>
           {insight ? (
-            <div className="rounded-2xl border border-border bg-card/20 p-5">
-              <p className="text-sm font-bold text-primary mb-2">{insight.motivation_message}</p>
-              <p className="text-sm text-foreground/70 leading-relaxed">{insight.suggested_action}</p>
+            <div className="rounded-xl border border-border bg-background/40 p-4">
+              <p className="font-semibold text-primary mb-1">
+                {insight.motivation_message}
+              </p>
+              <p className="text-sm text-muted-foreground/70 leading-relaxed">
+                {insight.suggested_action}
+              </p>
             </div>
           ) : (
-            <p className="text-foreground/50 text-sm">Khong co goi y nao hom nay.</p>
+            <p className="text-sm text-muted-foreground/50">
+              Chưa có gợi ý nào hôm nay.
+            </p>
           )}
         </section>
       </div>

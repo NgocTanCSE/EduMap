@@ -122,18 +122,14 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] max-w-4xl mx-auto p-4 bg-background">
-      <div className="flex items-center justify-between mb-6 p-6 bg-card/50 rounded-2xl border border-border backdrop-blur-xl">
+    <div className="flex flex-col h-[calc(100vh-80px)] w-full p-4 bg-background">
+      <div className="flex items-center justify-between mb-6 p-6 bg-card/50 rounded-lg border border-border">
         <div className="flex items-center gap-4">
-          <div className="bg-primary/80 p-2.5 rounded-2xl shadow-lg shadow-primary/10">
+          <div className="bg-primary/80 p-2.5 rounded-lg shadow-lg">
             <Bot className="w-6 h-6 text-foreground" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white">DNTU Assistant</h1>
-            <p className="text-[10px] uppercase font-black text-muted-foreground/40 tracking-widest flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-              Gemini Pro + PostGIS RAG
-            </p>
+            <h1 className="text-xl font-semibold text-foreground">DNTU Assistant</h1>
           </div>
         </div>
         {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
@@ -147,7 +143,7 @@ export default function AIChatPage() {
                 {m.role === 'user' ? <User className="w-5 h-5 text-foreground" /> : <Bot className="w-5 h-5 text-primary" />}
               </Avatar>
               <div className={`flex flex-col gap-2 max-w-[85%] ${m.role === 'user' ? 'items-end' : ''}`}>
-                <div className={`p-5 rounded-2xl text-sm leading-relaxed ${
+                <div className={`p-5 rounded-lg text-sm leading-relaxed ${
                   m.role === 'user' 
                     ? 'bg-card text-white rounded-tr-none' 
                     : m.isError
@@ -168,7 +164,7 @@ export default function AIChatPage() {
                 {/* Sources Display */}
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                    <div className="mt-2 flex flex-col gap-2">
-                      <p className="text-[9px] uppercase font-black text-muted-foreground/20 tracking-widest flex items-center gap-1 ml-2">
+                      <p className="text-[9px] uppercase font-semibold text-muted-foreground/20 tracking-widest flex items-center gap-1 ml-2">
                          <BookOpen size={10} /> Tài liệu tham khảo
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -182,7 +178,7 @@ export default function AIChatPage() {
                    </div>
                 )}
 
-                <span className="text-[9px] text-muted-foreground/20 uppercase font-black tracking-[0.2em] px-2">
+                <span className="text-[9px] text-muted-foreground/20 uppercase font-semibold tracking-[0.2em] px-2">
                   {m.role === 'assistant' ? 'EduMap AI' : 'Sinh viên'}
                 </span>
               </div>
@@ -191,7 +187,7 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="flex gap-2 p-2 bg-card/80 rounded-2xl border border-border shadow-2xl backdrop-blur-xl mb-4">
+      <div className="flex gap-2 p-2 bg-card/80 rounded-lg border border-border mb-4">
         <Input 
           placeholder={isLoading ? "AI đang xử lý tri thức..." : "Hỏi mình về học bổng, mentor hoặc bản đồ..."}
           value={input}
@@ -203,7 +199,7 @@ export default function AIChatPage() {
         <Button 
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
-          className="rounded-2xl shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-foreground shadow-lg shadow-primary/20"
+          className="rounded-lg shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-foreground shadow-lg"
         >
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </Button>

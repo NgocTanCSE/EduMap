@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-card/50 border border-border rounded-3xl p-8 text-center backdrop-blur-xl">
+        <div className="max-w-md w-full bg-card/50 border border-border rounded-xl p-8 text-center ">
           <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-8 h-8 text-primary" />
           </div>
@@ -58,13 +58,13 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-card/50 border border-border rounded-3xl p-8 backdrop-blur-xl">
-        <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-8 text-sm group">
+      <div className="max-w-md w-full bg-card/50 border border-border rounded-xl p-8 ">
+        <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors mb-8 text-sm group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Quay lại
         </Link>
 
-        <h1 className="text-3xl font-black mb-2 tracking-tight">Quên mật khẩu?</h1>
+        <h1 className="text-3xl font-semibold mb-2 tracking-tight">Quên mật khẩu?</h1>
         <p className="text-muted-foreground/50 mb-8 text-sm">
           Nhập email của bạn và chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.
         </p>
@@ -80,13 +80,13 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full h-14 bg-card/20 border border-border rounded-2xl pl-12 pr-4 text-white focus:outline-none focus:border-primary focus:bg-card/20 transition-all"
+                className="w-full h-14 bg-card/20 border border-border rounded-lg pl-12 pr-4 text-foreground focus:outline-none focus:border-primary focus:bg-card/20 transition-all"
               />
             </div>
           </div>
 
           {error && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
               {error}
             </div>
           )}
@@ -94,7 +94,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-14 bg-primary hover:bg-yellow-50 text-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-14 bg-primary hover:bg-primary text-foreground rounded-lg font-bold shadow-lg  transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

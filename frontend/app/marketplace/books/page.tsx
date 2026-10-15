@@ -24,8 +24,8 @@ export default function BookMarketplacePage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-8">
         
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -33,22 +33,22 @@ export default function BookMarketplacePage() {
               <h1 className="text-3xl font-bold mb-2">Chợ Sách EduMap</h1>
               <p className="text-muted-foreground/40 text-sm">Chia sẻ tri thức, bảo vệ môi trường.</p>
            </div>
-           <button className="px-6 py-3 rounded-2xl bg-primary hover:bg-primary/80 text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
+           <button className="px-6 py-3 rounded-lg bg-primary hover:bg-primary/80 text-sm font-bold flex items-center gap-2 shadow-lg transition-all">
               <Plus className="w-5 h-5" /> Đăng tin mới
            </button>
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex gap-4 p-4 rounded-3xl bg-card border border-border">
+        <div className="flex gap-4 p-4 rounded-xl bg-card border border-border">
            <div className="flex-1 relative">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
-             <input type="text" placeholder="Tìm kiếm sách, tác giả..." className="w-full bg-card border border-border rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors text-primary" />
+             <input type="text" placeholder="Tìm kiếm sách, tác giả..." className="w-full bg-card border border-border rounded-lg py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors text-primary" />
            </div>
            <div className="flex gap-2">
-              <button className="px-4 py-3 rounded-2xl border border-border hover:bg-card transition-colors flex items-center gap-2 text-xs font-medium">
+              <button className="px-4 py-3 rounded-lg border border-border hover:bg-card transition-colors flex items-center gap-2 text-xs font-medium">
                  <Tag className="w-4 h-4 text-muted-foreground/40" /> Thể loại
               </button>
-              <button className="px-4 py-3 rounded-2xl border border-border hover:bg-card transition-colors flex items-center gap-2 text-xs font-medium">
+              <button className="px-4 py-3 rounded-lg border border-border hover:bg-card transition-colors flex items-center gap-2 text-xs font-medium">
                  <Filter className="w-4 h-4 text-muted-foreground/40" /> Lọc
               </button>
            </div>
@@ -68,12 +68,12 @@ export default function BookMarketplacePage() {
                   <div className="aspect-[3/4] relative overflow-hidden bg-card flex items-center justify-center">
                     <Book className="w-20 h-20 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-700" />
                     <div className="absolute top-4 left-4">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${book.status === 'Tặng' ? 'bg-primary/20 border-green-500/30 text-primary' : 'bg-primary/20 border-primary/30 text-primary/70'}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${book.status === 'Tặng' ? 'bg-primary/20 border-accent/30 text-primary' : 'bg-primary/20 border-primary/30 text-primary/70'}`}>
                           {book.status}
                         </span>
                     </div>
                     <button className="absolute top-4 right-4 p-2 rounded-full bg-card/40 border border-border opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Heart className="w-4 h-4 text-white" />
+                        <Heart className="w-4 h-4 text-foreground" />
                     </button>
                   </div>
                   <div className="p-5 flex-1 flex flex-col">
@@ -93,7 +93,7 @@ export default function BookMarketplacePage() {
                         <p className={`font-mono text-sm font-bold ${book.status === 'Tặng' ? 'text-primary' : 'text-primary/70'}`}>
                           {book.status === 'Tặng' ? 'MIỄN PHÍ' : 'Trao đổi'}
                         </p>
-                        <button className="p-2 rounded-xl bg-primary/10 text-primary/70 hover:bg-primary hover:text-white transition-all">
+                        <button className="p-2 rounded-xl bg-primary/10 text-primary/70 hover:bg-primary hover:text-foreground transition-all">
                           <MessageSquare className="w-4 h-4" />
                         </button>
                     </div>

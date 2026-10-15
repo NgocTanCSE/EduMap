@@ -38,7 +38,7 @@ export default function GreenPage() {
   };
 
   const handleMockUpload = () => {
-    setMockProofUrl('https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=800&auto=format&fit=crop');
+    setMockProofUrl('https://placehold.co/600x400/4B3F72/FFFFFF?text=Minh+chung+nghi+en');  // placeholder branded, not Unsplash
     toast.success('Đã tải ảnh lên thành công (Mock)');
   };
 
@@ -67,22 +67,22 @@ export default function GreenPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-8 rounded-3xl bg-primary/10 border border-green-500/20">
+          <div className="p-8 rounded-xl bg-primary/10 border border-accent/20">
             <Leaf className="w-8 h-8 text-primary mb-4" />
             <h3 className="text-3xl font-bold">{((progress as any)?.carbon_saved || 0).toFixed(1)}kg</h3>
             <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">CO2 đã tiết kiệm</p>
           </div>
-          <div className="p-8 rounded-3xl bg-primary/10 border border-primary/20">
+          <div className="p-8 rounded-xl bg-primary/10 border border-primary/20">
             <Clock className="w-8 h-8 text-primary mb-4" />
             <h3 className="text-3xl font-bold">{((progress as any)?.volunteer_hours || 0).toFixed(1)}h</h3>
             <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">Tình nguyện cộng đồng</p>
           </div>
-          <div className="p-8 rounded-3xl bg-primary/10 border border-primary/20">
+          <div className="p-8 rounded-xl bg-primary/10 border border-primary/20">
             <ShieldCheck className="w-8 h-8 text-primary/80 mb-4" />
             <h3 className="text-3xl font-bold">{progress?.points || 0}</h3>
             <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">Điểm tích lũy xanh</p>
@@ -108,9 +108,9 @@ export default function GreenPage() {
           ) : challenges.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {challenges.map(item => (
-                <div key={item.id} className="group relative rounded-3xl overflow-hidden border border-border bg-card hover:border-green-500/30 transition-all">
+                <div key={item.id} className="group relative rounded-xl overflow-hidden border border-border bg-card hover:border-accent/30 transition-all">
                   <div className="aspect-[21/9] relative">
-                    <img src={item.image_url || 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&q=80&w=400'} alt="" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500" />
+                    <img src={item.image_url || 'https://placehold.co/600x400/81B29A/FFFFFF?text=Dự+án+green'} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                   </div>
                   <div className="p-6 relative">
@@ -126,7 +126,7 @@ export default function GreenPage() {
                         <CheckCircle className="w-3 h-3 text-primary" /> {item.participants_count || 0} tham gia
                       </div>
                     </div>
-                    <button className="w-full py-3 rounded-2xl bg-card text-foreground font-bold text-sm hover:bg-primary/80 transition-colors">
+                    <button className="w-full py-3 rounded-lg bg-card text-foreground font-bold text-sm hover:bg-primary/80 transition-colors">
                       Tham gia ngay
                     </button>
                   </div>
@@ -134,7 +134,7 @@ export default function GreenPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-10 bg-card border border-border rounded-3xl text-muted-foreground/40">
+            <div className="text-center py-10 bg-card border border-border rounded-xl text-muted-foreground/40">
                 Chưa có thử thách nào đang diễn ra.
             </div>
           )}
@@ -142,7 +142,7 @@ export default function GreenPage() {
 
         {/* Volunteer Log Form */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <div className="p-8 rounded-3xl bg-card border border-border shadow-2xl">
+          <div className="p-8 rounded-xl bg-card border border-border">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
               Nộp minh chứng Sống Xanh
@@ -151,7 +151,7 @@ export default function GreenPage() {
               <div>
                 <label className="block text-xs text-muted-foreground/40 mb-2 uppercase font-bold">Loại hoạt động</label>
                 <select 
-                  className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-green-500 outline-none transition-colors"
+                  className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none transition-colors"
                   value={activityType}
                   onChange={(e) => setActivityType(e.target.value)}
                 >
@@ -167,7 +167,7 @@ export default function GreenPage() {
                   <label className="block text-xs text-muted-foreground/40 mb-2 uppercase font-bold">Mô tả thêm (Tùy chọn)</label>
                   <textarea 
                     rows={2} 
-                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-green-500 outline-none transition-colors resize-none" 
+                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none transition-colors resize-none" 
                     placeholder="VD: Tôi đã phân loại 2kg rác nhựa hôm nay..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -179,16 +179,16 @@ export default function GreenPage() {
                 {!mockProofUrl ? (
                     <div 
                         onClick={handleMockUpload}
-                        className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-green-500/50 hover:bg-primary/5 cursor-pointer transition-all group"
+                        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-accent/50 hover:bg-primary/5 cursor-pointer transition-all group"
                     >
                     <UploadCloud className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2 group-hover:text-primary transition-colors" />
                     <p className="text-xs text-muted-foreground/40 group-hover:text-muted-foreground/60">Nhấn để tải ảnh minh chứng lên</p>
                     </div>
                 ) : (
-                    <div className="relative rounded-2xl overflow-hidden border border-border aspect-video">
+                    <div className="relative rounded-lg overflow-hidden border border-border aspect-video">
                         <img src={mockProofUrl} alt="Proof" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setMockProofUrl('')}>
-                            <p className="text-sm font-bold text-red-400">Xóa ảnh</p>
+                            <p className="text-sm font-bold text-destructive">Xóa ảnh</p>
                         </div>
                     </div>
                 )}
@@ -197,7 +197,7 @@ export default function GreenPage() {
               <button 
                 onClick={handleSubmitProof}
                 disabled={submitting || !activityType || !mockProofUrl}
-                className="w-full py-4 rounded-2xl bg-green-600 hover:bg-primary disabled:bg-card disabled:shadow-none text-white font-bold text-sm transition-all shadow-lg shadow-green-600/20 flex justify-center items-center gap-2"
+                className="w-full py-4 rounded-lg bg-accent hover:bg-primary disabled:bg-card disabled:shadow-none text-foreground font-bold text-sm transition-all shadow-lg shadow-accent/20 flex justify-center items-center gap-2"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {submitting ? 'ĐANG XỬ LÝ...' : 'GỬI CHO AI KIỂM DUYỆT'}
@@ -206,22 +206,22 @@ export default function GreenPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="p-6 rounded-3xl bg-primary/5 border border-green-500/10">
+            <div className="p-6 rounded-xl bg-primary/5 border border-accent/10">
               <div className="flex gap-4 items-start">
-                <div className="p-3 bg-primary/10 rounded-2xl">
+                <div className="p-3 bg-primary/10 rounded-lg">
                   <ShieldCheck className="w-6 h-6 text-primary" />
                 </div>
                 <div>
                   <h4 className="font-bold mb-2 text-sm">Quy trình duyệt tự động bởi AI</h4>
                   <p className="text-xs text-muted-foreground/40 leading-relaxed">
-                    Hệ thống tích hợp <strong>Gemini AI Vision</strong> để phân tích hình ảnh minh chứng. Nếu hợp lệ (Confidence {'>'} 80%), bạn sẽ nhận ngay <strong>50 XP</strong>. Các trường hợp không rõ ràng sẽ được chuyển cho Moderator kiểm tra thủ công.
+                    Ảnh minh chứng sẽ được AI tự động kiểm duyệt. Các trường hợp chưa rõ sẽ do Moderator xem xét thủ công.
                   </p>
                 </div>
               </div>
             </div>
-            <div className="p-6 rounded-3xl bg-primary/5 border border-blue-500/10">
+            <div className="p-6 rounded-xl bg-primary/5 border border-accent/10">
               <div className="flex gap-4 items-start">
-                <div className="p-3 bg-primary/10 rounded-2xl">
+                <div className="p-3 bg-primary/10 rounded-lg">
                   <MapPin className="w-6 h-6 text-primary" />
                 </div>
                 <div>

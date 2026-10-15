@@ -66,7 +66,7 @@ export function exportToCsv(data: any[], filename: string): void {
  * Get color class for a stat trend.
  */
 export function getTrendColorClass(value: string): string {
-  if (value.startsWith('+')) return 'text-green-500';
-  if (value.startsWith('-')) return 'text-red-500';
+  if (value.startsWith('+')) return 'text-accent';
+  if (value.startsWith('-')) return 'text-destructive';
   return 'text-muted-foreground';
 }

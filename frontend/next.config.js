@@ -70,7 +70,7 @@ const nextConfig = {
   },
   // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
   // `/api/auth/login`, `/api/map/...`, etc. The BFF route handlers in
-  // `app/api/*` (notably `/api/ai/chat` and `/api/ai/history`) are kept
+  // `app/api/*` (notably `/api/ai/chat`, `/api/ai/history` and `/api/ai/learning-path`) are kept
   // out of the loop on purpose: they run in Next and add error handling +
   // auth-token forwarding that a raw proxy would skip.
   async rewrites() {
@@ -80,7 +80,7 @@ const nextConfig = {
     const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
     return [
       {
-        source: '/api/:path((?!ai/chat|ai/history).*)',
+        source: '/api/:path((?!ai/chat|ai/history|ai/learning-path).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

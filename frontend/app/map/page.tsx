@@ -24,31 +24,20 @@ const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
   ),
 });
 
-// ---------- Feature tiles shown in the sidebar ----------
-const FEATURE_TILES = [
-  { name: 'Học bổng', desc: 'Tìm & kiểm tra điều kiện học bổng', href: '/scholarships', icon: GraduationCap, color: 'bg-amber-500' },
-  { name: 'Tài trợ / Đối tác', desc: 'Chương trình tài trợ & quyên góp', href: '/donate', icon: Heart, color: 'bg-rose-500' },
-  { name: 'Thư viện số', desc: 'Tài liệu, ebook, đề thi', href: '/library', icon: BookOpen, color: 'bg-primary/90' },
-  { name: 'Mentor', desc: 'Đặt lịch tư vấn 1-on-1', href: '/mentor', icon: Users, color: 'bg-cyan-500' },
-  { name: 'Trạm Wifi', desc: 'Wifi học tập quanh bạn', href: '/wifi', icon: Wifi, color: 'bg-emerald-500' },
-  { name: 'STEM Labs', desc: 'Phòng lab & máy tính', href: '/stem', icon: Atom, color: 'bg-emerald-500' },
-  { name: 'Thực tập', desc: 'Cơ hộp thực tập sinh', href: '/internships', icon: Briefcase, color: 'bg-primary' },
-  { name: 'Cộng đồng', desc: 'Học nhóm, diễn đàn', href: '/community', icon: Globe, color: 'bg-cyan-500' },
-];
 
 // Icons for facility-type POIs shown in the "selected place" detail card.
 const FACILITY_ICONS: Record<string, { label: string; color: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  wifi: { label: 'WiFi', color: 'text-amber-500', Icon: Wifi },
+  wifi: { label: 'WiFi', color: 'text-primary', Icon: Wifi },
   library: { label: 'Thư viện', color: 'text-primary', Icon: BookOpen },
-  bookstore: { label: 'Nhà sách', color: 'text-red-600', Icon: BookOpen },
+  bookstore: { label: 'Nhà sách', color: 'text-destructive', Icon: BookOpen },
   lab: { label: 'Lab', color: 'text-primary', Icon: Atom },
   stem: { label: 'STEM', color: 'text-primary', Icon: Atom },
-  green: { label: 'Không gian xanh', color: 'text-emerald-600', Icon: Leaf },
-  park: { label: 'Công viên', color: 'text-emerald-600', Icon: Leaf },
-  cafe: { label: 'Cà phê', color: 'text-amber-800', Icon: Coffee },
+  green: { label: 'Không gian xanh', color: 'text-accent', Icon: Leaf },
+  park: { label: 'Công viên', color: 'text-accent', Icon: Leaf },
+  cafe: { label: 'Cà phê', color: 'text-primary', Icon: Coffee },
   restaurant: { label: 'Nhà hàng', color: 'text-primary', Icon: Globe },
-  university: { label: 'Trường', color: 'text-blue-500', Icon: GraduationCap },
-  school: { label: 'Trường', color: 'text-blue-500', Icon: GraduationCap },
+  university: { label: 'Trường', color: 'text-accent', Icon: GraduationCap },
+  school: { label: 'Trường', color: 'text-accent', Icon: GraduationCap },
 };
 const facilityIconFor = (cat?: string) => {
   const key = String(cat || '').toLowerCase();
@@ -130,7 +119,7 @@ function CategoryChips({ categories, active, onSelect }: { categories: string[];
             onClick={() => onSelect(c)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-all ${
               on
-                ? 'bg-primary text-white shadow'
+                ? 'bg-primary text-foreground shadow'
                 : 'bg-muted/30 text-muted-foreground hover:bg-muted border-border'
             }`}
           >
@@ -147,7 +136,7 @@ function AiPanel({ open, onClose, analysis, loading }: {
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-96 bg-card border-l border-border shadow-xl flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-40 w-96 bg-card border-l border-border flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h3 className="font-semibold text-foreground flex items-center gap-2">
           <BrainCircuit className="w-5 h-5 text-primary" /> Phân tích khu vực
@@ -204,10 +193,12 @@ export default function MapPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  // Current viewport, fed back by MapEvents so the initial load + category
+  // switches fetch REAL bounds (not the whole-province DEFAULT_BBOX).
+  const [viewport, setViewport] =
+    useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [featuresOpen, setFeaturesOpen] = useState(true);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -357,18 +348,20 @@ export default function MapPage() {
   useEffect(() => {
     fetchStats();
     fetchCategoriesOnce();
-    fetchMapData('all'); // initial load for default bounds
+    // Initial viewport fetch is now driven by MapEvents.onReady (real bounds),
+    // NOT fetchMapData('all') over DEFAULT_BBOX (whole province) which was slow.
   }, [fetchStats, fetchCategoriesOnce, fetchMapData]);
 
   // Category change → refetch (bounds empty like initial)
   const handleCategoryChange = (c: string) => {
     setActiveCategory(c);
     setSelectedLocation(null);
-    fetchMapData(c === 'all' ? undefined : c);
+    fetchMapData(c === 'all' ? undefined : c, viewport || undefined);
   };
 
   const handleBoundsChange = useCallback(
     (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
+      setViewport(bounds); // keep for category switches
       fetchMapData(activeCategory === 'all' ? undefined : activeCategory, bounds);
     },
     [fetchMapData, activeCategory]
@@ -448,116 +441,21 @@ export default function MapPage() {
 
   return (
     <div className="relative h-screen w-full bg-background overflow-hidden">
-      {/* Slim overlay top bar (map is full-screen; no global header on /map) */}
-      <div className="fixed top-0 inset-x-0 z-40 flex items-center justify-between h-14 px-4 bg-card/75 backdrop-blur border-b border-border/60 shadow-sm">
-        <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-          <EduMapLogo className="h-7 w-7 text-primary" />
-          <span>Edu<span className="text-primary">Map</span></span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowAiPanel(true)}
-            title="Phân tích AI khu vực"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
-          >
-            <BrainCircuit className="w-4 h-4" />
-          </button>
-          <img
-            src={user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || 'U')}&background=eee&color=333`}
-            alt={user?.fullName || 'user'}
-            className="w-8 h-8 rounded-full border-2 border-border shadow object-cover"
-          />
-          <button
-            onClick={logout}
-            title="Đăng xuất"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* --- Left collapsible sidebar (ẩn/hiện) --- */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-30 bg-card border-r border-border shadow-lg transition-transform duration-300 overflow-hidden flex flex-col py-14 ${
-          sidebarOpen ? 'translate-x-0 w-80' : '-translate-x-full w-80'
-        }`}
-      >
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pt-2 pb-6">
-          {/* Search */}
-          <div className="mb-4 relative">
-            <SearchBar value={searchTerm} onChange={setSearchTerm} />
-            {searchTerm.trim() && (
-              <SearchResults
-                results={filteredLocations.slice(0, 8)}
-                onSelect={(loc) => {
-                  setSelectedLocation(loc);
-                  setSearchTerm('');
-                }}
-              />
-            )}
-            <p className="text-[11px] text-muted-foreground/40 mt-1">{filteredLocations.length} địa điểm</p>
-          </div>
-
-          {/* Category chips */}
-          <div className="mb-4">
-            <CategoryChips
-              categories={categories}
-              active={activeCategory}
-              onSelect={handleCategoryChange}
+      {/* Top toolbar — map-specific controls (search + category chips) kept clear of the global w-60 sidebar. The nav rail + account block now come from the global <Sidebar/> (via AppLayout), so /map shares the exact same left chrome as /dashboard. */}
+      <div className="absolute top-4 left-0 z-50 flex items-center gap-3 bg-card/95 border border-border rounded-xl px-3 py-2 shadow-lg backdrop-blur-sm">
+        <div className="relative">
+          <SearchBar value={searchTerm} onChange={setSearchTerm} />
+          {searchTerm.trim() && (
+            <SearchResults
+              results={filteredLocations.slice(0, 8)}
+              onSelect={(loc) => { setSelectedLocation(loc); setSearchTerm(''); }}
             />
-          </div>
-
-          {/* Feature tiles (scholarship / sponsorship / ...) — collapsible */}
-          <div className="border-t border-border pt-4">
-            <button
-              onClick={() => setFeaturesOpen(!featuresOpen)}
-              className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3"
-            >
-              <span>Công cụ sinh viên</span>
-              {featuresOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
-            {featuresOpen && (
-              <div className="grid grid-cols-2 gap-2">
-                {FEATURE_TILES.map((f) => {
-                  const Icon = f.icon;
-                  return (
-                    <a
-                      key={f.href}
-                      href={f.href}
-                      className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl border border-border hover:border-primary hover:bg-muted/50 transition-colors text-center"
-                    >
-                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${f.color} text-white`}>
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <span className="text-[10px] font-medium text-foreground/60 leading-tight">{f.name}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
         </div>
-
-        {/* Logout */}
-        <div className="p-3 border-t border-border">
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground/60 hover:text-red-600 hover:bg-red-50 rounded-lg py-2 transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> Đăng xuất
-          </button>
-        </div>
-      </aside>
-
-      {/* Sidebar toggle button (ẩn/hiện) */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed left-4 top-20 z-20 flex items-center justify-center w-9 h-9 rounded-lg bg-card border border-border shadow-md hover:bg-muted/30 text-muted-foreground/60"
-        title={sidebarOpen ? 'Ẩn bảng điều khiển' : 'Hiện bảng điều khiển'}
-      >
-        {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <List className="w-5 h-5" />}
-      </button>
+        <span className="text-[11px] text-muted-foreground/40">{filteredLocations.length} địa điểm</span>
+        <div className="w-px h-7 bg-border" />
+        <CategoryChips categories={categories} active={activeCategory} onSelect={handleCategoryChange} />
+      </div>
 
       {/* --- Map (main surface, full-bleed) --- */}
       <main className="absolute inset-0">
@@ -579,14 +477,14 @@ export default function MapPage() {
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             title="Bật/tắt lớp nhiệt độ"
-            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-white' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <Flame className="w-4 h-4" />
           </button>
           <button
             onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
             title="Phân tích AI khu vực"
-            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-white' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <BrainCircuit className="w-4 h-4" />
           </button>
@@ -613,7 +511,7 @@ export default function MapPage() {
       {/* Pin modal */}
       {pinningCoord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-card/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-5">
+          <div className="bg-card border border-border rounded-lg w-full max-w-md p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">Ghim vị trí mới</h3>
               <button
@@ -672,7 +570,7 @@ export default function MapPage() {
               <button
                 onClick={handleSavePin}
                 disabled={isSavingPin || !pinForm.name}
-                className="flex-1 h-10 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 h-10 text-sm font-semibold text-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
               >
                 {isSavingPin ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <Save className="w-4 h-4" />}
                 {isSavingPin ? 'Đang lưu...' : 'Lưu địa điểm'}
@@ -684,7 +582,7 @@ export default function MapPage() {
 
       {/* Map stats legend (subtle) */}
       {mapStats && (
-        <div className="fixed bottom-6 left-4 z-20 rounded-xl bg-card/90 border border-border px-3 py-2 shadow-lg text-xs text-muted-foreground/60">
+        <div className="fixed bottom-6 left-64 z-20 rounded-xl bg-card/90 border border-border px-3 py-2 shadow-lg text-xs text-muted-foreground/60">
           <div className="font-medium text-foreground/60 mb-1 flex items-center gap-1">
             <Info className="w-3 h-3" /> Thống kê khu vực
           </div>

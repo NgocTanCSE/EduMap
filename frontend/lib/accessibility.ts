@@ -61,9 +61,9 @@ export const keyboardShortcuts = {
 } as const;
 
 export const focusStyles = {
-  default: 'focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-[#0a0a0a]',
-  inset: 'focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-inset',
-  visible: 'focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]',
+  default: 'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background',
+  inset: 'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset',
+  visible: 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
 } as const;
 
 export const srOnly = 'sr-only';

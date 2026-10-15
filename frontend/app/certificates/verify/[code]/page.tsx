@@ -37,11 +37,11 @@ export default function VerifyCertificatePage() {
   if (!data?.isValid) {
       return (
           <div className="min-h-screen bg-background flex items-center justify-center p-4">
-              <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-3xl max-w-md text-center space-y-4">
-                  <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <XCircle size={40} className="text-red-500" />
+              <div className="bg-destructive/10 border border-destructive/30 p-8 rounded-xl max-w-md text-center space-y-4">
+                  <div className="w-20 h-20 bg-destructive/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <XCircle size={40} className="text-destructive" />
                   </div>
-                  <h1 className="text-2xl font-black text-red-400">Invalid Certificate</h1>
+                  <h1 className="text-2xl font-semibold text-destructive">Invalid Certificate</h1>
                   <p className="text-muted-foreground/40 text-sm leading-relaxed">{data?.message || 'The verification code provided is invalid or the certificate has been revoked.'}</p>
               </div>
           </div>
@@ -54,28 +54,28 @@ export default function VerifyCertificatePage() {
     <div className="min-h-screen bg-background py-12 px-4 print:bg-white print:py-0 print:px-0">
         
         {/* Actions - Hidden when printing */}
-        <div className="max-w-4xl mx-auto flex justify-end gap-4 mb-8 print:hidden">
-            <button onClick={handlePrint} className="bg-card/20 hover:bg-card/30 text-white px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2">
+        <div className="w-full mx-auto flex justify-end gap-4 mb-8 print:hidden">
+            <button onClick={handlePrint} className="bg-card/20 hover:bg-card/30 text-foreground px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2">
                 <Printer size={18} /> Print / Save PDF
             </button>
-            <div className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2">
+            <div className="bg-accent/20 text-accent border border-accent/30 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2">
                 <ShieldCheck size={18} /> Valid Verified
             </div>
         </div>
 
         {/* Certificate Container - Designed for A4 Landscape */}
-        <div className="max-w-[1122px] mx-auto bg-white text-foreground rounded-none md:rounded-lg shadow-2xl relative overflow-hidden print:shadow-none print:w-[1122px] print:h-[793px] print:mx-0 flex flex-col justify-center items-center aspect-[1.414/1] border-[20px] border-background">
+        <div className="max-w-[1122px] mx-auto bg-white text-foreground rounded-none md:rounded-lg relative overflow-hidden print:shadow-none print:w-[1122px] print:h-[793px] print:mx-0 flex flex-col justify-center items-center aspect-[1.414/1] border-[20px] border-background">
             
             {/* Corner Decorations */}
-            <div className="absolute top-0 left-0 w-64 h-64 border-t-8 border-l-8 border-primary m-8 opacity-20" />
-            <div className="absolute bottom-0 right-0 w-64 h-64 border-b-8 border-r-8 border-primary m-8 opacity-20" />
+            <div className="absolute top-0 left-0 w-24 h-24 border-t-8 border-l-8 border-primary m-8 opacity-20" />
+            <div className="absolute bottom-0 right-0 w-24 h-24 border-b-8 border-r-8 border-primary m-8 opacity-20" />
             
             <div className="text-center z-10 w-full px-20">
                 <h2 className="text-2xl font-bold tracking-[0.5em] text-muted-foreground/40 uppercase mb-8">Certificate of Completion</h2>
                 
                 <div className="mb-12">
                     <p className="text-sm font-bold text-muted-foreground/50 uppercase tracking-widest mb-4">This is to certify that</p>
-                    <h1 className="text-6xl md:text-7xl font-black text-foreground font-serif" style={{ fontFamily: 'Georgia, serif' }}>
+                    <h1 className="text-6xl md:text-7xl font-semibold text-foreground font-serif" style={{ fontFamily: 'Georgia, serif' }}>
                         {details.recipient?.name || 'Student Name'}
                     </h1>
                 </div>
@@ -84,10 +84,10 @@ export default function VerifyCertificatePage() {
                     <p className="text-lg text-muted-foreground/60 leading-relaxed">
                         has successfully completed the requirements and is hereby awarded this certificate for the program:
                     </p>
-                    <h3 className="text-3xl font-black text-primary mt-4 leading-tight">{details.title}</h3>
+                    <h3 className="text-3xl font-semibold text-primary mt-4 leading-tight">{details.title}</h3>
                 </div>
 
-                <div className="flex justify-between items-end w-full max-w-4xl mx-auto border-t-2 border-border pt-8 mt-16">
+                <div className="flex justify-between items-end w-full w-full mx-auto border-t-2 border-border pt-8 mt-16">
                     <div className="text-left">
                         <p className="font-bold text-lg text-foreground/90">{details.issuer}</p>
                         <p className="text-sm text-muted-foreground/50 uppercase tracking-widest">Issuing Organization</p>

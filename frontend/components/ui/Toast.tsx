@@ -34,10 +34,10 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
   };
 
   const colors = {
-    success: 'bg-green-500/10 border-green-500/20 text-green-400',
-    error: 'bg-red-500/10 border-red-500/20 text-red-400',
-    warning: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
-    info: 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+    success: 'bg-accent/10 border-accent/20 text-accent',
+    error: 'bg-destructive/10 border-destructive/20 text-destructive',
+    warning: 'bg-primary/10 border-primary/20 text-primary',
+    info: 'bg-accent/10 border-accent/20 text-accent'
   };
 
   const Icon = icons[toast.type];
@@ -50,9 +50,9 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
     >
       <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white">{toast.title}</p>
+        <p className="text-sm font-medium text-foreground">{toast.title}</p>
         {toast.message && (
-          <p className="text-sm text-white/60 mt-1">{toast.message}</p>
+          <p className="text-sm text-foreground/60 mt-1">{toast.message}</p>
         )}
       </div>
       <button
@@ -60,7 +60,7 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
           setIsExiting(true);
           setTimeout(() => onDismiss(toast.id), 300);
         }}
-        className="flex-shrink-0 p-1 rounded-lg text-white/40 hover:text-white hover:bg-muted/30 transition-colors"
+        className="flex-shrink-0 p-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-muted/30 transition-colors"
       >
         <X className="w-4 h-4" />
       </button>

@@ -110,12 +110,12 @@ export default function IntlPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8 relative">
+    <div className="min-h-screen bg-background text-foreground p-8 relative">
       
       {/* Join Modal */}
       {showJoinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-background border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+            <div className="bg-background border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowJoinModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
                 <h3 className="text-2xl font-bold mb-2">Tham gia Mạng lưới</h3>
                 <p className="text-sm text-muted-foreground/40 mb-6">Kết nối với cộng đồng du học sinh EduMap trên toàn cầu.</p>
@@ -158,14 +158,14 @@ export default function IntlPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-12">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
                 <Globe className="w-4 h-4" /> EduMap International
             </div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">Vươn Ra Biển Lớn</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Vươn Ra Biển Lớn</h1>
             <p className="text-muted-foreground/60 leading-relaxed">
                 Khám phá các chương trình trao đổi, học bổng quốc tế và kết nối trực tiếp với mạng lưới lưu học sinh Việt Nam trên toàn cầu.
             </p>
@@ -173,13 +173,13 @@ export default function IntlPage() {
             <div className="flex justify-center gap-4 pt-4">
                 <button 
                     onClick={() => setActiveTab('programs')}
-                    className={`px-8 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 ${activeTab === 'programs' ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
+                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'programs' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
                 >
                     <PlaneTakeoff className="w-4 h-4" /> CHƯƠNG TRÌNH QUỐC TẾ
                 </button>
                 <button 
                     onClick={() => setActiveTab('alumni')}
-                    className={`px-8 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 ${activeTab === 'alumni' ? 'bg-primary shadow-lg shadow-primary/20' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
+                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'alumni' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
                 >
                     <Users className="w-4 h-4" /> MẠNG LƯỚI LƯU HỌC SINH
                 </button>
@@ -198,11 +198,11 @@ export default function IntlPage() {
                 </div>
 
                 {programsLoading ? (
-                    <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
+                    <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                 ) : programs.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {programs.map(program => (
-                            <div key={program.id} className="bg-card border border-border rounded-3xl p-6 hover:border-primary/50 transition-colors group">
+                            <div key={program.id} className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-colors group">
                                 <div className="flex justify-between items-start mb-4">
                                     <span className="px-3 py-1 bg-card/20 rounded-full text-[10px] font-bold uppercase tracking-widest text-primary border border-border">
                                         {program.type || 'Chương trình'}
@@ -231,7 +231,7 @@ export default function IntlPage() {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                    <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                         <PlaneTakeoff className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                         <p className="text-muted-foreground/40">Chưa có chương trình quốc tế nào được công bố.</p>
                     </div>
@@ -241,22 +241,22 @@ export default function IntlPage() {
 
         {activeTab === 'alumni' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-card border border-primary/30 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="bg-card border border-primary/30 rounded-lg p-8 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div>
                         <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><MapPin className="text-primary w-6 h-6"/> Bản đồ Lưu học sinh</h2>
                         <p className="text-muted-foreground/60 max-w-xl text-sm">Tìm kiếm những người đi trước tại quốc gia bạn muốn đến. Họ sẽ là những Mentor tuyệt vời cho hành trình của bạn.</p>
                     </div>
-                    <button onClick={() => setShowJoinModal(true)} className="px-6 py-3 bg-primary hover:bg-primary rounded-2xl font-bold whitespace-nowrap shadow-lg shadow-primary/20">
+                    <button onClick={() => setShowJoinModal(true)} className="px-6 py-3 bg-primary hover:bg-primary rounded-lg font-bold whitespace-nowrap shadow-lg">
                         Thêm vị trí của bạn
                     </button>
                 </div>
 
                 {alumniLoading ? (
-                    <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
+                    <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>
                 ) : alumni.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {alumni.map(person => (
-                            <div key={person.id} className="bg-card border border-border rounded-3xl p-6 hover:border-primary/50 transition-colors relative overflow-hidden">
+                            <div key={person.id} className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-colors relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[50px] rounded-full" />
                                 <div className="flex items-center gap-4 mb-4">
                                     <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(person.full_name)}&background=random`} alt="" className="w-12 h-12 rounded-full border border-border" />
@@ -276,7 +276,7 @@ export default function IntlPage() {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+                    <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                         <Users className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                         <p className="text-muted-foreground/40">Bản đồ lưu học sinh đang trống. Hãy là người tiên phong!</p>
                     </div>

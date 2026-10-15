@@ -12,8 +12,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        /* EduMap Design System — Amber primary + Zinc neutral
-           HSL variables defined in app/globals.css — opacity modifiers work via hsl() */
+        /* EduMap Design System — Desert Dusk
+           Semantic HSL tokens defined in app/globals.css; opacity modifiers (e.g. /10)
+           resolve through hsl() so all colors stay palette-consistent. */
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: "hsl(var(--card))",
@@ -28,32 +29,15 @@ const config: Config = {
         "accent-foreground": "hsl(var(--accent-foreground))",
         destructive: "hsl(var(--destructive))",
         "destructive-foreground": "hsl(var(--destructive-foreground))",
-        /* Direct amber palette for convenience (no opacity needed on these) */
-        amber: {
-          50: "#fffbeb",
-          100: "#fef3c7",
-          200: "#fde68a",
-          300: "#fcd34d",
-          400: "#fbbf24",
-          500: "#eab308",
-          600: "#d97706",
-          700: "#b45309",
-          800: "#92400e",
-          900: "#78350f",
-        },
-        zinc: {
-          50: "#fafafa",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334159",
-          800: "#1e293b",
-          900: "#0f172a",
-          950: "#020617",
-        },
+        popover: "hsl(var(--popover))",
+        "popover-foreground": "hsl(var(--popover-foreground))",
+        secondary: "hsl(var(--secondary))",
+        "secondary-foreground": "hsl(var(--secondary-foreground))",
+        sidebar: "hsl(var(--sidebar))",
+        "sidebar-foreground": "hsl(var(--sidebar-foreground))",
+        ring: "hsl(var(--ring))",
+        /* Only semantic Desert Dusk tokens are used in source — no raw color
+           palettes (amber/zinc/etc.) are needed. */
       },
       /* Consistent border radius scale */
       borderRadius: {

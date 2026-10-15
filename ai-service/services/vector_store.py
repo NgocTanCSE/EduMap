@@ -13,16 +13,16 @@ except ImportError:
 class VectorStoreService:
     """Semantic search. Chat (LLM) + EMBEDDING đều qua Cloudflare Workers AI (1 token: CLOUDFLARE_API_TOKEN).
 
-    - Chat (LLM)  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_MODEL (@cf/meta/llama-3-8b-instruct)
-    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL (@cf/baai/bge-1280)
+    - Chat (LLM)  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_MODEL (@cf/meta/llama-3.1-8b-instruct-fp8)
+    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL (@cf/baai/bge-base-en-v1.5)
     """
 
     def __init__(self):
         # --- Cloudflare Embedding config (always set; independent of ChromaDB) ---
         self.cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-        self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-1280,@cf/snowflake/snowflake-arctic-embed-l").split(",") if m.strip()]
-        self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-1280"
+        self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
+        self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-base-en-v1.5"
         self.has_api = bool(self.cf_api_token) and bool(self.cf_account_id)
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
@@ -31,7 +31,7 @@ class VectorStoreService:
         if not self.has_api:
             print("WARNING: Vector store without embeddings. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare) for semantic search.")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
-            print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-1280")
+            print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-base-en-v1.5")
 
         # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
@@ -57,6 +57,18 @@ class VectorStoreService:
         except Exception as e:
             print(f"Vector store initialization failed: {e}")
             self.collection = None
+
+    _EMBED_MODEL_NOT_FOUND_REASONS = (
+        "not found", "not supported", "no longer available",
+        "model not found", "could not find", "deprecated", "does not exist",
+    )
+
+    def _is_embed_model_not_found(self, code, message):
+        low = (message or "").lower()
+        return (
+            code in (404, 410, 7000)
+            or any(r in low for r in self._EMBED_MODEL_NOT_FOUND_REASONS)
+        )
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
@@ -91,7 +103,7 @@ class VectorStoreService:
                 except urllib.error.HTTPError as e:
                     body = e.read().decode("utf-8", "ignore")[:300]
                     low = body.lower()
-                    if e.code == 404 or any(r in low for r in ("not found", "not supported", "no longer available", "model not found", "could not find")):
+                    if e.code in (404, 410) or any(r in low for r in ("not found", "not supported", "no longer available", "model not found", "could not find", "deprecated", "does not exist")):
                         last_err = f"{model}: HTTP {e.code} {body[:120]}"; print(f"Cloudflare embed model {model} khong kha dung, thu model ke tiep..."); break  # next model
                     if e.code in (401, 403):
                         raise RuntimeError(f"Cloudflare auth loi (HTTP {e.code}): {body[:200]}")
@@ -121,12 +133,17 @@ class VectorStoreService:
                 result = data.get("result", {}) if isinstance(data, dict) else {}
                 vec = None
                 if isinstance(result, dict):
-                    # Cloudflare BGE returns: {"result": {"data": [{"embedding": [...]}]}}
+                    # Cloudflare embedding response formats vary by model:
+                    #   1. {"result": {"data": [{"embedding": [...]}]}}  (OpenAI-style)
+                    #   2. {"result": {"data": [[...]]}}                  (raw list-of-lists)
+                    #   3. {"result": {"embedding": [...]}}               (flat fallback)
                     data_list = result.get("data")
                     if isinstance(data_list, list) and len(data_list) > 0:
                         item = data_list[0]
                         if isinstance(item, dict):
                             vec = item.get("embedding")
+                        elif isinstance(item, list):
+                            vec = item  # Cloudflare BGE/Qwen return raw embedding in data[0]
                     if vec is None:
                         # Fallback shape: {"result": {"embedding": [...]}}
                         vec = result.get("embedding") or result.get("values")

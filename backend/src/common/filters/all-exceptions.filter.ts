@@ -29,10 +29,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Log the full stack trace for 500 errors to help debugging HF Space issues
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(`[${request.method}] ${request.url}`);
+      this.logger.error(`[${(request as any).id ?? 'anon'}] [${request.method}] ${request.url}`);
       this.logger.error(exception instanceof Error ? exception.stack : exception);
     } else {
-      this.logger.warn(`[${request.method}] ${request.url} - Status: ${status} - Message: ${message}`);
+      this.logger.warn(`[${(request as any).id ?? 'anon'}] [${request.method}] ${request.url} - Status: ${status} - Message: ${message}`);
     }
 
     response.status(status).json({

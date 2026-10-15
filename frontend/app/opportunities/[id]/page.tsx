@@ -59,8 +59,8 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
 
   if (!opportunity) {
     return (
-      <div className="min-h-screen bg-background text-white flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cơ hội này.</p>
         <Link href="/opportunities" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary transition-all">
           Quay lại danh sách
@@ -70,15 +70,14 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
+      <div className="w-full mx-auto space-y-8">
         
         <Link href="/opportunities" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
-        <div className="bg-card border border-border rounded-2xl p-8 md:p-12 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-10 -mt-10 pointer-events-none" />
+        <div className="bg-card border border-border rounded-lg p-8 md:p-6 relative overflow-hidden">
             
             <div className="relative z-10 space-y-6">
                 <div className="flex justify-between items-start mb-2">
@@ -90,7 +89,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
                     </button>
                 </div>
                 
-                <h1 className="text-3xl md:text-5xl font-black leading-tight">{opportunity.title}</h1>
+                <h1 className="text-3xl md:text-3xl font-semibold leading-tight">{opportunity.title}</h1>
                 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/60 pt-4 border-t border-border">
                     <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary/90" /> {opportunity.address || 'Trực tuyến'}</span>
@@ -101,7 +100,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-8">
-                <div className="bg-card border border-border rounded-3xl p-8">
+                <div className="bg-card border border-border rounded-xl p-8">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
                         <Compass className="w-5 h-5 text-primary"/> Chi tiết cơ hội
                     </h2>
@@ -112,7 +111,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <div className="space-y-6">
-                <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-3xl p-6 text-center space-y-4">
+                <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-xl p-6 text-center space-y-4">
                     <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto border border-primary/30">
                         <Users className="w-8 h-8 text-primary" />
                     </div>
@@ -126,7 +125,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
                             className={`w-full py-4 rounded-xl font-bold text-sm transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 ${
                                 opportunity.is_team_finding_open 
                                     ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
-                                    : 'bg-primary hover:bg-primary text-white shadow-primary/20'
+                                    : 'bg-primary hover:bg-primary text-white '
                             }`}
                         >
                             {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -136,7 +135,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
                 </div>
 
                 {opportunity.tags && opportunity.tags.length > 0 && (
-                    <div className="bg-card border border-border rounded-3xl p-6">
+                    <div className="bg-card border border-border rounded-xl p-6">
                         <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><Tag className="w-4 h-4 text-muted-foreground/40"/> Thẻ phân loại</h3>
                         <div className="flex flex-wrap gap-2">
                             {opportunity.tags.map((tag, i) => (

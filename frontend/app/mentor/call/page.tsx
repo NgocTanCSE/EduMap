@@ -156,7 +156,7 @@ export default function VideoCallPage() {
       {/* Main Video Area */}
       <div className="flex-1 p-6 relative flex gap-4">
         {/* Main Peer Video (Remote) */}
-        <div className="flex-1 bg-background rounded-xl overflow-hidden relative border border-border shadow-2xl">
+        <div className="flex-1 bg-background rounded-xl overflow-hidden relative border border-border ">
           <div className="absolute inset-0 bg-card" />
           
           {isConnected ? (
@@ -179,7 +179,7 @@ export default function VideoCallPage() {
           )}
           
           <div className="absolute bottom-6 left-6 p-3 rounded-xl bg-card/40 border border-border flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-primary' : 'bg-red-500 animate-pulse'}`} />
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-primary' : 'bg-destructive animate-pulse'}`} />
             <span className="text-xs font-medium text-foreground/80">{formatDuration(callDuration)}</span>
           </div>
           
@@ -189,7 +189,7 @@ export default function VideoCallPage() {
         </div>
 
         {/* Local Self Video */}
-        <div className="w-72 bg-card rounded-3xl overflow-hidden relative border border-border shadow-xl self-end mb-4 mr-4">
+        <div className="w-72 bg-card rounded-xl overflow-hidden relative border border-border  self-end mb-4 mr-4">
           {isCamOn ? (
             <video
               ref={localVideoRef}
@@ -213,7 +213,7 @@ export default function VideoCallPage() {
 
         {/* Chat Panel */}
         {showChat && (
-          <div className="w-80 bg-background rounded-3xl border border-border flex flex-col">
+          <div className="w-80 bg-background rounded-xl border border-border flex flex-col">
             <div className="p-4 border-b border-border">
               <p className="text-sm font-medium text-foreground/80">Chat</p>
             </div>
@@ -221,7 +221,7 @@ export default function VideoCallPage() {
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`flex flex-col ${msg.sender === 'Bạn' ? 'items-end' : 'items-start'}`}>
                   <span className="text-[10px] text-muted-foreground/40 mb-1">{msg.sender}</span>
-                  <div className={`p-2 rounded-xl max-w-[80%] ${msg.sender === 'Bạn' ? 'bg-primary/20 text-yellow-200' : 'bg-card/20 text-foreground/80'}`}>
+                  <div className={`p-2 rounded-xl max-w-[80%] ${msg.sender === 'Bạn' ? 'bg-primary/20 text-primary' : 'bg-card/20 text-foreground/80'}`}>
                     <p className="text-xs">{msg.message}</p>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export default function VideoCallPage() {
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder="Nhập tin nhắn..."
-                  className="flex-1 bg-card/20 border border-border rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-primary/50"
+                  className="flex-1 bg-card/20 border border-border rounded-xl px-3 py-2 text-xs text-foreground placeholder-white/40 focus:outline-none focus:border-primary/50"
                 />
                 <button
                   onClick={sendMessage}
@@ -252,7 +252,7 @@ export default function VideoCallPage() {
       {/* Control Bar */}
       <div className="h-28 bg-card border-t border-border px-12 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-card border border-border">
+          <div className="p-3 rounded-lg bg-card border border-border">
             <p className="text-xs font-bold text-foreground/80">Session: AI Career Roadmaps</p>
             <p className="text-[10px] text-muted-foreground/40">Mentor-to-Student Call</p>
           </div>
@@ -261,46 +261,46 @@ export default function VideoCallPage() {
         <div className="flex items-center gap-4">
           <button 
             onClick={toggleMic}
-            className={`p-4 rounded-2xl border transition-all ${isMicOn ? 'bg-card border-border text-white hover:bg-card' : 'bg-red-500/20 border-red-500/30 text-red-500'}`}
+            className={`p-4 rounded-lg border transition-all ${isMicOn ? 'bg-card border-border text-foreground hover:bg-card' : 'bg-destructive/20 border-destructive/30 text-destructive'}`}
           >
             {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
           </button>
           
           <button 
             onClick={toggleCam}
-            className={`p-4 rounded-2xl border transition-all ${isCamOn ? 'bg-card border-border text-white hover:bg-card' : 'bg-red-500/20 border-red-500/30 text-red-500'}`}
+            className={`p-4 rounded-lg border transition-all ${isCamOn ? 'bg-card border-border text-foreground hover:bg-card' : 'bg-destructive/20 border-destructive/30 text-destructive'}`}
           >
             {isCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
           </button>
 
           <button 
             onClick={toggleScreenShare}
-            className={`p-4 rounded-2xl border transition-all ${isScreenSharing ? 'bg-primary/20 border-primary/30 text-primary/70' : 'bg-card border-border text-white hover:bg-card'}`}
+            className={`p-4 rounded-lg border transition-all ${isScreenSharing ? 'bg-primary/20 border-primary/30 text-primary/70' : 'bg-card border-border text-foreground hover:bg-card'}`}
           >
             {isScreenSharing ? <MonitorOff className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
           </button>
 
           <button 
             onClick={() => setShowChat(!showChat)}
-            className={`p-4 rounded-2xl border transition-all ${showChat ? 'bg-primary/20 border-primary/30 text-primary/70' : 'bg-card border-border text-white hover:bg-card'}`}
+            className={`p-4 rounded-lg border transition-all ${showChat ? 'bg-primary/20 border-primary/30 text-primary/70' : 'bg-card border-border text-foreground hover:bg-card'}`}
           >
             <MessageCircle className="w-6 h-6" />
           </button>
 
-          <button className="p-4 rounded-2xl bg-card border border-border text-white hover:bg-card transition-all">
+          <button className="p-4 rounded-lg bg-card border border-border text-foreground hover:bg-card transition-all">
             <Share2 className="w-6 h-6" />
           </button>
 
           <button 
             onClick={endCall}
-            className="mx-4 p-5 rounded-xl bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 transition-all"
+            className="mx-4 p-5 rounded-xl bg-destructive hover:bg-destructive text-foreground shadow-lg shadow-destructive/20 transition-all"
           >
             <PhoneOff className="w-8 h-8" />
           </button>
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="p-4 rounded-2xl bg-card border border-border text-muted-foreground/60 hover:text-white transition-all">
+          <button className="p-4 rounded-lg bg-card border border-border text-muted-foreground/60 hover:text-foreground transition-all">
             <Settings className="w-6 h-6" />
           </button>
         </div>

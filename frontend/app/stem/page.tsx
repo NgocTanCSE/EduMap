@@ -86,15 +86,15 @@ export default function StemLabsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-white p-8 relative">
+    <div className="min-h-screen bg-background text-foreground p-8 relative">
       
       {/* Booking Modal */}
       {showBookingModal && selectedLab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
-                <button onClick={() => setShowBookingModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
-                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Cpu className="text-cyan-500 w-6 h-6"/> Đặt thiết bị STEM</h3>
-                <p className="text-sm text-cyan-400 font-bold mb-6">{selectedLab.name}</p>
+            <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
+                <button onClick={() => setShowBookingModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Cpu className="text-accent w-6 h-6"/> Đặt thiết bị STEM</h3>
+                <p className="text-sm text-accent font-bold mb-6">{selectedLab.name}</p>
                 
                 <div className="p-4 bg-card border border-border rounded-xl mb-6 flex items-center gap-3">
                     <MonitorSmartphone className="w-5 h-5 text-muted-foreground/40" />
@@ -113,7 +113,7 @@ export default function StemLabsPage() {
                                 required
                                 value={bookingDate}
                                 onChange={e => setBookingDate(e.target.value)}
-                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-cyan-500 outline-none" 
+                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" 
                             />
                         </div>
                         <div>
@@ -123,7 +123,7 @@ export default function StemLabsPage() {
                                 required
                                 value={bookingTime}
                                 onChange={e => setBookingTime(e.target.value)}
-                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-cyan-500 outline-none" 
+                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none" 
                             />
                         </div>
                     </div>
@@ -132,7 +132,7 @@ export default function StemLabsPage() {
                         <select 
                             value={bookingDuration}
                             onChange={e => setBookingDuration(e.target.value)}
-                            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-cyan-500 outline-none appearance-none" 
+                            className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none appearance-none" 
                         >
                             <option value="1">1 Tiếng</option>
                             <option value="2">2 Tiếng</option>
@@ -143,7 +143,7 @@ export default function StemLabsPage() {
                     <button 
                         type="submit" 
                         disabled={bookingInProgress}
-                        className="w-full py-4 mt-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-foreground font-black transition-all shadow-lg shadow-cyan-600/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-accent hover:bg-accent text-foreground font-semibold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {bookingInProgress ? <Loader2 className="w-5 h-5 animate-spin" /> : null} XÁC NHẬN ĐẶT LỊCH
                     </button>
@@ -153,12 +153,12 @@ export default function StemLabsPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto space-y-12">
+      <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-12 rounded-2xl border border-border relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-4">Hệ Thống Phòng Lab STEM</h1>
+            <h1 className="text-2xl font-semibold mb-4">Hệ Thống Phòng Lab STEM</h1>
             <p className="text-muted-foreground/60 max-w-md leading-relaxed">
               Khám phá và đặt lịch sử dụng các thiết bị nghiên cứu khoa học, bộ kit robot và máy in 3D tại các phòng Lab đối tác của EduMap.
             </p>
@@ -171,35 +171,35 @@ export default function StemLabsPage() {
                   placeholder="Tìm phòng lab, địa chỉ..." 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-black/60 border border-border rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-cyan-500 transition-colors backdrop-blur-md" 
+                  className="w-full bg-black/60 border border-border rounded-lg py-4 pl-12 pr-4 outline-none focus:border-accent transition-colors" 
                 />
              </div>
           </div>
-          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-            <Microscope className="w-64 h-64" />
+          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+            <Microscope className="w-24 h-24" />
           </div>
         </div>
 
         {/* Labs List */}
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 text-cyan-500 animate-spin" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-accent animate-spin" /></div>
         ) : filteredLabs.length > 0 ? (
           <div className="space-y-6">
             {filteredLabs.map(lab => (
-              <div key={lab.id} className="p-8 rounded-3xl bg-card border border-border flex flex-col md:flex-row gap-8 hover:border-cyan-500/30 transition-colors group">
-                <div className="w-24 h-24 shrink-0 rounded-2xl bg-card border border-border flex items-center justify-center">
-                    <Microscope className="w-10 h-10 text-cyan-500/50 group-hover:text-cyan-400 transition-colors" />
+              <div key={lab.id} className="p-8 rounded-xl bg-card border border-border flex flex-col md:flex-row gap-8 hover:border-accent/30 transition-colors group">
+                <div className="w-24 h-24 shrink-0 rounded-lg bg-card border border-border flex items-center justify-center">
+                    <Microscope className="w-10 h-10 text-accent/50 group-hover:text-accent transition-colors" />
                 </div>
 
                 <div className="flex-1 space-y-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded border border-green-500/20 flex items-center gap-1">
+                            <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded border border-accent/20 flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3"/> Đang mở cửa
                             </span>
                         </div>
-                        <h3 className="text-2xl font-bold group-hover:text-cyan-400 transition-colors">{lab.name}</h3>
-                        <p className="text-sm text-muted-foreground/60 flex items-center gap-2 mt-2"><MapPin className="w-4 h-4 text-cyan-500"/> {lab.address}</p>
+                        <h3 className="text-2xl font-bold group-hover:text-accent transition-colors">{lab.name}</h3>
+                        <p className="text-sm text-muted-foreground/60 flex items-center gap-2 mt-2"><MapPin className="w-4 h-4 text-accent"/> {lab.address}</p>
                     </div>
                     
                     <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-2xl">
@@ -213,11 +213,11 @@ export default function StemLabsPage() {
                                 <button 
                                     key={i} 
                                     onClick={() => openBookingModal(lab, eq)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-card border border-border hover:border-cyan-500 hover:bg-cyan-500/5 rounded-xl text-sm transition-all"
+                                    className="flex items-center gap-2 px-4 py-2 bg-card border border-border hover:border-accent hover:bg-accent/5 rounded-xl text-sm transition-all"
                                 >
                                     <MonitorSmartphone className="w-4 h-4 text-muted-foreground/40" />
                                     <span>{eq}</span>
-                                    <ArrowRight className="w-3 h-3 text-cyan-500 opacity-0 -ml-2 transition-all" />
+                                    <ArrowRight className="w-3 h-3 text-accent opacity-0 -ml-2 transition-all" />
                                 </button>
                             )) : (
                                 <span className="text-sm text-muted-foreground/40 italic">Chưa có thiết bị nào được liệt kê</span>
@@ -229,7 +229,7 @@ export default function StemLabsPage() {
             ))}
           </div>
         ) : (
-            <div className="text-center py-20 bg-card border border-dashed border-border rounded-2xl">
+            <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <Microscope className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
                 <p className="text-muted-foreground/40">Không tìm thấy phòng Lab STEM nào.</p>
             </div>

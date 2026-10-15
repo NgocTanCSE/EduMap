@@ -26,19 +26,19 @@ export default function ConfirmDialog({
 
   const variantStyles = {
     danger: {
-      icon: 'bg-red-500/10 border-red-500/20',
-      iconColor: 'text-red-500',
-      button: 'bg-red-600 hover:bg-red-500'
+      icon: 'bg-destructive/10 border-destructive/20',
+      iconColor: 'text-destructive',
+      button: 'bg-destructive hover:bg-destructive'
     },
     warning: {
-      icon: 'bg-yellow-500/10 border-yellow-500/20',
-      iconColor: 'text-yellow-500',
-      button: 'bg-yellow-600 hover:bg-yellow-500'
+      icon: 'bg-primary/10 border-primary/20',
+      iconColor: 'text-primary',
+      button: 'bg-primary hover:bg-primary'
     },
     info: {
-      icon: 'bg-blue-500/10 border-blue-500/20',
-      iconColor: 'text-blue-500',
-      button: 'bg-blue-600 hover:bg-blue-500'
+      icon: 'bg-accent/10 border-accent/20',
+      iconColor: 'text-accent',
+      button: 'bg-accent hover:bg-accent'
     }
   };
 
@@ -53,11 +53,11 @@ export default function ConfirmDialog({
       />
       
       {/* Dialog */}
-      <div className="relative bg-popover border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+      <div className="relative bg-popover border border-border/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-white/40 hover:text-white hover:bg-muted/30 transition-colors"
+          className="absolute top-4 right-4 p-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-muted/30 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -68,14 +68,14 @@ export default function ConfirmDialog({
         </div>
 
         {/* Content */}
-        <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-        <p className="text-sm text-white/60 mb-6">{message}</p>
+        <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+        <p className="text-sm text-foreground/60 mb-6">{message}</p>
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-muted/20 border border-white/10 text-white rounded-lg text-sm font-medium hover:bg-muted/30 transition-colors"
+            className="px-4 py-2 bg-muted/20 border border-border/10 text-foreground rounded-lg text-sm font-medium hover:bg-muted/30 transition-colors"
           >
             {cancelLabel}
           </button>
@@ -84,7 +84,7 @@ export default function ConfirmDialog({
               onConfirm();
               onClose();
             }}
-            className={`px-4 py-2 ${styles.button} text-white rounded-lg text-sm font-medium transition-colors`}
+            className={`px-4 py-2 ${styles.button} text-foreground rounded-lg text-sm font-medium transition-colors`}
           >
             {confirmLabel}
           </button>

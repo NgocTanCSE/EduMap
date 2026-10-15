@@ -46,6 +46,10 @@ DEFAULT_BBOX = (8.0, 102.0, 23.5, 109.5)  # (south, west, north, east) — Vietn
 
 CONFIG = {
     "OVERPASS_URL":    os.getenv("CRAWL_OVERPASS_URL", "https://overpass-api.de/api/interpreter"),
+    "OVERPASS_MIRRORS":[m.strip() for m in os.getenv(
+        "CRAWL_OVERPASS_MIRRORS",
+        "https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter,https://overpass.openstreetmap.ru/api/interpreter"
+    ).split(",") if m.strip()],
     "TILE_DEG":        float(os.getenv("CRAWL_TILE_DEG", "0.75")),
     "SLEEP_BETWEEN":   float(os.getenv("CRAWL_SLEEP", "1.0")),     # rate-limit Overpass (~1 req/s)
     "TIMEOUT":         int(os.getenv("CRAWL_TIMEOUT", "30")),
@@ -92,32 +96,38 @@ def log(msg: str) -> None:
 # OVERPASS CLIENT                                                             #
 # --------------------------------------------------------------------------- #
 def _overpass_post(query: str) -> dict:
-    """POST an Overpass QL snippet, returning the parsed JSON with retries/backoff."""
+    """POST an Overpass QL snippet with MIRROR ROTATION + retry/backoff.
+
+    overpass-api.de hard-returns HTTP 406 for some IPs; rotating across the public
+    Overpass mirrors (de -> kumi -> ru) — the same 3 mirrors used by
+    crawlers/overpass_crawler.py, which already proved reachable via requests —
+    recovers when one endpoint is overloaded (504) or blocking (406).
+    """
     payload = query.encode("utf-8")
-    attempt = 0
-    while True:
-        attempt += 1
-        req = urllib.request.Request(
-            CONFIG["OVERPASS_URL"],
-            data=payload,
-            headers={
-                "Content-Type": "text/plain; charset=utf-8",
-                "Accept": "application/json",
-                "User-Agent": "EduMap-crawler/1.0 (+https://edumap.vn)",
-            },
-            method="POST",
-        )
+    headers = {
+        # overpass-api.de rejects `text/plain` with HTTP 406; send the raw QL
+        # query POSTed with a form content-type (matches the requests client
+        # in crawlers/overpass_crawler.py that works against overpass).
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+        "User-Agent": "EduMap-crawler/1.0 (+https://edumap.vn)",
+    }
+    mirrors = CONFIG.get("OVERPASS_MIRRORS") or [CONFIG["OVERPASS_URL"]]
+    attempts = 0
+    while attempts < CONFIG["MAX_RETRIES"]:
+        attempts += 1
+        url = mirrors[(attempts - 1) % len(mirrors)]
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=CONFIG["TIMEOUT"] + 5) as resp:
                 return json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
                 ConnectionError, json.JSONDecodeError) as exc:
-            if attempt >= CONFIG["MAX_RETRIES"]:
-                log(f"  ! overpass failed after {attempt} attempts: {exc}")
-                return {"elements": []}
-            wait = 2 ** attempt
-            log(f"  retry {attempt}/{CONFIG['MAX_RETRIES']} in {wait}s ({exc})")
-            time.sleep(wait)
+            log(f"  retry {attempts}/{CONFIG['MAX_RETRIES']} via {url} -> {exc}")
+            # exponential backoff, capped at ~16s (mirrors may 504 from overload)
+            time.sleep(2 ** min(attempts, 4))
+    log(f"  ! overpass failed after {attempts} attempts across {len(mirrors)} mirrors (406/504/timeout).")
+    return {"elements": []}
 
 
 def _tags(el: dict, *keys: str) -> str:

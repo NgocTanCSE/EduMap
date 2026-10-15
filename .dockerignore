@@ -26,8 +26,10 @@ api
 # Mobile (separate deployment)
 mobile
 
-# Crawler (separate deployment)
-crawlers
+# NOTE: crawlers/ is NOT excluded — the crawler Dockerfile (crawlers/Dockerfile,
+# build context = repo root) COPYs crawlers/crontab + crawlers/entrypoint.sh.
+# The root Dockerfile only COPYs backend/frontend/ai-service/scripts/... so
+# including crawlers/ in the context is harmless for the root image build.
 
 # Stale root artifacts
 package-lock.json

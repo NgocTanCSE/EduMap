@@ -50,27 +50,27 @@ setLoading(true);
 
   if (isFinished) {
     return (
-      <div className="min-h-screen bg-background text-white p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground p-8 flex items-center justify-center">
         <div className="max-w-4xl w-full">
           <div className="text-center mb-12">
             <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-primary/50">
               <Trophy className="text-primary w-10 h-10" />
             </div>
-            <h1 className="text-4xl font-bold mb-4">Kết quả Phân tích từ AI</h1>
+            <h1 className="text-2xl font-bold mb-4">Kết quả Phân tích từ AI</h1>
             <p className="text-muted-foreground/40">Dựa trên câu trả lời và hồ sơ của bạn, EduMap AI đề xuất các lộ trình phù hợp nhất</p>
           </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
               <Loader2 className="w-12 h-12 text-primary animate-spin" />
               <p className="text-primary font-bold animate-pulse">AI đang phân tích hồ sơ và câu trả lời của bạn...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {suggestions.length > 0 ? suggestions.map((item, idx) => (
-                <div key={idx} className="bg-card border border-border p-6 rounded-3xl hover:border-primary/50 transition-all group">
+                <div key={idx} className="bg-card border border-border p-6 rounded-xl hover:border-primary/50 transition-all group">
                   <div className="flex justify-between items-start mb-6">
-                    <div className="bg-primary/20 p-3 rounded-2xl"><BrainCircuit className="text-primary" /></div>
+                    <div className="bg-primary/20 p-3 rounded-lg"><BrainCircuit className="text-primary" /></div>
                     <span className="text-sm font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
                       Phù hợp: {item.match_score || 90}%
                     </span>
@@ -83,13 +83,13 @@ setLoading(true);
                   </div>
                   <button 
                     onClick={() => window.location.href = `/career/roadmap?title=${encodeURIComponent(item.title)}`}
-                    className="w-full py-3 bg-primary rounded-xl font-bold group-hover:bg-yellow-700 transition-all"
+                    className="w-full py-3 bg-primary rounded-xl font-bold group-hover:bg-primary transition-all"
                   >
                     Xem lộ trình chi tiết
                   </button>
                 </div>
               )) : (
-                <div className="col-span-2 text-center py-10 bg-card/20 rounded-3xl border border-dashed border-border">
+                <div className="col-span-2 text-center py-10 bg-card/20 rounded-xl border border-dashed border-border">
                    <p className="text-muted-foreground/40 mb-6">AI chưa tìm thấy lộ trình phù hợp ngay lúc này. Hãy thử cập nhật thêm kỹ năng trong hồ sơ nhé.</p>
                    <button onClick={() => window.location.href = '/career/profile'} className="text-primary font-bold hover:underline">CẬP NHẬT HỒ SƠ</button>
                 </div>
@@ -104,7 +104,7 @@ setLoading(true);
   const progress = ((currentStep + 1) / QUESTIONS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-background text-white flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px]" />
       
       <div className="max-w-2xl w-full relative z-10">
@@ -120,14 +120,14 @@ setLoading(true);
         </div>
 
         {/* Question Card */}
-        <div className="bg-card border border-border rounded-3xl p-10 shadow-2xl">
-          <h2 className="text-3xl font-bold mb-8 leading-tight">{QUESTIONS[currentStep].text}</h2>
+        <div className="bg-card border border-border rounded-xl p-8">
+          <h2 className="text-xl font-semibold mb-6 leading-tight">{QUESTIONS[currentStep].text}</h2>
           <div className="space-y-4">
             {QUESTIONS[currentStep].options.map((option) => (
               <button
                 key={option}
                 onClick={() => handleNext(option)}
-                className="w-full p-6 text-left bg-card border border-border rounded-2xl hover:bg-primary/20 hover:border-primary transition-all group flex justify-between items-center"
+                className="w-full p-6 text-left bg-card border border-border rounded-lg hover:bg-primary/20 hover:border-primary transition-all group flex justify-between items-center"
               >
                 <span className="text-lg font-medium">{option}</span>
                 <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
@@ -138,7 +138,7 @@ setLoading(true);
 
         <button 
           onClick={() => currentStep > 0 && setCurrentStep(currentStep - 1)}
-          className={`mt-8 flex items-center gap-2 text-muted-foreground hover:text-white transition-colors ${currentStep === 0 ? 'opacity-0 pointer-events-none' : ''}`}
+          className={`mt-8 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors ${currentStep === 0 ? 'opacity-0 pointer-events-none' : ''}`}
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại câu trước
         </button>

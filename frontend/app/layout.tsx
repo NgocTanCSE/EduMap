@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Footer from "@/components/Footer";
 import { Toaster } from 'sonner';
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { AuthProvider } from "@/src/contexts/AuthContext";
-import TopBar from "@/components/TopBar";
+import AppLayout from "@/components/AppLayout";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
   title: "EduMap - Bản đồ Giáo dục Thông minh Biên Hòa",
   description: "Khám phá không gian học tập, cơ hội thực tập, học bổng và cộng đồng giáo dục tại Biên Hòa, Đồng Nai.",
   manifest: "/manifest.json",
-  themeColor: "#eab308",
+  themeColor: "#E07A5F",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   keywords: ["EduMap", "Biên Hòa", "Đồng Nai", "Bản đồ giáo dục", "Học bổng", "Thực tập", "STEM", "Wifi miễn phí"],
   authors: [{ name: "EduMap Team" }],
@@ -58,11 +57,7 @@ export default function RootLayout({
         <LanguageProvider>
           <AuthProvider>
             <Toaster richColors position="top-right" closeButton />
-            <TopBar />
-            <div className="flex-grow">
-            {children}
-            </div>
-            <Footer />
+            <AppLayout>{children}</AppLayout>
           </AuthProvider>
         </LanguageProvider>
       </body>

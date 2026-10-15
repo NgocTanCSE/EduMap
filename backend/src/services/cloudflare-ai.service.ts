@@ -12,11 +12,11 @@ export class CloudflareAIService {
   constructor(private configService: ConfigService) {
     this.apiToken = this.configService.get<string>('CLOUDFLARE_API_TOKEN');
     this.accountId = this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID');
-    this.modelCandidates = (this.configService.get<string>('CLOUDFLARE_MODEL') || '@cf/meta/llama-3-8b-instruct,@cf/meta/llama-3-70b-instruct')
+    this.modelCandidates = (this.configService.get<string>('CLOUDFLARE_MODEL') || '@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct')
       .split(',')
       .map((m) => m.trim())
       .filter(Boolean);
-    this.modelName = this.modelCandidates[0] || '@cf/meta/llama-3-8b-instruct';
+    this.modelName = this.modelCandidates[0] || '@cf/meta/llama-3.1-8b-instruct-fp8';
 
     if (!this.apiToken || !this.accountId) {
       this.logger.warn(

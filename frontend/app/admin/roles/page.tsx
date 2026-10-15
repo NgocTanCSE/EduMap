@@ -30,7 +30,7 @@ export default function AdminRolesPage() {
           <Shield className="w-6 h-6 text-primary" />
           Quản trị – Vai trò
         </h1>
-        <button className="px-4 py-2 rounded-xl bg-primary text-white font-bold hover:bg-yellow-700 flex items-center gap-2">
+        <button className="px-4 py-2 rounded-xl bg-primary text-foreground font-bold hover:bg-primary flex items-center gap-2">
           <Plus className="w-4 h-4" /> Thêm vai trò
         </button>
       </div>
@@ -51,7 +51,7 @@ export default function AdminRolesPage() {
                 <button className="p-2 rounded-lg bg-card/20 hover:bg-card/20">
                   <Edit className="w-4 h-4" />
                 </button>
-                <button className="p-2 rounded-lg bg-card/20 hover:bg-red-500/20 text-red-400">
+                <button className="p-2 rounded-lg bg-card/20 hover:bg-destructive/20 text-destructive">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

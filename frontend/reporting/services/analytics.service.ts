@@ -41,7 +41,8 @@ export const analyticsService = {
     
     if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
       const statsData = await statsResponse.value.json();
-      if (statsData.status === 'success' || statsData.historical_data) {
+      const payload = statsData?.data || statsData; // backend nests payload under data
+      if (payload?.status === 'success' || payload?.historical_data) {
         const trending_skills = [
           { name: 'AI Engineering', growth: '+95%' },
           { name: 'Sustainability', growth: '+80%' },
@@ -52,8 +53,8 @@ export const analyticsService = {
         return {
           success: true,
           status: 'online',
-          historical_data: statsData.historical_data || [],
-          insights: statsData.insights || {},
+          historical_data: payload.historical_data || [],
+          insights: payload.insights || {},
           trending_skills
         };
       }

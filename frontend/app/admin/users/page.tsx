@@ -51,7 +51,7 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -64,7 +64,7 @@ export default function AdminUsersPage() {
             <p className="text-muted-foreground/40 text-sm mt-1">Quản trị toàn bộ tài khoản người dùng trong hệ thống.</p>
           </div>
           <div className="flex gap-4">
-             <div className="p-4 rounded-2xl bg-card border border-border text-center">
+             <div className="p-4 rounded-lg bg-card border border-border text-center">
                 <p className="text-xl font-bold">{meta.total}</p>
                 <p className="text-[10px] text-muted-foreground/40 uppercase font-bold">Tổng người dùng</p>
              </div>
@@ -72,19 +72,19 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Search & Filters */}
-        <div className="flex flex-wrap gap-4 items-center p-4 rounded-3xl bg-card/50 border border-border">
+        <div className="flex flex-wrap gap-4 items-center p-4 rounded-xl bg-card/50 border border-border">
           <form onSubmit={handleSearch} className="flex-1 min-w-[300px] relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
             <input 
               type="text" 
               placeholder="Tìm kiếm theo tên hoặc email..." 
-              className="w-full bg-card border border-border rounded-2xl py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors"
+              className="w-full bg-card border border-border rounded-lg py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </form>
           
-          <div className="flex items-center gap-2 bg-card border border-border rounded-2xl px-4 py-2">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
             <Filter className="w-4 h-4 text-muted-foreground/30" />
             <select 
               className="bg-transparent text-sm outline-none"
@@ -100,7 +100,7 @@ export default function AdminUsersPage() {
 
           <button 
             onClick={() => fetchUsers(1)}
-            className="px-6 py-3 rounded-2xl bg-primary hover:bg-primary/80 text-sm font-bold transition-all"
+            className="px-6 py-3 rounded-lg bg-primary hover:bg-primary/80 text-sm font-bold transition-all"
           >
             Tìm kiếm
           </button>
@@ -142,7 +142,7 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="p-6">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-primary/10 text-primary' : 'bg-red-500/10 text-red-500'}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
                           {user.status === 'active' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                           {user.status}
                         </span>
@@ -155,7 +155,7 @@ export default function AdminUsersPage() {
                           {user.status === 'active' ? (
                             <button 
                               onClick={() => handleUpdateStatus(user.id, 'banned')}
-                              className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors title='Chặn người dùng'"
+                              className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors title='Chặn người dùng'"
                             >
                               <XCircle className="w-4 h-4" />
                             </button>
