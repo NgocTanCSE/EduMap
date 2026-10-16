@@ -140,7 +140,7 @@ def run():
                    ROW_NUMBER() OVER (
                        PARTITION BY lower(regexp_replace(a.name, '\\s*\\([^)]*\\)\\s*', '', 'g'))
                        ORDER BY
-                           CASE WHEN a.status = 'active' THEN 0 ELSE 1 END,
+                           CASE WHEN a.status = 'approved' THEN 0 ELSE 1 END,
                            a.id
                    ) AS rn
             FROM locations a

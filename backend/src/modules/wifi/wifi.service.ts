@@ -41,6 +41,34 @@ export class WifiService {
     }
   }
 
+  async submitSpeedTest(id: string, downloadSpeed: number, uploadSpeed: number, rating: number) {
+    const location = await this.locationRepo.findOne({ where: { id } });
+    if (!location) {
+      throw new NotFoundException('Wifi location not found');
+    }
+
+    // Update aggregate rating with the new speed-test rating
+    const currentAvg = Number(location.rating_avg) || 0;
+    const currentCount = location.rating_count || 0;
+    const newCount = currentCount + 1;
+    const newAvg = (currentAvg * currentCount + rating) / newCount;
+
+    await this.locationRepo.update(id, {
+      rating_avg: newAvg,
+      rating_count: newCount,
+    });
+
+    return {
+      message: 'Kết quả kiểm tra tốc độ đã được lưu',
+      location_id: id,
+      download_mbps: downloadSpeed,
+      upload_mbps: uploadSpeed,
+      rating: rating,
+      updated_rating_avg: Number(newAvg.toFixed(2)),
+      updated_rating_count: newCount,
+    };
+  }
+
   async getWifiPointsNearby(lat: number, lng: number, radiusInMeters: number = 5000) {
     return this.locationRepo.createQueryBuilder('locations')
       .where(

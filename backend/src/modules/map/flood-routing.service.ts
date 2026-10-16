@@ -32,18 +32,26 @@ export class FloodRoutingService {
     const checkDate = date || new Date();
     const month = checkDate.getMonth() + 1; // 1-12
 
-    const query = this.floodZoneRepo.createQueryBuilder('fz');
+    try {
+      const query = this.floodZoneRepo.createQueryBuilder('fz');
 
-    // Filter by flood months if specified in metadata
-    query.where(
-      `(fz.metadata->>'floodMonths' IS NULL OR fz.metadata->>'floodMonths' = '' OR fz.metadata->'floodMonths' @> :month)`,
-      { month: JSON.stringify([month]) }
-    );
+      // Filter by flood months if specified in metadata
+      query.where(
+        `(fz.metadata->>'floodMonths' IS NULL OR fz.metadata->>'floodMonths' = '' OR fz.metadata->'floodMonths' @> :month)`,
+        { month: JSON.stringify([month]) }
+      );
 
-    // Or include seasonal/always active zones
-    query.orWhere(`fz.riskLevel IN (:...levels)`, { levels: ['seasonal', 'high'] });
+      // Or include seasonal/always active zones
+      query.orWhere(`fz.riskLevel IN (:...levels)`, { levels: ['seasonal', 'high'] });
 
-    return query.getMany();
+      return await query.getMany();
+    } catch (error) {
+      this.logger.warn(`FloodZone DB query failed (table may not exist in this environment): ${error.message}`);
+      // Graceful fallback: treat as no known flood zones so routing still
+      // works without the table. The flood-analysis still runs on whatever
+      // data is available; missing data just means no warnings.
+      return [];
+    }
   }
 
   async checkRouteForFloods(routeGeometry: any, date?: Date): Promise<{
@@ -61,7 +69,13 @@ export class FloodRoutingService {
     let affectedSegments = 0;
 
     for (const zone of activeZones) {
-      if (this.lineIntersectsPolygon(routeCoords, zone.coordinates)) {
+      // zone.coordinates is a GeoJSON geometry ({type:'Polygon', coordinates:[ring,...]})
+      // but lineIntersectsPolygon expects a bare number[][] ring. Without this
+      // extraction the GeoJSON object has no .length → intersection is never
+      // detected and ALL flood checks silently return false.
+      const polygonRing: number[][] = this.extractPolygonRing(zone.coordinates);
+
+      if (polygonRing.length > 0 && this.lineIntersectsPolygon(routeCoords, polygonRing)) {
         floodZones.push({
           id: zone.id,
           name: zone.name,
@@ -69,10 +83,10 @@ export class FloodRoutingService {
           coordinates: zone.coordinates,
           metadata: zone.metadata,
         });
-        
+
         // Count affected segments
         for (let i = 0; i < routeCoords.length - 1; i++) {
-          if (this.segmentIntersectsPolygon(routeCoords[i], routeCoords[i + 1], zone.coordinates)) {
+          if (this.segmentIntersectsPolygon(routeCoords[i], routeCoords[i + 1], polygonRing)) {
             affectedSegments++;
           }
         }
@@ -84,6 +98,22 @@ export class FloodRoutingService {
       floodZones,
       affectedSegments,
     };
+  }
+
+  /** Extract the outer ring [number[][]] from a GeoJSON Polygon/MultiPolygon
+   * or pass-through if already a bare coordinate array. */
+  private extractPolygonRing(coords: any): number[][] {
+    if (!coords) return [];
+    if (Array.isArray(coords)) return coords as number[][];
+    // GeoJSON geometry: { type: 'Polygon', coordinates: [ring, ...] }
+    if (coords.type === 'Polygon' && Array.isArray(coords.coordinates) && coords.coordinates[0]) {
+      return coords.coordinates[0] as number[][];
+    }
+    // GeoJSON MultiPolygon: { type: 'MultiPolygon', coordinates: [[ring,...],...] }
+    if (coords.type === 'MultiPolygon' && Array.isArray(coords.coordinates) && coords.coordinates[0] && coords.coordinates[0][0]) {
+      return coords.coordinates[0][0] as number[][];
+    }
+    return [];
   }
 
   async getFloodAvoidancePolygons(date?: Date): Promise<any[]> {

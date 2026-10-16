@@ -167,6 +167,7 @@ export class MapService {
       'restaurant': 9,
       'market': 10,
       'convenience': 11,
+      'park': 7,
     };
     
     const catLower = category.toLowerCase();
@@ -193,7 +194,7 @@ export class MapService {
     if (typeId) {
       query = query.where('map_points.type_id = :typeId', { typeId })
                    .orWhere('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` })
-                   .orWhere('LOWER(map_points.description) LIKE :desc2', { desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` });
+                   .orWhere('LOWER(map_points.description) LIKE :desc2', { desc2: `%${(catLower === 'green' || catLower === 'park') ? 'park' : catLower === 'university' ? 'college' : catLower}%` });
     } else {
       query = query.where('LOWER(map_points.description) LIKE :desc', { desc: `%${catLower}%` });
     }
@@ -212,7 +213,7 @@ export class MapService {
       .leftJoinAndSelect('locations.category', 'category')
       .where(
         `(LOWER(category.name) LIKE :cat OR LOWER(locations.description) LIKE :desc OR LOWER(locations.description) LIKE :desc2)`,
-        { cat: `%${catLower}%`, desc: `%${catLower}%`, desc2: `%${catLower === 'green' ? 'park' : catLower === 'university' ? 'college' : catLower}%` }
+        { cat: `%${catLower === 'park' ? 'green' : catLower}%`, desc: `%${catLower}%`, desc2: `%${(catLower === 'green' || catLower === 'park') ? 'park' : catLower === 'university' ? 'college' : catLower}%` }
       )
       .limit(2000);
     if (bounds) {
@@ -227,7 +228,7 @@ export class MapService {
   }
 
   async getCategories(): Promise<string[]> {
-    return ['university', 'school', 'library', 'bookstore', 'lab', 'wifi', 'green', 'cafe', 'restaurant', 'market', 'convenience'];
+    return ['university', 'school', 'library', 'bookstore', 'lab', 'wifi', 'green', 'cafe', 'restaurant', 'market', 'convenience', 'park'];
   }
 
   async createPoi(data: any): Promise<PointOfInterest> {
@@ -242,7 +243,8 @@ export class MapService {
       'cafe': 8,
       'restaurant': 9,
       'market': 10,
-      'convenience': 11
+      'convenience': 11,
+      'park': 7,
     };
 
     const point = this.mapPointRepo.create({
@@ -251,7 +253,7 @@ export class MapService {
       address: data.address,
       type: data.category,
       type_id: typeIdsMap[data.category.toLowerCase()] || 0,
-      status: 'active',
+      status: 'pending',
       location: {
         type: 'Point',
         coordinates: [data.lng, data.lat]
@@ -260,7 +262,7 @@ export class MapService {
 
     const saved = await this.mapPointRepo.save(point);
     try {
-      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`, {}, { timeout: 3000 }).subscribe({
+      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge/?background=true`, {}, { timeout: 3000 }).subscribe({
         error: (err) => this.logger.warn(`Failed to auto-sync AI knowledge: ${err.message}`),
       });
     } catch (e) {
@@ -284,7 +286,7 @@ export class MapService {
       // Try AI Service first, fallback to Gemini
       try {
         const response = await firstValueFrom(
-          this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
+          this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze/`, {
             city: query,
             points: pointsData,
             context: context

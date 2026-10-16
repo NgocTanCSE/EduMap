@@ -127,6 +127,35 @@
   color: hsl(var(--foreground)) !important;
 }
 
+/* Leaflet tooltip — desert dusk theme (dark card bg + light text)
+   Default Leaflet tooltip is white bg + dark text = unreadable on dark tiles.
+   Sync with .leaflet-popup styling for visual consistency. */
+.leaflet-tooltip {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  padding: 4px 8px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+/* Tooltip arrow — must match the tooltip background so it's not a white stub */
+.leaflet-tooltip-top:before {
+  border-top-color: hsl(var(--card)) !important;
+}
+.leaflet-tooltip-bottom:before {
+  border-bottom-color: hsl(var(--card)) !important;
+}
+.leaflet-tooltip-left:before {
+  border-left-color: hsl(var(--card)) !important;
+}
+.leaflet-tooltip-right:before {
+  border-right-color: hsl(var(--card)) !important;
+}
+
 /* Custom scrollbar for overflow panels */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

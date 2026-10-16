@@ -95,15 +95,30 @@ export class RoutingController {
         finalDuration = trafficAnalysis.duration;
       }
 
-      // Build segments info
-      const segments = bestRoute.legs?.[0]?.steps?.map((step: any) => ({
-        name: step.name || 'Đoạn đường',
-        duration: step.duration,
-        distance: step.distance,
-        congestionLevel: trafficAnalysis?.trafficSegments.find(t => 
-          Math.abs(t.estimatedSpeed * (step.duration / 60) - step.duration) < 30
-        )?.congestionLevel || 0,
-      })) || [];
+      // Build segments info — each OSRM maneuver step is matched to the
+      // traffic-analysis segment at the corresponding proportional position
+      // along the route (both arrays are ordered sequentially along the path).
+      // The old formula `Math.abs(t.estimatedSpeed * (step.duration/60) - step.duration)`
+      // had mismatched units (km/h × minutes − seconds) and NEVER matched, so
+      // every step defaulted to congestionLevel 0 (always green/"Thông thoáng").
+      const stepList = bestRoute.legs?.[0]?.steps;
+      const trafficSegs = trafficAnalysis?.trafficSegments || [];
+      const segments = stepList?.map((step: any, stepIdx: number) => {
+        let congestionLevel = 0;
+        if (trafficSegs.length > 0 && stepList.length > 0) {
+          const segIdx = Math.min(
+            Math.floor((stepIdx / Math.max(stepList.length - 1, 1)) * (trafficSegs.length - 1)),
+            trafficSegs.length - 1
+          );
+          congestionLevel = trafficSegs[segIdx]?.congestionLevel || 0;
+        }
+        return {
+          name: step.name || 'Đoạn đường',
+          duration: step.duration,
+          distance: step.distance,
+          congestionLevel,
+        };
+      }) || [];
 
       return { 
         success: true, 

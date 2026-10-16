@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     });
     if (params.toString()) url += `?${params.toString()}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, cache: 'no-store' });
 
     if (!response.ok) {
       const errorText = await response.text();

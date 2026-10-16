@@ -221,7 +221,7 @@ export default function MapPage() {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const R = 6371000; // earth radius in m
     return locations
-      .filter((p) => Number(p.id) !== Number(selectedLocation.id))
+      .filter((p) => p.id !== selectedLocation.id)
       .map((p) => {
         const pa = Number(p.lat);
         const pb = Number(p.lng);
@@ -324,9 +324,13 @@ export default function MapPage() {
     setAnalyzing(true);
     setAiAnalysis(null);
     try {
+      const accessToken = authService.getAccessToken();
       const res = await fetch('/api/map/ai-analysis', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({ query: 'Biên Hòa' }),
       });
       const json = await res.json();
@@ -400,9 +404,13 @@ export default function MapPage() {
     }
     try {
       setIsSavingPin(true);
+      const accessToken = authService.getAccessToken();
       const res = await fetch('/api/map/pois', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           ...pinForm,
           lat: pinningCoord.lat,

@@ -124,33 +124,37 @@ export class TrafficRoutingService {
     isWeekend: boolean
   ): Promise<TrafficInfo> {
     // Try to find matching traffic segment in DB
-    const dbSegments = await this.trafficSegmentRepo
-      .createQueryBuilder('ts')
-      .where(`ST_DWithin(ts.coordinates, ST_MakeLine(ST_MakePoint(:lng1, :lat1), ST_MakePoint(:lng2, :lat2)), 0.001)`)
-      .setParameters({ lng1: p1[0], lat1: p1[1], lng2: p2[0], lat2: p2[1] })
-      .limit(1)
-      .getMany();
+    try {
+      const dbSegments = await this.trafficSegmentRepo
+        .createQueryBuilder('ts')
+        .where(`ST_DWithin(ts.coordinates, ST_MakeLine(ST_MakePoint(:lng1, :lat1), ST_MakePoint(:lng2, :lat2)), 0.001)`)
+        .setParameters({ lng1: p1[0], lat1: p1[1], lng2: p2[0], lat2: p2[1] })
+        .limit(1)
+        .getMany();
 
-    if (dbSegments.length > 0) {
-      const seg = dbSegments[0];
-      const profile = seg.congestionProfile?.hourlySpeedFactor || this.peakHourProfiles[seg.roadType] || this.peakHourProfiles.primary;
-      let factor = profile[hour] || 1.0;
-      if (isWeekend) factor *= this.weekendFactor;
-      factor = Math.min(factor, 1.0);
+      if (dbSegments.length > 0) {
+        const seg = dbSegments[0];
+        const profile = seg.congestionProfile?.hourlySpeedFactor || this.peakHourProfiles[seg.roadType] || this.peakHourProfiles.primary;
+        let factor = profile[hour] || 1.0;
+        if (isWeekend) factor *= this.weekendFactor;
+        factor = Math.min(factor, 1.0);
 
-      return {
-        segmentId: seg.id,
-        roadName: seg.roadName,
-        roadType: seg.roadType,
-        congestionLevel: seg.congestionLevel,
-        currentSpeedFactor: factor,
-        freeFlowSpeed: seg.freeFlowSpeed,
-        estimatedSpeed: seg.freeFlowSpeed * factor,
-      };
+        return {
+          segmentId: seg.id,
+          roadName: seg.roadName,
+          roadType: seg.roadType,
+          congestionLevel: seg.congestionLevel,
+          currentSpeedFactor: factor,
+          freeFlowSpeed: seg.freeFlowSpeed,
+          estimatedSpeed: seg.freeFlowSpeed * factor,
+        };
+      }
+    } catch (error) {
+      this.logger.warn(`TrafficSegment DB query failed (table may not exist in this environment), falling back to heuristic: ${error.message}`);
     }
 
-    // Heuristic based on road type detection from coordinates
-    // For now, use residential as default for unknown roads
+    // Heuristic based on road type detection from coordinates (used when DB
+    // table doesn't exist or no matching segment was found).
     const roadType = this.detectRoadType(p1, p2);
     const freeFlowSpeed = this.defaultFreeFlowSpeeds[roadType] || 40;
     const profile = this.peakHourProfiles[roadType] || this.peakHourProfiles.primary;

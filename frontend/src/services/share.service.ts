@@ -76,13 +76,13 @@ class ShareService {
     if (!token) throw new Error('Vui lòng đăng nhập để mượn');
 
     try {
-      const response = await fetch(`${this.API_URL}/requests`, {
+      const response = await fetch(`${this.API_URL}/items/${itemId}/request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ item_id: itemId, message }),
+        body: JSON.stringify({ message }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Mượn thất bại');

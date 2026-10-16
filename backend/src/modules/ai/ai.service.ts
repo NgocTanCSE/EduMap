@@ -30,7 +30,7 @@ export class AIService {
   triggerKnowledgeSync(): void {
     try {
       this.httpService.post(
-        `${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`,
+        `${this.aiServiceUrl}/api/ai/sync-knowledge/?background=true`,
         {},
         { timeout: 5000 }
       ).subscribe({
@@ -109,7 +109,7 @@ export class AIService {
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend/`, userData, { timeout: 35000 })
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
@@ -128,7 +128,7 @@ throw new HttpException(
   async getMarketTrends() {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${this.aiServiceUrl}/api/ai/trends`)
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/trends/`)
       );
       return response.data;
     } catch (error) {
@@ -146,7 +146,7 @@ throw new HttpException(
   async getDailyInsight(dashboardData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight/`, {
             dashboard_data: dashboardData
         }, { timeout: 35000 })
       );
@@ -166,7 +166,7 @@ throw new HttpException(
   async analyzeGeoDensity(geoData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, geoData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze/`, geoData)
       );
       return response.data;
     } catch (error) {
@@ -184,7 +184,7 @@ throw new HttpException(
   async summarizeMaterial(materialData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize`, materialData, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize/`, materialData, { timeout: 35000 })
       );
       return response.data;
     } catch (error) {
@@ -202,7 +202,7 @@ throw new HttpException(
   async generateLearningPath(data: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path`, data, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path/`, data, { timeout: 35000 })
       );
       return response.data;
     } catch (error) {
@@ -220,7 +220,7 @@ throw new HttpException(
   async matchMentor(matchData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/mentor/match`, matchData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/mentor/match/`, matchData)
       );
       return response.data;
     } catch (error) {
@@ -259,7 +259,7 @@ throw new HttpException(
   async checkScholarshipEligibility(userData: any, scholarshipData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/scholarship/check`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/scholarship/check/`, {
           user_data: userData,
           scholarship_data: scholarshipData
         })
@@ -280,7 +280,7 @@ throw new HttpException(
   async getAnalyticsStats() {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats`)
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats/`)
       );
       const data = response.data || {};
       const historicalData = Array.isArray(data.historical_data) ? data.historical_data : [];
@@ -335,7 +335,7 @@ throw new HttpException(
 
       // 2. Gửi sang AI Service
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat/`, {
           user_id: userId,
           message: message,
           history: history,

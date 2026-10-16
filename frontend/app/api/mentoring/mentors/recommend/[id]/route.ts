@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
-    const authHeader = req.headers.get('Authorization');
+  const authHeader = req.headers.get('Authorization');
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -35,3 +35,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 }
+
+export const dynamic = 'force-dynamic';

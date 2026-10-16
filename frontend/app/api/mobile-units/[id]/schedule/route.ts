@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
-  const body = await req.json();
   const authHeader = req.headers.get('Authorization');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
   if (authHeader) headers['Authorization'] = authHeader;
   try {
-    const response = await fetch(`${getBackendUrl()}/summer-campaigns/${id}/register`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(`${getBackendUrl()}/mobile-units/${id}/schedule`, { headers });
     const data = await response.json().catch(() => ({}));
     return NextResponse.json(data, { status: response.status });
   } catch (error) {

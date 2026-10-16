@@ -7,7 +7,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const headers: Record<string, string> = {};
   if (authHeader) headers['Authorization'] = authHeader;
   try {
-    const url = new URL(`${getBackendUrl()}/summer-campaigns/${id}/daily-report`);
+    const url = new URL(`${getBackendUrl()}/summer/campaigns/${id}/daily-report`);
     req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
     const response = await fetch(url.toString(), { headers });
     const data = await response.json().catch(() => ({}));

@@ -41,6 +41,7 @@ export class MapPoint {
       'lab': 5,
       'wifi': 6,
       'green': 7,
+      'park': 7,
       'cafe': 8,
       'restaurant': 9,
       'market': 10,

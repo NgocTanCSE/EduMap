@@ -524,13 +524,17 @@ CREATE TABLE green_activities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     challenge_id UUID REFERENCES green_challenges(id) ON DELETE SET NULL,
+    activity_type VARCHAR(50),
     description TEXT,
     proof_url TEXT,
+    ai_confidence DECIMAL(5,2) DEFAULT 0,
+    moderator_note TEXT,
     carbon_saved_kg DECIMAL(10,2) DEFAULT 0,
     points_earned INTEGER,
     status VARCHAR(50) DEFAULT 'verified',
     verified_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 31b. green_challenge_activities (Track individual user participation in challenges)
@@ -1013,3 +1017,201 @@ CREATE TABLE IF NOT EXISTS user_events (
   metadata JSONB,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ── Flood & Traffic tables (matching FloodZone/TrafficSegment/CivicReport entities) ──
+-- PostGIS extension is enabled in infrastructure/postgres/docker-entrypoint-initdb.d/00-edumap-init.sh
+
+CREATE TABLE IF NOT EXISTS flood_zones (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    coordinates GEOMETRY(Polygon, 4326) NOT NULL,
+    riskLevel VARCHAR(50) NOT NULL DEFAULT 'seasonal',
+    metadata JSONB,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_flood_zones_coordinates ON flood_zones USING GIST (coordinates);
+
+CREATE TABLE IF NOT EXISTS traffic_segments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "roadName" VARCHAR(100) NOT NULL,
+    "roadType" VARCHAR(50) NOT NULL DEFAULT 'residential',
+    coordinates GEOMETRY(LineString, 4326) NOT NULL,
+    "freeFlowSpeed" DOUBLE PRECISION NOT NULL DEFAULT 50,
+    "congestionProfile" JSONB,
+    "congestionLevel" INTEGER NOT NULL DEFAULT 0,
+    "lastObserved" TIMESTAMP,
+    "dataSource" VARCHAR(50) NOT NULL DEFAULT 'heuristic',
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_traffic_segments_coordinates ON traffic_segments USING GIST (coordinates);
+
+-- ── Summer campaign tables ──
+CREATE TABLE IF NOT EXISTS summer_campaigns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    year INTEGER NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS summer_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    campaign_id UUID NOT NULL REFERENCES summer_campaigns(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_summer_reg_user_campaign UNIQUE (user_id, campaign_id)
+);
+CREATE INDEX IF NOT EXISTS idx_summer_reg_user ON summer_registrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_summer_reg_campaign ON summer_registrations(campaign_id);
+
+CREATE TABLE IF NOT EXISTS summer_activities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    campaign_id UUID NOT NULL REFERENCES summer_campaigns(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    volunteer_count INTEGER NOT NULL,
+    hours_spent DECIMAL(5,2) NOT NULL,
+    date DATE NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'completed',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ── Mobile unit tables (matches MobileUnit / MobileUnitRoute entities) ──
+CREATE TABLE IF NOT EXISTS mobile_units (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    description TEXT,
+    driver_name VARCHAR(255),
+    contact_number VARCHAR(50),
+    current_location GEOGRAPHY(Point, 4326),
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS mobile_unit_routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    mobile_unit_id UUID NOT NULL REFERENCES mobile_units(id) ON DELETE CASCADE,
+    destination_name VARCHAR(255) NOT NULL,
+    location GEOGRAPHY(Point, 4326) NOT NULL,
+    scheduled_at TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending'
+);
+
+-- ── HS Connection tables (matches UniversityCounseling, HsQuestion, HsAnswer, StudentConnection entities) ──
+CREATE TABLE IF NOT EXISTS university_counseling (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    university_name VARCHAR(255) NOT NULL,
+    program_info TEXT,
+    contact_email VARCHAR(255),
+    admission_criteria JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS hs_questions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID REFERENCES users(id),
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    university_target VARCHAR(255),
+    view_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_hs_questions_student ON hs_questions(student_id);
+
+CREATE TABLE IF NOT EXISTS hs_answers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    question_id UUID NOT NULL REFERENCES hs_questions(id) ON DELETE CASCADE,
+    mentor_id UUID REFERENCES users(id),
+    content TEXT NOT NULL,
+    is_verified_answer BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_hs_answers_question ON hs_answers(question_id);
+
+CREATE TABLE IF NOT EXISTS student_connections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_student_conn_req_recv UNIQUE (requester_id, receiver_id)
+);
+CREATE INDEX IF NOT EXISTS idx_student_conn_requester ON student_connections(requester_id);
+CREATE INDEX IF NOT EXISTS idx_student_conn_receiver ON student_connections(receiver_id);
+
+-- ── Business module tables ──
+-- reviews (entity: Review — snake_case columns)
+CREATE TABLE IF NOT EXISTS reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES business_services(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_service ON reviews(service_id);
+
+-- cart_items (entity: CartItem — camelCase columns)
+CREATE TABLE IF NOT EXISTS cart_items (
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "productId" UUID REFERENCES products(id) ON DELETE CASCADE,
+    "serviceId" UUID REFERENCES business_services(id) ON DELETE CASCADE,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_cart_items_user ON cart_items("userId");
+
+-- orders (entity: Order — camelCase columns)
+CREATE TABLE IF NOT EXISTS orders (
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "totalAmount" DECIMAL(10,2) NOT NULL,
+    "currency" VARCHAR(10) DEFAULT 'VND',
+    "status" VARCHAR(50) DEFAULT 'PENDING',
+    "shippingAddress" TEXT,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders("userId");
+
+-- order_items (entity: OrderItem — camelCase columns)
+CREATE TABLE IF NOT EXISTS order_items (
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "orderId" UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    "productId" UUID REFERENCES products(id),
+    "serviceId" UUID REFERENCES business_services(id),
+    "quantity" INTEGER NOT NULL,
+    "priceAtPurchase" DECIMAL(10,2) NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items("orderId");
+
+-- business_transactions (entity: Transaction — camelCase columns)
+CREATE TABLE IF NOT EXISTS business_transactions (
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "orderId" UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    "paymentMethod" VARCHAR(50) DEFAULT 'COD',
+    "status" VARCHAR(50) DEFAULT 'PENDING',
+    "amount" DECIMAL(10,2) NOT NULL,
+    "externalTransactionId" VARCHAR(255),
+    "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_business_transactions_order ON business_transactions("orderId");

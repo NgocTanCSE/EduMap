@@ -3,12 +3,13 @@ import { getBackendUrl } from '@/src/lib/api-config';
 
 export async function GET(req: NextRequest) {
   try {
-    const response = await fetch(`${getBackendUrl()}/summer-campaigns`);
+    const response = await fetch(`${getBackendUrl()}/summer/campaigns`);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Backend error:', errorText);
       return NextResponse.json(
-        { message: 'Kh�ng th? t?i danh s�ch chi?n d?ch m�a h�' },
+        { message: 'Không thể tải danh sách chiến dịch mùa hè' },
         { status: response.status }
       );
     }
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(
-      { message: 'L?i k?t n?i t?i d?ch v? m�a h�' },
+      { message: 'Lỗi kết nối tới dịch vụ mùa hè' },
       { status: 500 }
     );
   }

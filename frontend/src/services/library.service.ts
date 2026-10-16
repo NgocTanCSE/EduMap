@@ -47,10 +47,7 @@ class LibraryService {
   }
 
   async getMaterialSummary(id: string) {
-    return this.fetchWithAuth(`/api/ai/library/summarize`, {
-      method: 'POST',
-      body: JSON.stringify({ material_id: id })
-    });
+    return this.fetchWithAuth(`${API_BASE_URL}/resources/${id}/summary`);
   }
 }
 

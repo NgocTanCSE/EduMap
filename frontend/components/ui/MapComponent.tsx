@@ -188,10 +188,18 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     // Subsequent pans/zooms: debounced (400ms trailing) → single fetch per gesture.
     const debounced = debounce(fire, 400);
     map.on('moveend', debounced);
+
+    // Reset the programmatic-fly flag on ANY real user interaction so that a
+    // pan/drag that interrupts a flyTo animation is not swallowed by the flag
+    // (edge case: click pin → flyTo starts → user drags before flyTo finishes).
+    const resetFlag = () => { (map as any).__edumapProgrammaticFly = false; };
+    map.on('mousedown touchstart wheel', resetFlag);
+
     return () => {
       cancelled = true; debounced.cancel();
       (map as any).__edumapProgrammaticFly = false;
       map.off('moveend', debounced);
+      map.off('mousedown touchstart wheel', resetFlag);
     };
   }, [map, onBoundsChange]);
   return null;
@@ -285,18 +293,15 @@ export default function InteractiveMap({
       if (data.success && data.data?.routes?.length > 0) {
         const bestRoute = data.data.routes[0];
         setRouteGeometry(bestRoute.geometry);
-        
-        const segments = bestRoute.legs?.[0]?.steps?.map((step: any) => ({
-          name: step.name || 'Đoạn đường',
-          duration: step.duration,
-          distance: step.distance,
-          congestionLevel: step.congestionLevel,
-        })) || [];
 
         setRouteInfo({
           duration: bestRoute.duration,
           distance: bestRoute.distance,
-          segments,
+          // Use the segments pre-computed by the backend (with congestionLevel
+          // from the traffic analysis). Previously the frontend re-derived
+          // segments from OSRM steps and read `step.congestionLevel` which
+          // never exists on a raw OSRM step object → always undefined.
+          segments: data.data.segments || [],
           floodWarnings: data.data.floodWarnings || [],
           avoidedFloodZones: data.data.avoidedFloodZones || [],
           trafficAnalysis: data.data.trafficAnalysis || null,
@@ -439,8 +444,8 @@ export default function InteractiveMap({
                       click: () => onSelectPoint(p)
                     }}
                   >
-                    <Tooltip direction="top" offset={[0, -30]} opacity={0.9}>
-                      <span className="font-bold text-xs text-foreground">{p.name}</span>
+                    <Tooltip direction="top" offset={[0, -30]} opacity={1}>
+                      <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
                       <div className="p-2 text-foreground font-sans max-w-[240px] bg-card border border-border rounded-lg shadow-lg">

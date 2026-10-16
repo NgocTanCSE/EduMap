@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (authHeader) headers['Authorization'] = authHeader;
 
   try {
-    const response = await fetch(`${getBackendUrl()}/admin/stats`, { headers });
+    const response = await fetch(`${getBackendUrl()}/admin/dashboard`, { headers });
     
     if (!response.ok) {
       const errorText = await response.text();

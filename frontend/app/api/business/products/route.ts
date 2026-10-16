@@ -9,12 +9,14 @@ export async function GET(req: NextRequest) {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) headers['Authorization'] = authHeader;
 
-    let url = `${getBackendUrl()}/business/products`;
-    if (businessProfileId) {
-      url = `${getBackendUrl()}/business/${businessProfileId}/products`;
+    if (!businessProfileId) {
+      return NextResponse.json(
+        { message: 'businessProfileId là bắt buộc' },
+        { status: 422 }
+      );
     }
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(`${getBackendUrl()}/business/${businessProfileId}/products`, { headers });
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -25,11 +27,22 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const searchParams = req.nextUrl.searchParams;
+    const businessProfileId = searchParams.get('businessProfileId');
     const body = await req.json();
     const authHeader = req.headers.get('Authorization');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) headers['Authorization'] = authHeader;
-    const response = await fetch(`${getBackendUrl()}/business/products`, {
+
+    const bpId = businessProfileId || body.businessProfileId;
+    if (!bpId) {
+      return NextResponse.json(
+        { message: 'businessProfileId là bắt buộc' },
+        { status: 422 }
+      );
+    }
+
+    const response = await fetch(`${getBackendUrl()}/business/${bpId}/products`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

@@ -32,7 +32,7 @@ class MobileUnitService {
    */
   async getUnits(): Promise<MobileUnit[]> {
     try {
-      const response = await fetch(`${this.API_URL}/units`);
+      const response = await fetch(this.API_URL);
       if (!response.ok) throw new Error('Không thể tải danh sách xe tri thức');
       return await response.json();
     } catch (error) {
@@ -46,7 +46,7 @@ class MobileUnitService {
    */
   async getUnitSchedule(id: string): Promise<UnitScheduleResponse> {
     try {
-      const response = await fetch(`${this.API_URL}/units/${id}/schedule`);
+      const response = await fetch(`${this.API_URL}/${id}/schedule`);
       if (!response.ok) throw new Error('Không thể tải lịch trình xe');
       return await response.json();
     } catch (error) {
