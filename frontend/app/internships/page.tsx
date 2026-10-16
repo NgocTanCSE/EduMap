@@ -34,8 +34,10 @@ export default function InternshipPage() {
       else setLoadingMore(true);
 
       const data: any = await internshipService.getInternships(pageNum, 10);
-      const items = data.items || data.data || [];
-      const meta = data.meta || {};
+      // Handle both wrapped ({success, data:{items,meta}}) and direct ({items,meta})
+      const payload = data.data ?? data;
+      const items = payload.items || (Array.isArray(payload) ? payload : []) || [];
+      const meta = payload.meta || {};
 
       if (pageNum === 1) {
         setInternships(items);

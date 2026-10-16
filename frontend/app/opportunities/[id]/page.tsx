@@ -1,14 +1,13 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Target, MapPin, Calendar, Users, ArrowLeft, Loader2, Share2, Compass, Tag } from 'lucide-react';
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
-export default function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const oppId = resolvedParams.id;
+export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
+    const oppId = params.id;
 
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +23,7 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
     try {
       setLoading(true);
       const data = await opportunityService.getOpportunityById(oppId);
-      setOpportunity(data);
+      setOpportunity((data as any)?.data ?? data);
     } catch (error: any) {
       toast.error('Không thể tải chi tiết cơ hội');
     } finally {

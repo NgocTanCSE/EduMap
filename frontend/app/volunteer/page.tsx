@@ -34,8 +34,9 @@ export default function VolunteerPage() {
     try {
       setLoading(true);
       const data = await volunteerService.getMyActivities();
-      setActivities(data.activities);
-      setTotalHours(data.total_hours);
+      const payload = (data as any)?.data ?? data;
+      setActivities(payload.activities || []);
+      setTotalHours(payload.total_hours || 0);
     } catch (error: any) {
       toast.error('Lỗi khi tải lịch sử tình nguyện');
     } finally {

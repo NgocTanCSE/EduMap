@@ -107,20 +107,100 @@ export class MapService {
     };
   }
 
+  /**
+   * Normalize a POI name for deduplication: lowercase, strip parenthetical
+   * suffixes (e.g. "DNTU (Campus A)" → "dntu"), trim.
+   */
+  private normalizePoiName(name: string): string {
+    return (name || '')
+      .toLowerCase()
+      .replace(/\s*\(.*?\)\s*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Simple Levenshtein-based name similarity ratio [0,1].
+   * Two names are considered equivalent if ratio >= 0.8.
+   */
+  private nameSimilarity(a: string, b: string): number {
+    const sa = this.normalizePoiName(a);
+    const sb = this.normalizePoiName(b);
+    if (sa === sb) return 1;
+    if (!sa || !sb) return 0;
+    const longer = sa.length > sb.length ? sa : sb;
+    const shorter = sa.length > sb.length ? sb : sa;
+    if (longer.length === 0) return 1;
+    const editDist = this.levenshtein(longer, shorter);
+    return (longer.length - editDist) / longer.length;
+  }
+
+  private levenshtein(a: string, b: string): number {
+    const m: number[][] = Array(b.length + 1).fill(0).map(() => Array(a.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i++) m[0][i] = i;
+    for (let j = 0; j <= b.length; j++) m[j][0] = j;
+    for (let j = 1; j <= b.length; j++) {
+      for (let i = 1; i <= a.length; i++) {
+        if (a[i - 1] === b[j - 1]) m[j][i] = m[j - 1][i - 1];
+        else m[j][i] = Math.min(m[j - 1][i], m[j][i - 1], m[j - 1][i - 1]) + 1;
+      }
+    }
+    return m[b.length][a.length];
+  }
+
+  /** Haversine distance in metres between two lat/lng pairs. */
+  private haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R;
+  }
+
+  /**
+   * Deduplicate POIs from both tables. Entries from `map_points` (manually
+   * verified, `verified=true`) are prioritized over `locations` (crawled,
+   * may have coordinate drift). Two POIs are considered duplicates when:
+   *  - Their *exact* normalised names match (handles crawled coordinate drift), OR
+   *  - Their names are similar (≥80%) AND they are within 200 m of each other.
+   */
+  private deduplicatePois(allPois: PointOfInterest[]): PointOfInterest[] {
+    // Sort so verified/approved map_points come first (kept over nearby duplicates)
+    const sorted = [...allPois].sort((a, b) => {
+      const score = (p: PointOfInterest) => (p.verified ? 2 : 0) + (p.status === 'approved' ? 1 : 0);
+      return score(b) - score(a);
+    });
+
+    const unique: PointOfInterest[] = [];
+    for (const poi of sorted) {
+      const isDup = unique.some(ex => {
+        if (ex.id === poi.id) return true;
+        const normEx = this.normalizePoiName(ex.name);
+        const normPoi = this.normalizePoiName(poi.name);
+        // Exact normalised-name match → duplicate (prefer verified entry)
+        if (normEx && normPoi && normEx === normPoi) return true;
+        // Fuzzy name + proximity → duplicate
+        if (this.nameSimilarity(ex.name, poi.name) < 0.8) return false;
+        return this.haversine(ex.lat, ex.lng, poi.lat, poi.lng) < 200;
+      });
+      if (!isDup) unique.push(poi);
+    }
+    return unique;
+  }
+
   async findAllPois(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     // Fetch from both map_points and locations tables for proper data sync
     const [mapPoints, locations] = await Promise.all([
       this.fetchMapPoints(bounds),
       this.fetchLocations(bounds)
     ]);
-    
-    // Merge and deduplicate by id
+
+    // Merge and deduplicate by id AND name+proximity.
+    // map_points (verified) are sorted first so their coordinates win.
     const allPois = [...mapPoints, ...locations];
-    const uniquePois = allPois.filter((poi, index, self) => 
-      index === self.findIndex(p => p.id === poi.id)
-    );
-    
-    return uniquePois;
+    return this.deduplicatePois(allPois);
   }
 
   private async fetchMapPoints(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
@@ -179,13 +259,9 @@ export class MapService {
       this.fetchLocationsByCategory(catLower, bounds)
     ]);
     
-    // Merge and deduplicate
+    // Merge and deduplicate by id AND name+proximity (map_points verified first)
     const allPois = [...mapPoints, ...locations];
-    const uniquePois = allPois.filter((poi, index, self) => 
-      index === self.findIndex(p => p.id === poi.id)
-    );
-    
-    return uniquePois;
+    return this.deduplicatePois(allPois);
   }
 
   private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {

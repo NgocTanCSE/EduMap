@@ -38,7 +38,8 @@ export default function IntlPage() {
       try {
           setProgramsLoading(true);
           const data = await intlService.getPrograms();
-          setPrograms(data);
+          // Unwrap backend { success, data: [...] } wrapper if present
+          setPrograms((data as any).data || (Array.isArray(data) ? data : []) || []);
       } catch (error: any) {
           toast.error(error.message || 'Không thể tải danh sách chương trình');
       } finally {
@@ -50,7 +51,8 @@ export default function IntlPage() {
       try {
           setAlumniLoading(true);
           const data = await intlService.getAlumni();
-          setAlumni(data);
+          // Unwrap backend { success, data: [...] } wrapper if present
+          setAlumni((data as any).data || (Array.isArray(data) ? data : []) || []);
       } catch (error: any) {
           toast.error(error.message || 'Không thể tải mạng lưới cựu sinh viên');
       } finally {

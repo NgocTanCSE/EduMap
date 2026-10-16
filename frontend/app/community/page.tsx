@@ -37,14 +37,17 @@ export default function CommunityPage() {
     try {
       if (page === 1) setLoading(true);
       const data = await communityService.getPosts(page, 10, groupId);
+      // Unwrap backend { success, data: { posts, total } } wrapper if present
+      const payload = (data as any)?.data ?? data;
+      const posts = payload.posts || [];
       
       if (page === 1) {
-        setPosts(data.posts || []);
+        setPosts(posts);
       } else {
-        setPosts(prev => [...prev, ...(data.posts || [])]);
+        setPosts(prev => [...prev, ...posts]);
       }
       
-      setHasMore((data.posts || []).length === 10);
+      setHasMore(posts.length === 10);
     } catch (error) {
       console.error("Lỗi fetch posts:", error);
       toast.error('Không thể tải bài viết.');

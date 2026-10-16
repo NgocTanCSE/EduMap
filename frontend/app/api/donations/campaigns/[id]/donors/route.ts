@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

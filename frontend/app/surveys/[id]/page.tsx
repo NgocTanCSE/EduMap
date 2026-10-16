@@ -1,14 +1,13 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClipboardList, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { surveyService, Survey } from '@/src/services/survey.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
-export default function TakeSurveyPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const surveyId = resolvedParams.id;
+export default function TakeSurveyPage({ params }: { params: { id: string } }) {
+    const surveyId = params.id;
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,7 @@ export default function TakeSurveyPage({ params }: { params: Promise<{ id: strin
     try {
       setLoading(true);
       const data = await surveyService.getSurveyById(surveyId);
-      setSurvey(data);
+      setSurvey((data as any)?.data ?? data);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải chi tiết khảo sát');
     } finally {

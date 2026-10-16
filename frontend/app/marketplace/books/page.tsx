@@ -12,7 +12,7 @@ export default function BookMarketplacePage() {
         const res = await fetch('/api/share/items?category=book');
         if (res.ok) {
           const data = await res.json();
-          setBooks(data);
+          setBooks((data as any).data || (Array.isArray(data) ? data : []) || []);
         }
       } catch (error) {
         console.error("Lỗi fetch books:", error);

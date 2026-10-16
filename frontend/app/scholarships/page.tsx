@@ -47,8 +47,10 @@ export default function ScholarshipPage() {
       if (pageNum === 1) setLoading(true);
       else setLoadingMore(true);
       const data: any = await scholarshipService.getScholarships(pageNum, 10);
-      const items = data.items || data.data || [];
-      const meta = data.meta || {};
+      // Handle both wrapped ({success, data:{items,meta}}) and direct ({items,meta})
+      const payload = data.data ?? data;
+      const items = payload.items || (Array.isArray(payload) ? payload : []) || [];
+      const meta = payload.meta || {};
       if (pageNum === 1) {
         setScholarships(items);
       } else {

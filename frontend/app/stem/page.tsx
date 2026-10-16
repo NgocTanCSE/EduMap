@@ -27,7 +27,8 @@ export default function StemLabsPage() {
     try {
       setLoading(true);
       const data = await stemService.getLabs();
-      setLabs(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setLabs((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Không thể tải danh sách STEM Lab');
     } finally {

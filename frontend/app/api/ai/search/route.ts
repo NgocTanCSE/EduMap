@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const data = await response.json().catch(() => null);
 
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error: any) {
     console.error('AI Search BFF error:', error);
     return NextResponse.json(

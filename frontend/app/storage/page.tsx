@@ -19,7 +19,8 @@ export default function StoragePage() {
     try {
       setLoading(true);
       const data = await storageService.getMyFiles();
-      setFiles(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setFiles((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải danh sách tài liệu');
     } finally {

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       body: formData as any,
     });
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi tải file' }, { status: 500 });

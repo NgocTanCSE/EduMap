@@ -37,7 +37,7 @@ export default function JobDetailPage() {
     try {
       setLoading(true);
       const data = await careerService.getJobById(params.id as string);
-      setJob(data);
+      setJob(data?.data ?? data);
     } catch (err) {
       console.error('Error fetching job details:', err);
     } finally {

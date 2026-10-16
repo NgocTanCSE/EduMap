@@ -40,7 +40,7 @@ export default function CareerRoadmapPage() {
       
       if (!res.ok) throw new Error('Không thể tạo lộ trình');
       const data = await res.json();
-      setRoadmap(data);
+      setRoadmap((data as any)?.data ?? data);
       toast.success('Lộ trình AI đã được khởi tạo!');
     } catch (error) {
       console.error(error);

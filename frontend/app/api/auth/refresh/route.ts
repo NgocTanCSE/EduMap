@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error: any) {
     console.error('API Route Refresh Error:', error);
     return NextResponse.json(

@@ -25,7 +25,8 @@ export default function EventsListPage() {
     try {
       setLoading(true);
       const data = await eventsService.getAllEvents();
-      setEvents(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setEvents((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải danh sách sự kiện');
     } finally {

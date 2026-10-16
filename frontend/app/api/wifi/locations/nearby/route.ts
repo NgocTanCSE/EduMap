@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
     const response = await fetch(url.toString());
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối' }, { status: 500 });

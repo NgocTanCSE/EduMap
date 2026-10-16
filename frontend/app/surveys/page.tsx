@@ -17,7 +17,8 @@ export default function SurveysPage() {
     try {
       setLoading(true);
       const data = await surveyService.getSurveys();
-      setSurveys(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setSurveys((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Lỗi khi tải danh sách khảo sát');
     } finally {

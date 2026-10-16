@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart, Users, Calendar, Share2, ShieldCheck, ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
 import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { authService } from '@/src/services/auth.service';
@@ -7,9 +7,8 @@ import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function DonationDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const campaignId = resolvedParams.id;
+export default function DonationDetailPage({ params }: { params: { id: string } }) {
+    const campaignId = params.id;
 
   const [campaign, setCampaign] = useState<DonationCampaign | null>(null);
   const [donors, setDonors] = useState<any[]>([]);

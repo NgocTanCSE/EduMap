@@ -19,7 +19,8 @@ export default function OpportunitiesPage() {
     try {
       setLoading(true);
       const data = await opportunityService.getOpportunities(activeCategory || undefined);
-      setOpportunities(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setOpportunities((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Không thể tải danh sách cơ hội');
     } finally {

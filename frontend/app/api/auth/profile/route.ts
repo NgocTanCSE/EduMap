@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       );
     }
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(
@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

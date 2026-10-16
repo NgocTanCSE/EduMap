@@ -17,7 +17,8 @@ export default function MobileUnitPage() {
     try {
       setLoading(true);
       const data = await mobileUnitService.getUnits();
-      setUnits(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setUnits((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error(error.message || 'Lỗi tải danh sách xe tri thức');
     } finally {

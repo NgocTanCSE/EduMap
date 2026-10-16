@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     return NextResponse.json({ message: 'Lỗi máy chủ proxy.' }, { status: 500 });
   }

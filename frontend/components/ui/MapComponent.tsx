@@ -290,8 +290,13 @@ export default function InteractiveMap({
       const response = await fetch(`${apiBaseUrl}/map/routing/route?${params}`);
       const data = await response.json();
 
-      if (data.success && data.data?.routes?.length > 0) {
-        const bestRoute = data.data.routes[0];
+      // BFF unwraps backend's { success, data: { routes, ... } } into the
+      // payload directly (data.data ?? data). Error responses still come as
+      // { success: false, message: '...' }.
+      const payload = (data?.data ?? data) as any;
+
+      if (payload.routes?.length > 0) {
+        const bestRoute = payload.routes[0];
         setRouteGeometry(bestRoute.geometry);
 
         setRouteInfo({
@@ -301,10 +306,10 @@ export default function InteractiveMap({
           // from the traffic analysis). Previously the frontend re-derived
           // segments from OSRM steps and read `step.congestionLevel` which
           // never exists on a raw OSRM step object → always undefined.
-          segments: data.data.segments || [],
-          floodWarnings: data.data.floodWarnings || [],
-          avoidedFloodZones: data.data.avoidedFloodZones || [],
-          trafficAnalysis: data.data.trafficAnalysis || null,
+          segments: payload.segments || [],
+          floodWarnings: payload.floodWarnings || [],
+          avoidedFloodZones: payload.avoidedFloodZones || [],
+          trafficAnalysis: payload.trafficAnalysis || null,
         });
       } else {
         throw new Error(data.message || 'Không tìm thấy lộ trình');

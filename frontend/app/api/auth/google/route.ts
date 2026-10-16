@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error: any) {
     console.error('API Route Google Auth Error:', error);
     return NextResponse.json(

@@ -29,7 +29,7 @@ export default function WifiPage() {
     try {
       setLoading(true);
       const data = await wifiService.getLocations();
-      setLocations(data);
+      setLocations((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Không thể tải danh sách Wifi');
     } finally {
@@ -48,8 +48,9 @@ export default function WifiPage() {
                   try {
                       setLoading(true);
                       const data = await wifiService.getNearby(lat, lng, 5000); // 5km
-                      setLocations(data);
-                      toast.success(`Tìm thấy ${data.length} điểm Wifi gần bạn`, { id: 'gps' });
+                      const payload = (data as any).data || (Array.isArray(data) ? data : []) || [];
+                      setLocations(payload);
+                      toast.success(`Tìm thấy ${payload.length} điểm Wifi gần bạn`, { id: 'gps' });
                   } catch (error) {
                       toast.error('Lỗi khi tìm kiếm lân cận', { id: 'gps' });
                   } finally {

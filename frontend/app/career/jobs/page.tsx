@@ -22,7 +22,9 @@ export default function JobsPage() {
     try {
       setLoading(true);
       const data = await careerService.searchJobs(searchParams);
-      setJobs(data.jobs || []);
+      // Unwrap backend { success, data: { jobs: [...] } } wrapper if present
+      const payload = data.data ?? data;
+      setJobs(payload.jobs || []);
     } catch (err) {
       console.error('Error fetching jobs:', err);
     } finally {

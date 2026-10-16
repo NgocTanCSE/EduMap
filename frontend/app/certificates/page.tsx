@@ -18,7 +18,7 @@ export default function CertificatesPage() {
     try {
       setLoading(true);
       const data = await certificateService.getPortfolio();
-      setPortfolio(data);
+      setPortfolio((data as any).data ?? data);
     } catch (error) {
       console.error("Lỗi fetch certificates:", error);
     } finally {

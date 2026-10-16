@@ -19,7 +19,7 @@ export default function HSConnectionPage() {
         try {
             setLoading(true);
             const data = await hsConnectionService.getMyNetwork();
-            setNetwork(data);
+            setNetwork((data as any).data ?? data);
         } catch (error: any) {
             toast.error(error.message || 'Không thể tải dữ liệu mạng lưới');
         } finally {

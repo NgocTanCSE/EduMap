@@ -24,7 +24,7 @@ export default function HackathonListPage() {
     try {
       setLoading(true);
       const data = await hackathonService.getHackathons();
-      setHackathons(data);
+      setHackathons((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải danh sách Hackathon');
     } finally {

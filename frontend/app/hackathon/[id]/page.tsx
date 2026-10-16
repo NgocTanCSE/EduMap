@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Code, Users, Calendar, Trophy, ArrowLeft, Loader2, CheckCircle2, FileCode2, PlaySquare } from 'lucide-react';
 import Link from 'next/link';
 import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
@@ -7,9 +7,8 @@ import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function HackathonDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const hackathonId = resolvedParams.id;
+export default function HackathonDetailPage({ params }: { params: { id: string } }) {
+  const hackathonId = params.id;
 
   const [hackathon, setHackathon] = useState<Hackathon | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +37,7 @@ export default function HackathonDetailPage({ params }: { params: Promise<{ id: 
     try {
       setLoading(true);
       const data = await hackathonService.getHackathonById(hackathonId);
-      setHackathon(data);
+      setHackathon((data as any).data ?? data);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải thông tin cuộc thi');
     } finally {

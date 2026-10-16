@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const response = await fetch(`${getBackendUrl()}/map/categories`, { headers });
     if (response.ok) {
       const data = await response.json();
-      return NextResponse.json(data);
+      return NextResponse.json(data.data ?? data);
     }
     // backend down / error -> fall through to static defaults
   } catch (error) {

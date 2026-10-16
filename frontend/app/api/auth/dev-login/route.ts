@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error: any) {
     console.error('API Route DevLogin Error:', error);
     return NextResponse.json(

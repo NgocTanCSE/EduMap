@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   MessageSquare, Heart, Share2, MoreHorizontal, ArrowLeft,
   Send, AlertTriangle, CheckCircle2, Clock, User, Loader2
@@ -9,9 +9,8 @@ import { communityService, Post, Comment } from '@/src/services/community.servic
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 
-export default function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const postId = resolvedParams.id;
+export default function PostDetailPage({ params }: { params: { id: string } }) {
+    const postId = params.id;
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);

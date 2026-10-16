@@ -18,7 +18,7 @@ export default function AdminHeatmapPage() {
     const fetchStats = async () => {
       try {
         const data = await adminService.getStats();
-        setStats(data);
+        setStats((data as any)?.data ?? data);
         setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);

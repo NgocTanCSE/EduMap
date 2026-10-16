@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({}));
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối tới dịch vụ career' }, { status: 500 });

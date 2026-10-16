@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    // Backend ResponseInterceptor wraps: { success, data: <payload>, timestamp }
+    // Unwrap to the payload so frontend array ops (filter, map, length) work
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

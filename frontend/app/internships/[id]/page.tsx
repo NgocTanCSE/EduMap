@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Briefcase, MapPin, DollarSign, ArrowLeft, Clock, Send, CheckCircle2, Loader2
 } from 'lucide-react';
@@ -9,9 +9,8 @@ import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function InternshipDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const internshipId = resolvedParams.id;
+export default function InternshipDetailPage({ params }: { params: { id: string } }) {
+    const internshipId = params.id;
 
   const [internship, setInternship] = useState<Internship | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +30,7 @@ export default function InternshipDetailPage({ params }: { params: Promise<{ id:
     try {
       setLoading(true);
       const data = await internshipService.getInternshipById(internshipId);
-      setInternship(data);
+      setInternship((data as any).data ?? data);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải thông tin thực tập');
     } finally {

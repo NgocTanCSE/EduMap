@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data.data ?? data, { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi tải CV' }, { status: 500 });

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Calendar, MapPin, Ticket, ArrowLeft, Share2, ShieldCheck,
   MessageCircle, Loader2, CheckCircle2, Download, Clock
@@ -11,9 +11,8 @@ import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { Card, CardContent } from '@/components/ui/card';
 
-export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const eventId = resolvedParams.id;
+export default function EventDetailPage({ params }: { params: { id: string } }) {
+    const eventId = params.id;
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +31,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     try {
       setLoading(true);
       const data = await eventsService.getEventById(eventId);
-      setEvent(data);
+      setEvent((data as any).data ?? data);
     } catch (error: any) {
       toast.error(error.message || 'Không thể tải thông tin sự kiện');
     } finally {

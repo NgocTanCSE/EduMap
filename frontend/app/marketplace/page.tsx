@@ -29,7 +29,7 @@ export default function ShareMarketplacePage() {
     try {
       setLoading(true);
       const data = await shareService.getItems(activeCategory || undefined);
-      setItems(data);
+      setItems((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Không thể tải danh sách tài liệu');
     } finally {

@@ -28,7 +28,8 @@ export default function SummerCampaignsPage() {
     try {
       setLoading(true);
       const data = await summerService.getCampaigns();
-      setCampaigns(data);
+      // Unwrap backend { success, data: [...] } wrapper if present
+      setCampaigns((data as any).data || (Array.isArray(data) ? data : []) || []);
     } catch (error: any) {
       toast.error('Không thể tải danh sách chiến dịch');
     } finally {
@@ -63,7 +64,7 @@ export default function SummerCampaignsPage() {
       try {
           setLoadingReport(true);
           const data = await summerService.getDailyReport(id, date);
-          setReportData(data);
+          setReportData((data as any)?.data ?? data);
       } catch (error: any) {
           toast.error('Lỗi khi tải báo cáo');
       } finally {

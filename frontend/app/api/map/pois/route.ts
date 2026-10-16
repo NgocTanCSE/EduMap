@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data.data ?? data);
   } catch (error) {
     return NextResponse.json(
       { message: 'Lỗi kết nối tới dịch vụ bản đồ' },
