@@ -472,3 +472,15 @@ INSERT INTO international_programs (id, title, type, description, host_country, 
 ('a1000001-0001-4000-8000-000000000007', 'Seminar Du học Châu Âu - EduMap 2026', 'seminar', 'Hội thảo trực tuyến với đại diện tuyển sinh từ 20 trường đại học hàng đầu châu Âu.', 'Trực tuyến', 'EduMap', '2026-05-20 23:59:59+07', '["Tư vấn 1-1", "Học bổng riêng", "Miễn phí đăng ký", "Quà tặng tài liệu"]', 'https://edumap.vn/intl/seminar'),
 ('a1000001-0001-4000-8000-000000000008', 'Chương trình Thực tập tại Liên Hợp Quốc (UN Internship)', 'exchange', 'Thực tập 6 tháng tại các cơ quan Liên Hợp Quốc tại New York, Geneva, và Bangkok.', 'Hoa Kỳ', 'Liên Hợp Quốc', '2026-12-31 23:59:59+07', '["Trợ cấp $2,000/tháng", "Kinh nghiệm quốc tế", "Networking toàn cầu", "Chứng chỉ UN"]', 'https://careers.un.org/internship')
 ON CONFLICT DO NOTHING;
+
+
+-- ============================================================
+-- Hackathon seed data (for backend fallback when Devpost API
+-- is unreachable). The BFF (app/api/hackathons/route.ts) always
+-- tries Devpost first, falling back to this backend table.
+-- ============================================================
+INSERT INTO hackathons (id, title, description, start_date, end_date, status, created_at) VALUES
+  (uuid_generate_v4(), 'EduMap Smart Cities Hackathon 2026', 'Build solutions for smarter education using GIS, AI, and open data.', '2026-10-15 00:00:00', '2026-11-15 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'EduMap GreenTech Challenge', 'Hack for sustainable education solutions — green campuses, eco-apps, carbon tracking.', '2026-09-01 00:00:00', '2026-10-01 23:59:59', 'completed', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'EduMap AI Tutor Hackathon', 'Create AI-powered tutoring tools for personalized learning.', '2026-11-01 00:00:00', '2026-12-01 23:59:59', 'upcoming', CURRENT_TIMESTAMP)
+ON CONFLICT DO NOTHING;

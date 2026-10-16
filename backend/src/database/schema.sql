@@ -1215,3 +1215,193 @@ CREATE TABLE IF NOT EXISTS business_transactions (
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_business_transactions_order ON business_transactions("orderId");
+
+-- ============================================================================
+-- EduMap Database Schema - Part 9: Previously Missing Tables
+-- These tables have TypeORM entities but were absent from schema.sql, causing
+-- 500 errors on API routes that query them.
+-- ============================================================================
+
+-- hackathons
+CREATE TABLE IF NOT EXISTS hackathons (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(50) DEFAULT 'upcoming',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_hackathons_dates ON hackathons(start_date, end_date);
+
+-- hackathon_teams
+CREATE TABLE IF NOT EXISTS hackathon_teams (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_name VARCHAR(255) NOT NULL,
+    hackathon_id UUID NOT NULL REFERENCES hackathons(id) ON DELETE CASCADE,
+    leader_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    members TEXT[] DEFAULT '{}',
+    repo_url TEXT,
+    demo_video TEXT,
+    status VARCHAR(50) DEFAULT 'registered',
+    score DECIMAL(5,2),
+    feedback TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_hackathon_teams_hackathon ON hackathon_teams(hackathon_id);
+CREATE INDEX IF NOT EXISTS idx_hackathon_teams_leader ON hackathon_teams(leader_id);
+
+-- crawl_history
+CREATE TABLE IF NOT EXISTS crawl_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    crawl_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    records_added INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_deleted INTEGER DEFAULT 0,
+    errors INTEGER DEFAULT 0,
+    error_message TEXT,
+    duration_seconds INTEGER,
+    triggered_by VARCHAR(255),
+    is_automatic BOOLEAN DEFAULT FALSE,
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_crawl_history_type ON crawl_history(crawl_type);
+
+-- password_reset_tokens
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token VARCHAR(255) NOT NULL UNIQUE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+
+-- user_files
+CREATE TABLE IF NOT EXISTS user_files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    original_name VARCHAR(255) NOT NULL,
+    file_url TEXT NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    size_kb FLOAT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_user_files_user ON user_files(user_id);
+
+-- admin_stats
+CREATE TABLE IF NOT EXISTS admin_stats (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    total_users INTEGER DEFAULT 0,
+    active_users INTEGER DEFAULT 0,
+    total_map_points INTEGER DEFAULT 0,
+    total_learning_materials INTEGER DEFAULT 0,
+    total_events INTEGER DEFAULT 0,
+    total_posts INTEGER DEFAULT 0,
+    total_donations INTEGER DEFAULT 0,
+    total_certificates INTEGER DEFAULT 0,
+    pending_approvals INTEGER DEFAULT 0,
+    new_users_today INTEGER DEFAULT 0,
+    new_users_this_week INTEGER DEFAULT 0,
+    new_users_this_month INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- learning_spots (study spaces: cafe, library, study_space)
+CREATE TABLE IF NOT EXISTS learning_spots (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    location GEOGRAPHY(POINT, 4326),
+    type VARCHAR(50), -- cafe, library, study_space
+    has_wifi BOOLEAN DEFAULT TRUE,
+    has_power_outlets BOOLEAN DEFAULT TRUE,
+    rating_avg DECIMAL(3,2) DEFAULT 0,
+    total_capacity INTEGER DEFAULT 50,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_learning_spots_location ON learning_spots USING GIST(location);
+
+-- educational_points (schools, libraries, wifi, labs — GeoJSON-compatible)
+CREATE TABLE IF NOT EXISTS educational_points (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- school, library, wifi, lab
+    location GEOGRAPHY(POINT, 4326),
+    address TEXT,
+    is_verified BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_educational_points_location ON educational_points USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_educational_points_type ON educational_points(type);
+
+-- mentor_availabilities
+CREATE TABLE IF NOT EXISTS mentor_availabilities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    mentor_id UUID NOT NULL REFERENCES mentors(user_id) ON DELETE CASCADE,
+    day_of_week INTEGER NOT NULL, -- 0-6 (Sunday-Saturday)
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mentor_availabilities_mentor ON mentor_availabilities(mentor_id);
+
+-- mentor_relationships (link mentors with mentees)
+CREATE TABLE IF NOT EXISTS mentor_relationships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    mentor_id UUID NOT NULL REFERENCES mentors(user_id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(50) DEFAULT 'active', -- active/inactive
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_relationships_unique ON mentor_relationships(mentor_id, student_id);
+
+-- mentor_sessions (completed or ongoing mentoring sessions)
+CREATE TABLE IF NOT EXISTS mentor_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    mentor_id UUID REFERENCES mentors(user_id) ON DELETE SET NULL,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    slot_start TIMESTAMP NOT NULL,
+    slot_end TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending', -- pending/confirmed/completed/cancelled
+    meeting_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_mentor_sessions_mentor ON mentor_sessions(mentor_id);
+CREATE INDEX IF NOT EXISTS idx_mentor_sessions_student ON mentor_sessions(student_id);
+
+-- volunteer_hours (logged volunteer hours per user)
+CREATE TABLE IF NOT EXISTS volunteer_hours (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    hours INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_volunteer_hours_user ON volunteer_hours(user_id);
+
+-- user_management (audit trail for admin actions on users)
+CREATE TABLE IF NOT EXISTS user_management (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL,
+    performed_by UUID NOT NULL REFERENCES users(id),
+    reason TEXT,
+    old_status VARCHAR(50),
+    new_status VARCHAR(50),
+    old_role INTEGER,
+    new_role INTEGER,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_user_management_user ON user_management(user_id);
