@@ -25,6 +25,11 @@ class HackathonService {
   async getHackathons(): Promise<Hackathon[]> {
     try {
       const response = await fetch(this.API_URL);
+      // 404 is expected when no hackathons exist yet — return empty array
+      // so the page shows its EmptyState instead of a toast error.
+      if (response.status === 404) {
+        return [];
+      }
       if (!response.ok) {
         throw new Error('Không thể tải danh sách Hackathon');
       }

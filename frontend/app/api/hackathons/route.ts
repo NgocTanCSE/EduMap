@@ -16,7 +16,8 @@ import { getBackendUrl } from '@/src/lib/api-config';
  *
  * FALLBACK: if Devpost is unreachable, proxy to the NestJS backend GET
  *   /hackathons and normalise to a bare array; if the backend is also down,
- *   return HTTP 503 with a bare empty array so the page shows its empty state.
+ *   return HTTP 404 with an empty array so the page shows its empty state
+ *   (NOT 503 — the resource simply doesn't exist, not a service outage).
  */
 
 const DEVPOST_ENDPOINT = 'https://devpost.com/api/hackathons';
@@ -120,7 +121,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(arr, { status: bres.status });
     } catch (e2) {
       console.error('[api/hackathons] backend fallback also failed:', e2);
-      return NextResponse.json([], { status: 503 });
+      // 404 (Not Found) — there are simply no hackathons available.
+      // NOT 503: a 503 implies the service is temporarily down; returning
+      // 404 lets the frontend show its EmptyState instead of a toast error.
+      return NextResponse.json([], { status: 404 });
     }
   }
 }

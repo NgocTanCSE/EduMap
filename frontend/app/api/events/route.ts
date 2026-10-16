@@ -143,8 +143,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(arr, { status: bres.status });
   } catch (e2) {
     console.error('[api/events] backend fallback also failed:', e2);
-    // bare empty array so eventsService.getAllEvents doesn't crash; 503 = no source
-    return NextResponse.json([], { status: 503 });
+    // 404 (Not Found) — no events available from either source.
+    // NOT 503: the resource simply doesn't exist, not a service outage.
+    return NextResponse.json([], { status: 404 });
   }
 }
 

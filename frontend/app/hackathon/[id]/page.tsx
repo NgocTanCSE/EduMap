@@ -39,7 +39,12 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
       const data = await hackathonService.getHackathonById(hackathonId);
       setHackathon((data as any).data ?? data);
     } catch (error: any) {
-      toast.error(error.message || 'Không thể tải thông tin cuộc thi');
+      // 404 → show built-in 404 UI (hackathon = null), no toast needed
+      if (error.message === 'Không tìm thấy cuộc thi' || error.status === 404) {
+        setHackathon(null);
+      } else {
+        toast.error(error.message || 'Không thể tải thông tin cuộc thi');
+      }
     } finally {
       setLoading(false);
     }

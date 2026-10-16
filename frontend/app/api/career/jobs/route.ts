@@ -177,6 +177,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ jobs, meta }, { status: bres.status });
   } catch (e2) {
     console.error('[api/career/jobs] backend fallback also failed:', e2);
+    // 404 (Not Found) — no jobs available from either source.
+    // NOT 503: the resource simply doesn't exist, not a service outage.
     return NextResponse.json(
       {
         jobs: [],
@@ -185,7 +187,7 @@ export async function GET(req: NextRequest) {
           ? 'Adzuna request failed and backend unavailable'
           : 'Adzuna credentials (ADZUNA_APP_ID/ADZUNA_APP_KEY) not configured and backend unavailable',
       },
-      { status: 503 }
+      { status: 404 }
     );
   }
 }
