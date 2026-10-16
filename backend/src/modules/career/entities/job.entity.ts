@@ -69,8 +69,8 @@ export class Job {
   @JoinColumn({ name: 'career_path_id' })
   career_path: CareerPath;
 
-  @Column({ nullable: true })
-  career_path_id: string;
+  @Column({ type: 'integer', nullable: true })
+  career_path_id: number;
 
   @CreateDateColumn()
   created_at: Date;

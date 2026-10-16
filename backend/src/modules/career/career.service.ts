@@ -139,7 +139,7 @@ export class CareerService {
    * Lấy chi tiết một lộ trình nghề nghiệp
    */
   async getCareerPathById(id: string) {
-    const careerPath = await this.careerPathRepo.findOne({ where: { id } });
+    const careerPath = await this.careerPathRepo.findOne({ where: { id: Number(id) } });
     if (!careerPath) throw new NotFoundException('Lộ trình nghề nghiệp không tìm thấy.');
     return careerPath;
   }
@@ -148,7 +148,7 @@ export class CareerService {
    * Lộ trình phát triển kỹ năng (Skill Roadmap)
    */
   async getSkillRoadmap(careerId: string) {
-    const career = await this.careerPathRepo.findOne({ where: { id: careerId } });
+    const career = await this.careerPathRepo.findOne({ where: { id: Number(careerId) } });
     if (!career) throw new NotFoundException('Không tìm thấy lộ trình nghề nghiệp yêu cầu');
 
     return {

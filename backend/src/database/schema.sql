@@ -782,7 +782,7 @@ CREATE TABLE jobs (
     views INTEGER DEFAULT 0,
     status job_status_enum DEFAULT 'active',
     posted_by_user_id UUID REFERENCES users(id),
-    career_path_id UUID,
+    career_path_id INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -795,7 +795,7 @@ CREATE TYPE user_career_status_enum AS ENUM ('active', 'inactive', 'completed');
 CREATE TABLE user_careers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    career_path_id UUID,
+    career_path_id INTEGER,
     goal_title VARCHAR(255) NOT NULL,
     description TEXT,
     target_date DATE,

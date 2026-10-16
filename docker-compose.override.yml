@@ -88,9 +88,14 @@ services:
   frontend:
     image: edumap-frontend
     container_name: edumap_frontend_dev
-    command: ["npx", "next", "dev", "-p", "3000"]
+    command: ["npm", "run", "dev"]
     volumes:
       - ./frontend:/app
+      # Preserve the image's node_modules so bind-mounted source code doesn't
+      # hide dependencies installed during the Docker build (e.g. @sentry/nextjs).
+      # Without this, `npx next dev` crashes on next.config.js with
+      # "Cannot find module '@sentry/nextjs'".
+      - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=/api
       - BACKEND_URL=http://backend:3000

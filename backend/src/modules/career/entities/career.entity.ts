@@ -3,7 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('career_paths')
 export class CareerPath {
   @PrimaryGeneratedColumn()
-  id: string;
+  id: number;
 
   @Column()
   title: string;

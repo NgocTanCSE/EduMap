@@ -25,6 +25,5 @@ export class CreateUserCareerDto {
 
   @ApiProperty({ description: 'ID của lộ trình nghề nghiệp liên quan', required: false })
   @IsOptional()
-  @IsString()
-  career_path_id?: string;
+  career_path_id?: number;
 }
