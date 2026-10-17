@@ -215,6 +215,21 @@ try:
 except ImportError:
     print('  huggingface_hub: NOT installed')
 
+# 2a2. Check InferenceClient methods + try chat() for conversational models
+try:
+    from huggingface_hub import InferenceClient
+    c = InferenceClient(token=hf_token, model='gpt2')
+    for m in ['chat', 'conversational', 'post', 'text_generation']:
+        print(f'  has method {m}: {hasattr(c, m)}')
+    # Try chat with URL as model (bypasses DNS, tests conversational endpoint)
+    try:
+        cc = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
+        cr = cc.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10)
+        print(f'  InferenceClient (gpt2, chat, URL model): OK — {str(cr)[:200]}')
+    except Exception as e:
+        _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
+        print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
+
 # 2b. Try huggingface.co/api/inference endpoint (alternative to api-inference.*)
 alt_url = f'https://huggingface.co/api/inference/models/{hf_llm_model}'
 req = urllib.request.Request(alt_url, data=payload, headers=base_headers, method='POST')
