@@ -65,20 +65,7 @@ COPY frontend/next.config.js ./
 COPY frontend/tsconfig.json ./
 COPY frontend/public/edumap.db ./public/edumap.db
 # Verify edumap.db is a valid SQLite database (fails build early if corrupted)
-RUN python3 -c "
-import sqlite3, os, sys
-f = './public/edumap.db'
-size = os.path.getsize(f)
-print(f'  edumap.db size: {size} bytes')
-conn = sqlite3.connect(f)
-tables = conn.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]
-print(f'  Tables: {tables}')
-conn.close()
-if tables == 0:
-    print('  ❌ CRITICAL: edumap.db has 0 tables — file is not a valid database!')
-    sys.exit(1)
-print('  ✅ edumap.db is valid SQLite database')
-"
+RUN python3 -c "import sqlite3,os,sys; f='./public/edumap.db'; print(f'  edumap.db size: {os.path.getsize(f)} bytes'); c=sqlite3.connect(f); n=c.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]; c.close(); print(f'  Tables: {n}'); sys.exit(1 if n==0 else 0)"
 
 # --- Backend (uses full node_modules from builder for native sqlite3) ---
 WORKDIR /app/backend
