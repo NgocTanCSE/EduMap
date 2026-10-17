@@ -254,10 +254,32 @@ try:
         cc3 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
         chat_sf = cc3.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10, stream=False)
         print(f'  chat(stream=False) type: {type(chat_sf).__name__}')
-        if isinstance(chat_sf, str) and chat_sf.strip():
-            print(f'  chat(stream=False) OK: {chat_sf[:200]}')
-        elif not isinstance(chat_sf, str):
-            print(f'  chat(stream=False) result: {str(chat_sf)[:200]}')
+        # Safely inspect ProxyClientChat attributes
+        print(f'  chat_sf attrs: {dir(chat_sf)[:20]}')
+        _done_m = getattr(chat_sf, 'done', None)
+        print(f'  chat_sf.done callable: {callable(_done_m)}')
+        if callable(_done_m):
+            try:
+                print(f'  chat_sf.done(): {_done_m()}')
+            except Exception as ee:
+                print(f'  chat_sf.done() ERROR: {type(ee).__name__}: {str(ee)[:200]}')
+        _res_m = getattr(chat_sf, 'result', None)
+        if callable(_res_m):
+            try:
+                r2 = _res_m()
+                print(f'  chat_sf.result(): {str(r2)[:200]}')
+            except Exception as ee:
+                print(f'  chat_sf.result() ERROR: {type(ee).__name__}: {str(ee)[:200]}')
+        # Try iterating
+        if callable(getattr(chat_sf, '__iter__', None)):
+            try:
+                chunks = []
+                for chunk in chat_sf:
+                    chunks.append(str(chunk))
+                _joined = ''.join(chunks)
+                print(f'  chat_sf iter: {_joined[:200]}')
+            except Exception as ee:
+                print(f'  chat_sf iter ERROR: {type(ee).__name__}: {str(ee)[:200]}')
     except Exception as e3:
         _hc2 = getattr(e3, 'response_code', None) or getattr(getattr(e3, 'response', None), 'status_code', None)
         print(f'  chat(stream=False): ERROR — {type(e3).__name__} (HTTP={_hc2}) — {str(e3)[:200]}')
