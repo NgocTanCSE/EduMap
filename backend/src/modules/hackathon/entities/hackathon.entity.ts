@@ -11,10 +11,10 @@ export class Hackathon {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   start_date: Date;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   end_date: Date;
 
   @Column({ default: 'upcoming' })

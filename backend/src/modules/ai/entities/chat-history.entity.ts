@@ -15,7 +15,7 @@ export class ChatHistory {
   @Column({ type: 'text' })
   response: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   context: any;
 
   @CreateDateColumn({ name: 'created_at' })

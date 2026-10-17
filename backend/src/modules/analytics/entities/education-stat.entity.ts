@@ -21,6 +21,6 @@ export class EducationStat {
   @Column()
   year: number;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   metadata: any; // Extra data like { growth_rate: 0.05 }
 }

@@ -20,10 +20,10 @@ export class InternationalProgram {
   @Column({ nullable: true })
   organization: string;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   application_deadline: Date;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   benefits: string[];
 
   @Column({ nullable: true })
@@ -50,8 +50,7 @@ export class AlumniNetwork {
   @Column()
   major: string;
 
-  @Index({ spatial: true })
-  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326 })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json', ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) })
   location: any;
 
   @Column({ nullable: true })

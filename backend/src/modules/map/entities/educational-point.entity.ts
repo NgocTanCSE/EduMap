@@ -15,11 +15,9 @@ export class EducationalPoint {
   type: string; // school, library, wifi, lab
 
   // 🚀 PERFORMANCE: Spatial Index cho phep tim kiem ban kinh cuc nhanh
-  @Index({ spatial: true })
   @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
   })
   location: any;
 

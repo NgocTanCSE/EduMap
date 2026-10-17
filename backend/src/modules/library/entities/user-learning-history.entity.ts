@@ -24,6 +24,6 @@ export class UserLearningHistory {
   @Column({ name: 'progress_pct', default: 0 })
   progress: number;
 
-  @Column({ name: 'created_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'created_at', type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   last_accessed: Date;
 }

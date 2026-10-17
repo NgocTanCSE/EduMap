@@ -14,12 +14,10 @@ export class Opportunity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Index({ spatial: true })
   @Column({
     name: 'location_point',
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
     nullable: true,
   })
   location: any;
@@ -27,13 +25,13 @@ export class Opportunity {
   @Column({ nullable: true })
   address: string;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   deadline: Date;
 
   @Column({ default: false })
   is_team_finding_open: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   tags: string[];
 
   @CreateDateColumn()

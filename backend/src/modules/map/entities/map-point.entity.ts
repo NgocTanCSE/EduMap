@@ -53,7 +53,7 @@ export class MapPoint {
   @Column({
     type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
     ...(process.env.DB_TYPE === 'postgres'
-      ? { spatialFeatureType: 'Point', srid: 4326 }
+      ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) }
       : {}),
   })
   location: any;
@@ -64,7 +64,7 @@ export class MapPoint {
   @Column({ nullable: true })
   city: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   photos: string[];
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })

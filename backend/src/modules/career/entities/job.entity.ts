@@ -35,13 +35,13 @@ export class Job {
   @Column({ nullable: true })
   location: string;
 
-  @Column({ type: 'enum', enum: JobType, default: JobType.FULL_TIME })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: JobType, default: JobType.FULL_TIME })
   job_type: JobType;
 
   @Column({ nullable: true })
   salary_range: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   required_skills: string[];
 
   @Column({ nullable: true })
@@ -53,7 +53,7 @@ export class Job {
   @Column({ default: 0 })
   views: number;
 
-  @Column({ type: 'enum', enum: JobStatus, default: JobStatus.ACTIVE })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: JobStatus, default: JobStatus.ACTIVE })
   status: JobStatus;
 
   // Relation to User (the employer who posted the job)

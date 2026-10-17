@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('traffic_segments')
-@Index(['coordinates'], { spatial: true })
+// spatial index removed — not supported on SQLite
 export class TrafficSegment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -12,13 +12,13 @@ export class TrafficSegment {
   @Column({ type: 'varchar', length: 50 })
   roadType: 'motorway' | 'trunk' | 'primary' | 'secondary' | 'tertiary' | 'residential' | 'service' | 'unclassified';
 
-  @Column({ type: 'geometry', spatialFeatureType: 'LineString', srid: 4326 })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'geometry' : 'json', ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'LineString' } : {}), srid: 4326 } : {}) })
   coordinates: any; // GeoJSON LineString
 
   @Column({ type: 'float', default: 50 })
   freeFlowSpeed: number; // km/h
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   congestionProfile: {
     // Peak hour multipliers (0-24h)
     hourlySpeedFactor: number[]; // 24 values, e.g., [0.9, 0.9, ..., 0.6, 0.5, ...]
@@ -29,7 +29,7 @@ export class TrafficSegment {
   @Column({ type: 'int', default: 0 })
   congestionLevel: 0 | 1 | 2 | 3; // 0=free, 1=light, 2=moderate, 3=heavy
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true })
   lastObserved: Date;
 
   @Column({ type: 'varchar', length: 50, default: 'heuristic' })

@@ -18,7 +18,7 @@ export class DonationCampaign {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   current_amount: number;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   end_date: Date;
 
   @Column({ default: 'active' }) // active, completed, cancelled

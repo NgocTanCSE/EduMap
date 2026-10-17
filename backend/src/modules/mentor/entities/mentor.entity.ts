@@ -13,7 +13,7 @@ export class Mentor {
   @Column({ type: 'text', nullable: true })
   bio: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   specialties: string[];
 
   @Column({ default: 0 })
@@ -54,10 +54,10 @@ export class Booking {
   @Column()
   student_id: string;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   slot_start: Date;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   slot_end: Date;
 
   @Column({ default: 'pending' })

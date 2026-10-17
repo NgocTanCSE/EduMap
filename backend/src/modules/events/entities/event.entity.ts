@@ -14,20 +14,18 @@ export class Event {
   @Column({ default: 'workshop' }) // workshop, hackathon, seminar, camp
   type: string;
 
-  @Index({ spatial: true })
   @Column({
     name: 'location_point',
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
     nullable: true,
   })
   location: any;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   start_date: Date;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   end_date: Date;
 
   @Column({ default: 100 })
@@ -72,7 +70,7 @@ export class EventRegistration {
   @Column({ unique: true })
   ticket_code: string;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   checked_in_at: Date;
 
   @CreateDateColumn()

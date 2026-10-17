@@ -20,7 +20,7 @@ export class LearningMaterial {
   @Column({ type: 'varchar', length: 50, nullable: true })
   grade: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   tags: string[];
 
   @Column({ type: 'text', nullable: true })
@@ -50,15 +50,15 @@ export class LearningMaterial {
   @Column({ default: false })
   is_offline_available: boolean;
 
-  @Column({ type: 'tsvector', nullable: true })
+  @Column({ type: 'text', nullable: true })
   search_vector: string;
 
-  @CreateDateColumn({ type: 'timestamp with time zone' })
+  @CreateDateColumn({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   created_at: Date;
 
-  @UpdateDateColumn({ type: 'timestamp with time zone' })
+  @UpdateDateColumn({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   updated_at: Date;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   deleted_at: Date;
 }

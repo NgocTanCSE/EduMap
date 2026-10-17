@@ -22,10 +22,10 @@ export class MentorSession {
   @Column()
   student_id: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime' })
   slot_start: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime' })
   slot_end: Date;
 
   @Column({ default: 'pending' })

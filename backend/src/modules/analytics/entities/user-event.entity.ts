@@ -16,7 +16,7 @@ export class UserEvent {
   @Column({ name: 'event_type' })
   eventType: string; // e.g., 'page_view', 'click_career', 'search_scholarship'
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   metadata: any; // Additional info like { page: '/map', duration: 30 }
 
   @CreateDateColumn({ name: 'created_at' })

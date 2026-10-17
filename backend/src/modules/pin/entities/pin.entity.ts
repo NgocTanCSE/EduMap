@@ -38,7 +38,7 @@ export enum PinStatus {
 @Entity('pins')
 @Index(['status', 'type'])
 @Index(['posted_by'])
-@Index(['location'], { spatial: true })
+// spatial index on `location` removed — not supported on SQLite, raw queries handle it
 export class Pin {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -66,7 +66,7 @@ export class Pin {
   @Column({
     type: process.env.DB_TYPE === 'postgres' ? 'geometry' : 'json',
     ...(process.env.DB_TYPE === 'postgres'
-      ? { spatialFeatureType: 'Geometry', srid: 4326 }
+      ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Geometry' } : {}), srid: 4326 } : {}) }
       : {}),
   })
   location: any;
@@ -83,10 +83,10 @@ export class Pin {
   @Column({ type: 'varchar', length: 100, default: PinStatus.PENDING })
   status: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   photos: string[];
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   tags: string[];
 
   @CreateDateColumn()

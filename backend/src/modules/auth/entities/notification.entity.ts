@@ -16,7 +16,7 @@ export class Notification {
   @Column({ type: 'text', nullable: true })
   body: string;
 
-  @Column({ name: 'data_json', type: 'jsonb', nullable: true })
+  @Column({ name: 'data_json', type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   data: any;
 
   @Column({ default: false })

@@ -1,0 +1,18 @@
+# Hugging Face Spaces configuration for EduMap
+# ============================================
+# Single-container deployment running 3 services via supervisord:
+#   1. Next.js frontend  — port 7680 (public)
+#   2. NestJS backend    — port 3000 (internal, SQLite)
+#   3. FastAPI AI svc    — port 8000 (internal)
+#
+# Secrets (set via HF Spaces Secrets UI, NOT committed to repo):
+#   - JWT_SECRET
+#   - GOOGLE_CLIENT_ID
+#   - ORS_API_KEY (OpenRouteService for routing)
+#   - NEXT_PUBLIC_GOOGLE_CLIENT_ID
+#   - ADZUNA_APP_ID, ADZUNA_APP_KEY
+#   - TICKETMASTER_API_KEY
+
+app_port: 7680
+dockerfile_path: ./Dockerfile
+build_kwargs: {}

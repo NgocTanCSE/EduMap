@@ -14,7 +14,7 @@ export class UniversityCounseling {
   @Column({ nullable: true })
   contact_email: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   admission_criteria: any;
 
   @CreateDateColumn()

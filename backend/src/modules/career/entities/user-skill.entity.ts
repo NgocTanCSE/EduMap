@@ -23,7 +23,7 @@ export class UserSkill {
   @Column()
   skill_name: string;
 
-  @Column({ type: 'enum', enum: SkillProficiency, default: SkillProficiency.BEGINNER })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: SkillProficiency, default: SkillProficiency.BEGINNER })
   proficiency_level: SkillProficiency;
 
   @Column({ type: 'text', nullable: true })

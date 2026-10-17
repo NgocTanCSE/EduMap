@@ -9,7 +9,7 @@ export class Survey {
   @Column()
   title: string;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json' })
   questions_json: any;
 
   @ManyToOne(() => User)

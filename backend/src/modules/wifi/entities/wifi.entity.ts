@@ -9,12 +9,10 @@ export class WifiLocation {
   @Column()
   name: string;
 
-  @Index({ spatial: true })
   @Column({
     name: 'coordinates',
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
     nullable: true,
   })
   location: any;

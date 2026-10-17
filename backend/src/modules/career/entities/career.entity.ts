@@ -14,10 +14,10 @@ export class CareerPath {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   skills_required: string[];
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   roadmap_json: any;
 
   @Column({ nullable: true })

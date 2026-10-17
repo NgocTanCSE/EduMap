@@ -78,6 +78,8 @@ ios/Pods/
 # Databases / Data
 *.sqlite3
 *.db
+# EXCEPT the committed SQLite DB that powers the frontend SQLite layer (HF Spaces)
+!frontend/public/*.db
 Video/
 EduMap_Documentation.xlsx
 

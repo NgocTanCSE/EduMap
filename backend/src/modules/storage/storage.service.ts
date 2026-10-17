@@ -1,71 +1,46 @@
 import { Injectable, Logger, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as Minio from 'minio';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { UserFile } from './entities/user-file.entity';
 
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
-  private minioClient: Minio.Client;
-  private readonly bucketName = 'edumap-library';
+  private readonly uploadDir: string;
 
   constructor(
     @InjectRepository(UserFile) private readonly fileRepo: Repository<UserFile>
   ) {
-    this.minioClient = new Minio.Client({
-      endPoint: process.env.MINIO_ENDPOINT || '127.0.0.1',
-      port: parseInt(process.env.MINIO_PORT || '9000'),
-      useSSL: false,
-      accessKey: process.env.MINIO_ROOT_USER || 'admin',
-      secretKey: process.env.MINIO_ROOT_PASSWORD || 'password123',
-    });
+    this.uploadDir = process.env.STORAGE_DIR || path.join(process.cwd(), 'uploads');
   }
 
   async onModuleInit() {
-    // MinIO may be unavailable in local/dev environments (no server running on
-    // 127.0.0.1:9000). The MinIO SDK can hang indefinitely on a refused/closed
-    // port (internal retry loop), which would block the entire NestJS bootstrap.
-    // Race the init against a timeout so the app always boots and storage only
-    // degrades gracefully instead of stalling startup.
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('MinIO initialization timed out (5s)')), 5000),
-      );
-      const init = (async () => {
-        const exists = await this.minioClient.bucketExists(this.bucketName);
-        if (!exists) {
-          await this.minioClient.makeBucket(this.bucketName);
-          this.logger.log(`Bucket '${this.bucketName}' created successfully.`);
-        } else {
-          this.logger.log(`MinIO bucket '${this.bucketName}' exists.`);
-        }
-      })();
-      await Promise.race([init, timeout]);
+      await fs.mkdir(this.uploadDir, { recursive: true });
+      this.logger.log(`FileSystem storage ready at: ${this.uploadDir}`);
     } catch (error) {
-      this.logger.warn(`StorageService: MinIO unavailable, storage disabled (${(error as Error).message}).`);
+      this.logger.warn(`StorageService: Could not create upload directory (${(error as Error).message}). Storage disabled.`);
     }
   }
 
   async uploadFile(userId: string, fileName: string, file: Buffer, mimeType: string) {
     const timestamp = Date.now();
-    // Normalize filename to prevent MinIO issues
     const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
     const objectName = `${timestamp}-${safeName}`;
-    
-    await this.minioClient.putObject(this.bucketName, objectName, file, {
-      'Content-Type': mimeType,
-    });
-    
+    const filePath = path.join(this.uploadDir, objectName);
+
+    await fs.writeFile(filePath, file);
+
     const fileUrl = `/api/storage/media/${objectName}`;
 
-    // Save to database
     const userFile = this.fileRepo.create({
-        user_id: userId,
-        original_name: fileName,
-        file_url: fileUrl,
-        mime_type: mimeType,
-        size_kb: parseFloat((file.length / 1024).toFixed(2)),
+      user_id: userId,
+      original_name: fileName,
+      file_url: fileUrl,
+      mime_type: mimeType,
+      size_kb: parseFloat((file.length / 1024).toFixed(2)),
     });
 
     await this.fileRepo.save(userFile);
@@ -81,29 +56,23 @@ export class StorageService implements OnModuleInit {
   }
 
   async getUserFiles(userId: string) {
-      return this.fileRepo.find({
-          where: { user_id: userId },
-          order: { created_at: 'DESC' }
-      });
+    return this.fileRepo.find({
+      where: { user_id: userId },
+      order: { created_at: 'DESC' }
+    });
   }
 
   /**
-   * Stream một file từ MinIO ra response HTTP (để frontend truy cập trực tiếp)
+   * Serve một file từ filesystem (để frontend truy cập trực tiếp qua NGINX)
    */
   async serveFile(objectName: string): Promise<Buffer> {
+    const safeName = objectName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = path.join(this.uploadDir, safeName);
+
     try {
-      const exists = await this.minioClient.bucketExists(this.bucketName);
-      if (!exists) {
-        throw new NotFoundException('Bucket không tồn tại');
-      }
-      const data = await this.minioClient.getObject(this.bucketName, objectName);
-      const chunks: Buffer[] = [];
-      for await (const chunk of data) {
-        chunks.push(chunk);
-      }
-      return Buffer.concat(chunks);
+      return await fs.readFile(filePath);
     } catch (error: any) {
-      if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+      if (error.code === 'ENOENT') {
         throw new NotFoundException('Không tìm thấy tập tin');
       }
       this.logger.error('Error serving file:', error);
@@ -113,24 +82,31 @@ export class StorageService implements OnModuleInit {
 
   async deleteFile(userId: string, fileId: string) {
     const userFile = await this.fileRepo.findOne({ where: { id: fileId } });
-    
+
     if (!userFile) {
-        throw new NotFoundException('Không tìm thấy tập tin');
+      throw new NotFoundException('Không tìm thấy tập tin');
     }
     if (userFile.user_id !== userId) {
-        throw new BadRequestException('Bạn không có quyền xóa tập tin này');
+      throw new BadRequestException('Bạn không có quyền xóa tập tin này');
     }
 
     try {
-        const objectName = userFile.file_url.split('/').pop();
-        if (objectName) {
-            await this.minioClient.removeObject(this.bucketName, objectName);
+      const objectName = userFile.file_url.split('/').pop();
+      if (objectName) {
+        const filePath = path.join(this.uploadDir, objectName.replace(/[^a-zA-Z0-9.-]/g, '_'));
+        try {
+          await fs.unlink(filePath);
+        } catch (err: any) {
+          if (err.code !== 'ENOENT') {
+            throw err;
+          }
         }
-        await this.fileRepo.remove(userFile);
-        return { success: true, message: 'Đã xóa tập tin' };
+      }
+      await this.fileRepo.remove(userFile);
+      return { success: true, message: 'Đã xóa tập tin' };
     } catch (error) {
-        this.logger.error('Error deleting file:', error);
-        throw new BadRequestException('Lỗi khi xóa tập tin');
+      this.logger.error('Error deleting file:', error);
+      throw new BadRequestException('Lỗi khi xóa tập tin');
     }
   }
 }

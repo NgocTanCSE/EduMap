@@ -37,6 +37,8 @@ export class MapService {
     private readonly cloudflareAI: CloudflareAIService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
+    this.isSqlite = process.env.DB_TYPE === 'sqlite';
+    this.logger.log(`MapService initialized. isSqlite=${this.isSqlite}, DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 
   private locationToPoi(l: Location): PointOfInterest | null {
@@ -173,19 +175,45 @@ export class MapService {
       return score(b) - score(a);
     });
 
+    // Spatial grid (~1.1 km cells) so we only Levenshtein-compare nearby POIs — O(n·k) instead of O(n²)
+    const CELL_SIZE = 0.01;
+    const grid: Map<string, PointOfInterest[]> = new Map();
     const unique: PointOfInterest[] = [];
+
+    const cellKey = (lat: number, lng: number) =>
+      `${Math.floor(lat / CELL_SIZE)},${Math.floor(lng / CELL_SIZE)}`;
+
     for (const poi of sorted) {
-      const isDup = unique.some(ex => {
+      const key = cellKey(poi.lat, poi.lng);
+      const latBase = parseInt(key.split(',')[0]);
+      const lngBase = parseInt(key.split(',')[1]);
+
+      // Gather candidates from same + 8 adjacent cells
+      const candidates: PointOfInterest[] = [];
+      for (let dLat = -1; dLat <= 1; dLat++) {
+        for (let dLng = -1; dLng <= 1; dLng++) {
+          const adjKey = `${latBase + dLat},${lngBase + dLng}`;
+          const cell = grid.get(adjKey);
+          if (cell) candidates.push(...cell);
+        }
+      }
+
+      const isDup = candidates.some(ex => {
         if (ex.id === poi.id) return true;
         const normEx = this.normalizePoiName(ex.name);
         const normPoi = this.normalizePoiName(poi.name);
-        // Exact normalised-name match → duplicate (prefer verified entry)
-        if (normEx && normPoi && normEx === normPoi) return true;
-        // Fuzzy name + proximity → duplicate
-        if (this.nameSimilarity(ex.name, poi.name) < 0.8) return false;
-        return this.haversine(ex.lat, ex.lng, poi.lat, poi.lng) < 200;
+        if (normEx && normPoi && normEx === normPoi) return true; // exact name → dup
+        if (this.haversine(ex.lat, ex.lng, poi.lat, poi.lng) < 200) {
+          return this.nameSimilarity(ex.name, poi.name) >= 0.8;
+        }
+        return false;
       });
-      if (!isDup) unique.push(poi);
+      if (!isDup) {
+        unique.push(poi);
+        const cell = grid.get(key) || [];
+        cell.push(poi);
+        grid.set(key, cell);
+      }
     }
     return unique;
   }
@@ -203,7 +231,18 @@ export class MapService {
     return this.deduplicatePois(allPois);
   }
 
+  private isSqlite: boolean;
+
   private async fetchMapPoints(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    if (this.isSqlite) {
+      // SQLite: use raw SQL for speed (TypeORM query builder + JSON transformer is very slow on SQLite)
+      const raw = await this.mapPointRepo.query(
+        'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000'
+      );
+      const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
+      return raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: typeof r.location === 'string' ? JSON.parse(r.location) : r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
+    }
+
     let query = this.mapPointRepo.createQueryBuilder('map_points');
 
     if (bounds) {
@@ -219,6 +258,15 @@ export class MapService {
   }
 
   private async fetchLocations(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    if (this.isSqlite) {
+      // SQLite: use raw SQL (leftJoinAndSelect with JSON columns is extremely slow)
+      const raw = await this.locationRepo.query(
+        'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
+        'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id LIMIT 5000'
+      );
+      return raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: typeof r.coordinates === 'string' ? JSON.parse(r.coordinates) : r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
+    }
+
     let query = this.locationRepo.createQueryBuilder('locations')
       .leftJoinAndSelect('locations.category', 'category');
 

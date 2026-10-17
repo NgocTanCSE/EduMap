@@ -35,7 +35,7 @@ export class Application {
   @Column({ nullable: true })
   resume_url: string;
 
-  @Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.PENDING })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: ApplicationStatus, default: ApplicationStatus.PENDING })
   status: ApplicationStatus;
 
   @CreateDateColumn()

@@ -20,11 +20,9 @@ export class Location {
   @Column()
   category_id: number;
 
-  @Index({ spatial: true })
   @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
   })
   coordinates: any;
 
@@ -34,7 +32,7 @@ export class Location {
   @Column({ nullable: true })
   city: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   photos: string[];
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })

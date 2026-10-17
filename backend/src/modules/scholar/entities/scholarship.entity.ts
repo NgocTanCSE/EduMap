@@ -15,7 +15,7 @@ export class Scholarship {
   @Column({ nullable: true })
   provider: string; // University/Gov/Org
 
-  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326, nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json', ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}), nullable: true })
   location: any;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
@@ -24,7 +24,7 @@ export class Scholarship {
   @Column({ nullable: true })
   deadline: Date;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   eligibility_criteria: string[];
 
   @Column({ nullable: true })

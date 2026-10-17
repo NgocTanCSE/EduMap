@@ -120,7 +120,7 @@ export class User {
   // `timestamp` is supported by both PostgreSQL and SQLite in TypeORM, so it is
   // safe to use here for last_login (a `datetime` type is NOT supported by the
   // Postgres driver and crashes bootstrap with DB_TYPE=postgres).
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true })
   last_login: Date;
 
   @OneToOne(() => UserPreference, (prefs) => prefs.user, { cascade: true })

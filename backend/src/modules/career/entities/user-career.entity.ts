@@ -36,7 +36,7 @@ export class UserCareer {
   @Column({ type: 'date', nullable: true })
   target_date: Date;
 
-  @Column({ type: 'enum', enum: UserCareerStatus, default: UserCareerStatus.ACTIVE })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: UserCareerStatus, default: UserCareerStatus.ACTIVE })
   status: UserCareerStatus;
 
   @CreateDateColumn()

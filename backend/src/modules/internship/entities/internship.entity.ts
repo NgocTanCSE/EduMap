@@ -22,12 +22,10 @@ export class Internship {
   @Column()
   field: string;
 
-  @Index({ spatial: true })
   @Column({
     name: 'location_point',
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
     nullable: true,
   })
   location: any;
@@ -35,7 +33,7 @@ export class Internship {
   @Column({ nullable: true })
   salary_range: string;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   deadline: Date;
 
   @Column({ default: 'open' }) // open, closed

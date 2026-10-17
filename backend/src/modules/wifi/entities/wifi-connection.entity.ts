@@ -25,6 +25,6 @@ export class WifiConnection {
   @CreateDateColumn()
   connected_at: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true })
   disconnected_at: Date | null;
 }

@@ -70,25 +70,29 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => {
+        // HF Spaces mode: skip Redis entirely, use in-memory LRU cache
+        if (process.env.DB_TYPE === 'sqlite') {
+          console.log('[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)');
+          return { store: memoryStore(), ttl: 300 } as any;
+        }
         try {
           return {
             store: await redisStore({
               socket: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
             }),
-          };
+          } as any;
         } catch (err) {
           console.warn('[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:', (err as Error).message);
-          return { store: memoryStore() };
+          return { store: memoryStore() } as any;
         }
       },
     }),
-    BullModule.forRoot({
-      // FIX(#audit): honor REDIS_PORT so Bull queues keep working when Redis
-      // runs on a non-default port (e.g. this project's 6379 internal vs 6380
-      // external). Previously hardcoded to 6379 while CacheModule used
-      // Number(REDIS_PORT), causing silent queue starvation on non-standard ports.
-      redis: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
-    }),
+    // Bull queues are disabled in SQLite/HF Spaces mode (no Redis)
+    ...(process.env.DB_TYPE === 'sqlite' ? [] : [
+      BullModule.forRoot({
+        redis: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
+      }),
+    ]),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: process.env.DB_TYPE === 'postgres' ? 'postgres' : 'sqlite',

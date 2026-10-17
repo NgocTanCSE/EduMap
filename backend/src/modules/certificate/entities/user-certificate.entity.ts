@@ -26,7 +26,7 @@ export class UserCertificate {
   @Column()
   template_id: string;
 
-  @Column({ type: 'timestamp with time zone' })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   issued_at: Date;
 
   @Index({ unique: true })
@@ -39,10 +39,10 @@ export class UserCertificate {
   @Column({ nullable: true })
   pdf_url: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   blockchain_metadata: any; 
 
-  @Column({ type: 'enum', enum: CertificateStatus, default: CertificateStatus.ACTIVE })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text', enum: CertificateStatus, default: CertificateStatus.ACTIVE })
   status: CertificateStatus;
 
   @CreateDateColumn()

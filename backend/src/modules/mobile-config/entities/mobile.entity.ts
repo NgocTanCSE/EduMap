@@ -20,11 +20,9 @@ export class MobileUnit {
   @Column({ nullable: true })
   contact_number: string;
 
-  @Index({ spatial: true })
   @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
     nullable: true,
   })
   current_location: any;
@@ -50,11 +48,9 @@ export class MobileUnitRoute {
   @Column()
   destination_name: string;
 
-  @Index({ spatial: true })
   @Column({
-    type: 'geography',
-    spatialFeatureType: 'Point',
-    srid: 4326,
+    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
+    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
   })
   location: any;
 

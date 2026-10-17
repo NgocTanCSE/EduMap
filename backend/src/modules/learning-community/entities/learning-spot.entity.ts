@@ -8,8 +8,7 @@ export class LearningSpot {
   @Column()
   name: string;
 
-  @Index({ spatial: true })
-  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326 })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json', ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) })
   location: any;
 
   @Column({ nullable: true })

@@ -29,7 +29,7 @@ export class Order {
   currency: string;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text',
     enum: OrderStatus,
     default: OrderStatus.PENDING,
   })

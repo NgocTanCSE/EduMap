@@ -26,14 +26,14 @@ export class Transaction {
   order: Order;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text',
     enum: PaymentMethod,
     default: PaymentMethod.COD,
   })
   paymentMethod: PaymentMethod;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'postgres' ? 'enum' : 'text',
     enum: TransactionStatus,
     default: TransactionStatus.PENDING,
   })

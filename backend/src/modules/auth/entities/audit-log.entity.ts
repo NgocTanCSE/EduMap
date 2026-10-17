@@ -18,10 +18,10 @@ export class AuditLog {
   @Column({ nullable: true })
   resource_id: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   old_data: any;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   new_data: any;
 
   @Column({ nullable: true })
