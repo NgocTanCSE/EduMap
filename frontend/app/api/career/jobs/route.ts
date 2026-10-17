@@ -97,10 +97,42 @@ export async function GET(req: NextRequest) {
 
   const { lat, lng, radiusKm } = await resolveGeo(location);
 
+  // ---- PRIMARY: Backend (local SQLite-crawled jobs) ----
+  // Prioritise internal DB (populated by scripts/crawl_jobs.py) before external APIs.
+  try {
+    const burl = new URL(`${getBackendUrl()}/career/jobs`);
+    if (keyword) burl.searchParams.set('keyword', keyword);
+    if (location) burl.searchParams.set('location', location);
+    burl.searchParams.set('page', String(page));
+    burl.searchParams.set('limit', String(limit));
+    const authHeader = req.headers.get('Authorization');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authHeader) headers['Authorization'] = authHeader;
+    const bres = await fetch(burl.toString(), { headers, next: { revalidate: 0 } });
+    const bjson: any = await bres.json().catch(() => ({}));
+    // Backend (with response interceptor) may wrap as { success, data:{jobs,meta} }
+    // — normalise so the page's `data.jobs` always resolves.
+    const data = (bjson && bjson.data) || bjson;
+    const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+    if (jobs.length > 0) {
+      const meta = data.meta || {
+        currentPage: page,
+        totalPages: Math.max(1, Math.ceil(jobs.length / limit)),
+        total: jobs.length,
+        perPage: limit,
+      };
+      return NextResponse.json({ jobs, meta });
+    }
+    // Backend returned 0 jobs — fall through to Adzuna below
+    console.warn('[api/career/jobs] Backend returned 0 jobs, trying Adzuna...');
+  } catch (e2) {
+    console.error('[api/career/jobs] Backend failed, trying Adzuna:', e2);
+  }
+
+  // ---- FALLBACK: Adzuna (only if keys are configured) ----
   const appId = process.env.ADZUNA_APP_ID;
   const appKey = process.env.ADZUNA_APP_KEY;
 
-  // ---- PRIMARY: Adzuna (only when keys are configured) ----
   if (appId && appKey) {
     try {
       const url = new URL(`${ADZUNA_ENDPOINT}/${page}`);
