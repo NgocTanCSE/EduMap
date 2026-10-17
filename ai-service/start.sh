@@ -136,6 +136,41 @@ except Exception as e:
 else
     echo "  Cloudflare POST: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set" >> "$LOG_FILE"
 fi
+# HF token validation + Inference API POST tests
+if [ -n "$HF_TOKEN" ]; then
+    HF_TOKEN="$HF_TOKEN" $PY -c "
+import ssl, json, urllib.request, os
+hf_token = os.environ.get('HF_TOKEN', '')
+hf_llm_model = os.environ.get('HF_LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')
+ctx = ssl.create_default_context()
+
+# 1. Token validation (whoami)
+try:
+    req = urllib.request.Request('https://huggingface.co/api/whoami', headers={'Authorization': f'Bearer {hf_token}'})
+    resp = urllib.request.urlopen(req, timeout=15, context=ctx)
+    whoami_data = json.loads(resp.read().decode())
+    print(f'  HF token validation: HTTP {resp.status} — {whoami_data.get(\"name\", \"?\")}')
+except Exception as e:
+    print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
+
+# 2. Inference API POST via api-inference.hf.co (resolves)
+for host in ['api-inference.hf.co', 'api-inference.huggingface.co']:
+    url = f'https://{host}/models/{hf_llm_model}'
+    payload = json.dumps({'inputs': 'test', 'parameters': {'max_new_tokens': 10, 'temperature': 0.7}}).encode('utf-8')
+    headers = {'Authorization': f'Bearer {hf_token}', 'Content-Type': 'application/json'}
+    req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
+    try:
+        resp = urllib.request.urlopen(req, timeout=30, context=ctx)
+        print(f'  HF Inference POST ({host}): HTTP {resp.status} — {resp.read().decode()[:200]}')
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', 'ignore')[:200]
+        print(f'  HF Inference POST ({host}): HTTP {e.code} — {body[:200]}')
+    except Exception as e:
+        print(f'  HF Inference POST ({host}): ERROR — {type(e).__name__}: {e}')
+" >> "$LOG_FILE" 2>&1
+else
+    echo "  HF token tests: HF_TOKEN not set" >> "$LOG_FILE"
+fi
 echo "" >> "$LOG_FILE"
 echo "--- Testing main.py import ---" >> "$LOG_FILE"
 cd /app/ai-service && $PY -c "import main; print('main.py import OK')" >> "$LOG_FILE" 2>&1 || echo "main.py import FAILED" >> "$LOG_FILE"
