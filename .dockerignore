@@ -50,3 +50,12 @@ package-lock.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Env files — never needed in Docker image (HF Spaces injects secrets via env vars,
+# not .env files). Excluding prevents Next.js build from scanning .env.local etc.
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env*
