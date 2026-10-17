@@ -143,30 +143,39 @@ import ssl, json, urllib.request, os
 hf_token = os.environ.get('HF_TOKEN', '')
 hf_llm_model = os.environ.get('HF_LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')
 ctx = ssl.create_default_context()
+payload = json.dumps({'inputs': 'test', 'parameters': {'max_new_tokens': 10, 'temperature': 0.7}}).encode('utf-8')
+bearer = 'Bearer ' + hf_token
+base_headers = {'Authorization': bearer, 'Content-Type': 'application/json'}
 
 # 1. Token validation (whoami)
 try:
-    req = urllib.request.Request('https://huggingface.co/api/whoami', headers={'Authorization': f'Bearer {hf_token}'})
+    req = urllib.request.Request('https://huggingface.co/api/whoami', headers=base_headers)
     resp = urllib.request.urlopen(req, timeout=15, context=ctx)
     whoami_data = json.loads(resp.read().decode())
-    print(f'  HF token validation: HTTP {resp.status} — {whoami_data.get(\"name\", \"?\")}')
+    print(f'  HF token validation: HTTP {resp.status} — user={whoami_data.get(\"name\", \"?\")}')
 except Exception as e:
     print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
 
-# 2. Inference API POST via api-inference.hf.co (resolves)
-for host in ['api-inference.hf.co', 'api-inference.huggingface.co']:
+# 2. Inference POST via api-inference.hf.co with Host header override
+#    (api-inference.huggingface.co doesn't resolve; try sending Host header that server expects)
+for desc, host, override_host in [
+    ('api-inference.hf.co (no Host override)', 'api-inference.hf.co', None),
+    ('api-inference.hf.co (Host: api-inference.huggingface.co)', 'api-inference.hf.co', 'api-inference.huggingface.co'),
+    ('api-inference.hf.co (Host: inference.hf.co)', 'api-inference.hf.co', 'inference.hf.co'),
+]:
     url = f'https://{host}/models/{hf_llm_model}'
-    payload = json.dumps({'inputs': 'test', 'parameters': {'max_new_tokens': 10, 'temperature': 0.7}}).encode('utf-8')
-    headers = {'Authorization': f'Bearer {hf_token}', 'Content-Type': 'application/json'}
-    req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
+    hdrs = dict(base_headers)
+    if override_host:
+        hdrs['Host'] = override_host
+    req = urllib.request.Request(url, data=payload, headers=hdrs, method='POST')
     try:
         resp = urllib.request.urlopen(req, timeout=30, context=ctx)
-        print(f'  HF Inference POST ({host}): HTTP {resp.status} — {resp.read().decode()[:200]}')
+        print(f'  HF Inference POST ({desc}): HTTP {resp.status} — {resp.read().decode()[:200]}')
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', 'ignore')[:200]
-        print(f'  HF Inference POST ({host}): HTTP {e.code} — {body[:200]}')
+        print(f'  HF Inference POST ({desc}): HTTP {e.code} — {body[:200]}')
     except Exception as e:
-        print(f'  HF Inference POST ({host}): ERROR — {type(e).__name__}: {e}')
+        print(f'  HF Inference POST ({desc}): ERROR — {type(e).__name__}: {e}')
 " >> "$LOG_FILE" 2>&1
 else
     echo "  HF token tests: HF_TOKEN not set" >> "$LOG_FILE"
