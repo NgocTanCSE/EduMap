@@ -51,12 +51,21 @@ class LLMService:
         # DSS model theo thứ tự từ CLOUDFLARE_MODEL (CSV). Model đầu tiên = primary; các model sau là fallback tự động.
         self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
         self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
-        if self.api_token and self.account_id:
-            self.is_ready = True
-        else:
-            self.is_ready = False
-            print("ERROR: CLOUDFLARE_API_TOKEN hoặc CLOUDFLARE_ACCOUNT_ID chưa cấu hình. Điền Cloudflare API token + account ID vào .env.")
-            print(f"CLOUDFLARE_MODEL mặc định: {self.model_name}.")
+        self.has_cf = bool(self.api_token) and bool(self.account_id)
+        # --- HuggingFace Inference API fallback (khi Cloudflare ko ket noi duoc tu HF Spaces) ---
+        self.hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        self.hf_model = os.getenv("HF_LLM_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
+        self.has_hf = bool(self.hf_token)
+        # is_ready = True neu co bat ky nhanh LLM nao (Cloudflare hoac HF Inference)
+        self.is_ready = self.has_cf or self.has_hf
+        if not self.has_cf and not self.has_hf:
+            print("ERROR: Khong co CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac HF_TOKEN. Cau hinh de dung AI chat.")
+        elif not self.has_cf and self.has_hf:
+            print(f"INFO: Cloudflare khong cau hinh, dung HuggingFace Inference API fallback. Model={self.hf_model}")
+        elif self.has_cf and self.has_hf:
+            print(f"INFO: Ca Cloudflare va HF Inference API deu co san. CF primary, HF fallback.")
+        if self.has_cf:
+            print(f"CLOUDFLARE_MODEL: {self.model_name}")
 
     # Reasons that mean the model name itself is wrong/unavailable/deprecated,
     # so we should move on to the next candidate instead of retrying it.
@@ -81,87 +90,191 @@ class LLMService:
         - 429 / 502 / 503 / 504 -> lỗi tạm thời: retry cùng model sau backoff ngắn,
           rồi mới chuyển sang model tiếp theo. Tránh thất bại vì một model bị quá tải.
         - 401 / 403 -> lỗi xác thực: dừng ngay.
+
+        Neu tat ca CF model deu that bai, tu dong fallback ve HuggingFace Inference API
+        (neu co HF_TOKEN).
         """
         import time as _time
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
-        base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
-        last_err = None
-        per_model_retries = 1  # 429 thì chuyển model ngay; 503 thì retry 1 lần rồi chuyển model
+        cf_last_err = None
 
-        for model in self.model_candidates:
-            url = f"{base_url}/{model}"
-            payload = {
-                "prompt": prompt,
-                "max_tokens": max_tokens or 2048,
+        # --- Phan 1: thu Cloudflare Workers AI ---
+        if self.has_cf:
+            cf_last_err = None
+            base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
+            last_err = None
+            per_model_retries = 1
+
+            for model in self.model_candidates:
+                url = f"{base_url}/{model}"
+                payload = {
+                    "prompt": prompt,
+                    "max_tokens": max_tokens or 2048,
+                    "temperature": temperature,
+                }
+                if top_p is not None:
+                    payload["top_p"] = top_p
+                body_json = json.dumps(payload).encode("utf-8")
+
+                attempt = 0
+                while True:
+                    attempt += 1
+                    req = urllib.request.Request(
+                        url,
+                        data=body_json,
+                        headers={
+                            "Authorization": f"Bearer {self.api_token}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST",
+                    )
+                    data = None
+                    try:
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            data = json.loads(resp.read().decode("utf-8"))
+                    except urllib.error.HTTPError as e:
+                        b = e.read().decode("utf-8", "ignore")[:300]
+                        if self._is_model_not_found(e.code, b):
+                            last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
+                        if e.code in (401, 403):
+                            raise RuntimeError(f"Cloudflare auth lỗi (HTTP {e.code}): {b[:200]}")
+                        if e.code == 429:
+                            last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break
+                        if e.code in (502, 503, 504) and attempt <= per_model_retries:
+                            last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code}, thử model kế tiếp..."); break
+                    except Exception as e:
+                        if attempt <= per_model_retries:
+                            last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                        last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, thử model kế tiếp..."); break
+
+                    # Success path: parse Cloudflare response
+                    if "error" in data and data.get("success") is False:
+                        err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
+                        code = err.get("code", 0)
+                        msg = err.get("message", "")
+                        if self._is_model_not_found(code, msg):
+                            last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
+                        if code == 429:
+                            last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), thử kế tiếp..."); break
+                        if code in (502, 503, 504) and attempt <= per_model_retries:
+                            last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} {code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                        last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} {code}, thử model kế tiếp..."); break
+
+                    result = data.get("result", {})
+                    if isinstance(result, dict):
+                        text = result.get("response", "").strip()
+                    elif isinstance(result, str):
+                        text = result.strip()
+                    else:
+                        last_err = f"{model}: unexpected result format"; break
+
+                    if text:
+                        return text
+                    last_err = f"{model}: trả về empty response"
+                    break
+                # end while True (per-model retries)
+            # end for model in model_candidates
+            cf_last_err = last_err
+
+        # --- Phan 2: fallback ve HuggingFace Inference API ---
+        if self.has_hf:
+            try:
+                result = self._hf_generate(prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
+                if result:
+                    print(f"  -> HF Inference API generate OK (model={self.hf_model})")
+                    return result
+            except Exception as e:
+                print(f"HF Inference API generate ALSO failed: {e}")
+
+        raise RuntimeError(f"Không thể sinh nội dung. Cloudflare: {cf_last_err or 'không cấu hình'}, HuggingFace: không khả dụng hoặc lỗi.")
+
+    def _hf_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Goi HuggingFace Inference API de sinh text. Dung khi Cloudflare khong ket noi duoc."""
+        if not self.has_hf:
+            raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API.")
+
+        url = f"https://api-inference.huggingface.co/models/{self.hf_model}"
+        headers = {
+            "Authorization": f"Bearer {self.hf_token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": max_tokens or 2048,
                 "temperature": temperature,
-            }
-            if top_p is not None:
-                payload["top_p"] = top_p
-            body_json = json.dumps(payload).encode("utf-8")
+            },
+        }
+        if top_p is not None:
+            payload["parameters"]["top_p"] = top_p
 
-            attempt = 0
-            while True:
-                attempt += 1
-                req = urllib.request.Request(
-                    url,
-                    data=body_json,
-                    headers={
-                        "Authorization": f"Bearer {self.api_token}",
-                        "Content-Type": "application/json",
-                    },
-                    method="POST",
-                )
-                data = None
-                try:
-                    with urllib.request.urlopen(req, timeout=30) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
-                except urllib.error.HTTPError as e:
-                    b = e.read().decode("utf-8", "ignore")[:300]
-                    if self._is_model_not_found(e.code, b):
-                        last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break  # next model
-                    if e.code in (401, 403):
-                        raise RuntimeError(f"Cloudflare auth lỗi (HTTP {e.code}): {b[:200]}")
-                    if e.code == 429:
-                        last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break  # rate limit -> next model
-                    if e.code in (502, 503, 504) and attempt <= per_model_retries:
-                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code}, thử model kế tiếp..."); break
-                except Exception as e:
-                    if attempt <= per_model_retries:
-                        last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                    last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, thử model kế tiếp..."); break
-
-                # Success path: parse Cloudflare response
-                if "error" in data and data.get("success") is False:
-                    err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
-                    code = err.get("code", 0)
-                    msg = err.get("message", "")
-                    if self._is_model_not_found(code, msg):
-                        last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
-                    if code == 429:
-                        last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), thử kế tiếp..."); break
-                    if code in (502, 503, 504) and attempt <= per_model_retries:
-                        last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} {code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                    last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} {code}, thử model kế tiếp..."); break
-
-                result = data.get("result", {})
-                if isinstance(result, dict):
-                    text = result.get("response", "").strip()
-                elif isinstance(result, str):
-                    text = result.strip()
+        import time as _time
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                if requests is not None:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=120)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                    elif resp.status_code in (503, 502, 504):
+                        body = resp.text[:300]
+                        if "loading" in body.lower() and attempt <= max_retries:
+                            print(f"HF model loading (503), retry {attempt}/{max_retries}...")
+                            _time.sleep(5 * attempt)
+                            continue
+                        raise RuntimeError(f"HF Inference API HTTP {resp.status_code}: {body[:200]}")
+                    elif resp.status_code == 429:
+                        if attempt <= max_retries:
+                            print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
+                            _time.sleep(3 * attempt)
+                            continue
+                        raise RuntimeError(f"HF Inference API 429 after retries")
+                    else:
+                        raise RuntimeError(f"HF Inference API HTTP {resp.status_code}: {resp.text[:200]}")
                 else:
-                    last_err = f"{model}: unexpected result format"; break
+                    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
 
+                # Parse response — HF returns [{"generated_text": "..."}] for text-generation
+                if isinstance(data, list) and len(data) > 0:
+                    item = data[0]
+                    if isinstance(item, dict):
+                        text = item.get("generated_text", "")
+                    elif isinstance(item, str):
+                        text = item
+                    else:
+                        text = ""
+                elif isinstance(data, dict):
+                    if "generated_text" in data:
+                        text = data["generated_text"]
+                    elif "error" in data and "loading" in str(data.get("error", "")).lower() and attempt <= max_retries:
+                        print(f"HF model loading, retry {attempt}/{max_retries}...")
+                        _time.sleep(5 * attempt)
+                        continue
+                    else:
+                        raise RuntimeError(f"HF Inference API error: {data.get('error', str(data)[:200])}")
+                else:
+                    text = str(data) if data else ""
+
+                text = text.strip()
                 if text:
                     return text
-                last_err = f"{model}: trả về empty response"
-                break
-            # end while True (per-model retries)
-            continue
+                raise RuntimeError("HF Inference API returned empty response")
 
-        raise RuntimeError(f"Không thể sinh nội dung từ Cloudflare Workers AI. Lỗi: {last_err}")
+            except Exception as e:
+                if attempt <= max_retries and "loading" in str(e).lower():
+                    print(f"HF model loading, retry {attempt}/{max_retries}...")
+                    _time.sleep(5 * attempt)
+                    continue
+                if attempt <= max_retries:
+                    print(f"HF generate error, retry {attempt}/{max_retries}: {e}")
+                    _time.sleep(2 * attempt)
+                    continue
+                raise
 
     # --- Methods from Legacy LLMService ---
 
@@ -171,7 +284,7 @@ class LLMService:
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -269,7 +382,7 @@ class LLMService:
 
     async def generate_career_advice(self, user_info: dict):
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
             response = self._cloudflare_generate(prompt)
@@ -279,7 +392,7 @@ class LLMService:
 
     async def analyze_market_trends(self, market_data: list):
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = f"Dựa trên dữ liệu thị trường sau: {json.dumps(market_data)}, hãy phân tích ngắn gọn xu hướng kỹ năng/nghề nghề nổi bật. Trả về JSON: {{status, analysis}}."
         try:
             response = self._cloudflare_generate(prompt)
@@ -291,7 +404,7 @@ class LLMService:
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
@@ -351,7 +464,7 @@ class LLMService:
 
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
@@ -392,7 +505,7 @@ class LLMService:
         Tạo lộ trình học tập cá nhân hóa dựa trên trình độ và mục tiêu nghề nghiệp.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
@@ -431,7 +544,7 @@ class LLMService:
 
     async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         prompt = f"""
         Phân tích mật độ giáo dục tại {data.city}.
@@ -457,7 +570,7 @@ class LLMService:
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
@@ -472,7 +585,7 @@ class LLMService:
 
     async def match_mentors(self, data: MatchRequest) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
@@ -488,7 +601,7 @@ class LLMService:
 
     async def moderate_text(self, text: str) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
@@ -514,7 +627,7 @@ class LLMService:
 
     async def get_suggestions(self) -> list:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
             response = self._cloudflare_generate(prompt)

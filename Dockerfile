@@ -107,6 +107,9 @@ ENV AI_SERVICE_URL=http://127.0.0.1:8000
 ENV OSRM_URL=http://127.0.0.1:8000
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
+# --- AI model configs (HuggingFace Inference API fallback for Cloudflare Workers AI) ---
+ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
+ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
 # Ensure Python packages copied from the python:3.11 image are discoverable
 # by the system python3 (Debian installs to /usr/lib, not /usr/local)
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages
