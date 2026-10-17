@@ -93,26 +93,25 @@ $PY -c "import redis; print(f'  redis {redis.__version__}')" >> "$LOG_FILE" 2>&1
 echo "" >> "$LOG_FILE"
 echo "--- Network connectivity tests ---" >> "$LOG_FILE"
 $PY -c "
-import urllib.request, ssl
+import socket, ssl, urllib.request
+
+# DNS resolution tests
+for host in ['api.cloudflare.com', 'api-inference.huggingface.co', 'api-inference.hf.co', 'huggingface.co', 'api.github.com']:
+    try:
+        ip = socket.gethostbyname(host)
+        print(f'  DNS {host}: {ip}')
+    except Exception as e:
+        print(f'  DNS {host}: FAILED — {e}')
+
+# HTTP GET tests
 for name, url in [('Cloudflare API', 'https://api.cloudflare.com/client/v4/user/tokens/verify'), ('HF Inference API', 'https://api-inference.huggingface.co')]:
     try:
         ctx = ssl.create_default_context()
         req = urllib.request.Request(url, headers={'User-Agent': 'EduMap-AI-Service/1.0'})
         resp = urllib.request.urlopen(req, timeout=15, context=ctx)
-        print(f'  {name} ({url}): HTTP {resp.status}')
+        print(f'  {name} GET ({url}): HTTP {resp.status}')
     except Exception as e:
-        print(f'  {name} ({url}): ERROR — {type(e).__name__}: {e}')
-try:
-    import requests
-    r = requests.get('https://api.cloudflare.com/client/v4/user/tokens/verify', timeout=15)
-    print(f'  Cloudflare (requests): HTTP {r.status_code}')
-except Exception as e:
-    print(f'  Cloudflare (requests): ERROR — {type(e).__name__}: {e}')
-try:
-    r = requests.get('https://api-inference.huggingface.co', timeout=15)
-    print(f'  HF Inference (requests): HTTP {r.status_code}')
-except Exception as e:
-    print(f'  HF Inference (requests): ERROR — {type(e).__name__}: {e}')
+        print(f'  {name} GET ({url}): ERROR — {type(e).__name__}: {e}')
 " >> "$LOG_FILE" 2>&1
 echo "" >> "$LOG_FILE"
 echo "--- Testing main.py import ---" >> "$LOG_FILE"

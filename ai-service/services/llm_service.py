@@ -1,8 +1,10 @@
 import os
 import json
+import ssl
 import hashlib
 import urllib.request
 import urllib.error
+import urllib.parse
 from dotenv import load_dotenv
 
 try:
@@ -140,7 +142,10 @@ class LLMService:
             per_model_retries = 1
 
             for model in self.model_candidates:
-                url = f"{base_url}/{model}"
+                # URL-encode model name — @char in path can be misinterpreted
+                # as userinfo separator by some HTTP stacks.
+                encoded_model = urllib.parse.quote(model, safe='')
+                url = f"{base_url}/{encoded_model}"
                 payload = {
                     "prompt": prompt,
                     "max_tokens": max_tokens or 2048,
@@ -148,41 +153,21 @@ class LLMService:
                 }
                 if top_p is not None:
                     payload["top_p"] = top_p
-                body = json.dumps(payload)
+                body_json = json.dumps(payload).encode("utf-8")
                 req_headers = {
                     "Authorization": f"Bearer {self.api_token}",
                     "Content-Type": "application/json",
                 }
+                ctx = ssl.create_default_context()
 
                 attempt = 0
                 while True:
                     attempt += 1
                     data = None
                     try:
-                        if requests is not None:
-                            # Use requests library — has more robust TLS/SSL
-                            # handling than urllib.request (avoids "EOF" /
-                            # "TLS handshake" errors observed on HF Spaces
-                            # outbound network to api.cloudflare.com).
-                            resp = requests.post(url, headers=req_headers, data=body, timeout=30)
-                            if resp.status_code == 200:
-                                data = resp.json()
-                            elif resp.status_code in (401, 403):
-                                raise RuntimeError(f"Cloudflare auth lỗi (HTTP {resp.status_code}): {resp.text[:200]}")
-                            elif resp.status_code == 429:
-                                last_err = f"{model}: HTTP 429 {resp.text[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break
-                            elif self._is_model_not_found(resp.status_code, resp.text):
-                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
-                            elif resp.status_code in (502, 503, 504) and attempt <= per_model_retries:
-                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:80]}"; print(f"Cloudflare model {model} {resp.status_code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                            else:
-                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:80]}"; print(f"Cloudflare model {model} {resp.status_code}, thử model kế tiếp..."); break
-                        else:
-                            req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
-                            with urllib.request.urlopen(req, timeout=30) as resp:
-                                data = json.loads(resp.read().decode("utf-8"))
-                    except RuntimeError:
-                        raise
+                        req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
+                        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                            data = json.loads(resp.read().decode("utf-8"))
                     except urllib.error.HTTPError as e:
                         b = e.read().decode("utf-8", "ignore")[:300]
                         if self._is_model_not_found(e.code, b):
@@ -245,7 +230,23 @@ class LLMService:
         if not self.has_hf:
             raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API.")
 
-        url = f"https://api-inference.huggingface.co/models/{self.hf_model}"
+        # Try multiple hostnames — api-inference.huggingface.co may not resolve
+        # in all network environments (observed DNS failure: "No address
+        # associated with hostname" on HF Spaces Docker containers).
+        url = None
+        import socket
+        for hf_host in ["api-inference.huggingface.co", "api-inference.hf.co"]:
+            test_url = f"https://{hf_host}/models/{self.hf_model}"
+            try:
+                socket.gethostbyname(hf_host)
+                url = test_url
+                print(f"  HF host resolved: {hf_host}")
+                break
+            except Exception:
+                print(f"  HF host NOT resolved: {hf_host}")
+        if url is None:
+            raise RuntimeError("Cannot resolve any HF Inference API hostname (tried api-inference.huggingface.co, api-inference.hf.co).")
+
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",
@@ -285,7 +286,7 @@ class LLMService:
                         raise RuntimeError(f"HF Inference API HTTP {resp.status_code}: {resp.text[:200]}")
                 else:
                     req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-                    with urllib.request.urlopen(req, timeout=120) as resp:
+                    with urllib.request.urlopen(req, timeout=120, context=ssl.create_default_context()) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
 
                 # Parse response — HF returns [{"generated_text": "..."}] for text-generation
