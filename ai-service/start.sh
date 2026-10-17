@@ -195,7 +195,19 @@ try:
                 result_c = client_c.text_generation('Hello', max_new_tokens=10)
             print(f'  InferenceClient (URL as model, hf.co): OK — {result_c[:200]}')
         except Exception as e:
-            print(f'  InferenceClient (URL as model, hf.co): ERROR — {type(e).__name__}: {e}')
+            _http_code = getattr(e, 'response_code', None)
+            if _http_code is None:
+                _resp = getattr(e, 'response', None)
+                if _resp is not None:
+                    _http_code = getattr(_resp, 'status_code', None)
+            _http_body = ""
+            try:
+                _resp = getattr(e, 'response', None)
+                if _resp is not None:
+                    _http_body = _resp.text[:200]
+            except Exception:
+                pass
+            print(f'  InferenceClient (URL as model, hf.co): ERROR — {type(e).__name__} (HTTP={_http_code}) — {str(e)[:300]} | body: {_http_body}')
     except Exception as e:
         print(f'  InferenceClient: ERROR — {type(e).__name__}: {e}')
 except ImportError:
