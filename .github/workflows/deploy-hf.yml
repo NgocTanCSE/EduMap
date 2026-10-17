@@ -1,4 +1,5 @@
-name: Sync to Hugging Face space
+name: Sync to Hugging Face Space
+
 on:
   push:
     branches: [main]
@@ -6,23 +7,37 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: true
 
-      - name: Install dependencies
+      - name: Install Hugging Face CLI
         run: pip install --upgrade huggingface_hub
 
-      - name: Push to Hugging Face
+      - name: Upload to HuggingFace Space via HTTP API
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          
-          # Upload to HuggingFace Space via HTTP API
-          # (.huggingfaceignore skips binary docs like .docx/.doc/.png)
-          hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN
+          # Upload project files to HuggingFace Space via HTTP API.
+          #
+          # Binary files excluded by BOTH .huggingfaceignore AND --exclude:
+          #   - docs/**  → .doc/.docx/.pdf/.png/.xlsx/.puml (rejected by HF Hub)
+          #   - mobile/** → not needed for HF Spaces Docker build
+          #
+          # IMPORTANT: scripts/ MUST be included — the Dockerfile COPYs it
+          # for supervisord to run the job crawler. Previously, run_job_crawler.sh
+          # was added to the repo AFTER the last upload, causing a Docker build
+          # error ("/scripts/run_job_crawler.sh": not found). This workflow now
+          # re-syncs ALL files on every push, ensuring scripts/ is always present.
+          #
+          # HF_TOKEN is auto-detected by the `hf` CLI from the environment —
+          # no --token flag needed (avoids shell-history leak warning).
+          hf upload tancse2005/Edumap . \
+            --repo-type space \
+            --exclude "docs/**" \
+            --exclude "mobile/**"

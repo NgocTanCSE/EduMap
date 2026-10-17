@@ -76,11 +76,10 @@ RUN touch services/__init__.py routers/__init__.py
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY scripts/run_seed_pipeline.sh /app/scripts/run_seed_pipeline.sh
-COPY scripts/migrate-pg-to-sqlite.py /app/scripts/migrate-pg-to-sqlite.py
-COPY scripts/crawl_jobs.py /app/scripts/crawl_jobs.py
-COPY scripts/run_job_crawler.sh /app/scripts/run_job_crawler.sh
-RUN chmod +x /app/scripts/run_seed_pipeline.sh /app/scripts/crawl_jobs.py /app/scripts/run_job_crawler.sh
+# Copy entire scripts dir (robust: avoids "file not found" if individual files
+# are missing from the upload; only fails if the whole dir is absent)
+COPY scripts/ /app/scripts/
+RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
 RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services

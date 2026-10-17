@@ -14,10 +14,41 @@ __pycache__/
 *.pyo
 .DS_Store
 
-# Exclude docs that bloat the upload
-*.docx
-*.doc
-*.pdf
-*.sketch
+# ── Exclude docs/ (binary .doc, .docx, .png, .xlsx, .puml, .pdf, etc.) ──
+# The old pattern `docs/*.doc` only matched files DIRECTLY in docs/,
+# NOT in docs/all-documents/ subdirectory. Using `docs/` excludes
+# the entire directory tree at any depth — no binary slips through.
+/docs/
 docs/
-# Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db)
+
+# Belt-and-suspenders: exclude ALL binary file types anywhere in the repo
+# (in case docs/ pattern is somehow bypassed by a future huggingface_hub version)
+*.bin
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.class
+*.jar
+*.war
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.sketch
+*.fig
+*.drawio
+
+# ── Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db) ──
+# Scripts are REQUIRED for Docker build on HF Spaces — do NOT exclude scripts/
