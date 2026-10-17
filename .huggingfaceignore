@@ -50,5 +50,21 @@ docs/
 *.fig
 *.drawio
 
+# ── Exclude non-essential dirs (not needed for HF Spaces Docker build) ──
+/mobile/
+/crawlers/
+/crawled_data/
+/data_raw/
+/osrm-data/
+/.kilo/
+/tests/
+/api/
+/.github/
+
+# ── Exclude stale root artifacts (regenerated in CI) ──
+/package-lock.json
+/HF_DEPLOY_PLAN.md
+/seed_crawled_data.sql
+
 # ── Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db) ──
 # Scripts are REQUIRED for Docker build on HF Spaces — do NOT exclude scripts/
