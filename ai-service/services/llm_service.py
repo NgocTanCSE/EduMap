@@ -270,7 +270,29 @@ class LLMService:
         except Exception as e:
             print(f"  HF InferenceClient (hf.co URL) failed: {type(e).__name__}: {e}")
 
-        # Strategy 2: urllib.request with multiple endpoint variants
+        # Strategy 1c: InferenceClient with chat() for conversational models (HF_LLM_MODEL supports conversational)
+        try:
+            from huggingface_hub import InferenceClient
+            client = InferenceClient(token=self.hf_token, model=f"https://api-inference.hf.co/models/{self.hf_model}")
+            # chat returns a ProxyClientChat object — may need to call it or iterate
+            chat_result = client.chat([{"role": "user", "content": prompt}], max_tokens=max_tokens or 2048, temperature=temperature)
+            # If callable, call it to get the final result
+            if callable(chat_result):
+                chat_result = chat_result()
+            # If iterable, collect chunks
+            if isinstance(chat_result, str):
+                if chat_result.strip():
+                    return chat_result.strip()
+            elif hasattr(chat_result, '__iter__'):
+                try:
+                    result = ''.join(str(chunk) for chunk in chat_result if chunk)
+                    if result.strip():
+                        return result.strip()
+                except Exception:
+                    pass
+            print(f"  HF InferenceClient chat returned: {type(chat_result).__name__}")
+        except Exception as e:
+            print(f"  HF InferenceClient chat failed: {type(e).__name__}: {e}")
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",

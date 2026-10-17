@@ -224,8 +224,23 @@ try:
     # Try chat with URL as model (bypasses DNS, tests conversational endpoint)
     try:
         cc = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
-        cr = cc.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10)
-        print(f'  InferenceClient (gpt2, chat, URL model): OK — {str(cr)[:200]}')
+        chat_result = cc.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10)
+        print(f'  chat return type: {type(chat_result).__name__}')
+        print(f'  chat callable: {callable(chat_result)}')
+        if callable(chat_result):
+            try:
+                final = chat_result()
+                print(f'  chat() result: {str(final)[:200]}')
+            except Exception as e2:
+                print(f'  chat() call: ERROR — {type(e2).__name__}: {e2}')
+        if hasattr(chat_result, '__iter__'):
+            try:
+                chunks = []
+                for chunk in chat_result:
+                    chunks.append(str(chunk))
+                print(f'  chat iter: {"".join(chunks)[:200]}')
+            except Exception as e2:
+                print(f'  chat iter: ERROR — {type(e2).__name__}: {e2}')
     except Exception as e:
         _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
         print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
