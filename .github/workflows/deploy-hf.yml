@@ -18,6 +18,9 @@ jobs:
       - name: Install HuggingFace tools
         run: pip install --upgrade huggingface_hub
 
+      # ─────────────────────────────────────────────────────────
+      # PRE-FLIGHT: Verify local edumap.db is the correct 1.3MB file
+      # ─────────────────────────────────────────────────────────
       - name: Verify local edumap.db is valid SQLite
         run: |
           python3 -c "
@@ -34,55 +37,48 @@ jobs:
           print('  ✅ Local edumap.db is valid')
           "
 
+      # ─────────────────────────────────────────────────────────
+      # STEP 1: Clean up stale files on HF Space
+      # ─────────────────────────────────────────────────────────
       - name: Clean up stale files on HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # ── Delete files on HF Space that no longer exist locally ──
-          #
+          # Delete files on HF Space that no longer exist locally.
           # `hf upload` only ADDS/UPDATES — it NEVER deletes remote files.
-          # If a file was deleted from git but exists on HF Space, it stays
-          # there and causes Docker build errors (e.g. google-ai.service.ts
-          # → "Cannot find module '@google/generative-ai'").
-          #
-          # ALSO: edumap.db has been showing as 132 bytes on HF Space despite
-          # being 1.3MB locally. We force-delete it here so the upload_file()
-          # step below can replace it with the correct version.
+          # Stale files cause Docker build errors (e.g. google-ai.service.ts).
           python3 << 'PYEOF'
           from huggingface_hub import HfApi
-          import subprocess, os
+          import subprocess
 
           api = HfApi()
           repo_id = 'tancse2005/Edumap'
           repo_type = 'space'
 
-          # ── 1. List remote files on HF Space ──
+          # List remote files
           try:
               remote_files = set(api.list_repo_files(repo_id, repo_type=repo_type))
           except Exception as e:
               print(f'  ⚠️  Cannot list remote files: {e}')
               remote_files = set()
-
           remote_files = {f.lstrip('/').strip() for f in remote_files}
           print(f'  ℹ️  Remote files on HF Space: {len(remote_files)}')
 
-          # ── 2. List local git-tracked files ──
+          # List local git-tracked files
           result = subprocess.run(['git', 'ls-files'], capture_output=True, text=True)
           local_files = set(f for f in result.stdout.strip().split('\n') if f)
           print(f'  ℹ️  Local tracked files: {len(local_files)}')
 
-          # ── 3. Compute stale files (remote but not local) ──
+          # Compute stale files (remote but not local)
           stale = remote_files - local_files
           stale = {f for f in stale if not f.startswith('.git') and f}
 
-          # ── 4. Known stale files (safety net) ──
+          # Known stale files (safety net — in case list_repo_files missed them)
           known_stale = [
               'backend/src/services/google-ai.service.ts',
               'backend/backup_modules',
               'ai-service/app',
-              'frontend/public/edumap.db',
           ]
-
           all_to_delete = stale | set(known_stale)
           to_delete = {f for f in all_to_delete if f in remote_files or f.rstrip('/') in remote_files or any(r.startswith(f.rstrip('/') + '/') for r in remote_files)}
 
@@ -103,57 +99,80 @@ jobs:
           print(f'  ✅ Deleted {deleted} stale file(s)' if deleted else '  ℹ️  No stale files to delete')
           PYEOF
 
-      - name: Upload SQLite database FIRST (bypasses .gitignore)
+      # ─────────────────────────────────────────────────────────
+      # STEP 2: Push ALL tracked files via git push (with git-lfs DISABLED)
+      # ─────────────────────────────────────────────────────────
+      # ROOT CAUSE ANALYSIS:
+      # - upload_file() via HF HTTP API can convert binary files (.db)
+      #   into git-lfs pointers (132 bytes) even when < 10MB threshold.
+      # - hf upload . (upload_folder) respects .gitignore which has
+      #   `*.db` pattern, causing inconsistent behavior.
+      # - Solution: use git push with git-lfs filter DISABLED.
+      #   This stores ALL binary files (including edumap.db at 1.3MB)
+      #   as regular git blobs in the HF Space git repo.
+      # - git push also handles stale file cleanup automatically:
+      #   files in local branch but not in remote are removed.
+      # ──
+      - name: Push all tracked files via git (git-lfs disabled)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # ── CRITICAL: Upload edumap.db BEFORE `hf upload .` ──
-          #
-          # Root cause: `hf upload .` (directory mode) uses upload_folder()
-          # which respects .gitignore. The repo's .gitignore has `*.db` which
-          # may exclude edumap.db even with the !frontend/public/*.db exception,
-          # because huggingface_hub's .gitignore parser ≠ git's parser.
-          #
-          # upload_file() (single-file mode) does NOT respect .gitignore.
+          set -e
+
+          # Disable git-lfs to prevent binary files being stored as
+          # git-lfs pointers (which would result in 132-byte pointers
+          # instead of the actual 1.3MB SQLite file)
+          git lfs uninstall
+          git config --global filter.lfs.required false
+          git config --global filter.lfs.clean cat
+          git config --global filter.lfs.smudge cat
+
+          git config --global user.email "ci@edumap.vn"
+          git config --global user.name "EduMap CI"
+
+          # Add HF Space as git remote
+          git remote add hf-space "https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap"
+
+          # Force-push local main branch to HF Space main
+          # --force overwrites the remote branch entirely, which means:
+          #   + edumap.db (1.3MB tracked file) is pushed as regular git blob
+          #   + stale files not in local repo are automatically removed
+          git push hf-space main --force
+
+          echo "  ✅ Git push to HF Space complete"
+
+      # ─────────────────────────────────────────────────────────
+      # STEP 3: Verify edumap.db on HF Space is correct
+      # ─────────────────────────────────────────────────────────
+      - name: Verify edumap.db on HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
           python3 << 'PYEOF'
-          from huggingface_hub import HfApi
-          import os, sys
+          from huggingface_hub import hf_hub_download
+          import os, sys, sqlite3
 
-          local_path = 'frontend/public/edumap.db'
-          size = os.path.getsize(local_path)
-          print(f'  ℹ️  Local edumap.db size: {size} bytes')
-
-          if size < 100000:
-              print(f'  ❌ CRITICAL: Local edumap.db is only {size} bytes — expected >1MB!')
-              sys.exit(1)
-
-          api = HfApi()
-          api.upload_file(
-              path_or_fileobj=local_path,
-              path_in_repo='frontend/public/edumap.db',
+          # Download edumap.db from HF Space
+          downloaded = hf_hub_download(
               repo_id='tancse2005/Edumap',
               repo_type='space',
-              commit_message=f'chore: upload fresh edumap.db SQLite ({size} bytes)',
+              filename='frontend/public/edumap.db',
           )
-          print('  ✅ edumap.db uploaded (bypassed .gitignore)')
-          PYEOF
+          size = os.path.getsize(downloaded)
+          print(f'  ℹ️  Remote edumap.db size: {size} bytes')
 
-      - name: Upload all other files (excludes edumap.db + binary)
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          # ── Upload remaining project files to HF Space ──
-          #
-          # IMPORTANT: edumap.db is EXCLUDED here — it was already uploaded
-          # via upload_file() above. If `hf upload .` also picks it up via
-          # .gitignore exception, it uploads the SAME 1.3MB file (no harm).
-          # But if .gitignore blocks it, the file is already correct from above.
-          # Adding explicit --exclude as belt-and-suspenders.
-          #
-          # Binary files excluded by .huggingfaceignore: docs/, *.doc, etc.
-          # scripts/ MUST be included (Dockerfile COPYs it for supervisord).
-          hf upload tancse2005/Edumap . \
-            --repo-type space \
-            --exclude "docs/**" \
-            --exclude "mobile/**" \
-            --exclude "frontend/public/edumap.db"
+          if size < 100000:
+              print(f'  ❌ CRITICAL: edumap.db on HF Space is only {size} bytes — expected >1MB!')
+              with open(downloaded, 'rb') as f:
+                  content = f.read(200)
+              print(f'  Content preview: {content}')
+              sys.exit(1)
+
+          # Verify it's valid SQLite
+          conn = sqlite3.connect(downloaded)
+          n = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+          conn.close()
+          print(f'  Tables: {n}')
+          assert n > 0, 'No tables in remote edumap.db'
+          print('  ✅ Remote edumap.db is valid SQLite')
+          PYEOF
