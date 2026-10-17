@@ -247,42 +247,47 @@ try:
     except Exception as e:
         _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
         print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
-    # Also inspect chat signature + try stream=False
+    # Also test chat with stream=False — step by step, avoid str() on ProxyClientChat
+    print('CHAT_DEBUG_1')
     try:
-        import inspect
-        print(f'  chat sig: {str(inspect.signature(c.chat))[:200]}')
         cc3 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
+        print('CHAT_DEBUG_2')
         chat_sf = cc3.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10, stream=False)
-        print(f'  chat(stream=False) type: {type(chat_sf).__name__}')
-        # Safely inspect ProxyClientChat attributes
-        print(f'  chat_sf attrs: {dir(chat_sf)[:20]}')
-        _done_m = getattr(chat_sf, 'done', None)
-        print(f'  chat_sf.done callable: {callable(_done_m)}')
-        if callable(_done_m):
+        print('CHAT_DEBUG_3')
+        print(f'  chat_type: {type(chat_sf).__name__}')
+        _dm = getattr(chat_sf, "done", None)
+        _rm = getattr(chat_sf, "result", None)
+        _im = getattr(chat_sf, "__iter__", None)
+        print(f'  done_callable: {callable(_dm)}')
+        print(f'  result_callable: {callable(_rm)}')
+        print(f'  iter_callable: {callable(_im)}')
+        if callable(_dm):
+            print('CHAT_DEBUG_4')
             try:
-                print(f'  chat_sf.done(): {_done_m()}')
+                _d = _dm()
+                print(f'  done_val: {type(_d).__name__}')
             except Exception as ee:
-                print(f'  chat_sf.done() ERROR: {type(ee).__name__}: {str(ee)[:200]}')
-        _res_m = getattr(chat_sf, 'result', None)
-        if callable(_res_m):
+                print(f'  done_err: {type(ee).__name__}')
+        if callable(_rm):
+            print('CHAT_DEBUG_5')
             try:
-                r2 = _res_m()
-                print(f'  chat_sf.result(): {str(r2)[:200]}')
+                _r = _rm()
+                print(f'  result_type: {type(_r).__name__}')
             except Exception as ee:
-                print(f'  chat_sf.result() ERROR: {type(ee).__name__}: {str(ee)[:200]}')
-        # Try iterating
-        if callable(getattr(chat_sf, '__iter__', None)):
+                print(f'  result_err: {type(ee).__name__}')
+        if callable(_im):
+            print('CHAT_DEBUG_6')
             try:
-                chunks = []
-                for chunk in chat_sf:
-                    chunks.append(str(chunk))
-                _joined = ''.join(chunks)
-                print(f'  chat_sf iter: {_joined[:200]}')
+                _chunks = []
+                for _chunk in chat_sf:
+                    _chunks.append(repr(_chunk))
+                print(f'  iter_count: {len(_chunks)}')
+                _joined = chr(39).join(_chunks)
+                print(f'  iter_text: {_joined[:200]}')
             except Exception as ee:
-                print(f'  chat_sf iter ERROR: {type(ee).__name__}: {str(ee)[:200]}')
+                print(f'  iter_err: {type(ee).__name__}')
     except Exception as e3:
-        _hc2 = getattr(e3, 'response_code', None) or getattr(getattr(e3, 'response', None), 'status_code', None)
-        print(f'  chat(stream=False): ERROR — {type(e3).__name__} (HTTP={_hc2}) — {str(e3)[:200]}')
+        print(f'  chat_sf_error: {type(e3).__name__}: {str(e3)[:200]}')
     # Try text_generation with URL as model for HF_LLM_MODEL (might bypass task validation)
     try:
         cc2 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/{hf_llm_model}')
