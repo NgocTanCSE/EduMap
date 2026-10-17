@@ -63,7 +63,9 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ScheduleModule.forRoot(),
+    // ScheduleModule (cron jobs) is only needed in PostgreSQL mode —
+    // HF Spaces uses pre-seeded SQLite, no periodic crawling needed.
+    ...(process.env.DB_TYPE === 'sqlite' ? [] : [ScheduleModule.forRoot()]),
     // Cache falls back to an in-memory store if Redis is unavailable instead of
     // crashing the whole application at bootstrap (mirrors the graceful
     // degradation already used by RedisIoAdapter for the socket layer).
@@ -168,7 +170,8 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
     ModuleModule,
     FeatureModule,
     RoleModule,
-    CrawlerModule,
+    // CrawlerModule disabled in SQLite/HF Spaces mode (data pre-seeded)
+    ...(process.env.DB_TYPE === 'sqlite' ? [] : [CrawlerModule]),
     AnalyticsModule,
     PaymentModule,
     PinModule,

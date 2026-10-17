@@ -76,6 +76,9 @@ RUN touch services/__init__.py routers/__init__.py
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY scripts/run_seed_pipeline.sh /app/scripts/run_seed_pipeline.sh
+COPY scripts/migrate-pg-to-sqlite.py /app/scripts/migrate-pg-to-sqlite.py
+RUN chmod +x /app/scripts/run_seed_pipeline.sh
 RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
