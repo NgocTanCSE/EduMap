@@ -31,6 +31,7 @@ RUN npm ci --omit=dev --legacy-peer-deps
 FROM node:20-slim AS backend-builder
 WORKDIR /app
 RUN apt-get update -qq && apt-get install -y -qq python3 make g++ gcc && rm -rf /var/lib/apt/lists/*
+ARG CACHEBUST
 COPY backend/package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY backend/ ./

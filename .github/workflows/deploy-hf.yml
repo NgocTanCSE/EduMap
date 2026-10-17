@@ -16,28 +16,41 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Install Hugging Face CLI
+      - name: Install Hugging Face Hub
         run: pip install --upgrade huggingface_hub
 
-      - name: Upload to HuggingFace Space via HTTP API
+      - name: Sync to HuggingFace Space (upload + delete stale files)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Upload project files to HuggingFace Space via HTTP API.
+          # ── Sync local repo → HF Space via HTTP API ──
           #
-          # Binary files excluded by BOTH .huggingfaceignore AND --exclude:
-          #   - docs/**  → .doc/.docx/.pdf/.png/.xlsx/.puml (rejected by HF Hub)
-          #   - mobile/** → not needed for HF Spaces Docker build
+          # We use `upload_folder(delete=True)` instead of `hf upload` because:
+          #   `hf upload` only ADDS/UPDATES files — it NEVER deletes remote files
+          #   that were removed locally. This caused a stale-file bug:
+          #   google-ai.service.ts was deleted locally (replaced by
+          #   cloudflare-ai.service.ts) but the OLD file stayed on HF Space,
+          #   Docker `COPY backend/ ./` picked it up from cache → build failed
+          #   with "Cannot find module '@google/generative-ai'".
           #
-          # IMPORTANT: scripts/ MUST be included — the Dockerfile COPYs it
-          # for supervisord to run the job crawler. Previously, run_job_crawler.sh
-          # was added to the repo AFTER the last upload, causing a Docker build
-          # error ("/scripts/run_job_crawler.sh": not found). This workflow now
-          # re-syncs ALL files on every push, ensuring scripts/ is always present.
+          # `upload_folder(delete=True)` properly syncs BOTH ways — uploads new
+          # files AND deletes remote files that no longer exist locally.
           #
-          # HF_TOKEN is auto-detected by the `hf` CLI from the environment —
-          # no --token flag needed (avoids shell-history leak warning).
-          hf upload tancse2005/Edumap . \
-            --repo-type space \
-            --exclude "docs/**" \
-            --exclude "mobile/**"
+          # Exclusions:
+          #   - .huggingfaceignore: excludes docs/, mobile/, *.doc, *.docx, etc.
+          #   - exclude_patterns: extra safety for docs/** and mobile/**
+          #
+          # HF_TOKEN is auto-detected by huggingface_hub from the environment.
+          python3 -c "
+          from huggingface_hub import HfApi
+          api = HfApi()
+          api.upload_folder(
+              folder_path='.',
+              repo_id='tancse2005/Edumap',
+              repo_type='space',
+              exclude_patterns=['docs/**', 'mobile/**'],
+              delete=True,       # ← CRITICAL: removes stale files from HF Space
+              commit_message='chore: sync latest files to HF Space (delete=True)',
+          )
+          print('✅ Sync complete — all files uploaded, stale files deleted')
+          "
