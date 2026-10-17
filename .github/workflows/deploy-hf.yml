@@ -95,7 +95,7 @@ jobs:
               print(f'  ✅ Deleted {deleted} stale file(s)')
           PYEOF
 
-      - name: Upload to HuggingFace Space via HTTP API
+      - name: Upload all files via HTTP API
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -110,7 +110,38 @@ jobs:
           #
           # HF_TOKEN is auto-detected by the `hf` CLI from env — no --token flag.
           # --exclude flags are belt-and-suspenders (also handled by .huggingfaceignore)
+          #
+          # NOTE: `hf upload .` (directory mode) respects .gitignore. The repo's
+          # .gitignore has `*.db` (with !exception). To guarantee edumap.db
+          # is uploaded, we use upload_file() explicitly in the next step.
           hf upload tancse2005/Edumap . \
             --repo-type space \
             --exclude "docs/**" \
             --exclude "mobile/**"
+
+      - name: Explicitly upload SQLite database (bypasses .gitignore)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # ── upload_file() does NOT respect .gitignore ──
+          #
+          # The repo's .gitignore has `*.db` which can prevent `hf upload .`
+          # (which uses upload_folder → respects .gitignore) from uploading
+          # frontend/public/edumap.db. Even though the git check-ignore passes,
+          # huggingface_hub's internal .gitignore parser may not honor the
+          # !frontend/public/*.db exception reliably.
+          #
+          # Using upload_file() (single-file mode) bypasses .gitignore entirely.
+          python3 << 'PYEOF'
+          from huggingface_hub import HfApi
+
+          api = HfApi()
+          api.upload_file(
+              path_or_fileobj='frontend/public/edumap.db',
+              path_in_repo='frontend/public/edumap.db',
+              repo_id='tancse2005/Edumap',
+              repo_type='space',
+              commit_message='chore: ensure fresh edumap.db SQLite database on HF Space',
+          )
+          print('✅ edumap.db uploaded (bypassed .gitignore)')
+          PYEOF

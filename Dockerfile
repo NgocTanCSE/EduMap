@@ -64,6 +64,21 @@ COPY frontend/package*.json ./
 COPY frontend/next.config.js ./
 COPY frontend/tsconfig.json ./
 COPY frontend/public/edumap.db ./public/edumap.db
+# Verify edumap.db is a valid SQLite database (fails build early if corrupted)
+RUN python3 -c "
+import sqlite3, os, sys
+f = './public/edumap.db'
+size = os.path.getsize(f)
+print(f'  edumap.db size: {size} bytes')
+conn = sqlite3.connect(f)
+tables = conn.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]
+print(f'  Tables: {tables}')
+conn.close()
+if tables == 0:
+    print('  ❌ CRITICAL: edumap.db has 0 tables — file is not a valid database!')
+    sys.exit(1)
+print('  ✅ edumap.db is valid SQLite database')
+"
 
 # --- Backend (uses full node_modules from builder for native sqlite3) ---
 WORKDIR /app/backend
@@ -88,6 +103,10 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
 RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
+# ── Cache busters — change to force HF Spaces Docker rebuild ──
+ARG CACHEBUST
+ARG DB_CACHEBUST=1
+
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
 ENV DB_SQLITE_PATH=/app/frontend/public/edumap.db
