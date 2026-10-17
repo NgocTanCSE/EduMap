@@ -215,7 +215,7 @@ try:
 except ImportError:
     print('  huggingface_hub: NOT installed')
 
-# 2a2. Check InferenceClient methods + try chat() for conversational models
+# 2a2. Check InferenceClient methods + try chat() + URL-as-model with HF_LLM_MODEL
 try:
     from huggingface_hub import InferenceClient
     c = InferenceClient(token=hf_token, model='gpt2')
@@ -229,6 +229,19 @@ try:
     except Exception as e:
         _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
         print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
+    # Try text_generation with URL as model for HF_LLM_MODEL (might bypass task validation)
+    try:
+        cc2 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/{hf_llm_model}')
+        result2 = cc2.text_generation('Hello', max_new_tokens=10, stream=False)
+        print(f'  InferenceClient (HF_LLM_MODEL, text_gen, URL model): OK — {result2[:200]}')
+    except TypeError:
+        result2 = cc2.text_generation('Hello', max_new_tokens=10)
+        print(f'  InferenceClient (HF_LLM_MODEL, text_gen, URL model): OK — {result2[:200]}')
+    except Exception as e:
+        _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
+        print(f'  InferenceClient (HF_LLM_MODEL, text_gen, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
+except Exception as e:
+    print(f'  InferenceClient 2a2: ERROR — {type(e).__name__}: {e}')
 
 # 2b. Try huggingface.co/api/inference endpoint (alternative to api-inference.*)
 alt_url = f'https://huggingface.co/api/inference/models/{hf_llm_model}'
