@@ -16,57 +16,82 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Install Hugging Face Hub
-        run: pip install --upgrade "huggingface_hub>=0.20.0"
+      - name: Install HuggingFace tools
+        run: pip install --upgrade huggingface_hub
 
-      - name: Sync to HuggingFace Space (upload + delete stale files)
+      - name: Clean up stale files on HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # ── Sync local repo → HF Space via HTTP API ──
+          # ── Delete files on HF Space that no longer exist locally ──
           #
-          # Why upload_folder(delete=True) instead of `hf upload`:
-          #   `hf upload` only ADDS/UPDATES files — it NEVER deletes remote files
-          #   that were removed locally. This caused a stale-file bug:
-          #   google-ai.service.ts was deleted locally (replaced by
-          #   cloudflare-ai.service.ts) but the OLD file stayed on HF Space,
-          #   Docker `COPY backend/ ./` picked it up from cache → build failed
-          #   with "Cannot find module '@google/generative-ai'".
+          # `hf upload` only ADDS/UPDATES — it NEVER deletes remote files.
+          # If a file was deleted from git but exists on HF Space, it stays
+          # there and causes Docker build errors (e.g. google-ai.service.ts
+          # → "Cannot find module '@google/generative-ai'").
           #
-          # `upload_folder(delete=True)` syncs BOTH ways — uploads new files AND
-          # deletes remote files that no longer exist locally.
-          #
-          # File filtering: .huggingfaceignore is auto-respected (gitignore-style)
-          # — excludes docs/, mobile/, *.doc, *.docx, *.pdf, etc.
-          #
-          # Version compat: `exclude_patterns` → `>=0.23.0`, `ignore_patterns` → older.
-          # HF_TOKEN is auto-detected by huggingface_hub from the environment.
+          # This step compares remote files vs git-tracked files, deletes
+          # any remote file that's no longer in the repo.
           python3 -c "
-          import huggingface_hub
           from huggingface_hub import HfApi
+          import subprocess, sys
 
           api = HfApi()
+          repo_id = 'tancse2005/Edumap'
+          repo_type = 'space'
 
-          # Parse version without external deps
-          parts = huggingface_hub.__version__.split('.')
-          major = int(parts[0])
-          minor = int(parts[1].split('+')[0].split('rc')[0])
+          # List all files currently on HF Space
+          try:
+              remote_files = set(api.list_repo_files(repo_id, repo_type=repo_type))
+          except Exception as e:
+              print(f'  (Cannot list remote files: {e})')
+              remote_files = set()
 
-          kwargs = dict(
-              folder_path='.',
-              repo_id='tancse2005/Edumap',
-              repo_type='space',
-              delete=True,
-              commit_message='chore: sync latest files to HF Space (delete=True)',
-          )
+          # List all git-tracked files (local repo)
+          result = subprocess.run(['git', 'ls-files'], capture_output=True, text=True)
+          local_files = set(f for f in result.stdout.strip().split('\n') if f)
 
-          # Newer versions (>=0.23.0) use exclude_patterns; older use ignore_patterns
-          if (major, minor) >= (0, 23):
-              kwargs['exclude_patterns'] = ['docs/**', 'mobile/**']
+          # Compute stale files (remote but not local)
+          stale = remote_files - local_files
+          # Never delete .git files
+          stale = {f for f in stale if not f.startswith('.git')}
+
+          deleted = 0
+          for f in sorted(stale):
+              try:
+                  api.delete_file(
+                      path=f,
+                      repo_id=repo_id,
+                      repo_type=repo_type,
+                      commit_message='chore: delete stale file (removed from repo)',
+                  )
+                  print(f'  🗑️  Deleted: {f}')
+                  deleted += 1
+              except Exception as e:
+                  print(f'  ↺ Skipped: {f} ({e})')
+
+          if deleted == 0:
+              print('  ℹ️  No stale files to delete')
           else:
-              kwargs['ignore_patterns'] = ['docs/**', 'mobile/**']
-
-          api.upload_folder(**kwargs)
-          print(f'✅ Sync complete (huggingface_hub v{huggingface_hub.__version__})')
-          print('   — all files uploaded, stale files deleted')
+              print(f'  ✅ Deleted {deleted} stale file(s)')
           "
+
+      - name: Upload to HuggingFace Space via HTTP API
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # ── Upload all project files to HF Space ──
+          #
+          # Binary files are excluded by .huggingfaceignore:
+          #   docs/, *.doc, *.docx, *.pdf, *.png, *.xlsx, *.puml, *.bin, etc.
+          # Non-essential dirs excluded: mobile/, crawlers/, crawled_data/, etc.
+          #
+          # IMPORTANT: scripts/ MUST be included — the Dockerfile COPYs it
+          # for supervisord to run the job crawler.
+          #
+          # HF_TOKEN is auto-detected by the `hf` CLI from env — no --token flag.
+          # --exclude flags are belt-and-suspenders (also handled by .huggingfaceignore)
+          hf upload tancse2005/Edumap . \
+            --repo-type space \
+            --exclude "docs/**" \
+            --exclude "mobile/**"
