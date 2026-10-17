@@ -7,20 +7,46 @@ set -o pipefail
 PY=/usr/bin/python3
 LOG_FILE="/app/frontend/public/ai-startup.log"
 
-# ── Recover env vars that supervisord's `environment=` directive may have
-#    shadowed (it only sets PYTHONUNBUFFERED, PYTHONPATH, PATH). If HF_TOKEN
-#    exists in the supervisord (PID 1) process env but was NOT passed through
-#    to this subprocess, restore it here. ──────────────────────────────
+# ── Recover HF_TOKEN from every possible source ──────────────────────────
+# Sources checked (in order):
+#   1. /proc/1/environ  (supervisord / Space runtime env)
+#   2. ~/.huggingface/token  (file written by huggingface_hub / HF runtime)
+#   3. huggingface_hub.HfFolder.get_token()  (checks env + file + HF CLI)
 if [ -z "$HF_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
+    # Source 1: PID 1 env
     if [ -r /proc/1/environ ]; then
         PARENT_ENV=$(tr '\0' '\n' < /proc/1/environ 2>/dev/null || true)
         HF_TOK=$(echo "$PARENT_ENV" | grep "^HF_TOKEN=" | head -1 | cut -d= -f2-)
         HF_HUB=$(echo "$PARENT_ENV" | grep "^HUGGING_FACE_HUB_TOKEN=" | head -1 | cut -d= -f2-)
-        if [ -n "$HF_TOK" ]; then
+        [ -n "$HF_TOK" ] && export HF_TOKEN="$HF_TOK"
+        [ -n "$HF_HUB" ] && export HUGGING_FACE_HUB_TOKEN="$HF_HUB"
+    fi
+    # Source 2: ~/.huggingface/token file
+    if [ -z "$HF_TOKEN" ]; then
+        for token_file in "$HOME/.huggingface/token" "$HOME/.huggingface/HF_TOKEN" "/etc/huggingface/token" "/root/.huggingface/token"; do
+            if [ -r "$token_file" ]; then
+                HF_TOK=$(cat "$token_file" 2>/dev/null | tr -d '\n\r')
+                if [ -n "$HF_TOK" ] && [ ${#HF_TOK} -gt 10 ]; then
+                    export HF_TOKEN="$HF_TOK"
+                    echo "  (recovered HF_TOKEN from $token_file)" >> "$LOG_FILE"
+                    break
+                fi
+            fi
+        done
+    fi
+    # Source 3: huggingface_hub library
+    if [ -z "$HF_TOKEN" ]; then
+        HF_TOK=$($PY -c "
+try:
+    from huggingface_hub import HfFolder
+    t = HfFolder.get_token()
+    print(t or '')
+except Exception:
+    print('')
+" 2>/dev/null || echo '')
+        if [ -n "$HF_TOK" ] && [ ${#HF_TOK} -gt 10 ]; then
             export HF_TOKEN="$HF_TOK"
-        fi
-        if [ -n "$HF_HUB" ]; then
-            export HUGGING_FACE_HUB_TOKEN="$HF_HUB"
+            echo "  (recovered HF_TOKEN via huggingface_hub.HfFolder.get_token())" >> "$LOG_FILE"
         fi
     fi
 fi
