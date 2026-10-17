@@ -152,7 +152,7 @@ class LLMService:
             cf_last_err = None
             base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
             last_err = None
-            per_model_retries = 1
+            per_model_retries = 0  # Space blocks outbound TLS — fail fast, no retries
 
             for model in self.model_candidates:
                 # URL-encode model name — @char in path can be misinterpreted
@@ -185,8 +185,8 @@ class LLMService:
                              "-H", f"Authorization: Bearer {self.api_token}",
                              "-H", "Content-Type: application/json",
                              "-d", body_json.decode("utf-8"),
-                             "--connect-timeout", "10", "--max-time", "30", url],
-                            capture_output=True, text=True, timeout=35)
+                             "--connect-timeout", "3", "--max-time", "8", url],
+                            capture_output=True, text=True, timeout=12)
                         if _curl.returncode == 0 and _curl.stdout.strip():
                             data = json.loads(_curl.stdout)
                         else:

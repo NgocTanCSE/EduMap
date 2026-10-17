@@ -31,4 +31,4 @@ if [ -z "$HF_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
 fi
 
 # ── Launch AI service ───────────────────────────────────────────────────────
-exec $PY -m uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 >> "$LOG_FILE" 2>&1
+exec $PY -m uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5
