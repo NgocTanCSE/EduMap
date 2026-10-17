@@ -230,34 +230,29 @@ class LLMService:
         if not self.has_hf:
             raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API.")
 
-        # Try multiple hostnames — api-inference.huggingface.co may not resolve
-        # in all network environments (observed DNS failure: "No address
-        # associated with hostname" on HF Spaces Docker containers).
-        url = None
-        resolved_host = None
-        import socket
-        for hf_host in ["api-inference.huggingface.co", "api-inference.hf.co"]:
-            try:
-                socket.gethostbyname(hf_host)
-                url = f"https://{hf_host}/models/{self.hf_model}"
-                resolved_host = hf_host
-                print(f"  HF host resolved: {hf_host}")
-                break
-            except Exception:
-                print(f"  HF host NOT resolved: {hf_host}")
-        if url is None:
-            raise RuntimeError("Cannot resolve any HF Inference API hostname (tried api-inference.huggingface.co, api-inference.hf.co).")
+        # Strategy 1: huggingface_hub InferenceClient (handles URL/DNS internally)
+        try:
+            from huggingface_hub import InferenceClient
+            client = InferenceClient(
+                token=self.hf_token,
+                model=self.hf_model,
+                task="text-generation",
+            )
+            gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
+            if top_p is not None:
+                gen_kwargs["top_p"] = top_p
+            result = client.text_generation(prompt, **gen_kwargs)
+            if result and result.strip():
+                return result.strip()
+            print("  HF InferenceClient returned empty response")
+        except Exception as e:
+            print(f"  HF InferenceClient failed: {type(e).__name__}: {e}")
 
+        # Strategy 2: urllib.request with multiple endpoint variants
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",
         }
-        # When using api-inference.hf.co (fallback due to DNS), try sending
-        # Host: api-inference.huggingface.co — the server may route based on
-        # the Host header and reject requests with the wrong host (403).
-        host_override_headers = dict(headers)
-        if resolved_host == "api-inference.hf.co":
-            host_override_headers["Host"] = "api-inference.huggingface.co"
         payload = {
             "inputs": prompt,
             "parameters": {
@@ -268,20 +263,74 @@ class LLMService:
         if top_p is not None:
             payload["parameters"]["top_p"] = top_p
 
+        import socket as _socket
         import time as _time
+
+        # Build list of (url, ssl_context, headers) tuples to try
+        endpoints = []
+        _real_getaddrinfo = _socket.getaddrinfo
+        _dns_override = False
+
+        # DNS override: resolve api-inference.huggingface.co -> api-inference.hf.co IP
+        # (api-inference.huggingface.co doesn't resolve on HF Spaces Docker,
+        #  but api-inference.hf.co does — they share the same backend)
+        try:
+            _socket.gethostbyname("api-inference.hf.co")
+            def _patched_getaddrinfo(host, *args, **kwargs):
+                if host == "api-inference.huggingface.co":
+                    return _real_getaddrinfo("api-inference.hf.co", *args, **kwargs)
+                return _real_getaddrinfo(host, *args, **kwargs)
+            _socket.getaddrinfo = _patched_getaddrinfo
+            _dns_override = True
+            # Use unverified context: cert SNI is for api-inference.hf.co IP,
+            # but we're connecting with hostname api-inference.huggingface.co
+            endpoints.append((
+                f"https://api-inference.huggingface.co/models/{self.hf_model}",
+                ssl._create_unverified_context(),
+                headers,
+            ))
+            print("  HF DNS override: api-inference.huggingface.co -> api-inference.hf.co IP")
+        except Exception:
+            pass
+
+        # Fallback: api-inference.hf.co with Host header override + direct
+        try:
+            _socket.gethostbyname("api-inference.hf.co")
+            host_override_hdrs = dict(headers)
+            host_override_hdrs["Host"] = "api-inference.huggingface.co"
+            # Host override (server may route based on Host header)
+            endpoints.append((
+                f"https://api-inference.hf.co/models/{self.hf_model}",
+                ssl.create_default_context(),
+                host_override_hdrs,
+            ))
+            # Direct (no Host override)
+            endpoints.append((
+                f"https://api-inference.hf.co/models/{self.hf_model}",
+                ssl.create_default_context(),
+                headers,
+            ))
+            print("  HF host resolved: api-inference.hf.co")
+        except Exception:
+            print("  HF host NOT resolved: api-inference.hf.co")
+
+        # Restore DNS override immediately
+        if _dns_override:
+            _socket.getaddrinfo = _real_getaddrinfo
+
+        if not endpoints:
+            raise RuntimeError("Cannot resolve any HF Inference API hostname.")
+
         max_retries = 3
         for attempt in range(1, max_retries + 1):
-            # Try with Host header override first (if applicable), then fallback
-            hdrs_variants = [headers]
-            if host_override_headers != headers:
-                hdrs_variants = [host_override_headers, headers]
             last_err = None
-            for hdrs in hdrs_variants:
+            should_retry = False
+            for ep_url, ep_ctx, ep_hdrs in endpoints:
                 try:
                     # Use urllib.request — requests fails with SSLError on HF Spaces
                     # (TLS/SSL connection has been closed (EOF)) for ALL HTTPS POST.
-                    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=hdrs, method="POST")
-                    with urllib.request.urlopen(req, timeout=120, context=ssl.create_default_context()) as resp:
+                    req = urllib.request.Request(ep_url, data=json.dumps(payload).encode("utf-8"), headers=ep_hdrs, method="POST")
+                    with urllib.request.urlopen(req, timeout=120, context=ep_ctx) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
 
                     # Parse response — HF returns [{"generated_text": "..."}] for text-generation
@@ -296,9 +345,10 @@ class LLMService:
                     elif isinstance(data, dict):
                         if "generated_text" in data:
                             text = data["generated_text"]
-                        elif "error" in data and "loading" in str(data.get("error", "")).lower() and attempt <= max_retries:
+                        elif "error" in data and "loading" in str(data.get("error", "")).lower():
                             print(f"HF model loading, retry {attempt}/{max_retries}...")
                             _time.sleep(5 * attempt)
+                            should_retry = True
                             break
                         else:
                             raise RuntimeError(f"HF Inference API error: {data.get('error', str(data)[:200])}")
@@ -312,32 +362,31 @@ class LLMService:
                 except urllib.error.HTTPError as e:
                     body = e.read().decode("utf-8", "ignore")[:300]
                     if e.code in (503, 502, 504):
-                        if "loading" in body.lower() and attempt <= max_retries:
+                        if "loading" in body.lower():
                             print(f"HF model loading (503), retry {attempt}/{max_retries}...")
                             _time.sleep(5 * attempt)
+                            should_retry = True
                             break
                         raise RuntimeError(f"HF Inference API HTTP {e.code}: {body[:200]}")
                     elif e.code == 429:
-                        if attempt <= max_retries:
-                            print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
-                            _time.sleep(3 * attempt)
-                            break
-                        raise RuntimeError(f"HF Inference API 429 after retries")
-                    elif e.code == 403 and hdrs is host_override_headers and len(hdrs_variants) > 1:
-                        # Retry without Host override header
-                        last_err = f"HTTP {e.code}: {body[:200]}"
-                        print(f"  HF 403 with Host override, retrying without...")
-                        continue
+                        print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
+                        _time.sleep(3 * attempt)
+                        should_retry = True
+                        break
                     else:
-                        raise RuntimeError(f"HF Inference API HTTP {e.code}: {body[:200]}")
+                        last_err = f"HTTP {e.code}: {body[:200]}"
+                        print(f"  HF {e.code} for {ep_url}, trying next...")
+                        continue
                 except (urllib.error.URLError, ssl.SSLError, ConnectionError, OSError) as e:
                     last_err = f"{type(e).__name__}: {e}"
-                    print(f"  HF connection error: {e}")
-                    break
+                    print(f"  HF connection error for {ep_url}: {e}")
+                    continue
                 except Exception as e:
                     last_err = f"{type(e).__name__}: {e}"
-                    print(f"  HF unexpected error: {e}")
-                    break
+                    print(f"  HF unexpected error for {ep_url}: {e}")
+                    continue
+            if should_retry:
+                continue
             if last_err:
                 if attempt < max_retries:
                     print(f"HF Inference API error, retry {attempt}/{max_retries}: {last_err}")
