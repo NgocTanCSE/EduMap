@@ -245,9 +245,28 @@ class LLMService:
                 return str(result).strip()
             print("  HF InferenceClient returned empty response")
         except StopIteration:
-            print("  HF InferenceClient: StopIteration (streaming mode failed, stream=False would help)")
+            print("  HF InferenceClient: StopIteration (possible DNS failure for api-inference.huggingface.co)")
         except Exception as e:
             print(f"  HF InferenceClient failed: {type(e).__name__}: {e}")
+
+        # Strategy 1b: InferenceClient with explicit base_url (api-inference.hf.co resolves)
+        try:
+            from huggingface_hub import InferenceClient
+            client = InferenceClient(token=self.hf_token, model=self.hf_model, base_url="https://api-inference.hf.co")
+            gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
+            if top_p is not None:
+                gen_kwargs["top_p"] = top_p
+            try:
+                result = client.text_generation(prompt, **gen_kwargs, stream=False)
+            except TypeError:
+                result = client.text_generation(prompt, **gen_kwargs)
+            if result and str(result).strip():
+                return str(result).strip()
+            print("  HF InferenceClient (hf.co base_url) returned empty response")
+        except StopIteration:
+            print("  HF InferenceClient (hf.co base_url): StopIteration")
+        except Exception as e:
+            print(f"  HF InferenceClient (hf.co base_url) failed: {type(e).__name__}: {e}")
 
         # Strategy 2: urllib.request with multiple endpoint variants
         headers = {
