@@ -270,22 +270,22 @@ class LLMService:
         except Exception as e:
             print(f"  HF InferenceClient (hf.co URL) failed: {type(e).__name__}: {e}")
 
-        # Strategy 1c: InferenceClient with chat() for conversational models (HF_LLM_MODEL supports conversational)
+        # Strategy 1c: InferenceClient with chat() for conversational models
         try:
             from huggingface_hub import InferenceClient
             client = InferenceClient(token=self.hf_token, model=f"https://api-inference.hf.co/models/{self.hf_model}")
-            # chat returns a ProxyClientChat object — may need to call it or iterate
             chat_result = client.chat([{"role": "user", "content": prompt}], max_tokens=max_tokens or 2048, temperature=temperature)
-            # If callable, call it to get the final result
-            if callable(chat_result):
-                chat_result = chat_result()
-            # If iterable, collect chunks
-            if isinstance(chat_result, str):
-                if chat_result.strip():
-                    return chat_result.strip()
-            elif hasattr(chat_result, '__iter__'):
+            # ProxyClientChat object — check done/result/iter
+            if hasattr(chat_result, 'done') and chat_result.done():
+                result = chat_result.result()
+                if result and str(result).strip():
+                    return str(result).strip()
+            if hasattr(chat_result, '__iter__'):
                 try:
-                    result = ''.join(str(chunk) for chunk in chat_result if chunk)
+                    chunks = []
+                    for chunk in chat_result:
+                        chunks.append(str(chunk))
+                    result = ''.join(chunks)
                     if result.strip():
                         return result.strip()
                 except Exception:

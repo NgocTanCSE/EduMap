@@ -226,13 +226,15 @@ try:
         cc = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
         chat_result = cc.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10)
         print(f'  chat return type: {type(chat_result).__name__}')
-        print(f'  chat callable: {callable(chat_result)}')
-        if callable(chat_result):
+        print(f'  chat attrs: {dir(chat_result)[:15]}')
+        if hasattr(chat_result, 'done'):
+            print(f'  chat done(): {chat_result.done()}')
+        if hasattr(chat_result, 'result'):
             try:
-                final = chat_result()
-                print(f'  chat() result: {str(final)[:200]}')
-            except Exception as e2:
-                print(f'  chat() call: ERROR — {type(e2).__name__}: {e2}')
+                r = chat_result.result()
+                print(f'  chat result(): {str(r)[:200]}')
+            except Exception as e3:
+                print(f'  chat result(): ERROR — {type(e3).__name__}: {str(e3)[:200]}')
         if hasattr(chat_result, '__iter__'):
             try:
                 chunks = []
@@ -240,8 +242,8 @@ try:
                     chunks.append(str(chunk))
                 _joined = ''.join(chunks)
                 print(f'  chat iter: {_joined[:200]}')
-            except Exception as e2:
-                print(f'  chat iter: ERROR — {type(e2).__name__}: {e2}')
+            except Exception as e3:
+                print(f'  chat iter: ERROR — {type(e3).__name__}: {str(e3)[:200]}')
     except Exception as e:
         _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
         print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
