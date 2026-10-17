@@ -6,20 +6,22 @@ set -o pipefail
 
 PY=/usr/bin/python3
 LOG_FILE="/app/frontend/public/ai-startup.log"
+RECOVERY_SOURCE=""
 
 # ── Recover HF_TOKEN from every possible source ──────────────────────────
-# Sources checked (in order):
+# On HF Spaces (Docker-based), HF_TOKEN is NOT auto-injected as an env var.
+# It may be available via:
 #   1. /proc/1/environ  (supervisord / Space runtime env)
-#   2. ~/.huggingface/token  (file written by huggingface_hub / HF runtime)
-#   3. huggingface_hub.HfFolder.get_token()  (checks env + file + HF CLI)
+#   2. ~/.huggingface/token  (file written by huggingface_hub / HF CLI)
+#   3. huggingface_hub.HfFolder.get_token()  (checks env + file + CLI)
 if [ -z "$HF_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
     # Source 1: PID 1 env
     if [ -r /proc/1/environ ]; then
         PARENT_ENV=$(tr '\0' '\n' < /proc/1/environ 2>/dev/null || true)
         HF_TOK=$(echo "$PARENT_ENV" | grep "^HF_TOKEN=" | head -1 | cut -d= -f2-)
         HF_HUB=$(echo "$PARENT_ENV" | grep "^HUGGING_FACE_HUB_TOKEN=" | head -1 | cut -d= -f2-)
-        [ -n "$HF_TOK" ] && export HF_TOKEN="$HF_TOK"
-        [ -n "$HF_HUB" ] && export HUGGING_FACE_HUB_TOKEN="$HF_HUB"
+        [ -n "$HF_TOK" ] && export HF_TOKEN="$HF_TOK" && RECOVERY_SOURCE="PID 1 env"
+        [ -n "$HF_HUB" ] && export HUGGING_FACE_HUB_TOKEN="$HF_HUB" && RECOVERY_SOURCE="${RECOVERY_SOURCE:-PID 1 env}"
     fi
     # Source 2: ~/.huggingface/token file
     if [ -z "$HF_TOKEN" ]; then
@@ -28,13 +30,13 @@ if [ -z "$HF_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
                 HF_TOK=$(cat "$token_file" 2>/dev/null | tr -d '\n\r')
                 if [ -n "$HF_TOK" ] && [ ${#HF_TOK} -gt 10 ]; then
                     export HF_TOKEN="$HF_TOK"
-                    echo "  (recovered HF_TOKEN from $token_file)" >> "$LOG_FILE"
+                    RECOVERY_SOURCE="$token_file"
                     break
                 fi
             fi
         done
     fi
-    # Source 3: huggingface_hub library
+    # Source 3: huggingface_hub library (checks env + file + CLI token)
     if [ -z "$HF_TOKEN" ]; then
         HF_TOK=$($PY -c "
 try:
@@ -46,7 +48,7 @@ except Exception:
 " 2>/dev/null || echo '')
         if [ -n "$HF_TOK" ] && [ ${#HF_TOK} -gt 10 ]; then
             export HF_TOKEN="$HF_TOK"
-            echo "  (recovered HF_TOKEN via huggingface_hub.HfFolder.get_token())" >> "$LOG_FILE"
+            RECOVERY_SOURCE="huggingface_hub.HfFolder.get_token()"
         fi
     fi
 fi
@@ -54,16 +56,19 @@ fi
 echo "=== AI Service Startup Debug ===" > "$LOG_FILE"
 echo "Timestamp: $(date -u)" >> "$LOG_FILE"
 echo "Python3 path: $(which python3 2>&1)" >> "$LOG_FILE"
-echo "Python3 version: ($PY --version 2>&1)" >> "$LOG_FILE"
+echo "Python version: ($PY --version 2>&1)" >> "$LOG_FILE"
 echo "PYTHONPATH: $PYTHONPATH" >> "$LOG_FILE"
 echo "CHROMA_DB_PATH: $CHROMA_DB_PATH" >> "$LOG_FILE"
 echo "HF_TOKEN: $([ -n "$HF_TOKEN" ] && echo 'SET' || echo 'NOT SET')" >> "$LOG_FILE"
+if [ -n "$RECOVERY_SOURCE" ]; then
+    echo "  (recovered from: $RECOVERY_SOURCE)" >> "$LOG_FILE"
+fi
 echo "HUGGING_FACE_HUB_TOKEN: $([ -n "$HUGGING_FACE_HUB_TOKEN" ] && echo 'SET' || echo 'NOT SET')" >> "$LOG_FILE"
 echo "CLOUDFLARE_API_TOKEN: $([ -n "$CLOUDFLARE_API_TOKEN" ] && echo 'SET' || echo 'NOT SET')" >> "$LOG_FILE"
 echo "CLOUDFLARE_ACCOUNT_ID: $([ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo 'SET' || echo 'NOT SET')" >> "$LOG_FILE"
 echo "CLOUDFLARE_MODEL: $CLOUDFLARE_MODEL" >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
-echo "--- ALL ENV VARS ---" >> "$LOG_FILE"
+echo "--- ALL ENV VARS (subprocess) ---" >> "$LOG_FILE"
 env | sort >> "$LOG_FILE" 2>&1
 echo "" >> "$LOG_FILE"
 echo "--- PID 1 / SUPERVISORD ENV VARS ---" >> "$LOG_FILE"
@@ -85,6 +90,30 @@ $PY -c "import psycopg2; print(f'  psycopg2 {psycopg2.__version__}')" >> "$LOG_F
 $PY -c "import numpy; print(f'  numpy {numpy.__version__}')" >> "$LOG_FILE" 2>&1 || echo "  numpy: FAILED" >> "$LOG_FILE"
 $PY -c "import sklearn; print(f'  sklearn {sklearn.__version__}')" >> "$LOG_FILE" 2>&1 || echo "  sklearn: FAILED" >> "$LOG_FILE"
 $PY -c "import redis; print(f'  redis {redis.__version__}')" >> "$LOG_FILE" 2>&1 || echo "  redis: FAILED" >> "$LOG_FILE"
+echo "" >> "$LOG_FILE"
+echo "--- Network connectivity tests ---" >> "$LOG_FILE"
+$PY -c "
+import urllib.request, ssl
+for name, url in [('Cloudflare API', 'https://api.cloudflare.com/client/v4/user/tokens/verify'), ('HF Inference API', 'https://api-inference.huggingface.co')]:
+    try:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(url, headers={'User-Agent': 'EduMap-AI-Service/1.0'})
+        resp = urllib.request.urlopen(req, timeout=15, context=ctx)
+        print(f'  {name} ({url}): HTTP {resp.status}')
+    except Exception as e:
+        print(f'  {name} ({url}): ERROR — {type(e).__name__}: {e}')
+try:
+    import requests
+    r = requests.get('https://api.cloudflare.com/client/v4/user/tokens/verify', timeout=15)
+    print(f'  Cloudflare (requests): HTTP {r.status_code}')
+except Exception as e:
+    print(f'  Cloudflare (requests): ERROR — {type(e).__name__}: {e}')
+try:
+    r = requests.get('https://api-inference.huggingface.co', timeout=15)
+    print(f'  HF Inference (requests): HTTP {r.status_code}')
+except Exception as e:
+    print(f'  HF Inference (requests): ERROR — {type(e).__name__}: {e}')
+" >> "$LOG_FILE" 2>&1
 echo "" >> "$LOG_FILE"
 echo "--- Testing main.py import ---" >> "$LOG_FILE"
 cd /app/ai-service && $PY -c "import main; print('main.py import OK')" >> "$LOG_FILE" 2>&1 || echo "main.py import FAILED" >> "$LOG_FILE"

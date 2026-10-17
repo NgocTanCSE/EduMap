@@ -4,6 +4,11 @@ import hashlib
 import urllib.request
 import urllib.error
 from dotenv import load_dotenv
+
+try:
+    import requests
+except ImportError:
+    requests = None
 try:
     from services.cache_service import cache_service
 except Exception as e:
@@ -53,7 +58,34 @@ class LLMService:
         self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
         self.has_cf = bool(self.api_token) and bool(self.account_id)
         # --- HuggingFace Inference API fallback (khi Cloudflare ko ket noi duoc tu HF Spaces) ---
+        # Check env vars first, then fall back to huggingface_hub library which
+        # also reads ~/.huggingface/token, /etc/huggingface/token, HF_HOME, etc.
         self.hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        if not self.hf_token:
+            try:
+                from huggingface_hub import HfFolder
+                self.hf_token = HfFolder.get_token()
+                if self.hf_token:
+                    print(f"INFO: Recovered HF_TOKEN via huggingface_hub.HfFolder.get_token()")
+            except Exception:
+                pass
+        # Also check common token-file locations as a last resort
+        if not self.hf_token:
+            import pathlib
+            for token_path in [
+                pathlib.Path.home() / ".huggingface" / "token",
+                pathlib.Path.home() / ".cache" / "huggingface" / "token",
+                pathlib.Path("/etc/huggingface/token"),
+            ]:
+                try:
+                    if token_path.exists():
+                        val = token_path.read_text().strip()
+                        if val and len(val) > 10:
+                            self.hf_token = val
+                            print(f"INFO: Recovered HF_TOKEN from {token_path}")
+                            break
+                except Exception:
+                    pass
         self.hf_model = os.getenv("HF_LLM_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
         self.has_hf = bool(self.hf_token)
         # is_ready = True neu co bat ky nhanh LLM nao (Cloudflare hoac HF Inference)
@@ -116,24 +148,41 @@ class LLMService:
                 }
                 if top_p is not None:
                     payload["top_p"] = top_p
-                body_json = json.dumps(payload).encode("utf-8")
+                body = json.dumps(payload)
+                req_headers = {
+                    "Authorization": f"Bearer {self.api_token}",
+                    "Content-Type": "application/json",
+                }
 
                 attempt = 0
                 while True:
                     attempt += 1
-                    req = urllib.request.Request(
-                        url,
-                        data=body_json,
-                        headers={
-                            "Authorization": f"Bearer {self.api_token}",
-                            "Content-Type": "application/json",
-                        },
-                        method="POST",
-                    )
                     data = None
                     try:
-                        with urllib.request.urlopen(req, timeout=30) as resp:
-                            data = json.loads(resp.read().decode("utf-8"))
+                        if requests is not None:
+                            # Use requests library — has more robust TLS/SSL
+                            # handling than urllib.request (avoids "EOF" /
+                            # "TLS handshake" errors observed on HF Spaces
+                            # outbound network to api.cloudflare.com).
+                            resp = requests.post(url, headers=req_headers, data=body, timeout=30)
+                            if resp.status_code == 200:
+                                data = resp.json()
+                            elif resp.status_code in (401, 403):
+                                raise RuntimeError(f"Cloudflare auth lỗi (HTTP {resp.status_code}): {resp.text[:200]}")
+                            elif resp.status_code == 429:
+                                last_err = f"{model}: HTTP 429 {resp.text[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break
+                            elif self._is_model_not_found(resp.status_code, resp.text):
+                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
+                            elif resp.status_code in (502, 503, 504) and attempt <= per_model_retries:
+                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:80]}"; print(f"Cloudflare model {model} {resp.status_code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                            else:
+                                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:80]}"; print(f"Cloudflare model {model} {resp.status_code}, thử model kế tiếp..."); break
+                        else:
+                            req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
+                            with urllib.request.urlopen(req, timeout=30) as resp:
+                                data = json.loads(resp.read().decode("utf-8"))
+                    except RuntimeError:
+                        raise
                     except urllib.error.HTTPError as e:
                         b = e.read().decode("utf-8", "ignore")[:300]
                         if self._is_model_not_found(e.code, b):
