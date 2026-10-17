@@ -156,28 +156,42 @@ try:
 except Exception as e:
     print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
 
-# 2a. Check huggingface_hub version + InferenceClient (no task param, test with/without api_url)
+# 2a. Check huggingface_hub version + InferenceClient (test with gpt2 which supports text-generation)
 try:
     import huggingface_hub
     print(f'  huggingface_hub version: {huggingface_hub.__version__}')
     try:
         from huggingface_hub import InferenceClient
         print(f'  InferenceClient: available')
-        client = InferenceClient(token=hf_token, model=hf_llm_model)
+        # Test with gpt2 (public model, supports text-generation)
+        client = InferenceClient(token=hf_token, model='gpt2')
         result = client.text_generation('Hello', max_new_tokens=10)
-        print(f'  InferenceClient text_gen (default URL): OK — {result[:200]}')
+        print(f'  InferenceClient text_gen (gpt2): OK — {result[:200]}')
     except Exception as e:
-        print(f'  InferenceClient test (default URL): ERROR — {type(e).__name__}: {e}')
+        print(f'  InferenceClient test (gpt2): ERROR — {type(e).__name__}: {e}')
+    # Test with HF_LLM_MODEL
     try:
-        client2 = InferenceClient(token=hf_token, model=hf_llm_model, api_url='https://api-inference.hf.co')
+        client2 = InferenceClient(token=hf_token, model=hf_llm_model)
         result2 = client2.text_generation('Hello', max_new_tokens=10)
-        print(f'  InferenceClient text_gen (hf.co URL): OK — {result2[:200]}')
+        print(f'  InferenceClient text_gen (HF_LLM_MODEL): OK — {result2[:200]}')
     except Exception as e:
-        print(f'  InferenceClient test (hf.co URL): ERROR — {type(e).__name__}: {e}')
+        print(f'  InferenceClient test (HF_LLM_MODEL): ERROR — {type(e).__name__}: {e}')
 except ImportError:
     print('  huggingface_hub: NOT installed')
 
-# 2b. DNS override with both default SSL and unverified SSL contexts
+# 2b. Try huggingface.co/api/inference endpoint (alternative to api-inference.*)
+alt_url = f'https://huggingface.co/api/inference/models/{hf_llm_model}'
+req = urllib.request.Request(alt_url, data=payload, headers=base_headers, method='POST')
+try:
+    resp = urllib.request.urlopen(req, timeout=30, context=ctx)
+    print(f'  HF POST (huggingface.co/api/inference): HTTP {resp.status} — {resp.read().decode()[:200]}')
+except urllib.error.HTTPError as e:
+    body = e.read().decode('utf-8', 'ignore')[:200]
+    print(f'  HF POST (huggingface.co/api/inference): HTTP {e.code} — {body[:200]}')
+except Exception as e:
+    print(f'  HF POST (huggingface.co/api/inference): ERROR — {type(e).__name__}: {e}')
+
+# 2c. DNS override with unverified SSL (api-inference.huggingface.co -> api-inference.hf.co IP)
 _real_getaddrinfo = socket.getaddrinfo
 def _patched_getaddrinfo(host, *args, **kwargs):
     if host == 'api-inference.huggingface.co':
