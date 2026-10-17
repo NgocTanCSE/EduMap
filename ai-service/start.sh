@@ -166,7 +166,12 @@ try:
         print(f'  InferenceClient: available')
         sig = inspect.signature(InferenceClient.__init__)
         print(f'  init params: {list(sig.parameters.keys())}')
-        # Try gpt2 with stream=False (avoids StopIteration from streaming)
+        try:
+            sig2 = inspect.signature(InferenceClient.text_generation)
+            print(f'  text_gen params: {list(sig2.parameters.keys())}')
+        except Exception:
+            print(f'  text_gen params: (could not inspect)')
+        # Try gpt2 with stream=False (default URL)
         client = InferenceClient(token=hf_token, model='gpt2')
         try:
             result = client.text_generation('Hello', max_new_tokens=10, stream=False)
@@ -176,38 +181,35 @@ try:
             print(f'  InferenceClient (gpt2, no stream kwarg): OK — {result[:200]}')
         except Exception as e:
             print(f'  InferenceClient (gpt2, stream=False): ERROR — {type(e).__name__}: {e}')
-        # Try with base_url='https://api-inference.hf.co'
+        # Try base_url=hf.co + model= in text_generation call
         try:
             client_b = InferenceClient(token=hf_token, base_url='https://api-inference.hf.co')
             try:
-                result_b = client_b.text_generation('Hello', max_new_tokens=10, stream=False)
+                result_b = client_b.text_generation('Hello', model='gpt2', max_new_tokens=10, stream=False)
             except TypeError:
-                result_b = client_b.text_generation('Hello', max_new_tokens=10)
-            print(f'  InferenceClient (gpt2, base_url=hf.co): OK — {result_b[:200]}')
+                result_b = client_b.text_generation('Hello', model='gpt2', max_new_tokens=10)
+            print(f'  InferenceClient (base_url+model in call): OK — {result_b[:200]}')
         except Exception as e:
-            print(f'  InferenceClient (gpt2, base_url=hf.co): ERROR — {type(e).__name__}: {e}')
-        # Try with URL as model (bypasses DNS for api-inference.huggingface.co)
+            _hc = getattr(e, 'response_code', None) or (getattr(getattr(e, 'response', None), 'status_code', None))
+            _hb = ''
+            try:
+                _r = getattr(e, 'response', None)
+                if _r is not None:
+                    _hb = _r.text[:200]
+            except Exception:
+                pass
+            print(f'  InferenceClient (base_url+model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]} | body: {_hb}')
+        # Try URL as model
         try:
-            client_c = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
+            client_c = InferenceClient(token=hf_token, model='https://api-inference.hf.co/models/gpt2')
             try:
                 result_c = client_c.text_generation('Hello', max_new_tokens=10, stream=False)
             except TypeError:
                 result_c = client_c.text_generation('Hello', max_new_tokens=10)
-            print(f'  InferenceClient (URL as model, hf.co): OK — {result_c[:200]}')
+            print(f'  InferenceClient (URL as model): OK — {result_c[:200]}')
         except Exception as e:
-            _http_code = getattr(e, 'response_code', None)
-            if _http_code is None:
-                _resp = getattr(e, 'response', None)
-                if _resp is not None:
-                    _http_code = getattr(_resp, 'status_code', None)
-            _http_body = ''
-            try:
-                _resp = getattr(e, 'response', None)
-                if _resp is not None:
-                    _http_body = _resp.text[:200]
-            except Exception:
-                pass
-            print(f'  InferenceClient (URL as model, hf.co): ERROR — {type(e).__name__} (HTTP={_http_code}) — {str(e)[:300]} | body: {_http_body}')
+            _hc = getattr(e, 'response_code', None) or (getattr(getattr(e, 'response', None), 'status_code', None))
+            print(f'  InferenceClient (URL as model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
     except Exception as e:
         print(f'  InferenceClient: ERROR — {type(e).__name__}: {e}')
 except ImportError:
