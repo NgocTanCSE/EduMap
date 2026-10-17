@@ -81,16 +81,30 @@ COPY backend/package*.json ./
 
 # --- AI Service ---
 WORKDIR /app/ai-service
-# Copy the full Python 3.11 lib dir (stdlib + lib-dynload) so the /usr/local/bin/python3.11
-# binary (used by the `uvicorn` script's shebang) can find os.py, json/, encodings/, etc.
-# Previously only site-packages was copied, which caused "No module named site" or similar
-# fatal errors → uvicorn never started → port 8000 never listened → 502/503.
-COPY --from=ai-deps /usr/local/lib/python3.11 /usr/local/lib/python3.11
+# Copy installed pip packages from python:3.11-slim image.
+# We do NOT copy the python:3.11-slim Python binary or libpython3.11.so
+# to /usr/local/bin or /usr/local/lib respectively, because those require
+# GLIBC_2.38 (built on a newer host) while node:20-slim (Debian 12) only
+# provides GLIBC_2.36. The system python3 at /usr/bin/python3 (from
+# apt-get install python3) is GLIBC_2.36-compatible and is used instead.
 COPY --from=ai-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=ai-deps /usr/local/lib/libpython3.11.so* /usr/local/lib/
-COPY --from=ai-deps /usr/local/bin /usr/local/bin
+# Copy the full Python 3.11 stdlib as a backup layer for the system python3
+# (Debian's /usr/bin/python3 also has stdlib at /usr/lib/python3.11, but
+# having /usr/local/lib/python3.11/ as an additional path doesn't hurt
+# since PYTHONPATH only points at site-packages, not the stdlib dir).
+COPY --from=ai-deps /usr/local/lib/python3.11 /usr/local/lib/python3.11
 COPY ai-service/ ./
-RUN touch services/__init__.py routers/__init__.py && ldconfig
+# Remove incompatible python:3.11-slim binaries from /usr/local/bin so that
+# 'python3' resolves to /usr/bin/python3 (system Python, GLIBC_2.36-compatible)
+# instead of /usr/local/bin/python3 (python:3.11-slim, needs GLIBC_2.38).
+# Also remove the 'uvicorn' console script (shebang points to /usr/local/bin/python
+# which we're removing; we use 'python3 -m uvicorn' instead).
+RUN touch services/__init__.py routers/__init__.py && \
+    rm -f /usr/local/bin/python /usr/local/bin/python3 /usr/local/bin/python3.11 \
+          /usr/local/bin/uvicorn /usr/local/bin/uvicorn3 \
+          /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 \
+          /usr/local/bin/chardetect 2>/dev/null; \
+    ldconfig
 
 # --- Shared config ---
 WORKDIR /app
