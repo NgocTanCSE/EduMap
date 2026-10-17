@@ -178,7 +178,7 @@ try:
             print(f'  InferenceClient (gpt2, stream=False): ERROR — {type(e).__name__}: {e}')
         # Try with base_url='https://api-inference.hf.co'
         try:
-            client_b = InferenceClient(token=hf_token, model='gpt2', base_url='https://api-inference.hf.co')
+            client_b = InferenceClient(token=hf_token, base_url='https://api-inference.hf.co')
             try:
                 result_b = client_b.text_generation('Hello', max_new_tokens=10, stream=False)
             except TypeError:
@@ -186,6 +186,16 @@ try:
             print(f'  InferenceClient (gpt2, base_url=hf.co): OK — {result_b[:200]}')
         except Exception as e:
             print(f'  InferenceClient (gpt2, base_url=hf.co): ERROR — {type(e).__name__}: {e}')
+        # Try with URL as model (bypasses DNS for api-inference.huggingface.co)
+        try:
+            client_c = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
+            try:
+                result_c = client_c.text_generation('Hello', max_new_tokens=10, stream=False)
+            except TypeError:
+                result_c = client_c.text_generation('Hello', max_new_tokens=10)
+            print(f'  InferenceClient (URL as model, hf.co): OK — {result_c[:200]}')
+        except Exception as e:
+            print(f'  InferenceClient (URL as model, hf.co): ERROR — {type(e).__name__}: {e}')
     except Exception as e:
         print(f'  InferenceClient: ERROR — {type(e).__name__}: {e}')
 except ImportError:
