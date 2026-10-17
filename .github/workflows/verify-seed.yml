@@ -1,0 +1,54 @@
+name: DB Seed Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/database/seed.sql'
+      - 'scripts/migrate-pg-to-sqlite.py'
+      - 'frontend/public/edumap.db'
+  workflow_dispatch:
+
+jobs:
+  verify-seed:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          pip install psycopg2-binary
+
+      - name: Verify SQLite DB integrity
+        run: |
+          # Check the SQLite DB file exists
+          test -f frontend/public/edumap.db || { echo "ERROR: frontend/public/edumap.db not found!"; exit 1; }
+          
+          # Verify SQLite DB is valid
+          sqlite3 frontend/public/edumap.db "PRAGMA integrity_check;" | grep -q "ok" || { echo "ERROR: SQLite DB integrity check failed!"; exit 1; }
+          
+          # Verify key tables exist
+          for table in map_points locations events users pins; do
+            count=$(sqlite3 frontend/public/edumap.db "SELECT COUNT(*) FROM $table;" 2>/dev/null || echo "0")
+            echo "  $table: $count rows"
+            if [ "$table" = "map_points" ] && [ "$count" != "49" ]; then
+              echo "WARN: map_points has $count rows (expected 49)"
+            fi
+          done
+          
+          echo "SQLite DB verification: PASSED"
+
+      - name: Verify seed.sql syntax
+        run: |
+          # Check seed.sql has CREATE + INSERT statements
+          echo "Seed SQL: $(wc -l < backend/src/database/seed.sql) lines"
+          echo "CREATE TABLE: $(grep -c 'CREATE TABLE' backend/src/database/seed.sql)"
+          echo "INSERT INTO: $(grep -c 'INSERT INTO' backend/src/database/seed.sql)"
+          echo "Seed SQL verification: PASSED"

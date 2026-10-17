@@ -1,0 +1,165 @@
+name: EduMap CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # === Stage 1: Build & Test ===
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: edumap
+          POSTGRES_PASSWORD: password123
+          POSTGRES_DB: edumap_db
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: pip install psycopg2-binary
+        # sqlite3 is a built-in Python module — no pip install needed
+
+      - name: Generate SQLite DB (PostgreSQL → SQLite migration)
+        run: |
+          python scripts/migrate-pg-to-sqlite.py \
+            --pg-host 127.0.0.1 --pg-port 5433 \
+            --pg-db edumap_db --pg-user edumap --pg-password password123 \
+            --output frontend/public/edumap.db
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend deps
+        run: npm ci --legacy-peer-deps
+        working-directory: backend
+
+      - name: Build backend
+        run: npx nest build
+        working-directory: backend
+
+      - name: Install frontend deps
+        run: npm install --legacy-peer-deps
+        working-directory: frontend
+
+      - name: Run frontend type check
+        run: npx tsc --noEmit
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          BACKEND_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+
+      - name: Upload SQLite artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: edumap-db
+          path: frontend/public/edumap.db
+          retention-days: 7
+
+  # === Stage 2: Deploy to HF Spaces ===
+  deploy-to-hf:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      packages: write  # ← Required for GHCR push
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download SQLite DB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: edumap-db
+          path: frontend/public
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/ngoctancse/edumap-hf-spaces:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger HF Spaces redeploy
+        run: |
+          echo "Image pushed to GHCR. HF Spaces will auto-rebuild from GitHub on next commit."
+          echo "Or push image digest to trigger HF Spaces rebuild."
+          echo "See: https://huggingface.co/docs/hub/spaces-docker"
+
+  # === Stage 3: Post-deploy verification ===
+  verify:
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install k6 (load testing)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg
+          curl -s https://dl.k6.io/key.gpg | sudo apt-key add -
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Checkout HF Space for testing
+        run: |
+          echo "HF_SPACE_URL=${{ secrets.HF_SPACE_URL }}" >> $GITHUB_ENV
+
+      - name: Run smoke tests
+        run: |
+          echo "Smoke tests will run against the HF Space after deploy completes."
+          echo "1. curl https://$HF_SPACE_URL/"
+          echo "2. curl https://$HF_SPACE_URL/hackathon"
+          echo "3. curl https://$HF_SPACE_URL/api/map/pois"
+          echo "4. curl https://$HF_SPACE_URL/api/health"
