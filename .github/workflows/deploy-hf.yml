@@ -20,15 +20,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: python3 -m pip install --upgrade huggingface_hub
+      - name: Install huggingface_hub (CLI)
+        run: |
+          python3 -m pip install --upgrade --user huggingface_hub
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - name: Sync to Hugging Face Space
+      - name: Upload to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Upload all files to HF Space (Docker Space auto-rebuilds on change)
-          # .huggingfaceignore skips unnecessary/large files
-          python3 -m huggingface_hub upload tancse2005/Edumap . \
+          huggingface-cli upload tancse2005/Edumap . \
             --repo-type space \
             --token "$HF_TOKEN"
+          # .huggingfaceignore excludes node_modules/, .env, *.pdf, etc.
