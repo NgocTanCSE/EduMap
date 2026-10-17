@@ -274,7 +274,8 @@ class LLMService:
         try:
             from huggingface_hub import InferenceClient
             client = InferenceClient(token=self.hf_token, model=f"https://api-inference.hf.co/models/{self.hf_model}")
-            chat_result = client.chat([{"role": "user", "content": prompt}], max_tokens=max_tokens or 2048, temperature=temperature)
+            # chat() with stream=False returns a final ChatCompletion (not proxy)
+            chat_result = client.chat([{"role": "user", "content": prompt}], max_tokens=max_tokens or 2048, temperature=temperature, stream=False)
             # ProxyClientChat object — check done/result/iter
             if hasattr(chat_result, 'done') and chat_result.done():
                 result = chat_result.result()

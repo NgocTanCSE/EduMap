@@ -247,6 +247,20 @@ try:
     except Exception as e:
         _hc = getattr(e, 'response_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
         print(f'  InferenceClient (gpt2, chat, URL model): ERROR — {type(e).__name__} (HTTP={_hc}) — {str(e)[:300]}')
+    # Also inspect chat signature + try stream=False
+    try:
+        import inspect
+        print(f'  chat sig: {str(inspect.signature(c.chat))[:200]}')
+        cc3 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/gpt2')
+        chat_sf = cc3.chat([{'role': 'user', 'content': 'Hello'}], max_tokens=10, stream=False)
+        print(f'  chat(stream=False) type: {type(chat_sf).__name__}')
+        if isinstance(chat_sf, str) and chat_sf.strip():
+            print(f'  chat(stream=False) OK: {chat_sf[:200]}')
+        elif not isinstance(chat_sf, str):
+            print(f'  chat(stream=False) result: {str(chat_sf)[:200]}')
+    except Exception as e3:
+        _hc2 = getattr(e3, 'response_code', None) or getattr(getattr(e3, 'response', None), 'status_code', None)
+        print(f'  chat(stream=False): ERROR — {type(e3).__name__} (HTTP={_hc2}) — {str(e3)[:200]}')
     # Try text_generation with URL as model for HF_LLM_MODEL (might bypass task validation)
     try:
         cc2 = InferenceClient(token=hf_token, model=f'https://api-inference.hf.co/models/{hf_llm_model}')
