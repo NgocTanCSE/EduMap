@@ -265,29 +265,11 @@ class LLMService:
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
-                if requests is not None:
-                    resp = requests.post(url, headers=headers, json=payload, timeout=120)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                    elif resp.status_code in (503, 502, 504):
-                        body = resp.text[:300]
-                        if "loading" in body.lower() and attempt <= max_retries:
-                            print(f"HF model loading (503), retry {attempt}/{max_retries}...")
-                            _time.sleep(5 * attempt)
-                            continue
-                        raise RuntimeError(f"HF Inference API HTTP {resp.status_code}: {body[:200]}")
-                    elif resp.status_code == 429:
-                        if attempt <= max_retries:
-                            print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
-                            _time.sleep(3 * attempt)
-                            continue
-                        raise RuntimeError(f"HF Inference API 429 after retries")
-                    else:
-                        raise RuntimeError(f"HF Inference API HTTP {resp.status_code}: {resp.text[:200]}")
-                else:
-                    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
-                    with urllib.request.urlopen(req, timeout=120, context=ssl.create_default_context()) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
+                # Use urllib.request — requests fails with SSLError on HF Spaces
+                # (TLS/SSL connection has been closed (EOF)) for ALL HTTPS POST.
+                req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=120, context=ssl.create_default_context()) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
 
                 # Parse response — HF returns [{"generated_text": "..."}] for text-generation
                 if isinstance(data, list) and len(data) > 0:
@@ -314,6 +296,36 @@ class LLMService:
                 if text:
                     return text
                 raise RuntimeError("HF Inference API returned empty response")
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", "ignore")[:300]
+                if e.code in (503, 502, 504):
+                    if "loading" in body.lower() and attempt <= max_retries:
+                        print(f"HF model loading (503), retry {attempt}/{max_retries}...")
+                        _time.sleep(5 * attempt)
+                        continue
+                    raise RuntimeError(f"HF Inference API HTTP {e.code}: {body[:200]}")
+                elif e.code == 429:
+                    if attempt <= max_retries:
+                        print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
+                        _time.sleep(3 * attempt)
+                        continue
+                    raise RuntimeError(f"HF Inference API 429 after retries")
+                else:
+                    raise RuntimeError(f"HF Inference API HTTP {e.code}: {body[:200]}")
+            except (urllib.error.URLError, ssl.SSLError, ConnectionError, OSError) as e:
+                last_err = f"{type(e).__name__}: {e}"
+                if attempt < max_retries:
+                    print(f"HF Inference API connection error, retry {attempt}/{max_retries}: {last_err}")
+                    _time.sleep(2 * attempt)
+                    continue
+                raise RuntimeError(f"HF Inference API failed after {max_retries} retries: {last_err}")
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+                if attempt < max_retries:
+                    print(f"HF Inference API error, retry {attempt}/{max_retries}: {last_err}")
+                    _time.sleep(2 * attempt)
+                    continue
+                raise RuntimeError(f"HF Inference API failed after {max_retries} retries: {last_err}")
 
             except Exception as e:
                 if attempt <= max_retries and "loading" in str(e).lower():
