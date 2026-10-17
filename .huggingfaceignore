@@ -19,5 +19,5 @@ __pycache__/
 *.doc
 *.pdf
 *.sketch
-
+docs/
 # Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db)
