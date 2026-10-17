@@ -1,7 +1,9 @@
 import os
 import json
 import ssl
+import io
 import hashlib
+import subprocess
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -165,6 +167,21 @@ class LLMService:
                     attempt += 1
                     data = None
                     try:
+                        # Use curl (OpenSSL TLS) — bypasses Python ssl module TLS issues in HF Spaces
+                        _curl = subprocess.run(
+                            ["curl", "-sS", "-X", "POST",
+                             "-H", f"Authorization: Bearer {self.api_token}",
+                             "-H", "Content-Type: application/json",
+                             "-d", body_json.decode("utf-8"),
+                             "--connect-timeout", "10", "--max-time", "30", url],
+                            capture_output=True, text=True, timeout=35)
+                        if _curl.returncode == 0 and _curl.stdout.strip():
+                            data = json.loads(_curl.stdout)
+                        else:
+                            _msg = _curl.stderr.strip()[:200] or f"curl exit {_curl.returncode}"
+                            raise urllib.error.URLError(_msg)
+                    except FileNotFoundError:
+                        print("  curl not found, falling back to urllib.request")
                         req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
                         with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
                             data = json.loads(resp.read().decode("utf-8"))
@@ -189,6 +206,8 @@ class LLMService:
                         err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
                         code = err.get("code", 0)
                         msg = err.get("message", "")
+                        if code in (10000, 10001) or "auth" in msg.lower():
+                            raise RuntimeError(f"Cloudflare auth lỗi (code {code}): {msg[:200]}")
                         if self._is_model_not_found(code, msg):
                             last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
                         if code == 429:
