@@ -1,8 +1,8 @@
-name: Sync to Hugging Face Spaces
-
+name: Sync to Hugging Face space
 on:
   push:
     branches: [main]
+  # Cho phép chạy thủ công từ tab Actions
   workflow_dispatch:
 
 jobs:
@@ -10,38 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
 
-      - name: Install huggingface_hub
-        run: python3 -m pip install --upgrade huggingface_hub
+      - name: Install dependencies
+        run: pip install --upgrade huggingface_hub
 
-      - name: Upload to HF Space (Python API — no CLI PATH issues)
+      - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python3 -c "
-import os, sys
-from huggingface_hub import HfApi
-
-# Ensure we have the token
-if not os.environ.get('HF_TOKEN'):
-    print('ERROR: HF_TOKEN not set')
-    sys.exit(1)
-
-print('Uploading folder to HuggingFace Space...')
-HfApi(token=os.environ['HF_TOKEN']).upload_folder(
-    folder_path='.',
-    repo_id='tancse2005/Edumap',
-    repo_type='space',
-    ignore_patterns=[
-        'node_modules/', '.git/', '__pycache__/', '*.pyc',
-        '.env*', '.DS_Store', '*.docx', '*.doc', '*.pdf',
-        'frontend/public/edumap.db',  # baked in Docker image
-    ],
-    commit_message='Auto-deploy from GitHub Actions [skip ci]',
-)
-print('✅ Uploaded! HF Spaces will auto-rebuild Docker.')
-"
+          
+          # Upload to HuggingFace Space via HTTP API
+          # (.huggingfaceignore skips binary docs like .docx/.doc/.png)
+          hf upload tancse2005/Edumap . --repo-type space --token $HF_TOKEN
