@@ -233,11 +233,7 @@ class LLMService:
         # Strategy 1: huggingface_hub InferenceClient (handles URL/DNS internally)
         try:
             from huggingface_hub import InferenceClient
-            client = InferenceClient(
-                token=self.hf_token,
-                model=self.hf_model,
-                task="text-generation",
-            )
+            client = InferenceClient(token=self.hf_token, model=self.hf_model)
             gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
             if top_p is not None:
                 gen_kwargs["top_p"] = top_p
@@ -247,6 +243,17 @@ class LLMService:
             print("  HF InferenceClient returned empty response")
         except Exception as e:
             print(f"  HF InferenceClient failed: {type(e).__name__}: {e}")
+        try:
+            from huggingface_hub import InferenceClient
+            client = InferenceClient(token=self.hf_token, model=self.hf_model, api_url="https://api-inference.hf.co")
+            gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
+            if top_p is not None:
+                gen_kwargs["top_p"] = top_p
+            result = client.text_generation(prompt, **gen_kwargs)
+            if result and result.strip():
+                return result.strip()
+        except Exception as e:
+            print(f"  HF InferenceClient (hf.co URL) failed: {type(e).__name__}: {e}")
 
         # Strategy 2: urllib.request with multiple endpoint variants
         headers = {

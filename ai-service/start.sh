@@ -156,41 +156,45 @@ try:
 except Exception as e:
     print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
 
-# 2a. Check huggingface_hub version + InferenceClient with explicit task
+# 2a. Check huggingface_hub version + InferenceClient (no task param, test with/without api_url)
 try:
     import huggingface_hub
     print(f'  huggingface_hub version: {huggingface_hub.__version__}')
     try:
         from huggingface_hub import InferenceClient
         print(f'  InferenceClient: available')
-        client = InferenceClient(token=hf_token, model=hf_llm_model, task='text-generation')
+        client = InferenceClient(token=hf_token, model=hf_llm_model)
         result = client.text_generation('Hello', max_new_tokens=10)
-        print(f'  InferenceClient text_gen: OK — {result[:200]}')
+        print(f'  InferenceClient text_gen (default URL): OK — {result[:200]}')
     except Exception as e:
-        print(f'  InferenceClient test: ERROR — {type(e).__name__}: {e}')
+        print(f'  InferenceClient test (default URL): ERROR — {type(e).__name__}: {e}')
+    try:
+        client2 = InferenceClient(token=hf_token, model=hf_llm_model, api_url='https://api-inference.hf.co')
+        result2 = client2.text_generation('Hello', max_new_tokens=10)
+        print(f'  InferenceClient text_gen (hf.co URL): OK — {result2[:200]}')
+    except Exception as e:
+        print(f'  InferenceClient test (hf.co URL): ERROR — {type(e).__name__}: {e}')
 except ImportError:
     print('  huggingface_hub: NOT installed')
 
-# 2b. DNS override + unverified SSL (cert SNI mismatch when DNS-overriding)
-#     api-inference.huggingface.co doesn't resolve; patch socket to use
-#     api-inference.hf.co's IP, with check_hostname=False
+# 2b. DNS override with both default SSL and unverified SSL contexts
 _real_getaddrinfo = socket.getaddrinfo
 def _patched_getaddrinfo(host, *args, **kwargs):
     if host == 'api-inference.huggingface.co':
         return _real_getaddrinfo('api-inference.hf.co', *args, **kwargs)
     return _real_getaddrinfo(host, *args, **kwargs)
 socket.getaddrinfo = _patched_getaddrinfo
-unverified_ctx = ssl._create_unverified_context()
 url = f'https://api-inference.huggingface.co/models/{hf_llm_model}'
-req = urllib.request.Request(url, data=payload, headers=base_headers, method='POST')
-try:
-    resp = urllib.request.urlopen(req, timeout=30, context=unverified_ctx)
-    print(f'  HF POST (DNS override + unverified SSL): HTTP {resp.status} — {resp.read().decode()[:200]}')
-except urllib.error.HTTPError as e:
-    body = e.read().decode('utf-8', 'ignore')[:200]
-    print(f'  HF POST (DNS override + unverified SSL): HTTP {e.code} — {body[:200]}')
-except Exception as e:
-    print(f'  HF POST (DNS override + unverified SSL): ERROR — {type(e).__name__}: {e}')
+for desc, ssl_ctx in [('default SSL', ctx), ('unverified SSL', ssl._create_unverified_context())]:
+    req = urllib.request.Request(url, data=payload, headers=base_headers, method='POST')
+    try:
+        resp = urllib.request.urlopen(req, timeout=30, context=ssl_ctx)
+        print(f'  HF POST (DNS override, {desc}): HTTP {resp.status} — {resp.read().decode()[:200]}')
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', 'ignore')[:200]
+        print(f'  HF POST (DNS override, {desc}): HTTP {e.code} — {body[:200]}')
+    except Exception as e:
+        print(f'  HF POST (DNS override, {desc}): ERROR — {type(e).__name__}: {e}')
 
 # Restore original
 socket.getaddrinfo = _real_getaddrinfo
