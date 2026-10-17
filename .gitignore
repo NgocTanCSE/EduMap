@@ -68,7 +68,7 @@ Desktop.ini
 .idea/
 *.swp
 *.swo
-
+docs/
 # Mobile
 .expo/
 android/app/build/
