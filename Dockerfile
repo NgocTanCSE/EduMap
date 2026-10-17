@@ -63,9 +63,15 @@ COPY --from=frontend-deps /app/node_modules ./node_modules
 COPY frontend/package*.json ./
 COPY frontend/next.config.js ./
 COPY frontend/tsconfig.json ./
+# Copy scripts dir EARLY — verify_db.py is needed before edumap.db verification
+COPY scripts/ /app/scripts/
+RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
+
 COPY frontend/public/edumap.db ./public/edumap.db
-# Verify edumap.db is a valid SQLite database (fails build early if corrupted)
-RUN python3 -c "import sqlite3,os,sys; f='./public/edumap.db'; print(f'  edumap.db size: {os.path.getsize(f)} bytes'); c=sqlite3.connect(f); n=c.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]; c.close(); print(f'  Tables: {n}'); sys.exit(1 if n==0 else 0)"
+# Verify edumap.db is a valid SQLite database.
+# If the file is corrupted (e.g., 132-byte git-lfs pointer from HF Spaces upload),
+# automatically download the correct 1.3MB file from GitHub (repo is public).
+RUN python3 /app/scripts/verify_db.py
 
 # --- Backend (uses full node_modules from builder for native sqlite3) ---
 WORKDIR /app/backend
@@ -83,10 +89,6 @@ RUN touch services/__init__.py routers/__init__.py
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-# Copy entire scripts dir (robust: avoids "file not found" if individual files
-# are missing from the upload; only fails if the whole dir is absent)
-COPY scripts/ /app/scripts/
-RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
 RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services

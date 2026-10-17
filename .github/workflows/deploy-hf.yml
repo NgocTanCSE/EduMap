@@ -32,8 +32,8 @@ jobs:
           n = conn.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]
           conn.close()
           print(f'  ℹ️  Tables: {n}')
-          assert size > 100000, f'edumap.db too small: {size} bytes — expected >1MB'
-          assert n > 0, 'edumap.db has no tables — invalid SQLite'
+          assert size > 100000, f'edumap.db too small: {size} bytes'
+          assert n > 0, 'edumap.db has no tables'
           print('  ✅ Local edumap.db is valid')
           "
 
@@ -73,7 +73,7 @@ jobs:
           stale = remote_files - local_files
           stale = {f for f in stale if not f.startswith('.git') and f}
 
-          # Known stale files (safety net — in case list_repo_files missed them)
+          # Known stale files (safety net)
           known_stale = [
               'backend/src/services/google-ai.service.ts',
               'backend/backup_modules',
@@ -100,59 +100,67 @@ jobs:
           PYEOF
 
       # ─────────────────────────────────────────────────────────
-      # STEP 2: Push ALL tracked files via git push (with git-lfs DISABLED)
+      # STEP 2: Upload edumap.db via upload_file() (bypasses .gitignore)
       # ─────────────────────────────────────────────────────────
-      # ROOT CAUSE ANALYSIS:
-      # - upload_file() via HF HTTP API can convert binary files (.db)
-      #   into git-lfs pointers (132 bytes) even when < 10MB threshold.
-      # - hf upload . (upload_folder) respects .gitignore which has
-      #   `*.db` pattern, causing inconsistent behavior.
-      # - Solution: use git push with git-lfs filter DISABLED.
-      #   This stores ALL binary files (including edumap.db at 1.3MB)
-      #   as regular git blobs in the HF Space git repo.
-      # - git push also handles stale file cleanup automatically:
-      #   files in local branch but not in remote are removed.
-      # ──
-      - name: Push all tracked files via git (git-lfs disabled)
+      # upload_file() (single-file mode) does NOT respect .gitignore.
+      # This ensures edumap.db exists on HF Space so the Dockerfile COPY
+      # command doesn't fail with "file not found".
+      #
+      # Even if upload_file() stores the file as a 132-byte git-lfs pointer
+      # (HF API converts binary .db files), the Dockerfile's verify_db.py
+      # will automatically download the correct 1.3MB from GitHub.
+      - name: Upload edumap.db via upload_file (bypass .gitignore)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          set -e
+          python3 << 'PYEOF'
+          from huggingface_hub import HfApi
+          import os, sys
 
-          # Disable git-lfs to prevent binary files being stored as
-          # git-lfs pointers (which would result in 132-byte pointers
-          # instead of the actual 1.3MB SQLite file)
-          git lfs uninstall
-          git config --global filter.lfs.required false
-          git config --global filter.lfs.clean cat
-          git config --global filter.lfs.smudge cat
+          local_path = 'frontend/public/edumap.db'
+          size = os.path.getsize(local_path)
+          print(f'  ℹ️  Local edumap.db size: {size} bytes')
 
-          git config --global user.email "ci@edumap.vn"
-          git config --global user.name "EduMap CI"
+          if size < 100000:
+              print(f'  ❌ CRITICAL: Local edumap.db is only {size} bytes!')
+              sys.exit(1)
 
-          # Add HF Space as git remote
-          git remote add hf-space "https://tancse2005:${HF_TOKEN}@huggingface.co/spaces/tancse2005/Edumap"
-
-          # Force-push local main branch to HF Space main
-          # --force overwrites the remote branch entirely, which means:
-          #   + edumap.db (1.3MB tracked file) is pushed as regular git blob
-          #   + stale files not in local repo are automatically removed
-          git push hf-space main --force
-
-          echo "  ✅ Git push to HF Space complete"
+          api = HfApi()
+          api.upload_file(
+              path_or_fileobj=local_path,
+              path_in_repo='frontend/public/edumap.db',
+              repo_id='tancse2005/Edumap',
+              repo_type='space',
+              commit_message=f'chore: upload edumap.db SQLite ({size} bytes)',
+          )
+          print('  ✅ edumap.db uploaded via upload_file()')
+          PYEOF
 
       # ─────────────────────────────────────────────────────────
-      # STEP 3: Verify edumap.db on HF Space is correct
+      # STEP 3: Upload all other project files
       # ─────────────────────────────────────────────────────────
-      - name: Verify edumap.db on HF Space
+      # Binary files are excluded by .huggingfaceignore (docs/, *.doc, etc.)
+      # scripts/ MUST be included (Dockerfile COPYs verify_db.py from it)
+      hf upload tancse2005/Edumap . \
+        --repo-type space \
+        --exclude "docs/**" \
+        --exclude "mobile/**"
+
+      # ─────────────────────────────────────────────────────────
+      # STEP 4: Verify edumap.db on HF Space
+      # ─────────────────────────────────────────────────────────
+      # Download edumap.db from HF Space and verify it's valid.
+      # If it's 132 bytes (git-lfs pointer), the Dockerfile's verify_db.py
+      # will download from GitHub during build. This step just confirms
+      # the file exists.
+      - name: Verify edumap.db exists on HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python3 << 'PYEOF'
           from huggingface_hub import hf_hub_download
-          import os, sys, sqlite3
+          import os, sqlite3
 
-          # Download edumap.db from HF Space
           downloaded = hf_hub_download(
               repo_id='tancse2005/Edumap',
               repo_type='space',
@@ -161,18 +169,14 @@ jobs:
           size = os.path.getsize(downloaded)
           print(f'  ℹ️  Remote edumap.db size: {size} bytes')
 
-          if size < 100000:
-              print(f'  ❌ CRITICAL: edumap.db on HF Space is only {size} bytes — expected >1MB!')
-              with open(downloaded, 'rb') as f:
-                  content = f.read(200)
-              print(f'  Content preview: {content}')
-              sys.exit(1)
-
-          # Verify it's valid SQLite
-          conn = sqlite3.connect(downloaded)
-          n = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
-          conn.close()
-          print(f'  Tables: {n}')
-          assert n > 0, 'No tables in remote edumap.db'
-          print('  ✅ Remote edumap.db is valid SQLite')
+          if size > 1000000:
+              # File looks correct — verify SQLite
+              conn = sqlite3.connect(downloaded)
+              n = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+              conn.close()
+              print(f'  Tables: {n}')
+              print('  ✅ Remote edumap.db is valid SQLite')
+          else:
+              print(f'  ℹ️  Remote edumap.db is {size} bytes (< 1MB)')
+              print('  ℹ️  Dockerfile verify_db.py will download from GitHub during build')
           PYEOF
