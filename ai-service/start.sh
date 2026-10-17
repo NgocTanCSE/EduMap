@@ -238,7 +238,8 @@ try:
                 chunks = []
                 for chunk in chat_result:
                     chunks.append(str(chunk))
-                print(f'  chat iter: {"".join(chunks)[:200]}')
+                _joined = ''.join(chunks)
+                print(f'  chat iter: {_joined[:200]}')
             except Exception as e2:
                 print(f'  chat iter: ERROR — {type(e2).__name__}: {e2}')
     except Exception as e:
