@@ -1,10 +1,10 @@
 ---
-title: EduMap Dong Nai
+title: EduMap — Vietnam Education Map
 emoji: 🎓
 colorFrom: blue
 colorTo: indigo
 sdk: docker
-app_port: 7860
+app_port: 7680
 language: vi
 license: cc-by-sa-4.0
 tags:
@@ -14,77 +14,73 @@ tags:
   - libraries
   - wifi
   - open-data
+  - map
+  - career
 ---
 
-# Dong Nai Education & Facilities Dataset
+# 🎓 EduMap — Vietnam Education & Career Map
 
-Bộ dữ liệu tổng hợp các **trường học**, **đại học/cao đẳng**, **thư viện** và **điểm Wi‑Fi** ở tỉnh Đồng Nai (2024‑2026). Dữ liệu được thu thập chủ yếu từ OpenStreetMap (Overpass API) và các cổng dữ liệu mở của Sở Giáo dục‑Đào tạo Đồng Nai.
+Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web full-stack chạy trên **Hugging Face Spaces Docker** (single container).
 
-## Nội dung dataset
+## 🏗️ Kiến trúc hệ thống
 
-| File | Mô tả |
-|------|-------|
-| `dong_nai_all_schools_20260613_005546.sql` | Tập lệnh SQL `INSERT` cho bảng `map_points` (579 POI). |
-| `dongnai_detailed.json` | JSON chi tiết gồm 3 danh sách:
-- `schools` (428 trường)
-- `libraries` (15 thư viện)
-- `wifi` (47 điểm Wi‑Fi) |
-| `dongnai_unis.json` | Danh sách 91 đại học & cao đẳng. |
-
-## Cấu trúc JSON (`dongnai_detailed.json`)
-```json
-{
-  "schools": [
-    {
-      "name": "Trường Mầm Non Bình Trưng Đông",
-      "name_vi": "Trường Mầm Non Bình Trưng Đông",
-      "lat": 10.7894062,
-      "lng": 106.7721717,
-      "type": "school",
-      "address": "",
-      "website": "",
-      "phone": "",
-      "operator": "",
-      "opening_hours": "",
-      "level": ""
-    },
-    ...
-  ],
-  "libraries": [ {...} ],
-  "wifi": [ {...} ]
-}
+```
+┌─────────────────────────────────────────────┐
+│  Docker container (HF Spaces)               │
+│                                             │
+│  frontend    NEXT.js   :7680  ← public      │
+│  backend     NestJS    :3000  ← internal    │
+│  ai-service  FastAPI   :8000  ← internal    │
+│  crawler     Python3   :loop  ← daily       │
+│  SQLite DB   edumap.db 1.3MB, 89 tables     │
+└─────────────────────────────────────────────┘
 ```
 
-## Cách tải dữ liệu (Python)
-```python
-from datasets import load_dataset
+## 🐳 Chạy local
 
-ds = load_dataset("username/dongnai-education")   # nếu bạn đã tạo script load (dongnai_dataset.py)
-# Hoặc tải trực tiếp file JSON
-import json, pathlib
-path = pathlib.Path('dongnai_detailed.json')
-with path.open(encoding='utf-8') as f:
-    data = json.load(f)
+```bash
+# Build
+docker build -t edumap .
+
+# Run (3 services + crawler)
+docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
+
+# Truy cập: http://localhost:7680
 ```
 
-## Các trường (common) trong dataset
-- `name` (string): Tên địa điểm.
-- `category` (string): `school`, `university`, `library`, `wifi`.
-- `type` (string, optional): Loại chi tiết (ví dụ `primary_school`, `college`).
-- `lat`, `lng` (float): Tọa độ.
-- `address`, `website`, `phone`, `operator`, `opening_hours` (string, optional).
-- `description` (string, optional): Thông tin bổ sung được tạo tự động.
+## ⚙️ Environment Variables (HF Spaces Secrets)
+
+| Secret | Mô tả | Bắt buộc |
+|--------|------|---------|
+| `JWT_SECRET` | JWT signing key | ✅ |
+| `ORS_API_KEY` | OpenRouteService routing | ⚠️ (có fallback Haversine) |
+| `CLOUDFLARE_API_TOKEN` | AI service LLM | ✅ |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | ✅ |
+| `GOOGLE_CLIENT_ID` | OAuth client ID | ⚠️ |
+| `CLOUDFLARE_MODEL` | LLM model (default: @cf/meta/llama-3.1-8b-instruct-fp8) | ❌ |
+| `CLOUDFLARE_EMBEDDING_MODEL` | Embedding model | ❌ |
+
+> 💡 `NEXT_PUBLIC_API_URL` và `NEXT_PUBLIC_GOOGLE_CLIENT_ID` đã được hardcode trong Dockerfile — **không cần** thêm vào secrets.
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Mô tả |
+|----------|--------|-------|
+| `/` | GET | Web app |
+| `/hackathon` | GET | Devpost hackathons (30 items) |
+| `/api/health` | GET | Health check |
+| `/api/map/pois` | GET | 1000+ POIs (schools, libraries, etc.) |
+| `/api/map/routing/route` | GET | Directions (ORS API + Haversine fallback) |
+| `/api/career/jobs` | GET | Job listings (from SQLite crawler) |
+| `/api/pins` | GET | User pins |
+| `/api/chat/messages` | GET | AI chat (Cloudflare LLM) |
+
+## 🔄 CI/CD
+
+- **Source**: https://github.com/NgocTanCSE/EduMap
+- **Build**: 4-stage Dockerfile multi-stage (GitHub Actions v3)
+- **Deploy**: Auto-build trên HF Spaces (Docker) khi push lên `main` branch GitHub
 
 ## License
-Dữ liệu được cấp phép **CC‑BY‑SA 4.0**. Bạn có thể tái sử dụng, chỉnh sửa và phát hành lại với việc ghi nhận tác giả.
 
-## Citation
-Nếu bạn sử dụng bộ dữ liệu này trong công trình nghiên cứu, vui lòng trích dẫn:
-```
-@dataset{dongnai-education,
-  title   = {Dong Nai Education & Facilities Dataset},
-  author  = {Ngoc Tan},
-  year    = {2026},
-  url     = {https://huggingface.co/datasets/username/dongnai-education}
-}
-```
+Dữ liệu được cấp phép **CC‑BY‑SA 4.0**.

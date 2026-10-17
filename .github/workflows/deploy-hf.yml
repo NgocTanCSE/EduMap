@@ -1,0 +1,30 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install dependencies
+        run: pip install --upgrade huggingface_hub
+
+      - name: Sync to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Upload all files to HF Space (Docker Space auto-rebuilds on change)
+          # .huggingfaceignore skips unnecessary/large files
+          huggingface-cli upload tancse2005/Edumap . \
+            --repo-type space \
+            --token "$HF_TOKEN" \
+            --private false
