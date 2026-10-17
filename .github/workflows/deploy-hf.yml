@@ -22,8 +22,7 @@ jobs:
 
       - name: Install huggingface_hub (CLI)
         run: |
-          python3 -m pip install --upgrade --user huggingface_hub
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          python3 -m pip install --upgrade huggingface_hub
 
       - name: Upload to Hugging Face Space
         env:
