@@ -37,7 +37,7 @@ export class CloudflareAIService {
     }
   }
 
-  private readonly isReady: boolean {
+  private get isReady(): boolean {
     return Boolean(this.apiToken && this.accountId) || Boolean(this.hfToken);
   }
 
@@ -227,7 +227,6 @@ export class CloudflareAIService {
     }
 
     throw new Error('HF Inference API failed after all retries');
-  }
   }
 
   async analyzeGeoDensity(city: string, points: any[]): Promise<any> {
