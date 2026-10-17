@@ -53,7 +53,7 @@ FROM node:20-slim AS runtime
 WORKDIR /app
 
 # Install system dependencies: python3 (for AI svc), pip, supervisor (process manager)
-RUN apt-get update -qq && apt-get install -y -qq python3 python3-pip supervisor && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && apt-get install -y -qq python3 python3-pip supervisor curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # --- Frontend ---
 WORKDIR /app/frontend
@@ -113,7 +113,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261018
+ARG CACHEBUST=20261018-curl-installed
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite

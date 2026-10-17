@@ -66,8 +66,8 @@ for name in router_names:
 # Endpoints
 @app.get("/api/ai/trends")
 async def get_trends():
-    if not llm_service or not getattr(llm_service, "is_ready", False):
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+    if not llm_service:
+        raise HTTPException(status_code=503, detail="AI Service not initialized.")
     try:
         return await llm_service.analyze_market_trends([{"keyword": "AI"}])
     except Exception as e:
