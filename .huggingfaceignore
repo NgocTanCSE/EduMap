@@ -66,5 +66,12 @@ docs/
 /HF_DEPLOY_PLAN.md
 /seed_crawled_data.sql
 
+# ── Exclude stale ChromaDB data (regenerated at runtime) ──
+# *.bin files were excluded by upload_folder ignore_patterns but older
+# .bin files linger on HF Space from earlier uploads. A fresh chromadb
+# install (cache invalidated) can't read stale data → init hangs →
+# AI service crashes on startup. Exclude entirely; let it create fresh.
+ai-service/chroma_db/
+
 # ── Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db) ──
 # Scripts are REQUIRED for Docker build on HF Spaces — do NOT exclude scripts/

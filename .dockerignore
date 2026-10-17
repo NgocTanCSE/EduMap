@@ -38,6 +38,11 @@ backend/src/services/google-ai.service.ts
 backend/backup_modules/
 ai-service/app/
 aggressive_fix.py
+# Stale ChromaDB data from earlier uploads — *.bin files were excluded by
+# upload_folder ignore_patterns but older .bin files linger on HF Space.
+# A fresh chromadb (cache invalidated) can't read stale data → init hangs.
+# Let the AI service create a new chroma_db at runtime instead.
+ai-service/chroma_db/
 
 # Stale root artifacts
 package-lock.json

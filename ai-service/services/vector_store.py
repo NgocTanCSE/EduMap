@@ -55,21 +55,31 @@ class VectorStoreService:
             print("ChromaDB module not available. Vector store disabled.")
             return
         try:
-            db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-            self.client = chromadb.PersistentClient(path=db_path)
-            self.collection = self.client.get_or_create_collection(name="edumap_docs")
-            print(f"Vector store initialized at {db_path}")
-            # Pin the embedding dimension from the already-seeded collection (if any)
-            # so that get_embedding never returns a mismatched dim on the first query.
+            import signal as _signal
+
+            def _chroma_timeout_handler(signum, frame):
+                raise TimeoutError("ChromaDB initialization exceeded 15s — likely stale/corrupt data files.")
+
+            _signal.signal(_signal.SIGALRM, _chroma_timeout_handler)
+            _signal.alarm(15)
             try:
-                if self.collection and self.collection.count() > 0:
-                    get_res = self.collection.get(limit=1, include=["embeddings"])
-                    _embs = get_res.get("embeddings") if isinstance(get_res, dict) else None
-                    if _embs is not None and len(_embs) > 0:
-                        self._embed_dim = len(_embs[0])
-                        print(f"Collection da pin dimension = {self._embed_dim}")
-            except Exception as e:
-                print(f"Could not read collection dim on startup: {e}")
+                db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+                self.client = chromadb.PersistentClient(path=db_path)
+                self.collection = self.client.get_or_create_collection(name="edumap_docs")
+                print(f"Vector store initialized at {db_path}")
+                # Pin the embedding dimension from the already-seeded collection (if any)
+                # so that get_embedding never returns a mismatched dim on the first query.
+                try:
+                    if self.collection and self.collection.count() > 0:
+                        get_res = self.collection.get(limit=1, include=["embeddings"])
+                        _embs = get_res.get("embeddings") if isinstance(get_res, dict) else None
+                        if _embs is not None and len(_embs) > 0:
+                            self._embed_dim = len(_embs[0])
+                            print(f"Collection da pin dimension = {self._embed_dim}")
+                except Exception as e:
+                    print(f"Could not read collection dim on startup: {e}")
+            finally:
+                _signal.alarm(0)
         except Exception as e:
             print(f"Vector store initialization failed: {e}")
             self.collection = None
@@ -286,31 +296,6 @@ class VectorStoreService:
                 print(f"HF Inference API embedding ALSO failed: {e}")
 
         raise RuntimeError(f"Khong the lay embedding. Cloudflare: {cf_last_err or 'khong cau hinh'}")
-
-    def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
-        try:
-            if not self.collection:
-                raise RuntimeError("Vector store collection chưa được khởi tạo.")
-            save_fn = getattr(self.collection, "upsert", self.collection.add)
-            if self.has_api:
-                embeddings = [self.get_embedding(doc) for doc in documents]
-                save_fn(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
-            else:
-                save_fn(documents=documents, metadatas=metadatas, ids=ids)
-        except Exception as e:
-            print(f"Error adding documents to vector store: {e}")
-            raise
-
-    def query(self, query_text: str, n_results: int = 3):
-        try:
-            if self.has_api:
-                query_embedding = self.get_embedding(query_text)
-                return self.collection.query(query_embeddings=[query_embedding], n_results=n_results)
-            else:
-                return self.collection.query(query_texts=[query_text], n_results=n_results)
-        except Exception as e:
-            print(f"Error querying vector store: {e}")
-            raise
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:

@@ -81,10 +81,16 @@ COPY backend/package*.json ./
 
 # --- AI Service ---
 WORKDIR /app/ai-service
+# Copy the full Python 3.11 lib dir (stdlib + lib-dynload) so the /usr/local/bin/python3.11
+# binary (used by the `uvicorn` script's shebang) can find os.py, json/, encodings/, etc.
+# Previously only site-packages was copied, which caused "No module named site" or similar
+# fatal errors → uvicorn never started → port 8000 never listened → 502/503.
+COPY --from=ai-deps /usr/local/lib/python3.11 /usr/local/lib/python3.11
 COPY --from=ai-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=ai-deps /usr/local/lib/libpython3.11.so* /usr/local/lib/
 COPY --from=ai-deps /usr/local/bin /usr/local/bin
 COPY ai-service/ ./
-RUN touch services/__init__.py routers/__init__.py
+RUN touch services/__init__.py routers/__init__.py && ldconfig
 
 # --- Shared config ---
 WORKDIR /app
@@ -93,8 +99,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST
-ARG DB_CACHEBUST=1
+ARG CACHEBUST=20261018
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -110,6 +115,10 @@ ENV STORAGE_DIR=/app/uploads
 # --- AI model configs (HuggingFace Inference API fallback for Cloudflare Workers AI) ---
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
+# Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous
+# Space revision (whose *.bin files may have been partially excluded by upload
+# ignore_patterns) can never block or crash the AI service at startup.
+ENV CHROMA_DB_PATH=/tmp/chroma_db
 # Ensure Python packages copied from the python:3.11 image are discoverable
 # by the system python3 (Debian installs to /usr/lib, not /usr/local)
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages

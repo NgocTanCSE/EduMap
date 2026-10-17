@@ -1,11 +1,21 @@
 import os
 import uuid
-import psycopg2
 import time
-from psycopg2.extras import RealDictCursor, Json
-from psycopg2 import sql as pg_sql
-import json as _json
 from dotenv import load_dotenv
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor, Json
+    from psycopg2 import sql as pg_sql
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
+    psycopg2 = None
+    RealDictCursor = None
+    Json = None
+    pg_sql = None
+
+import json as _json
 
 load_dotenv()
 
@@ -37,7 +47,8 @@ class DBService:
                     port=os.getenv("DB_PORT", "5432"),
                     database=os.getenv("DB_DATABASE", "edumap_db"),
                     user=os.getenv("DB_USERNAME", "admin"),
-                    password=os.getenv("DB_PASSWORD", "password123")
+                    password=os.getenv("DB_PASSWORD", "password123"),
+                    connect_timeout=3
                 )
                 print("DB connection successful")
                 return
@@ -206,4 +217,8 @@ class DBService:
             self._rollback()
             return []
 
-db_service = DBService()
+if HAS_PSYCOPG2:
+    db_service = DBService()
+else:
+    db_service = None
+    print("psycopg2 not available — DBService disabled.")
