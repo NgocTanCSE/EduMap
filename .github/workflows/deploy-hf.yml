@@ -17,7 +17,7 @@ jobs:
           lfs: true
 
       - name: Install Hugging Face Hub
-        run: pip install --upgrade huggingface_hub
+        run: pip install --upgrade "huggingface_hub>=0.20.0"
 
       - name: Sync to HuggingFace Space (upload + delete stale files)
         env:
@@ -25,7 +25,7 @@ jobs:
         run: |
           # ── Sync local repo → HF Space via HTTP API ──
           #
-          # We use `upload_folder(delete=True)` instead of `hf upload` because:
+          # Why upload_folder(delete=True) instead of `hf upload`:
           #   `hf upload` only ADDS/UPDATES files — it NEVER deletes remote files
           #   that were removed locally. This caused a stale-file bug:
           #   google-ai.service.ts was deleted locally (replaced by
@@ -33,24 +33,40 @@ jobs:
           #   Docker `COPY backend/ ./` picked it up from cache → build failed
           #   with "Cannot find module '@google/generative-ai'".
           #
-          # `upload_folder(delete=True)` properly syncs BOTH ways — uploads new
-          # files AND deletes remote files that no longer exist locally.
+          # `upload_folder(delete=True)` syncs BOTH ways — uploads new files AND
+          # deletes remote files that no longer exist locally.
           #
-          # Exclusions:
-          #   - .huggingfaceignore: excludes docs/, mobile/, *.doc, *.docx, etc.
-          #   - exclude_patterns: extra safety for docs/** and mobile/**
+          # File filtering: .huggingfaceignore is auto-respected (gitignore-style)
+          # — excludes docs/, mobile/, *.doc, *.docx, *.pdf, etc.
           #
+          # Version compat: `exclude_patterns` → `>=0.23.0`, `ignore_patterns` → older.
           # HF_TOKEN is auto-detected by huggingface_hub from the environment.
           python3 -c "
+          import huggingface_hub
           from huggingface_hub import HfApi
+
           api = HfApi()
-          api.upload_folder(
+
+          # Parse version without external deps
+          parts = huggingface_hub.__version__.split('.')
+          major = int(parts[0])
+          minor = int(parts[1].split('+')[0].split('rc')[0])
+
+          kwargs = dict(
               folder_path='.',
               repo_id='tancse2005/Edumap',
               repo_type='space',
-              exclude_patterns=['docs/**', 'mobile/**'],
-              delete=True,       # ← CRITICAL: removes stale files from HF Space
+              delete=True,
               commit_message='chore: sync latest files to HF Space (delete=True)',
           )
-          print('✅ Sync complete — all files uploaded, stale files deleted')
+
+          # Newer versions (>=0.23.0) use exclude_patterns; older use ignore_patterns
+          if (major, minor) >= (0, 23):
+              kwargs['exclude_patterns'] = ['docs/**', 'mobile/**']
+          else:
+              kwargs['ignore_patterns'] = ['docs/**', 'mobile/**']
+
+          api.upload_folder(**kwargs)
+          print(f'✅ Sync complete (huggingface_hub v{huggingface_hub.__version__})')
+          print('   — all files uploaded, stale files deleted')
           "
