@@ -35,6 +35,10 @@ ARG CACHEBUST
 COPY backend/package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY backend/ ./
+# Safety net: remove stale files that might persist from old HF Space uploads.
+# (hf upload doesn't sync deletions; .dockerignore also excludes these, but
+#  this RUN ensures the build never fails even if Docker context includes them.)
+RUN rm -f src/services/google-ai.service.ts
 RUN npm rebuild sqlite3 --build-from-source
 RUN npx nest build
 

@@ -31,6 +31,14 @@ mobile
 # The root Dockerfile only COPYs backend/frontend/ai-service/scripts/... so
 # including crawlers/ in the context is harmless for the root image build.
 
+# ── Stale files (removed from repo but may persist on HF Space) ──
+# `hf upload` never deletes files, so old/deleted files can linger on HF Space
+# and get picked up by Docker COPY. These patterns exclude them from build context.
+backend/src/services/google-ai.service.ts
+backend/backup_modules/
+ai-service/app/
+aggressive_fix.py
+
 # Stale root artifacts
 package-lock.json
 
