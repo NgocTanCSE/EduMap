@@ -559,17 +559,43 @@ class LLMService:
                 max_tokens=2048,
                 temperature=0.3,
                 top_p=0.8)
-            
             reply_text = response.strip() if response and response else "Mình chưa tìm được câu trả lời phù hợp."
-            final_res = {"reply": reply_text, "sources": sources}
-            
-            cache_service.set(cache_key, final_res, ttl=3600)
-            
-            return final_res
-            
         except Exception as e:
-            print(f"AI Generation Error: {e}")
-            raise RuntimeError(f"AI Generation Error: {e}")
+            print(f"AI Generation Error: {e} — using template fallback")
+            reply_text = self._chat_fallback_reply(message, sources, context)
+
+        final_res = {"reply": reply_text, "sources": sources}
+        cache_service.set(cache_key, final_res, ttl=3600)
+        return final_res
+
+    def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
+        """Fallback trả lời khi LLM không khả dụng (Cloudflare/HF unreachable from HF Spaces).
+        Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
+        ctx = context or {}
+        available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
+        educational_locations = ctx.get("educational_locations", []) if isinstance(ctx.get("educational_locations"), list) else []
+
+        parts = []
+        parts.append("Xin chào! Tôi là Trợ lý ảo của EduMap DNTU. Hiện tại dịch vụ AI đang bảo trì nên tôi sẽ hỗ trợ dựa trên dữ liệu hệ thống:")
+        parts.append("")
+        parts.append(f"**Câu hỏi của bạn:** {message}")
+        parts.append("")
+        if sources:
+            parts.append("Dựa trên tài liệu tham khảo trong hệ thống:")
+            for i, src in enumerate(sources, 1):
+                title = src.get("title", f"Tài liệu {i}")
+                snippet = src.get("snippet", "")
+                if snippet and snippet.endswith("..."):
+                    snippet = snippet[:-3]
+                parts.append(f"  {i}. **{title}**: {snippet}")
+            parts.append("")
+        if available_books:
+            parts.append(f"Sách liệu liên quan: {', '.join(str(b) for b in available_books[:5])}")
+        if educational_locations:
+            parts.append(f"Địa điểm giáo dục gần bạn: {educational_locations[0]}")
+        parts.append("")
+        parts.append("Lưu ý: Đây là trả lời tự động dựa trên dữ liệu hệ thống. Để nhận tư vấn chi tiết và cá nhân hóa từ AI thực sự, vui lòng quay lại sau khi dịch vụ AI hoạt động trở lại.")
+        return "\n".join(parts)
 
     async def chat_response(self, message: str, history: list = None, context: dict = None):
         """Wrapper để tương thích với các module cũ."""
