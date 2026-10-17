@@ -141,10 +141,12 @@ jobs:
       # ─────────────────────────────────────────────────────────
       # Binary files are excluded by .huggingfaceignore (docs/, *.doc, etc.)
       # scripts/ MUST be included (Dockerfile COPYs verify_db.py from it)
-      hf upload tancse2005/Edumap . \
-        --repo-type space \
-        --exclude "docs/**" \
-        --exclude "mobile/**"
+      - name: Upload all other project files
+        run: |
+          hf upload tancse2005/Edumap . \
+            --repo-type space \
+            --exclude "docs/**" \
+            --exclude "mobile/**"
 
       # ─────────────────────────────────────────────────────────
       # STEP 4: Verify edumap.db on HF Space
