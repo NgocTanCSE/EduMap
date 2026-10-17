@@ -15,8 +15,13 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
-        run: pip install --upgrade huggingface_hub
+        run: python3 -m pip install --upgrade huggingface_hub
 
       - name: Sync to Hugging Face Space
         env:
@@ -24,7 +29,6 @@ jobs:
         run: |
           # Upload all files to HF Space (Docker Space auto-rebuilds on change)
           # .huggingfaceignore skips unnecessary/large files
-          huggingface-cli upload tancse2005/Edumap . \
+          python3 -m huggingface_hub upload tancse2005/Edumap . \
             --repo-type space \
-            --token "$HF_TOKEN" \
-            --private false
+            --token "$HF_TOKEN"
