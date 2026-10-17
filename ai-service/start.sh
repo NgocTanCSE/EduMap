@@ -113,6 +113,29 @@ for name, url in [('Cloudflare API', 'https://api.cloudflare.com/client/v4/user/
     except Exception as e:
         print(f'  {name} GET ({url}): ERROR — {type(e).__name__}: {e}')
 " >> "$LOG_FILE" 2>&1
+# Cloudflare POST test (actual LLM endpoint) + HF POST test (api-inference.hf.co)
+if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+    CF_TOKEN="$CLOUDFLARE_API_TOKEN" CF_ACCOUNT="$CLOUDFLARE_ACCOUNT_ID" $PY -c "
+import ssl, json, urllib.request, os
+cf_url = f'https://api.cloudflare.com/client/v4/accounts/{os.environ[\"CF_ACCOUNT\"]}/ai/run/@cf/meta/llama-3.1-8b-instruct-fp8'
+cf_body = json.dumps({'prompt': 'test', 'max_tokens': 10, 'temperature': 0.7}).encode('utf-8')
+cf_headers = {'Authorization': 'Bearer ' + os.environ['CF_TOKEN'], 'Content-Type': 'application/json'}
+req = urllib.request.Request(cf_url, data=cf_body, headers=cf_headers, method='POST')
+try:
+    resp = urllib.request.urlopen(req, timeout=15, context=ssl.create_default_context())
+    print(f'  Cloudflare POST (urllib): HTTP {resp.status} — {resp.read().decode()[:200]}')
+except Exception as e:
+    print(f'  Cloudflare POST (urllib): ERROR — {type(e).__name__}: {e}')
+try:
+    import requests
+    r = requests.post(cf_url, headers=cf_headers, json={'prompt': 'test', 'max_tokens': 10, 'temperature': 0.7}, timeout=15)
+    print(f'  Cloudflare POST (requests): HTTP {r.status_code} — {r.text[:200]}')
+except Exception as e:
+    print(f'  Cloudflare POST (requests): ERROR — {type(e).__name__}: {e}')
+" >> "$LOG_FILE" 2>&1
+else
+    echo "  Cloudflare POST: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set" >> "$LOG_FILE"
+fi
 echo "" >> "$LOG_FILE"
 echo "--- Testing main.py import ---" >> "$LOG_FILE"
 cd /app/ai-service && $PY -c "import main; print('main.py import OK')" >> "$LOG_FILE" 2>&1 || echo "main.py import FAILED" >> "$LOG_FILE"

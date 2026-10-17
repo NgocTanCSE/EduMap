@@ -181,8 +181,8 @@ class LLMService:
                         last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code}, thử model kế tiếp..."); break
                     except Exception as e:
                         if attempt <= per_model_retries:
-                            last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                        last_err = f"{model}: {e}"; print(f"Lỗi kết nối {model}, thử model kế tiếp..."); break
+                            last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, thử model kế tiếp..."); break
 
                     # Success path: parse Cloudflare response
                     if "error" in data and data.get("success") is False:
