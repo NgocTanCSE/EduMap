@@ -200,7 +200,7 @@ try:
                 _resp = getattr(e, 'response', None)
                 if _resp is not None:
                     _http_code = getattr(_resp, 'status_code', None)
-            _http_body = ""
+            _http_body = ''
             try:
                 _resp = getattr(e, 'response', None)
                 if _resp is not None:
