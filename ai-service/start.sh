@@ -139,13 +139,13 @@ fi
 # HF token validation + Inference API POST tests
 if [ -n "$HF_TOKEN" ]; then
     HF_TOKEN="$HF_TOKEN" $PY -c "
-import ssl, json, urllib.request, os
+import ssl, json, urllib.request, urllib.error, os, socket
+
 hf_token = os.environ.get('HF_TOKEN', '')
 hf_llm_model = os.environ.get('HF_LLM_MODEL', 'mistralai/Mistral-7B-Instruct-v0.2')
 ctx = ssl.create_default_context()
 payload = json.dumps({'inputs': 'test', 'parameters': {'max_new_tokens': 10, 'temperature': 0.7}}).encode('utf-8')
-bearer = 'Bearer ' + hf_token
-base_headers = {'Authorization': bearer, 'Content-Type': 'application/json'}
+base_headers = {'Authorization': 'Bearer ' + hf_token, 'Content-Type': 'application/json'}
 
 # 1. Token validation (whoami)
 try:
@@ -156,26 +156,51 @@ try:
 except Exception as e:
     print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
 
-# 2. Inference POST via api-inference.hf.co with Host header override
-#    (api-inference.huggingface.co doesn't resolve; try sending Host header that server expects)
-for desc, host, override_host in [
-    ('api-inference.hf.co (no Host override)', 'api-inference.hf.co', None),
-    ('api-inference.hf.co (Host: api-inference.huggingface.co)', 'api-inference.hf.co', 'api-inference.huggingface.co'),
-    ('api-inference.hf.co (Host: inference.hf.co)', 'api-inference.hf.co', 'inference.hf.co'),
-]:
-    url = f'https://{host}/models/{hf_llm_model}'
-    hdrs = dict(base_headers)
-    if override_host:
-        hdrs['Host'] = override_host
-    req = urllib.request.Request(url, data=payload, headers=hdrs, method='POST')
+# 2a. Check huggingface_hub version + InferenceClient availability
+try:
+    import huggingface_hub
+    print(f'  huggingface_hub version: {huggingface_hub.__version__}')
     try:
-        resp = urllib.request.urlopen(req, timeout=30, context=ctx)
-        print(f'  HF Inference POST ({desc}): HTTP {resp.status} — {resp.read().decode()[:200]}')
-    except urllib.error.HTTPError as e:
-        body = e.read().decode('utf-8', 'ignore')[:200]
-        print(f'  HF Inference POST ({desc}): HTTP {e.code} — {body[:200]}')
+        from huggingface_hub import InferenceClient
+        print(f'  InferenceClient: available')
+        client = InferenceClient(token=hf_token)
+        result = client.text_generation('Hello', max_new_tokens=10)
+        print(f'  InferenceClient text_gen: OK — {result[:200]}')
     except Exception as e:
-        print(f'  HF Inference POST ({desc}): ERROR — {type(e).__name__}: {e}')
+        print(f'  InferenceClient test: ERROR — {type(e).__name__}: {e}')
+except ImportError:
+    print('  huggingface_hub: NOT installed')
+
+# 2b. DNS override: monkey-patch socket.getaddrinfo to resolve
+#     api-inference.huggingface.co -> api-inference.hf.co IP
+_real_getaddrinfo = socket.getaddrinfo
+def _patched_getaddrinfo(host, *args, **kwargs):
+    if host == 'api-inference.huggingface.co':
+        return _real_getaddrinfo('api-inference.hf.co', *args, **kwargs)
+    return _real_getaddrinfo(host, *args, **kwargs)
+socket.getaddrinfo = _patched_getaddrinfo
+
+# Verify DNS override works
+try:
+    ip = socket.gethostbyname('api-inference.huggingface.co')
+    print(f'  DNS override: api-inference.huggingface.co -> {ip}')
+except Exception as e:
+    print(f'  DNS override: FAILED — {type(e).__name__}: {e}')
+
+# 2c. Try Inference API via api-inference.huggingface.co (with DNS override)
+url = f'https://api-inference.huggingface.co/models/{hf_llm_model}'
+req = urllib.request.Request(url, data=payload, headers=base_headers, method='POST')
+try:
+    resp = urllib.request.urlopen(req, timeout=30, context=ctx)
+    print(f'  HF POST (DNS override, canonical host): HTTP {resp.status} — {resp.read().decode()[:200]}')
+except urllib.error.HTTPError as e:
+    body = e.read().decode('utf-8', 'ignore')[:200]
+    print(f'  HF POST (DNS override, canonical host): HTTP {e.code} — {body[:200]}')
+except Exception as e:
+    print(f'  HF POST (DNS override, canonical host): ERROR — {type(e).__name__}: {e}')
+
+# Restore original
+socket.getaddrinfo = _real_getaddrinfo
 " >> "$LOG_FILE" 2>&1
 else
     echo "  HF token tests: HF_TOKEN not set" >> "$LOG_FILE"
