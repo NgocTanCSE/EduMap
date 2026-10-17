@@ -137,16 +137,68 @@ jobs:
           PYEOF
 
       # ─────────────────────────────────────────────────────────
-      # STEP 3: Upload all other project files
+      # STEP 3: Upload all other project files (Python API with explicit ignore)
       # ─────────────────────────────────────────────────────────
-      # Binary files are excluded by .huggingfaceignore (docs/, *.doc, etc.)
-      # scripts/ MUST be included (Dockerfile COPYs verify_db.py from it)
+      # The hf upload CLI command has been failing because it respects
+      # .gitignore (which has *.db) and .huggingfaceignore inconsistently.
+      # Using upload_folder() Python API with EXPLICIT ignore_patterns gives
+      # us full control over what gets uploaded.
+      #
+      # Binary files (.doc, .pdf, .png, .pbf, etc.) are excluded because
+      # HF Spaces API rejects binary files without Xet storage.
+      # The Dockerfile's verify_db.py handles edumap.db via GitHub fallback.
       - name: Upload all other project files
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          hf upload tancse2005/Edumap . \
-            --repo-type space \
-            --exclude "docs/**" \
-            --exclude "mobile/**"
+          python3 << 'PYEOF'
+          from huggingface_hub import HfApi
+          import os, sys
+
+          api = HfApi()
+          repo_id = 'tancse2005/Edumap'
+          repo_type = 'space'
+
+          # Explicitly exclude ALL binary files + dirs not needed by Docker build
+          # This ensures upload_folder() doesn't try to push binary files
+          # (which HF Spaces API rejects without Xet)
+          ignore_patterns = [
+              # Documentation & mobile (not needed at runtime)
+              'docs/**', 'mobile/**',
+              # OSRM data (1.3MB .pbf, not needed by Docker build)
+              'osrm-data/**',
+              # Binary document/image files
+              '*.doc', '*.docx', '*.pdf',
+              '*.png', '*.jpg', '*.jpeg', '*.gif', '*.bmp', '*.ico', '*.svg',
+              # Spreadsheets & diagrams
+              '*.xlsx', '*.xls', '*.ppt', '*.pptm', '*.puml',
+              # Binary data & archives
+              '*.bin', '*.zip', '*.tar', '*.gz', '*.tgz', '*.pbf', '*.sqlite3',
+              # AI model files
+              '*.gguf', '*.pt', '*.safetensors', '*.onnx',
+              # Database (already uploaded via upload_file above)
+              'frontend/public/edumap.db',
+              # SQL dump (PostgreSQL syntax, not needed by Docker build)
+              'seed_crawled_data.sql',
+              # Build artifacts & caches
+              'node_modules/**', 'frontend/node_modules/**', 'backend/node_modules/**',
+              '.next/**', 'frontend/.next/**',
+              'backend/dist/**', 'dist/**', 'build/**',
+              '__pycache__/**',
+              # Env files & OS junk
+              '.env', '.env.*', '.env.*', '.DS_Store', 'Thumbs.db', 'ehthumbs.db',
+              '.kilo/**', '*.log', '*.swp', '*.swo', '*.tsbuildinfo',
+          ]
+
+          files_uploaded = api.upload_folder(
+              folder_path='.',
+              repo_id=repo_id,
+              repo_type=repo_type,
+              ignore_patterns=ignore_patterns,
+              commit_message='chore: upload project files (binary excluded)',
+          )
+          print(f'  ✅ Uploaded project files to HF Space')
+          PYEOF
 
       # ─────────────────────────────────────────────────────────
       # STEP 4: Verify edumap.db on HF Space
