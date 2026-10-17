@@ -3,7 +3,6 @@ name: Sync to Hugging Face Space
 on:
   push:
     branches: [main]
-  # Cho phép chạy thủ công từ tab Actions
   workflow_dispatch:
 
 jobs:
@@ -19,7 +18,23 @@ jobs:
       - name: Install HuggingFace tools
         run: pip install --upgrade huggingface_hub
 
-      - name: Clean up ALL stale files on HF Space
+      - name: Verify local edumap.db is valid SQLite
+        run: |
+          python3 -c "
+          import sqlite3, os
+          f = 'frontend/public/edumap.db'
+          size = os.path.getsize(f)
+          print(f'  ℹ️  Local edumap.db: {size} bytes')
+          conn = sqlite3.connect(f)
+          n = conn.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]
+          conn.close()
+          print(f'  ℹ️  Tables: {n}')
+          assert size > 100000, f'edumap.db too small: {size} bytes — expected >1MB'
+          assert n > 0, 'edumap.db has no tables — invalid SQLite'
+          print('  ✅ Local edumap.db is valid')
+          "
+
+      - name: Clean up stale files on HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -31,10 +46,8 @@ jobs:
           # → "Cannot find module '@google/generative-ai'").
           #
           # ALSO: edumap.db has been showing as 132 bytes on HF Space despite
-          # being 1.3MB locally. This is because `hf upload .` (directory mode)
-          # respects .gitignore which has `*.db` — even with the !exception,
-          # huggingface_hub's parser may not honor it. We force-delete edumap.db
-          # here so the upload_file() step below can replace it with the correct version.
+          # being 1.3MB locally. We force-delete it here so the upload_file()
+          # step below can replace it with the correct version.
           python3 << 'PYEOF'
           from huggingface_hub import HfApi
           import subprocess, os
@@ -50,7 +63,6 @@ jobs:
               print(f'  ⚠️  Cannot list remote files: {e}')
               remote_files = set()
 
-          # Normalize: strip leading slashes, strip whitespace
           remote_files = {f.lstrip('/').strip() for f in remote_files}
           print(f'  ℹ️  Remote files on HF Space: {len(remote_files)}')
 
@@ -63,18 +75,15 @@ jobs:
           stale = remote_files - local_files
           stale = {f for f in stale if not f.startswith('.git') and f}
 
-          # ── 4. Also explicitly delete known stale/problematic files ──
-          # These files were deleted from the repo but may persist on HF Space.
-          # If list_repo_files missed them, we still clean them up.
+          # ── 4. Known stale files (safety net) ──
           known_stale = [
               'backend/src/services/google-ai.service.ts',
               'backend/backup_modules',
               'ai-service/app',
-              'frontend/public/edumap.db',  # Force delete stale/corrupt version
+              'frontend/public/edumap.db',
           ]
 
           all_to_delete = stale | set(known_stale)
-          # Re-check which ones are actually on the remote
           to_delete = {f for f in all_to_delete if f in remote_files or f.rstrip('/') in remote_files or any(r.startswith(f.rstrip('/') + '/') for r in remote_files)}
 
           print(f'  ℹ️  Stale files to delete: {len(to_delete)}')
@@ -83,9 +92,7 @@ jobs:
           for f in sorted(to_delete):
               try:
                   api.delete_file(
-                      path=f,
-                      repo_id=repo_id,
-                      repo_type=repo_type,
+                      path=f, repo_id=repo_id, repo_type=repo_type,
                       commit_message='chore: delete stale file (removed from repo)',
                   )
                   print(f'  🗑️  Deleted: {f}')
@@ -93,10 +100,7 @@ jobs:
               except Exception as e:
                   print(f'  ↺ Skipped: {f} ({e})')
 
-          if deleted == 0:
-              print('  ℹ️  No stale files to delete')
-          else:
-              print(f'  ✅ Deleted {deleted} stale file(s)')
+          print(f'  ✅ Deleted {deleted} stale file(s)' if deleted else '  ℹ️  No stale files to delete')
           PYEOF
 
       - name: Upload SQLite database FIRST (bypasses .gitignore)
@@ -107,19 +111,21 @@ jobs:
           #
           # Root cause: `hf upload .` (directory mode) uses upload_folder()
           # which respects .gitignore. The repo's .gitignore has `*.db` which
-          # can prevent edumap.db (1.3MB valid SQLite) from being uploaded,
-          # even with the !frontend/public/*.db exception.
+          # may exclude edumap.db even with the !frontend/public/*.db exception,
+          # because huggingface_hub's .gitignore parser ≠ git's parser.
           #
           # upload_file() (single-file mode) does NOT respect .gitignore.
-          # We upload edumap.db first so it's on HF Space before `hf upload .`
-          # triggers the Docker rebuild.
           python3 << 'PYEOF'
           from huggingface_hub import HfApi
-          import os
+          import os, sys
 
           local_path = 'frontend/public/edumap.db'
           size = os.path.getsize(local_path)
           print(f'  ℹ️  Local edumap.db size: {size} bytes')
+
+          if size < 100000:
+              print(f'  ❌ CRITICAL: Local edumap.db is only {size} bytes — expected >1MB!')
+              sys.exit(1)
 
           api = HfApi()
           api.upload_file(
@@ -127,28 +133,27 @@ jobs:
               path_in_repo='frontend/public/edumap.db',
               repo_id='tancse2005/Edumap',
               repo_type='space',
-              commit_message=f'chore: upload fresh edumap.db SQLite database ({size} bytes)',
+              commit_message=f'chore: upload fresh edumap.db SQLite ({size} bytes)',
           )
           print('  ✅ edumap.db uploaded (bypassed .gitignore)')
           PYEOF
 
-      - name: Upload all other files via HTTP API
+      - name: Upload all other files (excludes edumap.db + binary)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # ── Upload remaining project files to HF Space ──
           #
-          # Binary files are excluded by .huggingfaceignore:
-          #   docs/, *.doc, *.docx, *.pdf, *.png, *.xlsx, *.puml, *.bin, etc.
-          # Non-essential dirs excluded: mobile/, crawlers/, crawled_data/, etc.
+          # IMPORTANT: edumap.db is EXCLUDED here — it was already uploaded
+          # via upload_file() above. If `hf upload .` also picks it up via
+          # .gitignore exception, it uploads the SAME 1.3MB file (no harm).
+          # But if .gitignore blocks it, the file is already correct from above.
+          # Adding explicit --exclude as belt-and-suspenders.
           #
-          # IMPORTANT: scripts/ MUST be included — the Dockerfile COPYs it
-          # for supervisord to run the job crawler.
-          #
-          # HF_TOKEN is auto-detected by the `hf` CLI from env — no --token flag.
-          # edumap.db is NOT excluded by .gitignore here (already uploaded above).
-          # If .gitignore blocks it, the file is already on HF Space from the step above.
+          # Binary files excluded by .huggingfaceignore: docs/, *.doc, etc.
+          # scripts/ MUST be included (Dockerfile COPYs it for supervisord).
           hf upload tancse2005/Edumap . \
             --repo-type space \
             --exclude "docs/**" \
-            --exclude "mobile/**"
+            --exclude "mobile/**" \
+            --exclude "frontend/public/edumap.db"
