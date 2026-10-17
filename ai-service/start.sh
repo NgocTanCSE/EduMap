@@ -156,26 +156,28 @@ try:
 except Exception as e:
     print(f'  HF token validation: ERROR — {type(e).__name__}: {e}')
 
-# 2a. Check huggingface_hub version + InferenceClient (test with gpt2 which supports text-generation)
+# 2a. Check huggingface_hub version + InferenceClient signatures + tests
 try:
     import huggingface_hub
+    import inspect
     print(f'  huggingface_hub version: {huggingface_hub.__version__}')
     try:
         from huggingface_hub import InferenceClient
         print(f'  InferenceClient: available')
-        # Test with gpt2 (public model, supports text-generation)
+        sig = inspect.signature(InferenceClient.__init__)
+        print(f'  init params: {list(sig.parameters.keys())}')
+        # Try gpt2 with stream=False (avoids StopIteration from streaming)
         client = InferenceClient(token=hf_token, model='gpt2')
-        result = client.text_generation('Hello', max_new_tokens=10)
-        print(f'  InferenceClient text_gen (gpt2): OK — {result[:200]}')
+        try:
+            result = client.text_generation('Hello', max_new_tokens=10, stream=False)
+            print(f'  InferenceClient (gpt2, stream=False): OK — {result[:200]}')
+        except TypeError:
+            result = client.text_generation('Hello', max_new_tokens=10)
+            print(f'  InferenceClient (gpt2, no stream kwarg): OK — {result[:200]}')
+        except Exception as e:
+            print(f'  InferenceClient (gpt2, stream=False): ERROR — {type(e).__name__}: {e}')
     except Exception as e:
-        print(f'  InferenceClient test (gpt2): ERROR — {type(e).__name__}: {e}')
-    # Test with HF_LLM_MODEL
-    try:
-        client2 = InferenceClient(token=hf_token, model=hf_llm_model)
-        result2 = client2.text_generation('Hello', max_new_tokens=10)
-        print(f'  InferenceClient text_gen (HF_LLM_MODEL): OK — {result2[:200]}')
-    except Exception as e:
-        print(f'  InferenceClient test (HF_LLM_MODEL): ERROR — {type(e).__name__}: {e}')
+        print(f'  InferenceClient: ERROR — {type(e).__name__}: {e}')
 except ImportError:
     print('  huggingface_hub: NOT installed')
 

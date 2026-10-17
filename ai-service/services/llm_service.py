@@ -237,10 +237,15 @@ class LLMService:
             gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
             if top_p is not None:
                 gen_kwargs["top_p"] = top_p
-            result = client.text_generation(prompt, **gen_kwargs)
-            if result and result.strip():
-                return result.strip()
+            try:
+                result = client.text_generation(prompt, **gen_kwargs, stream=False)
+            except TypeError:
+                result = client.text_generation(prompt, **gen_kwargs)
+            if result and str(result).strip():
+                return str(result).strip()
             print("  HF InferenceClient returned empty response")
+        except StopIteration:
+            print("  HF InferenceClient: StopIteration (streaming mode failed, stream=False would help)")
         except Exception as e:
             print(f"  HF InferenceClient failed: {type(e).__name__}: {e}")
 
