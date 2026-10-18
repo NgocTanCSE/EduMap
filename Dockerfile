@@ -113,7 +113,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261018-curl-installed
+ARG CACHEBUST=20261018-curl-installed-v2
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -126,7 +126,10 @@ ENV AI_SERVICE_URL=http://127.0.0.1:8000
 ENV OSRM_URL=http://127.0.0.1:8000
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
-# --- AI model configs (HuggingFace Inference API fallback for Cloudflare Workers AI) ---
+# --- AI model configs (default Cloudflare Workers AI models; override via HF Spaces secrets) ---
+ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
+ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
+# --- HuggingFace Inference API fallback (used when Cloudflare tokens absent) ---
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
 # Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous

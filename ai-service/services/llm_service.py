@@ -152,12 +152,17 @@ class LLMService:
             cf_last_err = None
             base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
             last_err = None
-            per_model_retries = 0  # Space blocks outbound TLS — fail fast, no retries
+            # HF Spaces may route outbound traffic through a proxy or have slow DNS,
+            # so allow 1 retry per model (not 0) and generous timeouts.
+            per_model_retries = 1
 
             for model in self.model_candidates:
-                # URL-encode model name — @char in path can be misinterpreted
-                # as userinfo separator by some HTTP stacks.
-                encoded_model = urllib.parse.quote(model, safe='')
+                # URL-encode only the @ prefix (keeps it from being treated as
+                # a userinfo separator) but PRESERVE / so Cloudflare sees the
+                # full model path: @cf/meta/llama-3.1-8b-instruct-fp8
+                # Encoding / as %2F flattens the path into a single segment
+                # → Cloudflare returns "No route for that URI" (code 7000).
+                encoded_model = urllib.parse.quote(model, safe='/')
                 url = f"{base_url}/{encoded_model}"
                 payload = {
                     "prompt": prompt,
@@ -180,13 +185,14 @@ class LLMService:
                     try:
                         # Use curl (OpenSSL TLS) — bypasses Python ssl module TLS issues in HF Spaces
                         # --insecure skips cert verification (HF Spaces may have a MITM proxy with custom CA)
+                        # Timeouts bumped from 3s/8s to 10s/30s — HF Spaces network + proxy adds latency
                         _curl = subprocess.run(
                             ["curl", "--insecure", "-sS", "-X", "POST",
                              "-H", f"Authorization: Bearer {self.api_token}",
                              "-H", "Content-Type: application/json",
                              "-d", body_json.decode("utf-8"),
-                             "--connect-timeout", "3", "--max-time", "8", url],
-                            capture_output=True, text=True, timeout=12)
+                             "--connect-timeout", "10", "--max-time", "30", url],
+                            capture_output=True, text=True, timeout=40)
                         if _curl.returncode == 0 and _curl.stdout.strip():
                             data = json.loads(_curl.stdout)
                         else:

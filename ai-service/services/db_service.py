@@ -217,8 +217,19 @@ class DBService:
             self._rollback()
             return []
 
-if HAS_PSYCOPG2:
+if __name__ == '__main__':
+    pass  # module entry point
+
+# In HF Spaces mode (SQLite), the AI service does NOT connect to PostgreSQL.
+# Data access (POIs, materials, chat history) is handled by the NestJS backend
+# which uses SQLite. The AI service's db_service is only needed for direct DB
+# queries (geo analysis, analytics, chat history) which require PostGIS.
+# Setting conn=None makes every method gracefully return []/None.
+if HAS_PSYCOPG2 and os.getenv("DB_TYPE", "postgres").lower() != "sqlite":
     db_service = DBService()
 else:
     db_service = None
-    print("psycopg2 not available — DBService disabled.")
+    if os.getenv("DB_TYPE", "postgres").lower() == "sqlite":
+        print("PostgreSQL disabled (DB_TYPE=sqlite) — AI service relies on backend for data access, no direct DB needed.")
+    else:
+        print("psycopg2 not available — DBService disabled.")

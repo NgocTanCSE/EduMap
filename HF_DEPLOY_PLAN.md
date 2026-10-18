@@ -1,310 +1,398 @@
-# 📋 Kế hoạch Migrate EduMap → 1 HF Space (2 vCPU, 16GB RAM, 1GB disk, port 7680)
+# 📘 EduMap — Hướng dẫn Triển khai Docker & HuggingFace Spaces
 
-> **✅ AI service giữ nguyên** — chỉ gọi external API, không tải model lên → CPU/RAM nhỏ
+> **✅ Trạng thái**: Hoạt động ổn định — tất cả endpoints đã được kiểm thử qua Docker local. Cấu hình này làm việc trên cả local Docker và HuggingFace Spaces.
 
----
+EduMap là một ứng dụng full-stack giáo dục bao gồm 3 service chính:
 
-## 🏗️ Kiến trúc (cập nhật — giữ nguyên AI service)
-
-```
-HF Space (port 7680)
-│
-├─ supervisord (process manager)
-│   ├─ Next.js Frontend + BFF (7680) ← PUBLIC PORT ✅
-│   ├─ NestJS Backend (3000) ← localhost
-│   └─ Python FastAPI AI (8000) ← localhost (thin proxy → external APIs)
-│
-├─ SQLite (in-process, ~5MB) → thay thế PostgreSQL 16
-├─ LRU cache (in-process) → thay thế Redis
-├─ OpenRouteService API → thay thế OSRM
-└─ FileSystem (/tmp) hoặc Supabase → thay thế MinIO
-```
+| Service | Port | Tech | Mô tả |
+|---|---|---|---|
+| **Frontend + BFF** | 7680 | Next.js 14 (App Router) | Trang web công khai, SSR + BFF proxy |
+| **Backend** | 3000 | NestJS | API server, xác thực, SQLite data layer |
+| **AI Service** | 8000 | FastAPI | Chatbot AI (proxy tới Cloudflare Workers AI + HF Inference) |
+| **Crawler** | — | Python | CRON crawl hackathons/events (tùy chọn) |
 
 ---
 
-## 📊 Tài nguyên (2 vCPU, 16GB RAM, 1GB disk)
+## 🏗️ Kiến trúc (Single Container via supervisord)
 
-| Service | Processes | CPU | RAM | Disk |
-|---|---|---|---|---|
-| Next.js (FE + BFF) | 1 | 0.5-1 vCPU | 500MB | 200MB |
-| NestJS (Backend) | 1 | 0.5 vCPU | 500MB | 150MB |
-| **FastAPI AI** | 1 | **0.1 vCPU** (thin proxy) | **100MB** | 5MB |
-| **Tổng cộng** | **3** | ~2 vCPU | **~1.1GB** | **~360MB** ✅ |
+```
+HF Space / Docker Container (port 7680 là PUBLIC PORT)
+│
+├─ supervisord (PID 1)
+│   ├─ frontend     → Next.js start  :7680   ← PUBLIC
+│   ├─ backend      → Node NestJS     :3000   ← localhost
+│   ├─ ai-service   → Python FastAPI  :8000   ← localhost
+│   └─ crawler      → Python (CRON)     —     ← tùy chọn
+│
+├─ SQLite  (/app/frontend/public/edumap.db)  — 90 tables, ~1.3MB
+├─ ChromaDB (/tmp/chroma_db)                 — vector store (in-memory, ephemeral)
+├─ LRU cache (in-process)                    — thay thế Redis
+└─ Filesystem (/tmp)                         — thay thế MinIO
+```
 
-> **AI service chỉ là proxy**: FastAPI nhận request → gọi OpenAI/CF API → trả về response → **không chạy model cục tiểu** → chiếm tối thiểu CPU/RAM
+### Services được thay thế (so với Docker Compose ban đầu)
 
-### Services được thay thế:
-| Service | Thay thế | Lý do |
+| Service gốc | Thay thế | Lý do |
 |---|---|---|
-| PostgreSQL (v16) | **SQLite** | PG binary + data vượ quá 1GB disk |
-| Redis | **LRU cache** | Không cần thiết, giảm process |
-| OSRM | **OpenRouteService API** | Routing graph chiếm 1GB disk + 1 vCPU |
-| MinIO | **FileSystem /tmp** | 1GB disk, MinIO image + data lớn |
-| NGINX | **Removed** | Next.js + BFF handles routing |
+| PostgreSQL 16 | **SQLite** | Binary + data vượt quá 1GB disk limit của HF Spaces |
+| Redis | **LRU cache (in-process)** | Giảm process, giảm RAM |
+| OSRM | **OpenRouteService API** | Routing graph chiếm 1GB+ disk |
+| MinIO | **Filesystem /tmp** | HF Spaces không có s3 bucket |
+| NGINX | **Removed** | Next.js + BFF xử lý routing |
 
 ---
 
-## Phase 1: PostgreSQL → SQLite (1 ngày)
+## 🐳 Chạy Local với Docker
 
-### 1.1 Export schema + data từ running PostgreSQL
+### 1. Build image
+
 ```bash
-# Export data (preserve schema)
-docker exec -t edumap_postgres pg_dump -U edumap -d edumap_db --inserts --clean > /tmp/data.sql
-
-# Convert PostgreSQL syntax → SQLite (types, serial, etc.)
-python3 scripts/pg_to_sqlite.py /tmp/data.sql → /app/public/edumap.db
+docker build -t edumap-hf:latest .
 ```
 
-### 1.2 Replace TypeORM config
-```typescript
-// backend/src/config/database.config.ts
-import Database from 'better-sqlite3';
-const db = new Database(process.env.SQLITE_PATH || './public/edumap.db');
-export default db;
-```
+### 2. Chuẩn bị `.env`
 
-### 1.3 Seed script (startup hook)
-```bash
-# init-sqlite.sh
-if [ ! -f /app/public/edumap.db ]; then
-  sqlite3 /app/public/edumap.db < /app/seed.sql
-  echo "DB seeded ✅"
-fi
-```
+File `.env` chứa các secret cần thiết (được cung cấp sẵn):
 
-### 1.4 Bỏ qua bảng lớn không cần thiết
-```sql
--- Bỏ các bảng log/crawler data (giảm DB size)
-DROP TABLE IF EXISTS audit_logs;
-DROP TABLE IF EXISTS crawl_history;
-DROP TABLE IF EXISTS ai_conversations;
-DROP TABLE IF EXISTS chat_messages;
-```
-
----
-
-## Phase 2: Redis → LRU Cache (0.5 ngày)
-
-### 2.1 Replace ioredis → lru-cache
-```typescript
-// frontend/src/lib/cache.ts
-import LRU from 'lru-cache';
-const cache = new LRU<string, any>({ max: 1000, ttl: 300_000 });
-export default cache;
-```
-
-### 2.2 Update all cache calls
-```bash
-grep -rn "ioredis\|redis\|Redis" backend/src/ frontend/src/ | grep -v node_modules
-→ replace with lru-cache
-```
-
----
-
-## Phase 3: OSRM → OpenRouteService (0.5 ngày)
-
-### 3.1 Convert routing.service.ts
-```typescript
-// backend/src/modules/map/routing.service.ts
-const ORS_API_KEY = process.env.ORS_API_KEY;
-const ORS_URL = 'https://api.openrouteservice.org/v2/directions';
-
-export async function getRoute(start:[number,number], end:[number,number]) {
-  const res = await fetch(`${ORS_URL}/driving-car`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${ORS_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ coordinates: [start, end] }),
-  });
-  return await res.json();
-}
-```
-> **Free tier**: 2,000 req/day — đủ cho demo
-
----
-
-## Phase 4: MinIO → FileSystem (0.5 ngày)
-
-### 4.1 Replace MinIO client → Node.js fs
-```typescript
-// backend/src/modules/storage/storage.service.ts
-import { promises as fs } from 'fs';
-const UPLOAD_DIR = process.env.UPLOAD_DIR || '/tmp/edumap-uploads';
-
-async uploadFile(userId:string, fileName:string, buffer:Buffer) {
-  const dir = `${UPLOAD_DIR}/${userId}`;
-  await fs.mkdir(dir, { recursive: true });
-  const filename = `${Date.now()}-${fileName}`;
-  await fs.writeFile(`${dir}/${filename}`, buffer);
-  return { file_url: `/api/storage/media/${filename}` };
-}
-
-async serveFile(filename:string) {
-  return await fs.readFile(`${UPLOAD_DIR}/${filename}`);
-}
-```
-
-> **Note**: /tmp files mất khi HF Space restart — acceptable cho demo
-
----
-
-## Phase 5: AI Service (0.5 ngày — GIỮ NGUYÊN)
-
-### 5.1 AI service giữ nguyên nguyên trạng
-- `ai-service/main.py` — FastAPI app
-- `ai-service/routers/geo.py` — geo analysis
-- `ai-service/routers/chat.py` — chat bot
-- Chỉ gọi external API (OpenAI, Cloudflare, etc.) → **không cần model cục tiếp**
-
-### 5.2 Environment variables (HF Spaces secrets)
 ```env
-OPENAI_API_KEY=<secret>
-CLOUDFLARE_API_KEY=<secret>
-ORS_API_KEY=<secret>
-MINIO_ENDPOINT=unused  # không dùng nữa
+# Bắt buộc cho AI service (Cloudflare Workers AI)
+CLOUDFLARE_API_TOKEN=⟦SECRET_REDACTED⟧
+CLOUDFLARE_ACCOUNT_ID=⟦SECRET_REDACTED⟧
+CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
+CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
+
+# Bắt buộc cho backend auth
+JWT_SECRET=edumap-local-dev-secret
+
+# Tùy chọn (cho HF Inference API fallback)
+HF_TOKEN=your_hf_token_here
+ORS_API_KEY=your_ors_key_here   # cho geo routing
 ```
 
-### 5.3 supervisord config
-```ini
-[program:ai-service]
-command=python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
-directory=/app/ai-service
-stdout_logfile=/dev/stdout
-stderr_logfile=/dev/stderr
-autostart=true
-autorestart=true
-```
-
----
-
-## Phase 6: Dockerfile + supervisord (1 ngày)
-
-### 6.1 `Dockerfile` (single image, multi-stage)
-```dockerfile
-# Build stage
-FROM node:20-alpine AS node-builder
-RUN apk add --no-cache python3 sqlite
-WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npx next build
-
-FROM python:3.11-slim AS python-builder
-COPY ai-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Runtime stage
-FROM node:20-alpine
-RUN apk add --no-cache supervisor python3 sqlite curl
-WORKDIR /app
-
-# Copy builds
-COPY --from=node-builder /app/.next ./.next
-COPY --from=node-builder /app/public ./public
-COPY --from=node-builder /app/package.json ./package.json
-COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
-# Copy AI service + backend + config
-COPY ai-service/ ./ai-service/
-COPY backend/dist ./backend/dist
-COPY backend/package.json ./backend/
-RUN cd backend && npm install --production
-COPY backend/src/database/seed.sql ./seed.sql
-COPY infrastructure/supervisord.conf /etc/supervisor/conf.d/
-COPY infrastructure/init-sqlite.sh /app/init-sqlite.sh
-RUN chmod +x /app/init-sqlite.sh
-
-# spaCers.yaml
-COPY spacers.yaml /app/
-
-EXPOSE 7680
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
-```
-
-### 6.2 `infrastructure/supervisord.conf`
-```ini
-[supervisord]
-nodaemon=true
-
-[program:init-db]
-command=/bin/sh -c "/app/init-sqlite.sh"
-autostart=true
-autorestart=false
-startsecs=0
-
-[program:nestjs]
-command=node /app/backend/dist/main.js
-directory=/app/backend
-environment=DB_TYPE="sqlite",SQLITE_PATH="/app/public/edumap.db",AI_SERVICE_URL="http://localhost:8000",PORT="3000"
-stdout_logfile=/dev/stdout
-stderr_logfile=/dev/stderr
-autostart=true
-autorestart=true
-
-[program:ai-service]
-command=python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
-directory=/app/ai-service
-stdout_logfile=/dev/stdout
-stderr_logfile=/dev/stderr
-autostart=true
-autorestart=true
-
-[program:nextjs]
-command=node /app/.next/standalone/server.js
-directory=/app
-environment=NODE_ENV="production",PORT="7680",BACKEND_URL="http://localhost:3000,NEXT_PUBLIC_API_URL="http://localhost:7680/api"
-stdout_logfile=/dev/stdout
-stderr_logfile=/dev/stderr
-autostart=true
-autorestart=true
-```
-
----
-
-## Phase 7: Deploy + Test (0.5 ngày)
+### 3. Chạy container
 
 ```bash
-# Push to HF Spaces
-cd frontend
-git init  # if not yet
-git remote add origin https://huggingface.co/spaces/nguyenca/edumap
-git add -A && git commit -m "Migrate EduMap to HF Space"
-git push
+source .env && docker run -d \
+  --name edumap-hf-test \
+  -p 7680:7680 -p 3000:3000 -p 8000:8000 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+  -e CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" \
+  -e CLOUDFLARE_MODEL="$CLOUDFLARE_MODEL" \
+  -e CLOUDFLARE_EMBEDDING_MODEL="$CLOUDFLARE_EMBEDDING_MODEL" \
+  edumap-hf:latest
+```
 
-# Test
-curl https://<space>.hf.space/api/hackathons → 200 + 30 items
-curl https://<space>.hf.space/api/map/pois → 200 + 49 items  
-curl https://<space>.hf.space/hackathon → 200 (SSR page)
-curl https://<space>.hf.space/api/ai/chat → 200 (FastAPI proxy)
+> **Lưu ý**: Các secret (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `JWT_SECRET`) **không bao giờ** được hardcode vào Dockerfile — chúng được truyền qua env vars tại runtime. Các giá trị mặc định không nhạy cảm (như model names, database paths) được đặt trong Dockerfile ENV.
+
+### 4. Kiểm tra
+
+Chờ khoảng 20-30 giây để tất cả services khởi động, sau đó kiểm tra logs:
+
+```bash
+docker logs -f edumap-hf-test
+```
+
+Bạn nên thấy:
+```
+supervisord started with pid 1
+PostgreSQL disabled (DB_TYPE=sqlite) — AI service relies on backend for data access
+success: backend entered RUNNING state
+success: frontend entered RUNNING state
+AI SERVICE READY
+Nest application successfully started
+success: ai-service entered RUNNING state
+success: crawler entered RUNNING state
 ```
 
 ---
 
-## 📊 Timeline (3.5 ngày)
+## 🌐 Triển khai trên HuggingFace Spaces
 
-| Phase | Task | Days |
-|---|---|---|
-| 1 | PostgreSQL → SQLite | 1 |
-| 2 | Redis → LRU cache | 0.5 |
-| 3 | OSRM → OpenRouteService | 0.5 |
-| 4 | MinIO → FileSystem | 0.5 |
-| 5 | AI service (keep as-is) + env config | 0.5 |
-| 6 | Dockerfile + supervisord | 1 |
-| 7 | Test + deploy | 0.5 |
+### Cách thức hoạt động
+
+HF Spaces hỗ trợ **Docker** (chức năng "Docker" template). Khi bạn đẩy commit, HF Spaces sẽ tự động build và chạy `Dockerfile` ở thư mục gốc.
+
+### Bước 1: Cấu hình Spacers
+
+Xem file `spacers.yaml` — chỉ định:
+- Port 7680 (public)
+- Disk: 1GB (cho SQLite + ChromaDB)
+- RAM: tối thiểu 2GB
+
+### Bước 2: Cài đặt Secrets trên HF Spaces
+
+Trong trang Quản lý Spaces → **Secrets** → thêm:
+
+| Secret name | Giá trị |
+|---|---|
+| `JWT_SECRET` | `edumap-local-dev-secret` |
+| `CLOUDFLARE_API_TOKEN` | Token từ Cloudflare API |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID của bạn |
+| `CLOUDFLARE_MODEL` | `@cf/meta/llama-3.1-8b-instruct-fp8,...` |
+| `CLOUDFLARE_EMBEDDING_MODEL` | `@cf/baai/bge-base-en-v1.5,...` |
+| `HF_TOKEN` | (tùy chọn) HF token cho fallback |
+| `ORS_API_KEY` | (tùy chọn) OpenRouteService API key |
+
+### Bước 3: Deploy
+
+```bash
+cd frontend
+git remote add origin https://huggingface.co/spaces/your-username/edumap
+git add -A && git commit -m "Deploy EduMap to HF Spaces"
+git push
+```
 
 ---
 
-## ✅ Kết quả mong đợi
+## 🔧 Các fixes đã áp dụng
 
-| Feature | Before (Docker) | After (HF Space) |
+### Fix 1: Cloudflare API URL Encoding (ROOT CAUSE)
+
+**Vấn đề**: `urllib.parse.quote(model, safe='')` mã hóa cả `/` thành `%2F`, làm mất cấu trúc URL path. Cloudflare trả về `{"success":false,"errors":[{"code":7000,"message":"No route for that URI"}]}`.
+
+**File**: `ai-service/services/llm_service.py` (dòng ~160)
+
+```python
+# TRƯỚC (lỗi):
+encoded_model = urllib.parse.quote(model, safe='')
+# @cf/meta/llama-3.1-8b-instruct-fp8 → %40cf%2Fmeta%2Fllama-3.1-8b-instruct-fp8
+# Cloudflare: "No route for that URI" (code 7000)
+
+# SAU (đã fix):
+encoded_model = urllib.parse.quote(model, safe='/')
+# @cf/meta/llama-3.1-8b-instruct-fp8 → %40cf/meta/llama-3.1-8b-instruct-fp8
+# Cloudflare: ✅ Success
+```
+
+**Kiểm chứng**: Direct test Cloudflare API trả về `success: true` với phản hồi thực từ LLM.
+
+### Fix 2: AI service PostgreSQL connection noise
+
+**Vấn đề**: `db_service.py` cố kết nối PostgreSQL 3 lần dù `DB_TYPE=sqlite`, tạo log lỗi không cần thiết.
+
+**File**: `ai-service/services/db_service.py`
+
+```python
+# TRƯỚC: db_service = DBService() (luôn kết nối PostgreSQL)
+# SAU:
+if HAS_PSYCOPG2 and os.getenv("DB_TYPE", "postgres").lower() != "sqlite":
+    db_service = DBService()
+else:
+    db_service = None
+    if os.getenv("DB_TYPE", "postgres").lower() == "sqlite":
+        print("PostgreSQL disabled (DB_TYPE=sqlite) — AI service relies on backend for data access")
+    else:
+        print("psycopg2 not available — DBService disabled.")
+```
+
+### Fix 3: BFF chat error handling
+
+**Vấn đề**: Khi backend trả về 401 (thiếu auth), BFF đánh giá là "lỗi kết nối" và trả về 502 — gây nhầm lẫn người dùng.
+
+**File**: `frontend/app/api/ai/chat/route.ts`
+
+```typescript
+// TRƯỚC: luôn trả về 502 cho mọi lỗi
+{ message: 'Không thể kết nối với dịch vụ AI Backend.', status: 502 }
+
+// SAU: phân biệt 401/403 và các lỗi khác
+if (response.status === 401 || response.status === 403) {
+  return NextResponse.json(
+    { message: 'Bạn cần đăng nhập...', error: 'AUTH_REQUIRED', ... },
+    { status: response.status }  // ← 401 thực sự
+  );
+}
+// Các lỗi khác: pass-through status code từ backend
+```
+
+### Fix 4: Sentry deprecation warning
+
+**File**: `frontend/next.config.js`
+
+```javascript
+// TRƯỚC:
+const { withSentryConfig } = require("@sentry/nextjs");      // ← deprecated
+
+// SAU:
+const { withSentryConfig } = require("@sentry/nextjs/config"); // ✅ v10+
+```
+
+### Fix 5: Dockerfile ENV defaults
+
+Thêm env vars mặc định vào Dockerfile:
+
+```dockerfile
+ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
+ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
+```
+
+---
+
+## 🧪 Test Suite (đã chứng minh trên Docker)
+
+Chạy các lệnh sau sau khi container khởi động:
+
+| # | Test | Lệnh | Kết quả kỳ vọng |
+|---|---|---|---|
+| 1 | Frontend homepage | `curl -s -o /dev/null -w "%{http_code}" http://localhost:7680/` | `200` |
+| 2 | Backend health | `curl http://localhost:7680/api/health` | `{"status":"ok","service":"edumap-backend"}` |
+| 3 | Map POIs (SQLite) | `curl "http://localhost:7680/api/map/pois?limit=5"` | 5 items từ SQLite |
+| 4 | Hackathons | `curl http://localhost:7680/api/hackathons` | 30 hackathons từ Devpost |
+| 5 | AI service health | `curl http://localhost:8000/health` | `{"status":"ok","ai_ready":true,"db_ready":false}` |
+| 6 | AI chat (Cloudflare) | `curl -X POST http://localhost:8000/api/ai/chat -H "Content-Type: application/json" -d '{"message":"Xin chào","history":[]}'` | `reply` chứa phản hồi thực từ LLM |
+| 7 | BFF chat (401) | `curl -X POST http://localhost:7680/api/ai/chat -H "Content-Type: application/json" -d '{"message":"test","history":[]}'` | `401` + `{"error":"AUTH_REQUIRED"}` |
+| 8 | BFF search (public) | `curl "http://localhost:7680/api/ai/search?q=university"` | `200` + kết quả tìm kiếm |
+| 9 | Frontend map page | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/map` | `200` |
+| 10 | Frontend hackathon | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/hackathon` | `200` |
+
+### Kết quả test (phiên bản đã fix)
+
+```
+✅ All 10 tests passed — container restart verified (stability)
+```
+
+---
+
+## ⚠️ Known Limitations (HF Spaces mode)
+
+| Tính năng | Trạng thái | Ghi chú |
 |---|---|---|
-| Homepage | `localhost/` | `https://<space>.hf.space/` ✅ |
-| Hackathons | BFF→Devpost | BFF→Devpost ✅ |
-| Map POIs | PostgreSQL (49 pts) | SQLite (49 pts) ✅ |
-| Events | PostgreSQL (5) | SQLite (5) ✅ |
-| Chỉ đường | OSRM local | OpenRouteService API ✅ |
-| Chat AI | FastAPI→OpenAI | FastAPI→OpenAI ✅ |
-| Upload files | MinIO bucket | /tmp filesystem ✅ |
-| Storage | Redis cache | LRU cache ✅ |
+| AI chat | ✅ Hoạt động | Cloudflare Workers AI (cần API token) |
+| Map POIs | ✅ Hoạt động | SQLite, 1000+ POIs |
+| Hackathons | ✅ Hoạt động | Crawled từ Devpost API |
+| Geo analysis (POSTGIS) | ⚠️ Giới hạn | Cần PostgreSQL/PostGIS — trả về 503 trong SQLite mode |
+| Search | ✅ Hoạt động | ChromaDB vector search |
+| File upload | ⚠️ Tạm thời | Lưu vào /tmp (mất khi restart) |
+| Chat history | ⚠️ Tạm thời | Lưu trong memory (không persist) |
+| Career jobs | ✅ Hoạt động | Crawled từ Devpost |
 
-> **AI service không thay đổi gì** — vẫn gọi API bên ngoài, chỉ chuyển từ `http://localhost:8000` (Docker) sang `http://localhost:8000` (HF Space localhost) 🎯
+---
+
+## 📁 Cấu trúc dự án
+
+```
+EduMap/
+├── Dockerfile              # Multi-stage build (frontend-builder, frontend-deps, backend-builder, ai-deps, runtime)
+├── supervisord.conf      # Process manager: frontend, backend, ai-service, crawler
+├── spacers.yaml          # HF Spaces app configuration (port, disk, cpu)
+├── .dockerignore         # Optimized (excludes .next, dist, node_modules)
+├── .env.example          # Environment variable template (secrets redacted)
+│
+├── frontend/             # Next.js 14 App Router (Bundled in Docker)
+│   ├── app/
+│   │   ├── api/          # BFF routes (auth proxy, ai/chat, ai/search, ai/learning-path)
+│   │   └── ...           # Page routes (map, hackathon, career, events, etc.)
+│   ├── next.config.js    # Rewrites /api → backend, Sentry config
+│   └── public/
+│       └── edumap.db     # SQLite database (90 tables)
+│
+├── backend/              # NestJS API Server
+│   ├── src/
+│   │   ├── app.module.ts    # ConfigModule + TypeORM + all modules
+│   │   ├── config/
+│   │   │   └── data-source.ts   # SQLite config (DB_TYPE=sqlite)
+│   │   ├── common/
+│   │   │   └── adapters/
+│   │   │       └── redis-io.adapter.ts  # Socket.IO (falls back to in-memory)
+│   │   ├── modules/
+│   │   │   ├── ai/       # AI controller/service (proxy to FastAPI)
+│   │   │   ├── map/      # Map POIs, geo routing (OpenRouteService)
+│   │   │   ├── events/   # Hackathons, career events
+│   │   │   ├── ...       # auth, users, materials, etc.
+│   │   └── services/
+│   │       └── cloudflare-ai.service.ts   # Cloudflare Workers AI integration
+│   └── package.json
+│
+├── ai-service/           # FastAPI AI Service (thin proxy)
+│   ├── main.py           # App entry — uvicorn on :8000
+│   ├── services/
+│   │   ├── llm_service.py       # Cloudflare + HF API proxy (URL encoding fixed)
+│   │   ├── db_service.py        # PostgreSQL/PostGIS (disabled in SQLite mode)
+│   │   └── vector_store.py      # ChromaDB vector store
+│   ├── routers/          # chat, geo, analytics, career, suggestions
+│   └── requirements.txt
+│
+├── scripts/
+│   └── verify_db.py      # SQLite validation (90 tables check)
+│
+├── infrastructure/       # Docker Compose files (for local full-stack dev)
+│   ├── docker-compose.yml
+│   └── docker-compose.override.yml
+│
+└── seed_crawled_data.sql # Seed data for hackathons/career events
+```
+
+---
+
+## 🚀 Quick Start (Local Dev)
+
+### Docker (single container — HF Spaces config)
+
+```bash
+source .env
+docker build -t edumap-hf:latest .
+docker run -d --name edumap-hf \
+  -p 7680:7680 -p 3000:3000 -p 8000:8000 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+  -e CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" \
+  -e CLOUDFLARE_MODEL="$CLOUDFLARE_MODEL" \
+  -e CLOUDFLARE_EMBEDDING_MODEL="$CLOUDFLARE_EMBEDDING_MODEL" \
+  edumap-hf:latest
+```
+
+Truy cập: http://localhost:7680
+
+### Docker Compose (full-stack local dev — PostgreSQL + Redis)
+
+```bash
+cd infrastructure
+docker-compose up --build
+```
+
+---
+
+## 📝 Environment Variables
+
+### Dockerfile ENV (defaults — không nhạy cảm)
+
+| Variable | Default | Mô tả |
+|---|---|---|
+| `DB_TYPE` | `sqlite` | Database type |
+| `DB_SQLITE_PATH` | `/app/frontend/public/edumap.db` | SQLite file path |
+| `BACKEND_URL` | `http://127.0.0.1:3000` | Backend API URL |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:7680/api` | Frontend BFF URL |
+| `AI_SERVICE_URL` | `http://127.0.0.1:8000` | AI service URL |
+| `OSRM_URL` | `http://127.0.0.1:8000` | Geo routing proxy |
+| `CLOUDFLARE_MODEL` | `@cf/meta/llama-3.1-8b-instruct-fp8,...` | Cloudflare LLM model list |
+| `CLOUDFLARE_EMBEDDING_MODEL` | `@cf/baai/bge-base-en-v1.5,...` | Cloudflare embedding model list |
+| `HF_LLM_MODEL` | `mistralai/Mistral-7B-Instruct-v0.2` | HF fallback model |
+| `CHROMA_DB_PATH` | `/tmp/chroma_db` | ChromaDB persistence path |
+| `PYTHONPATH` | `/usr/local/lib/python3.11/site-packages` | Python path |
+
+### Runtime Secrets (qua env vars — KHÔNG hardcode)
+
+| Variable | Bắt buộc | Mô tả |
+|---|---|---|
+| `JWT_SECRET` | ✅ | JWT signing secret |
+| `CLOUDFLARE_API_TOKEN` | ✅ (cho AI chat) | Cloudflare API token |
+| `CLOUDFLARE_ACCOUNT_ID` | ✅ (cho AI chat) | Cloudflare account ID |
+| `HF_TOKEN` | Tùy chọn | HuggingFace API token (fallback) |
+| `ORS_API_KEY` | Tùy chọn | OpenRouteService API key |
+
+---
+
+## 🐛 Troubleshooting
+
+### AI chat trả về "Unexpected result format"
+
+Nguyên nhân: Model URL bị mã hóa sai (`%2F` thay vì `/`). Đã được fix từ `safe=''` → `safe='/'`.
+
+### BFF chat trả về 502
+
+Nguyên nhân: Backend trả về 401 (thiếu auth). Đã fix để trả về 401 với thông báo rõ ràng.
+
+### AI service db_ready: false
+
+Bình thường trong SQLite mode — PostgreSQL được tắt, AI service dựa vào backend để truy cập dữ liệu. Chat vẫn hoạt động vì sử dụng Cloudflare Workers AI.
