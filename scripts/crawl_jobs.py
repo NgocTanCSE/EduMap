@@ -261,12 +261,7 @@ def crawl_topcv_html():
         return []
 
     results = []
-    # TopCV job cards: <a href="..." title="Job Title">...</a> inside a card block
-    job_pattern = re.findall(
-        r'href="(https?://[^"]*topcv\.vn[^"]*itviec[^"]*|/viec-lam/[^\"]+)"',
-        raw, re.IGNORECASE
-    )
-    # Simpler: match any card with a job title and company
+    # Match any card with a job title and company inside the <a> block
     job_pattern = re.findall(
         r'<a[^>]*href="([^"]+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>(.*?)</a>',
         raw, re.DOTALL | re.IGNORECASE
@@ -292,46 +287,71 @@ def crawl_topcv_html():
 
 
 def crawl_vietnamworks_html():
-    """Fallback: scrape VietnamWorks (HTML parsing with JSON extraction)."""
-    url = 'https://www.vietnamworks.com/search/job?page=1'
+    """Fallback: scrape VietnamWorks (Next.js __NEXT_DATA__ JSON extraction).
+
+    VietnamWorks is a Next.js site — the old JSON-in-HTML pattern no longer
+    exists.  Job list + company logos now live in the __NEXT_DATA__ script tag
+    under ``props.pageProps.outstandingJobs``.
+
+    Each job object has: jobTitle, company, location, salary, url,
+    imageUrl, logoUrl — so we get the REAL per-company logo, not an index match.
+    """
+    url = 'https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'
     raw = fetch_url(url, timeout=15)
     if not raw:
         return []
 
     results = []
-    # VietnamWorks embeds job data as JSON in script tags
-    # Try to extract full JSON objects that contain both title and logo
-    json_objects = re.findall(r'\{[^{}]*"job-title"[^{}]*\}', raw, re.DOTALL)
 
-    for obj in json_objects[:30]:
-        title_match = re.search(r'"job-title":"([^"]*)"', obj)
-        company_match = re.search(r'"company-name":"([^"]*)"', obj)
-        # Look for logo/image/url fields within the same JSON object
-        logo_match = re.search(r'"(logo|image|logo_url|image_url|avatar)"\s*:\s*"([^"]+)"', obj, re.IGNORECASE)
+    # Parse Next.js __NEXT_DATA__ script
+    next_data_match = re.search(
+        r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>',
+        raw, re.DOTALL
+    )
+    if not next_data_match:
+        print("  [vietnamworks] No __NEXT_DATA__ script found; HTML structure may have changed")
+        return []
 
-        title = title_match.group(1)[:255] if title_match else 'Unknown'
-        company = company_match.group(1)[:255] if company_match else 'Unknown'
-        logo = None
-        if logo_match:
-            logo_val = logo_match.group(2)
-            # Ensure it's a full URL
-            if logo_val.startswith('//'):
-                logo = 'https:' + logo_val
-            elif logo_val.startswith('http'):
-                logo = logo_val
+    try:
+        next_data = json.loads(next_data_match.group(1))
+    except json.JSONDecodeError:
+        print("  [vietnamworks] Failed to parse __NEXT_DATA__ JSON")
+        return []
+
+    # Navigate to outstandingJobs list
+    outstanding = next_data.get("props", {}).get("pageProps", {}).get("outstandingJobs", [])
+    if not outstanding or not isinstance(outstanding, list):
+        print(f"  [vietnamworks] outstandingJobs not found or empty (got {len(outstanding) if outstanding else 0} items)")
+        return []
+
+    for job in outstanding[:30]:
+        if not isinstance(job, dict):
+            continue
+        title = job.get("jobTitle", "") or job.get("title", "")
+        company = job.get("company", "")
+        location = job.get("location", "Vietnam")
+        salary = job.get("salary") or job.get("prettySalary", "Thoa thuan")
+        job_url = job.get("url", "") or job.get("link", "")
+        # logoUrl is full-size company logo; imageUrl is thumbnail
+        image_url = job.get("logoUrl") or job.get("imageUrl") or job.get("logo") or None
+        # Ensure full URL
+        if image_url and image_url.startswith("//"):
+            image_url = "https:" + image_url
 
         results.append({
-            'title': clean_text(title),
-            'company_name': clean_text(company),
-            'location': 'Vietnam',
-            'salary_range': 'Thoa thuan',
-            'description': '',
+            'title': clean_text(title) if title else 'Unknown',
+            'company_name': clean_text(company) if company else 'Unknown',
+            'location': clean_text(location) if location else 'Vietnam',
+            'salary_range': clean_text(str(salary)[:100]) if salary else 'Thoa thuan',
+            'description': clean_text(job.get("description", ""))[:500] if job.get("description") else '',
             'job_type': 'full_time',
             'required_skills': json.dumps([]),
-            'experience_level': '',
-            'source_url': url,
-            'image_url': logo,
+            'experience_level': clean_text(job.get("experienceLevel", "")) if job.get("experienceLevel") else 'Chua xac dinh',
+            'source_url': job_url if job_url else url,
+            'image_url': image_url,
         })
+    if results:
+        print(f"  VietnamWorks: extracted {len(results)} jobs (from outstandingJobs)")
     return results
 
 
