@@ -110,12 +110,12 @@ class VectorStoreService:
             "Content-Type": "application/json",
         }
 
-        import time as _time
-        max_retries = 3
+        import time
+        max_retries = 1  # reduced from 3 to 1 to fit within 60s backend timeout
         for attempt in range(1, max_retries + 1):
             try:
                 if requests is not None:
-                    resp = requests.post(url, headers=headers, json={"inputs": text}, timeout=60)
+                    resp = requests.post(url, headers=headers, json={"inputs": text}, timeout=15)
                     status_code = resp.status_code
                     body = resp.text
                     if resp.status_code == 200:
@@ -124,7 +124,7 @@ class VectorStoreService:
                         raise urllib.error.HTTPError(url, resp.status_code, body, resp.headers, None)
                 else:
                     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-                    with urllib.request.urlopen(req, timeout=60) as resp:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
                         status_code = resp.status
                         data = json.loads(resp.read().decode("utf-8"))
 
@@ -135,7 +135,7 @@ class VectorStoreService:
                         # Model dang loading — retry
                         if "loading" in data.get("error", "").lower() or "loading" in str(data.get("warnings", "")):
                             print(f"HF embed model loading, retry {attempt}/{max_retries}...")
-                            _time.sleep(3 * attempt)
+                            time.sleep(3 * attempt)
                             continue
                         raise RuntimeError(f"HF Inference API error: {data.get('error')}")
                     vec = data.get("embeddings")
@@ -166,17 +166,17 @@ class VectorStoreService:
                 body = e.read().decode("utf-8", "ignore")[:300] if hasattr(e, "read") else str(e)
                 if e.code in (503,) and "loading" in body.lower() and attempt <= max_retries:
                     print(f"HF embed model loading (503), retry {attempt}/{max_retries}...")
-                    _time.sleep(3 * attempt)
+                    time.sleep(3 * attempt)
                     continue
                 if e.code in (429,) and attempt <= max_retries:
                     print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
-                    _time.sleep(2 * attempt)
+                    time.sleep(2 * attempt)
                     continue
                 raise RuntimeError(f"HF Inference API HTTP error {e.code}: {body[:200]}")
             except Exception as e:
                 if attempt <= max_retries:
                     print(f"HF embed connection error, retry {attempt}/{max_retries}: {e}")
-                    _time.sleep(2 * attempt)
+                    time.sleep(2 * attempt)
                     continue
                 raise RuntimeError(f"HF Inference API connection failed: {e}")
 
@@ -188,16 +188,20 @@ class VectorStoreService:
         if not text:
             return []
 
-        import time as _time
+        import time
+        _embed_start = time.monotonic()
+        _EMBED_GLOBAL_TIMEOUT = 25  # cap total embedding time so LLM can still respond within 60s backend timeout
         cf_last_err = None
 
         # --- Phan 1: thu Cloudflare Workers AI (primary) ---
         if self.has_cf_api:
             cf_last_err = None
             base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
-            per_model_retries = 1
+            per_model_retries = 0  # no retry — connection errors on HF Spaces are consistent, retrying wastes time
 
             for model in self.embed_models:
+                if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                    print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, stopping Cloudflare embed attempts"); break
                 url = f"{base_url}/{model}"
                 payload = json.dumps({"text": text}).encode("utf-8")
                 attempt = 0
@@ -214,7 +218,7 @@ class VectorStoreService:
                     )
                     data = None
                     try:
-                        with urllib.request.urlopen(req, timeout=30) as resp:
+                        with urllib.request.urlopen(req, timeout=8) as resp:
                             data = json.loads(resp.read().decode("utf-8"))
                     except urllib.error.HTTPError as e:
                         body = e.read().decode("utf-8", "ignore")[:300]
@@ -226,11 +230,11 @@ class VectorStoreService:
                         if e.code == 429:
                             cf_last_err = f"{model}: HTTP 429 {body[:80]}"; print(f"Cloudflare embed model {model} bi rate-limit (429), thu model ke tiep..."); break
                         if e.code in (502, 503, 504) and attempt <= per_model_retries:
-                            cf_last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Cloudflare embed model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
+                            cf_last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Cloudflare embed model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); time.sleep(2.0); continue
                         cf_last_err = f"{model}: HTTP {e.code} {body[:80]}"; print(f"Cloudflare embed model {model} {e.code}, thu model ke tiep..."); break  # next model
                     except Exception as e:
                         if attempt <= per_model_retries:
-                            cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
+                            cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); time.sleep(1.5); continue
                         cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, thu model ke tiep..."); break  # next model
 
                     # Success path: parse Cloudflare embedding response
@@ -277,23 +281,26 @@ class VectorStoreService:
 
         # --- Phan 2: fallback ve HuggingFace Inference API (khi Cloudflare fail) ---
         if self.has_hf_api:
-            try:
-                vec = self._hf_get_embedding(text)
-                vec = [float(x) for x in vec]
-                # Dimension guard: neu collection da co dim (tu Cloudflare seed),
-                # can chinh lenh ve khop. Nhung multilingual-e5-base = 768 dim,
-                # tuong tu nhu bge-base-en-v1.5 = 768 dim.
-                if self._embed_dim and len(vec) != self._embed_dim:
-                    print(f"HF embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                    if len(vec) > self._embed_dim:
-                        vec = vec[:self._embed_dim]  # truncate
-                    else:
-                        vec = vec + [0.0] * (self._embed_dim - len(vec))  # pad
-                self._embed_dim = len(vec)
-                print(f"  -> HF Inference API embedding OK (dim={len(vec)})")
-                return vec
-            except Exception as e:
-                print(f"HF Inference API embedding ALSO failed: {e}")
+            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping HF fallback")
+            else:
+                try:
+                    vec = self._hf_get_embedding(text)
+                    vec = [float(x) for x in vec]
+                    # Dimension guard: neu collection da co dim (tu Cloudflare seed),
+                    # can chinh lenh ve khop. Nhung multilingual-e5-base = 768 dim,
+                    # tuong tu nhu bge-base-en-v1.5 = 768 dim.
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        print(f"HF embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        if len(vec) > self._embed_dim:
+                            vec = vec[:self._embed_dim]  # truncate
+                        else:
+                            vec = vec + [0.0] * (self._embed_dim - len(vec))  # pad
+                    self._embed_dim = len(vec)
+                    print(f"  -> HF Inference API embedding OK (dim={len(vec)})")
+                    return vec
+                except Exception as e:
+                    print(f"HF Inference API embedding ALSO failed: {e}")
 
         raise RuntimeError(f"Khong the lay embedding. Cloudflare: {cf_last_err or 'khong cau hinh'}")
 
