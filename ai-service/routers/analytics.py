@@ -31,6 +31,8 @@ async def get_stats():
     # Chỉ nhận dữ liệu THẬT từ CSDL — bỏ mọi dữ liệu mẫu fallback
     try:
         from services.db_service import db_service
+        if db_service is None:
+            raise HTTPException(status_code=503, detail="CSDL chưa sẵn sàng (SQLite mode).")
         stats_data = db_service.get_education_stats(year=2024) or []
         logger.info(f"Fetched {len(stats_data)} education stats records")
         if not stats_data:
@@ -77,13 +79,16 @@ async def get_stats():
 
     try:
         from services.db_service import db_service
-        events = db_service.get_user_events(limit=500)
-        if events:
-            import pandas as pd
-            event_df = pd.DataFrame(events)
-            if not event_df.empty and 'event_type' in event_df.columns:
-                mode_val = event_df['event_type'].mode()
-                top_event = mode_val[0] if len(mode_val) > 0 else "N/A"
+        if db_service is None:
+            top_event = "N/A"
+        else:
+            events = db_service.get_user_events(limit=500)
+            if events:
+                import pandas as pd
+                event_df = pd.DataFrame(events)
+                if not event_df.empty and 'event_type' in event_df.columns:
+                    mode_val = event_df['event_type'].mode()
+                    top_event = mode_val[0] if len(mode_val) > 0 else "N/A"
     except Exception as e:
         logger.error(f"DB error fetching user events: {e}")
         top_event = "N/A"

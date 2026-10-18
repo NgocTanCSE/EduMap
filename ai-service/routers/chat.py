@@ -33,7 +33,10 @@ async def chat_endpoint(request: ChatRequest):
 
         reply = response_data.get("reply", "Lỗi phản hồi")
 
-        if request.user_id:
+        # Only save chat history when db_service is available (skipped in SQLite mode
+        # where PostgreSQL is disabled — prevents 'NoneType' crash that returned 503
+        # even though the LLM reply was successfully generated).
+        if request.user_id and db_service is not None:
             db_service.save_chat_history(
                 user_id=request.user_id,
                 message=request.message,
@@ -50,6 +53,9 @@ async def chat_endpoint(request: ChatRequest):
 @router.get("/history")
 async def get_chat_history(user_id: str, limit: int = 50):
     try:
+        # db_service is None in SQLite mode (PostgreSQL disabled) — gracefully return empty history
+        if db_service is None:
+            return {"history": []}
         history = db_service.get_chat_history(user_id, limit)
         history_data = []
         for record in history or []:

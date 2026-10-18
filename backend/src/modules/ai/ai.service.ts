@@ -109,7 +109,7 @@ export class AIService {
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend/`, userData, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend/`, userData, { timeout: 60000 })
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
@@ -148,7 +148,7 @@ throw new HttpException(
       const response = await firstValueFrom(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight/`, {
             dashboard_data: dashboardData
-        }, { timeout: 35000 })
+        }, { timeout: 60000 })
       );
       return response.data;
     } catch (error) {
@@ -184,7 +184,7 @@ throw new HttpException(
   async summarizeMaterial(materialData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize/`, materialData, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize/`, materialData, { timeout: 60000 })
       );
       return response.data;
     } catch (error) {
@@ -202,7 +202,7 @@ throw new HttpException(
   async generateLearningPath(data: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path/`, data, { timeout: 35000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path/`, data, { timeout: 60000 })
       );
       return response.data;
     } catch (error) {
@@ -340,7 +340,7 @@ throw new HttpException(
           message: message,
           history: history,
           context: systemContext,
-        }, { timeout: 30000 })
+        }, { timeout: 60000 })  // 60s — must exceed AI service curl timeout (40s) + Cloudflare latency
       );
 
       const aiReply = response.data.reply || response.data.message;
