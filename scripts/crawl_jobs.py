@@ -27,10 +27,80 @@ import re
 import html as _html
 from datetime import datetime
 
+
+def ensure_column(conn, table, column, col_type="TEXT"):
+    """Add a column to a SQLite table if it doesn't already exist (idempotent)."""
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    existing = {row[1] for row in cursor.fetchall()}
+    if column not in existing:
+        cursor.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
+        conn.commit()
+        print(f"  [ensure_column] added '{column}' to {table}")
+    cursor.close()
+
+
+def extract_card_image(card_html, source_domain=None):
+    """Extract the FIRST relevant <img> src from a single card's HTML block.
+
+    Card-aware: searches <img> tags *within* the card block, not across
+    the whole page.  Filters tracking pixels (1x1, .gif, pixel/track/spacer).
+    """
+    if not card_html:
+        return None
+    img_tags = re.findall(r'<img\s+[^>]*>', card_html, re.IGNORECASE | re.DOTALL)
+    if not img_tags:
+        return None
+    content_imgs = []
+    for tag in img_tags:
+        src_match = re.search(r'src="([^"]+)"', tag, re.IGNORECASE)
+        if not src_match:
+            continue
+        src = src_match.group(1)
+        # Skip data: URIs
+        if src.startswith("data:"):
+            continue
+        low = src.lower()
+        if any(x in low for x in ("pixel", "track", "spacer", "loading", "1x1", ".gif")):
+            continue
+        w_match = re.search(r'width\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
+        h_match = re.search(r'height\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
+        if w_match or h_match:
+            continue
+        content_imgs.append(src)
+    if source_domain:
+        domain_imgs = [i for i in content_imgs if source_domain in i.lower()]
+        if domain_imgs:
+            return domain_imgs[0]
+    return content_imgs[0] if content_imgs else None
+
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 ITVIEC_API = 'https://itviec.com/api/v1/jobs'
 MAX_PAGES = 5  # ~500 jobs max per run
 PAGE_SIZE = 100
+
+
+def _extract_logo(job):
+    """Extract company/logo URL from an ITviec API job object.
+
+    ITviec API may return logo under various keys depending on version.
+    Checks common patterns: logo, company.logo, image, thumbnail, etc.
+    """
+    if not job:
+        return None
+    # Direct logo field
+    for key in ('logo', 'image_url', 'image', 'thumbnail', 'logo_url', 'photo'):
+        val = job.get(key)
+        if val and isinstance(val, str) and val.startswith(('http://', 'https://')):
+            return val
+    # Nested under company dict
+    comp = job.get('company')
+    if isinstance(comp, dict):
+        for key in ('logo', 'image', 'image_url', 'logo_url', 'photo', 'avatar'):
+            val = comp.get(key)
+            if val and isinstance(val, str) and val.startswith(('http://', 'https://')):
+                return val
+    return None
 
 # ITviec job type mapping
 ITVIEC_JOB_TYPE_MAP = {
@@ -105,6 +175,7 @@ def crawl_itviec_api(page):
                     'required_skills': json.dumps(skills) if skills else '',
                     'experience_level': ', '.join(skills[:5]) if skills else 'Chua xac dinh',
                     'source_url': job.get('url', ''),
+                    'image_url': _extract_logo(job),  # company logo from API
                 })
             if results:
                 return results, total
@@ -120,14 +191,54 @@ def crawl_itviec_api(page):
 
 
 def crawl_itviec_html(raw_html, page):
-    """Parse ITviec HTML job listings."""
+    """Parse ITviec HTML job listings (fallback when API requires auth).
+
+    ITviec uses /it-jobs/<id>-<slug> for job detail pages. Each card's
+    HTML block is isolated so the company logo img is matched 1-to-1
+    with the correct job (not a global index).
+    """
     results = []
-    # ITviec HTML pattern: <a href="/jobs/..." title="Job Title">...</a>
-    # Company: <a href="/companies/..." ...>Company Name</a>
-    job_links = re.findall(r'href="(/jobs/[^"]+)"[^>]*title="([^"]+)"', raw_html)
+    # ITviec job detail links: /it-jobs/<id>-<slug>
+    job_pattern = r'<a[^>]*href="(/it-jobs/\d+[^"]*)"[^>]*title="([^"]+)"'
+    job_links = re.findall(job_pattern, raw_html)
+
+    if not job_links:
+        # Fallback: try newer pattern without title attr
+        job_pattern = r'href="(/it-jobs/\d+[^"]*)"[^>]*>\s*<h3[^>]*>([^<]+)'
+        job_links = re.findall(job_pattern, raw_html, re.DOTALL)
+
+    if not job_links:
+        # Fallback: /jobs/<slug> pattern (older ITviec)
+        job_pattern = r'href="(/jobs/[^"]+)"[^>]*title="([^"]+)"'
+        job_links = re.findall(job_pattern, raw_html)
+
+    # Build card-to-image mapping by extracting <img> within each card block
     for href, title in job_links[:30]:
+        # Find the card block around this href
+        idx = raw_html.find(f'href="{href}"')
+        if idx < 0:
+            idx = raw_html.find(href)
+        if idx < 0:
+            results.append({
+                'title': title.strip(),
+                'company_name': 'ITviec Employer',
+                'location': 'Ho Chi Minh City / Hanoi',
+                'salary_range': 'Thoa thuan',
+                'description': '',
+                'job_type': 'full_time',
+                'required_skills': json.dumps([]),
+                'experience_level': '',
+                'source_url': f'https://itviec.com{href}',
+                'image_url': None,
+            })
+            continue
+
+        # Extract a reasonable card block (500 chars before + after href)
+        card_block = raw_html[max(0, idx - 500):idx + 800]
+        logo = extract_card_image(card_block, source_domain="itviec")
+
         results.append({
-            'title': title.strip(),
+            'title': clean_text(title.strip()),
             'company_name': 'ITviec Employer',
             'location': 'Ho Chi Minh City / Hanoi',
             'salary_range': 'Thoa thuan',
@@ -136,57 +247,82 @@ def crawl_itviec_html(raw_html, page):
             'required_skills': json.dumps([]),
             'experience_level': '',
             'source_url': f'https://itviec.com{href}',
+            'image_url': logo,
         })
     total = len(job_links)
     return results, total
 
 
 def crawl_topcv_html():
-    """Fallback: scrape TopCV.vn (HTML parsing)."""
-    url = 'https://www.topcv.vn/jobs'
+    """Fallback: scrape TopCV.vn (HTML parsing, card-aware image extraction)."""
+    url = 'https://www.topcv.vn/viec-lam'
     raw = fetch_url(url, timeout=15)
     if not raw:
         return []
 
     results = []
-    # Use regex to extract job cards (lightweight, no bs4 dependency)
+    # TopCV job cards: <a href="..." title="Job Title">...</a> inside a card block
     job_pattern = re.findall(
-        r'<a[^>]*>([^<]+)</a>.*?<p[^>]*class="[^"]*company[^"]*"[^>]*>([^<]+)</p>',
-        raw, re.DOTALL
+        r'href="(https?://[^"]*topcv\.vn[^"]*itviec[^"]*|/viec-lam/[^\"]+)"',
+        raw, re.IGNORECASE
     )
-    for title, company in job_pattern[:50]:
+    # Simpler: match any card with a job title and company
+    job_pattern = re.findall(
+        r'<a[^>]*href="([^"]+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>(.*?)</a>',
+        raw, re.DOTALL | re.IGNORECASE
+    )
+    for href, title, card_body in job_pattern[:50]:
         if len(title.strip()) < 5:
             continue
+        logo = extract_card_image(card_body, source_domain="topcv")
+        company_match = re.search(r'<p[^>]*class="[^"]*company[^"]*"[^>]*>([^<]+)</p>', card_body, re.IGNORECASE)
         results.append({
-            'title': title.strip(),
-            'company_name': company.strip()[:255],
+            'title': clean_text(title.strip()),
+            'company_name': clean_text(company_match.group(1).strip()[:255]) if company_match else 'Unknown',
             'location': 'Vietnam',
             'salary_range': 'Thoa thuan',
             'description': '',
             'job_type': 'full_time',
             'required_skills': json.dumps([]),
             'experience_level': '',
-            'source_url': url,
+            'source_url': href if href.startswith('http') else f'https://www.topcv.vn{href}',
+            'image_url': logo,
         })
     return results
 
 
 def crawl_vietnamworks_html():
-    """Fallback: scrape VietnamWorks (HTML parsing)."""
+    """Fallback: scrape VietnamWorks (HTML parsing with JSON extraction)."""
     url = 'https://www.vietnamworks.com/search/job?page=1'
     raw = fetch_url(url, timeout=15)
     if not raw:
         return []
 
     results = []
-    job_pattern = re.findall(r'"job-title":"(.*?)"', raw)
-    company_pattern = re.findall(r'"company-name":"(.*?)"', raw)
+    # VietnamWorks embeds job data as JSON in script tags
+    # Try to extract full JSON objects that contain both title and logo
+    json_objects = re.findall(r'\{[^{}]*"job-title"[^{}]*\}', raw, re.DOTALL)
 
-    for i, title in enumerate(job_pattern[:30]):
-        company = company_pattern[i] if i < len(company_pattern) else 'Unknown'
+    for obj in json_objects[:30]:
+        title_match = re.search(r'"job-title":"([^"]*)"', obj)
+        company_match = re.search(r'"company-name":"([^"]*)"', obj)
+        # Look for logo/image/url fields within the same JSON object
+        logo_match = re.search(r'"(logo|image|logo_url|image_url|avatar)"\s*:\s*"([^"]+)"', obj, re.IGNORECASE)
+
+        title = title_match.group(1)[:255] if title_match else 'Unknown'
+        company = company_match.group(1)[:255] if company_match else 'Unknown'
+        logo = None
+        if logo_match:
+            logo_val = logo_match.group(2)
+            # Ensure it's a full URL
+            if logo_val.startswith('//'):
+                logo = 'https:' + logo_val
+            elif logo_val.startswith('http'):
+                logo = logo_val
+
         results.append({
-            'title': title[:255],
-            'company_name': company[:255],
+            'title': clean_text(title),
+            'company_name': clean_text(company),
             'location': 'Vietnam',
             'salary_range': 'Thoa thuan',
             'description': '',
@@ -194,6 +330,7 @@ def crawl_vietnamworks_html():
             'required_skills': json.dumps([]),
             'experience_level': '',
             'source_url': url,
+            'image_url': logo,
         })
     return results
 
@@ -227,8 +364,8 @@ def insert_job(cursor, job_data):
             job_type, salary_range, required_skills,
             experience_level, application_deadline, views,
             status, posted_by_user_id, career_path_id,
-            created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            image_url, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         job_id,
         clean_text(job_data['title']),
@@ -244,6 +381,7 @@ def insert_job(cursor, job_data):
         'active',
         None,  # posted_by_user_id
         None,  # career_path_id
+        job_data.get('image_url'),  # company logo / card image
         now,
         now,
     ))
@@ -271,6 +409,9 @@ def main():
     if not cursor.fetchone():
         print("  [error] 'jobs' table not found in database")
         sys.exit(1)
+
+    # Ensure image_url column exists (may be missing on older DBs)
+    ensure_column(conn, "jobs", "image_url", "TEXT")
 
     total_inserted = 0
     total_skipped = 0

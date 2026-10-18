@@ -11,7 +11,7 @@ requirements, benefits, status='open'. company_id / location_point left NULL
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, ensure_column
 
 REMOTEOK_INTERN = "https://remoteok.com/api?category=internship"
 
@@ -54,6 +54,7 @@ def crawl():
             "deadline": parse_date(j.get("date")),
             "application_count": 0,
             "status": "open",
+            "image_url": j.get("logo"),  # company logo from RemoteOK API
         })
     return rows
 
@@ -61,6 +62,7 @@ def run():
     print("internships_crawler: start")
     conn = get_conn()
     try:
+        ensure_column(conn, "internships", "image_url", "TEXT")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "internships", rows, ["title"])

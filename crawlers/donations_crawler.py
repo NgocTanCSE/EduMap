@@ -10,7 +10,7 @@ Graceful: any query/page with no cards -> 0 (no crash). Upsert by title.
 """
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html, ensure_column, extract_eventbrite_cards
 
 NOW = datetime.datetime.utcnow()
 QUERIES = [
@@ -19,24 +19,6 @@ QUERIES = [
 ]
 PAGES = 8  # per query
 BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
-
-
-def _cards(html):
-    items = []
-    cards = re.findall(r'href="(/e/[^"]+?ticket-\d+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>', html)
-    if not cards:
-        cards = [("", t) for t in re.findall(r'<h3[^>]*>([^<]{6,90})</h3>', html)]
-    imgs = re.findall(r'<img[^>]+src="(https?://[^"]+eventbrite[^"]+)"', html)
-    for i, (href, title) in enumerate(cards):
-        title = title.strip()
-        if not title or title.lower() in ("see all", "xem tất cả"):
-            continue
-        items.append({
-            "title": title[:255],
-            "href": href,
-            "img": imgs[i] if i < len(imgs) else None,
-        })
-    return items
 
 
 def crawl():
@@ -48,7 +30,9 @@ def crawl():
             html = fetch_html(s, url, timeout=40)
             if not html:
                 continue
-            for c in _cards(html):
+            # Use card-aware extraction — image is matched to the correct card,
+            # not by global index (prevents grabbing site logo/banner as a card image)
+            for c in extract_eventbrite_cards(html):
                 if c["title"] in rows:
                     continue
                 rows[c["title"]] = {

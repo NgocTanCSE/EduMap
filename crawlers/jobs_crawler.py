@@ -18,7 +18,7 @@ unique constraint, so SELECT-then-UPDATE/INSERT is used (no schema change).
 """
 import os, re, sys
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, ensure_column
 
 REMOTEOK = "https://remoteok.com/api"
 
@@ -77,6 +77,7 @@ def crawl():
             "application_deadline": None,
             "views": 0,
             "status": "active",
+            "image_url": j.get("logo"),  # company logo from RemoteOK API
         })
     return rows
 
@@ -85,6 +86,7 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
+        ensure_column(conn, "jobs", "image_url", "TEXT")
         if rows:
             r = upsert_rows(conn, "jobs", rows, ["title", "company_name", "location"])
             print(f"jobs_crawler: {r}")

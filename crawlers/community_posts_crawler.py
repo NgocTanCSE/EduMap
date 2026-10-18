@@ -11,7 +11,7 @@ author_id / group_id left NULL (no FK owner).
 """
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_og_image
 
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
@@ -33,11 +33,22 @@ def crawl():
             continue
         if item.get("type") != "story" or not item.get("title"):
             continue
+        # Crawl the exact og:image from the story's linked URL (not just the
+        # URL itself). Only fetch external URLs (not HN internal pages).
+        og_image = None
+        story_url = item.get("url")
+        if story_url and not "hackernews" in story_url.lower():
+            og_image = fetch_og_image(s, story_url, timeout=10)
+        media = []
+        if og_image:
+            media.append(og_image)
+        elif story_url:
+            media.append(story_url)  # fallback: store the link itself
         rows.append({
             "title": (item.get("title") or "")[:255],
             "source": "hackernews_top",
             "content": (clean(item.get("text")) or "")[:3000],
-            "media_urls": Jsonb([item["url"]] if item.get("url") else []),
+            "media_urls": Jsonb(media),
             "tags": Jsonb(["community", "hackernews"]),
             "like_count": int(item.get("score") or 0),
             "comment_count": int(item.get("descendants") or 0),

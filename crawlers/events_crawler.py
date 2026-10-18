@@ -12,7 +12,7 @@ Idempotent upsert by title.
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html, extract_eventbrite_cards
 
 BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
 PAGES = 30  # all-events deep scrape (Eventbrite VN superset)
@@ -38,30 +38,20 @@ def crawl():
         if not html:
             print(f"  [events] page {page} unreachable")
             continue
-        # Eventbrite cards: <a href="/e/<slug>-ticket-<id>"><h3>Title
-        cards = re.findall(r'href="(/e/[^"]+?ticket-\d+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>', html)
-        imgs = re.findall(r'<img[^>]+src="(https?://[^"]+eventbrite[^"]+)"', html)
-        # date strings like "Sat, 08 Mar 2025" or with time
-        dates = re.findall(r'<time[^>]*datetime="([^"]+)"', html)
-        if not cards:
-            # fallback: any <h3> with an event-ish title
-            cards = list(zip([f"page{page}-{i}" for i in range(40)], re.findall(r'<h3[^>]*>([^<]{6,80})</h3>', html)))
-        for i, (href, title) in enumerate(cards):
-            title = title.strip()
+        # Eventbrite cards: use card-aware extraction (image + date matched per-card)
+        for c in extract_eventbrite_cards(html):
+            title = c["title"].strip()
             if not title or title.lower() in ("", "see all") or title in seen:
                 continue
             seen.add(title)
-            start = None
-            if dates and i < len(dates):
-                start = parse_date(dates[i]) or parse_date(dates[0])
             now = datetime.datetime.utcnow()
-            start = start or now
+            start = parse_date(c.get("date")) or now
             end = start + datetime.timedelta(days=1)
-            banner = imgs[i] if i < len(imgs) else None
+            banner = c["img"]  # per-card image, not index-based
             is_online = "online" in title.lower() or "virtual" in (banner or "").lower()
             rows.append({
                 "title": title[:255],
-                "description": f"Sự kiện trên Eventbrite. Xem chi tiết tại https://www.eventbrite.com{href}",
+                "description": f"Sự kiện trên Eventbrite. Xem chi tiết tại https://www.eventbrite.com{c['href']}",
                 "type": "event",
                 "address": "Việt Nam",
                 "location_point": None,
@@ -85,27 +75,20 @@ def crawl():
             html = fetch_html(s, f"{BASE}?q={q}&page={page}", timeout=40)
             if not html:
                 continue
-            cards = re.findall(r'href="(/e/[^"]+?ticket-\d+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>', html)
-            if not cards:
-                cards = list(zip([f"kq{page}-{i}" for i in range(40)], re.findall(r'<h3[^>]*>([^<]{6,80})</h3>', html)))
-            imgs = re.findall(r'<img[^>]+src="(https?://[^"]+eventbrite[^"]+)"', html)
-            dates = re.findall(r'<time[^>]*datetime="([^"]+)"', html)
-            for i, (href, title) in enumerate(cards):
-                title = title.strip()
+            # keyword-search pages surface events not present in all-events ordering
+            for c in extract_eventbrite_cards(html):
+                title = c["title"].strip()
                 if not title or title.lower() in ("", "see all") or title in seen:
                     continue
                 seen.add(title)
-                start = None
-                if dates and i < len(dates):
-                    start = parse_date(dates[i]) or parse_date(dates[0])
                 now = datetime.datetime.utcnow()
-                start = start or now
+                start = parse_date(c.get("date")) or now
                 end = start + datetime.timedelta(days=1)
-                banner = imgs[i] if i < len(imgs) else None
+                banner = c["img"]  # per-card image, not index-based
                 is_online = "online" in title.lower() or "virtual" in (banner or "").lower()
                 rows.append({
                     "title": title[:255],
-                    "description": f"Sự kiện (tìm theo '{q}') trên Eventbrite. Xem chi tiết tại https://www.eventbrite.com{href}",
+                    "description": f"Sự kiện (tìm theo '{q}') trên Eventbrite. Xem chi tiết tại https://www.eventbrite.com{c['href']}",
                     "type": "event",
                     "address": "Việt Nam",
                     "location_point": None,

@@ -10,7 +10,7 @@ Graceful: any query/page that returns no cards -> 0 (no crash). Upsert by title.
 """
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_html, ensure_column, extract_eventbrite_cards
 
 NOW = datetime.datetime.utcnow()
 QUERIES = [
@@ -33,27 +33,6 @@ def parse_date(s):
     return None
 
 
-def _cards(html):
-    """Extract (title, date?, link?, img?) from Eventbrite-style cards."""
-    items = []
-    cards = re.findall(r'href="(/e/[^"]+?ticket-\d+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>', html)
-    if not cards:
-        cards = [("", t) for t in re.findall(r'<h3[^>]*>([^<]{6,90})</h3>', html)]
-    imgs = re.findall(r'<img[^>]+src="(https?://[^"]+eventbrite[^"]+)"', html)
-    dates = re.findall(r'<time[^>]*datetime="([^"]+)"', html)
-    for i, (href, title) in enumerate(cards):
-        title = title.strip()
-        if not title or title.lower() in ("see all", "xem tất cả"):
-            continue
-        items.append({
-            "title": title[:255],
-            "href": href,
-            "date": dates[i] if i < len(dates) else (dates[0] if dates else None),
-            "img": imgs[i] if i < len(imgs) else None,
-        })
-    return items
-
-
 def crawl():
     s = make_session()
     rows = {}
@@ -63,7 +42,7 @@ def crawl():
             html = fetch_html(s, url, timeout=40)
             if not html:
                 continue
-            for c in _cards(html):
+            for c in extract_eventbrite_cards(html):
                 if c["title"] in rows:
                     continue
                 rows[c["title"]] = {
@@ -73,6 +52,7 @@ def crawl():
                     "location": None,  # geography(Point); left NULL (no geocode)
                     "value_amount": None,
                     "deadline": parse_date(c.get("date")) or (NOW + datetime.timedelta(days=30)),
+                    "image_url": c.get("img"),  # per-card image, not index-based
                     "eligibility_criteria": Jsonb({
                         "source": q,
                         "url": ("https://www.eventbrite.com" + c["href"]) if c.get("href") else None,
@@ -90,6 +70,7 @@ def run():
     print("scholarships_crawler: start")
     conn = get_conn()
     try:
+        ensure_column(conn, "scholarships", "image_url", "TEXT")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "scholarships", rows, ["title"])

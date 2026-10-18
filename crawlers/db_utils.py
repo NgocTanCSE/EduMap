@@ -12,6 +12,7 @@ Design rules
   failure returns 0 rows instead of crashing the nightly run.
 """
 import os
+import re
 import time
 import random
 import json
@@ -31,6 +32,171 @@ except ImportError:  # pragma: no cover
 def Jsonb(obj):
     """Wrap a dict/list as a PostgreSQL jsonb value (old + new psycopg2)."""
     return _NativeJsonb(obj)
+
+
+# --------------------------------------------------------------------------- #
+# Schema helpers
+# --------------------------------------------------------------------------- #
+
+def ensure_column(conn, table, column, col_type="TEXT"):
+    """Add a column to a table if it doesn't already exist.
+
+    Uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS (PostgreSQL).
+    On SQLite (used in HF Spaces / local Docker), falls back to
+    checking information_schema and ALTER TABLE ADD COLUMN.
+    Safe to call every run — no-op if column already exists.
+    """
+    if _has_col(conn, table, column):
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
+        conn.commit()
+        print(f"  [ensure_column {table}] added column '{column}' ({col_type})")
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"  [ensure_column {table}] cannot add '{column}': {e.diag.message_primary if e.diag else e}")
+
+
+# --------------------------------------------------------------------------- #
+# Image extraction helpers
+# --------------------------------------------------------------------------- #
+
+def extract_card_image(card_html, source_domain=None):
+    """Extract the FIRST relevant <img> src from a single card's HTML block.
+
+    This is **card-aware**: it searches for <img> tags *within* the card's
+    HTML, not across the whole page.  This prevents grabbing site logos,
+    banners, or other unrelated images (the common bug of ``imgs[i]`` index
+    matching on Eventbrite/Devpost listing pages).
+
+    Also filters out tracking pixels, 1×1 spacers (detected via URL patterns
+    *and* width/height attributes), logos, and placeholder GIFs.
+
+    Args:
+        card_html: HTML snippet for a single card / list item.
+        source_domain: (optional) prefer images from this domain
+                       (e.g. "eventbrite" for Eventbrite listings).
+
+    Returns:
+        Image URL string or ``None``.
+    """
+    if not card_html:
+        return None
+    # Find full <img> tags (with attributes) within this card block only
+    img_tags = re.findall(r'<img\s+[^>]*>', card_html, re.IGNORECASE | re.DOTALL)
+    if not img_tags:
+        return None
+    # Filter out tracking pixels, 1×1 spacers, and obvious non-content images
+    content_imgs = []
+    for tag in img_tags:
+        src_match = re.search(r'src="([^"]+)"', tag, re.IGNORECASE)
+        if not src_match:
+            continue
+        src = src_match.group(1)
+        low = src.lower()
+        # Skip by URL pattern
+        if any(x in low for x in ("pixel", "track", "spacer", "loading", "1x1", ".gif")):
+            continue
+        # Skip by width/height = 1 (tracking pixel)
+        w_match = re.search(r'width\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
+        h_match = re.search(r'height\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
+        if w_match or h_match:
+            continue
+        content_imgs.append(src)
+    # Prefer source_domain images if specified
+    if source_domain:
+        domain_imgs = [i for i in content_imgs if source_domain in i.lower()]
+        if domain_imgs:
+            return domain_imgs[0]
+    return content_imgs[0] if content_imgs else None
+
+
+def extract_eventbrite_cards(html):
+    """Extract per-card data from an Eventbrite event-listing page.
+
+    Returns a list of dicts: [{title, href, img, date}, ...].
+
+    Key difference from the old approach:
+    - Old: ``imgs[i]`` matched the i-th <img> on the *whole page* to the
+      i-th card — **unreliable** (site logo, banner, etc. could be image[0]).
+    - New: each card's HTML block is isolated; the first relevant <img> *inside
+      that block* is the card's image — **accurate 1-to-1 mapping**.
+    """
+    items = []
+    # Match each card anchor: href="/e/...ticket-N"> ... </a>
+    # We slice the HTML between consecutive card anchors to get per-card blocks.
+    card_anchors = list(re.finditer(r'href="(/e/[^"]+?ticket-\d+)"', html))
+    for i, m in enumerate(card_anchors):
+        href = m.group(1)
+        start = m.start()
+        # End of this card = start of next card anchor (or end of HTML)
+        end = card_anchors[i + 1].start() if i + 1 < len(card_anchors) else len(html)
+        card_block = html[start:end]
+
+        title_match = re.search(r'<h3[^>]*>([^<]+)</h3>', card_block)
+        title = title_match.group(1).strip() if title_match else ""
+        if not title or title.lower() in ("see all", "xem tất cả", "see all  ", ""):
+            continue
+
+        date_match = re.search(r'<time[^>]*datetime="([^"]+)"', card_block)
+        date = date_match.group(1) if date_match else None
+
+        # Per-card image extraction (NOT global index)
+        img = extract_card_image(card_block, source_domain="eventbrite")
+
+        items.append({
+            "title": title[:255],
+            "href": href,
+            "date": date,
+            "img": img,
+        })
+    # Fallback: if no structured cards found, try <h3>-only extraction
+    if not items:
+        h3_matches = list(re.finditer(r'<h3[^>]*>([^<]{6,90})</h3>', html))
+        for i, m in enumerate(h3_matches):
+            title = m.group(1).strip()
+            if title.lower() in ("see all", "xem tất cả"):
+                continue
+            start = m.start()
+            end = h3_matches[i + 1].start() if i + 1 < len(h3_matches) else len(html)
+            block = html[start:end]
+            img = extract_card_image(block, source_domain="eventbrite")
+            items.append({
+                "title": title[:255],
+                "href": "",
+                "date": None,
+                "img": img,
+            })
+    return items
+
+
+def fetch_og_image(session, url, timeout=15, retries=1):
+    """Fetch a page and extract the Open Graph image (og:image meta tag).
+
+    Used for HN stories that link to external articles — the article page's
+    og:image is the **exact** image associated with that story.
+
+    Returns the image URL string or ``None``.
+    """
+    if not url or not url.startswith("http"):
+        return None
+    try:
+        session.headers["User-Agent"] = random.choice(USER_AGENTS)
+        r = session.get(url, timeout=timeout, allow_redirects=True)
+        if r.status_code != 200:
+            return None
+        # og:image meta tag
+        og = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', r.text, re.IGNORECASE)
+        if og:
+            img = og.group(1).strip()
+            if img.startswith("//"):
+                img = "https:" + img
+            return img
+        # Fallback: first non-tracking <img> on the page
+        return extract_card_image(r.text)
+    except Exception:
+        return None
 
 
 # --------------------------------------------------------------------------- #
