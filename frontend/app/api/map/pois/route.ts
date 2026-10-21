@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 import {
   bboxFromParams,
   selectorsForCategory,
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     return NextResponse.json(
       { message: 'Lỗi kết nối tới dịch vụ bản đồ' },

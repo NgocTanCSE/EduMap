@@ -139,6 +139,10 @@ ENV CHROMA_DB_PATH=/tmp/chroma_db
 # Ensure Python packages copied from the python:3.11 image are discoverable
 # by the system python3 (Debian installs to /usr/lib, not /usr/local)
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages
+ENV PYTHONUNBUFFERED=1
+# --- Cloudflare AI Gateway (tuỳ chọn; bật qua HF Spaces Secrets) ---
+ENV CF_AI_GATEWAY_ID=""
+ENV CF_AI_GATEWAY_ENABLED="false"
 
 EXPOSE 7680
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

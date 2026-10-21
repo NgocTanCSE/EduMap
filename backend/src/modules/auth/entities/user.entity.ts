@@ -1,20 +1,23 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne } from 'typeorm';
 import { UserPreference } from './user-preference.entity';
+import { datetimeColumn } from '../../../common/utils/db-column.utils';
 
 export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
   GUEST = 'guest',
   STUDENT = 'student',
-  PARENT = 'parent',
+  PARENT = 'guest',
   TEACHER = 'teacher',
   MENTOR = 'mentor',
   SCHOOL_REP = 'school_rep',
-  DONOR = 'donor',
-  EMPLOYER = 'employer',
+  UNIVERSITY_REP = 'university_rep',
+  DONOR = 'sponsor',
+  EMPLOYER = 'business_partner',
   ADMIN = 'admin',
   MODERATOR = 'moderator',
-  COMMUNITY_COORD = 'community_coord',
-  SUPPORT_STAFF = 'support_staff',
-  PARTNER = 'partner',
+  COMMUNITY_COORD = 'volunteer',
+  SUPPORT_STAFF = 'guest',
+  PARTNER = 'business_partner',
 }
 
 @Entity('users')
@@ -28,17 +31,21 @@ export class User {
   @Column({ select: false })
   password_hash: string;
 
-  @Column({ type: 'varchar', nullable: true, select: false })
+  @Column({ name: 'two_factor_secret', type: 'varchar', nullable: true, select: false })
   twoFactorSecret: string;
 
-  @Column({ default: false })
+  @Column({ name: 'is_two_factor_enabled', default: false })
   isTwoFactorEnabled: boolean;
 
-  @Column({ type: 'varchar', nullable: true, select: false })
+  @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true, select: false })
   refreshTokenHash: string;
 
-  @Column({ name: 'role_id', default: 11 })
-  role_id: number;
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.STUDENT,
+  })
+  role: UserRole;
 
   /** Ngày sinh (Date of Birth) — dùng để tính độ tuổi, lộ trình học tập */
   @Column({ name: 'date_of_birth', type: 'date', nullable: true })
@@ -48,41 +55,9 @@ export class User {
   @Column({ name: 'major', type: 'varchar', length: 255, nullable: true })
   major: string;
 
-  get role(): UserRole {
-    const rolesMap: { [key: number]: UserRole } = {
-      1: UserRole.ADMIN,
-      2: UserRole.ADMIN,
-      3: UserRole.MODERATOR,
-      4: UserRole.SCHOOL_REP,
-      6: UserRole.EMPLOYER,
-      7: UserRole.DONOR,
-      8: UserRole.TEACHER,
-      9: UserRole.MENTOR,
-      10: UserRole.COMMUNITY_COORD,
-      11: UserRole.STUDENT,
-      12: UserRole.GUEST,
-    };
-    return rolesMap[this.role_id] || UserRole.STUDENT;
-  }
-
-  set role(val: UserRole) {
-    const idsMap: { [key in UserRole]?: number } = {
-      [UserRole.ADMIN]: 2,
-      [UserRole.MODERATOR]: 3,
-      [UserRole.TEACHER]: 8,
-      [UserRole.MENTOR]: 9,
-      [UserRole.STUDENT]: 11,
-      [UserRole.PARENT]: 12,
-      [UserRole.SCHOOL_REP]: 4,
-      [UserRole.DONOR]: 7,
-      [UserRole.EMPLOYER]: 6,
-      [UserRole.COMMUNITY_COORD]: 10,
-      [UserRole.SUPPORT_STAFF]: 12,
-      [UserRole.PARTNER]: 6,
-      [UserRole.GUEST]: 12,
-    };
-    this.role_id = idsMap[val] || 11;
-  }
+  // `role` is now a native PostgreSQL enum column (see @Column above).
+  // The previous magic-integer getter/setter was removed per CA02
+  // (docs/all-documents/CA02_ROLE_REFACTOR.md §6).
 
   @Column({ nullable: true })
   full_name: string;
@@ -117,10 +92,10 @@ export class User {
   @Column({ default: false })
   email_verified: boolean;
 
-  // `timestamp` is supported by both PostgreSQL and SQLite in TypeORM, so it is
-  // safe to use here for last_login (a `datetime` type is NOT supported by the
-  // Postgres driver and crashes bootstrap with DB_TYPE=postgres).
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp' : 'datetime', nullable: true })
+  // `timestamp` (Postgres) / `datetime` (SQLite). The Postgres driver has no
+  // native `datetime` type and crashes bootstrap, so always go through the
+  // datetimeColumn() helper instead of an inline ternary.
+  @Column(datetimeColumn(true))
   last_login: Date;
 
   @OneToOne(() => UserPreference, (prefs) => prefs.user, { cascade: true })

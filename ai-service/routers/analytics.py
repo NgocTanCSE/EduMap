@@ -1,23 +1,23 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 import traceback
 
 router = APIRouter(prefix="/api/ai/analytics", tags=["6. AI Education Analytics"])
 
 class DashboardInsightRequest(BaseModel):
-    dashboard_data: Dict[str, Any]
+    dashboard_data: Optional[Dict[str, Any]] = None
 
 logger = logging.getLogger("analytics")
 
 @router.post("/daily-insight")
-async def get_daily_insight(request_data: dict):
+async def get_daily_insight(request_data: DashboardInsightRequest):
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
         raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
     try:
-        insight = await llm_service.generate_daily_insight(request_data.get('dashboard_data', {}))
+        insight = await llm_service.generate_daily_insight(request_data.dashboard_data or {})
         return insight
     except Exception as e:
         logger.error(f"Error in get_daily_insight route: {str(e)}")

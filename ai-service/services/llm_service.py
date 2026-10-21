@@ -58,6 +58,9 @@ class LLMService:
         # AI qua Cloudflare Workers AI — dùng 1 token Cloudflare cho cả text-generation và embedding.
         self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        # AI Gateway (tuỳ chọn): nếu bật, gọi qua gateway thay vì trực tiếp Workers AI.
+        self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
+        self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
         # DSS model theo thứ tự từ CLOUDFLARE_MODEL (CSV). Model đầu tiên = primary; các model sau là fallback tự động.
         self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
         self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
@@ -147,10 +150,14 @@ class LLMService:
 
         cf_last_err = None
 
-        # --- Phan 1: thu Cloudflare Workers AI ---
+        # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
         if self.has_cf:
             cf_last_err = None
-            base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
+            if self.cf_gateway_enabled and self.cf_gateway_id and self.account_id:
+                base_url = f"https://gateway.ai.cloudflare.com/v1/{self.account_id}/{self.cf_gateway_id}/ai/run"
+                print(f"[LLM] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
+            else:
+                base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
             last_err = None
             # HF Spaces may route outbound traffic through a proxy or have slow DNS,
             # so allow 1 retry per model (not 0) and generous timeouts.

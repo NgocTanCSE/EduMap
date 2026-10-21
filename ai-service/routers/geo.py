@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+from models.geo_models import GeoDensityAnalysisRequest
 
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
 
@@ -33,27 +34,25 @@ class GeoAnalysisRequest(BaseModel):
     school_points: Optional[List[dict]] = None
 
 class GeoRecommendRequest(BaseModel):
-    user_lat: float
-    user_lng: float
+    user_lat: Optional[float] = None
+    user_lng: Optional[float] = None
     radius_km: float = 5.0
     category: Optional[str] = None
     limit: int = 10
 
 @router.post("/analyze")
-async def analyze_geo_density(request_data: dict):
+async def analyze_geo_density(data: GeoDensityAnalysisRequest):
     try:
         db, cs = _get_services()
         if cs is None:
             raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
-        points = request_data.get('points', [])
+        points = data.points or []
         hubs = cs.identify_education_hubs(points) if points else []
 
         from services.llm_service import llm_service
         if not llm_service or not llm_service.is_ready:
             raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        # Truyền object có .points/.city do analyze_geo_density cần (dict thường không có attribute)
-        gd_data = type('obj', (object,), {'points': points, 'city': request_data.get('city', 'Unknown')})()
-        analysis = await llm_service.analyze_geo_density(gd_data, hubs)
+        analysis = await llm_service.analyze_geo_density(data, hubs)
 
         return {"hubs": hubs, "ai_analysis": analysis}
     except HTTPException:
@@ -63,13 +62,13 @@ async def analyze_geo_density(request_data: dict):
         raise HTTPException(status_code=503, detail="Geo analysis service không khả dụng.")
 
 @router.post("/analyze-gaps")
-async def analyze_education_gaps(request_data: dict):
+async def analyze_education_gaps(data: GeoAnalysisRequest):
     try:
         db, cs = _get_services()
         if cs is None:
             raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
-        points = request_data.get('school_points') or []
-        center = {"lat": request_data.get('center_lat') or 10.9567, "lng": request_data.get('center_lng') or 107.1825}
+        points = data.school_points or []
+        center = {"lat": data.center_lat or 10.9567, "lng": data.center_lng or 107.1825}
         gaps = cs.identify_gaps(points, center)
         return {"status": "success", "gaps": gaps}
     except HTTPException:
@@ -79,17 +78,17 @@ async def analyze_education_gaps(request_data: dict):
         raise HTTPException(status_code=503, detail="Không phân tích được khoảng trống giáo dục.")
 
 @router.post("/heatmap")
-async def get_geo_heatmap(request_data: dict):
+async def get_geo_heatmap(data: GeoAnalysisRequest):
     try:
         db, cs = _get_services()
         if cs is None:
             raise HTTPException(status_code=503, detail="Clustering service không khả dụng.")
-        points = request_data.get('school_points') or []
+        points = data.school_points or []
         region_center = {
-            "lat": request_data.get('center_lat') or 10.9567,
-            "lng": request_data.get('center_lng') or 107.1825
+            "lat": data.center_lat or 10.9567,
+            "lng": data.center_lng or 107.1825
         }
-        radius_km = request_data.get('radius_km') or 5.0
+        radius_km = data.radius_km or 5.0
         heatmap_data = cs.generate_heatmap_data(points, region_center, radius_km) or []
         return {
             "status": "success",
@@ -105,18 +104,18 @@ async def get_geo_heatmap(request_data: dict):
         raise HTTPException(status_code=503, detail="Không tạo được bản đồ nhiệt.")
 
 @router.post("/recommend")
-async def recommend_nearby_opportunities(request_data: dict):
+async def recommend_nearby_opportunities(data: GeoRecommendRequest):
     try:
         db, cs = _get_services()
         if not db or not cs:
             raise HTTPException(status_code=503, detail="Dịch vụ bản đồ chưa sẵn sàng.")
 
         locations = db.get_nearby_locations(
-            request_data.get('user_lat'),
-            request_data.get('user_lng'),
-            request_data.get('radius_km') or 5.0,
-            request_data.get('category'),
-            (request_data.get('limit') or 10) * 3
+            data.user_lat,
+            data.user_lng,
+            data.radius_km or 5.0,
+            data.category,
+            (data.limit or 10) * 3
         ) or []
 
         nearby_data = []
@@ -126,10 +125,10 @@ async def recommend_nearby_opportunities(request_data: dict):
             if loc_lat is None or loc_lng is None:
                 continue
             distance = cs._haversine_distance(
-                request_data.get('user_lat'), request_data.get('user_lng'),
+                data.user_lat, data.user_lng,
                 float(loc_lat), float(loc_lng)
             )
-            if distance <= (request_data.get('radius_km') or 5.0):
+            if distance <= (data.radius_km or 5.0):
                 category = loc.get('type', 'other') or loc.get('category_id', 'other')
                 nearby_data.append({
                     "id": str(loc.get('id', i)),
@@ -143,13 +142,13 @@ async def recommend_nearby_opportunities(request_data: dict):
                 })
 
         nearby_data.sort(key=lambda x: x.get('distance_km', 999))
-        nearby_data = nearby_data[:request_data.get('limit') or 10]
+        nearby_data = nearby_data[:data.limit or 10]
         return {
             "status": "success",
             "recommendations": nearby_data,
             "total_found": len(nearby_data),
-            "search_radius_km": request_data.get('radius_km') or 5.0,
-            "center": {"lat": request_data.get('user_lat'), "lng": request_data.get('user_lng')}
+            "search_radius_km": data.radius_km or 5.0,
+            "center": {"lat": data.user_lat, "lng": data.user_lng}
         }
     except HTTPException:
         raise

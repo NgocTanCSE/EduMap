@@ -78,12 +78,53 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
   const limit = Math.min(Math.max(1, parseInt(sp.get('limit') || String(DEFAULT_LIMIT), 10)), 100);
 
-  const url = new URL(DEVPOST_ENDPOINT);
-  url.searchParams.set('page', String(page));
-  url.searchParams.set('per_page', String(limit));
-  if (search) url.searchParams.set('search', search);
-
+  // --- LOCAL backend hackathons (always fetched first) ---
+  // The domestic competitions (Eureka 2026, P2A AI Appathon 2026, Innovation
+  // Challenge 2026, …) live in the backend / SQLite DB and are NOT present on
+  // Devpost, so they MUST be surfaced regardless of whether the Devpost API is
+  // reachable. Previously the BFF preferred Devpost and only fell back to the
+  // backend on error — so these local competitions were invisible whenever
+  // Devpost answered.
+  const local: any[] = [];
   try {
+    const burl = new URL(`${getBackendUrl()}/hackathons`);
+    if (search) burl.searchParams.set('search', search);
+    burl.searchParams.set('page', String(page));
+    burl.searchParams.set('limit', String(limit));
+    const authHeader = req.headers.get('Authorization');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authHeader) headers['Authorization'] = authHeader;
+    const bres = await fetch(burl.toString(), { headers, next: { revalidate: 0 } });
+    const bjson: any = await bres.json().catch(() => null);
+    const arr = Array.isArray(bjson)
+      ? bjson
+      : bjson && Array.isArray(bjson.hackathons)
+        ? bjson.hackathons
+        : bjson && Array.isArray(bjson.data)
+          ? bjson.data
+          : [];
+    for (const h of arr) {
+      local.push({
+        id: h.id ? String(h.id) : `local:${h.title}`,
+        title: h.title || 'Cuộc thi',
+        description: h.description || '',
+        start_date: h.start_date || null,
+        end_date: h.end_date || null,
+        status: h.status || 'upcoming',
+        created_at: h.created_at || new Date().toISOString(),
+      });
+    }
+  } catch (e) {
+    console.error('[api/hackathons] backend local fetch failed:', e);
+  }
+
+  // --- Devpost global hackathons (merged, deduped by normalized title) ---
+  const devpost: any[] = [];
+  try {
+    const url = new URL(DEVPOST_ENDPOINT);
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('per_page', String(limit));
+    if (search) url.searchParams.set('search', search);
     const res = await fetch(url.toString(), {
       method: 'GET',
       headers: { Accept: 'application/json', 'User-Agent': 'EduMap-BFF/1.0' },
@@ -91,42 +132,31 @@ export async function GET(req: NextRequest) {
     });
     if (!res.ok) {
       console.error('[api/hackathons] Devpost error:', res.status);
-      throw new Error(`devpost ${res.status}`);
+    } else {
+      const raw: any = await res.json().catch(() => ({}));
+      const items = Array.isArray(raw.hackathons) ? raw.hackathons : [];
+      const localTitles = new Set(local.map(x => (x.title || '').toLowerCase().trim()));
+      for (const h of items) {
+        const dh = devpostToHackathon(h);
+        // Avoid duplicates: if a Devpost hackathon shares a name with a local
+        // competition, the local (authoritative) one wins.
+        if (!localTitles.has((dh.title || '').toLowerCase().trim())) devpost.push(dh);
+      }
     }
-    const raw: any = await res.json().catch(() => ({}));
-    const items = Array.isArray(raw.hackathons) ? raw.hackathons : [];
-    const hackathons = items.map(devpostToHackathon);
-    // bare array — matches hackathonService.getHackathons -> response.json()
-    return NextResponse.json(hackathons);
   } catch (e) {
-    console.error('[api/hackathons] Devpost unavailable, falling back to backend:', e);
-    // Fallback: proxy to NestJS backend, normalise to bare array.
-    try {
-      const burl = new URL(`${getBackendUrl()}/hackathons`);
-      if (search) burl.searchParams.set('search', search);
-      burl.searchParams.set('page', String(page));
-      burl.searchParams.set('limit', String(limit));
-      const authHeader = req.headers.get('Authorization');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authHeader) headers['Authorization'] = authHeader;
-      const bres = await fetch(burl.toString(), { headers, next: { revalidate: 0 } });
-      const bjson: any = await bres.json().catch(() => null);
-      const arr = Array.isArray(bjson)
-        ? bjson
-        : bjson && Array.isArray(bjson.hackathons)
-          ? bjson.hackathons
-          : bjson && Array.isArray(bjson.data)
-            ? bjson.data
-            : [];
-      return NextResponse.json(arr, { status: bres.status });
-    } catch (e2) {
-      console.error('[api/hackathons] backend fallback also failed:', e2);
-      // 404 (Not Found) — there are simply no hackathons available.
-      // NOT 503: a 503 implies the service is temporarily down; returning
-      // 404 lets the frontend show its EmptyState instead of a toast error.
-      return NextResponse.json([], { status: 404 });
-    }
+    console.error('[api/hackathons] Devpost unavailable:', e);
   }
+
+  // Local competitions first, then Devpost (deduped). Bare array — matches
+  // hackathonService.getHackathons -> response.json().
+  const hackathons = [...local, ...devpost];
+  if (hackathons.length === 0) {
+    // 404 (Not Found) — no hackathons available at all. NOT 503: a 503 implies
+    // the service is temporarily down; returning 404 lets the frontend show
+    // its EmptyState instead of a toast error.
+    return NextResponse.json([], { status: 404 });
+  }
+  return NextResponse.json(hackathons);
 }
 
 export const dynamic = 'force-dynamic';

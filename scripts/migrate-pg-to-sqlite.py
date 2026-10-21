@@ -6,6 +6,8 @@ Simplified, robust version using information_schema.
 import argparse
 import json
 import os
+import re
+import sys
 import struct
 import sqlite3
 import psycopg2

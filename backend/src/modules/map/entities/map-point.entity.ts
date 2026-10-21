@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
+import { geoPointColumn, jsonColumn } from '../../../common/utils/db-column.utils';
 
 @Entity('map_points')
 export class MapPoint {
@@ -50,12 +51,10 @@ export class MapPoint {
     this.type_id = idsMap[val] || 1;
   }
 
-  @Column({
-    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
-    ...(process.env.DB_TYPE === 'postgres'
-      ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) }
-      : {}),
-  })
+  // Native geography(Point,4326) on Postgres, JSON on SQLite.
+  // Extracted to geoPointColumn() — replaces the nested ternary that
+  // re-checked DB_TYPE three times inside this decorator.
+  @Column(geoPointColumn())
   location: any;
 
   @Column({ nullable: true })
@@ -64,7 +63,7 @@ export class MapPoint {
   @Column({ nullable: true })
   city: string;
 
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
+  @Column(jsonColumn(true))
   photos: string[];
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })

@@ -1,34 +1,22 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List, Optional
+from models.learning_models import LearningPathRequest, LearningPathResponse, PathStep
 
-router = APIRouter(prefix="/api/ai/learning-path", tags=["4. Personalized Learning Path"])
-
-class PathStep(BaseModel):
-    step_number: int
-    title: str
-    estimated_weeks: int
-    description: str
-
-class LearningPathResponse(BaseModel):
-    target_role: str
-    total_estimated_months: float
-    steps: List[PathStep] = []
+router = APIRouter(prefix="/api/ai/learning-path", tags=["3. Personalized Learning Path"])
 
 @router.post("/")
-async def generate_path(request_data: dict):
+async def generate_path(data: LearningPathRequest):
     # Chỉ trả về lộ trình THẬT từ AI — bỏ fallback bước mẫu "Liên hệ hỗ trợ"
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
     try:
-        ai_data = await llm_service.generate_learning_path(type('obj', (object,), request_data)())
+        ai_data = await llm_service.generate_learning_path(data)
         steps = []
         for step in ai_data.get("steps", []):
             steps.append(PathStep(**step))
         return LearningPathResponse(
-            target_role=ai_data.get("target_role", request_data.get("target_role", "Unknown")),
+            target_role=ai_data.get("target_role", data.target_role),
             total_estimated_months=ai_data.get("total_estimated_months", 0.0),
             steps=steps
         ).dict()

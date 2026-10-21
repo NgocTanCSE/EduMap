@@ -14,8 +14,12 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
     return next.handle().pipe(
       map((data) => {
-        // Skip wrapping if the response is already in {success, data} format
-        if (data !== null && typeof data === 'object' && 'success' in data && 'data' in data) {
+        // Skip wrapping if the response is already a normalized API envelope.
+        // A response that carries `success` (with or without a `data` key) is
+        // treated as already-formatted — this prevents DOUBLE-WRAP bugs where a
+        // controller returns `{ success, notifications }` (no `data`) and the
+        // interceptor would else re-nest it as `{ success, data: { success, ... } }`.
+        if (data !== null && typeof data === 'object' && 'success' in data) {
           return data;
         }
         // Skip wrapping for binary/stream responses (file downloads)

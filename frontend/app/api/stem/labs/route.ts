@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export async function GET(req: NextRequest) {
     
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     const data = await response.json();
     // Backend ResponseInterceptor wraps: { success, data: <payload>, timestamp }
     // Unwrap to the payload so frontend array ops (filter, map, length) work
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

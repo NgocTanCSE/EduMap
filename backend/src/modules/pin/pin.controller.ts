@@ -56,7 +56,7 @@ export class PinController {
     const pin = await this.pinService.findOne(
       id,
       req?.user?.id,
-      req?.user?.role === 'admin',
+      (req?.user?.role === 'admin' || req?.user?.role === 'super_admin'),
     );
     return { success: true, data: pin };
   }
@@ -79,7 +79,7 @@ export class PinController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Sửa pin (chủ sở hữu). Admin cũng có thể cập nhật status.' })
   async update(@Param('id') id: string, @Body() dto: UpdatePinDto, @Request() req: any) {
-    const isAdmin = req?.user?.role === 'admin';
+    const isAdmin = req?.user?.role === 'admin' || req?.user?.role === 'super_admin';
     const pin = await this.pinService.update(id, dto, req.user.id, isAdmin);
     return { success: true, data: pin };
   }
@@ -88,7 +88,7 @@ export class PinController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Xóa mềm pin (chủ sở hữu hoặc admin)' })
   async remove(@Param('id') id: string, @Request() req: any) {
-    const isAdmin = req?.user?.role === 'admin';
+    const isAdmin = req?.user?.role === 'admin' || req?.user?.role === 'super_admin';
     await this.pinService.remove(id, req.user.id, isAdmin);
     return { success: true, message: 'Pin đã bị xóa.' };
   }

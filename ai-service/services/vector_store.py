@@ -29,6 +29,9 @@ class VectorStoreService:
         # --- Cloudflare Embedding config (always set; independent of ChromaDB) ---
         self.cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        # AI Gateway (tuỳ chọn): nếu bật, gọi qua gateway thay vì trực tiếp Workers AI.
+        self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
+        self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
         self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
         self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-base-en-v1.5"
         self.has_cf_api = bool(self.cf_api_token) and bool(self.cf_account_id)
@@ -193,10 +196,14 @@ class VectorStoreService:
         _EMBED_GLOBAL_TIMEOUT = 25  # cap total embedding time so LLM can still respond within 60s backend timeout
         cf_last_err = None
 
-        # --- Phan 1: thu Cloudflare Workers AI (primary) ---
+        # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
         if self.has_cf_api:
             cf_last_err = None
-            base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
+            if self.cf_gateway_enabled and self.cf_gateway_id and self.cf_account_id:
+                base_url = f"https://gateway.ai.cloudflare.com/v1/{self.cf_account_id}/{self.cf_gateway_id}/ai/run"
+                print(f"[Embed] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
+            else:
+                base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
             per_model_retries = 0  # no retry — connection errors on HF Spaces are consistent, retrying wastes time
 
             for model in self.embed_models:

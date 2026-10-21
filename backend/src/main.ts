@@ -75,7 +75,10 @@ Sử dụng JWT Bearer Token để xác thực. Lấy token từ endpoint \`\\\$
 - Xác thực: 100 requests/phút (cùng giới hạn toàn cục tại AppModule; chưa tách riêng; dùng @Throttle() per-controller khi cần).
 - AI: 100 requests/phút (cùng giới hạn toàn cục; chưa tách riêng; dùng @Throttle() per-controller khi cần).
     `)
-    .setVersion('2.0')
+    // NOTE: Routes are NOT versioned (no /api/v2 prefix). The version tag below
+    // was removed because it misrepresented the API as v2.0 in Swagger docs
+    // while routes remain unversioned — a mismatch that misleads consumers.
+    // If versioning is added later, re-introduce this + a global URI prefix.
     .setContact('EduMap Team', 'https://edumap.vn', 'admin@edumap.vn')
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .addBearerAuth(

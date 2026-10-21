@@ -19,7 +19,8 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
     
-    const hasRole = requiredRoles.some((role) => user?.role === role);
+    const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+    const hasRole = isSuperAdmin || requiredRoles.some((role) => user?.role === role);
     
     if (!hasRole) {
       throw new ForbiddenException('Bạn cần quyền để thực hiện hành động này.');

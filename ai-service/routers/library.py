@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+from models.library_models import MaterialSummaryRequest
 
 router = APIRouter(prefix="/api/ai/library", tags=["9. AI Library Assistant"])
 
@@ -14,21 +15,14 @@ class MaterialSummaryResponse(BaseModel):
     study_tips: List[str] = []
 
 @router.post("/summarize")
-async def summarize_material(request_data: dict):
+async def summarize_material(data: MaterialSummaryRequest):
     # Chỉ trả về tóm tắt THẬT từ AI — bỏ fallback thông điệp "bảo trì"/"lỗi" mẫu
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
         raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
-    class FakeRequest:
-        title = request_data.get('title', '')
-        description = request_data.get('description', '')
-        category = request_data.get('category', '')
-        tags = request_data.get('tags', [])
-        type = request_data.get('type', '')
-
     try:
-        analysis = await llm_service.summarize_material(FakeRequest())
+        analysis = await llm_service.summarize_material(data)
         if analysis:
             return analysis
         raise HTTPException(status_code=502, detail="AI trả về kết quả tóm tắt không hợp lệ.")

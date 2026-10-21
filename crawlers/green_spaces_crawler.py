@@ -5,16 +5,74 @@ Green Spaces & Parks Crawler for Dong Nai Province
 Crawls parks, gardens, green areas, environmental spaces
 """
 
+import os
+import sys
 import json
 import uuid
 from typing import List, Dict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from overpass_utils import overpass_query, center, name_of
+
 class GreenSpacesCrawler:
     """Crawler để lấy không gian xanh từ Đồng Nai"""
 
+    DNP_BBOX = "10.68,106.75,11.15,107.25"  # south,west,north,east — Dong Nai
+
+    def _live_parks(self):
+        """Live Overpass query for parks/green spaces in Dong Nai (graceful -> [])."""
+        ql = ('(nwr["leisure"="park"](BBOX); nwr["leisure"="garden"](BBOX); '
+              'nwr["leisure"="forest"](BBOX); nwr["landuse"="forest"](BBOX); '
+              'nwr["landuse"="meadow"](BBOX); nwr["leisure"="nature_reserve"](BBOX););'
+              ' out center qt;')
+        elements = overpass_query(self.DNP_BBOX, ql, timeout=180,
+                                  label="green_spaces.parks")
+        parks = []
+        for el in elements:
+            lat, lng = center(el)
+            if not lat or not lng:
+                continue
+            tags = el.get("tags") or {}
+            leisure = tags.get("leisure", "")
+            landuse = tags.get("landuse", "")
+            cat = leisure or landuse or "green_space"
+            parks.append({
+                "name": name_of(el) or f"Khu {cat}",
+                "description": tags.get("description") or tags.get("description:vi")
+                              or f"Khu {cat} tại Đồng Nai (OpenStreetMap)",
+                "category": "park" if cat == "park" else f"park_{cat}",
+                "area": "Biên Hòa - Quận Biên Hòa",
+                "lat": lat, "lng": lng,
+                "size": tags.get("area") or tags.get("surface") or "Không gian xanh",
+                "features": self._features(tags),
+                "opening_hours": tags.get("opening_hours") or "5:00 - 21:00",
+                "free_entry": str(tags.get("fee", "no")) in ("no", ""),
+                "environmental_features": ["Cây xanh", "Không gian xanh cộng đồng"],
+                "entrance_fee": "Free",
+                "educational_value": "Không gian xanh giáo dục môi trường",
+            })
+        return parks
+
+    @staticmethod
+    def _features(tags):
+        feats = []
+        amaps = {"bench": "Chỗ ngồi", "waste_basket": "Thùng rác",
+                 "playground": "Sân chơi trẻ em", "fitness_station": "Khu tập thể dục",
+                 "toilets": "Nhà vệ sinh", "cafe": "Quán cà phê",
+                 "drinking_water": "Nước uống"}
+        for k, v in amaps.items():
+            if tags.get(k):
+                feats.append(v)
+        if tags.get("sport"):
+            feats.append(f"Thể thao: {tags['sport']}")
+        return feats or ["Cây xanh", "Khu sinh hoạt cộng đồng"]
+
     def get_parks_bienhoa(self) -> List[Dict]:
-        """Công viên, không gian xanh tại Biên Hòa"""
-        parks = [
+        """Công viên, không gian xanh tại Biên Hòa (live Overpass; falls back to
+        a curated snapshot if Overpass is unreachable/empty for this bbox)."""
+        parks = self._live_parks()
+        if not parks:
+            parks = [
             {
                 "name": "Công viên Biên Hùng",
                 "description": "Công viên lớn với cây xanh, sân chơi, khu tập thể dục",

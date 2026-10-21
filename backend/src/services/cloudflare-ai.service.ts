@@ -6,6 +6,8 @@ export class CloudflareAIService {
   private readonly logger = new Logger(CloudflareAIService.name);
   private readonly apiToken: string | undefined;
   private readonly accountId: string | undefined;
+  private readonly gatewayId: string | undefined;
+  private readonly gatewayEnabled: boolean;
   private readonly modelCandidates: string[];
   private readonly modelName: string;
   private readonly hfToken: string | undefined;
@@ -14,11 +16,22 @@ export class CloudflareAIService {
   constructor(private configService: ConfigService) {
     this.apiToken = this.configService.get<string>('CLOUDFLARE_API_TOKEN');
     this.accountId = this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID');
+    this.gatewayId = this.configService.get<string>('CF_AI_GATEWAY_ID');
+    this.gatewayEnabled = (this.configService.get<string>('CF_AI_GATEWAY_ENABLED') || 'false').toLowerCase() === 'true';
     this.modelCandidates = (this.configService.get<string>('CLOUDFLARE_MODEL') || '@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct')
       .split(',')
       .map((m) => m.trim())
       .filter(Boolean);
     this.modelName = this.modelCandidates[0] || '@cf/meta/llama-3.1-8b-instruct-fp8';
+  }
+
+  /** Trả về endpoint Cloudflare: qua AI Gateway nếu được bật, ngược lại gọi trực tiếp Workers AI. */
+  private cfUrl(model: string): string {
+    if (this.gatewayEnabled && this.gatewayId && this.accountId) {
+      return `https://gateway.ai.cloudflare.com/v1/${this.accountId}/${this.gatewayId}/ai/run/${model}`;
+    }
+    return `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${model}`;
+  }
 
     // --- HuggingFace Inference API fallback (khi Cloudflare Workers AI không kết nối được từ HF Spaces) ---
     this.hfToken = process.env.HF_TOKEN || process.env.HF_API_TOKEN;
@@ -34,6 +47,8 @@ export class CloudflareAIService {
           'Cloudflare AI not fully configured. Will use HuggingFace Inference API as primary LLM provider.',
         );
       }
+    } else if (this.gatewayEnabled && this.gatewayId) {
+      this.logger.log(`Cloudflare AI Gateway enabled (gatewayId=${this.gatewayId}).`);
     }
   }
 
@@ -56,11 +71,11 @@ export class CloudflareAIService {
 
     const lastErr = { err: 'No attempt was made' };
 
-    // --- Phần 1: thử Cloudflare Workers AI (primary) ---
+    // --- Phần 1: thử Cloudflare (qua AI Gateway nếu bật, ngược lại trực tiếp Workers AI) ---
     let cfFailed = false;
     if (this.apiToken && this.accountId) {
       for (const model of this.modelCandidates) {
-        const url = `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${model}`;
+        const url = this.cfUrl(model);
         const payload = {
           prompt: fullPrompt,
           max_tokens: 2048,

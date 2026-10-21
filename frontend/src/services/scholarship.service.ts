@@ -43,6 +43,15 @@ class ScholarshipService {
   }
 
   /**
+   * Lấy chi tiết một học bổng theo ID
+   */
+  async getScholarshipById(id: string): Promise<Scholarship> {
+    const response = await fetch(`${this.API_URL}/${id}`);
+    if (!response.ok) throw new Error('Không thể tải chi tiết học bổng');
+    return await response.json();
+  }
+
+  /**
    * Kiểm tra điều kiện nộp đơn
    */
   async checkEligibility(id: string): Promise<EligibilityResponse> {

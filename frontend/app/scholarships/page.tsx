@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   GraduationCap, MapPin, DollarSign, Clock, Bookmark,
   CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X
@@ -27,6 +28,7 @@ export default function ScholarshipPage() {
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const router = useRouter();
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [eligibilityResult, setEligibilityResult] = useState<{ [key: string]: EligibilityResponse }>({});
@@ -248,9 +250,9 @@ export default function ScholarshipPage() {
               </div>
 
               <div className="flex-1 space-y-2.5">
-                <div className="flex justify-between items-start gap-2">
+                <div className="flex justify-between items-start gap-2 cursor-pointer group" onClick={() => router.push(`/scholarships/${item.id}`)}>
                   <div>
-                    <h3 className="text-base font-semibold line-clamp-1 text-foreground">
+                    <h3 className="text-base font-semibold line-clamp-1 text-foreground group-hover:text-primary transition-colors">
                       {item.title}
                     </h3>
                     <p className="text-xs text-primary/70 font-medium">

@@ -38,6 +38,15 @@ export class ScholarshipService {
   }
 
   /**
+   * Lấy chi tiết một học bổng theo ID
+   */
+  async getScholarshipById(id: string) {
+    const scholar = await this.scholarRepo.findOne({ where: { id } });
+    if (!scholar) throw new NotFoundException('Học bổng không tồn tại');
+    return scholar;
+  }
+
+  /**
    * Kiểm tra điều kiện nộp đơn (Eligibility Check) - AI Powered
    */
   async checkEligibility(userId: string, scholarshipId: string) {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
-import json
+from models.mentor_models import MatchRequest
 
 router = APIRouter(prefix="/api/ai/mentor", tags=["5. AI Mentor Matching"])
 
@@ -16,26 +16,17 @@ class MentorMatchResponse(BaseModel):
     top_matches: List[MatchResult]
 
 @router.post("/match", response_model=MentorMatchResponse)
-async def match_mentor(request_data: dict):
+async def match_mentor(data: MatchRequest):
     # Chỉ trả về ghép mentor THẬT từ AI — bỏ fallback danh sách mentor mẫu
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
         raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
-    class FakeRequest:
-        student_id = request_data.get('student_id', '')
-        student_skills_needed = request_data.get('student_skills_needed', [])
-        student_mbti = request_data.get('student_mbti', '')
-        preferred_days = request_data.get('preferred_days', [])
-        available_mentors = request_data.get('available_mentors', [])
-        def json(self):
-            return json.dumps(request_data, default=str)
-
     try:
-        matches = await llm_service.match_mentors(FakeRequest())
+        matches = await llm_service.match_mentors(data)
         top_matches = [MatchResult(**m) for m in matches if m and isinstance(m, dict)]
         return MentorMatchResponse(
-            student_id=request_data.get('student_id', 'unknown'),
+            student_id=data.student_id,
             top_matches=top_matches
         )
     except Exception as e:

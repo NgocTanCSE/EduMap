@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from 'sonner';
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { AuthProvider } from "@/src/contexts/AuthContext";
+import ClientProviders from "@/src/components/ClientProviders";
 import AppLayout from "@/components/AppLayout";
 
 const inter = Inter({
@@ -57,7 +58,11 @@ export default function RootLayout({
         <LanguageProvider>
           <AuthProvider>
             <Toaster richColors position="top-right" closeButton />
-            <AppLayout>{children}</AppLayout>
+            {/* ClientProviders boots the socket.io realtime client (notifications)
+                so it is connected for the lifetime of the app shell. */}
+            <ClientProviders>
+              <AppLayout>{children}</AppLayout>
+            </ClientProviders>
           </AuthProvider>
         </LanguageProvider>
       </body>

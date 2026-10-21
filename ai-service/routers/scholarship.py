@@ -1,12 +1,21 @@
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional
 from services.llm_service import llm_service
+
+
+class ScholarshipCheckRequest(BaseModel):
+    user_data: Optional[dict] = Field(None, description="Thông tin sinh viên/người dùng")
+    scholarship_data: Optional[dict] = Field(None, description="Thông tin học bổng cần kiểm tra")
+
 
 router = APIRouter(prefix="/api/ai/scholarship", tags=["AI Scholarship"])
 
+
 @router.post("/check")
-async def check_scholarship_eligibility(data: dict = Body(...)):
-    user_data = data.get("user_data", {})
-    scholarship_data = data.get("scholarship_data", {})
+async def check_scholarship_eligibility(data: ScholarshipCheckRequest):
+    user_data = data.user_data or {}
+    scholarship_data = data.scholarship_data or {}
 
     # Chỉ trả về kết quả THẬT từ AI — bỏ thông báo "xin chúc mừng" mẫu
     if not llm_service or not llm_service.is_ready:

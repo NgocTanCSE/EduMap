@@ -65,7 +65,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_DATABASE=${DB_DATABASE}
       - DB_TYPE=postgres
-      - DB_SYNC=true
+      - DB_SYNC=false
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - MINIO_ENDPOINT=minio

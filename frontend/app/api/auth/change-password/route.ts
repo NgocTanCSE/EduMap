@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
+import { requireAuth } from '@/src/lib/auth-utils';
 
 export async function POST(req: NextRequest) {
+  // Defense-in-depth: reject forged/expired bearer tokens at the BFF before
+  // they ever reach the backend auth/change-password handler.
+  const authError = requireAuth(req);
+  if (authError) return authError;
   try {
     const body = await req.json();
     const authHeader = req.headers.get('Authorization');
@@ -26,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

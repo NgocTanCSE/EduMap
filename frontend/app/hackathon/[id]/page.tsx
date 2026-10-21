@@ -19,8 +19,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
   const [submitting, setSubmitting] = useState(false);
   const [registeredTeam, setRegisteredTeam] = useState<any>(null);
 
-  /* Submission Modal States */
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  /* Submission States */
   const [repoUrl, setRepoUrl] = useState('');
   const [demoVideo, setDemoVideo] = useState('');
   const [submittingProject, setSubmittingProject] = useState(false);
@@ -88,7 +87,6 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
       setSubmittingProject(true);
       const result = await hackathonService.submitProject(registeredTeam.id, repoUrl, demoVideo);
       toast.success(result.message || 'Nộp sản phẩm dự thi thành công!');
-      setShowSubmitModal(false);
       setRegisteredTeam({ ...registeredTeam, status: 'submitted', repo_url: repoUrl, demo_video: demoVideo });
     } catch (error: any) {
       toast.error(error.message || 'Nộp sản phẩm thất bại');
@@ -188,19 +186,68 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                 <h3 className="text-xl font-bold text-primary">Đã đăng ký thành công!</h3>
                 <p className="text-sm font-bold text-foreground">Đội: {registeredTeam.team_name}</p>
 
-                <div className="pt-6 mt-6 border-t border-accent/20 space-y-3">
+                <div className="pt-6 mt-6 border-t border-accent/20 space-y-4">
                   <h4 className="font-bold text-sm text-left text-foreground/80">Khu vực nộp bài</h4>
                   <p className="text-xs text-left text-muted-foreground/60">
-                    Trưởng nhóm sử dụng các liên kết sau để nộp mã nguồn và video demo trước hạn chót.
+                    Trưởng nhóm nhập link mã nguồn (Github) và video demo để hoàn thiện đăng ký dự thi.
                   </p>
-                  <div className="space-y-2.5">
-                    <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-colors">
-                      <FileCode2 className="w-4 h-4 text-primary/70" /> Nộp Github Repo
-                    </button>
-                    <button className="w-full py-3 rounded-xl bg-card border border-border hover:border-primary text-sm font-bold flex items-center justify-center gap-2 transition-colors">
-                      <PlaySquare className="w-4 h-4 text-primary" /> Nộp Demo Video
-                    </button>
-                  </div>
+
+                  {registeredTeam.status === 'submitted' ? (
+                    <div className="text-sm text-center space-y-2">
+                      <CheckCircle2 className="w-6 h-6 text-primary mx-auto" />
+                      <p className="font-bold text-foreground">Bài dự thi đã được nộp!</p>
+                      <p className="text-xs text-muted-foreground/60 break-all">
+                        Repo:{' '}
+                        <a href={registeredTeam.repo_url} target="_blank" rel="noreferrer" className="text-primary underline">
+                          {registeredTeam.repo_url}
+                        </a>
+                      </p>
+                      {registeredTeam.demo_video && (
+                        <p className="text-xs text-muted-foreground/60 break-all">
+                          Video:{' '}
+                          <a href={registeredTeam.demo_video} target="_blank" rel="noreferrer" className="text-primary underline">
+                            {registeredTeam.demo_video}
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <form onSubmit={handleProjectSubmit} className="space-y-3.5">
+                      <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground/60 uppercase tracking-wider mb-1.5">
+                          <FileCode2 className="w-3.5 h-3.5" /> Link Github Repo *
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          placeholder="https://github.com/your-team/project-name"
+                          className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground/60 uppercase tracking-wider mb-1.5">
+                          <PlaySquare className="w-3.5 h-3.5" /> Link video demo (tùy chọn)
+                        </label>
+                        <input
+                          type="url"
+                          value={demoVideo}
+                          onChange={(e) => setDemoVideo(e.target.value)}
+                          placeholder="https://youtube.com/... hoặc https://drive.google.com/..."
+                          className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-colors"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={submittingProject || !repoUrl.trim()}
+                        className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                      >
+                        {submittingProject ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />}
+                        NỘP SẢN PHẨM
+                      </button>
+                    </form>
+                  )}
                 </div>
               </Card>
             ) : isCompleted ? (

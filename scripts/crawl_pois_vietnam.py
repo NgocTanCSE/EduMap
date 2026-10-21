@@ -39,6 +39,10 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Iterable
 
+# Share ONE Overpass HTTP client with the crawler package (Phase G consolidation).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
+from overpass_utils import overpass_post  # noqa: E402
+
 # --------------------------------------------------------------------------- #
 # CONFIG (env override friendly — the HF container already exports DB_* / etc.) #
 # --------------------------------------------------------------------------- #
@@ -98,36 +102,18 @@ def log(msg: str) -> None:
 def _overpass_post(query: str) -> dict:
     """POST an Overpass QL snippet with MIRROR ROTATION + retry/backoff.
 
-    overpass-api.de hard-returns HTTP 406 for some IPs; rotating across the public
-    Overpass mirrors (de -> kumi -> ru) — the same 3 mirrors used by
-    crawlers/overpass_crawler.py, which already proved reachable via requests —
-    recovers when one endpoint is overloaded (504) or blocking (406).
+    Now delegates to the shared `overpass_utils.overpass_post` (Phase G
+    consolidation) — same mirror list / retry semantics crawl_pois used before,
+    just one HTTP client for the whole repo.
     """
-    payload = query.encode("utf-8")
-    headers = {
-        # overpass-api.de rejects `text/plain` with HTTP 406; send the raw QL
-        # query POSTed with a form content-type (matches the requests client
-        # in crawlers/overpass_crawler.py that works against overpass).
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json",
-        "User-Agent": "EduMap-crawler/1.0 (+https://edumap.vn)",
-    }
-    mirrors = CONFIG.get("OVERPASS_MIRRORS") or [CONFIG["OVERPASS_URL"]]
-    attempts = 0
-    while attempts < CONFIG["MAX_RETRIES"]:
-        attempts += 1
-        url = mirrors[(attempts - 1) % len(mirrors)]
-        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=CONFIG["TIMEOUT"] + 5) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
-                ConnectionError, json.JSONDecodeError) as exc:
-            log(f"  retry {attempts}/{CONFIG['MAX_RETRIES']} via {url} -> {exc}")
-            # exponential backoff, capped at ~16s (mirrors may 504 from overload)
-            time.sleep(2 ** min(attempts, 4))
-    log(f"  ! overpass failed after {attempts} attempts across {len(mirrors)} mirrors (406/504/timeout).")
-    return {"elements": []}
+    return overpass_post(
+        query,
+        mirrors=CONFIG.get("OVERPASS_MIRRORS") or [CONFIG["OVERPASS_URL"]],
+        timeout=CONFIG["TIMEOUT"],
+        retries=CONFIG["MAX_RETRIES"],
+        user_agent="EduMap-crawler/1.0 (+https://edumap.vn)",
+        label="poi",
+    )
 
 
 def _tags(el: dict, *keys: str) -> str:

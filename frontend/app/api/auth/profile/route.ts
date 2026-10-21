@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
+import { requireAuth } from '@/src/lib/auth-utils';
 
 export async function GET(req: NextRequest) {
+  // Defense-in-depth: reject forged/expired bearer tokens at the BFF.
+  const authError = requireAuth(req);
+  if (authError) return authError;
   const url = `${getBackendUrl()}/auth/me`;
   const authHeader = req.headers.get('Authorization');
   const headers: Record<string, string> = {
@@ -18,7 +23,7 @@ export async function GET(req: NextRequest) {
       );
     }
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(
@@ -29,6 +34,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Defense-in-depth: reject forged/expired bearer tokens at the BFF.
+  const authError = requireAuth(req);
+  if (authError) return authError;
   const url = `${getBackendUrl()}/auth/profile`;
   const authHeader = req.headers.get('Authorization');
   const headers: Record<string, string> = {
@@ -54,7 +62,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json(

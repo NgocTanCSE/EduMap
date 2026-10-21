@@ -18,7 +18,7 @@ WORKDIR /app
 ENV NODE_ENV=development
 # Default to SQLite for environments without a PostgreSQL instance
 ENV DB_TYPE=sqlite
-ENV DB_SYNC=true
+ENV DB_SYNC=false
 
 COPY package*.json ./
 # Install runtime dependencies (including native sqlite3) – same build tools for native compile then remove them

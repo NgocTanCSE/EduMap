@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Không thể tải danh sách' }, { status: response.status });
     }
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối' }, { status: 500 });
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({}));
-    return NextResponse.json(data.data ?? data, { status: response.status });
+    return NextResponse.json(unwrapApiResponse(data), { status: response.status });
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ message: 'Lỗi kết nối' }, { status: 500 });

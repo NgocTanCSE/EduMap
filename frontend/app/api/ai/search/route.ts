@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 /**
  * BFF proxy for AI-powered semantic search.
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
 
     const data = await response.json().catch(() => null);
 
-    return NextResponse.json(data.data ?? data, { status: response.status });
+    return NextResponse.json(unwrapApiResponse(data), { status: response.status });
   } catch (error: any) {
     console.error('AI Search BFF error:', error);
     return NextResponse.json(

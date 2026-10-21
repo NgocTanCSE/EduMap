@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export async function GET(req: Request) {
   try {
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     return NextResponse.json({ message: 'Lỗi máy chủ proxy.' }, { status: 500 });
   }

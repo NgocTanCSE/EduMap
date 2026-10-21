@@ -150,6 +150,7 @@ def extract_eventbrite_cards(html):
             "href": href,
             "date": date,
             "img": img,
+            "raw_block": card_block,
         })
     # Fallback: if no structured cards found, try <h3>-only extraction
     if not items:
@@ -167,6 +168,7 @@ def extract_eventbrite_cards(html):
                 "href": "",
                 "date": None,
                 "img": img,
+                "raw_block": block,
             })
     return items
 
@@ -299,6 +301,191 @@ def fetch_html(session, url, timeout=25, retries=2):
             print(f"    [{url}] network error: {e}")
             return None
     return None
+
+
+def extract_itviec_jobs(html):
+    """Extract per-card job data from an ITviec listing page.
+
+    Returns a list of dicts: [{title, company, location, href}, ...].
+
+    Card-aware: isolates each job anchor (`/viec-lam-<id>`) block, then extracts
+    title/company/location from THAT block only (never a global index that could
+    match the site header). Selectors are best-effort — if ITviec changes its
+    DOM, this returns fewer/zero rows but never crashes (graceful degradation).
+    """
+    items = []
+    if not html:
+        return items
+    anchors = list(re.finditer(r'<a[^>]+href="(/viec-lam-[^\"]+)"[^>]*>', html, re.IGNORECASE))
+    for i, m in enumerate(anchors):
+        start = m.end()
+        end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html)
+        block = html[start:end]
+
+        t = re.search(r'title="([^"]{3,120})"', m.group(0), re.IGNORECASE)
+        if not t:
+            t = re.search(r'<h3[^>]*>([^<]+)</h3>', block, re.IGNORECASE)
+        title = (t.group(1).strip() if t else "").strip()
+        if not title:
+            continue
+
+        co = re.search(r'class="[^"]*company[^"]*"[^>]*>\s*([^<\n]+)', block, re.IGNORECASE)
+        company = co.group(1).strip() if co else "ITviec"
+        loc = re.search(r'class="[^"]*location[^"]*"[^>]*>\s*([^<\n]+)', block, re.IGNORECASE)
+        location = loc.group(1).strip() if loc else "Việt Nam"
+
+        items.append({
+            "title": title,
+            "company": company,
+            "location": location,
+            "href": m.group(1),
+        })
+    return items
+
+
+def extract_topcv_jobs(html):
+    """Extract per-card job data from a TopCV listing page.
+
+    Returns a list of dicts: [{title, company, location, href}, ...].
+
+    Best-effort: TopCV is heavy on client JS and regularly refreshes its DOM, so
+    this parser tries several card selectors and skips anything without a title.
+    Blocked/drift -> fewer/zero rows, never crashes (graceful degradation).
+    """
+    items = []
+    if not html:
+        return items
+
+    # Job-card anchors: href pointing at a /viec-lam-<id> (relative or absolute).
+    anchors = [m for m in re.finditer(r'<a[^>]*href="([^"]*)"[^>]*>', html, re.IGNORECASE)
+               if "viec-lam" in (m.group(1) or "")]
+    # Fallback: anchors whose block contains a job-title element.
+    if not anchors:
+        for m in re.finditer(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL):
+            blk = m.group(2)
+            if re.search(r'class="[^"]*(?:title|job-name)[^"]*"', blk, re.IGNORECASE) and "viec-lam" in m.group(1):
+                anchors.append(m)
+
+    for i, m in enumerate(anchors):
+        href = m.group(1)
+        if not href.startswith("http"):
+            href = "https://www.topcv.vn" + (href if href.startswith("/") else "/" + href)
+        start = m.end()
+        end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html)
+        block = html[start:end]
+
+        # Title: title attr -> h3 -> strong -> .title/.job-title class text.
+        t = re.search(r'title="([^"]{3,120})"', m.group(0), re.IGNORECASE)
+        if not t:
+            t = re.search(r'<h3[^>]*>([^<]+)</h3>', block, re.IGNORECASE)
+        if not t:
+            t = re.search(r'<strong[^>]*>([^<]+)</strong>', block, re.IGNORECASE)
+        if not t:
+            t = re.search(r'class="[^"]*(?:job-title|title)[^"]*"[^>]*>\s*([^<]+)', block, re.IGNORECASE)
+        title = (t.group(1).strip() if t else "").strip()
+        if not title or len(title) < 4:
+            continue
+
+        co = re.search(r'class="[^"]*company[^"]*"[^>]*>\s*([^<\n,]+)', block, re.IGNORECASE)
+        if not co:
+            co = re.search(r'Công ty[:\s]+([^<\n,]+)', block, re.IGNORECASE)
+        company = co.group(1).strip() if co else "TopCV"
+        loc = re.search(r'class="[^"]*location[^"]*"[^>]*>\s*([^<\n]+)', block, re.IGNORECASE)
+        location = loc.group(1).strip() if loc else "Việt Nam"
+
+        items.append({
+            "title": title,
+            "company": company,
+            "location": location,
+            "href": href,
+        })
+    return items
+
+
+def crawl_pages(session, make_url, fetcher, parser, key=None, max_pages=50,
+                stop_when_empty=True, stop_when_fewer_than=None, sleep=0.7,
+                label='crawl_pages', max_total=None):
+    """Generic multi-page crawler primitive.
+
+    Replaces the per-crawler ``for page in range(1, N): fetch_html(...)`` loops
+    with ONE reusable, battle-tested abstraction so EVERY crawler walks many
+    pages (not just 1-2) instead of duplicating boilerplate.
+
+    Walks pages 1..max_pages:
+      * ``make_url(page) -> str``          — page URL builder (page is 1-based)
+      * ``fetcher(url) -> raw | None``     — pass ``fetch_json`` or ``fetch_html``
+                                            (they already retry 429/503 and return
+                                            None on hard failure -> graceful deg.)
+      * ``parser(raw) -> list[dict]``      — turn raw response into item dicts
+      * ``key``                            — dedup key: a tuple of column names
+                                            (e.g. ("title","company_name")) OR a
+                                            callable dict->scalar. None = no dedup.
+      * ``stop_when_empty``                — stop at first page that returns
+                                            None/[] (common for APIs that 404
+                                            past the last page).
+      * ``stop_when_fewer_than``           — stop once a page yields < N items
+                                            (last partial page), still keeping
+                                            those items.
+      * ``max_total``                      — hard cap on items collected.
+      * ``sleep``                          — polite delay between pages (sec).
+
+    Returns a flat, deduped list of item dicts. Safe to call with no network:
+    a fully unreachable source simply returns [] (no crash).
+    """
+    out = []
+    seen = set()
+
+    if isinstance(key, (list, tuple)):
+        key_fn = lambda it: tuple(str(it.get(k, '')) for k in key)
+    elif callable(key):
+        key_fn = key
+    else:
+        key_fn = None
+
+    fewer = stop_when_fewer_than
+    for page in range(1, max_pages + 1):
+        url = make_url(page)
+        try:
+            # fetch_json / fetch_html take (session, url, ...).
+            raw = fetcher(session, url)
+        except Exception as e:
+            print(f"  [{label}] page {page} fetch error: {e}")
+            raw = None
+
+        if raw is None:
+            if stop_when_empty:
+                print(f"  [{label}] page {page} empty/unreachable -> stop")
+                break
+            continue
+
+        # Materialize parser output (parsers may be generator funcs -> len()
+        # and truthiness checks below need a real list).
+        items = list(parser(raw)) if parser else (raw if isinstance(raw, list) else [raw])
+        if not items and stop_when_empty:
+            print(f"  [{label}] page {page} no items -> stop")
+            break
+
+        page_added = 0
+        for it in items:
+            k = key_fn(it) if key_fn else None
+            if k is not None and k in seen:
+                continue
+            if k is not None:
+                seen.add(k)
+            out.append(it)
+            page_added += 1
+            if max_total is not None and len(out) >= max_total:
+                return out
+
+        # Last/partial page -> we've reached the end of the source.
+        if fewer is not None and len(items) < fewer:
+            break
+        # Every item on this page was a duplicate -> assume nothing new remains.
+        if key_fn and page_added == 0 and page > 1:
+            break
+        if sleep:
+            time.sleep(sleep)
+    return out
 
 
 def _coerce_json(text):

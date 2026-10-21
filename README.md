@@ -56,11 +56,13 @@ docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
 | `ORS_API_KEY` | OpenRouteService routing | ⚠️ (có fallback Haversine) |
 | `CLOUDFLARE_API_TOKEN` | AI service LLM | ✅ |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | ✅ |
+| `CF_AI_GATEWAY_ID` | Cloudflare AI Gateway ID (tuỳ chọn) | ❌ |
+| `CF_AI_GATEWAY_ENABLED` | Bật AI Gateway (true/false, mặc định false) | ❌ |
 | `GOOGLE_CLIENT_ID` | OAuth client ID | ⚠️ |
 | `CLOUDFLARE_MODEL` | LLM model (default: @cf/meta/llama-3.1-8b-instruct-fp8) | ❌ |
 | `CLOUDFLARE_EMBEDDING_MODEL` | Embedding model | ❌ |
 
-> 💡 `NEXT_PUBLIC_API_URL` và `NEXT_PUBLIC_GOOGLE_CLIENT_ID` đã được hardcode trong Dockerfile — **không cần** thêm vào secrets.
+> ⚠️ `NEXT_PUBLIC_API_URL` đã được đặt mặc định trong Dockerfile. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_ID` **KHÔNG** được hardcode — bạn **phải** thêm chúng vào HF Spaces → Settings → Secrets (hoặc truyền qua `-e` khi chạy `docker run`).
 
 ## 📡 API Endpoints
 

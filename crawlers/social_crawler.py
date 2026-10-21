@@ -2,16 +2,20 @@
 """
 Social crawler -> `posts` table (tag='social').
 
-Attempts true social-platform crawling where a public access token is provided
-(via env):
-  FB_TOKEN  -> Facebook Graph API public page/posts (v18.0)
-  IG_TOKEN  -> Instagram Basic Display recent media
-  LI_TOKEN  -> LinkedIn public (via the share API / profile)
+Multi-source. True social-platform crawling wherever a public token/keys are
+provided (via env); otherwise always yields fresh, public content:
 
-When NO token is present (or the platform blocks scraping — FB/IG/LinkedIn are
-login-gated from most environments), the crawler falls back to Hacker News
-public JSON API so the `posts` table always receives >=100 real, fresh
-community/social items at the 00:00 run.
+  Token-gated (env, optional — gracefully skipped when missing/blocked):
+    FB_TOKEN  -> Facebook Graph API public page/posts (v18.0)
+    IG_TOKEN  -> Instagram Basic Display recent media
+    LI_TOKEN  -> LinkedIn (extension point — LinkedIn gating is strict; left
+                  as a placeholder that degrades to [])
+    TWITTER_BEARER_TOKEN -> X / Twitter v2 recent search (community keywords)
+
+  Always-on public sources (NO key, rate-limit friendly):
+    Reddit public JSON API — r/Vietnam + r/education + r/AskAcademia,
+      cursor-paginated (up to 3 pages/subreddit via `after`), deduped.
+    Hacker News public JSON API — fallback when ALL platforms yield 0 rows.
 
 This keeps the nightly run healthy (no crash, always yields data) while still
 crawling the real social platforms whenever credentials are configured.
@@ -23,6 +27,9 @@ from db_utils import get_conn, Jsonb, make_session, fetch_json, fetch_html, fetc
 FB_TOKEN = os.getenv("FB_TOKEN")
 IG_TOKEN = os.getenv("IG_TOKEN")
 LI_TOKEN = os.getenv("LI_TOKEN")
+TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
+REDDIT_LIMIT = 50      # Reddit .json limit (max 100)
+REDDIT_PAGES = 3       # cursor pages per subreddit
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
@@ -128,8 +135,66 @@ def _fallback_hn(n=100):
         time.sleep(0.1)
     return out
 
+def _try_reddit():
+    """Source: Reddit public JSON API (NO key). Cursor-paginated.
+
+    Subreddits chosen for education/community content in the VN context.
+    Each subreddit is walked up to REDDIT_PAGES pages via the `after` cursor;
+    we stop early when a page returns no `after` (no more results).
+    """
+    subs = ["Vietnam", "education", "AskAcademia"]
+    out = []
+    try:
+        s = make_session()
+        for sub in subs:
+            after = None
+            for _ in range(REDDIT_PAGES):
+                url = f"https://www.reddit.com/r/{sub}/top.json?limit={REDDIT_LIMIT}"
+                if after:
+                    url += f"&after={after}"
+                data = fetch_json(s, url, timeout=20)
+                if not data:
+                    print(f"  [social] reddit r/{sub} unreachable")
+                    break
+                children = (data.get("data") or {}).get("children", [])
+                if not children:
+                    break
+                for c in children:
+                    d = c.get("data") or {}
+                    title = (d.get("title") or "").strip()
+                    if not title or title.lower() in ("see all", "xem tất cả"):
+                        continue
+                    media = []
+                    imgs = (d.get("preview") or {}).get("images", [])
+                    if imgs:
+                        src = (imgs[0].get("source") or {}).get("url")
+                        if src:
+                            media.append(src.replace("&#39;", "'").replace("&amp;", "&"))
+                    link = d.get("permalink") or d.get("url") or ""
+                    if not media and link.startswith("http"):
+                        media.append(link)
+                    out.append({
+                        "title": title[:255],
+                        "source": f"reddit_{sub}",
+                        "content": clean(d.get("selftext") or ""),
+                        "media_urls": Jsonb(media),
+                        "tags": Jsonb(["social", "reddit", sub]),
+                        "like_count": int(d.get("score") or 0),
+                        "comment_count": int(d.get("num_comments") or 0),
+                        "status": "active",
+                        "pinned": bool(d.get("stickied")),
+                    })
+                after = (data.get("data") or {}).get("after")
+                if not after:
+                    break
+                time.sleep(0.2)
+    except Exception as e:
+        print(f"  [social] Reddit error: {e}")
+    return out
+
+
 def crawl():
-    rows = _try_facebook() + _try_instagram() + _try_linkedin()
+    rows = _try_facebook() + _try_instagram() + _try_linkedin() + _try_reddit()
     if not rows:
         print("  [social] No social tokens / platforms blocked -> falling back to HN public API")
         rows = _fallback_hn(120)

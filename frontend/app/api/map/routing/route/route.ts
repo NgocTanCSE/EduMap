@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 // GET /api/map/routing/route?lng1=&lat1=&lng2=&lat2=&alternatives=...
 // Proxies EduMap's INTERNAL OSRM-based routing to the backend
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data.data ?? data);
+    return NextResponse.json(unwrapApiResponse(data));
   } catch (error) {
     console.error('Routing API Route Error:', error);
     return NextResponse.json(

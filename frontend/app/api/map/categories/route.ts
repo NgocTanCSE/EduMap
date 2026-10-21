@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 import { DEFAULT_CATEGORIES } from '@/src/lib/map-constants';
 
 /**
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     const response = await fetch(`${getBackendUrl()}/map/categories`, { headers });
     if (response.ok) {
       const data = await response.json();
-      return NextResponse.json(data.data ?? data);
+      return NextResponse.json(unwrapApiResponse(data));
     }
     // backend down / error -> fall through to static defaults
   } catch (error) {

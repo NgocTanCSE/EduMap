@@ -33,14 +33,21 @@ CREATE TABLE role_permissions (
     PRIMARY KEY (role_id, permission_id)
 );
 
+-- 0. user_role_enum (native PostgreSQL enum — replaces magic role_id per CA02)
+CREATE TYPE user_role_enum AS ENUM (
+    'super_admin', 'admin', 'moderator', 'school_rep',
+    'university_rep', 'business_partner', 'sponsor',
+    'teacher', 'mentor', 'volunteer', 'student', 'guest'
+);
+
 -- 1. users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    "twoFactorSecret" VARCHAR(255),
-    "isTwoFactorEnabled" BOOLEAN DEFAULT false,
-    "refreshTokenHash" VARCHAR(255),
+    two_factor_secret VARCHAR(255),
+    is_two_factor_enabled BOOLEAN DEFAULT false,
+    refresh_token_hash VARCHAR(255),
     full_name VARCHAR(255),
     phone VARCHAR(20),
     avatar_url TEXT,
@@ -52,7 +59,7 @@ CREATE TABLE users (
     interests TEXT[] DEFAULT '{}',
     points INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
-    role_id INTEGER REFERENCES roles(id) DEFAULT 11,
+    role user_role_enum DEFAULT 'student',
     status VARCHAR(50) DEFAULT 'active',
     email_verified BOOLEAN DEFAULT false,
     provider VARCHAR(50) DEFAULT 'local',
@@ -680,7 +687,7 @@ CREATE TABLE support_tickets (
 -- 40. internships
 CREATE TABLE internships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    company_id UUID, -- Could link to a companies table
+    company_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
     title VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     field VARCHAR(100),
@@ -786,7 +793,7 @@ CREATE TABLE jobs (
     views INTEGER DEFAULT 0,
     status job_status_enum DEFAULT 'active',
     posted_by_user_id UUID REFERENCES users(id),
-    career_path_id INTEGER,
+    career_path_id INTEGER REFERENCES career_paths(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -799,7 +806,7 @@ CREATE TYPE user_career_status_enum AS ENUM ('active', 'inactive', 'completed');
 CREATE TABLE user_careers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    career_path_id INTEGER,
+    career_path_id INTEGER REFERENCES career_paths(id) ON DELETE SET NULL,
     goal_title VARCHAR(255) NOT NULL,
     description TEXT,
     target_date DATE,

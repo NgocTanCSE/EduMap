@@ -5,13 +5,17 @@
 #   2. NestJS backend    — port 3000 (internal, SQLite)
 #   3. FastAPI AI svc    — port 8000 (internal)
 #
-# Secrets (set via HF Spaces Secrets UI, NOT committed to repo):
-#   - JWT_SECRET
-#   - GOOGLE_CLIENT_ID
-#   - ORS_API_KEY (OpenRouteService for routing)
-#   - NEXT_PUBLIC_GOOGLE_CLIENT_ID
-#   - ADZUNA_APP_ID, ADZUNA_APP_KEY
-#   - TICKETMASTER_API_KEY
+# Secrets (set via HF Spaces Settings → Secrets, NOT committed to repo):
+#   - JWT_SECRET               (bắt buộc, ký JWT)
+#   - GOOGLE_CLIENT_ID         (bắt buộc cho đăng nhập Google OAuth)
+#   - NEXT_PUBLIC_GOOGLE_CLIENT_ID (tùy chọn, fallback cho frontend config route)
+#   - CLOUDFLARE_API_TOKEN     (bắt buộc cho Cloudflare Workers AI chat)
+#   - CLOUDFLARE_ACCOUNT_ID    (bắt buộc cho Cloudflare Workers AI chat)
+#   - CF_AI_GATEWAY_ID         (tùy chọn, ID của Cloudflare AI Gateway)
+#   - CF_AI_GATEWAY_ENABLED    (tùy chọn, true/false — bật dùng AI Gateway)
+#   - HF_TOKEN                 (tùy chọn, HF Inference API fallback)
+#   - ORS_API_KEY              (tùy chọn, OpenRouteService routing)
+#   - ADZUNA_APP_ID, ADZUNA_APP_KEY (tùy chọn, thị trường việc làm)
 
 app_port: 7680
 dockerfile_path: ./Dockerfile

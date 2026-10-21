@@ -32,7 +32,7 @@ export class AuthService {
     // Tìm user kèm theo password_hash (mặc định bị ẩn trong Entity)
     const user = await this.userRepo.findOne({
       where: { email },
-      select: ['id', 'email', 'password_hash', 'full_name', 'role_id'],
+      select: ['id', 'email', 'password_hash', 'full_name', 'role'],
     });
 
     if (!user) {
@@ -81,7 +81,7 @@ export class AuthService {
       email,
       password_hash,
       full_name,
-      role, // Tự động map role_id qua setter của Entity
+      role, // Native enum column (CA02) — được đọc trực tiếp từ DB, không map qua setter
       status: 'active',
       email_verified: false,
     };
@@ -195,7 +195,7 @@ export class AuthService {
       full_name: 'Dev User',
       avatar_url: 'https://ui-avatars.com/api/?name=Dev+User&background=4285F4&color=fff',
       password_hash,
-      role_id: 11, // Student
+      role: UserRole.STUDENT, // Student (native enum, CA02)
       status: 'active',
       email_verified: true,
       last_login: new Date(),

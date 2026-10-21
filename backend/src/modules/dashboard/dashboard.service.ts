@@ -37,7 +37,7 @@ export class DashboardService {
     today.setHours(0, 0, 0, 0);
 
     const results = await Promise.allSettled([
-      this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role_id'] }),
+      this.userRepository.findOne({ where: { id: userId as any }, select: ['id', 'full_name', 'email', 'avatar_url', 'role'] }),
       this.historyRepo.count({ where: { user: { id: userId } as any } }),
       this.skillRepo.count({ where: { user_id: userId } }),
       this.careerRepo.find({ where: { user_id: userId, status: 'active' as any }, take: 3 }),
@@ -88,9 +88,9 @@ export class DashboardService {
       
       // 1. Phân bổ vai trò người dùng (alias 'u' tránh reserved keyword 'user' trong PostgreSQL)
       this.userRepository.createQueryBuilder('u')
-        .select('u.role_id', 'role')
+        .select('u.role', 'role')
         .addSelect('COUNT(*)', 'count')
-        .groupBy('u.role_id')
+        .groupBy('u.role')
         .getRawMany(),
 
       // 2. Xu hướng đăng ký người dùng mới (6 tháng gần nhất)

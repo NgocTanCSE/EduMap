@@ -20,6 +20,12 @@ export class ScholarshipController {
     return this.scholarService.getAllScholarships(pageNum, limitNum);
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Lấy chi tiết một học bổng theo ID' })
+  async getById(@Param('id') id: string) {
+    return this.scholarService.getScholarshipById(id);
+  }
+
   @Get(':id/check-eligibility')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

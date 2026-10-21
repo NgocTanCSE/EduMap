@@ -79,6 +79,16 @@ ITVIEC_API = 'https://itviec.com/api/v1/jobs'
 MAX_PAGES = 5  # ~500 jobs max per run
 PAGE_SIZE = 100
 
+# --- Source parity with crawlers/jobs_crawler.py (Postgres path) ---
+# HF Spaces ships a stdlib-only Python image, so these sources use `fetch_url`
+# (urllib) — NO requests/psycopg2 dependency — matching the existing sources.
+REMOTEOK_URL = 'https://remoteok.com/api'
+REMOTIVE_URL = 'https://api.remotive.com/v1/projects'
+REMOTIVE_LIMIT = 50  # offset-pagination step
+ADZUNA_COUNTRY = os.getenv('ADZUNA_COUNTRY', 'vn')
+ADZUNA_APP_ID = os.getenv('ADZUNA_APP_ID', '')
+ADZUNA_APP_KEY = os.getenv('ADZUNA_APP_KEY', '')
+
 
 def _extract_logo(job):
     """Extract company/logo URL from an ITviec API job object.
@@ -355,6 +365,130 @@ def crawl_vietnamworks_html():
     return results
 
 
+def _base_job(title, company, location, salary, description, job_type, skills, source_url, image_url):
+    """Build a SQLite-native jobs row (no psycopg2/Jsonb) shared by all sources."""
+    return {
+        'title': clean_text(title)[:255],
+        'company_name': clean_text(company)[:255] if company else 'Unknown',
+        'location': clean_text(location)[:255] if location else 'Vietnam',
+        'salary_range': clean_text(str(salary))[:100] if salary else 'Thoa thuan',
+        'description': clean_text(description)[:500] if description else '',
+        'job_type': (job_type or 'full_time').lower().strip(),
+        'required_skills': json.dumps(skills) if skills else '[]',
+        'experience_level': 'Chua xac dinh',
+        'source_url': source_url or '',
+        'image_url': image_url,
+        'application_deadline': None, 'views': 0, 'status': 'active',
+        'posted_by_user_id': None, 'career_path_id': None,
+    }
+
+
+def crawl_remoteok_api():
+    """Source: RemoteOK public API (no key). Single endpoint returns all."""
+    url = f"{REMOTEOK_URL}?api=jobs"
+    raw = fetch_url(url, timeout=20)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return []
+    out = []
+    if not isinstance(data, list):
+        return []
+    for j in data:
+        if not isinstance(j, dict) or not j.get('position'):   # first item is the "legal" header
+            continue
+        salary = None
+        if j.get('salary_min') or j.get('salary_max'):
+            salary = f"{j.get('salary_min', '')}-{j.get('salary_max', '')} USD"
+        logo = j.get('logo') or j.get('company_logo') or None
+        if logo and not str(logo).startswith(('http://', 'https://')):
+            logo = None
+        out.append(_base_job(
+            j.get('position', ''), j.get('company', ''), j.get('location', ''),
+            salary, j.get('description', ''), j.get('job_type'), j.get('tags', []),
+            j.get('url') or f"https://remoteok.com/{j.get('id', '')}", logo))
+    return out
+
+
+def crawl_remotive():
+    """Source: Remotive public API (no key). Offset-paginated; stop when <LIMIT."""
+    out = []
+    offset = 0
+    for _ in range(8):                      # <=400 jobs
+        url = f"{REMOTIVE_URL}?limit={REMOTIVE_LIMIT}&offset={offset}"
+        raw = fetch_url(url, timeout=20)
+        if not raw:
+            break
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            break
+        projects = data.get('projects') or []
+        if not projects:
+            break
+        for p in projects:
+            if not isinstance(p, dict) or not p.get('title'):
+                continue
+            comp = p.get('company_name', '') or ''
+            loc = p.get('location', '') or 'Remote'
+            tags = []
+            if isinstance(p.get('tags'), list):
+                tags = [t.get('name', '') for t in p.get('tags') if isinstance(t, dict) and t.get('name')]
+            logo = None
+            company_obj = p.get('company')
+            if isinstance(company_obj, dict):
+                logo = company_obj.get('logo')
+            if logo and not str(logo).startswith(('http://', 'https://')):
+                logo = None
+            out.append(_base_job(
+                p.get('title', ''), comp, loc, None,
+                p.get('description', ''), None, tags,
+                p.get('url') or REMOTIVE_URL, logo))
+        if len(projects) < REMOTIVE_LIMIT:  # last partial page
+            break
+        offset += REMOTIVE_LIMIT
+        time.sleep(0.4)
+    return out
+
+
+def crawl_adzuna():
+    """Source: Adzuna Vietnam (free tier, needs ADZUNA_APP_ID + ADZUNA_APP_KEY)."""
+    if not (ADZUNA_APP_ID and ADZUNA_APP_KEY):
+        return []
+    out = []
+    for page in range(1, 6):                # <=250 jobs
+        url = (f"https://api.adzuna.com/v1/api/jobs/{ADZUNA_COUNTRY}/search/{page}"
+               f"?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_APP_KEY}"
+               f"&results_per_page=50&what=developer")
+        raw = fetch_url(url, timeout=20)
+        if not raw:
+            break
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            break
+        results = data.get('results') or []
+        if not results:
+            break
+        for j in results:
+            if not isinstance(j, dict) or not j.get('title'):
+                continue
+            company = (j.get('company') or {}).get('display_name', '')
+            loc = (j.get('location') or {}).get('display_name', '')
+            salary = None
+            if j.get('salary_min') or j.get('salary_max'):
+                cur = j.get('salary_currency', 'USD')
+                salary = f"{j.get('salary_min', '')}-{j.get('salary_max', '')} {cur}"
+            out.append(_base_job(
+                j.get('title', ''), company, loc, salary,
+                j.get('description', ''), j.get('contract_type'),
+                [], j.get('redirect_url') or '', j.get('logo_image') or None))
+        time.sleep(0.4)
+    return out
+
+
 def clean_text(text):
     """Unescape HTML entities and clean text."""
     if not text:
@@ -436,7 +570,7 @@ def main():
     total_inserted = 0
     total_skipped = 0
 
-    # --- Source 1: ITviec API ---
+    # --- Source 1: ITviec API (+ HTML fallback) ---
     print("\n📍 Crawling ITviec API...")
     for page in range(1, args.max_pages + 1):
         try:
@@ -444,15 +578,12 @@ def main():
             if not jobs:
                 print(f"  Page {page}: no jobs returned (end or API limit)")
                 break
-
             for job in jobs:
-                before = cursor.rowcount
                 insert_job(cursor, job)
                 if cursor.rowcount > 0:
                     total_inserted += 1
                 else:
                     total_skipped += 1
-
             conn.commit()
             print(f"  Page {page}: {len(jobs)} jobs found, {total} total available")
             time.sleep(1)  # Rate limiting
@@ -460,7 +591,7 @@ def main():
             print(f"  [error] ITviec page {page}: {e}")
             continue
 
-    # --- Source 2: TopCV (HTML fallback) ---
+    # --- Source 2: TopCV (HTML) ---
     print("\n📍 Crawling TopCV HTML...")
     try:
         jobs = crawl_topcv_html()
@@ -475,7 +606,7 @@ def main():
     except Exception as e:
         print(f"  [error] TopCV: {e}")
 
-    # --- Source 3: VietnamWorks (HTML fallback) ---
+    # --- Source 3: VietnamWorks (HTML / __NEXT_DATA__) ---
     print("\n📍 Crawling VietnamWorks HTML...")
     try:
         jobs = crawl_vietnamworks_html()
@@ -489,6 +620,54 @@ def main():
         print(f"  VietnamWorks: {len(jobs)} jobs found")
     except Exception as e:
         print(f"  [error] VietnamWorks: {e}")
+
+    # --- Source 4: RemoteOK (public API, no key) ---
+    print("\n📍 Crawling RemoteOK API...")
+    try:
+        jobs = crawl_remoteok_api()
+        for job in jobs:
+            insert_job(cursor, job)
+            if cursor.rowcount > 0:
+                total_inserted += 1
+            else:
+                total_skipped += 1
+        conn.commit()
+        print(f"  RemoteOK: {len(jobs)} jobs found")
+    except Exception as e:
+        print(f"  [error] RemoteOK: {e}")
+
+    # --- Source 5: Remotive (public API, offset-paginated) ---
+    print("\n📍 Crawling Remotive API...")
+    try:
+        jobs = crawl_remotive()
+        for job in jobs:
+            insert_job(cursor, job)
+            if cursor.rowcount > 0:
+                total_inserted += 1
+            else:
+                total_skipped += 1
+        conn.commit()
+        print(f"  Remotive: {len(jobs)} jobs found")
+    except Exception as e:
+        print(f"  [error] Remotive: {e}")
+
+    # --- Source 6 (env-gated): Adzuna Vietnam ---
+    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
+        print("\n📍 Crawling Adzuna (VN)...")
+        try:
+            jobs = crawl_adzuna()
+            for job in jobs:
+                insert_job(cursor, job)
+                if cursor.rowcount > 0:
+                    total_inserted += 1
+                else:
+                    total_skipped += 1
+            conn.commit()
+            print(f"  Adzuna: {len(jobs)} jobs found")
+        except Exception as e:
+            print(f"  [error] Adzuna: {e}")
+    else:
+        print("\n⏭️  Adzuna skipped (set ADZUNA_APP_ID + ADZUNA_APP_KEY to enable)")
 
     # --- Summary ---
     cursor.execute("SELECT COUNT(*) FROM jobs WHERE status='active'")
