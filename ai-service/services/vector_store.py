@@ -2,6 +2,7 @@ import os
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import List, Dict
 
 try:
@@ -16,13 +17,12 @@ except ImportError:
 
 
 class VectorStoreService:
-    """Semantic search. Chat (LLM) + EMBEDDING đều qua Cloudflare Workers AI (1 token: CLOUDFLARE_API_TOKEN).
+    """Semantic search. Chat (LLM) + EMBEDDING đều qua Google Gemini (một key).
 
-    - Chat (LLM)  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_MODEL (@cf/meta/llama-3.1-8b-instruct-fp8)
-    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL (@cf/baai/bge-base-en-v1.5)
-    - EMBEDDING  -> HuggingFace Inference API (fallback) : HF_TOKEN / HF_EMBEDDING_MODEL (intfloat/multilingual-e5-base, 768 dim)
-      Khi Cloudflare khong ket noi duoc (TLS/SSL EOF tu HF Spaces), tu dong chuyen sang HF Inference API.
-      HF_TOKEN tu dong co san tren HF Spaces.
+    - Embedding  -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
+    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL
+    - EMBEDDING  -> HuggingFace Inference API (fallback) : HF_TOKEN / HF_EMBEDDING_MODEL
+      HF Spaces không hoàn tất được TLS tới api.cloudflare.com; Gemini là lựa chọn chính.
     """
 
     def __init__(self):
@@ -37,20 +37,39 @@ class VectorStoreService:
         self.has_cf_api = bool(self.cf_api_token) and bool(self.cf_account_id)
         # Circuit breaker: skip Cloudflare for 5 min after a network failure.
         self._cf_embed_down_until = 0.0
-        # --- HuggingFace Inference API config (fallback khi Cloudflare ko hoat dong) ---
-        self.hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        # --- Google Gemini embeddings (primary on HF Spaces) ---
+        # One GEMINI_API_KEY covers chat and embeddings. Gemini is reachable
+        # from HF Spaces, unlike api.cloudflare.com (TLS handshake blackholed).
+        self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
+        self.gemini_embedding_models = [
+            m.strip()
+            for m in os.getenv(
+                "GEMINI_EMBEDDING_MODEL",
+                "gemini-embedding-001,text-embedding-004",
+            ).split(",")
+            if m.strip()
+        ]
+        self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
+        self.has_gemini_api = bool(self.gemini_key)
+        self._gemini_embed_down_until = 0.0
+        # --- HuggingFace Inference API config (fallback khi Cloudflare/Gemini ko hoat dong) ---
+        self.hf_token = (
+            os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or ""
+        ).strip().strip('"').strip("'")
         self.hf_embedding_model = os.getenv("HF_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
         # api-inference.huggingface.co was retired (NXDOMAIN). Router is current.
         self.hf_router_url = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
         self.has_hf_api = bool(self.hf_token)
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
-        self.has_api = self.has_cf_api or self.has_hf_api
+        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
         self._embed_dim = None
-        if not self.has_cf_api and not self.has_hf_api:
-            print("WARNING: Vector store without embeddings. Set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare) OR HF_TOKEN (HuggingFace) for semantic search.")
+        if not self.has_api:
+            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare) OR HF_TOKEN (HuggingFace) for semantic search.")
+        if self.has_gemini_api:
+            print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
             print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-base-en-v1.5")
         if self.has_hf_api:
@@ -102,6 +121,110 @@ class VectorStoreService:
             code in (404, 410, 7000)
             or any(r in low for r in self._EMBED_MODEL_NOT_FOUND_REASONS)
         )
+
+    def _gemini_get_embedding(self, text: str) -> List[float]:
+        """Get an embedding from Google Gemini (primary on HF Spaces)."""
+        import subprocess
+        import time
+
+        if not self.has_gemini_api:
+            raise RuntimeError("GEMINI_API_KEY not set — cannot use Gemini embeddings.")
+        if time.monotonic() < self._gemini_embed_down_until:
+            raise RuntimeError("Gemini embeddings temporarily disabled after a network failure.")
+
+        last_err = None
+        for raw_model in self.gemini_embedding_models:
+            model = (raw_model or "").strip()
+            if model.startswith("models/"):
+                model = model[len("models/"):]
+            if not model:
+                continue
+
+            url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{urllib.parse.quote(model, safe='-')}:embedContent"
+            )
+            payload = {
+                "model": f"models/{model}",
+                "content": {"parts": [{"text": text}]},
+            }
+            # gemini-embedding-001 defaults to 3072 dims, which would not match
+            # the existing 768-dim Chroma collection. Ask for the pinned dim.
+            if model.startswith("gemini-embedding-001"):
+                payload["outputDimensionality"] = int(self._embed_dim or 768)
+            body_json = json.dumps(payload)
+
+            try:
+                proc = subprocess.run(
+                    [
+                        "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                        "-H", f"x-goog-api-key: {self.gemini_key}",
+                        "-H", "Content-Type: application/json",
+                        "-d", body_json,
+                        "--connect-timeout", "6",
+                        "--max-time", str(self.gemini_timeout),
+                        url,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.gemini_timeout + 2,
+                )
+            except Exception as e:
+                self._gemini_embed_down_until = time.monotonic() + 300
+                raise RuntimeError(f"Gemini embedding connection failed: {type(e).__name__}: {e}")
+
+            if proc.returncode != 0:
+                err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
+                self._gemini_embed_down_until = time.monotonic() + 300
+                raise RuntimeError(f"Gemini embedding connection failed: {err}")
+
+            try:
+                data = json.loads(proc.stdout or "{}")
+            except Exception:
+                last_err = f"{model}: invalid JSON response"
+                continue
+
+            if isinstance(data, dict) and data.get("error"):
+                err = data.get("error") or {}
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+                low = message.lower()
+                if code in (401, 403) or "api key" in low and ("invalid" in low or "not valid" in low):
+                    raise RuntimeError(f"Gemini embedding auth error (HTTP {code}): {message[:200]}")
+                if code == 429:
+                    last_err = f"{model}: HTTP 429 {message[:100]}"
+                    print(f"Gemini embedding model {model} bi rate-limit (429), thu model ke tiep...")
+                    continue
+                if code in (400, 404) and any(
+                    reason in low
+                    for reason in ("not found", "not supported", "does not exist", "deprecated")
+                ):
+                    last_err = f"{model}: HTTP {code} {message[:100]}"
+                    print(f"Gemini embedding model {model} khong kha dung, thu model ke tiep...")
+                    continue
+                last_err = f"{model}: HTTP {code} {message[:120]}"
+                continue
+
+            vec = None
+            if isinstance(data, dict):
+                emb = data.get("embedding")
+                if isinstance(emb, dict):
+                    vec = emb.get("values")
+                if vec is None:
+                    embs = data.get("embeddings")
+                    if isinstance(embs, list) and embs:
+                        first = embs[0]
+                        if isinstance(first, dict):
+                            vec = first.get("values")
+                        elif isinstance(first, list):
+                            vec = first
+
+            if vec and isinstance(vec, list) and len(vec) > 0:
+                return [float(x) for x in vec]
+
+            last_err = f"{model}: empty embedding response"
+
+        raise RuntimeError(f"Gemini embedding failed: {last_err or 'no model available'}")
 
     def _hf_get_embedding(self, text: str) -> List[float]:
         """Goi HuggingFace Inference API de lay embedding.
@@ -202,18 +325,38 @@ class VectorStoreService:
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_EMBEDDING_MODEL hoặc HF_TOKEN để dùng semantic search.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_EMBEDDING_MODEL hoặc HF_TOKEN để dùng semantic search.")
         if not text:
             return []
 
         import time
         _embed_start = time.monotonic()
         _EMBED_GLOBAL_TIMEOUT = 12  # cap total embedding time so LLM can still respond within 60s backend timeout
+        gemini_last_err = None
         cf_last_err = None
+
+        # --- Phan 0: Gemini embeddings (primary — reachable from HF Spaces) ---
+        if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
+            try:
+                vec = self._gemini_get_embedding(text)
+                vec = [float(x) for x in vec]
+                if self._embed_dim and len(vec) != self._embed_dim:
+                    print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                    if len(vec) > self._embed_dim:
+                        vec = vec[:self._embed_dim]
+                    else:
+                        vec = vec + [0.0] * (self._embed_dim - len(vec))
+                self._embed_dim = len(vec)
+                print(f"  -> Gemini embedding OK (dim={len(vec)})")
+                return vec
+            except Exception as e:
+                gemini_last_err = str(e)
+                print(f"Gemini embedding failed: {e}")
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
         if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
             cf_last_err = None
+            cf_network_down = False
             if self.cf_gateway_enabled and self.cf_gateway_id and self.cf_account_id:
                 base_url = f"https://gateway.ai.cloudflare.com/v1/{self.cf_account_id}/{self.cf_gateway_id}/ai/run"
                 print(f"[Embed] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
@@ -259,6 +402,7 @@ class VectorStoreService:
                             cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); time.sleep(1.5); continue
                         cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, tam ngung Cloudflare 5 phut.")
                         self._cf_embed_down_until = time.monotonic() + 300
+                        cf_network_down = True
                         break  # network is down for all models
 
                     # Success path: parse Cloudflare embedding response
@@ -301,6 +445,9 @@ class VectorStoreService:
                     cf_last_err = f"{model}: response khong co gia tri embedding"
                     break
                 # end while True (per-model)
+                if cf_network_down:
+                    print("  [embed] Cloudflare network unreachable, skipping remaining models")
+                    break
             # end for model in embed_models
 
         # --- Phan 2: fallback ve HuggingFace Inference API (khi Cloudflare fail) ---
@@ -326,7 +473,11 @@ class VectorStoreService:
                 except Exception as e:
                     print(f"HF Inference API embedding ALSO failed: {e}")
 
-        raise RuntimeError(f"Khong the lay embedding. Cloudflare: {cf_last_err or 'khong cau hinh'}")
+        raise RuntimeError(
+            "Khong the lay embedding. "
+            f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
+            f"Cloudflare: {cf_last_err or 'khong cau hinh'}"
+        )
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         try:

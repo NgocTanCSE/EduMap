@@ -28,7 +28,8 @@ if [ -r /proc/1/environ ]; then
     SECRET_VARS="CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_MODEL \
 CLOUDFLARE_EMBEDDING_MODEL HF_TOKEN HUGGING_FACE_HUB_TOKEN \
 HF_LLM_MODEL HF_EMBEDDING_MODEL OPENAI_API_KEY ADZUNA_APP_ID \
-ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \\
+ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
+GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
 CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED"
     for var in $SECRET_VARS; do
         if [ -z "${!var}" ]; then
@@ -54,6 +55,7 @@ fi
 
 # ── Debug: print which AI sources are available (without revealing secrets) ─
 echo "AI service env check:"
+[ -n "$GEMINI_API_KEY" ] && echo "  GEMINI_API_KEY: ✓ set" || echo "  GEMINI_API_KEY: ✗ NOT set"
 [ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
 [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo "  CLOUDFLARE_ACCOUNT_ID: ✓ set" || echo "  CLOUDFLARE_ACCOUNT_ID: ✗ NOT set"
 [ -n "$CF_AI_GATEWAY_ID" ] && echo "  CF_AI_GATEWAY_ID: ✓ set" || echo "  CF_AI_GATEWAY_ID: ✗ NOT set (direct Workers AI)"
