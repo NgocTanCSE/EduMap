@@ -118,6 +118,7 @@ export class EventsService {
           ticket_qr: qrCodeUrl,
           start_date: event.start_date,
           location: event.location,
+          address: event.address,
         };
       } catch (error) {
         this.logger.error(`[EVENT REG FAILED] Event: ${eventId}, Error: ${error.message}`);

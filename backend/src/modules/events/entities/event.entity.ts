@@ -22,6 +22,14 @@ export class Event {
   })
   location: any;
 
+  /**
+   * Human-readable venue. The map still uses `location` (GeoJSON Point), but
+   * the list/detail/ticket UI must never render raw GeoJSON as a React child
+   * (React error #31: "object with keys {type, coordinates}").
+   */
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
   @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
   start_date: Date;
 

@@ -82,8 +82,8 @@ export default function StemLabsPage() {
   };
 
   const filteredLabs = labs.filter(lab => 
-      lab.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      lab.address.toLowerCase().includes(searchTerm.toLowerCase())
+      (lab.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lab.address || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -200,7 +200,7 @@ export default function StemLabsPage() {
                             </span>
                         </div>
                         <h3 className="text-2xl font-bold group-hover:text-accent transition-colors">{lab.name}</h3>
-                        <p className="text-sm text-muted-foreground/60 flex items-center gap-2 mt-2"><MapPin className="w-4 h-4 text-accent"/> {lab.address}</p>
+                        <p className="text-sm text-muted-foreground/60 flex items-center gap-2 mt-2"><MapPin className="w-4 h-4 text-accent"/> {lab.address || 'Chưa cập nhật địa chỉ'}</p>
                     </div>
                     
                     <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-2xl">

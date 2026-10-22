@@ -20,6 +20,13 @@ export class StemLab {
   })
   location: any;
 
+  /**
+   * Specific room/floor text from the DB (`location_point_text`). The UI
+   * displays this as the lab address; `location` remains the map point.
+   */
+  @Column({ name: 'location_point_text', nullable: true })
+  address: string;
+
   @Column(textArrayColumn())
   equipment: string[];
 
