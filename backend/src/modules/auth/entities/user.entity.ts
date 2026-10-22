@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne } from 'typeorm';
 import { UserPreference } from './user-preference.entity';
-import { datetimeColumn } from '../../../common/utils/db-column.utils';
+import { datetimeColumn, enumColumn, textArrayColumn } from '../../../common/utils/db-column.utils';
 
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
@@ -41,7 +41,7 @@ export class User {
   refreshTokenHash: string;
 
   @Column({
-    type: 'enum',
+    ...enumColumn(),
     enum: UserRole,
     default: UserRole.STUDENT,
   })
@@ -55,9 +55,9 @@ export class User {
   @Column({ name: 'major', type: 'varchar', length: 255, nullable: true })
   major: string;
 
-  // `role` is now a native PostgreSQL enum column (see @Column above).
-  // The previous magic-integer getter/setter was removed per CA02
-  // (docs/all-documents/CA02_ROLE_REFACTOR.md §6).
+  // `role` uses the enumColumn() helper: native PostgreSQL ENUM on Postgres,
+  // TEXT on SQLite (HF Spaces). The previous magic-integer getter/setter was
+  // removed per CA02 (docs/all-documents/CA02_ROLE_REFACTOR.md §6).
 
   @Column({ nullable: true })
   full_name: string;
@@ -74,10 +74,10 @@ export class User {
   @Column({ nullable: true })
   mbti_type: string;
 
-  @Column({ type: 'text', array: true, default: '{}' })
+  @Column(textArrayColumn())
   skills: string[];
 
-  @Column({ type: 'text', array: true, default: '{}' })
+  @Column(textArrayColumn())
   interests: string[];
 
   @Column({ default: 0 })

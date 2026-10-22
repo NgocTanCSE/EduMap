@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Hackathon } from './hackathon.entity';
 import { User } from '../../auth/entities/user.entity';
+import { textArrayColumn } from '../../../common/utils/db-column.utils';
 
 @Entity('hackathon_teams')
 export class HackathonTeam {
@@ -24,7 +25,7 @@ export class HackathonTeam {
   @Column()
   leader_id: string;
 
-  @Column('text', { array: true, default: '{}' })
+  @Column(textArrayColumn())
   members: string[];
 
   @Column({ nullable: true })

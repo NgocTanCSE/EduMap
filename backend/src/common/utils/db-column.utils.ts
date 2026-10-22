@@ -81,3 +81,38 @@ export function datetimeColumn(
 export function enumColumn(): Record<string, unknown> {
   return { type: isPostgres ? 'enum' : 'text' };
 }
+
+/**
+ * Array-of-strings column. Postgres uses native `text[]`; SQLite has no array
+ * type at all (TypeORM throws DataTypeNotSupportedError for `array: true`), so
+ * we store a JSON-encoded string and convert in a transformer.
+ *
+ * Existing rows in the bundled SQLite DB already hold JSON (`[]`, `["a"]`),
+ * so the transformer keeps that format instead of switching to `simple-array`
+ * (comma-separated), which would mis-read existing data.
+ *
+ *   @Column(textArrayColumn())
+ *   skills: string[];
+ */
+export function textArrayColumn(): Record<string, unknown> {
+  if (isPostgres) {
+    return { type: 'text', array: true, default: '{}' };
+  }
+  return {
+    type: 'text',
+    default: '[]',
+    transformer: {
+      to: (value: string[] | null | undefined): string | null | undefined =>
+        value == null ? value : JSON.stringify(value),
+      from: (value: string | null | undefined): string[] => {
+        if (!value) return [];
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [String(parsed)];
+        } catch {
+          return value.split(',').map((v) => v.trim()).filter(Boolean);
+        }
+      },
+    },
+  };
+}

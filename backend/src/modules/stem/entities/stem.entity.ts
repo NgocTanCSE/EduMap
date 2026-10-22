@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { textArrayColumn } from '../../../common/utils/db-column.utils';
 
 @Entity('stem_labs')
 export class StemLab {
@@ -19,7 +20,7 @@ export class StemLab {
   })
   location: any;
 
-  @Column({ type: 'text', array: true, default: '{}' })
+  @Column(textArrayColumn())
   equipment: string[];
 
   @Column({ default: 0 })
