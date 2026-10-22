@@ -102,7 +102,9 @@ export function textArrayColumn(): Record<string, unknown> {
     type: 'text',
     default: '[]',
     transformer: {
-      to: (value: string[] | null | undefined): string | null | undefined =>
+      // Return type is `any`: this repo compiles with strictNullChecks=false,
+      // so `value == null` does not narrow the true branch to null/undefined.
+      to: (value: string[] | null | undefined): any =>
         value == null ? value : JSON.stringify(value),
       from: (value: string | null | undefined): string[] => {
         if (!value) return [];
