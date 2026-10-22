@@ -5,6 +5,8 @@ import { opportunityService, Opportunity } from '@/src/services/opportunity.serv
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import Thumb from '@/components/ui/Thumb';
+import { opportunityIllustration } from '@/src/lib/illustrations';
 
 export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
     const oppId = params.id;
@@ -79,6 +81,13 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
         <div className="bg-card border border-border rounded-lg p-8 md:p-6 relative overflow-hidden">
             
             <div className="relative z-10 space-y-6">
+                <div className="overflow-hidden rounded-lg border border-border">
+                    <Thumb
+                        src={opportunityIllustration(opportunity.category, opportunity.title)}
+                        alt={opportunity.title}
+                        aspect="16/6"
+                    />
+                </div>
                 <div className="flex justify-between items-start mb-2">
                     <span className="px-4 py-2 rounded-full bg-primary/20 text-primary/90 text-xs font-bold uppercase tracking-widest border border-primary/30">
                         {opportunity.category}

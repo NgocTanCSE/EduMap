@@ -23,8 +23,17 @@ export class EventsService {
    * F-12: Tạo workshop/sự kiện mới
    */
   async createEvent(organizerId: string, data: any) {
+    if (!data?.title || !data?.description || !data?.start_date || !data?.end_date) {
+      throw new BadRequestException('Thiếu thông tin bắt buộc của sự kiện');
+    }
+
+    // `latitude` / `longitude` are form-friendly fields; the database stores a
+    // single GeoJSON Point in `location_point`. Never spread them into the
+    // entity — TypeORM would ignore them and the map marker would be lost.
+    const { latitude, longitude, ...eventData } = data;
     const event = this.eventRepository.create({
-      ...data,
+      ...eventData,
+      location: this.buildLocation(data),
       organizer_id: organizerId,
       registered_count: 0,
     });
@@ -38,8 +47,31 @@ export class EventsService {
     const event = await this.eventRepository.findOne({ where: { id } });
     if (!event) throw new NotFoundException('Không tìm thấy sự kiện');
 
-    Object.assign(event, data);
+    const { latitude, longitude, ...eventData } = data;
+    Object.assign(event, eventData);
+
+    const location = this.buildLocation(data);
+    if (location) event.location = location;
+
     return this.eventRepository.save(event);
+  }
+
+  /**
+   * Convert optional form coordinates into the GeoJSON Point stored by
+   * Postgres/PostGIS and SQLite. GeoJSON coordinate order is [lng, lat].
+   */
+  private buildLocation(data: any): any {
+    if (data?.location && typeof data.location === 'object') {
+      return data.location;
+    }
+
+    const latitude = Number(data?.latitude);
+    const longitude = Number(data?.longitude);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return { type: 'Point', coordinates: [longitude, latitude] };
+    }
+
+    return undefined;
   }
 
   /**

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Minh họa khóa học trực tuyến">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18252b"/>
+      <stop offset="1" stop-color="#2f4858"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#81b29a"/>
+      <stop offset="1" stop-color="#4b3f72"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#bg)"/>
+  <circle cx="980" cy="150" r="220" fill="#f2cc94" opacity=".08"/>
+  <circle cx="180" cy="640" r="240" fill="#81b29a" opacity=".10"/>
+  <g transform="translate(600 380)">
+    <rect x="-330" y="-190" width="660" height="380" rx="28" fill="#0f1a20" opacity=".85"/>
+    <rect x="-285" y="-145" width="570" height="290" rx="18" fill="url(#screen)" opacity=".9"/>
+    <g stroke="#fdfcf8" stroke-width="9" stroke-linecap="round" opacity=".8">
+      <path d="M-210-60h235M-210-10h310M-210 40h180"/>
+      <path d="M-210 95h105"/>
+    </g>
+    <rect x="90" y="-40" width="150" height="110" rx="16" fill="#fdfcf8" opacity=".95"/>
+    <path d="M120-15l36 22 36-22v52l-36 22-36-22z" fill="#e07a5f"/>
+    <path d="M-330 190h660l-50 35h-560z" fill="#d9d3e6" opacity=".9"/>
+  </g>
+  <g transform="translate(260 560) rotate(-8)">
+    <rect x="-88" y="-58" width="176" height="116" rx="12" fill="#f2cc94"/>
+    <path d="M0-58v116" stroke="#4b3f72" stroke-width="7"/>
+    <g stroke="#4b3f72" stroke-width="6" stroke-linecap="round" opacity=".7">
+      <path d="M-62-25h46M-62 5h46M-62 35h39M16-25h46M16 5h46M16 35h39"/>
+    </g>
+  </g>
+  <g fill="#f2cc94" opacity=".8">
+    <circle cx="945" cy="555" r="9"/><circle cx="995" cy="510" r="5"/><circle cx="1045" cy="575" r="7"/>
+  </g>
+</svg>

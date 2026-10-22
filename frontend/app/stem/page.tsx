@@ -4,6 +4,7 @@ import { Microscope, MapPin, CheckCircle2, MonitorSmartphone, Calendar, Clock, L
 import { stemService, StemLab } from '@/src/services/stem.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { stemIllustration } from '@/src/lib/illustrations';
 
 export default function StemLabsPage() {
   const [labs, setLabs] = useState<StemLab[]>([]);
@@ -188,8 +189,12 @@ export default function StemLabsPage() {
           <div className="space-y-6">
             {filteredLabs.map(lab => (
               <div key={lab.id} className="p-8 rounded-xl bg-card border border-border flex flex-col md:flex-row gap-8 hover:border-accent/30 transition-colors group">
-                <div className="w-24 h-24 shrink-0 rounded-lg bg-card border border-border flex items-center justify-center">
-                    <Microscope className="w-10 h-10 text-accent/50 group-hover:text-accent transition-colors" />
+                <div className="w-24 h-24 md:w-32 md:h-32 shrink-0 rounded-lg bg-card border border-border overflow-hidden">
+                    <img
+                      src={stemIllustration(lab.name)}
+                      alt={lab.name}
+                      className="w-full h-full object-cover"
+                    />
                 </div>
 
                 <div className="flex-1 space-y-4">

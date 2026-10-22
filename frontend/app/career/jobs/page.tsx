@@ -4,6 +4,7 @@ import { careerService } from '@/src/services/career.service';
 import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';
+import { jobIllustration } from '@/src/lib/illustrations';
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -82,35 +83,44 @@ export default function JobsPage() {
             jobs.map(job => (
               <Link key={job.id} href={`/career/jobs/${job.id}`} className="block">
                 <div className="bg-card border border-border p-6 rounded-lg flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                        <span className="bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
-                            {job.job_type.replace('_', ' ')}
-                        </span>
-                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{job.title}</h3>
+                  <div className="flex items-start gap-4 min-w-0">
+                    <div className="hidden sm:block w-14 h-14 shrink-0 rounded-lg overflow-hidden border border-border">
+                      <img
+                        src={jobIllustration(job.title, job.company_name)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/40">
-                      <div className="flex items-center gap-1">
-                        <Building2 size={16} />
-                        <span>{job.company_name}</span>
+                    <div className="space-y-3 min-w-0">
+                      <div className="flex items-center gap-2">
+                          <span className="bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
+                              {String(job.job_type || 'full time').replace('_', ' ')}
+                          </span>
+                          <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{job.title}</h3>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin size={16} />
-                        <span>{job.location}</span>
+                      
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/40">
+                        <div className="flex items-center gap-1">
+                          <Building2 size={16} />
+                          <span>{job.company_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MapPin size={16} />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-primary font-medium">
+                          <Briefcase size={16} />
+                          <span>{job.salary_range}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-primary font-medium">
-                        <Briefcase size={16} />
-                        <span>{job.salary_range}</span>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2">
-                        {job.required_skills?.slice(0, 3).map((skill: string) => (
-                            <span key={skill} className="text-[10px] bg-card text-muted-foreground/40 px-2 py-1 rounded">
-                                {skill}
-                            </span>
-                        ))}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                          {job.required_skills?.slice(0, 3).map((skill: string) => (
+                              <span key={skill} className="text-[10px] bg-card text-muted-foreground/40 px-2 py-1 rounded">
+                                  {skill}
+                              </span>
+                          ))}
+                      </div>
                     </div>
                   </div>
                   

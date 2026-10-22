@@ -9,6 +9,7 @@ import { eventsService, Event, EventRegistrationResponse } from '@/src/services/
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
+import { eventIllustration } from '@/src/lib/illustrations';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
@@ -147,10 +148,14 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             {/* Left: Info */}
             <div className="lg:col-span-2 space-y-8">
               <div className="rounded-xl overflow-hidden border border-border aspect-video relative">
-                <Thumb src={event.image_url || undefined} alt={event.title} aspect="16/10" />
+                <Thumb
+                  src={event.image_url || eventIllustration(event.type, event.title)}
+                  alt={event.title}
+                  aspect="16/10"
+                />
                 <div className="absolute bottom-6 left-6 right-6">
-                  <span className="px-3 py-1 rounded-full bg-primary text-[10px] font-bold mb-3 inline-block">
-                    WORKSHOP
+                  <span className="px-3 py-1 rounded-full bg-primary text-[10px] font-bold mb-3 inline-block uppercase">
+                    {event.type || 'Sự kiện'}
                   </span>
                   <h1 className="text-2xl font-semibold text-foreground">{event.title}</h1>
                 </div>

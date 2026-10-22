@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Minh họa cơ hội thực tập">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2636"/>
+      <stop offset="1" stop-color="#35485a"/>
+    </linearGradient>
+    <linearGradient id="case" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e07a5f"/>
+      <stop offset="1" stop-color="#f2cc94"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#bg)"/>
+  <circle cx="180" cy="160" r="190" fill="#81b29a" opacity=".10"/>
+  <circle cx="1010" cy="620" r="230" fill="#e07a5f" opacity=".09"/>
+  <g transform="translate(600 390)">
+    <rect x="-330" y="-70" width="660" height="320" rx="42" fill="#0f1a20" opacity=".55"/>
+    <rect x="-280" y="-25" width="560" height="225" rx="34" fill="url(#case)"/>
+    <path d="M-280 55h560v70a34 34 0 0 1-34 34h-492a34 34 0 0 1-34-34z" fill="#4b3f72" opacity=".55"/>
+    <path d="M-125-25v-70c0-28 22-50 50-50h150c28 0 50 22 50 50v70" fill="none" stroke="#fdfcf8" stroke-width="22" stroke-linecap="round"/>
+    <rect x="-30" y="-15" width="60" height="110" rx="16" fill="#fdfcf8"/>
+    <circle cx="0" cy="35" r="12" fill="#4b3f72"/>
+    <path d="M-490 390h980" stroke="#f2cc94" stroke-width="5" opacity=".25"/>
+    <g fill="#81b29a" opacity=".85">
+      <rect x="-430" y="230" width="110" height="70" rx="14"/>
+      <rect x="-290" y="230" width="110" height="70" rx="14"/>
+      <rect x="180" y="230" width="110" height="70" rx="14"/>
+      <rect x="320" y="230" width="110" height="70" rx="14"/>
+    </g>
+  </g>
+  <g fill="none" stroke="#f2cc94" stroke-width="5" stroke-linecap="round" opacity=".5">
+    <path d="M220 540h120M260 585h80M890 190h120M930 235h80"/>
+  </g>
+</svg>

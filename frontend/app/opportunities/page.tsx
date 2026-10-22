@@ -4,6 +4,8 @@ import { Target, Search, Filter, MapPin, Calendar, Users, ArrowRight, Loader2, C
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import Thumb from '@/components/ui/Thumb';
+import { opportunityIllustration } from '@/src/lib/illustrations';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -81,6 +83,14 @@ export default function OpportunitiesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredData.map(opp => (
                     <div key={opp.id} className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all group flex flex-col h-full">
+                        <div className="-mx-6 -mt-6 mb-5 overflow-hidden rounded-t-xl border-b border-border">
+                            <Thumb
+                                src={opportunityIllustration(opp.category, opp.title)}
+                                alt={opp.title}
+                                aspect="16/7"
+                                className="rounded-none"
+                            />
+                        </div>
                         <div className="flex justify-between items-start mb-4">
                             <span className="px-3 py-1 bg-card border border-border rounded-full text-[10px] font-bold uppercase tracking-widest text-primary/90">
                                 {opp.category}

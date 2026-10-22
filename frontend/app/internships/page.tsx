@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useBookmarkStore } from '@/src/lib/bookmarks';
+import { internshipIllustration } from '@/src/lib/illustrations';
 
 export default function InternshipPage() {
   const [internships, setInternships] = useState<Internship[]>([]);
@@ -95,11 +96,11 @@ export default function InternshipPage() {
             <Link href={`/internships/${job.id}`} key={job.id} className="block group">
               <Card className="flex items-center gap-4 p-4">
                 <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-lg font-bold text-foreground overflow-hidden border border-border shrink-0">
-                  {job.company?.avatar_url ? (
-                    <img src={job.company.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    job.company?.full_name?.charAt(0) || 'B'
-                  )}
+                  <img
+                    src={job.company?.avatar_url || internshipIllustration(job.field, job.title)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start gap-2">

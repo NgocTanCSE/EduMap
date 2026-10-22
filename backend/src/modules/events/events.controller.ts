@@ -2,6 +2,7 @@ import { Controller, Post, Put, Get, Body, Param, UseGuards, Request } from '@ne
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateEventDto } from './dto/create-event.dto';
 
 @ApiTags('MOD-WS: Workshop & Sự kiện')
 @Controller('events')
@@ -24,7 +25,7 @@ export class EventsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'F-12: Tạo workshop/sự kiện mới' })
-  async createEvent(@Request() req: any, @Body() data: any) {
+  async createEvent(@Request() req: any, @Body() data: CreateEventDto) {
     return this.eventsService.createEvent(req.user.id, data);
   }
 

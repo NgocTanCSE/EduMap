@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Minh họa cộng đồng học tập">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#231b2e"/>
+      <stop offset="1" stop-color="#3f4b5a"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2cc94"/>
+      <stop offset="1" stop-color="#e07a5f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#bg)"/>
+  <circle cx="930" cy="150" r="170" fill="url(#sun)" opacity=".18"/>
+  <circle cx="250" cy="650" r="230" fill="#81b29a" opacity=".10"/>
+  <g transform="translate(600 405)">
+    <path d="M-390 95c90-95 210-145 390-145s300 50 390 145v105h-780z" fill="#4b3f72" opacity=".72"/>
+    <g>
+      <circle cx="-165" cy="-95" r="58" fill="#e07a5f"/>
+      <path d="M-265 75c0-72 45-122 100-122s100 50 100 122z" fill="#e07a5f"/>
+      <circle cx="0" cy="-155" r="72" fill="#f2cc94"/>
+      <path d="M-125 75c0-90 56-150 125-150s125 60 125 150z" fill="#f2cc94"/>
+      <circle cx="165" cy="-95" r="58" fill="#81b29a"/>
+      <path d="M65 75c0-72 45-122 100-122s100 50 100 122z" fill="#81b29a"/>
+    </g>
+    <g fill="#fdfcf8" opacity=".92">
+      <circle cx="-165" cy="-112" r="8"/><circle cx="-143" cy="-112" r="8"/>
+      <circle cx="0" cy="-178" r="10"/><circle cx="28" cy="-178" r="10"/>
+      <circle cx="165" cy="-112" r="8"/><circle cx="187" cy="-112" r="8"/>
+    </g>
+    <g fill="none" stroke="#f2cc94" stroke-width="6" stroke-linecap="round" opacity=".55">
+      <path d="M-300 160h600M-240 195h480"/>
+    </g>
+  </g>
+  <g fill="#f2cc94" opacity=".8">
+    <path d="M230 210l7 20 20 7-20 7-7 20-7-20-20-7 20-7z"/>
+    <path d="M970 500l5 15 15 5-15 5-5 15-5-15-15-5 15-5z"/>
+  </g>
+</svg>

@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Calendar, MapPin, Users, ArrowRight } from 'lucide-react';
+import { Calendar, MapPin, Users, ArrowRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { eventsService, Event } from '@/src/services/events.service';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import Thumb from '@/components/ui/Thumb';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import { eventIllustration } from '@/src/lib/illustrations';
 
 export default function EventsListPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -45,6 +46,14 @@ export default function EventsListPage() {
         title="Workshop & Sự kiện"
         subtitle="Nâng cao kiến thức và kết nối cùng cộng đồng EduMap."
         icon={Calendar}
+        right={
+          <Link
+            href="/events/create"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/85"
+          >
+            <Plus className="h-4 w-4" /> Tạo sự kiện
+          </Link>
+        }
       />
 
       <SearchInput
@@ -64,14 +73,19 @@ export default function EventsListPage() {
       ) : filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map(event => {
-            const progress = Math.min(100, Math.round((event.registered_count / event.capacity) * 100));
+            const capacity = Math.max(1, Number(event.capacity) || 100);
+            const progress = Math.min(100, Math.round(((Number(event.registered_count) || 0) / capacity) * 100));
             const startDate = new Date(event.start_date);
             const badge = event.status === 'active' ? 'SẮP DIỄN RA' : 'ĐÃ KẾT THÚC';
             return (
               <Link href={`/events/${event.id}`} key={event.id} className="group">
                 <Card className="flex flex-col h-full">
                   <div className="relative">
-                    <Thumb src={event.image_url} alt={event.title} aspect="16/10" />
+                    <Thumb
+                      src={event.image_url || eventIllustration(event.type, event.title)}
+                      alt={event.title}
+                      aspect="16/10"
+                    />
                     <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-foreground/10 text-foreground">
                       {badge}
                     </span>
@@ -93,7 +107,7 @@ export default function EventsListPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-primary" />
-                      {event.registered_count}/{event.capacity} người tham gia
+                      {event.registered_count}/{capacity} người tham gia
                     </div>
 
                     <div className="flex justify-between text-xs font-medium pt-2">

@@ -4,6 +4,8 @@ import { BookOpen, MapPin, Search, Filter, Loader2, Share2, Plus, MessageSquare,
 import { shareService, SharedItem } from '@/src/services/share.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import Thumb from '@/components/ui/Thumb';
+import { marketplaceIllustration } from '@/src/lib/illustrations';
 
 export default function ShareMarketplacePage() {
   const [items, setItems] = useState<SharedItem[]>([]);
@@ -246,6 +248,14 @@ export default function ShareMarketplacePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map(item => (
               <div key={item.id} className="p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
+                <div className="-mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl border-b border-border">
+                  <Thumb
+                    src={marketplaceIllustration(item.category)}
+                    alt={item.name}
+                    aspect="16/7"
+                    className="rounded-none"
+                  />
+                </div>
                 <div className="flex items-center gap-3 mb-4">
                     <img src={item.owner?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.owner?.full_name || 'U')}&background=random`} alt="" className="w-10 h-10 rounded-full border border-border"/>
                     <div>

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Minh họa phòng lab STEM">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16241f"/>
+      <stop offset="1" stop-color="#26463d"/>
+    </linearGradient>
+    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#81b29a"/>
+      <stop offset="1" stop-color="#4b3f72"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="750" fill="url(#bg)"/>
+  <circle cx="930" cy="160" r="200" fill="#f2cc94" opacity=".10"/>
+  <circle cx="210" cy="640" r="220" fill="#e07a5f" opacity=".08"/>
+  <g transform="translate(600 390)">
+    <path d="M-80-230h160v160l155 265c15 26-4 58-34 58h-402c-30 0-49-32-34-58l155-265z" fill="#fdfcf8" opacity=".94"/>
+    <path d="M-95-140h190v160h-190z" fill="#d9d3e6" opacity=".55"/>
+    <path d="M-160 160h320l45 78c8 14-2 30-18 30h-374c-16 0-26-16-18-30z" fill="url(#liquid)"/>
+    <g fill="#fdfcf8" opacity=".9">
+      <circle cx="-70" cy="215" r="12"/><circle cx="10" cy="245" r="8"/><circle cx="82" cy="205" r="10"/>
+    </g>
+    <path d="M-250-270c0-38 31-70 70-70s70 32 70 70" fill="none" stroke="#81b29a" stroke-width="9" opacity=".7"/>
+    <path d="M110-310c0-38 31-70 70-70s70 32 70 70" fill="none" stroke="#e07a5f" stroke-width="9" opacity=".7"/>
+    <g fill="none" stroke="#f2cc94" stroke-width="6" opacity=".55">
+      <circle cx="-330" cy="-60" r="34"/><circle cx="340" cy="30" r="42"/><circle cx="300" cy="-150" r="22"/>
+    </g>
+    <g fill="#f2cc94" opacity=".85">
+      <circle cx="-330" cy="-60" r="8"/><circle cx="340" cy="30" r="10"/><circle cx="300" cy="-150" r="6"/>
+    </g>
+  </g>
+  <g fill="none" stroke="#81b29a" stroke-width="5" stroke-linecap="round" opacity=".45">
+    <path d="M220 520h110M270 565h60M870 220h120M920 265h70"/>
+  </g>
+</svg>

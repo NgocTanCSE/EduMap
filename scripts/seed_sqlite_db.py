@@ -53,6 +53,20 @@ def geo_point(lon: float, lat: float) -> str:
     return json.dumps({"type": "Point", "coordinates": [lon, lat]})
 
 
+def event_banner(title: str, event_type: str) -> str:
+    """Pick a local illustration for the event list/detail hero."""
+    text = f"{title} {event_type}".lower()
+    if any(k in text for k in ("stem", "robot", "khoa học", "science")):
+        return "/illustrations/stem.svg"
+    if any(k in text for k in ("hackathon", "contest", "competition", "cuộc thi", "eureka", "p2a", "challenge")):
+        return "/illustrations/opportunities.svg"
+    if any(k in text for k in ("camp", "mùa hè", "tình nguyện", "cộng đồng")):
+        return "/illustrations/community.svg"
+    if any(k in text for k in ("hướng nghiệp", "tuyển sinh", "career")):
+        return "/illustrations/career.svg"
+    return "/illustrations/events.svg"
+
+
 def upsert(con, table, cols, rows):
     """Insert rows that do NOT already exist (idempotent).
 
@@ -130,6 +144,20 @@ def main():
          300, 0, None, EDUMAP_ORG_USER, "upcoming", 0, None, 0.0, NOW, NOW),
     ]
     n = upsert(con, "events", events_cols, events_rows); print(f"  events:    +{n} (Eureka/P2A/Innovation 2026)")
+
+    # Give every event a local illustration. Existing committed rows have
+    # banner_url = NULL and previously rendered as a plain colour block.
+    updated_banners = 0
+    for event_id, title, event_type in con.execute(
+        "SELECT id, title, type FROM events"
+    ).fetchall():
+        cur = con.execute(
+            "UPDATE events SET banner_url = ? "
+            "WHERE id = ? AND (banner_url IS NULL OR banner_url = '')",
+            (event_banner(title, event_type), event_id),
+        )
+        updated_banners += cur.rowcount
+    print(f"  events:    {updated_banners} banner(s) filled from local illustrations")
 
     # -------------------------------------------------------------------- JOBS
     # 3 newest jobs (2026) missing from the shipped DB — these are the

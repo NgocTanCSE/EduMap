@@ -4,6 +4,8 @@ export interface Event {
   id: string;
   title: string;
   description: string;
+  /** Event category from the backend (workshop, seminar, camp, contest…). */
+  type?: string;
   /** Human-readable venue. Always a string after normalization. */
   location: string;
   address?: string;

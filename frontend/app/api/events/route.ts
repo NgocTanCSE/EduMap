@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 /**
  * GET /api/events — Workshop & Sự kiện list.
@@ -146,6 +147,36 @@ export async function GET(req: NextRequest) {
     // 404 (Not Found) — no events available from either source.
     // NOT 503: the resource simply doesn't exist, not a service outage.
     return NextResponse.json([], { status: 404 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return NextResponse.json({ message: 'Vui lòng đăng nhập để tạo sự kiện' }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ message: 'Dữ liệu sự kiện không hợp lệ' }, { status: 400 });
+    }
+
+    const bres = await fetch(`${getBackendUrl()}/events`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      next: { revalidate: 0 },
+    });
+
+    const data = await bres.json().catch(() => ({}));
+    return NextResponse.json(unwrapApiResponse(data), { status: bres.status });
+  } catch (error) {
+    console.error('[api/events] POST failed:', error);
+    return NextResponse.json({ message: 'Không thể tạo sự kiện' }, { status: 502 });
   }
 }
 
