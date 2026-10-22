@@ -317,6 +317,7 @@ class LLMService:
 
         # --- Phan 0: Google Gemini (primary — reachable from HF Spaces) ---
         gemini_last_err = None
+        request_started = _time.monotonic()
         if self.has_gemini and _time.monotonic() >= self._gemini_down_until:
             try:
                 result = self._gemini_generate(
@@ -333,7 +334,6 @@ class LLMService:
                 print(f"Gemini generate failed: {e}")
 
         cf_last_err = None
-        request_started = _time.monotonic()
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
         if self.has_cf and _time.monotonic() >= self._cf_down_until:
