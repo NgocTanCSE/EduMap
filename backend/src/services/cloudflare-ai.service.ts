@@ -23,15 +23,6 @@ export class CloudflareAIService {
       .map((m) => m.trim())
       .filter(Boolean);
     this.modelName = this.modelCandidates[0] || '@cf/meta/llama-3.1-8b-instruct-fp8';
-  }
-
-  /** Trả về endpoint Cloudflare: qua AI Gateway nếu được bật, ngược lại gọi trực tiếp Workers AI. */
-  private cfUrl(model: string): string {
-    if (this.gatewayEnabled && this.gatewayId && this.accountId) {
-      return `https://gateway.ai.cloudflare.com/v1/${this.accountId}/${this.gatewayId}/ai/run/${model}`;
-    }
-    return `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${model}`;
-  }
 
     // --- HuggingFace Inference API fallback (khi Cloudflare Workers AI không kết nối được từ HF Spaces) ---
     this.hfToken = process.env.HF_TOKEN || process.env.HF_API_TOKEN;
@@ -50,6 +41,14 @@ export class CloudflareAIService {
     } else if (this.gatewayEnabled && this.gatewayId) {
       this.logger.log(`Cloudflare AI Gateway enabled (gatewayId=${this.gatewayId}).`);
     }
+  }
+
+  /** Trả về endpoint Cloudflare: qua AI Gateway nếu được bật, ngược lại gọi trực tiếp Workers AI. */
+  private cfUrl(model: string): string {
+    if (this.gatewayEnabled && this.gatewayId && this.accountId) {
+      return `https://gateway.ai.cloudflare.com/v1/${this.accountId}/${this.gatewayId}/ai/run/${model}`;
+    }
+    return `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${model}`;
   }
 
   private get isReady(): boolean {

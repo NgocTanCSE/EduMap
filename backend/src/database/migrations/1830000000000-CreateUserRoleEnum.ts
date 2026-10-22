@@ -49,7 +49,7 @@ export class CreateUserRoleEnum1830000000000 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // 1. Create the native Postgres enum type.
-        const values = this.ROLE_ENUM_VALUES.map((v) => `'${v}'`).join(', ');
+        const values = CreateUserRoleEnum1830000000000.ROLE_ENUM_VALUES.map((v) => `'${v}'`).join(', ');
         await queryRunner.query(`CREATE TYPE user_role_enum AS ENUM (${values})`);
 
         // 2. Add the new role column (nullable — backfill happens next).
