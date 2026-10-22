@@ -65,6 +65,9 @@ class LLMService:
         self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
         self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
         self.has_cf = bool(self.api_token) and bool(self.account_id)
+        # Circuit breaker: after a network-level failure, skip Cloudflare for
+        # 5 minutes instead of burning 20s on every request.
+        self._cf_down_until = 0.0
         # --- HuggingFace Inference API fallback (khi Cloudflare ko ket noi duoc tu HF Spaces) ---
         # Check env vars first, then fall back to huggingface_hub library which
         # also reads ~/.huggingface/token, /etc/huggingface/token, HF_HOME, etc.
@@ -95,6 +98,13 @@ class LLMService:
                 except Exception:
                     pass
         self.hf_model = os.getenv("HF_LLM_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
+        # HF killed api-inference.huggingface.co; the supported entrypoint is the
+        # Inference Providers router (OpenAI-compatible chat completions).
+        self.hf_router_url = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
+        self.hf_timeout = float(os.getenv("HF_TIMEOUT_SECONDS", "8"))
+        # Budget for the whole Cloudflare phase so a dead network cannot burn the
+        # backend's 60s HTTP timeout (3 models x retries used to take >60s).
+        self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
         self.has_hf = bool(self.hf_token)
         # is_ready = True neu co bat ky nhanh LLM nao (Cloudflare hoac HF Inference)
         self.is_ready = self.has_cf or self.has_hf
@@ -116,6 +126,22 @@ class LLMService:
             print(f"INFO: Adzuna API configured (country={self.adzuna_country}). LLM-independent market trends enabled.")
         else:
             print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use local SQLite fallback for market trends.")
+
+        # Startup connectivity diagnostics: surfaces HF Spaces egress problems
+        # (IPv6 blackhole / blocked DNS) in the logs instead of only at chat time.
+        if self.is_ready and os.getenv("AI_PREFLIGHT", "true").lower() not in ("0", "false", "no", "off"):
+            try:
+                from services.net import probe_tcp
+                targets = []
+                if self.has_cf:
+                    targets.append("api.cloudflare.com")
+                if self.has_hf:
+                    targets.append(self.hf_router_url.split("//")[-1].split("/")[0])
+                for host in targets:
+                    ok, ms, err = probe_tcp(host)
+                    print(f"[preflight] {host}: {'reachable' if ok else 'UNREACHABLE'} ({ms}ms){(' ' + err) if err else ''}")
+            except Exception as e:
+                print(f"[preflight] skipped: {e}")
 
     # Reasons that mean the model name itself is wrong/unavailable/deprecated,
     # so we should move on to the next candidate instead of retrying it.
@@ -149,9 +175,10 @@ class LLMService:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         cf_last_err = None
+        request_started = _time.monotonic()
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
-        if self.has_cf:
+        if self.has_cf and _time.monotonic() >= self._cf_down_until:
             cf_last_err = None
             if self.cf_gateway_enabled and self.cf_gateway_id and self.account_id:
                 base_url = f"https://gateway.ai.cloudflare.com/v1/{self.account_id}/{self.cf_gateway_id}/ai/run"
@@ -159,11 +186,15 @@ class LLMService:
             else:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
             last_err = None
-            # HF Spaces may route outbound traffic through a proxy or have slow DNS,
-            # so allow 1 retry per model (not 0) and generous timeouts.
-            per_model_retries = 1
+            # No retries: on HF Spaces a blocked/slow route fails identically on
+            # the second attempt and only burns the backend's 60s timeout.
+            per_model_retries = 0
+            cf_started = _time.monotonic()
 
             for model in self.model_candidates:
+                if _time.monotonic() - cf_started > self.cf_budget_seconds:
+                    print(f"[LLM] Cloudflare budget ({self.cf_budget_seconds}s) exhausted, skipping remaining models")
+                    break
                 # URL-encode only the @ prefix (keeps it from being treated as
                 # a userinfo separator) but PRESERVE / so Cloudflare sees the
                 # full model path: @cf/meta/llama-3.1-8b-instruct-fp8
@@ -192,14 +223,14 @@ class LLMService:
                     try:
                         # Use curl (OpenSSL TLS) — bypasses Python ssl module TLS issues in HF Spaces
                         # --insecure skips cert verification (HF Spaces may have a MITM proxy with custom CA)
-                        # Timeouts bumped from 3s/8s to 10s/30s — HF Spaces network + proxy adds latency
+                        # --ipv4 avoids the IPv6 blackhole that causes "SSL connection timeout".
                         _curl = subprocess.run(
-                            ["curl", "--insecure", "-sS", "-X", "POST",
+                            ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
                              "-H", f"Authorization: Bearer {self.api_token}",
                              "-H", "Content-Type: application/json",
                              "-d", body_json.decode("utf-8"),
-                             "--connect-timeout", "10", "--max-time", "30", url],
-                            capture_output=True, text=True, timeout=40)
+                             "--connect-timeout", "4", "--max-time", "10", url],
+                            capture_output=True, text=True, timeout=12)
                         if _curl.returncode == 0 and _curl.stdout.strip():
                             data = json.loads(_curl.stdout)
                         else:
@@ -208,7 +239,7 @@ class LLMService:
                     except FileNotFoundError:
                         print("  curl not found, falling back to urllib.request")
                         req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
-                        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+                        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                             data = json.loads(resp.read().decode("utf-8"))
                     except urllib.error.HTTPError as e:
                         b = e.read().decode("utf-8", "ignore")[:300]
@@ -224,7 +255,9 @@ class LLMService:
                     except Exception as e:
                         if attempt <= per_model_retries:
                             last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, thử model kế tiếp..."); break
+                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, tạm ngưng Cloudflare 5 phút."); 
+                        self._cf_down_until = _time.monotonic() + 300
+                        break
 
                     # Success path: parse Cloudflare response
                     if "error" in data and data.get("success") is False:
@@ -258,7 +291,9 @@ class LLMService:
             cf_last_err = last_err
 
         # --- Phan 2: fallback ve HuggingFace Inference API ---
-        if self.has_hf:
+        # Keep the whole call under the backend's 60s timeout: CF budget + HF
+        # timeout must not exceed it, otherwise Nest returns 503 first.
+        if self.has_hf and (_time.monotonic() - request_started) < 28:
             try:
                 result = self._hf_generate(prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
                 if result:
@@ -270,220 +305,58 @@ class LLMService:
         raise RuntimeError(f"Không thể sinh nội dung. Cloudflare: {cf_last_err or 'không cấu hình'}, HuggingFace: không khả dụng hoặc lỗi.")
 
     def _hf_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Goi HuggingFace Inference API de sinh text. Dung khi Cloudflare khong ket noi duoc."""
+        """Sinh text qua HuggingFace Inference Providers (OpenAI-compatible router).
+
+        `api-inference.huggingface.co` da bi HF khai tu (NXDOMAIN) — toan bo
+        fallback cu (InferenceClient, DNS override, api-inference.hf.co) khong
+        con dung duoc. Endpoint hien tai la https://router.huggingface.co.
+
+        Yeu cau: HF_TOKEN phai co quyen "Make calls to Inference Providers".
+        """
         if not self.has_hf:
             raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API.")
 
-        # Strategy 1: huggingface_hub InferenceClient (handles URL/DNS internally)
-        try:
-            from huggingface_hub import InferenceClient
-            client = InferenceClient(token=self.hf_token, model=self.hf_model)
-            gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
-            if top_p is not None:
-                gen_kwargs["top_p"] = top_p
-            try:
-                result = client.text_generation(prompt, **gen_kwargs, stream=False)
-            except TypeError:
-                result = client.text_generation(prompt, **gen_kwargs)
-            if result and str(result).strip():
-                return str(result).strip()
-            print("  HF InferenceClient returned empty response")
-        except StopIteration:
-            print("  HF InferenceClient: StopIteration (possible DNS failure for api-inference.huggingface.co)")
-        except Exception as e:
-            print(f"  HF InferenceClient failed: {type(e).__name__}: {e}")
-
-        # Strategy 1b: InferenceClient with explicit base_url (api-inference.hf.co resolves)
-        # Note: base_url is an alias for model in huggingface_hub 0.36.2, can't pass both
-        # Strategy 1b: InferenceClient with URL as model (bypasses DNS for api-inference.huggingface.co)
-        try:
-            from huggingface_hub import InferenceClient
-            client = InferenceClient(token=self.hf_token, model=f"https://api-inference.hf.co/models/{self.hf_model}")
-            gen_kwargs = {"max_new_tokens": max_tokens or 2048, "temperature": temperature}
-            if top_p is not None:
-                gen_kwargs["top_p"] = top_p
-            try:
-                result = client.text_generation(prompt, **gen_kwargs, stream=False)
-            except TypeError:
-                result = client.text_generation(prompt, **gen_kwargs)
-            if result and str(result).strip():
-                return str(result).strip()
-            print("  HF InferenceClient (hf.co URL) returned empty response")
-        except StopIteration:
-            print("  HF InferenceClient (hf.co URL): StopIteration")
-        except Exception as e:
-            print(f"  HF InferenceClient (hf.co URL) failed: {type(e).__name__}: {e}")
-
-        # Strategy 1c: InferenceClient with chat() for conversational models
-        try:
-            from huggingface_hub import InferenceClient
-            client = InferenceClient(token=self.hf_token, model=f"https://api-inference.hf.co/models/{self.hf_model}")
-            chat_result = client.chat([{"role": "user", "content": prompt}], max_tokens=max_tokens or 2048, temperature=temperature, stream=False)
-            # ProxyClientChat — safely check done()/result(), then iterate
-            _done = getattr(chat_result, 'done', None)
-            if callable(_done) and _done():
-                _res = getattr(chat_result, 'result', None)
-                if callable(_res):
-                    result = _res()
-                    if result and str(result).strip():
-                        return str(result).strip()
-            if callable(getattr(chat_result, '__iter__', None)):
-                try:
-                    chunks = []
-                    for chunk in chat_result:
-                        chunks.append(str(chunk))
-                    result = ''.join(chunks)
-                    if result.strip():
-                        return result.strip()
-                except Exception:
-                    pass
-            print(f"  HF InferenceClient chat returned: {type(chat_result).__name__}")
-        except Exception as e:
-            print(f"  HF InferenceClient chat failed: {type(e).__name__}: {e}")
-        headers = {
-            "Authorization": f"Bearer {self.hf_token}",
-            "Content-Type": "application/json",
-        }
+        url = f"{self.hf_router_url}/v1/chat/completions"
         payload = {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": max_tokens or 2048,
-                "temperature": temperature,
-            },
+            "model": self.hf_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": int(max_tokens or 1024),
+            "temperature": float(temperature),
+            "stream": False,
         }
         if top_p is not None:
-            payload["parameters"]["top_p"] = top_p
+            payload["top_p"] = float(top_p)
 
-        import socket as _socket
-        import time as _time
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.hf_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
 
-        # Build list of (url, ssl_context, headers) tuples to try
-        endpoints = []
-        _real_getaddrinfo = _socket.getaddrinfo
-        _dns_override = False
-
-        # DNS override: resolve api-inference.huggingface.co -> api-inference.hf.co IP
-        # (api-inference.huggingface.co doesn't resolve on HF Spaces Docker,
-        #  but api-inference.hf.co does — they share the same backend)
         try:
-            _socket.gethostbyname("api-inference.hf.co")
-            def _patched_getaddrinfo(host, *args, **kwargs):
-                if host == "api-inference.huggingface.co":
-                    return _real_getaddrinfo("api-inference.hf.co", *args, **kwargs)
-                return _real_getaddrinfo(host, *args, **kwargs)
-            _socket.getaddrinfo = _patched_getaddrinfo
-            _dns_override = True
-            # Use unverified context: cert SNI is for api-inference.hf.co IP,
-            # but we're connecting with hostname api-inference.huggingface.co
-            endpoints.append((
-                f"https://api-inference.huggingface.co/models/{self.hf_model}",
-                ssl._create_unverified_context(),
-                headers,
-            ))
-            print("  HF DNS override: api-inference.huggingface.co -> api-inference.hf.co IP")
-        except Exception:
-            pass
+            with urllib.request.urlopen(req, timeout=self.hf_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"HF router HTTP {e.code}: {body}")
+        except Exception as e:
+            raise RuntimeError(f"HF router connection failed: {type(e).__name__}: {e}")
 
-        # Fallback: api-inference.hf.co with Host header override + direct
+        text = ""
         try:
-            _socket.gethostbyname("api-inference.hf.co")
-            host_override_hdrs = dict(headers)
-            host_override_hdrs["Host"] = "api-inference.huggingface.co"
-            # Host override (server may route based on Host header)
-            endpoints.append((
-                f"https://api-inference.hf.co/models/{self.hf_model}",
-                ssl.create_default_context(),
-                host_override_hdrs,
-            ))
-            # Direct (no Host override)
-            endpoints.append((
-                f"https://api-inference.hf.co/models/{self.hf_model}",
-                ssl.create_default_context(),
-                headers,
-            ))
-            print("  HF host resolved: api-inference.hf.co")
-        except Exception:
-            print("  HF host NOT resolved: api-inference.hf.co")
-
-        # Restore DNS override immediately
-        if _dns_override:
-            _socket.getaddrinfo = _real_getaddrinfo
-
-        if not endpoints:
-            raise RuntimeError("Cannot resolve any HF Inference API hostname.")
-
-        max_retries = 3
-        for attempt in range(1, max_retries + 1):
-            last_err = None
-            should_retry = False
-            for ep_url, ep_ctx, ep_hdrs in endpoints:
-                try:
-                    # Use urllib.request — requests fails with SSLError on HF Spaces
-                    # (TLS/SSL connection has been closed (EOF)) for ALL HTTPS POST.
-                    req = urllib.request.Request(ep_url, data=json.dumps(payload).encode("utf-8"), headers=ep_hdrs, method="POST")
-                    with urllib.request.urlopen(req, timeout=120, context=ep_ctx) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
-
-                    # Parse response — HF returns [{"generated_text": "..."}] for text-generation
-                    if isinstance(data, list) and len(data) > 0:
-                        item = data[0]
-                        if isinstance(item, dict):
-                            text = item.get("generated_text", "")
-                        elif isinstance(item, str):
-                            text = item
-                        else:
-                            text = ""
-                    elif isinstance(data, dict):
-                        if "generated_text" in data:
-                            text = data["generated_text"]
-                        elif "error" in data and "loading" in str(data.get("error", "")).lower():
-                            print(f"HF model loading, retry {attempt}/{max_retries}...")
-                            _time.sleep(5 * attempt)
-                            should_retry = True
-                            break
-                        else:
-                            raise RuntimeError(f"HF Inference API error: {data.get('error', str(data)[:200])}")
-                    else:
-                        text = str(data) if data else ""
-
-                    text = text.strip()
-                    if text:
-                        return text
-                    raise RuntimeError("HF Inference API returned empty response")
-                except urllib.error.HTTPError as e:
-                    body = e.read().decode("utf-8", "ignore")[:300]
-                    if e.code in (503, 502, 504):
-                        if "loading" in body.lower():
-                            print(f"HF model loading (503), retry {attempt}/{max_retries}...")
-                            _time.sleep(5 * attempt)
-                            should_retry = True
-                            break
-                        raise RuntimeError(f"HF Inference API HTTP {e.code}: {body[:200]}")
-                    elif e.code == 429:
-                        print(f"HF Inference API rate-limited (429), retry {attempt}/{max_retries}...")
-                        _time.sleep(3 * attempt)
-                        should_retry = True
-                        break
-                    else:
-                        last_err = f"HTTP {e.code}: {body[:200]}"
-                        print(f"  HF {e.code} for {ep_url}, trying next...")
-                        continue
-                except (urllib.error.URLError, ssl.SSLError, ConnectionError, OSError) as e:
-                    last_err = f"{type(e).__name__}: {e}"
-                    print(f"  HF connection error for {ep_url}: {e}")
-                    continue
-                except Exception as e:
-                    last_err = f"{type(e).__name__}: {e}"
-                    print(f"  HF unexpected error for {ep_url}: {e}")
-                    continue
-            if should_retry:
-                continue
-            if last_err:
-                if attempt < max_retries:
-                    print(f"HF Inference API error, retry {attempt}/{max_retries}: {last_err}")
-                    _time.sleep(2 * attempt)
-                    continue
-                raise RuntimeError(f"HF Inference API failed after {max_retries} retries: {last_err}")
+            text = data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError):
+            if isinstance(data, dict):
+                text = data.get("generated_text") or ""
+        text = str(text).strip()
+        if not text:
+            raise RuntimeError(f"HF router returned empty response: {str(data)[:200]}")
+        return text
 
     # --- Methods from Legacy LLMService ---
 

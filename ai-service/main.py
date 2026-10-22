@@ -1,6 +1,15 @@
 import os
 print("AI SERVICE STARTING")
 
+# HF Spaces may resolve IPv6 first on a network without a working IPv6 route,
+# which makes TLS handshakes to Cloudflare/HF hang until timeout. Force IPv4
+# before any service (and therefore any HTTP client) is imported.
+try:
+    from services.net import force_ipv4
+    force_ipv4()
+except Exception as e:
+    print(f"0. force_ipv4 FAIL: {e}")
+
 try:
     import traceback
     print("1. traceback OK")

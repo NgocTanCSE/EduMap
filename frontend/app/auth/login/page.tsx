@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   GraduationCap,
@@ -18,17 +18,8 @@ import { authService } from '@/src/services/auth.service';
 import { UserRole } from '@/src/types/auth-types';
 import { EduMapLogo, EduMapWordmark } from '@/components/ui/Logo';
 
-// Google "G" icon (Multicolor — official Google brand colors)
-function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none">
-      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
-      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z" />
-      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
-      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
-    </svg>
-  );
-}
+// Google renders its own "Sign in with Google" button via Identity Services,
+// so the custom multicolour icon is no longer needed.
 
 /** Role options for role-based Google OAuth.
  *  Each role maps to a UserRole enum value and carries the backend
@@ -94,6 +85,7 @@ function GoogleLoginContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [checking, setChecking] = useState(true);
   const [googleReady, setGoogleReady] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (authService.isLoggedIn()) {
@@ -113,19 +105,32 @@ function GoogleLoginContent() {
     let cancelled = false;
 
     async function init() {
-      // Fetch the client ID from our BFF (runtime-accessible env var)
-      const res = await fetch('/api/config');
-      const { config } = await res.json();
-      const clientId = config?.googleClientId;
+      // Fetch the client ID from our BFF (runtime-accessible env var).
+      // `no-store` avoids a stale empty response cached from before the
+      // /api/config route was made dynamic.
+      let clientId: string | undefined;
+      try {
+        const res = await fetch('/api/config', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          clientId = data?.config?.googleClientId;
+        }
+      } catch (err) {
+        console.warn('Failed to load /api/config:', err);
+      }
 
       if (!clientId) {
         if (!cancelled) {
           setErrorMessage(
-            'Google OAuth chưa được cấu hình. Vui lòng thiết lập NEXT_PUBLIC_GOOGLE_CLIENT_ID / GOOGLE_CLIENT_ID trong môi trường.'
+            'Google OAuth chưa được cấu hình. Thiết lập secret GOOGLE_CLIENT_ID trong môi trường (HF Spaces → Settings → Secrets).'
           );
         }
         return;
       }
+
+      // Bind to a const so TypeScript keeps the string narrowing inside the
+      // async GIS callback below.
+      const clientIdValue: string = clientId;
 
       // Load the official Google Identity Services script
       const script = document.createElement('script');
@@ -138,9 +143,33 @@ function GoogleLoginContent() {
           if (window.google?.accounts?.id) {
             // @ts-ignore
             window.google.accounts.id.initialize({
-              client_id: clientId,
+              client_id: clientIdValue,
               callback: handleGoogleCredentialResponse,
+              auto_select: false,
+              cancel_on_tap_outside: true,
             });
+
+            // Render the OFFICIAL Google button. Do NOT rely on One Tap
+            // (`id.prompt()`): it is suppressed silently when FedCM/3rd-party
+            // cookies are blocked or the exact origin is not authorized for
+            // the client ID, so clicking a custom button appears to do nothing.
+            const el = googleButtonRef.current;
+            if (el) {
+              el.innerHTML = '';
+              // Keep Google's button inside the card on small screens.
+              const buttonWidth = Math.max(200, Math.min(320, window.innerWidth - 96));
+              // @ts-ignore
+              window.google.accounts.id.renderButton(el, {
+                type: 'standard',
+                theme: 'outline',
+                size: 'large',
+                text: 'signin_with',
+                shape: 'rectangular',
+                logo_alignment: 'left',
+                locale: 'vi',
+                width: buttonWidth,
+              });
+            }
             if (!cancelled) setGoogleReady(true);
           }
         } catch (err) {
@@ -174,25 +203,6 @@ function GoogleLoginContent() {
       setErrorMessage(err.message || 'Đăng nhập với Google thất bại.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = () => {
-    if (!googleReady) return;
-    try {
-      // @ts-ignore
-      window.google.accounts.id.prompt({
-        // Show the One Tap prompt for immediate Google sign-in
-        auto_select: true,
-      });
-    } catch (e) {
-      console.warn('Google One Tap prompt failed:', e);
-      // Fallback: render the Google Sign-In button explicitly
-      // @ts-ignore
-      window.google.accounts.id.renderButton(
-        document.getElementById('google-signin-button'),
-        { theme: 'outline', size: 'large', shape: 'rectangular' }
-      );
     }
   };
 
@@ -310,37 +320,36 @@ function GoogleLoginContent() {
 
           {/* Step 2: Google Login Button */}
           <div className="space-y-4 pt-2 border-t border-border">
-            {googleReady ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={loading || !googleReady}
-                  className="w-full flex items-center justify-center gap-3 bg-white hover:bg-muted/30 text-foreground font-medium py-3 px-6 rounded-xl text-sm transition-all shadow-md disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin text-foreground" />
-                      <span>Đang kết nối tài khoản Google…</span>
-                    </>
-                  ) : (
-                    <>
-                      <GoogleIcon className="w-5 h-5 shrink-0" />
-                      <span>Đăng nhập với Google ({selectedRoleObj.label})</span>
-                    </>
-                  )}
-                </button>
+            {/* Google renders its own button here on click it ALWAYS opens the
+                account chooser, unlike One Tap prompt() which fails silently. */}
+            <div
+              ref={googleButtonRef}
+              id="google-signin-button"
+              className="w-full min-h-[44px] flex items-center justify-center"
+            />
 
-                {/* Google Sign-In button container (used as fallback) */}
-                <div id="google-signin-button" className="hidden" />
-              </>
-            ) : (
-              <div className="text-center py-6 text-muted-foreground">
-                <p className="text-sm mb-2">Google OAuth chưa được cấu hình.</p>
-                <p className="text-xs">
-                  Thiết lập <code className="bg-muted/50 px-2 py-1 rounded">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>{' '}
-                  trong môi trường để kích hoạt đăng nhập Google.
-                </p>
+            {!googleReady && (
+              <p className="text-center text-xs text-muted-foreground">
+                {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
+              </p>
+            )}
+
+            {loading && (
+              <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Đang kết nối tài khoản Google…
+              </p>
+            )}
+
+            <p className="text-center text-[11px] text-muted-foreground">
+              Vai trò đã chọn:{' '}
+              <span className="text-primary font-medium">{selectedRoleObj.label}</span>
+            </p>
+
+            {errorMessage && !googleReady && (
+              <div className="text-center text-[11px] text-muted-foreground">
+                Kiểm tra secret <code className="bg-muted/50 px-1.5 py-0.5 rounded">GOOGLE_CLIENT_ID</code>{' '}
+                trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
               </div>
             )}
 

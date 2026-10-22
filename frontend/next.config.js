@@ -81,7 +81,9 @@ const nextConfig = {
     const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
     return [
       {
-        source: '/api/:path((?!ai/chat|ai/history|ai/learning-path|ai/search).*)',
+        // `config` is excluded so `/api/config` always hits the Next route
+        // handler (runtime Google client ID) instead of the backend.
+        source: '/api/:path((?!ai/chat|ai/history|ai/learning-path|ai/search|config$).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

@@ -23,7 +23,9 @@ export async function GET() {
   // `NEXT_PUBLIC_*` is inlined by Next.js at build time, so on HF it is empty
   // unless it was passed as a build arg.
   const config = {
-    googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+    googleClientId: (
+      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+    ).trim(),
   };
 
   return NextResponse.json(

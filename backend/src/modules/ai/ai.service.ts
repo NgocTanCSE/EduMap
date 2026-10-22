@@ -340,7 +340,7 @@ throw new HttpException(
           message: message,
           history: history,
           context: systemContext,
-        }, { timeout: 60000 })  // 60s — must exceed AI service curl timeout (40s) + Cloudflare latency
+        }, { timeout: 60000 })  // 60s — AI service self-bounds CF+HF attempts to ~50s so its template fallback still fits
       );
 
       const aiReply = response.data.reply || response.data.message;

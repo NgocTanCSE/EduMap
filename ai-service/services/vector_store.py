@@ -35,9 +35,13 @@ class VectorStoreService:
         self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
         self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-base-en-v1.5"
         self.has_cf_api = bool(self.cf_api_token) and bool(self.cf_account_id)
+        # Circuit breaker: skip Cloudflare for 5 min after a network failure.
+        self._cf_embed_down_until = 0.0
         # --- HuggingFace Inference API config (fallback khi Cloudflare ko hoat dong) ---
         self.hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
         self.hf_embedding_model = os.getenv("HF_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+        # api-inference.huggingface.co was retired (NXDOMAIN). Router is current.
+        self.hf_router_url = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
         self.has_hf_api = bool(self.hf_token)
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
         self.has_api = self.has_cf_api or self.has_hf_api
@@ -106,8 +110,8 @@ class VectorStoreService:
         if not self.has_hf_api:
             raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API for embeddings.")
 
-        url = f"https://api-inference.huggingface.co/models/{self.hf_embedding_model}"
-        payload = json.dumps({"inputs": text}).encode("utf-8")
+        url = f"{self.hf_router_url}/hf-inference/models/{self.hf_embedding_model}/pipeline/feature-extraction"
+        payload = json.dumps({"inputs": text, "options": {"wait_for_model": True}}).encode("utf-8")
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",
@@ -118,7 +122,12 @@ class VectorStoreService:
         for attempt in range(1, max_retries + 1):
             try:
                 if requests is not None:
-                    resp = requests.post(url, headers=headers, json={"inputs": text}, timeout=15)
+                    resp = requests.post(
+                        url,
+                        headers=headers,
+                        json={"inputs": text, "options": {"wait_for_model": True}},
+                        timeout=8,
+                    )
                     status_code = resp.status_code
                     body = resp.text
                     if resp.status_code == 200:
@@ -127,7 +136,7 @@ class VectorStoreService:
                         raise urllib.error.HTTPError(url, resp.status_code, body, resp.headers, None)
                 else:
                     req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-                    with urllib.request.urlopen(req, timeout=15) as resp:
+                    with urllib.request.urlopen(req, timeout=8) as resp:
                         status_code = resp.status
                         data = json.loads(resp.read().decode("utf-8"))
 
@@ -143,10 +152,16 @@ class VectorStoreService:
                         raise RuntimeError(f"HF Inference API error: {data.get('error')}")
                     vec = data.get("embeddings")
                 elif isinstance(data, list):
-                    # HF returns [[...]] (list of lists) for feature-extraction
+                    # feature-extraction returns either [[...]] (one pooled vector)
+                    # or [[[..., ...], ...]] (token-level vectors) for one input.
                     if len(data) > 0:
-                        if isinstance(data[0], list):
-                            vec = data[0]
+                        first = data[0]
+                        if isinstance(first, list):
+                            if len(first) > 0 and isinstance(first[0], list):
+                                # Mean-pool token embeddings into one sentence vector.
+                                vec = [sum(col) / len(col) for col in zip(*first)]
+                            else:
+                                vec = first
                         else:
                             vec = data
                 elif isinstance(data, dict) and "data" in data:
@@ -193,11 +208,11 @@ class VectorStoreService:
 
         import time
         _embed_start = time.monotonic()
-        _EMBED_GLOBAL_TIMEOUT = 25  # cap total embedding time so LLM can still respond within 60s backend timeout
+        _EMBED_GLOBAL_TIMEOUT = 12  # cap total embedding time so LLM can still respond within 60s backend timeout
         cf_last_err = None
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
-        if self.has_cf_api:
+        if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
             cf_last_err = None
             if self.cf_gateway_enabled and self.cf_gateway_id and self.cf_account_id:
                 base_url = f"https://gateway.ai.cloudflare.com/v1/{self.cf_account_id}/{self.cf_gateway_id}/ai/run"
@@ -225,7 +240,7 @@ class VectorStoreService:
                     )
                     data = None
                     try:
-                        with urllib.request.urlopen(req, timeout=8) as resp:
+                        with urllib.request.urlopen(req, timeout=4) as resp:
                             data = json.loads(resp.read().decode("utf-8"))
                     except urllib.error.HTTPError as e:
                         body = e.read().decode("utf-8", "ignore")[:300]
@@ -242,7 +257,9 @@ class VectorStoreService:
                     except Exception as e:
                         if attempt <= per_model_retries:
                             cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); time.sleep(1.5); continue
-                        cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, thu model ke tiep..."); break  # next model
+                        cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, tam ngung Cloudflare 5 phut.")
+                        self._cf_embed_down_until = time.monotonic() + 300
+                        break  # network is down for all models
 
                     # Success path: parse Cloudflare embedding response
                     if isinstance(data, dict) and data.get("success") is False:
