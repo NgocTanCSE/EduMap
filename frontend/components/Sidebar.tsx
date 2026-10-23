@@ -8,21 +8,14 @@ import {
   Map,
   BookOpen,
   Users,
-  Briefcase,
   BrainCircuit,
   GraduationCap,
-  Globe,
   Bell,
   Wifi,
   Atom,
   Leaf,
-  ShoppingCart,
-  Heart,
   Calendar,
   Trophy,
-  ShieldCheck,
-  BarChart3,
-  Folder,
   Rocket,
   Sun,
   HelpCircle,
@@ -30,6 +23,17 @@ import {
   LogOut,
   User,
   ChevronRight,
+  Compass,
+  Building2,
+  TrendingUp,
+  Plane,
+  Network,
+  MessagesSquare,
+  Store,
+  HandHeart,
+  FolderOpen,
+  Award,
+  Medal,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
@@ -52,60 +56,70 @@ type NavGroup = { label: string; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Trang chủ',
+    label: 'Tổng quan',
     items: [
       { name: 'Bản đồ', href: '/map', icon: Map },
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Bảng điều khiển', href: '/dashboard', icon: LayoutDashboard },
     ],
   },
   {
     label: 'Học tập',
     items: [
       { name: 'Thư viện', href: '/library', icon: BookOpen },
-      { name: 'AI Chat', href: '/ai-chat', icon: BrainCircuit },
+      { name: 'Trợ lý AI', href: '/ai-chat', icon: BrainCircuit },
       { name: 'Học bổng', href: '/scholarships', icon: GraduationCap },
-      { name: 'Nghề nghiệp', href: '/career', icon: Briefcase },
+      { name: 'Du học & Trao đổi', href: '/intl', icon: Plane },
+    ],
+  },
+  {
+    label: 'Hướng nghiệp',
+    items: [
+      { name: 'Nghề nghiệp', href: '/career', icon: Compass },
       { name: 'Lộ trình nghề', href: '/career/roadmap', icon: MapPin },
       { name: 'Câu đố nghề nghiệp', href: '/career/quiz', icon: HelpCircle },
+      { name: 'Thực tập', href: '/internships', icon: Building2 },
+      { name: 'Cơ hội', href: '/opportunities', icon: Rocket },
+      { name: 'Xu hướng thị trường', href: '/analytics', icon: TrendingUp },
     ],
   },
   {
-    label: 'Kết nối',
+    label: 'Cộng đồng',
     items: [
-      { name: 'Mentor', href: '/mentor', icon: Users },
-      { name: 'Cộng đồng', href: '/community', icon: Globe },
-      { name: 'Thông báo', href: '/notifications', icon: Bell },
-      { name: 'Trạm Wifi', href: '/wifi', icon: Wifi },
-      { name: 'STEM Labs', href: '/stem', icon: Atom },
-      { name: 'Thử thách xanh', href: '/green', icon: Leaf },
-    ],
-  },
-  {
-    label: 'Kinh tế & Cơ hội',
-    items: [
-      { name: 'Chợ', href: '/marketplace', icon: ShoppingCart },
-      { name: 'Quyên góp', href: '/donate', icon: Heart },
-      { name: 'Thực tập', href: '/internships', icon: Briefcase },
+      { name: 'Cố vấn', href: '/mentor', icon: Users },
+      { name: 'Cộng đồng', href: '/community', icon: MessagesSquare },
+      { name: 'Kết nối THPT', href: '/hs-connection', icon: Network },
       { name: 'Sự kiện', href: '/events', icon: Calendar },
       { name: 'Hackathon', href: '/hackathon', icon: Trophy },
-      { name: 'Summer', href: '/summer', icon: Sun },
-      { name: 'Cơ hội', href: '/opportunities', icon: Rocket },
+      { name: 'Bảng xếp hạng', href: '/leaderboard', icon: Medal },
     ],
   },
   {
-    label: 'Quản lý & Khác',
+    label: 'Trải nghiệm & Tiện ích',
     items: [
-      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-      { name: 'Chứng chỉ', href: '/certificates', icon: ShieldCheck },
-      { name: 'Lưu trữ', href: '/storage', icon: Folder },
-      { name: 'Bảng xếp hạng', href: '/leaderboard', icon: Trophy },
-      { name: 'HS Connection', href: '/hs-connection', icon: GraduationCap },
-      { name: 'INT/LĐLĐ', href: '/intl', icon: Globe },
+      { name: 'STEM Labs', href: '/stem', icon: Atom },
+      { name: 'Thử thách xanh', href: '/green', icon: Leaf },
+      { name: 'Mùa hè xanh', href: '/summer', icon: Sun },
+      { name: 'Trạm Wifi', href: '/wifi', icon: Wifi },
+    ],
+  },
+  {
+    label: 'Chợ & Đóng góp',
+    items: [
+      { name: 'Chợ trao đổi', href: '/marketplace', icon: Store },
+      { name: 'Quyên góp', href: '/donate', icon: HandHeart },
+    ],
+  },
+  {
+    label: 'Cá nhân',
+    items: [
+      { name: 'Lưu trữ', href: '/storage', icon: FolderOpen },
+      { name: 'Chứng chỉ', href: '/certificates', icon: Award },
+      { name: 'Thông báo', href: '/notifications', icon: Bell },
     ],
   },
 ];
 
-function NavGroup({ group, pathname }: { group: NavGroup; pathname: string }) {
+function NavGroup({ group, activeHref }: { group: NavGroup; activeHref: string }) {
   return (
     <div className="mb-5">
       <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/50">
@@ -114,11 +128,14 @@ function NavGroup({ group, pathname }: { group: NavGroup; pathname: string }) {
       <nav className="space-y-0.5">
         {group.items.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href || pathname.startsWith(item.href + '/');
+          // Only the most specific route is highlighted. Without this, visiting
+          // /career/roadmap would also mark the parent /career item as active.
+          const active = item.href === activeHref;
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
                 active
                   ? 'text-primary bg-primary/10 font-semibold'
@@ -230,7 +247,14 @@ function AccountSection() {
 }
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
+
+  // Pick the longest matching href so nested pages (e.g. /career/roadmap)
+  // highlight only their own item, not every ancestor item.
+  const activeHref =
+    NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href))
+      .filter((href) => pathname === href || pathname.startsWith(href + '/'))
+      .sort((a, b) => b.length - a.length)[0] || '';
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-card border-r border-border shadow-lg">
@@ -247,7 +271,7 @@ export default function Sidebar() {
       {/* Nav — scrollable, keeps the brand/account block pinned */}
       <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
         {NAV_GROUPS.map((group) => (
-          <NavGroup key={group.label} group={group} pathname={pathname || ''} />
+          <NavGroup key={group.label} group={group} activeHref={activeHref} />
         ))}
       </div>
 
