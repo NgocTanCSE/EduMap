@@ -41,10 +41,47 @@ export class MapService {
     this.logger.log(`MapService initialized. isSqlite=${this.isSqlite}, DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 
+  /**
+   * Parse a geography value that may arrive in one of several formats:
+   *  - PostGIS (TypeORM): GeoJSON { type:'Point', coordinates:[lng,lat] }
+   *  - SQLite / raw SQL:  EWKT string  'SRID=4326;POINT(lng lat)'
+   *  - SQLite JSON column: plain JSON  '{"type":"Point","coordinates":[lng,lat]}'
+   *  - Already-parsed array [lng, lat]
+   * Returns [lng, lat] or null if it can't be resolved.
+   */
+  private parseCoords(value: any): [number, number] | null {
+    if (!value) return null;
+    // Already a GeoJSON object / array
+    if (typeof value === 'object') {
+      if (Array.isArray(value) && value.length >= 2) return [Number(value[0]), Number(value[1])];
+      if (value.type === 'Point' && Array.isArray(value.coordinates) && value.coordinates.length >= 2) {
+        return [Number(value.coordinates[0]), Number(value.coordinates[1])];
+      }
+      if (Array.isArray(value.coordinates) && value.coordinates.length >= 2) {
+        return [Number(value.coordinates[0]), Number(value.coordinates[1])];
+      }
+      if (typeof value.lat === 'number' && typeof value.lng === 'number') return [value.lng, value.lat];
+      if (typeof value.lat === 'number' && typeof value.lon === 'number') return [value.lon, value.lat];
+    }
+    // String — could be EWKT or a JSON string
+    if (typeof value === 'string') {
+      // EWKT: SRID=4326;POINT(106.86965 10.98448)
+      const ewktMatch = value.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+      if (ewktMatch) return [Number(ewktMatch[1]), Number(ewktMatch[2])];
+      // GeoJSON JSON string
+      try {
+        return this.parseCoords(JSON.parse(value));
+      } catch { /* fall through */ }
+      // "lng,lat" or "lat,lng" shorthand
+      const parts = value.split(',').map(Number);
+      if (parts.length >= 2 && parts.every(Number.isFinite)) return [parts[0], parts[1]];
+    }
+    return null;
+  }
+
   private locationToPoi(l: Location): PointOfInterest | null {
-    if (!l.coordinates || typeof l.coordinates !== 'object') return null;
-    const coords = l.coordinates.coordinates || [];
-    if (!Array.isArray(coords) || coords.length < 2) return null;
+    const coords = this.parseCoords(l.coordinates);
+    if (!coords) return null;
 
     let categoryStr = 'other';
     if (l.category?.name) {
@@ -77,10 +114,9 @@ export class MapService {
   }
 
   private mapPointToPoi(p: MapPoint): PointOfInterest | null {
-    if (!p.location || p.location.type !== 'Point' || !Array.isArray(p.location.coordinates) || p.location.coordinates.length < 2) {
-      return null;
-    }
-    
+    const coords = this.parseCoords(p.location);
+    if (!coords) return null;
+
     let categoryStr = p.type;
     if ((!categoryStr || categoryStr === 'other') && p.description) {
       const descLower = p.description.toLowerCase();
@@ -98,8 +134,8 @@ export class MapService {
       id: p.id,
       name: p.name,
       category: categoryStr || 'other',
-      lng: p.location.coordinates[0],
-      lat: p.location.coordinates[1],
+      lng: coords[0],
+      lat: coords[1],
       address: p.address,
       description: p.description,
       rating_avg: p.rating_avg,
@@ -273,7 +309,7 @@ export class MapService {
         'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000'
       );
       const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
-      return raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: typeof r.location === 'string' ? JSON.parse(r.location) : r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      return raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
     }
 
     let query = this.mapPointRepo.createQueryBuilder('map_points');
@@ -297,7 +333,7 @@ export class MapService {
         'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
         'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id LIMIT 5000'
       );
-      return raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: typeof r.coordinates === 'string' ? JSON.parse(r.coordinates) : r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      return raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
     }
 
     let query = this.locationRepo.createQueryBuilder('locations')
@@ -346,6 +382,20 @@ export class MapService {
   }
 
   private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
+    if (this.isSqlite) {
+      // SQLite: raw SQL (TypeORM query builder + ST_Intersects doesn't exist on SQLite)
+      const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
+      const sql = typeId
+        ? 'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points WHERE type_id = ? LIMIT 5000'
+        : 'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000';
+      const raw = typeId
+        ? await this.mapPointRepo.query(sql, [typeId])
+        : await this.mapPointRepo.query(sql);
+      let pois = raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      if (bounds) pois = this.filterInBounds(pois, bounds);
+      return pois;
+    }
+
     let query = this.mapPointRepo.createQueryBuilder('map_points');
     
     if (typeId) {
@@ -365,7 +415,28 @@ export class MapService {
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
+  /** Filter POIs that fall within a bounding box (SQLite fallback since ST_Intersects isn't available). */
+  private filterInBounds(pois: PointOfInterest[], bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }): PointOfInterest[] {
+    return pois.filter(p => p.lat >= bounds.minLat && p.lat <= bounds.maxLat && p.lng >= bounds.minLng && p.lng <= bounds.maxLng);
+  }
+
   private async fetchLocationsByCategory(catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
+    if (this.isSqlite) {
+      // SQLite: raw SQL with description/category matching (no ST_Intersects)
+      const likeCat = `%${catLower === 'park' ? 'green' : catLower}%`;
+      const likeDesc = `%${catLower}%`;
+      const likeDesc2 = `%${(catLower === 'green' || catLower === 'park') ? 'park' : catLower === 'university' ? 'college' : catLower}%`;
+      const raw = await this.locationRepo.query(
+        'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
+        'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id ' +
+        'WHERE LOWER(c.name) LIKE ? OR LOWER(l.description) LIKE ? OR LOWER(l.description) LIKE ? LIMIT 5000',
+        [likeCat, likeDesc, likeDesc2]
+      );
+      let pois = raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      if (bounds) pois = this.filterInBounds(pois, bounds);
+      return pois;
+    }
+
     let query = this.locationRepo.createQueryBuilder('locations')
       .leftJoinAndSelect('locations.category', 'category')
       .where(

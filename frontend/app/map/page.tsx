@@ -14,6 +14,8 @@ import { authService } from '@/src/services/auth.service';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useRequireAuth } from '@/src/lib/require-auth';
 import { EduMapLogo } from '@/components/ui/Logo';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
   ssr: false,
@@ -242,9 +244,9 @@ export default function MapPage() {
   // --- Fetch: stats ---
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/map/stats');
+      const res = await fetchWithRetry('/api/map/stats');
       const json = await res.json();
-      const data = json.data || json;
+      const data = unwrapApiResponse<any>(json);
       if (data.categories) {
         setCategoryCounts(data.categories);
         setMapStats(data);
@@ -268,7 +270,7 @@ export default function MapPage() {
           return;
         }
       }
-      const catRes = await fetch('/api/map/categories');
+      const catRes = await fetchWithRetry('/api/map/categories');
       const catDataRes = await catRes.json();
       const catData = catDataRes.data || catDataRes;
       const categoriesList = Array.isArray(catData) ? catData : [];
@@ -334,9 +336,10 @@ export default function MapPage() {
         const qs = params.toString();
         if (qs) url += '?' + qs;
 
-        const res = await fetch(url);
+        const res = await fetchWithRetry(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        const data = json.data || json;
+        const data = unwrapApiResponse<any>(json);
         const list = Array.isArray(data) ? data : [];
         setLocations(list);
       } catch (err) {
@@ -355,7 +358,7 @@ export default function MapPage() {
     setAiAnalysis(null);
     try {
       const accessToken = authService.getAccessToken();
-      const res = await fetch('/api/map/ai-analysis', {
+      const res = await fetchWithRetry('/api/map/ai-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -363,8 +366,9 @@ export default function MapPage() {
         },
         body: JSON.stringify({ query: 'Biên Hòa' }),
       });
+      if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`);
       const json = await res.json();
-      const data = json.data || json;
+      const data = unwrapApiResponse<any>(json);
       setAiAnalysis({
         density_score: data.density_score,
         summary: data.summary,
@@ -435,7 +439,7 @@ export default function MapPage() {
     try {
       setIsSavingPin(true);
       const accessToken = authService.getAccessToken();
-      const res = await fetch('/api/map/pois', {
+      const res = await fetchWithRetry('/api/map/pois', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -447,13 +451,14 @@ export default function MapPage() {
           lng: pinningCoord.lng,
         }),
       });
+      const errJson = await res.json();
+      const errData = unwrapApiResponse<any>(errJson);
       if (res.ok) {
         toast.success('Đã ghim vị trí thành công!');
         setPinningCoord(null);
         fetchMapData(activeCategory === 'all' ? undefined : activeCategory);
       } else {
-        const err = await res.json();
-        toast.error(err.message || 'Lỗi khi ghim vị trí.');
+        toast.error((errData as any)?.message || 'Lỗi khi ghim vị trí.');
       }
     } catch (error) {
       logger.error('Save pin error', error);

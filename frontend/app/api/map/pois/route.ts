@@ -43,9 +43,7 @@ export async function GET(req: NextRequest) {
     const bres = await fetch(burl.toString(), { headers, next: { revalidate: 0 } });
     if (bres.ok) {
       const bjson = await bres.json();
-      const items = (bjson.data || bjson || [])
-        .filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
-        .slice(0, 1000);
+      const items = unwrapApiResponse<any[]>(bjson).filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).slice(0, 1000);
       if (items.length > 0) return NextResponse.json({ data: items });
     }
   } catch (error) {

@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { LocationCategory } from './location-category.entity';
+import { geoPointColumn, jsonColumn } from '../../../common/utils/db-column.utils';
 
 @Entity('locations')
 export class Location {
@@ -20,10 +21,7 @@ export class Location {
   @Column()
   category_id: number;
 
-  @Column({
-    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
-    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
-  })
+  @Column(geoPointColumn())
   coordinates: any;
 
   @Column({ nullable: true })
@@ -32,7 +30,7 @@ export class Location {
   @Column({ nullable: true })
   city: string;
 
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
+  @Column(jsonColumn(true))
   photos: string[];
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
