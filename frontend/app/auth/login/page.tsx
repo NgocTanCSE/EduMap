@@ -11,7 +11,6 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  ShieldCheck,
   Check,
 } from 'lucide-react';
 import { authService } from '@/src/services/auth.service';
@@ -85,6 +84,8 @@ function GoogleLoginContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [checking, setChecking] = useState(true);
   const [googleReady, setGoogleReady] = useState(false);
+  const [isEmbedded, setIsEmbedded] = useState(false);
+  const [loginUrl, setLoginUrl] = useState('/auth/login');
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,12 +96,26 @@ function GoogleLoginContent() {
     }
   }, [router, redirectUrl]);
 
+  // Hugging Face renders the Space inside an iframe that sends
+  // `Cross-Origin-Opener-Policy: same-origin`. That severs `window.opener`
+  // for Google's OAuth popup, so the popup can never post the credential
+  // back and ends up stuck on the blank `accounts.google.com/gsi/transform`
+  // page. Detect the embed and send the user to a real top-level tab.
+  useEffect(() => {
+    setIsEmbedded(window.self !== window.top);
+    setLoginUrl(window.location.href);
+  }, []);
+
   // ── Fetch runtime config + Load Google Identity Services SDK ──
   // The Google Client ID is read at *runtime* from our BFF /api/config
   // endpoint so that Space Secrets (HF Spaces) and runtime env vars work
   // even though NEXT_PUBLIC_* values are inlined at build time.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Do not even load GIS inside the HF iframe: the OAuth popup cannot
+    // communicate back to this window because of the parent page's COOP.
+    if (window.self !== window.top) return;
 
     let cancelled = false;
 
@@ -320,18 +335,41 @@ function GoogleLoginContent() {
 
           {/* Step 2: Google Login Button */}
           <div className="space-y-4 pt-2 border-t border-border">
-            {/* Google renders its own button here on click it ALWAYS opens the
-                account chooser, unlike One Tap prompt() which fails silently. */}
-            <div
-              ref={googleButtonRef}
-              id="google-signin-button"
-              className="w-full min-h-[44px] flex items-center justify-center"
-            />
+            {isEmbedded ? (
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+                <p className="text-sm font-semibold text-foreground">
+                  Đăng nhập Google cần mở trong tab riêng
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Khung nhúng của Hugging Face chặn cửa sổ đăng nhập Google. Mở EduMap trong
+                  tab mới để đăng nhập bình thường.
+                </p>
+                <a
+                  href={loginUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Mở EduMap trong tab mới
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            ) : (
+              <>
+                {/* Google renders its own button here on click it ALWAYS opens the
+                    account chooser, unlike One Tap prompt() which fails silently. */}
+                <div
+                  ref={googleButtonRef}
+                  id="google-signin-button"
+                  className="w-full min-h-[44px] flex items-center justify-center"
+                />
 
-            {!googleReady && (
-              <p className="text-center text-xs text-muted-foreground">
-                {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
-              </p>
+                {!googleReady && (
+                  <p className="text-center text-xs text-muted-foreground">
+                    {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
+                  </p>
+                )}
+              </>
             )}
 
             {loading && (
@@ -352,14 +390,6 @@ function GoogleLoginContent() {
                 trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
               </div>
             )}
-
-            {/* Privacy notice */}
-            <div className="bg-card/40 border border-border rounded-xl p-3.5 flex items-center gap-3 text-xs text-muted-foreground">
-              <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-              <p className="leading-relaxed">
-                Hệ thống sẽ đồng bộ hóa Avatar, Họ tên và Email từ tài khoản Google của bạn.
-              </p>
-            </div>
 
             {/* Dev Login — bypass Google OAuth for local testing only.
                 Hidden from production builds. */}
