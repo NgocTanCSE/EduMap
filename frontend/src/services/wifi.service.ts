@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface WifiLocation {
   id: string;
@@ -19,9 +21,9 @@ class WifiService {
 
   async getLocations(): Promise<WifiLocation[]> {
     try {
-      const response = await fetch(`${this.API_URL}/locations`);
+      const response = await fetchWithRetry(`${this.API_URL}/locations`);
       if (!response.ok) throw new Error('Không thể tải danh sách Wifi');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -32,9 +34,9 @@ class WifiService {
     try {
       let url = `${this.API_URL}/locations/nearby?lat=${lat}&lng=${lng}`;
       if (radius) url += `&radius=${radius}`;
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) throw new Error('Không thể tìm kiếm Wifi lân cận');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -46,7 +48,7 @@ class WifiService {
     if (!token) throw new Error('Vui lòng đăng nhập để báo cáo Wifi');
 
     try {
-      const response = await fetch(`${this.API_URL}/locations`, {
+      const response = await fetchWithRetry(`${this.API_URL}/locations`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -68,7 +70,7 @@ class WifiService {
     if (!token) throw new Error('Vui lòng đăng nhập để thực hiện');
 
     try {
-      const response = await fetch(`${this.API_URL}/locations/${id}/speed-test`, {
+      const response = await fetchWithRetry(`${this.API_URL}/locations/${id}/speed-test`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

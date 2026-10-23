@@ -1,5 +1,6 @@
 import { authService } from './auth.service';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface HSUser {
   id: string;
@@ -30,7 +31,7 @@ class HsConnectionService {
         retries: 2
       });
       if (!response.ok) throw new Error('Không thể tải mạng lưới kết nối');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("HsConnectionService.getMyNetwork Error:", error);
       throw error;

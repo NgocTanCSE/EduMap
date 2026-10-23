@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, NotFoundException
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
+import { RoleAssignmentService } from './role-assignment.service';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { UserPreference } from './entities/user-preference.entity';
 import { JwtService } from '@nestjs/jwt';
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly preferenceRepo: Repository<UserPreference>,
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
+    private readonly roleAssignmentService: RoleAssignmentService,
   ) {}
 
   /**
@@ -45,19 +47,15 @@ export class AuthService {
       throw new UnauthorizedException('Thông tin đăng nhập không chính xác.');
     }
 
-    // Tạo JWT Payload
-    const payload = { 
-      email: user.email, 
-      sub: user.id, 
-      role: user.role 
-    };
+    const tokens = await this.generateTokensForUser(user);
 
     return {
       userId: user.id,
       email: user.email,
       full_name: user.full_name,
       role: user.role,
-      access_token: this.jwtService.sign(payload),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
       message: 'Đăng nhập thành công!',
     };
   }
@@ -89,19 +87,19 @@ export class AuthService {
     const newUser = this.userRepo.create(userPayload);
     const savedUser = await this.userRepo.save(newUser);
 
-    // Tạo token cho user mới đăng ký luôn
-    const payload = { 
-        email: savedUser.email, 
-        sub: savedUser.id, 
-        role: savedUser.role 
-    };
+    // Auto-assign role based on email domain (e.g., .edu.vn → STUDENT).
+    // This runs after the user is saved so roleAssignmentService can update it.
+    await this.roleAssignmentService.checkEmailDomain(savedUser);
+
+    const tokens = await this.generateTokensForUser(savedUser);
 
     return {
       userId: savedUser.id,
       email: savedUser.email,
       full_name: savedUser.full_name,
       role: savedUser.role,
-      access_token: this.jwtService.sign(payload),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
       message: 'Đăng ký tài khoản thành công!',
     };
   }
@@ -160,11 +158,7 @@ export class AuthService {
       user = await this.userRepo.save(newUser);
     }
 
-    const payload = { 
-      email: user.email, 
-      sub: user.id, 
-      role: user.role 
-    };
+    const tokens = await this.generateTokensForUser(user);
 
     return {
       userId: user.id,
@@ -172,7 +166,8 @@ export class AuthService {
       full_name: user.full_name,
       avatar_url: user.avatar_url,
       role: user.role,
-      access_token: this.jwtService.sign(payload),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
       message: 'Đăng nhập Google thành công!',
     };
   }
@@ -226,7 +221,7 @@ export class AuthService {
           action_url: 'https://edumap.vn/auth/reset-password?token=' + token,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Failed to send password reset email: ' + error.message);
     }
     return { success: true, message: 'Huong dan dat lai mat khau da duoc gui den email cua ban.' };
@@ -250,14 +245,63 @@ export class AuthService {
     return { success: true, message: 'Dat lai mat khau thanh cong!' };
   }
 
-  async refreshToken(userId: string): Promise<any> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+  async refreshToken(userId: string, refreshToken: string): Promise<any> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'full_name', 'role', 'refreshTokenHash'],
+    });
     if (!user) {
       throw new UnauthorizedException('Nguoi dung khong ton tai.');
     }
+
+    // Validate the provided refresh token against the stored hash.
+    if (!user.refreshTokenHash) {
+      throw new UnauthorizedException('Refresh token khong ton tai. Vui long dang nhap lai.');
+    }
+    const isRefreshTokenValid = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('Refresh token khong hop le. Vui long dang nhap lai.');
+    }
+
+    // Rotate: generate a new refresh token and invalidate the old one.
+    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, salt);
+    await this.userRepo.update(userId, { refreshTokenHash: newRefreshTokenHash });
+
     const payload = { email: user.email, sub: user.id, role: user.role };
     const newToken = this.jwtService.sign(payload);
-    return { access_token: newToken };
+    return { access_token: newToken, refresh_token: newRefreshToken };
+  }
+
+  /** Generate, hash, and persist a refresh token for the given user. */
+  private async generateAndSaveRefreshToken(userId: string): Promise<{ refreshToken: string }> {
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, salt);
+    await this.userRepo.update(userId, { refreshTokenHash });
+    return { refreshToken };
+  }
+
+  /** Generate access + refresh tokens for a user. Used by login, register,
+   * googleLogin, and 2FA verification after initial auth. */
+  async generateTokensForUser(user: User): Promise<{ access_token: string; refresh_token: string }> {
+    const payload = { email: user.email, sub: user.id, role: user.role };
+    const access_token = this.jwtService.sign(payload);
+    const { refreshToken } = await this.generateAndSaveRefreshToken(user.id);
+    return { access_token, refresh_token: refreshToken };
+  }
+
+  /** Generate access + refresh tokens for a user by ID (used by 2FA verification). */
+  async generateTokensForUserId(userId: string): Promise<{ access_token: string; refresh_token: string }> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'role'],
+    });
+    if (!user) {
+      throw new UnauthorizedException('Nguoi dung khong ton tai.');
+    }
+    return this.generateTokensForUser(user);
   }
 
   async getUserForTwoFactorVerification(userId: string) {

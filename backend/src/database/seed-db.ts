@@ -30,7 +30,7 @@ async function runSeed() {
         try {
           await AppDataSource.query(sql);
           console.log(`Successfully executed ${path.basename(file)}`);
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Error executing ${path.basename(file)}:`, error);
         }
       } else {
@@ -39,7 +39,7 @@ async function runSeed() {
     }
 
     console.log('Database seeding completed.');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database connection failed:', error);
   } finally {
     if (AppDataSource.isInitialized) {

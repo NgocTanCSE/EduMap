@@ -30,15 +30,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       return NextResponse.json(
         { message: data.message || 'Dev login thất bại.' },
         { status: response.status }
       );
     }
 
+    const data = await response.json();
     return NextResponse.json(unwrapApiResponse(data));
   } catch (error: any) {
     console.error('API Route DevLogin Error:', error);

@@ -1,10 +1,12 @@
 export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
   GUEST = 'guest',
   STUDENT = 'student',
   PARENT = 'parent',
   TEACHER = 'teacher',
   MENTOR = 'mentor',
   SCHOOL_REP = 'school_rep',
+  UNIVERSITY_REP = 'university_rep',
   DONOR = 'donor',
   EMPLOYER = 'employer',
   ADMIN = 'admin',

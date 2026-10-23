@@ -17,7 +17,7 @@ export class GreenController {
     try {
       const impacts = await this.greenService.getAllImpacts();
       return { success: true, data: impacts };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting all green impacts: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve green impacts');
     }
@@ -27,7 +27,7 @@ export class GreenController {
     try {
       const challenges = await this.greenService.getChallenges();
       return { success: true, data: challenges };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting all green challenges: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve green challenges');
     }
@@ -44,18 +44,20 @@ export class GreenController {
         body.carbonSavedKg || 0,
       );
       return { success: true, data: activity };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error logging green activity: ${error.message}`);
       throw new InternalServerErrorException('Failed to log green activity');
     }
   }
 
   @Post('impacts')
-  async addImpact(@Body() addImpactDto: AddImpactDto) {
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Thêm impact xanh' })
+  async addImpact(@Request() req: any, @Body() addImpactDto: AddImpactDto) {
     try {
       const newImpact = await this.greenService.addImpact(addImpactDto.initiative, addImpactDto.carbonSavedKg);
       return { success: true, data: newImpact };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error adding green impact: ${error.message}`);
       throw new InternalServerErrorException('Failed to add green impact');
     }

@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface DonationCampaign {
   id: string;
@@ -31,11 +33,11 @@ class DonateService {
    */
   async getAllCampaigns(): Promise<DonationCampaign[]> {
     try {
-      const response = await fetch(`${this.API_URL}/campaigns`);
+      const response = await fetchWithRetry(`${this.API_URL}/campaigns`);
       if (!response.ok) {
         throw new Error(`Failed to fetch campaigns: ${response.statusText}`);
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("DonateService.getAllCampaigns Error:", error);
       throw error;
@@ -47,12 +49,12 @@ class DonateService {
    */
   async getCampaignById(id: string): Promise<DonationCampaign> {
     try {
-      const response = await fetch(`${this.API_URL}/campaigns/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/campaigns/${id}`);
       if (!response.ok) {
         if (response.status === 404) throw new Error('Chiến dịch không tồn tại');
         throw new Error('Không thể tải thông tin chiến dịch');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(`DonateService.getCampaignById(${id}) Error:`, error);
       throw error;
@@ -64,11 +66,11 @@ class DonateService {
    */
   async getDonorsByCampaignId(id: string): Promise<any[]> {
     try {
-      const response = await fetch(`${this.API_URL}/campaigns/${id}/donors`);
+      const response = await fetchWithRetry(`${this.API_URL}/campaigns/${id}/donors`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách người đóng góp');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(`DonateService.getDonorsByCampaignId(${id}) Error:`, error);
       throw error;
@@ -86,7 +88,7 @@ class DonateService {
     if (amount <= 0) throw new Error('Số tiền quyên góp phải lớn hơn 0');
 
     try {
-      const response = await fetch(this.API_URL, {
+      const response = await fetchWithRetry(this.API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +130,7 @@ class DonateService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/payment-url`, {
+      const response = await fetchWithRetry(`${this.API_URL}/payment-url`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -141,7 +143,7 @@ class DonateService {
       if (!response.ok) {
         throw new Error(data.message || 'Tạo liên kết thanh toán thất bại');
       }
-      return data.data || data;
+      return unwrapApiResponse(data);
     } catch (error) {
       console.error("DonateService.createPaymentUrl Error:", error);
       throw error;

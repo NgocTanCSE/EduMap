@@ -11,7 +11,7 @@ export class GamificationController {
     try {
       const leaderboard = await this.gamificationService.getLeaderboard();
       return { success: true, data: leaderboard };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting leaderboard: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve leaderboard');
     }
@@ -34,7 +34,7 @@ export class GamificationController {
           achievements: progress.achievements,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting my progress: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve my progress');
     }
@@ -46,7 +46,7 @@ export class GamificationController {
     try {
       const badges = await this.gamificationService.getUserBadges(req.user.id);
       return { success: true, data: badges };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting user badges: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve user badges');
     }
@@ -66,7 +66,7 @@ export class GamificationController {
         body.proofUrl,
       );
       return { success: true, data: progress };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error submitting green activity: ${error.message}`);
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Failed to submit activity');
@@ -81,7 +81,7 @@ export class GamificationController {
         throw new NotFoundException(`User progress for ID ${userId} not found`);
       }
       return { success: true, data: progress };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting user progress for ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve user progress');
     }
@@ -92,7 +92,7 @@ export class GamificationController {
     try {
       const updatedProgress = await this.gamificationService.awardPoints(userId, points);
       return { success: true, data: updatedProgress };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error granting points to user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to grant points');
     }
@@ -103,7 +103,7 @@ export class GamificationController {
     try {
       const updatedProgress = await this.gamificationService.grantAchievement(userId, achievement);
       return { success: true, data: updatedProgress };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error granting achievement to user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to grant achievement');
     }

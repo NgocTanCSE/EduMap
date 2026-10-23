@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 const API_BASE_URL = '/api/library';
 
@@ -15,14 +17,14 @@ class LibraryService {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch(url, { ...options, headers, signal: controller.signal });
+      const response = await fetchWithRetry(url, { ...options, headers, signal: controller.signal });
       clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `API request failed with status ${response.status}`);
       }
-      return response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {

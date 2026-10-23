@@ -34,7 +34,7 @@ export class RedisIoAdapter extends IoAdapter {
 
       this.adapterConstructor = createAdapter(pubClient, subClient);
       this.logger.log('Successfully connected to Redis for Socket.IO Adapter');
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`Failed to connect to Redis for Socket.IO Adapter: ${(error as Error).message}. Falling back to in-memory adapter.`);
       // If Redis connection fails, we don't set this.adapterConstructor, so it will fall back to default
     }

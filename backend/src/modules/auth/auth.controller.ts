@@ -1,5 +1,4 @@
 import { Controller, Post, Patch, Get, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { LoginDto } from './dto/login.dto';
@@ -17,7 +16,6 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly mfaService: MfaService,
-    private readonly jwtService: JwtService,
   ) {}
 
   @Public()
@@ -82,12 +80,7 @@ export class AuthController {
     // backend JwtAuthGuard pass.
     const user = await this.authService.createDevUser();
 
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      role: user.role,
-    };
-    const access_token = this.jwtService.sign(payload);
+    const { access_token, refresh_token } = await this.authService.generateTokensForUserId(user.id);
 
     return {
       success: true,
@@ -99,6 +92,7 @@ export class AuthController {
         avatar_url: user.avatar_url,
         role: user.role,
         access_token,
+        refresh_token,
         message: 'Dev login successful!',
       },
     };
@@ -112,7 +106,7 @@ export class AuthController {
       // Assuming AuthService.login expects email and password now
       const result = await this.authService.login(loginDto.email, loginDto.password);
       return { success: true, data: result };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Login failed for user ${loginDto.email}: ${error.message}`);
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -126,7 +120,7 @@ export class AuthController {
       // Assuming AuthService.register expects email, password, full_name, role now
       const result = await this.authService.register(registerDto.email, registerDto.password, registerDto.full_name, registerDto.role);
       return { success: true, data: result };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Registration failed for user ${registerDto.email}: ${error.message}`);
       throw new BadRequestException('Registration failed');
     }
@@ -164,8 +158,32 @@ export class AuthController {
       throw new UnauthorizedException('Mã 2FA không hợp lệ');
     }
 
-    const result = await this.authService.refreshToken(body.userId);
+    const result = await this.authService.generateTokensForUserId(body.userId);
     return { success: true, data: result };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('2fa/generate')
+  async generate2FASecret(@Req() req: any) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Không xác định được người dùng.');
+    }
+    const user = await this.authService.getUserForTwoFactorVerification(userId);
+    if (!user) {
+      throw new UnauthorizedException('Người dùng không tồn tại.');
+    }
+    const { secret, qrCodeUrl } = await this.mfaService.generateSecret(user.email);
+    // Store the secret so it can be used by verifyTwoFactor.
+    await this.mfaService.saveSecret(userId, secret);
+    return {
+      success: true,
+      data: {
+        secret,
+        qr_code_url: qrCodeUrl,
+      },
+    };
   }
 
   @Public()
@@ -175,7 +193,7 @@ export class AuthController {
     if (!body.refreshToken || !body.userId) {
       throw new BadRequestException('refreshToken và userId là bắt buộc');
     }
-    const result = await this.authService.refreshToken(body.userId);
+    const result = await this.authService.refreshToken(body.userId, body.refreshToken);
     return { success: true, data: result };
   }
 

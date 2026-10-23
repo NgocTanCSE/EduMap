@@ -149,7 +149,7 @@ export class TrafficRoutingService {
           estimatedSpeed: seg.freeFlowSpeed * factor,
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`TrafficSegment DB query failed (table may not exist in this environment), falling back to heuristic: ${error.message}`);
     }
 

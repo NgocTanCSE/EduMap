@@ -45,7 +45,7 @@ export class FloodRoutingService {
       query.orWhere(`fz.riskLevel IN (:...levels)`, { levels: ['seasonal', 'high'] });
 
       return await query.getMany();
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`FloodZone DB query failed (table may not exist in this environment): ${error.message}`);
       // Graceful fallback: treat as no known flood zones so routing still
       // works without the table. The flood-analysis still runs on whatever

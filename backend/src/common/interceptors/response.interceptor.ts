@@ -25,7 +25,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>
         // Skip wrapping for binary/stream responses (file downloads)
         const ctx = context.switchToHttp();
         const res = ctx.getResponse();
-        if (res && typeof res.writeHead === 'function' && !res.writableEnded && res.get('Content-Type')?.includes('application/pdf')) {
+        if (res && typeof res.writeHead === 'function' && !res.writableEnded && (res.getHeader?.('Content-Type') || '').toString().includes('application/pdf')) {
           return data;
         }
         return {

@@ -37,7 +37,7 @@ export class AIService {
         next: () => this.logger.log('Triggered AI knowledge sync in background'),
         error: (err) => this.logger.warn(`Failed to trigger AI knowledge sync: ${err.message}`),
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`Failed to trigger AI knowledge sync: ${error.message}`);
     }
   }
@@ -52,7 +52,7 @@ export class AIService {
         order: { createdAt: 'ASC' },
         take: 50
       });
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching chat history: ${error.message}`);
       return [];
     }
@@ -113,13 +113,13 @@ export class AIService {
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Career Recommend API: ${error.message}`);
-throw new HttpException(
-         'AI Career recommendation service is currently unavailable. Please ensure AI_SERVICE_URL is configured correctly.',
-         HttpStatus.SERVICE_UNAVAILABLE,
-       );
-     }
+      throw new HttpException(
+        'AI Career recommendation service is currently unavailable. Please ensure AI_SERVICE_URL is configured correctly.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
    }
  
    /**
@@ -131,7 +131,7 @@ throw new HttpException(
         this.httpService.get(`${this.aiServiceUrl}/api/ai/trends/`)
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Trends API: ${error.message}`);
       throw new HttpException(
         'AI Market trends service is currently unavailable.',
@@ -151,7 +151,7 @@ throw new HttpException(
         }, { timeout: 60000 })
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Daily Insight API: ${error.message}`);
       throw new HttpException(
         'AI Daily Insight service is currently unavailable.',
@@ -169,7 +169,7 @@ throw new HttpException(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze/`, geoData)
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Geo-Analyze API: ${error.message}`);
       throw new HttpException(
         'Dịch vụ phân tích địa lý AI đang tạm thời gián đoạn.',
@@ -187,7 +187,7 @@ throw new HttpException(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize/`, materialData, { timeout: 60000 })
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Library Summarize API: ${error.message}`);
       throw new HttpException(
         'Dịch vụ tóm tắt AI đang tạm thời gián đoạn.',
@@ -205,7 +205,7 @@ throw new HttpException(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-path/`, data, { timeout: 60000 })
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Learning Path API: ${error.message}`);
       throw new HttpException(
         'Dịch vụ tạo lộ trình học tập AI đang tạm thời gián đoạn.',
@@ -223,7 +223,7 @@ throw new HttpException(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/mentor/match/`, matchData)
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Mentor Match API: ${error.message}`);
       throw new HttpException(
         'Dịch vụ ghép nối AI đang tạm thời gián đoạn.',
@@ -244,7 +244,7 @@ throw new HttpException(
         }, { timeout: 15000 })
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Moderation API: ${error.message}`);
       throw new HttpException(
         'AI Content moderation service is currently unavailable.',
@@ -265,7 +265,7 @@ throw new HttpException(
         })
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error calling AI Scholarship Check API: ${error.message}`);
       throw new HttpException(
         'AI Scholarship eligibility service is currently unavailable.',
@@ -300,7 +300,7 @@ throw new HttpException(
           last_value: lastValue,
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching AI analytics stats: ${error.message}`);
       throw new HttpException(
         'AI Analytics stats service is currently unavailable.',

@@ -157,7 +157,7 @@ export class RoutingController {
           segments,
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException(`Routing failed: ${error.message}`);
     }
@@ -179,18 +179,14 @@ export class RoutingController {
           metadata: z.metadata,
         })),
       };
-    } catch (error) {
+    } catch (error: any) {
       throw new InternalServerErrorException(`Failed to get flood zones: ${error.message}`);
     }
   }
 
   @Get('traffic-segments')
   async getTrafficSegments(@Query('bounds') bounds?: string) {
-    try {
-      return { success: true, data: [] };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to get traffic segments: ${error.message}`);
-    }
+    return { success: true, data: [] };
   }
 
   @Get('nearest')
@@ -208,7 +204,7 @@ export class RoutingController {
 
       const result = await this.routingService.getNearestRoad(longitude, latitude);
       return { success: true, data: result };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException(`Nearest road failed: ${error.message}`);
     }
@@ -238,7 +234,7 @@ export class RoutingController {
 
       const result = await this.routingService.getTable(srcCoords, dstCoords);
       return { success: true, data: result };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException(`Distance table failed: ${error.message}`);
     }

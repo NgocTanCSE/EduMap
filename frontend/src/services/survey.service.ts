@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Survey {
   id: string;
@@ -13,9 +15,9 @@ class SurveyService {
 
   async getSurveys(): Promise<Survey[]> {
     try {
-      const response = await fetch(this.API_URL);
+      const response = await fetchWithRetry(this.API_URL);
       if (!response.ok) throw new Error('Không thể tải danh sách khảo sát');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -24,12 +26,12 @@ class SurveyService {
 
   async getSurveyById(id: string): Promise<Survey> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`);
       if (!response.ok) {
           if (response.status === 404) throw new Error('Khảo sát không tồn tại');
           throw new Error('Không thể tải chi tiết khảo sát');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -41,7 +43,7 @@ class SurveyService {
     if (!token) throw new Error('Vui lòng đăng nhập để thực hiện khảo sát');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/submit`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

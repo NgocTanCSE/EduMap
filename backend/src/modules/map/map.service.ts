@@ -454,7 +454,7 @@ export class MapService {
         this.logger.warn('AI Service unavailable, using Cloudflare direct');
         return this.cloudflareAI.analyzeGeoDensity(query, pointsData);
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error during AI map analysis: ${error.message}`);
       return {
         summary: "Dữ liệu AI hiện không khả dụng. Dựa trên bản đồ, các cơ sở giáo dục tập trung chủ yếu quanh khuôn viên Biên Hòa.",
@@ -475,7 +475,7 @@ export class MapService {
         stats[cat] = (stats[cat] || 0) + 1;
       }
       return { total: allPois.length, categories: stats };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error getting map stats: ${error.message}`);
       return { total: 0, categories: {} };
     }

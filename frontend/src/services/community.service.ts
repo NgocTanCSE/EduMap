@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface UserInfo {
   id: string;
@@ -49,7 +51,7 @@ class CommunityService {
     if (!token) throw new Error('Vui lòng đăng nhập để đăng bài');
 
     try {
-      const response = await fetch(`${this.API_URL}/posts`, {
+      const response = await fetchWithRetry(`${this.API_URL}/posts`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -75,9 +77,9 @@ class CommunityService {
       url += `&group_id=${groupId}`;
     }
     try {
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) throw new Error('Không thể tải bài viết');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("CommunityService.getPosts Error:", error);
       throw error;
@@ -89,9 +91,9 @@ class CommunityService {
    */
   async getPostById(id: string): Promise<Post> {
     try {
-      const response = await fetch(`${this.API_URL}/posts/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/posts/${id}`);
       if (!response.ok) throw new Error('Không thể tải bài viết');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("CommunityService.getPostById Error:", error);
       throw error;
@@ -103,9 +105,9 @@ class CommunityService {
    */
   async getComments(postId: string, page: number = 1, limit: number = 20): Promise<{comments: Comment[], total: number}> {
     try {
-      const response = await fetch(`${this.API_URL}/posts/${postId}/comments?page=${page}&limit=${limit}`);
+      const response = await fetchWithRetry(`${this.API_URL}/posts/${postId}/comments?page=${page}&limit=${limit}`);
       if (!response.ok) throw new Error('Không thể tải bình luận');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("CommunityService.getComments Error:", error);
       throw error;
@@ -120,7 +122,7 @@ class CommunityService {
     if (!token) throw new Error('Vui lòng đăng nhập để bình luận');
 
     try {
-      const response = await fetch(`${this.API_URL}/posts/${postId}/comments`, {
+      const response = await fetchWithRetry(`${this.API_URL}/posts/${postId}/comments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -145,7 +147,7 @@ class CommunityService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/posts/${postId}/like`, {
+      const response = await fetchWithRetry(`${this.API_URL}/posts/${postId}/like`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -165,9 +167,9 @@ class CommunityService {
    */
   async getGroups(): Promise<Group[]> {
     try {
-      const response = await fetch(`${this.API_URL}/groups`);
+      const response = await fetchWithRetry(`${this.API_URL}/groups`);
       if (!response.ok) throw new Error('Không thể tải danh sách nhóm');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("CommunityService.getGroups Error:", error);
       throw error;

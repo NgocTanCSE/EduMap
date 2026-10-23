@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface UserFile {
   id: string;
@@ -17,7 +19,7 @@ class StorageService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/my-files`, {
+      const response = await fetchWithRetry(`${this.API_URL}/my-files`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải danh sách tập tin');
@@ -38,7 +40,7 @@ class StorageService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.API_URL}/upload`, {
+      const response = await fetchWithRetry(`${this.API_URL}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -48,7 +50,7 @@ class StorageService {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Tải lên thất bại');
       // Hỗ trợ cả response bọc trong { success, data } và response raw
-      const raw = data.data || data;
+      const raw = unwrapApiResponse<Record<string, any>>(data);
       // Chuẩn hóa trường file_url cho UserFile interface
       return {
         id: raw.id || raw.fileName,
@@ -69,7 +71,7 @@ class StorageService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

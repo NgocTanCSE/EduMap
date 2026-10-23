@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface GreenChallenge {
   id: string;
@@ -29,7 +31,7 @@ class GreenService {
    */
   async getChallenges(): Promise<GreenChallenge[]> {
     try {
-      const response = await fetch(`${this.API_URL}/challenges`);
+      const response = await fetchWithRetry(`${this.API_URL}/challenges`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách thử thách');
       }
@@ -52,7 +54,7 @@ class GreenService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/activities`, {
+      const response = await fetchWithRetry(`${this.API_URL}/activities`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -65,7 +67,7 @@ class GreenService {
       if (!response.ok) {
         throw new Error(data.message || 'Ghi nhận hoạt động thất bại');
       }
-      return data?.data || data;
+      return unwrapApiResponse(data);
     } catch (error) {
       console.error("GreenService.logActivity Error:", error);
       throw error;
@@ -87,7 +89,7 @@ class GreenService {
     }
 
     try {
-      const response = await fetch(`${this.GAMIFICATION_URL}/submit-activity`, {
+      const response = await fetchWithRetry(`${this.GAMIFICATION_URL}/submit-activity`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

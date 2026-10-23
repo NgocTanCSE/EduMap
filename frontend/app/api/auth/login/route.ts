@@ -16,15 +16,15 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       return NextResponse.json(
         { message: data.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.' },
         { status: response.status }
       );
     }
 
+    const data = await response.json();
     return NextResponse.json(unwrapApiResponse(data));
   } catch (error: any) {
     console.error('API Route Login Error:', error);

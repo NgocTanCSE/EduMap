@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface VolunteerActivity {
   id: string;
@@ -24,11 +26,11 @@ class VolunteerService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/activities`, {
+      const response = await fetchWithRetry(`${this.API_URL}/activities`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải lịch sử tình nguyện');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -40,7 +42,7 @@ class VolunteerService {
     if (!token) throw new Error('Vui lòng đăng nhập để ghi nhận hoạt động');
 
     try {
-      const response = await fetch(`${this.API_URL}/activities`, {
+      const response = await fetchWithRetry(`${this.API_URL}/activities`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

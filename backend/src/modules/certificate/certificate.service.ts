@@ -65,7 +65,8 @@ export class CertificateService {
     const buffers: any[] = [];
     doc.on('data', buffers.push.bind(buffers));
     
-    return new Promise(async (resolve) => {
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('error', reject);
       doc.on('end', () => {
         resolve(Buffer.concat(buffers));
       });
@@ -87,11 +88,11 @@ export class CertificateService {
       
       // Chèn mã QR
       const qrData = `https://edumap.vn/verify/${cert.verify_code}`;
-      const qrBuffer = await QRCode.toBuffer(qrData);
-      doc.image(qrBuffer, doc.page.width - 150, 430, { width: 100 });
-      doc.fontSize(8).text('Quét để xác thực', doc.page.width - 150, 535, { width: 100, align: 'center' });
-
-      doc.end();
+      QRCode.toBuffer(qrData).then((qrBuffer: Buffer) => {
+        doc.image(qrBuffer, doc.page.width - 150, 430, { width: 100 });
+        doc.fontSize(8).text('Quét để xác thực', doc.page.width - 150, 535, { width: 100, align: 'center' });
+        doc.end();
+      }).catch(reject);
     });
   }
 

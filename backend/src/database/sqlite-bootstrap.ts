@@ -27,13 +27,23 @@ const ROLE_BY_ROLE_ID: Record<number, string> = {
   3: 'moderator',
   4: 'school_rep',
   5: 'university_rep',
-  6: 'business_partner',
-  7: 'sponsor',
+  6: 'employer',          // was 'business_partner' — deduped from PARTNER
+  7: 'donor',             // was 'sponsor'
   8: 'teacher',
   9: 'mentor',
-  10: 'volunteer',
+  10: 'community_coord',  // was 'volunteer'
   11: 'student',
-  12: 'guest',
+  12: 'guest',            // was shared by PARENT+SUPPORT_STAFF — now just GUEST
+  13: 'parent',           // NEW — was duplicate 'guest'
+  14: 'support_staff',    // NEW — was duplicate 'guest'
+  15: 'partner',          // NEW — was duplicate 'business_partner'
+};
+
+/** Legacy role string → canonical enum value (for normalizing existing rows). */
+const ROLE_VALUE_NORMALIZATION: Record<string, string> = {
+  'business_partner': 'employer',  // can't distinguish EMPLOYER vs PARTNER in old data
+  'sponsor': 'donor',
+  'volunteer': 'community_coord',
 };
 
 /** Legacy camelCase column → snake_case column expected by the entities. */
@@ -44,7 +54,7 @@ const COLUMN_RENAMES: Array<[string, string]> = [
 ];
 
 function openDb(path: string): Promise<any> {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const sqlite3 = require('sqlite3');
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(path, (err: Error | null) =>
@@ -62,6 +72,14 @@ function exec(db: any, sql: string): Promise<void> {
 function all(db: any, sql: string): Promise<any[]> {
   return new Promise((resolve, reject) =>
     db.all(sql, (err: Error | null, rows: any[]) => (err ? reject(err) : resolve(rows || []))),
+  );
+}
+
+function run(db: any, sql: string): Promise<{ changes: number }> {
+  return new Promise((resolve, reject) =>
+    db.run(sql, function (this: any, err: Error | null) {
+      return err ? reject(err) : resolve({ changes: this?.changes ?? 0 });
+    }),
   );
 }
 
@@ -118,15 +136,26 @@ export async function ensureSqliteSchema(): Promise<void> {
       // them once. On later boots only fill genuinely empty values, so manual
       // role changes are never overwritten.
       const where = roleWasAdded ? '' : "WHERE role IS NULL OR role = ''";
-      const result: any = await new Promise((resolve, reject) =>
-        db.run(
-          `UPDATE users SET role = CASE CAST(role_id AS INTEGER) ${cases} ELSE 'student' END ${where}`,
-          function (this: any, err: Error | null) {
-            return err ? reject(err) : resolve({ changes: this?.changes ?? 0 });
-          },
-        ),
+      const result = await run(
+        db,
+        `UPDATE users SET role = CASE CAST(role_id AS INTEGER) ${cases} ELSE 'student' END ${where}`,
       );
       if (result.changes > 0) changes.push(`backfilled ${result.changes} role(s) from role_id`);
+    }
+
+    // 2b. Normalize legacy role *string* values to the new canonical enum values.
+    // This handles rows that already had a `role` column with old string values
+    // (e.g. 'business_partner' → 'employer', 'sponsor' → 'donor', 'volunteer' → 'community_coord')
+    // from a previous bootstrap run with the old enum. New role_id backfills
+    // (step 2) already write the new values, so this only touches old rows.
+    if (names.has('role')) {
+      for (const [oldVal, newVal] of Object.entries(ROLE_VALUE_NORMALIZATION)) {
+        const result = await run(
+          db,
+          `UPDATE users SET role = '${newVal}' WHERE role = '${oldVal}'`,
+        );
+        if (result.changes > 0) changes.push(`normalized ${result.changes} role(s) from '${oldVal}' to '${newVal}'`);
+      }
     }
 
     // 3. `comments.status` (AI-only moderation). The shipped SQLite file predates

@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface InternationalProgram {
   id: string;
@@ -34,9 +36,9 @@ class IntlService {
   async getPrograms(type?: string): Promise<InternationalProgram[]> {
     try {
       const url = type ? `${this.API_URL}/programs?type=${type}` : `${this.API_URL}/programs`;
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) throw new Error('Không thể tải danh sách chương trình quốc tế');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("IntlService.getPrograms Error:", error);
       throw error;
@@ -48,9 +50,9 @@ class IntlService {
    */
   async getAlumni(): Promise<AlumniNetwork[]> {
     try {
-      const response = await fetch(`${this.API_URL}/alumni`);
+      const response = await fetchWithRetry(`${this.API_URL}/alumni`);
       if (!response.ok) throw new Error('Không thể tải mạng lưới cựu sinh viên');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("IntlService.getAlumni Error:", error);
       throw error;
@@ -65,9 +67,9 @@ class IntlService {
       let url = `${this.API_URL}/alumni/nearby?latitude=${lat}&longitude=${lng}`;
       if (radius) url += `&radius=${radius}`;
       
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) throw new Error('Không thể tìm kiếm lưu học sinh lân cận');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("IntlService.getAlumniNearby Error:", error);
       throw error;
@@ -82,7 +84,7 @@ class IntlService {
     if (!token) throw new Error('Vui lòng đăng nhập để đăng ký mạng lưới');
 
     try {
-      const response = await fetch(`${this.API_URL}/alumni`, {
+      const response = await fetchWithRetry(`${this.API_URL}/alumni`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

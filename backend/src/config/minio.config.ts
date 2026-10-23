@@ -3,5 +3,9 @@ export const minioConfig = {
   port: parseInt(process.env.MINIO_PORT || '9000'),
   useSSL: false,
   accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
-  secretKey: process.env.MINIO_SECRET_KEY || 'password123',
+  secretKey: process.env.MINIO_SECRET_KEY
+    ? process.env.MINIO_SECRET_KEY
+    : process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('MINIO_SECRET_KEY environment variable is required in production.'); })()
+      : 'password123',
 };

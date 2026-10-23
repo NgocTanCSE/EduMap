@@ -102,7 +102,11 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
           host: process.env.DB_HOST || 'localhost',
           port: parseInt(process.env.DB_PORT) || 5432,
           username: process.env.DB_USERNAME || 'admin',
-          password: process.env.DB_PASSWORD || 'password123',
+          password: process.env.DB_PASSWORD
+            ? process.env.DB_PASSWORD
+            : process.env.NODE_ENV === 'production'
+              ? (() => { throw new Error('DB_PASSWORD environment variable is required in production.'); })()
+              : 'password123',
           database: process.env.DB_DATABASE || 'edumap_db',
         }
         : {

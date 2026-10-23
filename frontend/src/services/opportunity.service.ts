@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Opportunity {
   id: string;
@@ -26,10 +28,10 @@ class OpportunityService {
       if (field) params.append('field', field);
       if (bounds) params.append('bounds', bounds);
 
-      const response = await fetch(`${this.API_URL}?${params.toString()}`);
+      const response = await fetchWithRetry(`${this.API_URL}?${params.toString()}`);
       if (!response.ok) throw new Error('Không thể tải danh sách cơ hội');
       const data = await response.json();
-      const items = data.data || data;
+      const items = unwrapApiResponse(data);
       return Array.isArray(items) ? items : [];
     } catch (error) {
       console.error(error);
@@ -39,10 +41,10 @@ class OpportunityService {
 
   async getOpportunityById(id: string): Promise<Opportunity> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`);
       if (!response.ok) throw new Error('Không thể tải chi tiết cơ hội');
       const data = await response.json();
-      return data.data || data;
+      return unwrapApiResponse(data);
     } catch (error) {
       throw error;
     }
@@ -53,7 +55,7 @@ class OpportunityService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/team-finding`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/team-finding`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -61,7 +63,7 @@ class OpportunityService {
       });
       if (!response.ok) throw new Error('Cập nhật trạng thái thất bại');
       const data = await response.json();
-      return data.data || data;
+      return unwrapApiResponse(data);
     } catch (error) {
       throw error;
     }

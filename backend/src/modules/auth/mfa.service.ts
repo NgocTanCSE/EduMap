@@ -25,6 +25,11 @@ export class MfaService {
     return { secret, qrCodeUrl };
   }
 
+  /** Store the 2FA secret for a user (called during initial 2FA setup). */
+  async saveSecret(userId: string, secret: string): Promise<void> {
+    await this.userRepo.update(userId, { twoFactorSecret: secret });
+  }
+
   /**
    * 🛡️ Xác thực mã 6 chữ số từ điện thoại (TOTP) của người dùng.
    * Ánh xạ theo bảng 6.2 — STT 29: mfa.service.ts ↳ verifyTwoFactor()

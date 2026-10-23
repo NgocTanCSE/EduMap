@@ -52,7 +52,7 @@ export class AnalyticsService {
         total_materials: materialCount,
         system_ready: '100%'
       };
-    } catch (error) {
+    } catch (error: any) {
       return {
         total_users: 100,
         total_locations: 100,

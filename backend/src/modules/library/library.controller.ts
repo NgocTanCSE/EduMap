@@ -26,7 +26,7 @@ export class LibraryController {
       const limitNum = limit ? parseInt(limit, 10) : 10;
       const resources = await this.libraryService.findAll(pageNum, limitNum);
       return { success: true, data: resources };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting all library resources: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve library resources');
     }
@@ -45,7 +45,7 @@ export class LibraryController {
       const limitNum = limit ? parseInt(limit, 10) : 10;
       const resources = await this.libraryService.search(query, pageNum, limitNum, category, type);
       return { success: true, data: resources };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error searching library resources: ${error.message}`);
       throw new InternalServerErrorException('Failed to search library resources');
     }
@@ -56,7 +56,7 @@ export class LibraryController {
     try {
       const resource = await this.libraryService.findOne(id);
       return { success: true, data: resource };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -78,7 +78,7 @@ export class LibraryController {
         tags: resource.tags,
         file_url: resource.file_url,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error summarizing library resource ${id}: ${error.message}`);
       throw new InternalServerErrorException('Failed to summarize library resource');
     }
@@ -89,7 +89,7 @@ export class LibraryController {
     try {
       const newResource = await this.libraryService.create(createItemDto);
       return { success: true, data: newResource };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error creating library resource: ${error.message}`);
       throw new InternalServerErrorException('Failed to create library resource');
     }

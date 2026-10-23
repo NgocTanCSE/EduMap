@@ -58,7 +58,7 @@ export class AdminService {
         total_scholarships: totalScholarshipCount,
         upcoming_events: upcomingEventCount,
       };
-    } catch (error) {
+    } catch (error: any) {
       // Defensive Programming: Log detailed error
       this.logger.error(`Failed to fetch admin statistics: ${error.message}`, error.stack);
       throw new BadRequestException('Could not fetch admin statistics');
@@ -142,7 +142,7 @@ export class AdminService {
       }
       
       return updatedUser;
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException('Failed to update user status');
     }
   }
@@ -166,7 +166,7 @@ export class AdminService {
         });
       }
       return { message: 'User soft deleted successfully' };
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException('Failed to soft delete user');
     }
   }
@@ -185,14 +185,14 @@ export class AdminService {
         });
       }
       return { message: 'User restored successfully' };
-    } catch (error) {
+    } catch (error: any) {
       throw new BadRequestException('Failed to restore user');
     }
   }
 
   async getPendingContent(type: string) {
-    let items = [];
-    let count = 0;
+    let items: any[];
+    let count: number;
 
     try {
       switch (type) {
@@ -214,7 +214,7 @@ export class AdminService {
         items,
         count
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching pending content: ${error.message}`);
       throw new BadRequestException('Failed to fetch pending content');
     }

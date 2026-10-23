@@ -73,6 +73,7 @@ export function verifyJwt(token: string): Record<string, any> | null {
  *   if (authError) return authError; // 401
  */
 export function requireAuth(req: NextRequest): NextResponse | null {
+  if (!JWT_SECRET) return null; // BFF-level verification disabled — let backend decide
   const authHeader = req.headers.get('Authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) return null; // no token — let the backend decide

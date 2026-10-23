@@ -33,7 +33,7 @@ export class GreenService {
         carbonSavedKg: c.points_reward * 0.5,
         date: c.created_at.toISOString().split('T')[0],
       }));
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching green impacts: ${error.message}`);
       return [];
     }
@@ -65,7 +65,7 @@ export class GreenService {
       );
       
       return challengesWithParticipants;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching green challenges: ${error.message}`);
       // Return empty array instead of mock data to avoid hardcoded data
       return [];
@@ -94,7 +94,7 @@ export class GreenService {
         points_earned: saved.points_earned,
         created_at: saved.created_at,
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error logging green activity: ${error.message}`);
       throw error;
     }
@@ -114,7 +114,7 @@ export class GreenService {
         carbonSavedKg: saved.points_reward * 0.5,
         date: saved.created_at.toISOString().split('T')[0],
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error adding green impact: ${error.message}`);
       throw error;
     }

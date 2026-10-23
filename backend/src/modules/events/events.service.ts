@@ -152,7 +152,7 @@ export class EventsService {
           location: event.location,
           address: event.address,
         };
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`[EVENT REG FAILED] Event: ${eventId}, Error: ${error.message}`);
         throw error;
       }

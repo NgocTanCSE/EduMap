@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 const API_BASE_URL = '/api/career';
 
@@ -11,12 +13,12 @@ class CareerService {
       ...options.headers,
     } as any;
 
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetchWithRetry(url, { ...options, headers });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'API request failed');
     }
-    return response.json();
+    return unwrapApiResponse<any>(await response.json());
   }
 
   // Career Paths
@@ -99,7 +101,7 @@ class CareerService {
 
   async getCareerSuggestions() {
     const response = await this.fetchWithAuth(`${API_BASE_URL}/suggest`, { method: 'POST' });
-    const data = response?.data || response;
+    const data = unwrapApiResponse<any>(response);
     const suggestions = Array.isArray(data) ? data : (data?.top_suggestions || []);
     return { top_suggestions: suggestions };
   }

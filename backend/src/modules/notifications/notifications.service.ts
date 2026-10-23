@@ -49,7 +49,7 @@ export class NotificationsService {
           },
         });
         this.logger.log(`Email sent successfully to ${emailAddress}`);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Failed to send email to ${emailAddress}: ${error.message}`);
       }
     }
@@ -69,5 +69,11 @@ export class NotificationsService {
     notif.is_read = true;
     notif.read_at = new Date().toISOString();
     return notif;
+  }
+
+  /** Check if a notification belongs to a given user (for ownership verification). */
+  async isNotificationOwner(id: string, userId: string): Promise<boolean> {
+    const notif = this.notifications.find(n => n.id === id);
+    return !!notif && notif.userId === userId;
   }
 }

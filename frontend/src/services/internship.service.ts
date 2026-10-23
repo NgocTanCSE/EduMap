@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Internship {
   id: string;
@@ -31,11 +33,11 @@ class InternshipService {
    */
   async getInternships(page: number = 1, limit: number = 10): Promise<any> {
     try {
-      const response = await fetch(`${this.API_URL}?page=${page}&limit=${limit}`);
+      const response = await fetchWithRetry(`${this.API_URL}?page=${page}&limit=${limit}`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách thực tập');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("InternshipService.getInternships Error:", error);
       throw error;
@@ -47,12 +49,12 @@ class InternshipService {
    */
   async getInternshipById(id: string): Promise<Internship> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`);
       if (!response.ok) {
         if (response.status === 404) throw new Error('Không tìm thấy cơ hội thực tập');
         throw new Error('Không thể tải chi tiết thực tập');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(`InternshipService.getInternshipById(${id}) Error:`, error);
       throw error;
@@ -73,7 +75,7 @@ class InternshipService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/apply`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/apply`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

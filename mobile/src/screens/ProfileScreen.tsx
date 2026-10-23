@@ -22,7 +22,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     ]);
   };
 
-  const menu: { label: string; icon: React.ComponentType<any>; route?: keyof typeof Routes }[] = [
+  type ProfileMenuRoute = 'UpdateProfile' | 'ChangePassword' | 'MyFiles' | 'CertificatePortfolio' | 'VerifyCertificate';
+
+  const menu: { label: string; icon: React.ComponentType<any>; route?: ProfileMenuRoute }[] = [
     { label: 'Cập nhật hồ sơ', icon: Settings, route: 'UpdateProfile' },
     { label: 'Đổi mật khẩu', icon: Key, route: 'ChangePassword' },
     { label: 'Xác thực 2FA', icon: Shield, route: undefined },
@@ -30,8 +32,6 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     { label: 'Chứng chỉ', icon: CreditCard, route: 'CertificatePortfolio' },
     { label: 'Xác minh chứng chỉ', icon: CreditCard, route: 'VerifyCertificate' },
   ];
-
-  const Routes = { UpdateProfile: 'UpdateProfile', ChangePassword: 'ChangePassword', MyFiles: 'MyFiles', CertificatePortfolio: 'CertificatePortfolio', VerifyCertificate: 'VerifyCertificate' };
 
   return (
     <ScrollView style={styles.container}>

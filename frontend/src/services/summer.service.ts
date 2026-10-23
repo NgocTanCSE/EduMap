@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface SummerCampaign {
   id: string;
@@ -15,9 +17,9 @@ class SummerService {
 
   async getCampaigns(): Promise<SummerCampaign[]> {
     try {
-      const response = await fetch(this.API_URL);
+      const response = await fetchWithRetry(this.API_URL);
       if (!response.ok) throw new Error('Không thể tải danh sách chiến dịch');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -26,9 +28,9 @@ class SummerService {
 
   async getDailyReport(id: string, date: string): Promise<any> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}/daily-report?date=${date}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/daily-report?date=${date}`);
       if (!response.ok) throw new Error('Không thể tải báo cáo hằng ngày');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -40,7 +42,7 @@ class SummerService {
     if (!token) throw new Error('Vui lòng đăng nhập để đăng ký');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/register`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -125,7 +125,7 @@ export class DonateService {
             target_amount: updatedCampaign.target_amount,
           },
         };
-      } catch (error) {
+      } catch (error: any) {
         // El// Note Coder: Luôn log lỗi chi tiết, không silent failure
         this.logger.error(`[DONATE FAILED] Campaign: ${campaignId}, Error: ${error.message}`);
         throw error;

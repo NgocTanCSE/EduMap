@@ -35,7 +35,7 @@ export class WifiService {
         .where("LOWER(locations.description) LIKE :desc", { desc: '%wifi%' })
         .orderBy('locations.created_at', 'DESC')
         .getMany();
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Error fetching WiFi points:', error.message);
       return [];
     }

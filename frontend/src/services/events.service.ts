@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Event {
   id: string;
@@ -95,7 +97,7 @@ class EventsService {
    */
   async getAllEvents(): Promise<Event[]> {
     try {
-      const response = await fetch(this.API_URL);
+      const response = await fetchWithRetry(this.API_URL);
       // 404 is expected when no events exist yet — return empty array
       // so the page shows its EmptyState instead of a toast error.
       if (response.status === 404) {
@@ -124,7 +126,7 @@ class EventsService {
    */
   async getEventById(id: string): Promise<Event> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`);
       if (!response.ok) {
         if (response.status === 404) throw new Error('Sự kiện không tồn tại');
         throw new Error('Không thể tải thông tin sự kiện');
@@ -147,7 +149,7 @@ class EventsService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/${eventId}/register`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${eventId}/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

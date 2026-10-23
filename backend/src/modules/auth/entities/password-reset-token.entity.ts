@@ -15,7 +15,7 @@ export class PasswordResetToken {
   @Column({ default: false })
   isUsed: boolean;
 
-  @ManyToOne(() => User, user => user.id) // Assuming User has a relation
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
 

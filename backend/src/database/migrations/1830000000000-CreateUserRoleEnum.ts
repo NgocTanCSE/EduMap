@@ -32,19 +32,25 @@ export class CreateUserRoleEnum1830000000000 implements MigrationInterface {
 
     // Matches backend/src/database/seed.sql roles table (the DB source of truth).
     // Values are normalised to lowercase-with-underscores to match the TS enum.
+    // Matches backend/src/database/seed.sql roles table (the DB source of truth).
+    // Values are normalised to lowercase-with-underscores to match the TS enum.
+    // All 15 UserRole enum values must be unique — PostgreSQL enums reject duplicates.
     private static readonly ROLE_ENUM_VALUES = [
-        'super_admin',      // roles.id 1  (Super Admin — FIX: was conflated with ADMIN)
-        'admin',            // roles.id 2  (Admin)
-        'moderator',        // roles.id 3
-        'school_rep',       // roles.id 4
-        'university_rep',   // roles.id 5  (FIX: getter defaulted this to STUDENT)
-        'business_partner', // roles.id 6  (Business Partner / Employer)
-        'sponsor',          // roles.id 7  (Sponsor — was mapped to DONOR)
-        'teacher',          // roles.id 8
-        'mentor',           // roles.id 9
-        'volunteer',        // roles.id 10 (Volunteer — was mapped to COMMUNITY_COORD)
-        'student',          // roles.id 11
-        'guest',            // roles.id 12
+        'super_admin',          // roles.id 1  (Super Admin — FIX: was conflated with ADMIN)
+        'admin',                // roles.id 2  (Admin)
+        'moderator',            // roles.id 3
+        'school_rep',           // roles.id 4
+        'university_rep',       // roles.id 5  (FIX: getter defaulted this to STUDENT)
+        'employer',             // roles.id 6  (was 'business_partner'; PARTNER split out)
+        'donor',                // roles.id 7  (was 'sponsor')
+        'teacher',              // roles.id 8
+        'mentor',               // roles.id 9
+        'community_coord',      // roles.id 10 (was 'volunteer')
+        'student',              // roles.id 11
+        'guest',                // roles.id 12 (was shared by PARENT+SUPPORT_STAFF — now distinct)
+        'parent',               // roles.id 13 (NEW — was duplicate 'guest')
+        'support_staff',        // roles.id 14 (NEW — was duplicate 'guest')
+        'partner',              // roles.id 15 (NEW — was duplicate 'business_partner')
     ];
 
     public async up(queryRunner: QueryRunner): Promise<void> {
@@ -65,13 +71,16 @@ export class CreateUserRoleEnum1830000000000 implements MigrationInterface {
                 WHEN  3 THEN 'moderator'
                 WHEN  4 THEN 'school_rep'
                 WHEN  5 THEN 'university_rep'
-                WHEN  6 THEN 'business_partner'
-                WHEN  7 THEN 'sponsor'
+                WHEN  6 THEN 'employer'
+                WHEN  7 THEN 'donor'
                 WHEN  8 THEN 'teacher'
                 WHEN  9 THEN 'mentor'
-                WHEN 10 THEN 'volunteer'
+                WHEN 10 THEN 'community_coord'
                 WHEN 11 THEN 'student'
                 WHEN 12 THEN 'guest'
+                WHEN 13 THEN 'parent'
+                WHEN 14 THEN 'support_staff'
+                WHEN 15 THEN 'partner'
             END
             FROM roles r
             WHERE u.role_id = r.id

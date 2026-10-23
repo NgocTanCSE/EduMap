@@ -1,4 +1,6 @@
 import { authService } from '@/src/services/auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export type Bookmark = {
   target_type: string;
@@ -16,12 +18,12 @@ async function fetchWithAuth(input: string, init: RequestInit = {}) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init.headers || {}),
   };
-  const res = await fetch(input, { ...init, headers });
+  const res = await fetchWithRetry(input, { ...init, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `bookmark request failed (${res.status})`);
   }
-  return res.json();
+  return unwrapApiResponse<any>(await res.json());
 }
 
 export const bookmarkService = {

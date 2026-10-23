@@ -106,16 +106,16 @@ export class CrawlerService {
     for (const [region, bbox] of Object.entries(VIETNAM_REGIONS)) {
       const query = queryFn(bbox);
       const url = `${this._overpassUrl()}?data=${encodeURIComponent(query)}`;
-      let elements: any[] = [];
+      let elements: any[];
       try {
         const response = await firstValueFrom(
           this.httpService.get(url, {
             headers: { 'User-Agent': 'EduMapNationwide/1.0 (admin@edumap.vn)' },
-            timeout: 300_000,
+            timeout: 30_000,
           }),
         );
         elements = response.data.elements || [];
-      } catch (e) {
+      } catch (e: any) {
         this.logger.warn(`[${label}/${region}] Overpass lỗi: ${e.message}; chuyển mirror`);
         continue;
       }
@@ -320,7 +320,7 @@ export class CrawlerService {
         addedCount++;
       }
       return { success: true, added: addedCount, message: `Đã thêm ${addedCount} cuốn sách mới.` };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Lỗi crawl books:', error.message);
       return { success: false, added: 0, message: `Lỗi crawl books: ${error.message}` };
     }
@@ -360,7 +360,7 @@ export class CrawlerService {
       this.crawlStatus.lastCompleted = new Date();
       this.crawlStatus.totalCrawled += result.added || 0;
       return result;
-    } catch (error) {
+    } catch (error: any) {
       historyEntry.status = 'failed';
       historyEntry.errors++;
       historyEntry.message = error.message;
@@ -380,7 +380,7 @@ export class CrawlerService {
       results.push({ type: 'books', ...(await this.crawlBooks(params)) });
       const totalAdded = results.reduce((sum, r) => sum + (r.added || 0), 0);
       return { success: true, added: totalAdded, message: `Crawl tất cả xong. Tổng: ${totalAdded} bản ghi.`, details: results };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Lỗi crawl tất cả:', error.message);
       return { success: false, added: 0, message: `Lỗi: ${error.message}`, details: results };
     }

@@ -20,7 +20,7 @@ export class StorageService implements OnModuleInit {
     try {
       await fs.mkdir(this.uploadDir, { recursive: true });
       this.logger.log(`FileSystem storage ready at: ${this.uploadDir}`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`StorageService: Could not create upload directory (${(error as Error).message}). Storage disabled.`);
     }
   }
@@ -104,7 +104,7 @@ export class StorageService implements OnModuleInit {
       }
       await this.fileRepo.remove(userFile);
       return { success: true, message: 'Đã xóa tập tin' };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('Error deleting file:', error);
       throw new BadRequestException('Lỗi khi xóa tập tin');
     }

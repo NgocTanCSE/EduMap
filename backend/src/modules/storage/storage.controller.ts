@@ -47,7 +47,7 @@ export class StorageController {
       res.set('Content-Type', contentType);
       res.set('Content-Length', buffer.length.toString());
       res.send(buffer);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }

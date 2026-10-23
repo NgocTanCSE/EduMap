@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Put, Body, Param, Request, UseGuards, InternalServerErrorException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Param, Request, UseGuards, InternalServerErrorException, HttpCode, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UserRole } from '../auth/entities/user.entity';
 
 interface SendNotificationDto {
   userId: string;
@@ -23,7 +24,7 @@ export class NotificationsController {
         sendNotificationDto.type,
       );
       return { success: true, data: notification };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error sending notification: ${error.message}`);
       throw new InternalServerErrorException('Failed to send notification');
     }
@@ -37,19 +38,25 @@ export class NotificationsController {
       const notifications = await this.notificationsService.getNotificationsForUser(userId);
       const unreadCount = notifications.filter(n => !n.is_read).length;
       return { success: true, notifications, unread_count: unreadCount };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting notifications for user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve notifications');
     }
   }
 
-  // Existing admin‑style endpoint – kept for compatibility
+  // Admin-style endpoint — requires admin role to view other users' notifications.
   @Get(':userId')
-  async getNotificationsForUser(@Param('userId') userId: string) {
+  async getNotificationsForUser(@Param('userId') userId: string, @Request() req) {
+    // Ownership check: non-admins can only view their own notifications.
+    const requesterId = req.user?.id || req.user?.sub;
+    const requesterRole = req.user?.role;
+    if (requesterId !== userId && requesterRole !== UserRole.ADMIN && requesterRole !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Bạn không có quyền truy cập thông báo của người dùng khác.');
+    }
     try {
       const notifications = await this.notificationsService.getNotificationsForUser(userId);
       return { success: true, data: notifications };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting notifications for user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve notifications');
     }
@@ -57,11 +64,17 @@ export class NotificationsController {
 
   @Put(':id/read')
   async markAsRead(@Param('id') id: string, @Request() req) {
-    // Optional: Verify ownership (skip for mock)
+    // Ownership verification: only the notification owner or admin can mark as read.
+    const requesterId = req.user?.id || req.user?.sub;
+    const requesterRole = req.user?.role;
+    const isOwner = await this.notificationsService.isNotificationOwner(id, requesterId);
+    if (!isOwner && requesterRole !== UserRole.ADMIN && requesterRole !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Bạn không có quyền cập nhật thông báo của người dùng khác.');
+    }
     try {
       const updated = await this.notificationsService.markAsRead(id);
       return { success: true, data: updated };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error marking notification ${id} as read: ${error.message}`);
       throw new InternalServerErrorException('Failed to update notification');
     }

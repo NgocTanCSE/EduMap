@@ -31,11 +31,16 @@
  * all covered by {@link geoColumn}.
  */
 
-const isPostgres = process.env.DB_TYPE === 'postgres';
+const isPostgres: boolean = (() => process.env.DB_TYPE === 'postgres')();
+
+/** Check DB type at call-time for lazy evaluation (use in tests). */
+export function isPostgresNow(): boolean {
+  return process.env.DB_TYPE === 'postgres';
+}
 
 /** Native PostGIS geography(Point, 4326) on Postgres, JSON on SQLite. */
 export function geoPointColumn(): Record<string, unknown> {
-  return isPostgres
+  return isPostgresNow()
     ? { type: 'geography', spatialFeatureType: 'Point', srid: 4326 }
     : { type: 'json' };
 }
@@ -47,14 +52,14 @@ export function geoPointColumn(): Record<string, unknown> {
  */
 type GeoFeature = 'Point' | 'Polygon' | 'LineString' | 'Geometry';
 export function geoColumn(featureType: GeoFeature = 'Point'): Record<string, unknown> {
-  return isPostgres
+  return isPostgresNow()
     ? { type: 'geography', spatialFeatureType: featureType, srid: 4326 }
     : { type: 'json' };
 }
 
 /** JSONB on Postgres (supports querying / array indexing), JSON on SQLite. */
 export function jsonColumn(nullable = false): Record<string, unknown> {
-  return { type: isPostgres ? 'jsonb' : 'json', nullable };
+  return { type: isPostgresNow() ? 'jsonb' : 'json', nullable };
 }
 
 /**
@@ -67,7 +72,7 @@ export function datetimeColumn(
   withTimezone = false,
 ): Record<string, unknown> {
   return {
-    type: isPostgres ? (withTimezone ? 'timestamp with time zone' : 'timestamp') : 'datetime',
+    type: isPostgresNow() ? (withTimezone ? 'timestamp with time zone' : 'timestamp') : 'datetime',
     nullable,
   };
 }
@@ -79,7 +84,7 @@ export function datetimeColumn(
  *   @Column({ ...enumColumn(), enum: MyStatus, default: MyStatus.ACTIVE })
  */
 export function enumColumn(): Record<string, unknown> {
-  return { type: isPostgres ? 'enum' : 'text' };
+  return { type: isPostgresNow() ? 'enum' : 'text' };
 }
 
 /**
@@ -95,7 +100,7 @@ export function enumColumn(): Record<string, unknown> {
  *   skills: string[];
  */
 export function textArrayColumn(): Record<string, unknown> {
-  if (isPostgres) {
+  if (isPostgresNow()) {
     return { type: 'text', array: true, default: '{}' };
   }
   return {

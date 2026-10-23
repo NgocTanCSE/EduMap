@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Hackathon {
   id: string;
@@ -24,7 +26,7 @@ class HackathonService {
    */
   async getHackathons(): Promise<Hackathon[]> {
     try {
-      const response = await fetch(this.API_URL);
+      const response = await fetchWithRetry(this.API_URL);
       // 404 is expected when no hackathons exist yet — return empty array
       // so the page shows its EmptyState instead of a toast error.
       if (response.status === 404) {
@@ -33,7 +35,7 @@ class HackathonService {
       if (!response.ok) {
         throw new Error('Không thể tải danh sách Hackathon');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("HackathonService.getHackathons Error:", error);
       throw error;
@@ -45,12 +47,12 @@ class HackathonService {
    */
   async getHackathonById(id: string): Promise<Hackathon> {
     try {
-      const response = await fetch(`${this.API_URL}/${id}`);
+      const response = await fetchWithRetry(`${this.API_URL}/${id}`);
       if (!response.ok) {
         if (response.status === 404) throw new Error('Không tìm thấy cuộc thi');
         throw new Error('Không thể tải chi tiết Hackathon');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(`HackathonService.getHackathonById(${id}) Error:`, error);
       throw error;
@@ -71,7 +73,7 @@ class HackathonService {
     }
 
     try {
-      const response = await fetch(`${this.API_URL}/register`, {
+      const response = await fetchWithRetry(`${this.API_URL}/register`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -101,7 +103,7 @@ class HackathonService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/teams/${teamId}/submit`, {
+      const response = await fetchWithRetry(`${this.API_URL}/teams/${teamId}/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

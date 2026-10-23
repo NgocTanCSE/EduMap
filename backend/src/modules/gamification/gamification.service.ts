@@ -34,7 +34,7 @@ export class GamificationService {
         points: parseInt(pointSum?.total || '0', 10),
         achievements: badges.map(ub => ub.badge.name)
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching user progress: ${error.message}`);
       return { userId, points: 0, achievements: [] };
     }
@@ -58,7 +58,7 @@ export class GamificationService {
         rarity: ub.badge?.rarity,
         earned_at: ub.earned_at,
       }));
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching user badges: ${error.message}`);
       return [];
     }
@@ -87,7 +87,7 @@ export class GamificationService {
         points: parseInt(user.points || '0', 10),
         level: Math.floor(parseInt(user.points || '0', 10) / 100) + 1,
       }));
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error fetching leaderboard: ${error.message}`);
       return [];
     }
@@ -100,7 +100,7 @@ export class GamificationService {
         await this.userPointRepo.save(pointEntry);
       }
       return this.getUserProgress(userId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error awarding points: ${error.message}`);
       return this.getUserProgress(userId);
     }
@@ -120,7 +120,7 @@ export class GamificationService {
         await this.userBadgeRepo.save(userBadge);
       }
       return this.getUserProgress(userId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error granting achievement: ${error.message}`);
       return this.getUserProgress(userId);
     }

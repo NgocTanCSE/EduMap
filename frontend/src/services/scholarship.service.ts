@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface Scholarship {
   id: string;
@@ -31,11 +33,11 @@ class ScholarshipService {
    */
   async getScholarships(page: number = 1, limit: number = 10): Promise<any> {
     try {
-      const response = await fetch(`${this.API_URL}?page=${page}&limit=${limit}`);
+      const response = await fetchWithRetry(`${this.API_URL}?page=${page}&limit=${limit}`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách học bổng');
       }
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error("ScholarshipService.getScholarships Error:", error);
       throw error;
@@ -46,9 +48,9 @@ class ScholarshipService {
    * Lấy chi tiết một học bổng theo ID
    */
   async getScholarshipById(id: string): Promise<Scholarship> {
-    const response = await fetch(`${this.API_URL}/${id}`);
+    const response = await fetchWithRetry(`${this.API_URL}/${id}`);
     if (!response.ok) throw new Error('Không thể tải chi tiết học bổng');
-    return await response.json();
+    return unwrapApiResponse<any>(await response.json());
   }
 
   /**
@@ -59,11 +61,11 @@ class ScholarshipService {
     if (!token) throw new Error('Vui lòng đăng nhập để kiểm tra điều kiện');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/check-eligibility`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/check-eligibility`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Kiểm tra thất bại');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -78,7 +80,7 @@ class ScholarshipService {
     if (!token) throw new Error('Vui lòng đăng nhập để nộp đơn');
 
     try {
-      const response = await fetch(`${this.API_URL}/${id}/apply`, {
+      const response = await fetchWithRetry(`${this.API_URL}/${id}/apply`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -104,11 +106,11 @@ class ScholarshipService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/me/applications`, {
+      const response = await fetchWithRetry(`${this.API_URL}/me/applications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải hồ sơ');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;

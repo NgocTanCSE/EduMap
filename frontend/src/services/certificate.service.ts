@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 const API_BASE_URL = '/api/certificates';
 
@@ -11,12 +13,12 @@ class CertificateService {
       ...options.headers,
     } as any;
 
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetchWithRetry(url, { ...options, headers });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'API request failed');
     }
-    return response.json();
+    return unwrapApiResponse<any>(await response.json());
   }
 
   async getPortfolio() {
@@ -25,8 +27,8 @@ class CertificateService {
 
   async verifyCertificate(code: string) {
     // This is a public endpoint, no auth needed
-    const response = await fetch(`${API_BASE_URL}/verify/${code}`);
-    return response.json();
+    const response = await fetchWithRetry(`${API_BASE_URL}/verify/${code}`);
+    return unwrapApiResponse<any>(await response.json());
   }
 }
 

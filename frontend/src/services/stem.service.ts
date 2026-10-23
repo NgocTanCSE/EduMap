@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface StemLab {
   id: string;
@@ -20,9 +22,9 @@ class StemService {
    */
   async getLabs(): Promise<StemLab[]> {
     try {
-      const response = await fetch(`${this.API_URL}/labs`);
+      const response = await fetchWithRetry(`${this.API_URL}/labs`);
       if (!response.ok) throw new Error('Không thể tải danh sách STEM Labs');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -37,7 +39,7 @@ class StemService {
     if (!token) throw new Error('Vui lòng đăng nhập để đặt mượn thiết bị');
 
     try {
-      const response = await fetch(`${this.API_URL}/labs/${labId}/book`, {
+      const response = await fetchWithRetry(`${this.API_URL}/labs/${labId}/book`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

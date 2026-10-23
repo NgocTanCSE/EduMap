@@ -6,7 +6,9 @@ export class SanitizeService {
 
   constructor() {
     // Sử dụng require để tránh lỗi biên dịch TypeScript strict types do thiếu @types/dompurify / @types/jsdom
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { JSDOM } = require('jsdom');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const createDOMPurify = require('dompurify');
     const window = new JSDOM('').window;
     this.purify = createDOMPurify(window);

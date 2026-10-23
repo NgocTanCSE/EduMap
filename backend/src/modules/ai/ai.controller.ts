@@ -83,12 +83,14 @@ export class AIController {
     return this.aiService.predictCareerPath({ user_id: req.user.id, answers, task: "career_quiz" });
   }
 
+  @Public()
   @Get('trends')
   @ApiOperation({ summary: 'Phân tích xu hướng thị trường' })
   async getTrends() {
     return this.aiService.getMarketTrends();
   }
 
+  @Public()
   @Get('analytics/stats')
   @ApiOperation({ summary: 'Thống kê AI Analytics' })
   async getAnalyticsStats() {

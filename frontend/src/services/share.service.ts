@@ -1,4 +1,6 @@
 import { authService } from './auth.service';
+import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export interface SharedItem {
   id: string;
@@ -36,7 +38,7 @@ class ShareService {
     if (!token) throw new Error('Vui lòng đăng nhập để chia sẻ');
 
     try {
-      const response = await fetch(`${this.API_URL}/items`, {
+      const response = await fetchWithRetry(`${this.API_URL}/items`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -59,9 +61,9 @@ class ShareService {
   async getItems(category?: string): Promise<SharedItem[]> {
     try {
       const url = category ? `${this.API_URL}/items?category=${category}` : `${this.API_URL}/items`;
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) throw new Error('Không thể tải danh sách tài liệu');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;
@@ -76,7 +78,7 @@ class ShareService {
     if (!token) throw new Error('Vui lòng đăng nhập để mượn');
 
     try {
-      const response = await fetch(`${this.API_URL}/items/${itemId}/request`, {
+      const response = await fetchWithRetry(`${this.API_URL}/items/${itemId}/request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -101,11 +103,11 @@ class ShareService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch(`${this.API_URL}/requests`, {
+      const response = await fetchWithRetry(`${this.API_URL}/requests`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Không thể tải danh sách yêu cầu');
-      return await response.json();
+      return unwrapApiResponse<any>(await response.json());
     } catch (error) {
       console.error(error);
       throw error;

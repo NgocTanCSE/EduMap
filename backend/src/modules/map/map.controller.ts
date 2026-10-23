@@ -70,7 +70,7 @@ export class MapController {
 
       return { success: true, data: allPois };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error getting points of interest: ${error.message}`);
 
@@ -122,7 +122,7 @@ export class MapController {
 
       return { success: true, data: allPois };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error getting locations: ${error.message}`);
 
@@ -146,7 +146,7 @@ export class MapController {
 
       return { success: true, data: categories };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error getting categories: ${error.message}`);
 
@@ -170,7 +170,7 @@ export class MapController {
 
       return { success: true, data: result };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error creating point of interest: ${error.message}`);
 
@@ -202,7 +202,7 @@ export class MapController {
 
       return { success: true, data: result };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error during AI map analysis: ${error.message}`);
 
@@ -226,7 +226,7 @@ export class MapController {
 
       return { success: true, data: stats };
 
-    } catch (error) {
+    } catch (error: any) {
 
       console.error(`Error getting map stats: ${error.message}`);
 
@@ -246,7 +246,7 @@ export class MapController {
         throw new NotFoundException('Point of interest not found');
       }
       return { success: true, data: result };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) throw error;
       console.error(`Error getting POI details: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve point of interest');

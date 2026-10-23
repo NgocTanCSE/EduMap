@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 import { UserRole } from '../types/auth-types';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
+import { unwrapApiResponse } from '@/src/lib/api-utils';
 
 export const ACCESS_TOKEN_KEY = 'edumap-access-token';
 export const REFRESH_TOKEN_KEY = 'edumap-refresh-token';
@@ -60,7 +61,7 @@ class AuthService {
   }
 
   // === Token Management ===
-  setTokens(accessToken: string, refreshToken: string = accessToken) {
+  setTokens(accessToken: string, refreshToken: string) {
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -87,12 +88,12 @@ class AuthService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetchWithRetry('/api/auth/profile', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Không thể tải hồ sơ người dùng');
       const data = await response.json();
-      const profile = data.data || data;
+      const profile = unwrapApiResponse<any>(data);
       const userInfo: CurrentUser = {
         id: profile.userId || profile.id,
         email: profile.email,
@@ -233,7 +234,7 @@ class AuthService {
    * backend JwtAuthGuard validation (signed with the real JWT_SECRET).
    */
   async devLogin(): Promise<CurrentUser> {
-    const response = await fetch('/api/auth/dev-login', {
+    const response = await fetchWithRetry('/api/auth/dev-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -243,8 +244,8 @@ class AuthService {
       throw new Error(data.message || 'Dev login failed.');
     }
 
-    const authData = data.data || data;
-    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const authData = unwrapApiResponse<any>(data);
+    this.setTokens(authData.access_token, authData.refresh_token);
     const userInfo: CurrentUser = {
       id: authData.userId || authData.id,
       email: authData.email,
@@ -264,7 +265,7 @@ class AuthService {
   }
 
   async loginWithCredentials(email: string, password: string): Promise<any> {
-    const response = await fetch('/api/auth/login', {
+    const response = await fetchWithRetry('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -275,8 +276,8 @@ class AuthService {
       throw new Error(data.message || 'Đăng nhập thất bại.');
     }
 
-    const authData = data.data || data;
-    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const authData = unwrapApiResponse<any>(data);
+    this.setTokens(authData.access_token, authData.refresh_token);
     const userInfo: CurrentUser = {
       id: authData.userId || authData.id,
       email: authData.email,
@@ -296,7 +297,7 @@ class AuthService {
   }
 
   async loginWithGoogle(googleData: { email: string; full_name?: string; avatar_url?: string; role?: UserRole; credential?: string }): Promise<CurrentUser> {
-    const response = await fetch('/api/auth/google', {
+    const response = await fetchWithRetry('/api/auth/google', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(googleData),
@@ -307,8 +308,8 @@ class AuthService {
       throw new Error(data.message || 'Đăng nhập Google thất bại.');
     }
 
-    const authData = data.data || data;
-    this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+    const authData = unwrapApiResponse<any>(data);
+    this.setTokens(authData.access_token, authData.refresh_token);
     const userInfo: CurrentUser = {
       id: authData.userId || authData.id,
       email: authData.email,
@@ -345,7 +346,7 @@ class AuthService {
       }
 
       const data = await response.json();
-      const updatedUser = data.data || data;
+      const updatedUser = unwrapApiResponse<any>(data);
       
       if (updatedUser) {
         this.currentUser = {
@@ -382,7 +383,7 @@ class AuthService {
 
     try {
       // Call backend refresh API
-      const response = await fetch('/api/auth/refresh', {
+      const response = await fetchWithRetry('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken, userId }),
@@ -394,8 +395,8 @@ class AuthService {
         return false;
       }
       const data = await response.json();
-      const authData = data.data || data;
-      this.setTokens(authData.access_token, authData.refresh_token || authData.access_token);
+      const authData = unwrapApiResponse<any>(data);
+      this.setTokens(authData.access_token, authData.refresh_token);
       return true;
     } catch (error) {
       console.error("Error refreshing tokens:", error);
@@ -410,12 +411,12 @@ class AuthService {
     if (!token) throw new Error('Vui lòng đăng nhập');
 
     try {
-      const response = await fetch('/api/auth/preferences', {
+      const response = await fetchWithRetry('/api/auth/preferences', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Không thể tải cài đặt');
       const data = await response.json();
-      return data.data || data;
+      return unwrapApiResponse<any>(data);
     } catch (error) {
       console.error("Error fetching preferences:", error);
       throw error;
@@ -448,7 +449,7 @@ class AuthService {
       }
 
       const data = await response.json();
-      return data.data || data;
+      return unwrapApiResponse<any>(data);
     } catch (error) {
       console.error("Error updating preferences:", error);
       throw error;

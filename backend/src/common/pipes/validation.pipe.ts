@@ -26,7 +26,9 @@ export class CustomValidationPipe implements PipeTransform<any> {
     return value;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   private toValidate(metatype: Function): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     const types: Function[] = [String, Boolean, Number, Array, Object];
     return !types.includes(metatype);
   }
