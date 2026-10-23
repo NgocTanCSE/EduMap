@@ -707,7 +707,7 @@ class LLMService:
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -780,15 +780,31 @@ class LLMService:
             history_str += f"{role}: {msg.get('content')}\n"
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
-        
-        try:
-            response = self._cloudflare_generate(prompt,
-                max_tokens=2048,
-                temperature=0.3,
-                top_p=0.8)
-            reply_text = response.strip() if response and response else "Mình chưa tìm được câu trả lời phù hợp."
-        except Exception as e:
-            print(f"AI Generation Error: {e} — using template fallback")
+
+        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó NVIDIA NIM / OpenRouter / Cloudflare / HF.
+        reply_text = None
+        last_err = None
+        for gen_fn in [
+            self._gemini_generate if self.has_gemini else None,
+            self._nvidia_generate if self.has_nvidia else None,
+            self._openrouter_generate if self.has_openrouter else None,
+            self._cloudflare_generate if self.has_cf else None,
+            self._hf_generate if self.has_hf else None,
+        ]:
+            if gen_fn is None:
+                continue
+            try:
+                response = gen_fn(prompt, max_tokens=2048, temperature=0.3, top_p=0.8)
+                if response:
+                    reply_text = response.strip()
+                    break
+            except Exception as e:
+                last_err = str(e)
+                print(f"Chat gen {gen_fn.__name__} failed: {e}")
+                continue
+
+        if not reply_text:
+            print(f"AI Generation Error: {last_err or 'no provider available'} — using template fallback")
             reply_text = self._chat_fallback_reply(message, sources, context)
 
         final_res = {"reply": reply_text, "sources": sources}
