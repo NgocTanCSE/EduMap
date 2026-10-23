@@ -95,24 +95,61 @@ async def get_stats():
 
     try:
         import pandas as pd
-        if isinstance(it_df, pd.DataFrame):
-            try:
-                it_df = it_df.rename(columns={'metric_value': 'value'})
-            except Exception:
-                pass
-            historical = it_df.fillna(0).to_dict(orient="records")
+        df = pd.DataFrame(stats_data)
+        if df.empty:
+            raise HTTPException(status_code=503, detail="Dữ liệu thống kê rỗng.")
+
+        # --- Group theo từng ngành (sector) để hiển thị nhiều ngành, không chỉ IT ---
+        if 'metric_type' in df.columns:
+            df['metric_type'] = df['metric_type'].fillna('Khác')
+            sector_map = {}
+            for mt, group in df.groupby('metric_type'):
+                g = group.copy()
+                if 'metric_value' in g.columns:
+                    g['metric_value'] = pd.to_numeric(g['metric_value'], errors='coerce')
+                g = g.sort_values('year') if 'year' in g.columns else g
+                growth = float(g['metric_value'].pct_change().mean() * 100) if 'metric_value' in g.columns and not g['metric_value'].isnull().all() else 0.0
+                last_val = float(g['metric_value'].iloc[-1]) if len(g) > 0 and 'metric_value' in g.columns and not pd.isna(g['metric_value'].iloc[-1]) else 100.0
+                pred_2025 = int(last_val * (1 + growth / 100)) if growth else int(last_val * 1.15)
+                sector_map[str(mt)] = {
+                    "name": str(mt),
+                    "growth_pct": round(growth, 2),
+                    "prediction_2025": pred_2025,
+                    "historical": g.fillna(0).to_dict(orient="records"),
+                }
         else:
-            historical = stats_data
-    except Exception:
-        historical = stats_data
+            sector_map = {"Khác": {
+                "name": "Khác",
+                "growth_pct": round(avg_growth, 2),
+                "prediction_2025": int(pred_2025),
+                "historical": df.fillna(0).to_dict(orient="records"),
+            }}
+
+        sectors = list(sector_map.values())
+
+        # Historical data chung (dùng cho biểu đồ tổng quan) = sector đầu tiên hoặc toàn bộ
+        primary_sector = sectors[0] if sectors else None
+        historical = primary_sector["historical"] if primary_sector else df.fillna(0).to_dict(orient="records")
+
+        # Insights tổng thể: lấy ngành tăng trưởng cao nhất làm đại diện
+        top_sector = max(sectors, key=lambda s: s["growth_pct"]) if sectors else None
+        conclusion_parts = [f"{s['name']}: {s['growth_pct']}%/năm" for s in sectors[:5]]
+        conclusion = "Dựa trên dữ liệu, các ngành có nhu cầu tăng trưởng: " + ", ".join(conclusion_parts) + "." if conclusion_parts else f"Dựa trên dữ liệu, nhu cầu tăng trưởng {round(float(avg_growth), 2)}%/năm."
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing stats data: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi khi xử lý dữ liệu thống kê.")
 
     return {
         "status": "success",
         "historical_data": historical,
+        "sectors": sectors,
         "insights": {
             "average_annual_growth_pct": round(float(avg_growth), 2),
             "prediction_2025_it_students": int(pred_2025),
             "top_user_activity": top_event,
-            "conclusion": f"Dựa trên dữ liệu, nhu cầu tăng trưởng {round(float(avg_growth), 2)}%/năm."
+            "conclusion": conclusion,
         }
     }

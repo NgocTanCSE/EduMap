@@ -54,6 +54,7 @@ export const analyticsService = {
           success: true,
           status: 'online',
           historical_data: payload.historical_data || [],
+          sectors: payload.sectors || [],
           insights: payload.insights || {},
           trending_skills
         };

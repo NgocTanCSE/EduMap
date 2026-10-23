@@ -85,42 +85,63 @@ export default function AITrendsPage() {
         {/* Main Chart Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <div className="lg:col-span-2 p-8 rounded-lg bg-card border border-border">
-              <h2 className="text-xl font-bold mb-8">Lịch sử tăng trưởng sinh viên IT</h2>
-              <div className="h-64 flex items-end justify-between gap-4 px-4">
-                 {(data?.historical_data || [40, 70, 45, 90, 65]).map((item: any, i: number) => {
-                   const value = typeof item === 'object' ? item.it_enrollment / 40 : item;
+              <h2 className="text-xl font-bold mb-8">Lịch sử tăng trưởng theo ngành</h2>
+              <div className="space-y-6">
+                 {(data?.sectors || []).map((sector: any) => {
+                   const hist = sector.historical || [];
+                   const maxVal = Math.max(...hist.map((i: any) => Number(i.metric_value || i.value || 0)), 1);
                    return (
-                     <div key={i} className="flex-1 flex flex-col items-center gap-4">
-                        <div className="w-full bg-primary/30 rounded-lg transition-all hover:scale-105 cursor-pointer" style={{ height: `${value}%` }} />
-                        <span className="text-[10px] text-muted-foreground/20 font-bold">{item.year || `Năm ${i+1}`}</span>
+                     <div key={sector.name} className="border border-border rounded-xl p-5 bg-background/30">
+                       <div className="flex items-center justify-between mb-3">
+                         <h3 className="font-semibold">{sector.name}</h3>
+                         <span className="text-xs font-bold text-primary">{sector.growth_pct}%/năm</span>
+                       </div>
+                       <div className="h-32 flex items-end justify-between gap-2 px-2">
+                         {hist.map((item: any, i: number) => {
+                           const value = Number(item.metric_value || item.value || 0);
+                           const h = maxVal > 0 ? (value / maxVal) * 100 : 0;
+                           return (
+                             <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                               <div className="w-full bg-primary/30 rounded-lg transition-all hover:scale-105 cursor-pointer" style={{ height: `${h}%` }} />
+                               <span className="text-[10px] text-muted-foreground/20 font-bold">{item.year || `Năm ${i+1}`}</span>
+                             </div>
+                           );
+                         })}
+                       </div>
+                       <p className="text-xs text-muted-foreground/50 mt-2">
+                         Dự báo 2025: {sector.prediction_2025}
+                       </p>
                      </div>
                    );
                  })}
+                 {(data?.sectors || []).length === 0 && (
+                   <p className="text-sm text-muted-foreground/40">Chưa có dữ liệu ngành nào.</p>
+                 )}
               </div>
            </div>
 
-<div className="p-8 rounded-lg bg-card border border-border space-y-6">
-               <h2 className="text-xl font-bold mb-2">Kỹ năng "Hot"</h2>
-               <div className="space-y-4">
-                  {(data?.trending_skills || []).map((skill: any, idx: number) => (
-                    <div key={skill.name || idx} className="p-4 rounded-lg bg-card border border-border flex justify-between items-center group cursor-pointer hover:bg-card transition-all">
-                       <div>
-                          <p className="text-sm font-bold">{skill.name || 'N/A'}</p>
-                          <div className="w-24 h-1 bg-card rounded-full mt-2 overflow-hidden">
-                             <div className="h-full bg-primary/80" style={{ width: '70%' }} />
-                          </div>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-primary text-xs font-bold">{skill.growth || '+0%'}</p>
-                          <ArrowUpRight className="w-4 h-4 text-muted-foreground/20 ml-auto group-hover:text-white transition-colors" />
-                       </div>
-                    </div>
-                  ))}
-                  {(!data?.trending_skills || data.trending_skills.length === 0) && (
-                    <p className="text-sm text-muted-foreground/40">Chưa có dữ liệu kỹ năng xu hướng.</p>
-                  )}
-               </div>
-            </div>
+           <div className="p-8 rounded-lg bg-card border border-border space-y-6">
+              <h2 className="text-xl font-bold mb-2">Kỹ năng "Hot"</h2>
+              <div className="space-y-4">
+                 {(data?.trending_skills || []).map((skill: any, idx: number) => (
+                   <div key={skill.name || idx} className="p-4 rounded-lg bg-card border border-border flex justify-between items-center group cursor-pointer hover:bg-card transition-all">
+                      <div>
+                         <p className="text-sm font-bold">{skill.name || 'N/A'}</p>
+                         <div className="w-24 h-1 bg-card rounded-full mt-2 overflow-hidden">
+                            <div className="h-full bg-primary/80" style={{ width: '70%' }} />
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-primary text-xs font-bold">{skill.growth || '+0%'}</p>
+                         <ArrowUpRight className="w-4 h-4 text-muted-foreground/20 ml-auto group-hover:text-white transition-colors" />
+                      </div>
+                   </div>
+                 ))}
+                 {(!data?.trending_skills || data.trending_skills.length === 0) && (
+                   <p className="text-sm text-muted-foreground/40">Chưa có dữ liệu kỹ năng xu hướng.</p>
+                 )}
+              </div>
+           </div>
         </div>
 
         {/* AI Prediction Footer */}
