@@ -75,7 +75,17 @@ export class DashboardService {
 
   async getDailyInsight(userId: string) {
       const dashboardData = await this.getUserDashboard(userId);
-      return this.aiService.getDailyInsight(dashboardData);
+      try {
+        return await this.aiService.getDailyInsight(dashboardData);
+      } catch (error: any) {
+        // AI service unavailable (503) — return a local fallback so the dashboard
+        // never breaks when the AI service is down.
+        this.logger.warn(`AI Daily Insight unavailable, using local fallback: ${error.message}`);
+        return {
+          motivation_message: 'Hãy tiếp tục học tập và theo dõi tiến độ của bạn trên EduMap.',
+          suggested_action: 'Xem lại các khóa học đã lưu hoặc khám phá sự kiện sắp tới.',
+        };
+      }
   }
 
   /**

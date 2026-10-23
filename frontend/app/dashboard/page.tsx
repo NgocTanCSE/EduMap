@@ -13,9 +13,21 @@ import {
   Award,
   Users,
   Heart,
+  History,
+  CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
+
+type HistoryItem = { type: string; title: string | null; status: string; created_at: Date };
+
+const HISTORY_LABEL: Record<string, string> = {
+  application: 'Việc làm đã ứng tuyển',
+  registration: 'Sự kiện đã đăng ký',
+  intern_application: 'Thực tập đã ứng tuyển',
+  scholar_application: 'Học bổng đã nộp',
+  summer_registration: 'Đăng ký mùa hè',
+};
 
 /**
  * Dashboard — the user's home hub inside the unified left-sidebar shell.
@@ -33,6 +45,8 @@ export default function DashboardPage() {
   const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
   const [overview, setOverview] = useState<any>(null);
   const [insight, setInsight] = useState<any>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isLoggedIn) return;
@@ -52,6 +66,21 @@ export default function DashboardPage() {
         // overview/insight are non-critical; account info still renders.
       }
     })();
+
+    // History is fetched independently (best-effort; never blocks the page).
+    setHistLoading(true);
+    dashboardService
+      .getHistory()
+      .then((data) => {
+        if (!cancelled) setHistory(data?.items ?? data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setHistory([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -237,6 +266,42 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
+
+      {/* ===== Lịch sử hoạt động (moved from /dashboard/saved) ===== */}
+      <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <History className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold tracking-tight">Hoạt động của tôi</h2>
+        </div>
+        {histLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+          </div>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-muted-foreground/60">
+            Chưa có lịch sử đăng ký hay ứng tuyển nào.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
+            {history.map((h: HistoryItem, i: number) => (
+              <li key={`${h.type}:${h.title ?? i}`} className="flex items-center justify-between gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground/90 truncate">
+                    {h.title || '---'}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60">
+                    {HISTORY_LABEL[h.type] || h.type} · trạng thái: {h.status}
+                  </p>
+                </div>
+                <CalendarDays className="h-4 w-4 text-muted-foreground/50" />
+                <span className="text-xs text-muted-foreground/60">
+                  {new Date(h.created_at).toLocaleDateString('vi-VN')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
