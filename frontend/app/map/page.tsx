@@ -495,7 +495,6 @@ export default function MapPage() {
             />
           )}
         </div>
-        <span className="text-[11px] text-muted-foreground/40">{filteredLocations.length} địa điểm</span>
         <div className="w-px h-7 bg-border" />
         <CategoryChips categories={categories} active={activeCategory} onSelect={handleCategoryChange} />
       </div>
