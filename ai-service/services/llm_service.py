@@ -816,7 +816,9 @@ class LLMService:
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            # Không có provider LLM nào cấu hình → trả về insight mẫu từ dữ liệu dashboard,
+            # không dựa LLM (tương tự analyze_market_trends dùng Adzuna/SQLite fallback).
+            return self._daily_insight_fallback(dashboard_data or {})
         
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         try:
@@ -824,7 +826,39 @@ class LLMService:
             return {"insight": response}
         except Exception as e:
             print(f"Error in generate_daily_insight: {e}")
-            raise RuntimeError(f"Error in generate_daily_insight: {e}")
+            # Cloudflare/HF đều bị chặn trên HF Spaces → fallback mẫu thay vì throw 503.
+            return self._daily_insight_fallback(dashboard_data or {})
+
+    def _daily_insight_fallback(self, dashboard_data: dict) -> dict:
+        """Sinh insight mẫu từ dữ liệu dashboard, không cần gọi LLM."""
+        stats = (dashboard_data or {}).get("stats", {}) or {}
+        learning = stats.get("learning_materials", 0)
+        skills = stats.get("skills_mastered", 0)
+        community = stats.get("community_contributions", 0)
+        certs = stats.get("certificates_earned", 0)
+        upcoming = (dashboard_data or {}).get("upcoming_mentoring", []) or []
+
+        parts = []
+        if learning:
+            parts.append(f"Bạn đã tích lũy {learning} tài liệu học liệu.")
+        if skills:
+            parts.append(f"Đã ch conquistar {skills} kỹ năng.")
+        if certs:
+            parts.append(f"Có {certs} chứng chỉ đã đạt.")
+        if upcoming:
+            parts.append(f"Có {len(upcoming)} lịch mentoring sắp tới.")
+
+        if not parts:
+            message = "Hãy bắt đầu bằng cách lưu tài liệu hoặc đăng ký sự kiện trên EduMap."
+            action = "Khám phá thư viện hoặc bản đồ địa điểm học tập gần bạn."
+        else:
+            message = " ".join(parts) + " Hãy duy trì thói quen học tập thường xuyên."
+            action = "Xem lại mục Hoạt động của tôi để theo dõi tiến độ."
+
+        return {
+            "motivation_message": message,
+            "suggested_action": action,
+        }
 
     # --- Methods from New LLMService ---
 

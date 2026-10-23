@@ -142,6 +142,8 @@ export class AIService {
 
   /**
    * AI DASHBOARD: Get personalized daily insight
+   * Returns null (instead of throwing) when the AI service is unavailable so
+   * callers can degrade gracefully without polluting error logs.
    */
   async getDailyInsight(dashboardData: any) {
     try {
@@ -152,11 +154,8 @@ export class AIService {
       );
       return response.data;
     } catch (error: any) {
-      this.logger.error(`Error calling AI Daily Insight API: ${error.message}`);
-      throw new HttpException(
-        'AI Daily Insight service is currently unavailable.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      this.logger.warn(`AI Daily Insight unavailable, using local fallback: ${error.message}`);
+      return null;
     }
   }
 
