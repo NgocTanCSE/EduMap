@@ -52,6 +52,18 @@ except Exception:
     GeoDensityAnalysisRequest = None
 
 load_dotenv()
+# load_dotenv() không tham số chỉ tìm .env ở cwd (thường là /app/ai-service),
+# còn GEMINI_API_KEY được HF mount vào root workspace (/app/.env) hoặc process env.
+# Thử load thêm từ các đường dẫn cha để đảm bảo key được đọc khi chạy độc lập.
+import os as _os
+_load_paths = [
+    _os.path.join(_os.path.dirname(__file__), '..', '..', '.env'),   # /app/.env (root)
+    _os.path.join(_os.path.dirname(__file__), '..', '.env'),         # /app/ai/.env
+]
+for _p in _load_paths:
+    if _os.path.exists(_p):
+        load_dotenv(_p, override=False)
+        break
 
 class LLMService:
     def __init__(self):
@@ -132,8 +144,14 @@ class LLMService:
         # backend's 60s HTTP timeout (3 models x retries used to take >60s).
         self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
         self.has_hf = bool(self.hf_token)
-        # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF)
-        self.is_ready = self.has_gemini or self.has_cf or self.has_hf
+        # --- OpenRouter / xkiro (OpenAI-compatible, thay thế Cloudflare/Gemini nếu cần) ---
+        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
+        self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat")
+        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "20"))
+        self.has_openrouter = bool(self.openrouter_key)
+        # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF / OpenRouter)
+        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter
         if self.has_gemini:
             print(f"INFO: Google Gemini la provider CHINH. Model={self.gemini_model_name}")
         if not self.is_ready:
@@ -526,6 +544,57 @@ class LLMService:
             raise RuntimeError(f"HF router returned empty response: {str(data)[:200]}")
         return text
 
+    def _openrouter_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Gọi OpenRouter / xkiro (OpenAI-compatible chat completions).
+
+        Endpoint: https://openrouter.ai/api/v1/chat/completions
+        Header: Authorization: Bearer <OPENROUTER_API_KEY>
+        """
+        if not self.has_openrouter:
+            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter.")
+        url = f"{self.openrouter_base}/chat/completions"
+        payload = {
+            "model": self.openrouter_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": int(max_tokens or 1024),
+            "temperature": float(temperature),
+            "stream": False,
+        }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        body_json = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body_json,
+            headers={
+                "Authorization": f"Bearer {self.openrouter_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "HTTP-Referer": "https://edumap.ai",
+                "X-Title": "EduMap",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.openrouter_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"OpenRouter HTTP {e.code}: {body}")
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter connection failed: {type(e).__name__}: {e}")
+
+        text = ""
+        try:
+            text = data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError):
+            if isinstance(data, dict):
+                text = data.get("generated_text") or ""
+        text = str(text).strip()
+        if not text:
+            raise RuntimeError(f"OpenRouter returned empty response: {str(data)[:200]}")
+        return text
+
     # --- Methods from Legacy LLMService ---
 
     async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
@@ -816,18 +885,37 @@ class LLMService:
 
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
-            # Không có provider LLM nào cấu hình → trả về insight mẫu từ dữ liệu dashboard,
-            # không dựa LLM (tương tự analyze_market_trends dùng Adzuna/SQLite fallback).
             return self._daily_insight_fallback(dashboard_data or {})
         
+        dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
-        try:
-            response = self._cloudflare_generate(prompt)
-            return {"insight": response}
-        except Exception as e:
-            print(f"Error in generate_daily_insight: {e}")
-            # Cloudflare/HF đều bị chặn trên HF Spaces → fallback mẫu thay vì throw 503.
-            return self._daily_insight_fallback(dashboard_data or {})
+        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó OpenRouter/xkiro (nếu cấu hình),
+        # rồi mới đến Cloudflare/HF (Cloudflare thường bị chặn TLS từ HF Spaces).
+        if self.has_gemini:
+            try:
+                response = self._gemini_generate(prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"Gemini daily_insight failed: {e}")
+        if self.has_openrouter:
+            try:
+                response = self._openrouter_generate(prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"OpenRouter daily_insight failed: {e}")
+        if self.has_cf:
+            try:
+                response = self._cloudflare_generate(prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"Cloudflare daily_insight failed: {e}")
+        if self.has_hf:
+            try:
+                response = self._hf_generate(prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"HF daily_insight failed: {e}")
+        return self._daily_insight_fallback(dashboard_data)
 
     def _daily_insight_fallback(self, dashboard_data: dict) -> dict:
         """Sinh insight mẫu từ dữ liệu dashboard, không cần gọi LLM."""
