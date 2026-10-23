@@ -1,11 +1,12 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { ILLUSTRATIONS, onImageError } from '@/src/lib/illustrations';
-import { 
-  Search, Target, Filter, Book, Video, FileText, 
+import {
+  Search, Filter, Book, Video, FileText,
   Download, ExternalLink, Bookmark, Sparkles,
-  ArrowRight, Star, X, BrainCircuit, Lightbulb, Loader2
+  ArrowRight, Star, Loader2
 } from 'lucide-react';
+import Link from 'next/link';
 import { libraryService } from '@/src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
@@ -21,11 +22,6 @@ export default function LibraryPage() {
   // Pagination
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-
-  // AI Modal States
-  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
-  const [aiSummary, setAiSummary] = useState<any>(null);
-  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -82,21 +78,6 @@ export default function LibraryPage() {
     fetchResources(1);
   };
 
-  const handleViewDetails = async (material: any) => {
-    setSelectedMaterial(material);
-    setAiSummary(null); 
-    try {
-      setAnalyzing(true);
-      const summary = await libraryService.getMaterialSummary(material.id);
-      setAiSummary(summary);
-      toast.success('AI Analysis Complete');
-    } catch (error) {
-      toast.error('AI could not analyze this material right now');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground p-8 relative">
       <div className="w-full">
@@ -107,9 +88,13 @@ export default function LibraryPage() {
             <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao</p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all">
+            {/* "Đã lưu" → mở trang chi tiết từng mục đã lưu ở bảng điều khiển */}
+            <Link
+              href="/dashboard/saved"
+              className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all"
+            >
               <Bookmark className="w-4 h-4" /> Đã lưu
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -118,8 +103,8 @@ export default function LibraryPage() {
           <div className="absolute -inset-1 bg-primary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
           <div className="relative bg-card/80 border border-border rounded-lg p-2 flex items-center gap-2">
             <div className="pl-4 pr-2"><Sparkles className="w-6 h-6 text-primary" /></div>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Bạn muốn tìm tài liệu gì?..."
               className="flex-1 bg-transparent py-4 text-lg focus:outline-none placeholder:text-gray-600 text-primary"
               value={searchQuery}
@@ -138,8 +123,8 @@ export default function LibraryPage() {
               key={cat}
               onClick={() => setActiveTab(cat)}
               className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border ${
-                activeTab === cat 
-                ? 'bg-primary border-primary text-white shadow-lg ' 
+                activeTab === cat
+                ? 'bg-primary border-primary text-white shadow-lg'
                 : 'bg-card border-border text-muted-foreground/40 hover:border-border'
               }`}
             >
@@ -148,9 +133,8 @@ export default function LibraryPage() {
           ))}
         </div>
 
-
-
-        {/* Resources Grid */}
+        {/* Resources Grid — mỗi thẻ có sẵn 2 nút: Tải xuống + Xem chi tiết (mở link gốc đọc sách).
+            Không còn popup modal "bảng General" / tóm tắt AI (AI đang lỗi 503 trên HF). */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -160,19 +144,18 @@ export default function LibraryPage() {
         ) : resources.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {resources.map(res => (
-              <div 
-                key={res.id} 
-                onClick={() => handleViewDetails(res)}
-                className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer flex flex-col h-full"
+              <div
+                key={res.id}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all group flex flex-col h-full"
               >
                 <div className={`h-48 bg-background flex items-center justify-center relative overflow-hidden shrink-0`}>
                   {res.cover_image_url ? (
-                      <img src={res.cover_image_url} alt={res.title} onError={onImageError(ILLUSTRATIONS.learning)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                    <img src={res.cover_image_url} alt={res.title} onError={onImageError(ILLUSTRATIONS.learning)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                   ) : (
-                      <>
-                        <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent opacity-60"></div>
-                        {res.type === "video" ? <Video className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" />}
-                      </>
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent opacity-60"></div>
+                      {res.type === "video" ? <Video className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" />}
+                    </>
                   )}
                   <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
                 </div>
@@ -182,12 +165,35 @@ export default function LibraryPage() {
                   </div>
                   <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h3>
                   <p className="text-muted-foreground text-sm mb-4 line-clamp-1">{res.author || 'EduMap Library'}</p>
-                  
-                  <div className="mt-auto pt-4 border-t border-border flex items-center justify-between">
+
+                  {/* Hai nút: Tải xuống + Xem chi tiết (mở link gốc để đọc) */}
+                  <div className="mt-auto pt-4 border-t border-border flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-muted-foreground">{res.view_count} views</span>
-                    <button className="text-muted-foreground hover:text-white transition-colors">
-                      <Bookmark className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {res.file_url ? (
+                        <>
+                          <a
+                            href={res.file_url}
+                            download
+                            title="Tải xuống"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                          <a
+                            href={res.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Xem chi tiết — mở tại nguồn"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">Chưa có link</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -201,114 +207,17 @@ export default function LibraryPage() {
 
         {hasMore && resources.length > 0 && !loading && (
           <div className="flex justify-center mt-12">
-            <button 
-              onClick={handleLoadMore} 
+            <button
+              onClick={handleLoadMore}
               disabled={loadingMore}
               className="px-8 py-3 rounded-full border border-border text-foreground hover:bg-card/20 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
             >
-              {loadingMore ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+              {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {loadingMore ? 'Đang tải...' : 'Tải thêm tài liệu'}
             </button>
           </div>
         )}
       </div>
-
-      {/* AI Detail Modal Overlay */}
-      {selectedMaterial && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="absolute inset-0 bg-black/80" onClick={() => setSelectedMaterial(null)}></div>
-            <div className="relative bg-card border border-border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
-                
-                {/* Header */}
-                <div className="p-6 border-b border-border flex justify-between items-start bg-background/50">
-                    <div className="pr-8">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70 bg-primary/10 px-2 py-1 rounded-full mb-3 inline-block">
-                            {selectedMaterial.category}
-                        </span>
-                        <h2 className="text-2xl font-semibold text-foreground leading-tight mb-2">{selectedMaterial.title}</h2>
-                        <p className="text-sm text-muted-foreground/40">{selectedMaterial.author || 'Unknown Author'}</p>
-                    </div>
-                    <button onClick={() => setSelectedMaterial(null)} className="text-muted-foreground hover:text-white bg-card/20 p-2 rounded-full">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                    
-                    {/* Action Buttons */}
-                    <div className="flex gap-3">
-                        <button className="flex-1 bg-primary hover:bg-yellow-700 text-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all">
-                            {selectedMaterial.type === 'video' ? <Video size={18}/> : <FileText size={18}/>}
-                            Open Material
-                        </button>
-                        {selectedMaterial.file_url && (
-                            <a href={selectedMaterial.file_url} download className="flex-1 bg-card hover:bg-card/50 text-foreground font-bold py-3 rounded-xl flex items-center justify-center gap-2 border border-border transition-all">
-                                <Download size={18}/> Download
-                            </a>
-                        )}
-                    </div>
-
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Description</h3>
-                        <p className="text-muted-foreground/60 leading-relaxed text-sm">{selectedMaterial.description || 'No description available.'}</p>
-                    </div>
-
-                    {/* AI Analysis Section */}
-                    <div className="bg-card border border-primary/30 rounded-lg p-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-10 -mt-10" />
-                        
-                        <div className="flex items-center gap-2 text-primary/70 font-semibold mb-6 relative z-10">
-                            <BrainCircuit className={analyzing ? "animate-pulse" : ""} />
-                            <h3>AI Insight & Summary</h3>
-                        </div>
-
-                        {analyzing ? (
-                            <div className="space-y-4 py-4 text-center">
-                                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-                                <p className="text-xs text-muted-foreground uppercase font-bold animate-pulse">Gemini is reading...</p>
-                            </div>
-                        ) : aiSummary ? (
-                            <div className="space-y-6 relative z-10">
-                                <p className="text-muted-foreground/70 text-sm leading-relaxed italic border-l-2 border-primary pl-4">
-                                    "{aiSummary.summary}"
-                                </p>
-                                
-                                <div className="space-y-3">
-                                    <h4 className="text-xs font-semibold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
-                                        <Lightbulb size={14} className="text-primary"/> Key Concepts
-                                    </h4>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        {aiSummary.key_concepts?.map((kc: any, idx: number) => (
-                                            <div key={idx} className="bg-card/40 p-3 rounded-lg border border-border">
-                                                <span className="text-sm font-bold text-primary block mb-1">{kc.concept}</span>
-                                                <span className="text-xs text-muted-foreground/40 leading-snug">{kc.explanation}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <h4 className="text-xs font-semibold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1">
-                                        <Target size={14} className="text-primary"/> Study Tips
-                                    </h4>
-                                    <ul className="space-y-2">
-                                        {aiSummary.study_tips?.map((tip: string, idx: number) => (
-                                            <li key={idx} className="text-xs text-muted-foreground/60 flex items-start gap-2">
-                                                <span className="text-primary mt-0.5">•</span> {tip}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-muted-foreground italic text-center py-4">AI analysis is not available for this material.</p>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 }
