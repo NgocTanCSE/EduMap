@@ -237,6 +237,29 @@ export class MapController {
   }
 
 
+  @Get('fixed-locations')
+
+  @SkipThrottle()
+
+  async getFixedLocations() {
+
+    try {
+
+      const fixed = await this.mapService.getFixedLocations();
+
+      return { success: true, data: fixed };
+
+    } catch (error: any) {
+
+      console.error(`Error getting fixed locations: ${error.message}`);
+
+      throw new InternalServerErrorException('Failed to retrieve fixed locations');
+
+    }
+
+  }
+
+
   @Get('poi/:id')
   @SkipThrottle()
   async getPoiDetails(@Param('id') id: string) {

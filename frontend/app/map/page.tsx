@@ -210,6 +210,8 @@ export default function MapPage() {
   const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
   const [isSavingPin, setIsSavingPin] = useState(false);
 
+  const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
+
   const [fs, setFs] = useState(false);
 
   // Nearby facilities of the selected POI (wifi / thư viện / trung tâm …).
@@ -279,6 +281,19 @@ export default function MapPage() {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data: categoriesList, timestamp: Date.now() }));
     } catch (error) {
       logger.error('Error fetching categories', error);
+    }
+  }, []);
+
+  // --- Fetch: fixed locations (schools, labs, libraries có sẵn) ---
+  const fetchFixedLocations = useCallback(async () => {
+    try {
+      const res = await fetchWithRetry('/api/map/fixed-locations');
+      const json = await res.json();
+      const data = unwrapApiResponse<any[]>(json);
+      const list = Array.isArray(data) ? data : [];
+      setFixedLocations(list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))));
+    } catch (error) {
+      logger.error('Error fetching fixed locations', error);
     }
   }, []);
 
@@ -386,6 +401,7 @@ export default function MapPage() {
   useEffect(() => {
     fetchStats();
     fetchCategoriesOnce();
+    fetchFixedLocations();
     // Initial viewport fetch is now driven by MapEvents.onReady (real bounds),
     // NOT fetchMapData('all') over DEFAULT_BBOX (whole province) which was slow.
   }, [fetchStats, fetchCategoriesOnce, fetchMapData]);
@@ -412,6 +428,16 @@ export default function MapPage() {
     }
     setPinningCoord({ lat, lng });
     setPinForm({ name: '', category: 'school', description: '', address: '' });
+  };
+
+  const handleSelectFixedLocation = (loc: Location) => {
+    setPinningCoord({ lat: loc.lat, lng: loc.lng });
+    setPinForm({
+      name: loc.name,
+      category: loc.category,
+      description: loc.description || '',
+      address: loc.address || '',
+    });
   };
 
   // client-side search filter on the loaded list (no new endpoint)
@@ -563,6 +589,25 @@ export default function MapPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Chọn từ địa điểm cố định có sẵn (trường, lab, thư viện...) */}
+            {fixedLocations.length > 0 && (
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
+                <label className="text-xs font-medium text-muted-foreground/60 block mb-2">Chọn từ địa điểm cố định</label>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                  {fixedLocations.map((loc) => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleSelectFixedLocation(loc)}
+                      className="px-2.5 py-1 text-xs rounded border border-border hover:bg-primary hover:text-primary-foreground transition-colors whitespace-nowrap"
+                    >
+                      {loc.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground/50 mt-2">Nhấn một địa điểm để tự động điền tên, loại, địa chỉ và tọa độ.</p>
+              </div>
+            )}
 
             <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Tên địa điểm</label>
             <input

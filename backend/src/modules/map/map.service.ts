@@ -571,6 +571,16 @@ export class MapService {
     }
   }
 
+  async getFixedLocations(): Promise<PointOfInterest[]> {
+    try {
+      const points = await this.mapPointRepo.find({ where: { is_fixed: true } });
+      return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
+    } catch (error: any) {
+      this.logger.error(`Error getting fixed locations: ${error.message}`);
+      return [];
+    }
+  }
+
   async getPoiDetails(id: string): Promise<{ poi: PointOfInterest | null; nearby: PointOfInterest[] }> {
     let poi: PointOfInterest | null = null;
     const mp = await this.mapPointRepo.findOne({ where: { id } });

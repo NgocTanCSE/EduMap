@@ -173,6 +173,20 @@ export async function ensureSqliteSchema(): Promise<void> {
       }
     }
 
+    // 4. `map_points.is_fixed` — cờ điểm cố định/chính thức (trường, lab, thư viện...).
+    const mapPointTables: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='map_points'",
+    );
+    if (mapPointTables.length > 0) {
+      const mapPointColumns: any[] = await all(db, 'PRAGMA table_info(map_points)');
+      const mapPointNames = new Set<string>(mapPointColumns.map((c) => String(c.name)));
+      if (!mapPointNames.has('is_fixed')) {
+        await exec(db, "ALTER TABLE map_points ADD COLUMN is_fixed INTEGER NOT NULL DEFAULT 0");
+        changes.push('added map_points.is_fixed');
+      }
+    }
+
     if (changes.length > 0) {
       logger.log(`SQLite schema updated (${dbPath}): ${changes.join(', ')}`);
     }

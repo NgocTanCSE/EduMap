@@ -75,6 +75,9 @@ export class MapPoint {
   @Column({ default: false })
   verified: boolean;
 
+  @Column({ default: false })
+  is_fixed: boolean;
+
   @Column({ default: 'pending' })
   status: string;
 
