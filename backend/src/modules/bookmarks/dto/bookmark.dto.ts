@@ -5,8 +5,9 @@ import { BookmarkTargetType } from '../entities/bookmark.entity';
 export class CreateBookmarkDto {
   @ApiProperty({
     enum: BookmarkTargetType,
-    example: BookmarkTargetType.INTERNSHIPS,
-    description: 'Loại nội dung được lưu (internships | scholarships)',
+    example: BookmarkTargetType.JOB,
+    description:
+      'Loại nội dung được đánh dấu (poi | internships | scholarships | job | event | lab | community_post | marketplace_product | library_item | mentor | donate_campaign | green | wifi | summer | hackathon)',
   })
   @IsEnum(BookmarkTargetType)
   @IsNotEmpty()

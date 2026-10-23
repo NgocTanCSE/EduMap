@@ -34,6 +34,7 @@ import {
   FolderOpen,
   Award,
   Medal,
+  Bookmark,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
@@ -112,6 +113,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Cá nhân',
     items: [
+      { name: 'Hoạt động của tôi', href: '/dashboard/saved', icon: Bookmark },
       { name: 'Lưu trữ', href: '/storage', icon: FolderOpen },
       { name: 'Chứng chỉ', href: '/certificates', icon: Award },
       { name: 'Thông báo', href: '/notifications', icon: Bell },
@@ -201,9 +203,7 @@ function AccountSection() {
     );
   }
 
-  const avatar =
-    user.avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || 'U')}&background=eee&color=333`;
+  const avatar = user.avatar_url || '/images/default-avatar.svg';
 
   return (
     <div className="p-4 border-t border-border space-y-3">

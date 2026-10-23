@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Minh họa mặc định">
+  <rect x="0" y="0" width="512" height="512" rx="24" fill="#4B3F72"/>
+  <rect x="0" y="280" width="512" height="232" rx="0 0 24 24" fill="#1E183A"/>
+  <g fill="#E07A5F">
+    <rect x="80" y="320" width="220" height="28" rx="8"/>
+    <rect x="80" y="370" width="300" height="12" rx="6"/>
+    <rect x="80" y="396" width="200" height="12" rx="6"/>
+  </g>
+  <g fill="#81B29A">
+    <path d="M120 170 L120 90 L160 90 L200 140 L240 90 L280 90 L280 170 Z"/>
+    <rect x="200" y="170" width="32" height="90" rx="8"/>
+  </g>
+  <g fill="#F2CC94">
+    <rect x="320" y="150" width="24" height="120" rx="8" transform="rotate(-20 332 210)"/>
+    <rect x="330" y="200" width="16" height="70" rx="8"/>
+  </g>
+  <circle cx="390" cy="120" r="34" fill="#A3D4CA"/>
+  <path fill="#4B3F72" d="M382 112 L398 128 L414 112 L414 138 L398 154 L382 138z"/>
+</svg>

@@ -257,7 +257,7 @@ export default function ShareMarketplacePage() {
                   />
                 </div>
                 <div className="flex items-center gap-3 mb-4">
-                    <img src={item.owner?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.owner?.full_name || 'U')}&background=random`} alt="" className="w-10 h-10 rounded-full border border-border"/>
+                    <img src={item.owner?.avatar_url || '/images/default-avatar.svg'} alt="" className="w-10 h-10 rounded-full border border-border"/>
                     <div>
                         <p className="text-sm font-bold text-muted-foreground/70">{item.owner?.full_name}</p>
                         <p className="text-[10px] text-muted-foreground/40">{new Date(item.created_at).toLocaleDateString('vi-VN')}</p>

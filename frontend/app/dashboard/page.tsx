@@ -104,10 +104,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-6">
           <Avatar className="h-16 w-16 border-2 border-border">
             <AvatarImage
-              src={
-                user.avatar_url ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || "U")}&background=eee&color=333`
-              }
+              src={user.avatar_url || "/images/default-avatar.svg"}
               alt={user.fullName}
             />
             <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">

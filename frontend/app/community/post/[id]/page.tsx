@@ -160,7 +160,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <form onSubmit={handleComment} className="flex gap-4">
                 <div className="w-10 h-10 rounded-full bg-card shrink-0 flex items-center justify-center border border-border overflow-hidden">
                     {authService.isLoggedIn() ? (
-                         <img src={authService.getUser()?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(authService.getUser()?.fullName || 'U')}&background=random`} alt="" className="w-full h-full object-cover"/>
+                         <img src={authService.getUser()?.avatar_url || '/images/default-avatar.svg'} alt="" className="w-full h-full object-cover"/>
                     ) : (
                         <User className="w-5 h-5 text-muted-foreground" />
                     )}

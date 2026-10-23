@@ -26,6 +26,10 @@ class DashboardService {
   async getDailyInsight() {
     return this.fetchWithAuth(`${API_BASE_URL}/insight`);
   }
+
+  async getHistory() {
+    return this.fetchWithAuth(`${API_BASE_URL}/history`);
+  }
 }
 
 export const dashboardService = new DashboardService();

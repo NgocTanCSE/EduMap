@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { eventIllustration } from '@/src/lib/illustrations';
 import { Card, CardContent } from '@/components/ui/card';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
     const eventId = params.id;
@@ -193,6 +194,9 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             {/* Right: Registration Card */}
             <div className="space-y-6">
               <Card className="p-6 sticky top-8">
+                <div className="flex justify-end mb-1">
+                  <BookmarkButton targetType="event" targetId={event.id} size="sm" />
+                </div>
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between items-center">

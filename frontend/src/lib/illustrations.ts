@@ -98,9 +98,9 @@ export function jobIllustration(title?: string, company?: string): string {
   return ILLUSTRATIONS.career;
 }
 
-/** Default avatar image (deterministic colored initials). */
-export function avatarFallback(name?: string): string {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=random`;
+/** Default avatar image (local, deterministic — no remote CDN). */
+export function avatarFallback(_name?: string): string {
+  return '/images/default-avatar.svg';
 }
 
 /**

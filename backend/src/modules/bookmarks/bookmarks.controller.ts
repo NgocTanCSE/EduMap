@@ -13,9 +13,9 @@ export class BookmarksController {
   constructor(private readonly bookmarksService: BookmarksService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách bookmark của người dùng (có thể lọc theo type)' })
+  @ApiOperation({ summary: 'Lấy danh sách bookmark (được join title theo loại) của người dùng, có thể lọc qua ?type=' })
   async list(@Request() req, @Query('type') type?: BookmarkTargetType) {
-    const items = await this.bookmarksService.listBookmarks(req.user.id, type);
+    const items = await this.bookmarksService.listBookmarksDetailed(req.user.id, type);
     return { items };
   }
 

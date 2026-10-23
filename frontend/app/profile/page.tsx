@@ -143,7 +143,7 @@ export default function ProfilePage() {
             
             <div className="relative group cursor-pointer shrink-0" onClick={() => !uploadingAvatar && document.getElementById('avatar-upload-input')?.click()}>
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30">
-                <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName)}&background=random`} alt="Avatar" className="w-full h-full object-cover" />
+                <img src={user.avatar_url || `/images/default-avatar.svg`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
               <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="w-6 h-6 text-foreground" />
@@ -261,7 +261,7 @@ export default function ProfilePage() {
                         {badges.length > 0 ? (
                             badges.map((userBadge) => (
                                 <div key={userBadge.id} className="aspect-square bg-card/40 rounded-xl border border-border flex flex-col items-center justify-center p-4 text-center group relative cursor-help hover:border-primary/50 hover:bg-primary/10 transition-all">
-                                    <img src={'https://cdn-icons-png.flaticon.com/512/5753/5753065.png'} alt="Badge" className="w-12 h-12 mb-3 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-lg" />
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-12 h-12 mb-3 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-lg"><path fill="#E07A5F" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25 1.18-6.88-5-4.87L8.91 8.26z"/><circle cx="12" cy="12" r="4.4" fill="#F2CC94"/></svg>
                                     <span className="text-xs font-bold w-full truncate">{userBadge.badge.name}</span>
                                     
                                     {/* Tooltip */}

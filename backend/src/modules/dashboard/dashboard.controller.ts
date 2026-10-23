@@ -22,6 +22,12 @@ export class DashboardController {
     return this.dashService.getDailyInsight(req.user.id);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'Lịch sử đăng ký/ứng tuyển (jobs, events, intern, scholarship, summer)' })
+  async getHistory(@Request() req: any) {
+    return this.dashService.getUserHistory(req.user.id);
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Lấy dữ liệu thống kê thời gian thực và tọa độ Heatmap giáo dục (Admin)' })
   async getStats() {

@@ -39,7 +39,7 @@ export default function GreenPage() {
   };
 
   const handleMockUpload = () => {
-    setMockProofUrl('https://placehold.co/600x400/4B3F72/FFFFFF?text=Minh+chung+nghi+en');  // placeholder branded, not Unsplash
+    setMockProofUrl('/images/default-content.svg');  // placeholder branded, local static asset (served by HF /public)
     toast.success('Đã tải ảnh lên thành công (Mock)');
   };
 

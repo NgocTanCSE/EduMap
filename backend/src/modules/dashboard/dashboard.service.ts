@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, DataSource } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { UserEvent } from '../analytics/entities/user-event.entity';
 import { UserLearningHistory } from '../library/entities/user-learning-history.entity';
@@ -30,6 +30,7 @@ export class DashboardService {
     @InjectRepository(EducationStat) private readonly educationStatRepo: Repository<EducationStat>,
     private readonly aiService: AIService,
     private readonly mapService: MapService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getUserDashboard(userId: string) {
@@ -75,6 +76,45 @@ export class DashboardService {
   async getDailyInsight(userId: string) {
       const dashboardData = await this.getUserDashboard(userId);
       return this.aiService.getDailyInsight(dashboardData);
+  }
+
+  /**
+   * Lịch sử đăng ký / ứng tuyển của user — gộp applications, event_registrations,
+   * internship_applications, scholarship_applications, summer_registrations.
+   * `$1` placeholder (sqlite3 + Postgres đều hỗ trợ); JOIN title nếu bảng tồn tại.
+   * Bọc try/catch để một join lỗi (ví dụ bảng tên khác) không bánk cả endpoint.
+   */
+  async getUserHistory(
+    userId: string,
+  ): Promise<Array<{ type: string; title: string | null; status: string; created_at: Date }>> {
+    const sql = `
+      SELECT * FROM (
+        SELECT 'application' AS type, j.title AS title, a.status, a.created_at
+          FROM applications a JOIN jobs j ON CAST(j.id AS TEXT) = CAST(a.job_id AS TEXT)
+          WHERE a.user_id = $1
+        UNION ALL
+        SELECT 'registration' AS type, e.title, er.status, er.created_at
+          FROM event_registrations er JOIN events e ON CAST(e.id AS TEXT) = CAST(er.event_id AS TEXT)
+          WHERE er.user_id = $1
+        UNION ALL
+        SELECT 'intern_application' AS type, i.title, ia.status, ia.created_at
+          FROM internship_applications ia JOIN internships i ON CAST(i.id AS TEXT) = CAST(ia.internship_id AS TEXT)
+          WHERE ia.user_id = $1
+        UNION ALL
+        SELECT 'scholar_application' AS type, s.title, sa.status, sa.created_at
+          FROM scholarship_applications sa JOIN scholarships s ON CAST(s.id AS TEXT) = CAST(sa.scholarship_id AS TEXT)
+          WHERE sa.student_id = $1
+        UNION ALL
+        SELECT 'summer_registration' AS type, CAST(cr.campaign_id AS TEXT) AS title, cr.status, cr.created_at
+          FROM summer_registrations cr WHERE cr.user_id = $1
+      ) t ORDER BY created_at DESC
+    `;
+    try {
+      return await this.dataSource.query(sql, [userId]);
+    } catch (e) {
+      this.logger.error('getUserHistory failed', e);
+      return [];
+    }
   }
 
   /**

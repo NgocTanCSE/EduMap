@@ -40,6 +40,9 @@ export default function Thumb({
   // `current` walks src → fallbackSrc → '' (letter card) as loading fails.
   const [current, setCurrent] = React.useState(src || "");
   React.useEffect(() => setCurrent(src || ""), [src]);
+  // fallback ứn dụng cho mọi card/detail khi `src` lỗi — tránh ảnh mặc định remote
+  // (Unsplash / ui-avatars / placehold.co) bị gãy trên HF Spaces.
+  const fb = fallbackSrc || "/images/default-content.svg";
 
   if (current) {
     return (
@@ -49,7 +52,7 @@ export default function Thumb({
         className={cn("w-full h-full object-cover rounded-lg", className)}
         style={{ aspectRatio: aspect }}
         onError={() =>
-          setCurrent((prev) => (prev && prev !== fallbackSrc ? fallbackSrc || "" : ""))
+          setCurrent((prev) => (prev && prev !== fb ? fb || "" : ""))
         }
       />
     );

@@ -2,8 +2,21 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeor
 
 /** Loại đối tượng người dùng có thế đánh dấu "lưu" */
 export enum BookmarkTargetType {
+  POI = 'poi',
   INTERNSHIPS = 'internships',
   SCHOLARSHIPS = 'scholarships',
+  JOB = 'job',
+  EVENT = 'event',
+  LAB = 'lab',
+  COMMUNITY_POST = 'community_post',
+  MARKETPLACE_PRODUCT = 'marketplace_product',
+  LIBRARY_ITEM = 'library_item',
+  MENTOR = 'mentor',
+  DONATE_CAMPAIGN = 'donate_campaign',
+  GREEN = 'green',
+  WIFI = 'wifi',
+  SUMMER = 'summer',
+  HACKATHON = 'hackathon',
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -115,12 +116,15 @@ export default function JobDetailPage() {
                         </div>
                     </div>
                 </div>
-                {job.views > 0 && (
+                <div className="flex items-center gap-3">
+                  <BookmarkButton targetType="job" targetId={job.id} size="sm" />
+                  {job.views > 0 && (
                     <div className="text-right">
                         <p className="text-xs text-muted-foreground uppercase font-semibold">Views</p>
                         <p className="text-2xl font-semibold text-foreground">{job.views}</p>
                     </div>
-                )}
+                  )}
+                </div>
             </div>
         </header>
 
