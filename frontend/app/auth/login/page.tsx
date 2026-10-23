@@ -361,25 +361,28 @@ function GoogleLoginContent() {
               </p>
             </div>
 
-            {/* Dev Login — bypass Google OAuth for local testing */}
-            <div className="border-t border-border pt-4 mt-2">
-              <button
-                type="button"
-                onClick={handleDevLogin}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary-foreground dark:text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                <span>Dev Login (bypass Google OAuth)</span>
-              </button>
-              <p className="text-[10px] text-muted-foreground/60 text-center mt-1.5">
-                Dành cho môi trường phát triển — tạo JWT hợp lệ để test toàn bộ tính năng.
-              </p>
-            </div>
+            {/* Dev Login — bypass Google OAuth for local testing only.
+                Hidden from production builds. */}
+            {process.env.NODE_ENV !== 'production' && (
+              <div className="border-t border-border pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={handleDevLogin}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary-foreground dark:text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  <span>Dev Login (bypass Google OAuth)</span>
+                </button>
+                <p className="text-[10px] text-muted-foreground/60 text-center mt-1.5">
+                  Dành cho môi trường phát triển — tạo JWT hợp lệ để test toàn bộ tính năng.
+                </p>
+              </div>
+            )}
           </div>
 
         </div>

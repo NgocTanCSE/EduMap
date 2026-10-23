@@ -10,6 +10,15 @@ import { unwrapApiResponse } from '@/src/lib/api-utils';
  * properly-signed JWT so both frontend isLoggedIn() and backend JwtAuthGuard pass.
  */
 export async function POST(req: NextRequest) {
+  // Dev-only route. Keep it unavailable in production builds even if the
+  // backend is misconfigured.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.ENABLE_DEV_LOGIN !== 'true'
+  ) {
+    return NextResponse.json({ message: 'Not found' }, { status: 404 });
+  }
+
   try {
     const backendUrl = getBackendUrl();
     const targetUrl = `${backendUrl}/auth/dev-login`;

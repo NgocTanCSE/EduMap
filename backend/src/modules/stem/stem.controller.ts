@@ -8,6 +8,21 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class StemController {
   constructor(private readonly stemService: StemService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'Thông tin tổng quan module STEM' })
+  getModuleInfo() {
+    return {
+      module: 'stem',
+      description: 'Sân chơi STEM — phòng lab và đặt lịch thiết bị',
+      endpoints: [
+        { method: 'GET', path: '/api/stem/labs', description: 'Danh sách phòng lab STEM' },
+        { method: 'GET', path: '/api/stem/labs/nearby', description: 'Tìm phòng lab gần nhất' },
+        { method: 'POST', path: '/api/stem/labs', description: 'Đăng ký phòng lab mới' },
+        { method: 'POST', path: '/api/stem/labs/:id/book', description: 'Đặt lịch mượn thiết bị' },
+      ],
+    };
+  }
+
   @Get('labs')
   @ApiOperation({ summary: 'Lấy danh sách tất cả các phòng LAB STEM' })
   async getLabs() {

@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
@@ -67,9 +67,19 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('dev-login')
   async devLogin() {
-    // Dev-only bypass: ensures a DB-backed user exists, then signs a
-    // properly JWT (using the real JWT_SECRET) so that both frontend
-    // isLoggedIn() checks and backend JwtAuthGuard pass.
+    // Dev-only bypass. Disabled in production unless explicitly enabled
+    // (useful for a controlled staging smoke test). Return 404 so the
+    // endpoint is indistinguishable from a non-existent route.
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.ENABLE_DEV_LOGIN !== 'true'
+    ) {
+      throw new NotFoundException();
+    }
+
+    // Ensures a DB-backed user exists, then signs a proper JWT (using the
+    // real JWT_SECRET) so that both frontend isLoggedIn() checks and
+    // backend JwtAuthGuard pass.
     const user = await this.authService.createDevUser();
 
     const payload = {
