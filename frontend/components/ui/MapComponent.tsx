@@ -442,7 +442,7 @@ export default function InteractiveMap({
 
                 return (
                   <Marker 
-                    key={p.id} 
+                    key={`${p.id}-${Number(p.lat).toFixed(6)}-${Number(p.lng).toFixed(6)}`} 
                     position={[lat, lng]} 
                     icon={getIconForCategory(p.category)}
                     eventHandlers={{

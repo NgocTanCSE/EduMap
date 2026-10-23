@@ -72,9 +72,10 @@ export class MapService {
       try {
         return this.parseCoords(JSON.parse(value));
       } catch { /* fall through */ }
-      // "lng,lat" or "lat,lng" shorthand
-      const parts = value.split(',').map(Number);
-      if (parts.length >= 2 && parts.every(Number.isFinite)) return [parts[0], parts[1]];
+      // NOTE: deliberately DO NOT support ambiguous "lat,lng" / "lng,lat"
+      // shorthand strings — the same digit sequence can be valid coordinates
+      // in two different places on Earth. Only GeoJSON [lng,lat] and EWKT are
+      // accepted so a crawled record can never silently swap lat/lng.
     }
     return null;
   }
@@ -152,6 +153,17 @@ export class MapService {
   private normalizePoiName(name: string): string {
     return (name || '')
       .toLowerCase()
+      // Chuẩn hóa viết tắt địa điểm Việt Nam trước khi so sánh tên
+      .replace(/\bđh\b/g, 'đại học')
+      .replace(/\bđntu\b/g, 'đại học nông lâm')
+      .replace(/\bđhql\b/g, 'đại học quốc gia')
+      .replace(/\btp\.?\s*hcm\b/g, 'thành phố hồ chí minh')
+      .replace(/\bhcm\b/g, 'hồ chí minh')
+      .replace(/\bq\.\s*/g, 'quận ')
+      .replace(/\bp\.\s*/g, 'phường ')
+      .replace(/\bkhu\b/g, '')
+      .replace(/\bcampus\b/g, '')
+      // Bỏ nội dung trong ngoặc (ví dụ "ĐNTU (Campus A)" → "đntu")
       .replace(/\s*\(.*?\)\s*/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -305,9 +317,14 @@ export class MapService {
   private async fetchMapPoints(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     if (this.isSqlite) {
       // SQLite: use raw SQL for speed (TypeORM query builder + JSON transformer is very slow on SQLite)
+      // Bounds filtering is done in JS after fetch since SQLite has no PostGIS ST_Intersects.
       const raw = await this.mapPointRepo.query(
         'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000'
       );
+      let pois = raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      if (bounds) pois = this.filterInBounds(pois, bounds);
+      return pois;
+    }
       const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
       return raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
     }
@@ -329,11 +346,14 @@ export class MapService {
   private async fetchLocations(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     if (this.isSqlite) {
       // SQLite: use raw SQL (leftJoinAndSelect with JSON columns is extremely slow)
+      // Bounds filtering is done in JS after fetch since SQLite has no PostGIS ST_Intersects.
       const raw = await this.locationRepo.query(
         'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
         'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id LIMIT 5000'
       );
-      return raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      let pois = raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
+      if (bounds) pois = this.filterInBounds(pois, bounds);
+      return pois;
     }
 
     let query = this.locationRepo.createQueryBuilder('locations')
