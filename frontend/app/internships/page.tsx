@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useBookmarkStore } from '@/src/lib/bookmarks';
-import { internshipIllustration } from '@/src/lib/illustrations';
+import { internshipIllustration, onImageError } from '@/src/lib/illustrations';
 
 export default function InternshipPage() {
   const [internships, setInternships] = useState<Internship[]>([]);
@@ -98,6 +98,7 @@ export default function InternshipPage() {
                 <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-lg font-bold text-foreground overflow-hidden border border-border shrink-0">
                   <img
                     src={job.company?.avatar_url || internshipIllustration(job.field, job.title)}
+                    onError={onImageError(internshipIllustration(job.field, job.title))}
                     alt=""
                     className="w-full h-full object-cover"
                   />

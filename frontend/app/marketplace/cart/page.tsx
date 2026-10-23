@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
 import { ShoppingCart, GraduationCap, Trash2, ArrowLeft, CreditCard, MapPin, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -146,7 +147,7 @@ export default function CartPage() {
                   <div key={item.id} className="p-4 bg-card border border-border rounded-xl flex items-center gap-4">
                     <div className="w-20 h-20 bg-card rounded-lg flex items-center justify-center overflow-hidden">
                       {item.product?.image_url ? (
-                        <img src={item.product.image_url} className="w-full h-full object-cover" />
+                        <img src={item.product.image_url} onError={onImageError(marketplaceIllustration(item.product?.category))} className="w-full h-full object-cover" />
                       ) : (
                         item.product ? <ShoppingCart className="text-muted-foreground/10" /> : <GraduationCap className="text-muted-foreground/10" />
                       )}

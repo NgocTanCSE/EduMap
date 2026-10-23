@@ -8,7 +8,7 @@ import { internshipService, Internship } from '@/src/services/internship.service
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
-import { internshipIllustration } from '@/src/lib/illustrations';
+import { internshipIllustration, onImageError } from '@/src/lib/illustrations';
 
 export default function InternshipDetailPage({ params }: { params: { id: string } }) {
     const internshipId = params.id;
@@ -103,6 +103,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
             <div className="w-20 h-20 rounded-xl bg-primary flex items-center justify-center text-3xl font-bold text-foreground overflow-hidden border border-border shrink-0">
               <img
                 src={internship.company?.avatar_url || internshipIllustration(internship.field, internship.title)}
+                onError={onImageError(internshipIllustration(internship.field, internship.title))}
                 alt=""
                 className="w-full h-full object-cover"
               />

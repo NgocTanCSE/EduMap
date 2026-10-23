@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { mentorService } from '@/src/services/mentor.service';
 import { authService } from '@/src/services/auth.service';
@@ -95,7 +96,8 @@ export default function MentorDetailPage() {
                 <div className="bg-card border border-border rounded-xl p-8 relative overflow-hidden">
                     <div className="flex flex-col md:flex-row gap-8 relative z-10">
                         <img 
-                            src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random&size=200`} 
+                            src={mentor.user?.avatar_url || avatarFallback(mentor.user?.full_name)}
+                            onError={onImageError(avatarFallback(mentor.user?.full_name))}
                             alt={mentor.user?.full_name} 
                             className="w-32 h-32 md:w-40 md:h-40 rounded-xl object-cover border-4 border-card-foreground/20" 
                         />

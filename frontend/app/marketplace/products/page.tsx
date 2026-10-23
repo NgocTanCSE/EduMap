@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
 import { ShoppingBag, ShoppingCart, Tag, MapPin, Search, Filter, Plus, Heart, MessageSquare, Star } from 'lucide-react';
 
 export default function ProductMarketplacePage() {
@@ -97,7 +98,7 @@ export default function ProductMarketplacePage() {
               <div key={product.id} className="group flex flex-col bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all">
                   <div className="aspect-square relative overflow-hidden bg-card flex items-center justify-center">
                     {product.image_url ? (
-                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <img src={product.image_url} alt={product.name} onError={onImageError(marketplaceIllustration(product.category))} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                     ) : (
                       <ShoppingBag className="w-20 h-20 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-700" />
                     )}

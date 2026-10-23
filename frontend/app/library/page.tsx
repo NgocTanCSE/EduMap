@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { ILLUSTRATIONS, onImageError } from '@/src/lib/illustrations';
 import { 
   Search, Target, Filter, Book, Video, FileText, 
   Download, ExternalLink, Bookmark, Sparkles,
@@ -166,7 +167,7 @@ export default function LibraryPage() {
               >
                 <div className={`h-48 bg-background flex items-center justify-center relative overflow-hidden shrink-0`}>
                   {res.cover_image_url ? (
-                      <img src={res.cover_image_url} alt={res.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                      <img src={res.cover_image_url} alt={res.title} onError={onImageError(ILLUSTRATIONS.learning)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                   ) : (
                       <>
                         <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent opacity-60"></div>

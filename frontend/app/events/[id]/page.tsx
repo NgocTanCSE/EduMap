@@ -149,7 +149,8 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             <div className="lg:col-span-2 space-y-8">
               <div className="rounded-xl overflow-hidden border border-border aspect-video relative">
                 <Thumb
-                  src={event.image_url || eventIllustration(event.type, event.title)}
+                  src={event.image_url}
+                  fallbackSrc={eventIllustration(event.type, event.title)}
                   alt={event.title}
                   aspect="16/10"
                 />

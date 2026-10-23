@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { Search, Star, Calendar, Sparkles, MessageSquare, Video, Filter, UserCheck, ChevronRight, Clock, Award, BrainCircuit } from 'lucide-react';
 import { mentorService } from '@/src/services/mentor.service';
 import { authService } from '@/src/services/auth.service';
@@ -116,7 +117,7 @@ export default function MentorPage() {
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className="w-16 h-16 bg-card rounded-full border-2 border-primary/50 flex items-center justify-center font-semibold text-xl text-primary/70 overflow-hidden shrink-0">
                                         {mentorData.user?.avatar_url ? (
-                                            <img src={mentorData.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                            <img src={mentorData.user.avatar_url} alt="" onError={onImageError(avatarFallback(match.name))} className="w-full h-full object-cover" />
                                         ) : (
                                             match.name.charAt(0)
                                         )}
@@ -174,7 +175,7 @@ export default function MentorPage() {
                 <div>
                     <div className="flex gap-6 mb-6">
                     <div className="relative">
-                        <img src={mentor.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mentor.user?.full_name || 'M')}&background=random`} alt="" className="w-24 h-24 rounded-lg object-cover border border-border" />
+                        <img src={mentor.user?.avatar_url || avatarFallback(mentor.user?.full_name)} onError={onImageError(avatarFallback(mentor.user?.full_name))} alt="" className="w-24 h-24 rounded-lg object-cover border border-border" />
                         {mentor.is_verified && (
                         <div className="absolute -bottom-2 -right-2 p-1 bg-background rounded-full">
                             <div className="w-4 h-4 bg-accent rounded-full border-2 border-background" />

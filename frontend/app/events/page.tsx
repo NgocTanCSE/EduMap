@@ -82,7 +82,8 @@ export default function EventsListPage() {
                 <Card className="flex flex-col h-full">
                   <div className="relative">
                     <Thumb
-                      src={event.image_url || eventIllustration(event.type, event.title)}
+                      src={event.image_url}
+                      fallbackSrc={eventIllustration(event.type, event.title)}
                       alt={event.title}
                       aspect="16/10"
                     />

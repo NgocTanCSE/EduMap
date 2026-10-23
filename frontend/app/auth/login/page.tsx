@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   GraduationCap,
@@ -85,7 +85,6 @@ function GoogleLoginContent() {
   const [checking, setChecking] = useState(true);
   const [googleReady, setGoogleReady] = useState(false);
   const [isEmbedded, setIsEmbedded] = useState(false);
-  const [loginUrl, setLoginUrl] = useState('/auth/login');
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -103,8 +102,34 @@ function GoogleLoginContent() {
   // page. Detect the embed and send the user to a real top-level tab.
   useEffect(() => {
     setIsEmbedded(window.self !== window.top);
-    setLoginUrl(window.location.href);
   }, []);
+
+  // "Chuyển hướng tự động" cho khung nhúng (HF Space): trang huggingface.co
+  // gửi `Cross-Origin-Opener-Policy: same-origin`, popup Google mất
+  // window.opener → trang gsi/transform không gửi credential về được và treo
+  // trắng. Cách duy nhất hoạt động được là mở lại trang đăng nhập ở một tab
+  // top-level thật. Tự động mở 1 lần ngay ở tương tác đầu tiên; nút bên dưới
+  // thì bấm bao nhiêu lần cũng cho mở lại.
+  const openedRef = useRef(false);
+
+  const openTopLevelTab = useCallback((force = false) => {
+    if (openedRef.current && !force) return;
+    openedRef.current = true;
+    const popup = window.open(window.location.href, '_blank');
+    if (!popup) {
+      // Trình duyệt chặn cửa sổ — cho phép thử lại (nút CTA truyền force=true).
+      openedRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isEmbedded) return;
+    const onFirstInteraction = () => openTopLevelTab();
+    document.addEventListener('click', onFirstInteraction, { capture: true, once: true });
+    return () => {
+      document.removeEventListener('click', onFirstInteraction, { capture: true });
+    };
+  }, [isEmbedded, openTopLevelTab]);
 
   // ── Fetch runtime config + Load Google Identity Services SDK ──
   // The Google Client ID is read at *runtime* from our BFF /api/config
@@ -113,9 +138,11 @@ function GoogleLoginContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Do not even load GIS inside the HF iframe: the OAuth popup cannot
-    // communicate back to this window because of the parent page's COOP.
-    if (window.self !== window.top) return;
+    // NOTE: GIS is intentionally loaded even when this page is embedded in an
+    // iframe (Hugging Face Space view). The popup itself cannot post the
+    // credential back to us there because of the parent page's COOP header,
+    // but the first user interaction auto-opens a top-level tab (see below),
+    // so the Google button stays visible as the primary login affordance.
 
     let cancelled = false;
 
@@ -335,41 +362,40 @@ function GoogleLoginContent() {
 
           {/* Step 2: Google Login Button */}
           <div className="space-y-4 pt-2 border-t border-border">
-            {isEmbedded ? (
-              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+            {/* Google renders its own button here on click it ALWAYS opens the
+                account chooser, unlike One Tap prompt() which fails silently.
+                It is the primary affordance in every context (tab or embed). */}
+            <div
+              ref={googleButtonRef}
+              id="google-signin-button"
+              className="w-full min-h-[44px] flex items-center justify-center"
+            />
+
+            {isEmbedded && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
                 <p className="text-sm font-semibold text-foreground">
-                  Đăng nhập Google cần mở trong tab riêng
+                  Tab mới sẽ tự mở khi bạn bấm vào trang
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Khung nhúng của Hugging Face chặn cửa sổ đăng nhập Google. Mở EduMap trong
-                  tab mới để đăng nhập bình thường.
+                  Khung nhúng của Hugging Face chặn cửa sổ popup của Google, nên nút Google
+                  có thể không phản hồi ở đây. Tab EduMap vừa mở chính là phiên bản đăng
+                  nhập bình thường.
                 </p>
-                <a
-                  href={loginUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+                <button
+                  type="button"
+                  onClick={() => openTopLevelTab(true)}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   Mở EduMap trong tab mới
                   <ArrowRight className="h-3.5 w-3.5" />
-                </a>
+                </button>
               </div>
-            ) : (
-              <>
-                {/* Google renders its own button here on click it ALWAYS opens the
-                    account chooser, unlike One Tap prompt() which fails silently. */}
-                <div
-                  ref={googleButtonRef}
-                  id="google-signin-button"
-                  className="w-full min-h-[44px] flex items-center justify-center"
-                />
+            )}
 
-                {!googleReady && (
-                  <p className="text-center text-xs text-muted-foreground">
-                    {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
-                  </p>
-                )}
-              </>
+            {!googleReady && (
+              <p className="text-center text-xs text-muted-foreground">
+                {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
+              </p>
             )}
 
             {loading && (
@@ -391,9 +417,11 @@ function GoogleLoginContent() {
               </div>
             )}
 
-            {/* Dev Login — bypass Google OAuth for local testing only.
-                Hidden from production builds. */}
-            {process.env.NODE_ENV !== 'production' && (
+            {/* Dev Login — fallback for local testing when Google OAuth is NOT
+                configured (or the button cannot render). Hidden from production
+                builds and hidden as soon as the Google button is ready, so the
+                Google iframe stays the primary login affordance. */}
+            {process.env.NODE_ENV !== 'production' && !googleReady && (
               <div className="border-t border-border pt-4 mt-2">
                 <button
                   type="button"

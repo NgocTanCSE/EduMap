@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { ILLUSTRATIONS, onImageError } from '@/src/lib/illustrations';
 import { Leaf, Clock, Camera, CheckCircle, Info, ArrowRight, ShieldCheck, MapPin, Loader2, UploadCloud } from 'lucide-react';
 import { greenService, GreenChallenge } from '@/src/services/green.service';
 import { gamificationService, UserProgress } from '@/reporting/services/gamification.service';
@@ -110,7 +111,7 @@ export default function GreenPage() {
               {challenges.map(item => (
                 <div key={item.id} className="group relative rounded-xl overflow-hidden border border-border bg-card hover:border-accent/30 transition-all">
                   <div className="aspect-[21/9] relative">
-                    <img src={item.image_url || 'https://placehold.co/600x400/81B29A/FFFFFF?text=Dự+án+green'} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={item.image_url || ILLUSTRATIONS.community} alt={item.title} onError={onImageError(ILLUSTRATIONS.community)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                   </div>
                   <div className="p-6 relative">

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { 
   MessageSquare, Heart, Share2, MoreHorizontal, ArrowLeft,
   Send, AlertTriangle, CheckCircle2, Clock, User, Loader2
@@ -111,7 +112,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                     <img 
-                        src={post.author?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.author?.full_name || 'U')}&background=random`} 
+                        src={post.author?.avatar_url || avatarFallback(post.author?.full_name)}
+                        onError={onImageError(avatarFallback(post.author?.full_name))}
                         alt="" 
                         className="w-12 h-12 rounded-full bg-card"
                     />
@@ -191,7 +193,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex gap-4 group">
                         <img 
-                            src={comment.author?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author?.full_name || 'U')}&background=random`} 
+                            src={comment.author?.avatar_url || avatarFallback(comment.author?.full_name)}
+                            onError={onImageError(avatarFallback(comment.author?.full_name))}
                             alt="" 
                             className="w-10 h-10 rounded-full bg-card shrink-0"
                         />

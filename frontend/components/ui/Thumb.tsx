@@ -19,11 +19,14 @@ const PALETTE = [
  */
 export default function Thumb({
   src,
+  fallbackSrc,
   alt,
   aspect = "16/10",
   className,
 }: {
   src?: string;
+  /** Image swapped in when `src` is present but fails to load. */
+  fallbackSrc?: string;
   alt: string;
   aspect?: string;
   className?: string;
@@ -34,13 +37,20 @@ export default function Thumb({
     return PALETTE[Math.abs(h) % PALETTE.length];
   }, [alt]);
 
-  if (src) {
+  // `current` walks src → fallbackSrc → '' (letter card) as loading fails.
+  const [current, setCurrent] = React.useState(src || "");
+  React.useEffect(() => setCurrent(src || ""), [src]);
+
+  if (current) {
     return (
       <img
-        src={src}
+        src={current}
         alt={alt}
         className={cn("w-full h-full object-cover rounded-lg", className)}
         style={{ aspectRatio: aspect }}
+        onError={() =>
+          setCurrent((prev) => (prev && prev !== fallbackSrc ? fallbackSrc || "" : ""))
+        }
       />
     );
   }

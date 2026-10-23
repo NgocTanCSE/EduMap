@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { Heart, Users, Calendar, Share2, ShieldCheck, ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
 import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { authService } from '@/src/services/auth.service';
@@ -145,6 +146,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                         {donation.donor?.avatar_url ? (
                           <img
                             src={donation.donor.avatar_url}
+                            onError={onImageError(avatarFallback(donation.donor?.full_name))}
                             alt=""
                             className="w-full h-full object-cover"
                           />

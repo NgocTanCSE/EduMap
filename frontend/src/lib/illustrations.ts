@@ -97,3 +97,23 @@ export function jobIllustration(title?: string, company?: string): string {
   if (hasAny(text, ['design', 'thiet ke', 'marketing', 'content'])) return ILLUSTRATIONS.learning;
   return ILLUSTRATIONS.career;
 }
+
+/** Default avatar image (deterministic colored initials). */
+export function avatarFallback(name?: string): string {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=random`;
+}
+
+/**
+ * Shared `<img onError>` handler factory: when an image URL exists but fails
+ * to load (upload lost after an HF rebuild, expired external CDN link, . . .),
+ * swap it for a default image instead of showing a broken-image icon.
+ * The data-guard prevents the fallback itself from re-triggering the handler.
+ */
+export function onImageError(fallbackSrc: string) {
+  return (event: { currentTarget: HTMLImageElement }): void => {
+    const img = event.currentTarget;
+    if (img.dataset.fallbackApplied) return;
+    img.dataset.fallbackApplied = 'true';
+    img.src = fallbackSrc;
+  };
+}
