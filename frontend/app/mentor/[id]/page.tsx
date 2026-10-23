@@ -7,6 +7,7 @@ import { authService } from '@/src/services/auth.service';
 import { Star, Calendar, MessageSquare, Video, ArrowLeft, Clock, Award, Briefcase, BookOpen, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function MentorDetailPage() {
   const params = useParams();
@@ -94,6 +95,7 @@ export default function MentorDetailPage() {
             {/* Left Column - Profile Info */}
             <div className="lg:col-span-2 space-y-8">
                 <div className="bg-card border border-border rounded-xl p-8 relative overflow-hidden">
+                    <BookmarkButton targetType="mentor" targetId={mentor.user_id} size="sm" className="absolute top-4 right-4 z-20" />
                     <div className="flex flex-col md:flex-row gap-8 relative z-10">
                         <img 
                             src={mentor.user?.avatar_url || avatarFallback(mentor.user?.full_name)}

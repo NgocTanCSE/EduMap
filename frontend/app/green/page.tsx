@@ -5,6 +5,7 @@ import { Leaf, Clock, Camera, CheckCircle, Info, ArrowRight, ShieldCheck, MapPin
 import { greenService, GreenChallenge } from '@/src/services/green.service';
 import { gamificationService, UserProgress } from '@/reporting/services/gamification.service';
 import { authService } from '@/src/services/auth.service';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { toast } from 'sonner';
 
 export default function GreenPage() {
@@ -112,6 +113,7 @@ export default function GreenPage() {
                 <div key={item.id} className="group relative rounded-xl overflow-hidden border border-border bg-card hover:border-accent/30 transition-all">
                   <div className="aspect-[21/9] relative">
                     <img src={item.image_url || ILLUSTRATIONS.community} alt={item.title} onError={onImageError(ILLUSTRATIONS.community)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <BookmarkButton targetType="green" targetId={item.id} size="sm" className="absolute top-3 right-3 z-10" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                   </div>
                   <div className="p-6 relative">

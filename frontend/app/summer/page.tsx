@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { summerService, SummerCampaign } from '@/src/services/summer.service';
 import { authService } from '@/src/services/auth.service';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { toast } from 'sonner';
 
 export default function SummerCampaignsPage() {
@@ -167,6 +168,7 @@ export default function SummerCampaignsPage() {
                     {campaigns.map(camp => (
                         <div key={camp.id} className="bg-card border border-border rounded-xl p-8 hover:border-accent/30 transition-all group flex flex-col h-full relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[40px] rounded-full -mr-10 -mt-10" />
+                            <BookmarkButton targetType="summer" targetId={camp.id} size="sm" className="absolute top-3 right-3 z-10" />
                             
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${

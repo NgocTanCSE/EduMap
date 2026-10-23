@@ -8,6 +8,7 @@ import { internshipService, Internship } from '@/src/services/internship.service
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { internshipIllustration, onImageError } from '@/src/lib/illustrations';
 
 export default function InternshipDetailPage({ params }: { params: { id: string } }) {
@@ -98,7 +99,8 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
         </Link>
 
         {/* Header — clean card, no blur orb */}
-        <Card className="p-6 md:p-8">
+        <Card className="relative p-6 md:p-8">
+          <BookmarkButton targetType="internships" targetId={internship.id} size="sm" className="absolute top-4 right-4 z-20" />
           <div className="flex flex-col md:flex-row gap-6 items-start">
             <div className="w-20 h-20 rounded-xl bg-primary flex items-center justify-center text-3xl font-bold text-foreground overflow-hidden border border-border shrink-0">
               <img

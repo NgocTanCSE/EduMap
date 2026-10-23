@@ -6,6 +6,7 @@ import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DonationDetailPage({ params }: { params: { id: string } }) {
@@ -262,6 +263,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                 <button className="flex-1 py-3 rounded-xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-foreground/5 transition-colors">
                   <Share2 className="w-4 h-4" /> Chia sẻ
                 </button>
+                <BookmarkButton targetType="donate_campaign" targetId={campaign.id} size="sm" />
                 <button className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center">
                   <MessageCircle className="w-4 h-4" />
                 </button>

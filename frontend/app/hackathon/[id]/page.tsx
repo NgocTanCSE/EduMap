@@ -6,6 +6,7 @@ import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function HackathonDetailPage({ params }: { params: { id: string } }) {
   const hackathonId = params.id;
@@ -132,7 +133,8 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
         </Link>
 
         {/* Hero Section — clean card, no blur orb / tilt */}
-        <Card className="p-6 md:p-8">
+        <Card className="relative p-6 md:p-8">
+          <BookmarkButton targetType="hackathon" targetId={hackathon.id} size="sm" className="absolute top-4 right-4 z-20" />
           <div className="max-w-3xl space-y-5">
             <span
               className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-block ${

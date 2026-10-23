@@ -3,13 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   GraduationCap, MapPin, DollarSign, Clock, ArrowLeft, Share2,
-  Loader2, CheckCircle2, AlertTriangle, Bookmark, FileText, UploadCloud, X
+  Loader2, CheckCircle2, AlertTriangle, FileText, UploadCloud, X
 } from 'lucide-react';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { useBookmarkStore } from '@/src/lib/bookmarks';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -20,7 +20,6 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [eligibility, setEligibility] = useState<EligibilityResponse | null>(null);
-  const [bookmarked, toggleBookmark] = useBookmarkStore('scholarships');
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [personalStatement, setPersonalStatement] = useState('');
@@ -112,7 +111,6 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
   }
 
   const deadline = new Date(scholarship.deadline);
-  const isBookmarked = bookmarked.has(scholarship.id);
   return (
     <div className="min-h-screen bg-background text-foreground p-8">
       <div className="w-full mx-auto space-y-8">
@@ -130,12 +128,7 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
                 {scholarship.provider || 'Tổ chức EduMap'}
               </span>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => toggleBookmark(scholarship.id)}
-                  className={`p-3 rounded-full text-muted-foreground/40 hover:text-primary transition-colors ${isBookmarked ? 'text-primary fill-primary' : ''}`}
-                >
-                  <Bookmark className="w-5 h-5" />
-                </button>
+                <BookmarkButton targetType="scholarships" targetId={scholarship.id} size="sm" />
                 <button className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors">
                   <Share2 className="w-5 h-5 text-muted-foreground/60" />
                 </button>

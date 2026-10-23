@@ -7,6 +7,7 @@ import { authService } from '@/src/services/auth.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function MentorPage() {
   const [mentors, setMentors] = useState<any[]>([]);
@@ -171,7 +172,8 @@ export default function MentorPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredMentors.map(mentor => (
-              <div key={mentor.user_id} className="p-6 rounded-xl bg-card border border-border hover:border-border hover:bg-card/50 transition-all group flex flex-col justify-between">
+              <div key={mentor.user_id} className="relative p-6 rounded-xl bg-card border border-border hover:border-border hover:bg-card/50 transition-all group flex flex-col justify-between">
+                <BookmarkButton targetType="mentor" targetId={mentor.user_id} size="sm" className="absolute top-3 right-3 z-20" />
                 <div>
                     <div className="flex gap-6 mb-6">
                     <div className="relative">

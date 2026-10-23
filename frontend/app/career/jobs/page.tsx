@@ -5,6 +5,7 @@ import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';
 import { jobIllustration } from '@/src/lib/illustrations';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -82,7 +83,8 @@ export default function JobsPage() {
           ) : jobs.length > 0 ? (
             jobs.map(job => (
               <Link key={job.id} href={`/career/jobs/${job.id}`} className="block">
-                <div className="bg-card border border-border p-6 rounded-lg flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
+                <div className="relative bg-card border border-border p-6 rounded-lg flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
+                  <BookmarkButton targetType="job" targetId={job.id} size="sm" className="absolute top-3 right-3 z-20" />
                   <div className="flex items-start gap-4 min-w-0">
                     <div className="hidden sm:block w-14 h-14 shrink-0 rounded-lg overflow-hidden border border-border">
                       <img

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import {
-  Briefcase, MapPin, DollarSign, Clock, Building2, Bookmark, ArrowUpRight, Loader2
+  Briefcase, MapPin, DollarSign, Clock, Building2, ArrowUpRight, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { internshipService, Internship } from '@/src/services/internship.service';
@@ -12,13 +12,12 @@ import SearchInput from '@/components/ui/SearchInput';
 import { Card, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
-import { useBookmarkStore } from '@/src/lib/bookmarks';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { internshipIllustration, onImageError } from '@/src/lib/illustrations';
 
 export default function InternshipPage() {
   const [internships, setInternships] = useState<Internship[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bookmarked, toggleBookmark] = useBookmarkStore('internships');
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -108,14 +107,7 @@ export default function InternshipPage() {
                     <h3 className="text-base font-semibold group-hover:text-primary transition-colors truncate">
                       {job.title}
                     </h3>
-                    <button
-                      className="text-muted-foreground/20 hover:text-primary transition-colors"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(job.id); }}
-                    >
-                      <Bookmark
-                        className={`w-5 h-5 ${bookmarked.has(job.id) ? 'fill-primary text-primary' : 'text-muted-foreground/20'}`}
-                      />
-                    </button>
+                    <BookmarkButton targetType="internships" targetId={job.id} size="sm" />
                   </div>
 
                   <div className="flex flex-wrap gap-3 mt-1 text-xs text-foreground/55">

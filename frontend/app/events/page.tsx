@@ -8,6 +8,7 @@ import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Thumb from '@/components/ui/Thumb';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -90,6 +91,7 @@ export default function EventsListPage() {
                     <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-foreground/10 text-foreground">
                       {badge}
                     </span>
+                    <BookmarkButton targetType="event" targetId={event.id} size="sm" className="absolute top-3 right-3 z-10" />
                   </div>
                   <CardHeader>
                     <CardTitle className="text-base line-clamp-2 group-hover:text-primary transition-colors">

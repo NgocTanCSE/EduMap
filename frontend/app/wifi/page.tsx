@@ -4,6 +4,7 @@ import { Wifi, MapPin, Gauge, ShieldCheck, Plus, Navigation, Loader2, SignalHigh
 import { wifiService, WifiLocation } from '@/src/services/wifi.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function WifiPage() {
   const [locations, setLocations] = useState<WifiLocation[]>([]);
@@ -279,6 +280,7 @@ export default function WifiPage() {
             {filteredLocations.map(wifi => (
               <div key={wifi.id} className="bg-card border border-border rounded-xl p-4 hover:border-accent/30 transition-all group relative overflow-hidden flex flex-col h-full">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-[40px] rounded-full -mr-10 -mt-10 pointer-events-none" />
+                  <BookmarkButton targetType="wifi" targetId={wifi.id} size="sm" className="absolute top-3 right-3 z-10" />
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
                       <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center">

@@ -12,6 +12,7 @@ import {
   BookOpen,
   Award,
   Users,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
@@ -139,6 +140,12 @@ export default function DashboardPage() {
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
           >
             <Settings className="h-3.5 w-3.5" /> Đổi mật khẩu
+          </Link>
+          <Link
+            href="/dashboard/saved"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <Heart className="h-3.5 w-3.5 text-primary/70" /> Mục đã lưu
           </Link>
           <button
             onClick={() => logout()}

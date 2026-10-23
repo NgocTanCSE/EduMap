@@ -6,6 +6,7 @@ import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { marketplaceIllustration } from '@/src/lib/illustrations';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function ShareMarketplacePage() {
   const [items, setItems] = useState<SharedItem[]>([]);
@@ -247,7 +248,8 @@ export default function ShareMarketplacePage() {
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map(item => (
-              <div key={item.id} className="p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
+              <div key={item.id} className="relative p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
+                <BookmarkButton targetType="marketplace_product" targetId={item.id} size="sm" className="absolute top-3 right-3 z-20" />
                 <div className="-mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl border-b border-border">
                   <Thumb
                     src={marketplaceIllustration(item.category)}

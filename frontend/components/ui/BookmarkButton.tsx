@@ -2,6 +2,7 @@
 import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBookmarks } from '@/src/hooks/useBookmarks';
+import { useAuth } from '@/src/contexts/AuthContext';
 
 /**
  * Nút đánh dấu (tim) — dùng chung cho cả list card và trang chi tiết (context).
@@ -21,6 +22,7 @@ export function BookmarkButton({
   className?: string;
 }) {
   const { has, toggle, loading } = useBookmarks();
+  const { isLoggedIn } = useAuth();
   const on = has(targetType, targetId);
 
   return (
@@ -30,6 +32,10 @@ export function BookmarkButton({
       onClick={async (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (!isLoggedIn) {
+          window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
         await toggle(targetType, targetId);
       }}
       aria-label={on ? 'Bỏ đánh dấu' : 'Đánh dấu'}

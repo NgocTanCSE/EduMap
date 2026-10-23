@@ -10,6 +10,7 @@ import { communityService } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -233,6 +234,7 @@ export default function CommunityPage() {
                                 </div>
                             </div>
                             <button className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-card/20"><MoreHorizontal size={18}/></button>
+                            <BookmarkButton targetType="community_post" targetId={post.id} size="sm" />
                         </div>
 
                         <Link href={`/community/post/${post.id}`}>

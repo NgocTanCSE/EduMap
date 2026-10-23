@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 
@@ -53,12 +54,13 @@ export default function DonationListPage() {
             const progress = Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) || 0;
             return (
               <Link href={`/donate/campaign/${campaign.id}`} key={campaign.id} className="group">
-                <Card className="flex flex-col h-full">
+                <Card className="relative flex flex-col h-full">
                   <div className="aspect-video relative">
                     {/* Branded placeholder (no Unsplash stock) */}
                     <div className="h-4 w-4 absolute top-3 left-3 bg-foreground/10 rounded-full flex items-center justify-center">
                       <Heart className="w-4 h-4 text-destructive" />
                     </div>
+                    <BookmarkButton targetType="donate_campaign" targetId={campaign.id} size="sm" className="absolute top-3 right-3 z-10" />
                   </div>
                   <CardHeader>
                     <CardTitle className="text-base line-clamp-2 group-hover:text-primary transition-colors">

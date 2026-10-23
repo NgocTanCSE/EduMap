@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  GraduationCap, MapPin, DollarSign, Clock, Bookmark,
+  GraduationCap, MapPin, DollarSign, Clock,
   CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/serv
 import FileUpload from '@/src/components/ui/FileUpload';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
-import { useBookmarkStore } from '@/src/lib/bookmarks';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -21,7 +21,6 @@ import EmptyState from '@/components/ui/EmptyState';
 export default function ScholarshipPage() {
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bookmarked, toggleBookmark] = useBookmarkStore('scholarships');
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -259,14 +258,7 @@ export default function ScholarshipPage() {
                       {item.provider || 'Tổ chức EduMap'}
                     </p>
                   </div>
-                  <button
-                    className="text-muted-foreground/20 hover:text-primary transition-colors"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(item.id); }}
-                  >
-                    <Bookmark
-                      className={`w-5 h-5 ${bookmarked.has(item.id) ? 'fill-primary text-primary' : 'text-muted-foreground/20'}`}
-                    />
-                  </button>
+                  <BookmarkButton targetType="scholarships" targetId={item.id} size="sm" />
                 </div>
 
                 <p className="text-sm text-foreground/60 line-clamp-2">{item.description}</p>

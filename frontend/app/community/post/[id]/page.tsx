@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { communityService, Post, Comment } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
     const postId = params.id;
@@ -126,6 +127,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     </div>
                 </div>
                 <button className="text-muted-foreground hover:text-foreground p-2"><MoreHorizontal size={20}/></button>
+                <BookmarkButton targetType="community_post" targetId={post.id} size="sm" />
             </div>
 
             <div className="space-y-4">
