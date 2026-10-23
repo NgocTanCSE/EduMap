@@ -199,7 +199,13 @@ export class MapService {
       }
 
       const isDup = candidates.some(ex => {
-        if (ex.id === poi.id) return true;
+        // Deliberately NOT deduping on shared UUID alone: the same id can exist
+        // in both `map_points` (verified) and `locations` (crawled) with drifted
+        // coordinates. Identity here is resolved by name+geometry; any surviving
+        // same-id collision is collapsed deterministically by `mergeDuplicateIds`
+        // (verified coordinate always wins) so a POI's position never jumps
+        // between renders — which is what caused the "click DNTU → lands on
+        // Lotte" mis-jump on SQLite.
         const normEx = this.normalizePoiName(ex.name);
         const normPoi = this.normalizePoiName(poi.name);
         if (normEx && normPoi && normEx === normPoi) return true; // exact name → dup
@@ -218,6 +224,31 @@ export class MapService {
     return unique;
   }
 
+  /**
+   * Coordinate-stable id collapse. `map_points` and `locations` can share a
+   * UUID for the same landmark; when a crawled row drifts, the SAME id may
+   * carry different coordinates in the two tables. The frontend renders markers
+   * with `key={p.id}`, so two records for one id would make React reuse a
+   * single marker DOM node and silently paint the "other" coordinate — making
+   * the selected POI visibly jump between renders. Collapse each id to exactly
+   * one record, always preferring the verified `map_points` source (sorted
+   * first by `deduplicatePois`) so the position is stable regardless of which
+   * table the refetch returned first.
+   */
+  private mergeDuplicateIds(pois: PointOfInterest[]): PointOfInterest[] {
+    const score = (p: PointOfInterest) => (p.verified ? 2 : 0) + (p.status === 'approved' ? 1 : 0);
+    const byId = new Map<string, PointOfInterest>();
+    for (const poi of pois) {
+      const existing = byId.get(poi.id);
+      if (!existing) {
+        byId.set(poi.id, poi);
+      } else if (score(poi) > score(existing)) {
+        byId.set(poi.id, poi);
+      }
+    }
+    return Array.from(byId.values());
+  }
+
   async findAllPois(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     // Fetch from both map_points and locations tables for proper data sync
     const [mapPoints, locations] = await Promise.all([
@@ -225,10 +256,12 @@ export class MapService {
       this.fetchLocations(bounds)
     ]);
 
-    // Merge and deduplicate by id AND name+proximity.
+    // Merge and deduplicate by name+geometry, then collapse any surviving
+    // duplicate UUIDs (shared between map_points and locations) deterministically
+    // so a given id never resolves to two different coordinates across renders.
     // map_points (verified) are sorted first so their coordinates win.
     const allPois = [...mapPoints, ...locations];
-    return this.deduplicatePois(allPois);
+    return this.mergeDuplicateIds(this.deduplicatePois(allPois));
   }
 
   private isSqlite: boolean;

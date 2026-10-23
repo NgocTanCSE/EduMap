@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Search, MapPin, X, List, ChevronLeft, ChevronRight, ChevronDown, BrainCircuit,
@@ -280,6 +280,18 @@ export default function MapPage() {
     }
   }, []);
 
+  // Guards against a redundant bounds refetch wiping the loaded POI list. On
+  // SQLite the backend ignores viewport bounds and always returns the full set,
+  // so a same-viewport refetch would `setLocations` a fresh array; combined with
+  // UUIDs shared between `map_points` and `locations`, that is what let the
+  // SAME id re-resolve to a different coordinate between renders (the selected
+  // marker appeared to "jump" to a nearby POI). Skip the fetch when the viewport
+  // and category are unchanged.
+  const lastFetchRef = useRef<{
+    category: string;
+    bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  } | null>(null);
+
   // --- Fetch: POIs by bounds (GET) — UNCHANGED endpoint (/api/map/pois),
   // now backed by the BFF GET handler that proxies to backend GET /map/pois
   // (same query contract: category, minLat/maxLat/minLng/maxLng).
@@ -288,6 +300,24 @@ export default function MapPage() {
       category?: string,
       bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }
     ) => {
+      const curCategory = category || 'all';
+      if (
+        bounds &&
+        lastFetchRef.current?.category === curCategory &&
+        lastFetchRef.current.bounds &&
+        lastFetchRef.current.bounds.minLat === bounds.minLat &&
+        lastFetchRef.current.bounds.maxLat === bounds.maxLat &&
+        lastFetchRef.current.bounds.minLng === bounds.minLng &&
+        lastFetchRef.current.bounds.maxLng === bounds.maxLng
+      ) {
+        return; // viewport + category unchanged → don't wipe the loaded POIs
+      }
+      if (bounds) {
+        lastFetchRef.current = {
+          category: curCategory,
+          bounds: { minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng },
+        };
+      }
       try {
         setLoading(true);
         logger.info('Fetching map data', { category, bounds });

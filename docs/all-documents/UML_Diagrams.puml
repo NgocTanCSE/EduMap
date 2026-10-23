@@ -2217,6 +2217,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -2320,6 +2322,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -2454,6 +2458,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -2583,6 +2589,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -2737,6 +2745,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -2895,6 +2905,8 @@ skinparam monochrome false
 skinparam responseMessageBelowArrow true
 
 skinparam sequence {
+
+skinparam linetype ortho
     ArrowColor #2563EB
     ActorBorderColor #1E293B
     LifeLineBorderColor #64748B
@@ -3026,6 +3038,7 @@ skinparam defaultFontName "DejaVu Sans"
 skinparam shadowing false
 skinparam roundCorner 8
 skinparam packageStyle rectangle
+skinparam linetype ortho
 
 skinparam actor {
     BackgroundColor #FFFFFF
@@ -3323,6 +3336,8 @@ skinparam NoteBorderColor #D97706
 skinparam NoteFontColor #92400E
 
 skinparam state {
+
+skinparam linetype ortho
   BackgroundColor #F8FAFC
   BorderColor #64748B
   BorderThickness 1.5
@@ -3463,6 +3478,8 @@ skinparam NoteBorderColor #D97706
 skinparam NoteFontColor #92400E
 
 skinparam state {
+
+skinparam linetype ortho
   BackgroundColor #F8FAFC
   BorderColor #64748B
   BorderThickness 1.5
@@ -3592,6 +3609,8 @@ skinparam NoteBorderColor #D97706
 skinparam NoteFontColor #92400E
 
 skinparam activity {
+
+skinparam linetype ortho
   BackgroundColor #FFFFFF
   BorderColor #475569
   BorderThickness 1.5

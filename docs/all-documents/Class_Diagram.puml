@@ -1,8 +1,11 @@
 @startuml Class_Diagram
+!theme plain
 skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
 skinparam monochrome false
 skinparam shadowing false
 skinparam roundcorner 8
+skinparam linetype ortho
 skinparam nodesep 40
 skinparam ranksep 45
 

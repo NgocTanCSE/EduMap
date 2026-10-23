@@ -108,6 +108,7 @@ export class RoutingService {
   private readonly logger = new Logger(RoutingService.name);
   private readonly orsUrl: string;
   private readonly orsApiKey: string | undefined;
+  private readonly osrmUrl: string | undefined;
 
   constructor(
     private readonly httpService: HttpService,
@@ -115,25 +116,41 @@ export class RoutingService {
   ) {
     this.orsUrl = this.configService.get<string>('ORS_URL') || 'https://api.openrouteservice.org';
     this.orsApiKey = this.configService.get<string>('ORS_API_KEY');
+    this.osrmUrl = this.configService.get<string>('OSRM_URL');
   }
 
   /**
    * Convert OpenRouteService route response to the legacy OSRM-compatible RouteResponse.
    * This lets the frontend unchanged while migrating from OSRM to OpenRouteService.
    */
-  private translateOrsToRouteResponse(orsData: any): RouteResponse {
-    const routes: Route[] = (orsData.routes || []).map((orsRoute: any) => ({
-      geometry: JSON.stringify(orsRoute.geometry || orsRoute.summary?.geometry || ''),
+  private translateOrsToRouteResponse(orsFile: any): RouteResponse {
+    // Accept both response shapes:
+    //  • legacy: { routes: [...] }  (segments/summary at the route level)
+    //  • POST /v2/directions/{profile}/geojson (current ORS API): GeoJSON
+    //    FeatureCollection with features[].geometry and
+    //    features[].properties.{summary,segments,waypoints}
+    const orsRoutes: any[] = orsFile?.features?.length
+      ? orsFile.features.map((f: any) => ({
+          geometry: f.geometry || f.properties?.geometry || {},
+          segments: f.properties?.segments || [],
+          summary: f.properties?.summary || {},
+        }))
+      : orsFile?.routes || [];
+
+    const routes: Route[] = orsRoutes.map((orsRoute: any) => ({
+      geometry: JSON.stringify(orsRoute.geometry || ''),
       legs: (orsRoute.segments || []).map((seg: any) => ({
         steps: (seg.steps || []).map((step: any) => ({
           geometry: JSON.stringify(step.geometry || ''),
           maneuver: {
-            type: orsToOsmType(step.instruction?.text || '') || '0',
+            // GeoJSON instructions carry `instruction` as a plain string
+            // (e.g. "turn-left"); the legacy shape nested it under .text.
+            type: orsToOsmType(step.instruction?.text || step.instruction || '') || '0',
             modifier: step.modifier || '',
             bearing_before: step.bearing_before || 0,
             bearing_after: step.bearing_after || 0,
             location: step.location || [0, 0],
-            instruction: step.instruction?.text || '',
+            instruction: step.instruction?.text || step.instruction || '',
           },
           name: step.name || '',
           duration: step.duration || 0,
@@ -147,11 +164,15 @@ export class RoutingService {
       } as RouteLeg)),
       weight_name: 'duration',
       weight: orsRoute.summary?.duration || orsRoute.duration || 0,
-      duration: orsRoute.summary?.duration || 0,
-      distance: orsRoute.summary?.distance || 0,
+      duration: orsRoute.summary?.duration || orsRoute.duration || 0,
+      distance: orsRoute.summary?.distance || orsRoute.distance || 0,
     }));
 
-    const waypoints: Waypoint[] = (orsData.waypoints || []).map((wp: any) => ({
+    const waypoints: Waypoint[] = (
+      orsFile?.waypoints ||
+      orsFile?.features?.[0]?.properties?.waypoints ||
+      []
+    ).map((wp: any) => ({
       name: wp.name || '',
       location: wp.location || [0, 0],
       hint: '',
@@ -164,36 +185,88 @@ export class RoutingService {
     };
   }
 
+  /**
+   * Route with a provider chain, always ending in a usable RouteResponse:
+   *   1. OpenRouteService — the modern POST /v2/directions/{profile}/geojson
+   *      endpoint. The previously used `GET /v2/directions?start=&end=` is
+   *      DEPRECATED by ORS: newer API keys get a 2xx response whose body has
+   *      no `routes`, which surfaced to users as the controller error
+   *      "No route found" even though the request looked healthy (200, 500ms).
+   *   2. Any OSRM-compatible server via OSRM_URL (Docker Compose `osrm`
+   *      container locally; skipped on HF when the host is unreachable).
+   *   3. Straight-line fallback so the map still draws a route in degraded
+   *      conditions instead of failing the whole feature.
+   */
   async getRoute(params: RouteRequest): Promise<RouteResponse> {
     const { lng1, lat1, lng2, lat2, alternatives = true, steps = true, overview = 'full' } = params;
 
-    if (!this.orsApiKey) {
-      this.logger.warn('ORS_API_KEY not configured — returning minimal route response');
-      return this.fallbackRoute(lng1, lat1, lng2, lat2);
+    // ── 1. OpenRouteService (modern POST geojson API) ──
+    if (this.orsApiKey) {
+      try {
+        const body: Record<string, any> = {
+          coordinates: [[lng1, lat1], [lng2, lat2]],
+          instructions: steps,
+          geometry_simplify: overview === 'simplified',
+        };
+        if (alternatives) {
+          body.alternative_routes = { target_count: 2, share_factor: 0.6, weight_factor: 1.6 };
+        }
+        const response = await firstValueFrom(
+          this.httpService.post(
+            `${this.orsUrl}/v2/directions/driving-car/geojson`,
+            body,
+            {
+              timeout: 15000,
+              headers: {
+                'Authorization': this.orsApiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, application/geo+json',
+              },
+            },
+          )
+        );
+        const translated = this.translateOrsToRouteResponse(response.data);
+        if (translated.routes.length > 0) {
+          this.logger.log(`OpenRouteService returned ${translated.routes.length} route(s)`);
+          return translated;
+        }
+        this.logger.warn('OpenRouteService returned no routes — trying next provider');
+      } catch (error: any) {
+        this.logger.error(`OpenRouteService routing error: ${error.message}`);
+      }
     }
 
-    const start = `${lng1},${lat1}`;
-    const end = `${lng2},${lat2}`;
-    const url = `${this.orsUrl}/v2/directions/driving-car?start=${start}&end=${end}&alternatives=${alternatives}&instructions=${steps}&geometry=${overview !== 'false'}`;
-
-    try {
-      this.logger.log(`Requesting route from OpenRouteService`);
-
-      const response = await firstValueFrom(
-        this.httpService.get<RouteResponse>(url, {
-          timeout: 15000,
-          headers: {
-            'Authorization': this.orsApiKey,
-            'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf8',
-          },
-        })
-      );
-
-      return this.translateOrsToRouteResponse(response.data);
-    } catch (error: any) {
-      this.logger.error(`OpenRouteService routing error: ${error.message}`);
-      return this.fallbackRoute(lng1, lat1, lng2, lat2);
+    // ── 2. OSRM-compatible server (local container in Docker Compose) ──
+    if (this.osrmUrl) {
+      try {
+        const url =
+          `${this.osrmUrl}/route/v1/driving/${lng1},${lat1};${lng2},${lat2}` +
+          `?overview=${overview === 'false' ? 'false' : overview}` +
+          `&steps=${steps}&alternatives=${alternatives}`;
+        const response = await firstValueFrom(
+          this.httpService.get(url, { timeout: 15000 })
+        );
+        const data = response.data;
+        if (data?.code === 'Ok' && data.routes?.length > 0) {
+          this.logger.log(`OSRM returned ${data.routes.length} route(s)`);
+          return {
+            code: data.code,
+            routes: data.routes.map((r: any) => ({
+              ...r,
+              geometry: typeof r.geometry === 'string' ? r.geometry : JSON.stringify(r.geometry),
+            })),
+            waypoints: data.waypoints || [],
+          };
+        }
+        this.logger.warn(`OSRM returned no routes (code=${data?.code}) — trying next provider`);
+      } catch (error: any) {
+        this.logger.error(`OSRM routing error: ${error.message}`);
+      }
     }
+
+    // ── 3. Graceful straight-line fallback (route still rendered) ──
+    this.logger.warn('No routing provider available — using straight-line fallback route');
+    return this.fallbackRoute(lng1, lat1, lng2, lat2);
   }
 
   /** Fallback: return a straight-line route using Haversine */

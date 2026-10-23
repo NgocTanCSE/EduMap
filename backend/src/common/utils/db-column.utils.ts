@@ -104,15 +104,28 @@ export function textArrayColumn(): Record<string, unknown> {
     transformer: {
       // Return type is `any`: this repo compiles with strictNullChecks=false,
       // so `value == null` does not narrow the true branch to null/undefined.
-      to: (value: string[] | null | undefined): any =>
-        value == null ? value : JSON.stringify(value),
-      from: (value: string | null | undefined): string[] => {
-        if (!value) return [];
+      to: (value: string[] | string | null | undefined): any => {
+        // Already serialized (e.g. re-saving an entity that went through a
+        // previous hydrate/write cycle) — pass through unchanged instead of
+        // double-JSON-encoding into `"[\x22a\x22]"`.
+        if (typeof value === 'string') return value;
+        return value == null ? value : JSON.stringify(value);
+      },
+      from: (value: string | string[] | null | undefined): string[] => {
+        if (value == null || value === '') return [];
+        // TypeORM applies `from()` a second time on INSERT-generated maps
+        // (SubjectExecutor.executeInsertOperations hydrates the returned
+        // values through prepareHydratedValue). That feeds the already
+        // transformed Array back into this transformer; JSON.parse(Array)
+        // then throws SyntaxError and the catch calls `.split` on an Array
+        // → "value.split is not a function" (broke POST /api/auth/google).
+        if (Array.isArray(value)) return value;
+        const str = typeof value === 'string' ? value : JSON.stringify(value);
         try {
-          const parsed = JSON.parse(value);
+          const parsed = JSON.parse(str);
           return Array.isArray(parsed) ? parsed : [String(parsed)];
         } catch {
-          return value.split(',').map((v) => v.trim()).filter(Boolean);
+          return str.split(',').map((v) => v.trim()).filter(Boolean);
         }
       },
     },
