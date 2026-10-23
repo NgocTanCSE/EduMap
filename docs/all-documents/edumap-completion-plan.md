@@ -114,7 +114,6 @@ admin, ai, audit-log, blockchain, crawler, dashboard, gamification, hs-connectio
 - Certificate verify (/certificates/verify/[code])
 - Survey detail (/surveys/[id])
 - Summer (/summer)
-- Moderator (/moderator)
 - Storage (/storage)
 - Opportunities (/opportunities, /opportunities/[id])
 - Career jobs (/career/jobs, /career/jobs/[id])
@@ -126,7 +125,7 @@ admin, ai, audit-log, blockchain, crawler, dashboard, gamification, hs-connectio
 - Community post detail (/community/post/[id])
 
 **30 service files** matching backend modules:
-admin, analytics, auth, career, certificate, community, dashboard, donate, events, gamification, green, hackathon, hs-connection, internship, intl, library, mentor, moderator, notification, opportunity, scholarship, search, share, socket, stem, storage, summer, survey, volunteer, wifi
+admin, analytics, auth, career, certificate, community, dashboard, donate, events, gamification, green, hackathon, hs-connection, internship, intl, library, mentor, notification, opportunity, scholarship, search, share, socket, stem, storage, summer, survey, volunteer, wifi
 
 **Thiếu/Chưa hoàn thiện:**
 - Profile settings tab là stub ("Cài đặt tài khoản đang được phát triển")
@@ -145,7 +144,7 @@ admin, analytics, auth, career, certificate, community, dashboard, donate, event
 
 **Thiếu/Chưa hoàn thiện:**
 - Chỉ có 7/34 trang (~20% trang FE web)
-- Thiếu Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Moderator, Summer, Survey, Storage, Admin, Certificate, Opportunity, Share pages
+- Thiếu Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Summer, Survey, Storage, Admin, Certificate, Opportunity, Share pages
 - Chưa có navigation (React Navigation stack/tab)
 - Chưa có push notification
 - Chưa có offline mode caching
@@ -285,7 +284,7 @@ User -> Frontend (Next.js pages)
 #### Todo 3.2: Thêm màn hình còn thiếu (chọn lọc theo priority)
 - Priority HIGH: Library, Events, Scholarships, WiFi, Leaderboard
 - Priority MEDIUM: Career, STEM, Donate, Volunteer, Green, Notifications
-- Priority LOW: Marketplace, Intl, HS-Connection, Moderator, Analytics
+- Priority LOW: Marketplace, Intl, HS-Connection, Analytics
 
 #### Todo 3.3: Hoàn thiện Auth flow
 - Login/Register forms

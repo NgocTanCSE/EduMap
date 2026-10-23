@@ -5,7 +5,6 @@ from enum import Enum
 class ModerationAction(str, Enum):
     APPROVED = "approved"
     AUTO_REJECTED = "auto_rejected"
-    SEND_TO_HUMAN_REVIEW = "send_to_human_review"
 
 class ModerationRequest(BaseModel):
     content: str

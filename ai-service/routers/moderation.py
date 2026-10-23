@@ -49,12 +49,9 @@ async def moderate_content(request: ContentRequest):
         confidence = float(ai_result.get("confidence", 0.0))
         ai_flags = ai_result.get("flags", [])
 
-        action_taken = "APPROVED"
-        if not is_safe:
-            if confidence > 0.8:
-                action_taken = "AUTO_REJECTED"
-            else:
-                action_taken = "SEND_TO_HUMAN_REVIEW"
+        # AI is the final moderator: unsafe content is rejected immediately.
+        # There is no manual review queue in EduMap.
+        action_taken = "APPROVED" if is_safe else "AUTO_REJECTED"
 
         return ModerationResult(
             status="Processed via AI Service",

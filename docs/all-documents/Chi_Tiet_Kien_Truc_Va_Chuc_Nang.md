@@ -123,10 +123,9 @@ Hệ thống được tổ chức dạng Hub-and-Spoke 3 cột nghiệp vụ:
   - `/mentor`: Danh bạ chuyên gia, xem đánh giá sao, chọn khung giờ rảnh và thanh toán lịch hẹn.
   - `/scholarships`: Cổng thông tin học bổng, công cụ kiểm tra điều kiện tự động bằng AI, nộp hồ sơ trực tuyến.
   - `/marketplace`: Sàn trao đổi sách giáo trình cũ, tài liệu ôn thi, giỏ hàng, cổng thanh toán VNPay.
-  - `/community`: Bảng tin sinh viên, diễn đàn thảo luận theo chủ đề, đăng bài, bình luận, tương tác.
+  - `/community`: Bảng tin sinh viên, diễn đàn thảo luận theo chủ đề, đăng bài, bình luận, tương tác; nội dung được kiểm duyệt tự động bằng AI.
   - `/green`: Bảng theo dõi thử thách bảo vệ môi trường, quy đổi rác điện tử lấy điểm thưởng.
-  - `/admin/*`: Bộ công cụ quản trị (Duyệt người dùng, kiểm duyệt bài viết, thống kê doanh thu, cấu hình hệ thống).
-  - `/moderator/*`: Màn hình kiểm duyệt nội dung cộng đồng, xử lý báo cáo vi phạm.
+  - `/admin/*`: Bộ công cụ quản trị (Duyệt người dùng, thống kê doanh thu, cấu hình hệ thống).
 
 ### 3.2. Mobile App (React Native Expo SDK 50)
 - **Cấu trúc thư mục (`mobile/`)**:

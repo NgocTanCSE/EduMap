@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Backend error:', errorText);
+      const errorBody = await response.json().catch(() => null);
+      console.error('Backend error:', errorBody);
       return NextResponse.json(
-        { message: 'Không thể đăng bài viết' },
+        { message: errorBody?.message || 'Không thể đăng bài viết' },
         { status: response.status }
       );
     }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post, Comment, Group } from './entities/community.entity';
@@ -18,39 +18,48 @@ export class CommunityService {
   ) {}
 
   /**
-   * Tạo bài thảo luận có kiểm duyệt AI
+   * Tạo bài thảo luận có kiểm duyệt AI.
+   * AI là bước kiểm duyệt cuối cùng: APPROVED => đăng ngay, còn lại => từ chối.
    */
   async createPost(userId: string, data: any) {
-    // 1. Kiểm duyệt nội dung bằng AI (với fallback nếu service gián đoạn)
-    let moderationResult;
-    try {
-      moderationResult = await this.aiService.moderateContent(userId, data.content);
-    } catch (moderationError) {
-      this.logger.warn(`AI moderation unavailable, creating post with pending_review status: ${moderationError.message}`);
-      moderationResult = { action_taken: 'SEND_TO_HUMAN_REVIEW', flags: ['AI_MODERATION_UNAVAILABLE'] };
-    }
+    await this.assertContentApproved(userId, data.content);
 
-    if (moderationResult.action_taken === 'AUTO_REJECTED') {
-        throw new BadRequestException(`Nội dung vi phạm tiêu chuẩn cộng đồng: ${moderationResult.flags.join(', ')}`);
-    }
-
-    const postStatus = moderationResult.action_taken === 'SEND_TO_HUMAN_REVIEW' ? 'pending_review' : 'active';
-
-    // 2. Lưu bài viết
     const post = this.postRepo.create({
       ...data,
       author_id: userId,
       like_count: 0,
       comment_count: 0,
-      status: postStatus,
+      status: 'active',
     });
-    
-    const savedPost = await this.postRepo.save(post);
-    
+
     return {
-        post: savedPost,
-        moderation_message: postStatus === 'pending_review' ? 'Bài viết của bạn đang chờ quản trị viên duyệt do có chứa từ ngữ nhạy cảm.' : null
+      post: await this.postRepo.save(post),
+      moderation_message: null,
     };
+  }
+
+  /**
+   * Gọi AI kiểm duyệt và chỉ cho phép nội dung được AI đánh dấu APPROVED.
+   * Nếu AI không sẵn sàng, từ chối yêu cầu thay vì lưu nội dung chưa kiểm duyệt.
+   */
+  private async assertContentApproved(userId: string, content: string) {
+    let moderationResult: any;
+
+    try {
+      moderationResult = await this.aiService.moderateContent(userId, content);
+    } catch (error: any) {
+      this.logger.error(`AI moderation unavailable: ${error?.message || error}`);
+      throw new ServiceUnavailableException(
+        'Hệ thống kiểm duyệt AI đang tạm thời gián đoạn. Vui lòng thử lại sau.',
+      );
+    }
+
+    if (moderationResult?.action_taken !== 'APPROVED') {
+      const flags = Array.isArray(moderationResult?.flags) && moderationResult.flags.length > 0
+        ? `: ${moderationResult.flags.join(', ')}`
+        : '.';
+      throw new BadRequestException(`Nội dung vi phạm tiêu chuẩn cộng đồng${flags}`);
+    }
   }
 
 /**
@@ -114,41 +123,29 @@ export class CommunityService {
     const post = await this.postRepo.findOne({ where: { id: postId, status: 'active' }, relations: ['author'] });
     if (!post) throw new NotFoundException('Không tìm thấy bài viết');
 
-    // 1. Kiểm duyệt nội dung bằng AI
-    const moderationResult = await this.aiService.moderateContent(userId, content);
+    await this.assertContentApproved(userId, content);
 
-    if (moderationResult.action_taken === 'AUTO_REJECTED') {
-        throw new BadRequestException(`Bình luận vi phạm tiêu chuẩn cộng đồng: ${moderationResult.flags.join(', ')}`);
-    }
-
-    const commentStatus = moderationResult.action_taken === 'SEND_TO_HUMAN_REVIEW' ? 'pending_review' : 'active';
-
-    // 2. Lưu bình luận
     const comment = this.commentRepo.create({
       post_id: postId,
       author_id: userId,
       content,
-      status: commentStatus
+      status: 'active',
     });
     const savedComment = await this.commentRepo.save(comment);
 
-    // 3. Tăng số lượng bình luận an toàn nếu comment được active ngay
-    if (commentStatus === 'active') {
-        await this.postRepo.increment({ id: postId }, 'comment_count', 1);
-        
-        // Gửi thông báo cho tác giả bài viết
-        if (post.author_id !== userId) {
-            await this.notificationsService.sendNotification(
-                post.author_id,
-                `Bình luận mới! Bạn có một bình luận mới cho bài viết "${post.title}".`,
-                'in-app'
-            );
-        }
+    await this.postRepo.increment({ id: postId }, 'comment_count', 1);
+
+    if (post.author_id !== userId) {
+      await this.notificationsService.sendNotification(
+        post.author_id,
+        `Bình luận mới! Bạn có một bình luận mới cho bài viết "${post.title}".`,
+        'in-app',
+      );
     }
 
     return {
-        comment: savedComment,
-        moderation_message: commentStatus === 'pending_review' ? 'Bình luận của bạn đang chờ duyệt.' : null
+      comment: savedComment,
+      moderation_message: null,
     };
   }
 
@@ -197,59 +194,5 @@ export class CommunityService {
     return {
       message: `Đã tham gia nhóm học tập "${group.name}" thành công!`,
     };
-  }
-
-  // --- MODERATION LOGIC ---
-
-  /**
-   * Lấy danh sách bài viết chờ duyệt
-   */
-  async getPendingPosts() {
-    return this.postRepo.find({
-      where: { status: 'pending_review' },
-      relations: ['author'],
-      order: { created_at: 'ASC' },
-    });
-  }
-
-  /**
-   * Duyệt hoặc từ chối bài viết
-   */
-  async moderatePost(postId: string, action: 'approve' | 'reject') {
-    const post = await this.postRepo.findOne({ where: { id: postId, status: 'pending_review' } });
-    if (!post) throw new NotFoundException('Bài viết không tồn tại hoặc đã được xử lý');
-
-    post.status = action === 'approve' ? 'active' : 'rejected';
-    await this.postRepo.save(post);
-    
-    return { success: true, message: action === 'approve' ? 'Đã duyệt bài viết' : 'Đã từ chối bài viết' };
-  }
-
-  /**
-   * Lấy danh sách bình luận chờ duyệt
-   */
-  async getPendingComments() {
-    return this.commentRepo.find({
-      where: { status: 'pending_review' },
-      relations: ['author', 'post'],
-      order: { created_at: 'ASC' },
-    });
-  }
-
-  /**
-   * Duyệt hoặc từ chối bình luận
-   */
-  async moderateComment(commentId: string, action: 'approve' | 'reject') {
-    const comment = await this.commentRepo.findOne({ where: { id: commentId, status: 'pending_review' } });
-    if (!comment) throw new NotFoundException('Bình luận không tồn tại hoặc đã được xử lý');
-
-    comment.status = action === 'approve' ? 'active' : 'rejected';
-    await this.commentRepo.save(comment);
-
-    if (action === 'approve') {
-       await this.postRepo.increment({ id: comment.post_id }, 'comment_count', 1);
-    }
-    
-    return { success: true, message: action === 'approve' ? 'Đã duyệt bình luận' : 'Đã từ chối bình luận' };
   }
 }

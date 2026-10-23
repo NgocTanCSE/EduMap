@@ -20,7 +20,6 @@ import {
   Heart,
   Calendar,
   Trophy,
-  Shield,
   ShieldCheck,
   BarChart3,
   Folder,
@@ -102,7 +101,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { name: 'Bảng xếp hạng', href: '/leaderboard', icon: Trophy },
       { name: 'HS Connection', href: '/hs-connection', icon: GraduationCap },
       { name: 'INT/LĐLĐ', href: '/intl', icon: Globe },
-      { name: 'Moderator', href: '/moderator', icon: Shield },
     ],
   },
 ];

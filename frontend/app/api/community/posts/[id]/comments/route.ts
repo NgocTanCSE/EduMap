@@ -57,10 +57,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Backend error:', errorText);
+      const errorBody = await response.json().catch(() => null);
+      console.error('Backend error:', errorBody);
       return NextResponse.json(
-        { message: 'Không thể gửi bình luận' },
+        { message: errorBody?.message || 'Không thể gửi bình luận' },
         { status: response.status }
       );
     }

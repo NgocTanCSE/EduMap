@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/', '/moderator/'],
+      disallow: ['/admin/', '/api/'],
     },
     sitemap: 'https://edumap.vn/sitemap.xml',
   }

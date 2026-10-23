@@ -15,6 +15,7 @@ import * as fs from 'fs';
  *   • adds `users.role` and backfills it from `role_id` when missing
  *   • renames legacy camelCase auth columns to the snake_case names the
  *     entities expect
+ *   • adds `comments.status`, required by AI-only comment moderation
  *
  * It is a no-op on Postgres, in-memory DBs, and DBs that are already current.
  */
@@ -68,7 +69,7 @@ function close(db: any): Promise<void> {
   return new Promise((resolve) => db.close(() => resolve()));
 }
 
-export async function ensureSqliteUserSchema(): Promise<void> {
+export async function ensureSqliteSchema(): Promise<void> {
   if (process.env.DB_TYPE === 'postgres') return;
 
   const dbPath = process.env.DB_SQLITE_PATH || ':memory:';
@@ -126,6 +127,21 @@ export async function ensureSqliteUserSchema(): Promise<void> {
         ),
       );
       if (result.changes > 0) changes.push(`backfilled ${result.changes} role(s) from role_id`);
+    }
+
+    // 3. `comments.status` (AI-only moderation). The shipped SQLite file predates
+    // the entity column, so inserting a comment fails without this heal.
+    const commentTables: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='comments'",
+    );
+    if (commentTables.length > 0) {
+      const commentColumns: any[] = await all(db, 'PRAGMA table_info(comments)');
+      const commentNames = new Set<string>(commentColumns.map((c) => String(c.name)));
+      if (!commentNames.has('status')) {
+        await exec(db, "ALTER TABLE comments ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+        changes.push('added comments.status');
+      }
     }
 
     if (changes.length > 0) {

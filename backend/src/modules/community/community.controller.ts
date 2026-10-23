@@ -2,9 +2,6 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, ParseInt
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../auth/entities/user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
@@ -88,43 +85,5 @@ export class CommunityController {
   @ApiOperation({ summary: 'Tham gia nhóm học tập' })
   async joinGroup(@Request() req: any, @Param('id') id: string) {
     return this.communityService.joinGroup(req.user.id, id);
-  }
-
-  // --- MODERATION ENDPOINTS ---
-
-  @Get('moderation/posts')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy danh sách bài viết chờ duyệt' })
-  async getPendingPosts() {
-    return this.communityService.getPendingPosts();
-  }
-
-  @Post('moderation/posts/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Duyệt hoặc từ chối bài viết' })
-  async moderatePost(@Param('id') id: string, @Body('action') action: 'approve' | 'reject') {
-    return this.communityService.moderatePost(id, action);
-  }
-
-  @Get('moderation/comments')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy danh sách bình luận chờ duyệt' })
-  async getPendingComments() {
-    return this.communityService.getPendingComments();
-  }
-
-  @Post('moderation/comments/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Duyệt hoặc từ chối bình luận' })
-  async moderateComment(@Param('id') id: string, @Body('action') action: 'approve' | 'reject') {
-    return this.communityService.moderateComment(id, action);
   }
 }

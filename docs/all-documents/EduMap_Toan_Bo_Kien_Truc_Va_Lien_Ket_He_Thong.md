@@ -531,7 +531,6 @@ sequenceDiagram
 | `donate.service.ts` | Gọi API chiến dịch quyên góp quỹ sinh viên nghèo qua VNPay. |
 | `certificate.service.ts` | Gọi API quản lý chứng chỉ điện tử, tra cứu tính hợp lệ. |
 | `community.service.ts` | Gọi API diễn đàn: đăng bài, bình luận, like, tạo nhóm học tập. |
-| `moderator.service.ts` | Gọi API dành cho kiểm duyệt viên: duyệt bài đăng, báo cáo vi phạm. |
 | `internship.service.ts` | Gọi API tra cứu cơ hội thực tập doanh nghiệp và gửi hồ sơ. |
 | `volunteer.service.ts` | Gọi API các chiến dịch thiện nguyện, ghi nhận giờ tình nguyện. |
 | `wifi.service.ts` | Gọi API tra cứu điểm Wi-Fi miễn phí quanh Biên Hòa và DNTU. |
@@ -641,7 +640,6 @@ sequenceDiagram
 - `app/profile/page.tsx`: Hồ sơ cá nhân sinh viên, đổi mật khẩu, bật 2FA.
 - `app/dashboard/page.tsx`: Bảng tin tổng quan sinh viên.
 - `app/analytics/page.tsx`: Báo cáo phân tích thời gian và tiến độ học tập.
-- `app/moderator/page.tsx`: Bảng điều khiển kiểm duyệt nội dung cộng đồng.
 - `app/auth/login/page.tsx`, `register/page.tsx`, `forgot-password/page.tsx`: Màn hình xác thực tài khoản.
 
 #### Khu vực Quản trị Admin (`app/admin/...`):

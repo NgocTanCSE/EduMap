@@ -57,7 +57,7 @@ export class Post {
   @Column({ default: 0 })
   comment_count: number;
 
-  @Column({ default: 'active' }) // active, pending_review, rejected
+  @Column({ default: 'active' }) // active, rejected
   status: string;
 
   @CreateDateColumn()
@@ -89,7 +89,7 @@ export class Comment {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ default: 'active' }) // active, pending_review, rejected
+  @Column({ default: 'active' }) // active, rejected
   status: string;
 
   @CreateDateColumn()
