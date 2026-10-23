@@ -35,10 +35,10 @@
 - Mailer với Handlebars template
 - Firebase integration
 - Sentry error tracking
-- 24/38 modules có unit tests (~63%)
+- 23/38 modules có unit tests (~61%)
 
 **Modules có test (24):**
-analytics, auth, business, career, certificate, community, donate, events, feature, green, hackathon, library, mentor, mobile-config, module, notifications, opportunity, role, share, stem, storage, survey, volunteer, wifi
+analytics, auth, business, career, certificate, community, donate, events, feature, green, hackathon, library, mentor, module, notifications, opportunity, role, share, stem, storage, survey, volunteer, wifi
 
 **Modules thiếu test (14):**
 admin, ai, audit-log, blockchain, crawler, dashboard, gamification, hs-connection, internship, intl, learning-community, map, payment, scholar, summer
@@ -116,7 +116,6 @@ admin, ai, audit-log, blockchain, crawler, dashboard, gamification, hs-connectio
 - Summer (/summer)
 - Moderator (/moderator)
 - Storage (/storage)
-- Mobile unit (/mobile-unit)
 - Opportunities (/opportunities, /opportunities/[id])
 - Career jobs (/career/jobs, /career/jobs/[id])
 - Mentor detail (/mentor/[id])
@@ -126,8 +125,8 @@ admin, ai, audit-log, blockchain, crawler, dashboard, gamification, hs-connectio
 - Events detail (/events/[id])
 - Community post detail (/community/post/[id])
 
-**31 service files** matching backend modules:
-admin, analytics, auth, career, certificate, community, dashboard, donate, events, gamification, green, hackathon, hs-connection, internship, intl, library, mentor, mobile-unit, moderator, notification, opportunity, scholarship, search, share, socket, stem, storage, summer, survey, volunteer, wifi
+**30 service files** matching backend modules:
+admin, analytics, auth, career, certificate, community, dashboard, donate, events, gamification, green, hackathon, hs-connection, internship, intl, library, mentor, moderator, notification, opportunity, scholarship, search, share, socket, stem, storage, summer, survey, volunteer, wifi
 
 **Thiếu/Chưa hoàn thiện:**
 - Profile settings tab là stub ("Cài đặt tài khoản đang được phát triển")
@@ -146,7 +145,7 @@ admin, analytics, auth, career, certificate, community, dashboard, donate, event
 
 **Thiếu/Chưa hoàn thiện:**
 - Chỉ có 7/34 trang (~20% trang FE web)
-- Thiếu Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Moderator, Summer, Survey, Storage, Mobile-Config, Admin, Certificate, Opportunity, Share pages
+- Thiếu Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Moderator, Summer, Survey, Storage, Admin, Certificate, Opportunity, Share pages
 - Chưa có navigation (React Navigation stack/tab)
 - Chưa có push notification
 - Chưa có offline mode caching

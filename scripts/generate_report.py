@@ -11,7 +11,7 @@ Dựa trên việc đối chiếu và phân tích toàn bộ **17 Sheets** trong
 | STT | Tên Sheet | Số lượng mục đặc tả | Độ hoàn thiện thực tế | Trạng thái kỹ thuật |
 |---|---|---|---|---|
 | **1** | [1. Tổng Quan Dự Án](#1-tổng-quan-dự-án) | 14 hạng mục lớn | **100%** | Đầy đủ thông tin định hướng và KPI |
-| **2** | [2. Danh Sách Module](#2-danh-sách-module) | 29 modules chính | **100% cấu trúc / 88% tính năng** | Tất cả 29 module đều có folder & cấu trúc API |
+| **2** | [2. Danh Sách Module](#2-danh-sách-module) | 28 modules chính | **100% cấu trúc / 88% tính năng** | Tất cả 28 module đều có folder & cấu trúc API |
 | **3** | [3. Chi Tiết Chức Năng](#3-chi-tiết-chức-năng) | 20 chức năng cốt lõi | **87%** | Các tính năng Map, AI, Library đạt 90-100% |
 | **4** | [4. Vai Trò & Phân Quyền](#4-vai-trò--phân-quyền) | 12 vai trò (RBAC) | **100%** | Đã cấu hình SERIAL PK, mapping full 12 roles |
 | **5** | [5. Database Design](#5-database-design) | 40 bảng (tables) | **100%** | TypeORM entities, PostGIS, migrations & seed hoàn chỉnh |
@@ -39,7 +39,7 @@ Dựa trên việc đối chiếu và phân tích toàn bộ **17 Sheets** trong
 * **Roadmap (100%):** Đặc tả rõ ràng các mốc MVP -> Phase 1 -> Phase 2 -> Phase 3 -> Scale.
 
 ### 2. Danh Sách Module (29 Modules)
-Tất cả 29 module đều đã được khởi tạo thư mục và cấu trúc trong NestJS Backend (`backend/src/modules/`):
+Tất cả 28 module đều đã được khởi tạo thư mục và cấu trúc trong NestJS Backend (`backend/src/modules/`):
 1. **MOD-MAP (Bản đồ thông minh):** **100%** - Hiển thị Leaflet, filter 8 categories, popup, verified badge, pulsing dot.
 2. **MOD-AI (AI Chatbot & Hỗ trợ):** **90%** - Giao diện chatbot đẹp mắt, kết nối API AI service, Gemini API fallback.
 3. **MOD-LIB (Kho học liệu mở):** **100%** - Tìm kiếm, bộ lọc sidebar nâng cao (lớp, môn, đánh giá, định dạng).
@@ -65,10 +65,9 @@ Tất cả 29 module đều đã được khởi tạo thư mục và cấu trú
 23. **MOD-LEARN (Community Learning Map):** **100%** - Các quán cà phê học tập, không gian tự học Biên Hòa.
 24. **MOD-AUTH (Auth & Authz):** **100%** - Đăng nhập/Đăng ký JWT, phân quyền 12 vai trò RBAC chặt chẽ.
 25. **MOD-NOTIFY (Notification System):** **90%** - Gửi thông báo in-app, tích hợp WebSocket.
-26. **MOD-MOBILE (Tri thức lưu động):** **70%** - Khung sườn Flutter mobile, schedule xe thư viện.
-27. **MOD-SUMMER (Mùa hè xanh):** **80%** - Chiến dịch tình nguyện hè Đồng Nai.
-28. **MOD-SHARE (Chia sẻ tài liệu):** **85%** - Giao dịch tặng sách, đổi giáo trình cũ.
-29. **MOD-HS (Kết nối HS-ĐH):** **85%** - Mentor hướng nghiệp từ sinh viên đại học cho học sinh THPT.
+26. **MOD-SUMMER (Mùa hè xanh):** **80%** - Chiến dịch tình nguyện hè Đồng Nai.
+27. **MOD-SHARE (Chia sẻ tài liệu):** **85%** - Giao dịch tặng sách, đổi giáo trình cũ.
+28. **MOD-HS (Kết nối HS-ĐH):** **85%** - Mentor hướng nghiệp từ sinh viên đại học cho học sinh THPT.
 
 ### 3. Chi Tiết Chức Năng (20 Tính năng chính)
 * **Hiển thị bản đồ giáo dục (100%):** Chạy thực tế hoàn hảo, hiển thị 8 category với custom Leaflet marker.

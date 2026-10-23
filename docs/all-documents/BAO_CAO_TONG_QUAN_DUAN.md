@@ -67,8 +67,6 @@
 | 53 | hackathon_teams | Đội tham gia | ✅ Hoàn chỉnh |
 | 54 | modules | Module hệ thống | ✅ Hoàn chỉnh |
 | 55 | features | Tính năng | ✅ Hoàn chỉnh |
-| 56 | mobile_units | Xe mobile config | ✅ Hoàn chỉnh |
-| 57 | mobile_unit_routes | Tuyến xe | ✅ Hoàn chỉnh |
 | 58 | support_tickets | Ticket hỗ trợ | ✅ Hoàn chỉnh |
 | 59 | audit_logs | Nhật ký kiểm toán | ✅ Hoàn chỉnh |
 | 60 | education_stats | Thống kê giáo dục | ✅ Hoàn chỉnh |
@@ -123,7 +121,6 @@
 | 18 | wifi | ✅ wifi.controller.ts | ✅ wifi.service.ts | ✅ wifi.entity.ts, wifi-connection.entity.ts | ✅ | WiFi locations |
 | 19 | summer | ✅ summer.controller.ts | ✅ summer.service.ts | ✅ summer.entity.ts, summer-activity.entity.ts, ... | ❌ | Summer campaigns |
 | 20 | hs-connection | ✅ hs-connection.controller.ts | ✅ - | ✅ student-connection.entity.ts, hs.entity.ts, ... | ❌ | Kết nối học sinh |
-| 21 | mobile-config | ✅ mobile-config.controller.ts | ✅ - | ✅ mobile.entity.ts | ✅ | Mobile units |
 | 22 | career | ✅ career.controller.ts | ✅ career.service.ts | ✅ career.entity.ts, job.entity.ts, user-skill.entity.ts, ... | ✅ | Career roadmap |
 | 23 | dashboard | ✅ dashboard.controller.ts | ✅ - | - | ❌ | Dashboard stats |
 | 24 | mentor | ✅ mentor.controller.ts | ✅ - | ✅ mentor.entity.ts, mentor-availability.entity.ts, ... | ✅ | Mentoring |
@@ -210,7 +207,6 @@
 | admin | /api/admin/dashboard, /api/admin/users | ✅ Hoàn chỉnh |
 | payment | /api/payment/process, /api/payment/process/[orderId] | ✅ Hoàn chỉnh |
 | certificates | /api/certificates/portfolio, /api/certificates/verify/[code] | ✅ Hoàn chỉnh |
-| mobile-config | /api/mobile-config/units, /api/mobile-config/units/[id]/schedule | ✅ Hoàn chỉnh |
 | opportunities | /api/opportunities, /api/opportunities/[id], /api/opportunities/[id]/team-finding | ✅ Hoàn chỉnh |
 
 **API Routes thiếu (cần tạo):**
@@ -265,7 +261,6 @@
 | 31 | Summer Campaign | app/summer/page.tsx | ✅ Load được | Summer activities |
 | 32 | Moderator | app/moderator/page.tsx | ✅ Load được | Moderation tools |
 | 33 | Storage | app/storage/page.tsx | ✅ Load được | File storage |
-| 34 | Mobile Unit | app/mobile-unit/page.tsx | ✅ Load được | Mobile unit tracking |
 | 35 | Opportunities | app/opportunities/page.tsx | ✅ Load được | Opportunities list |
 | 36 | Career Jobs | app/career/jobs/page.tsx | ✅ Load được | Jobs list |
 | 37 | Career Roadmap | app/career/roadmap/page.tsx | ✅ Load được | Roadmap view |
@@ -293,7 +288,7 @@
 | 6 | InternshipScreen | mobile/src/screens/InternshipScreen.tsx | ✅ Load được |
 | 7 | ScholarshipScreen | mobile/src/screens/ScholarshipScreen.tsx | ✅ Load được |
 
-**Thiếu màn hình quan trọng (27 màn hình):** Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Moderator, Summer, Survey, Storage, Mobile-Config, Admin, Certificate, Opportunity, Share, Mentor, WiFi, Map detail, Settings
+**Thiếu màn hình quan trọng (26 màn hình):** Library, Events, Donate, Leaderboard, WiFi, Green, Volunteer, STEM, Marketplace, Community, Career, Analytics, Notifications, HS-Connection, Intl, Moderator, Summer, Survey, Storage, Admin, Certificate, Opportunity, Share, Mentor, WiFi, Map detail, Settings
 
 ---
 

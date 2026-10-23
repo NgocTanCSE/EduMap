@@ -39,7 +39,6 @@ import { SurveyModule } from './modules/survey/survey.module';
 import { WifiModule } from './modules/wifi/wifi.module';
 import { SummerModule } from './modules/summer/summer.module';
 import { HsConnectionModule } from './modules/hs-connection/hs-connection.module';
-import { MobileConfigModule } from './modules/mobile-config/mobile-config.module';
 import { CareerModule } from './modules/career/career.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { MentorModule } from './modules/mentor/mentor.module';
@@ -155,7 +154,6 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
     WifiModule,
     SummerModule,
     HsConnectionModule,
-    MobileConfigModule,
     CareerModule,
     DashboardModule,
     MentorModule,

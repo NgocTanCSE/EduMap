@@ -1090,29 +1090,6 @@ CREATE TABLE IF NOT EXISTS summer_activities (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── Mobile unit tables (matches MobileUnit / MobileUnitRoute entities) ──
-CREATE TABLE IF NOT EXISTS mobile_units (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    description TEXT,
-    driver_name VARCHAR(255),
-    contact_number VARCHAR(50),
-    current_location GEOGRAPHY(Point, 4326),
-    status VARCHAR(50) NOT NULL DEFAULT 'active',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS mobile_unit_routes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    mobile_unit_id UUID NOT NULL REFERENCES mobile_units(id) ON DELETE CASCADE,
-    destination_name VARCHAR(255) NOT NULL,
-    location GEOGRAPHY(Point, 4326) NOT NULL,
-    scheduled_at TIMESTAMP NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'pending'
-);
-
 -- ── HS Connection tables (matches UniversityCounseling, HsQuestion, HsAnswer, StudentConnection entities) ──
 CREATE TABLE IF NOT EXISTS university_counseling (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

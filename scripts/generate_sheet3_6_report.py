@@ -34,7 +34,6 @@ def run():
         'MOD-LEARN': 'learning-community',
         'MOD-AUTH': 'auth',
         'MOD-NOTIFY': 'notifications',
-        'MOD-MOBILE': 'mobile-config',
         'MOD-SUMMER': 'summer',
         'MOD-SHARE': 'share',
         'MOD-HS': 'hs-connection'

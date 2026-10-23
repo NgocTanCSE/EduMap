@@ -62,7 +62,6 @@ Danh sách kiểm tra chất lượng trước khi deploy EduMap.
 - [ ] `/summer` - Summer campaigns load
 - [ ] `/stem` - STEM labs load
 - [ ] `/wifi` - WiFi locations load
-- [ ] `/mobile-unit` - Mobile units load
 - [ ] `/intl` - International programs load
 - [ ] `/hs-connection` - HS connection loads
 

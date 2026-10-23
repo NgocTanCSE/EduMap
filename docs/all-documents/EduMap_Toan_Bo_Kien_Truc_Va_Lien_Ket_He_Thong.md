@@ -446,7 +446,6 @@ sequenceDiagram
 - **`dashboard/`**: Tổng hợp số liệu thống kê nhanh trên bảng tin.
 - **`payment/`**: Xử lý giao dịch thanh toán đơn hàng.
 - **`opportunity/`**: Quản lý cơ hội nghiên cứu khoa học.
-- **`mobile-config/`**: Cung cấp cấu hình giao diện động cho app Mobile.
 - **`module/` & `feature/`**: Quản trị bật/tắt tính năng (Feature Flags).
 
 ---
@@ -543,7 +542,6 @@ sequenceDiagram
 | `survey.service.ts` | Gọi API thực hiện phiếu khảo sát ý kiến đánh giá môn học. |
 | `share.service.ts` | Gọi API chia sẻ giáo trình, mượn thiết bị học tập giữa các sinh viên. |
 | `storage.service.ts` | Gọi API upload file, quản lý tệp tin cá nhân trên kho MinIO. |
-| `mobile-unit.service.ts` | Gọi API lịch trình và trạm dừng xe thư viện lưu động. |
 | `opportunity.service.ts` | Gọi API cơ hội nghiên cứu khoa học và tìm thành viên đề tài. |
 | `notification.service.ts` | Gọi API lấy danh sách thông báo và đánh dấu đã đọc. |
 | `socket.service.ts` | Quản lý kết nối WebSocket Socket.IO phục vụ nhận thông báo tức thì. |
@@ -637,7 +635,6 @@ sequenceDiagram
 - `app/hs-connection/page.tsx`: Kết nối và tư vấn tuyển sinh cho học sinh THPT.
 - `app/intl/page.tsx`: Chương trình trao đổi sinh viên quốc tế.
 - `app/summer/page.tsx`: Chiến dịch trại hè kỹ năng mềm.
-- `app/mobile-unit/page.tsx`: Lịch trình xe thư viện/STEM lưu động.
 - `app/opportunities/page.tsx`: Cơ hội nghiên cứu khoa học sinh viên.
 - `app/storage/page.tsx`: Quản lý tệp tin và bài tập cá nhân trên đám mây.
 - `app/notifications/page.tsx`: Hộp thư thông báo hệ thống.

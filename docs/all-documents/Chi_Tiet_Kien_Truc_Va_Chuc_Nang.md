@@ -67,10 +67,8 @@ Hệ thống được tổ chức dạng Hub-and-Spoke 3 cột nghiệp vụ:
 | | `payment` | Tích hợp cổng VNPay, MoMo, quản lý giao dịch nạp rút ký quỹ |
 | | `crawler` | Thu thập dữ liệu GIS điểm trường, thư viện, Wi-Fi công cộng |
 | | `feature` | Cờ tính năng (Feature Flags) cho phép bật tắt tính năng linh hoạt |
-| | `mobile-config`| Cung cấp phiên bản ứng dụng, cấu hình bảo trì cho mobile app |
 | **Cột Nghiệp Vụ Không Gian & Đào Tạo** | `map` | Bản đồ GIS, định vị điểm giáo dục, tìm kiếm bán kính `ST_DWithin` |
 | | `wifi` | Bản đồ mạng Wi-Fi miễn phí, kiểm tra trạng thái hoạt động |
-| | `mobile-unit` | Lộ trình các chuyến xe thư viện lưu động phục vụ vùng sâu xa |
 | | `stem` | Không gian sáng chế STEM Lab, đặt lịch mượn thiết bị thực hành |
 | | `library` | Kho học liệu số, sách điện tử và danh mục thư viện công cộng |
 | | `career` | Cây định hướng nghề nghiệp, khảo sát tính cách Holland Code |
@@ -180,7 +178,6 @@ Hệ thống sử dụng TypeORM quản lý 85 thực thể phân thành 7 Bound
 2. **Context 2: Không gian Địa lý & Tiện ích (Geospatial)**
    - `Location`: name, address, district, coordinates (`geography(Point, 4326)`), categoryId, metadata (JSONB). Đánh chỉ mục GiST (`CREATE INDEX idx_locations_geom ON locations USING GIST(coordinates);`).
    - `WifiLocation`: ssid, bssid, password, speedMbps, isFree, locationId.
-   - `MobileUnit`: vehicleNumber, scheduleTime, driverName, currentRoute (LineString).
    - `StemLab`: equipmentList, capacity, openHours, locationId.
 3. **Context 3: Học vụ & Nghề nghiệp (Academic & Career)**
    - `CareerPath`: title, description, requiredSkills, salaryRange, demandOutlook.
