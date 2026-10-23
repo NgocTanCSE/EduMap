@@ -150,6 +150,9 @@ class LLMService:
         self.openrouter_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat")
         self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "20"))
         self.has_openrouter = bool(self.openrouter_key)
+        # OpenRouter embedding model (tuỳ chọn, dùng cho vector store)
+        self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
+        self.has_openrouter_embed = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
         # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF / OpenRouter)
         self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter
         if self.has_gemini:
@@ -594,6 +597,50 @@ class LLMService:
         if not text:
             raise RuntimeError(f"OpenRouter returned empty response: {str(data)[:200]}")
         return text
+
+    def generate_embedding(self, text: str) -> list:
+        """Sinh embedding vector qua OpenRouter embedding endpoint.
+
+        Yêu cầu: OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL được cấu hình.
+        Trả về list[float]. Nếu không cấu hình hoặc gọi thất bại, ném RuntimeError
+        để caller dùng fallback khác (Gemini/HF embedding).
+        """
+        if not self.has_openrouter_embed:
+            raise RuntimeError("OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL not set — cannot use OpenRouter embedding.")
+        url = f"{self.openrouter_base}/embeddings"
+        payload = {
+            "model": self.openrouter_embed_model,
+            "input": text,
+        }
+        body_json = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body_json,
+            headers={
+                "Authorization": f"Bearer {self.openrouter_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "HTTP-Referer": "https://edumap.ai",
+                "X-Title": "EduMap",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.openrouter_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"OpenRouter embedding HTTP {e.code}: {body}")
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter embedding connection failed: {type(e).__name__}: {e}")
+
+        try:
+            embedding = data["data"][0]["embedding"]
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(f"OpenRouter embedding returned unexpected format: {str(data)[:200]}")
+        if not isinstance(embedding, list) or not embedding:
+            raise RuntimeError(f"OpenRouter embedding returned empty vector: {str(data)[:200]}")
+        return [float(x) for x in embedding]
 
     # --- Methods from Legacy LLMService ---
 
