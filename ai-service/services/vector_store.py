@@ -60,8 +60,23 @@ class VectorStoreService:
         # api-inference.huggingface.co was retired (NXDOMAIN). Router is current.
         self.hf_router_url = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
         self.has_hf_api = bool(self.hf_token)
+
+        # --- OpenRouter embedding (tuỳ chọn, thay thế Cloudflare/Gemini nếu cần) ---
+        self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
+        self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
+        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "20"))
+        self.has_openrouter_api = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
+
+        # --- NVIDIA NIM embedding (OpenAI-compatible, build.nvidia.com) ---
+        self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
+        self.nvidia_base = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
+        self.nvidia_embed_model = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/embed-qa-4")
+        self.nvidia_timeout = float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "30"))
+        self.has_nvidia_api = bool(self.nvidia_key) and bool(self.nvidia_embed_model)
+
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
-        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api
+        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_openrouter_api or self.has_nvidia_api
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
@@ -323,9 +338,42 @@ class VectorStoreService:
 
         raise RuntimeError(f"HF Inference API embedding failed after {max_retries} retries")
 
+    def _nvidia_get_embedding(self, text: str) -> List[float]:
+        """Lấy embedding qua NVIDIA NIM (OpenAI-compatible /embeddings)."""
+        if not self.has_nvidia_api:
+            raise RuntimeError("NVIDIA_API_KEY + NVIDIA_EMBED_MODEL not set — cannot use NVIDIA embedding.")
+        url = f"{self.nvidia_base}/embeddings"
+        payload = json.dumps({"model": self.nvidia_embed_model, "input": text}).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.nvidia_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.nvidia_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"NVIDIA embedding HTTP {e.code}: {body}")
+        except Exception as e:
+            raise RuntimeError(f"NVIDIA embedding connection failed: {type(e).__name__}: {e}")
+
+        try:
+            vec = data["data"][0]["embedding"]
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(f"NVIDIA embedding returned unexpected format: {str(data)[:200]}")
+        if not isinstance(vec, list) or not vec:
+            raise RuntimeError(f"NVIDIA embedding returned empty vector: {str(data)[:200]}")
+        return [float(x) for x in vec]
+
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_EMBEDDING_MODEL hoặc HF_TOKEN để dùng semantic search.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, hoặc NVIDIA_API_KEY + NVIDIA_EMBED_MODEL để dùng semantic search.")
         if not text:
             return []
 
@@ -473,10 +521,32 @@ class VectorStoreService:
                 except Exception as e:
                     print(f"HF Inference API embedding ALSO failed: {e}")
 
+        # --- Phan 3: fallback ve NVIDIA NIM embedding ---
+        if self.has_nvidia_api:
+            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping NVIDIA fallback")
+            else:
+                try:
+                    vec = self._nvidia_get_embedding(text)
+                    vec = [float(x) for x in vec]
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        print(f"NVIDIA embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        if len(vec) > self._embed_dim:
+                            vec = vec[:self._embed_dim]
+                        else:
+                            vec = vec + [0.0] * (self._embed_dim - len(vec))
+                    self._embed_dim = len(vec)
+                    print(f"  -> NVIDIA NIM embedding OK (dim={len(vec)})")
+                    return vec
+                except Exception as e:
+                    print(f"NVIDIA NIM embedding ALSO failed: {e}")
+
         raise RuntimeError(
             "Khong the lay embedding. "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
-            f"Cloudflare: {cf_last_err or 'khong cau hinh'}"
+            f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
+            f"HF: {'khong cau hinh' if not self.has_hf_api else 'that bai'}, "
+            f"NVIDIA: {'khong cau hinh' if not self.has_nvidia_api else 'that bai'}"
         )
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):

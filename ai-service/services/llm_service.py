@@ -153,8 +153,16 @@ class LLMService:
         # OpenRouter embedding model (tuỳ chọn, dùng cho vector store)
         self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
         self.has_openrouter_embed = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
-        # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF / OpenRouter)
-        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter
+        # --- NVIDIA NIM (OpenAI-compatible) — model chat/embed trên build.nvidia.com ---
+        self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
+        self.nvidia_base = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
+        self.nvidia_chat_model = os.getenv("NVIDIA_CHAT_MODEL", "meta/llama-3.1-8b-instruct")
+        self.nvidia_embed_model = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/embed-qa-4")
+        self.nvidia_timeout = float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "30"))
+        self.has_nvidia = bool(self.nvidia_key)
+        self.has_nvidia_embed = bool(self.nvidia_key) and bool(self.nvidia_embed_model)
+        # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF / OpenRouter / NVIDIA)
+        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia
         if self.has_gemini:
             print(f"INFO: Google Gemini la provider CHINH. Model={self.gemini_model_name}")
         if not self.is_ready:
@@ -598,6 +606,55 @@ class LLMService:
             raise RuntimeError(f"OpenRouter returned empty response: {str(data)[:200]}")
         return text
 
+    def _nvidia_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Gọi NVIDIA NIM (OpenAI-compatible chat completions).
+
+        Endpoint: https://integrate.api.nvidia.com/v1/chat/completions
+        Yêu cầu: NVIDIA_API_KEY (hoặc NIM_API_KEY).
+        """
+        if not self.has_nvidia:
+            raise RuntimeError("NVIDIA_API_KEY not set — cannot use NVIDIA NIM.")
+        url = f"{self.nvidia_base}/chat/completions"
+        payload = {
+            "model": self.nvidia_chat_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": int(max_tokens or 1024),
+            "temperature": float(temperature),
+            "stream": False,
+        }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        body_json = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body_json,
+            headers={
+                "Authorization": f"Bearer {self.nvidia_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.nvidia_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:300]
+            raise RuntimeError(f"NVIDIA NIM HTTP {e.code}: {body}")
+        except Exception as e:
+            raise RuntimeError(f"NVIDIA NIM connection failed: {type(e).__name__}: {e}")
+
+        text = ""
+        try:
+            text = data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError):
+            if isinstance(data, dict):
+                text = data.get("generated_text") or ""
+        text = str(text).strip()
+        if not text:
+            raise RuntimeError(f"NVIDIA NIM returned empty response: {str(data)[:200]}")
+        return text
+
     def generate_embedding(self, text: str) -> list:
         """Sinh embedding vector qua OpenRouter embedding endpoint.
 
@@ -936,7 +993,7 @@ class LLMService:
         
         dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
-        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó OpenRouter/xkiro (nếu cấu hình),
+        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó NVIDIA NIM / OpenRouter/xkiro,
         # rồi mới đến Cloudflare/HF (Cloudflare thường bị chặn TLS từ HF Spaces).
         if self.has_gemini:
             try:
@@ -944,6 +1001,12 @@ class LLMService:
                 return {"insight": response}
             except Exception as e:
                 print(f"Gemini daily_insight failed: {e}")
+        if self.has_nvidia:
+            try:
+                response = self._nvidia_generate(prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"NVIDIA NIM daily_insight failed: {e}")
         if self.has_openrouter:
             try:
                 response = self._openrouter_generate(prompt)
