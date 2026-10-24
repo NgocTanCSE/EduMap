@@ -93,6 +93,11 @@ const nextConfig = {
         destination: '/dashboard#thong-bao',
         permanent: false,
       },
+      {
+        source: '/marketplace/books',
+        destination: '/marketplace?category=book',
+        permanent: false,
+      },
     ];
   },
   // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
