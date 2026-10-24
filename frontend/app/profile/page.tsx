@@ -397,7 +397,7 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Change Password Form */}
-                  <div className="bg-card border border-border rounded-xl p-8">
+                  <div id="doi-mat-khau" className="scroll-mt-6 bg-card border border-border rounded-xl p-8">
                     <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
                       <Lock className="w-5 h-5 text-destructive" /> Đổi mật khẩu
                     </h2>

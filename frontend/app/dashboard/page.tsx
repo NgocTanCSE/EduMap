@@ -1,7 +1,7 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Loader2,
@@ -13,48 +13,25 @@ import {
   Award,
   Users,
   Heart,
-  History,
-  CalendarDays,
-  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
-import { useBookmarks } from "@/src/hooks/useBookmarks";
-import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { bookmarkLabel, targetUrl, type Bookmark } from "@/src/services/bookmark.service";
-
-type HistoryItem = { type: string; title: string | null; status: string; created_at: string };
-
-const HISTORY_LABEL: Record<string, string> = {
-  application: 'Việc làm đã ứng tuyển',
-  registration: 'Sự kiện đã đăng ký',
-  intern_application: 'Thực tập đã ứng tuyển',
-  scholar_application: 'Học bổng đã nộp',
-  summer_registration: 'Đăng ký mùa hè',
-};
+import { PersonalHub } from "@/components/dashboard/PersonalHub";
 
 /**
  * Dashboard — the user's home hub inside the unified left-sidebar shell.
  *
- * Features are navigated through the fixed left sidebar (see components/Sidebar.tsx),
- * so this page focuses on DISPLAYING the things a user needs to manage their account
- * and get a quick read on their activity:
- *  1. Account card: real identity (fullName / email / role / avatar) + quick actions
- *     (profile, password, logout) — a one-glance account-management surface.
- *  2. Quick stats: learning materials, skills, community, certificates.
- *  3. Engagement recap: upcoming mentoring slots + today's AI insight
- *     (best-effort: hidden gracefully if the dashboard BFF / AI service is down).
- *  4. "Hoạt động của tôi": merged saved-items + registration/application history
- *     (the old /dashboard/saved page now redirects here).
+ * The page is intentionally organised as a compact overview:
+ *  1. Account card + quick stats side by side (identity + progress at a glance).
+ *  2. Engagement recap: upcoming mentoring slots + today's AI insight.
+ *  3. "Cá nhân" hub: saved items, registration/application history, storage,
+ *     certificates and notifications — the old /dashboard/saved, /storage,
+ *     /certificates and /notifications pages now live here as tabs.
  */
 export default function DashboardPage() {
   const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
-  const { bookmarks, loading: bmLoading } = useBookmarks();
   const [overview, setOverview] = useState<any>(null);
   const [insight, setInsight] = useState<any>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [histLoading, setHistLoading] = useState(false);
-  const [tab, setTab] = useState<'saved' | 'history'>('history');
 
   useEffect(() => {
     if (authLoading || !isLoggedIn) return;
@@ -75,39 +52,10 @@ export default function DashboardPage() {
       }
     })();
 
-    // History is fetched independently (best-effort; never blocks the page).
-    setHistLoading(true);
-    dashboardService
-      .getHistory()
-      .then((data) => {
-        if (!cancelled) setHistory(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (!cancelled) setHistory([]);
-      })
-      .finally(() => {
-        if (!cancelled) setHistLoading(false);
-      });
-
     return () => {
       cancelled = true;
     };
   }, [authLoading, isLoggedIn]);
-
-  // Deep-link support for the merged "Đã lưu" tab: /dashboard#da-luu
-  useEffect(() => {
-    const applyHash = () => {
-      if (window.location.hash !== '#da-luu') return;
-      setTab('saved');
-      requestAnimationFrame(() => {
-        document.getElementById('hoat-dong')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    };
-
-    applyHash();
-    window.addEventListener('hashchange', applyHash);
-    return () => window.removeEventListener('hashchange', applyHash);
-  }, []);
 
   if (authLoading) {
     return (
@@ -153,92 +101,100 @@ export default function DashboardPage() {
   ];
 
   return (
-    <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-8">
-      {/* ===== Account management ===== */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-6">
-          <Avatar className="h-16 w-16 border-2 border-border">
-            <AvatarImage
-              src={user.avatar_url || "/images/default-avatar.svg"}
-              alt={user.fullName}
-            />
-            <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
-              {user.fullName?.[0]?.toUpperCase() ?? "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold leading-tight">
-              Chào, {user.fullName || "bạn"}!
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground/70">
-              {user.email}
-            </p>
-            {user.role && (
-              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary/70">
-                <ShieldCheck className="h-3 w-3" /> {user.role}
-              </span>
-            )}
+    <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-6">
+      {/* ===== Account + quick stats ===== */}
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm xl:col-span-2">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Avatar className="h-16 w-16 border-2 border-border">
+              <AvatarImage
+                src={user.avatar_url || "/images/default-avatar.svg"}
+                alt={user.fullName}
+              />
+              <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
+                {user.fullName?.[0]?.toUpperCase() ?? "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-semibold leading-tight">
+                Chào, {user.fullName || "bạn"}!
+              </h1>
+              <p className="mt-0.5 text-sm text-muted-foreground/70">
+                {user.email}
+              </p>
+              {user.role && (
+                <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+                  <ShieldCheck className="h-3 w-3" /> {user.role}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Quick account-management actions */}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link
+              href="/profile"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <User className="h-3.5 w-3.5" /> Hồ sơ & bảo mật
+            </Link>
+            <Link
+              href="/profile#doi-mat-khau"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Settings className="h-3.5 w-3.5" /> Đổi mật khẩu
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.hash = "#da-luu";
+                document.getElementById("ca-nhan")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <Heart className="h-3.5 w-3.5 text-primary/70" /> Mục đã lưu
+            </button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Đăng xuất
+            </button>
           </div>
         </div>
 
-        {/* Quick account-management actions */}
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Link
-            href="/profile"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <User className="h-3.5 w-3.5" /> Hồ sơ & bảo mật
-          </Link>
-          <Link
-            href="/profile"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <Settings className="h-3.5 w-3.5" /> Đổi mật khẩu
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              setTab('saved');
-              document.getElementById('hoat-dong')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <Heart className="h-3.5 w-3.5 text-primary/70" /> Mục đã lưu
-          </button>
-          <button
-            type="button"
-            onClick={() => logout()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Đăng xuất
-          </button>
-        </div>
-      </section>
-
-      {/* ===== Quick stats (best-effort) ===== */}
-      {overview?.stats && (
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {STAT_CARDS.map((s) => {
-            const Icon = s.icon;
-            return (
-              <Card key={s.title} className="border border-border bg-card">
-                <CardContent className="p-5 text-center">
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+            Thống kê nhanh
+          </h2>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {STAT_CARDS.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div
+                  key={s.title}
+                  className="rounded-lg border border-border bg-background/40 p-4 text-center"
+                >
                   <div className="mb-1 flex justify-center text-primary/70">
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <p className="text-2xl font-semibold text-primary">{s.value}</p>
+                  <p className="text-xl font-semibold text-primary">{s.value}</p>
                   <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
                     {s.title}
                   </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </section>
-      )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-      {/* ===== Mentoring + AI insight (best-effort) ===== */}
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+      {/* ===== Mentoring + AI insight ===== */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold tracking-tight">
             Lịch mentoring sắp tới
@@ -252,7 +208,7 @@ export default function DashboardPage() {
               {mentoring.map((m: any) => (
                 <li
                   key={m.id}
-                  className="flex items-center justify-between rounded-xl border border-border bg-background/40 p-3"
+                  className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3"
                 >
                   <div>
                     <p className="font-semibold">{m.mentor_name}</p>
@@ -280,12 +236,12 @@ export default function DashboardPage() {
           <h2 className="mb-4 text-lg font-semibold tracking-tight">
             AI Insight hôm nay
           </h2>
-          {insight ? (
-            <div className="rounded-xl border border-border bg-background/40 p-4">
-              <p className="font-semibold text-primary mb-1">
+          {insight?.motivation_message || insight?.suggested_action ? (
+            <div className="rounded-lg border border-border bg-background/40 p-4">
+              <p className="mb-1 font-semibold text-primary">
                 {insight.motivation_message}
               </p>
-              <p className="text-sm text-muted-foreground/70 leading-relaxed">
+              <p className="text-sm leading-relaxed text-muted-foreground/70">
                 {insight.suggested_action}
               </p>
             </div>
@@ -297,125 +253,8 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {/* ===== Hoạt động của tôi: Đã lưu + Lịch sử (merged from /dashboard/saved) ===== */}
-      <section id="hoat-dong" className="scroll-mt-6 rounded-lg border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <History className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold tracking-tight">Hoạt động của tôi</h2>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 border-b border-border">
-          <button
-            type="button"
-            onClick={() => setTab('saved')}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
-              tab === 'saved'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Đã lưu
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('history')}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
-              tab === 'history'
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Lịch sử đăng ký / ứng tuyển
-          </button>
-        </div>
-
-        {/* ===== Đã lưu ===== */}
-        {tab === 'saved' && (
-          <div className="pt-4">
-            {bmLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-              </div>
-            ) : bookmarks.length === 0 ? (
-              <p className="text-sm text-muted-foreground/60">
-                Bạn chưa lưu mục nào. Nhấn tim ở thẻ chi tiết/bản ghi để lưu tại đây.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
-                {bookmarks.map((b: Bookmark) => {
-                  const url = targetUrl(b.target_type, b.target_id);
-                  return (
-                    <li key={`${b.target_type}:${b.target_id}`} className="flex items-center justify-between gap-3 p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground/90 truncate">
-                          {b.title || b.target_id}
-                        </p>
-                        <p className="text-xs text-muted-foreground/60">
-                          {bookmarkLabel(b.target_type)} ·{' '}
-                          <CalendarDays className="inline h-3 w-3" />
-                          {new Date(b.created_at).toLocaleDateString('vi-VN', {
-                            day: '2-digit', month: 'short', year: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {url && (
-                          <Link
-                            href={url}
-                            className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                          >
-                            <ExternalLink className="inline h-3 w-3" /> Xem
-                          </Link>
-                        )}
-                        <BookmarkButton
-                          targetType={b.target_type}
-                          targetId={b.target_id}
-                          size="md"
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {/* ===== Lịch sử ===== */}
-        {tab === 'history' && (
-          <div className="pt-4">
-            {histLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-              </div>
-            ) : history.length === 0 ? (
-              <p className="text-sm text-muted-foreground/60">
-                Chưa có lịch sử đăng ký hay ứng tuyển nào.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
-                {history.map((h: HistoryItem, i: number) => (
-                  <li key={`${h.type}:${h.title ?? i}`} className="flex items-center justify-between gap-3 p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground/90 truncate">
-                        {h.title || '---'}
-                      </p>
-                      <p className="text-xs text-muted-foreground/60">
-                        {HISTORY_LABEL[h.type] || h.type} · trạng thái: {h.status}
-                      </p>
-                    </div>
-                    <CalendarDays className="h-4 w-4 text-muted-foreground/50" />
-                    <span className="text-xs text-muted-foreground/60">
-                      {new Date(h.created_at).toLocaleDateString('vi-VN')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </section>
+      {/* ===== Cá nhân: hoạt động, lưu trữ, chứng chỉ, thông báo ===== */}
+      <PersonalHub />
     </main>
   );
 }

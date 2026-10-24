@@ -68,13 +68,29 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // `/dashboard/saved` was merged into `/dashboard` (tab "Đã lưu"). Keep old
-  // bookmarks/links working by redirecting to the merged section.
+  // `/dashboard/saved`, `/storage`, `/certificates` and `/notifications` were
+  // merged into the "Cá nhân" hub on `/dashboard`. Keep old bookmarks/links
+  // working by redirecting to the matching tab.
   async redirects() {
     return [
       {
         source: '/dashboard/saved',
         destination: '/dashboard#da-luu',
+        permanent: false,
+      },
+      {
+        source: '/storage',
+        destination: '/dashboard#luu-tru',
+        permanent: false,
+      },
+      {
+        source: '/certificates',
+        destination: '/dashboard#chung-chi',
+        permanent: false,
+      },
+      {
+        source: '/notifications',
+        destination: '/dashboard#thong-bao',
         permanent: false,
       },
     ];

@@ -11,7 +11,11 @@ export type Bookmark = {
 };
 
 /** Nhỏ gọn, đúng chuẩn fetchWithAuth của repo (`dashboard.service.ts`). */
-async function fetchWithAuth(input: string, init: RequestInit = {}) {
+async function fetchWithAuth(
+  input: string,
+  init: RequestInit = {},
+  fallbackMessage = 'Không thể xử lý yêu cầu đánh dấu',
+) {
   const token = authService.getAccessToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -20,22 +24,27 @@ async function fetchWithAuth(input: string, init: RequestInit = {}) {
   };
   const res = await fetchWithRetry(input, { ...init, headers });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `bookmark request failed (${res.status})`);
+    // Keep the UI copy Vietnamese; the HTTP status is enough context here.
+    throw new Error(`${fallbackMessage} (${res.status})`);
   }
   return unwrapApiResponse<any>(await res.json());
 }
 
 export const bookmarkService = {
   /** GET /api/bookmarks — trả về { items: Bookmark[] } (đã join title). */
-  list: (): Promise<{ items: Bookmark[] }> => fetchWithAuth('/api/bookmarks'),
+  list: (): Promise<{ items: Bookmark[] }> =>
+    fetchWithAuth('/api/bookmarks', {}, 'Không thể tải mục đã lưu'),
 
   /** POST /api/bookmarks — toggle. */
   toggle: (target_type: string, target_id: string): Promise<{ bookmarked: boolean }> =>
-    fetchWithAuth('/api/bookmarks', {
-      method: 'POST',
-      body: JSON.stringify({ target_type, target_id }),
-    }),
+    fetchWithAuth(
+      '/api/bookmarks',
+      {
+        method: 'POST',
+        body: JSON.stringify({ target_type, target_id }),
+      },
+      'Không thể cập nhật mục đã lưu',
+    ),
 };
 
 const LABEL: Record<string, string> = {

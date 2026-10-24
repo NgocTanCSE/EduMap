@@ -5,7 +5,11 @@ import { unwrapApiResponse } from '@/src/lib/api-utils';
 const API_BASE_URL = '/api/certificates';
 
 class CertificateService {
-  private async fetchWithAuth(url: string, options: RequestInit = {}) {
+  private async fetchWithAuth(
+    url: string,
+    options: RequestInit = {},
+    fallbackMessage = 'Không thể xử lý yêu cầu chứng chỉ',
+  ) {
     const accessToken = authService.getAccessToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -15,14 +19,18 @@ class CertificateService {
 
     const response = await fetchWithRetry(url, { ...options, headers });
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'API request failed');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || fallbackMessage);
     }
     return unwrapApiResponse<any>(await response.json());
   }
 
   async getPortfolio() {
-    return this.fetchWithAuth(`${API_BASE_URL}/portfolio`);
+    return this.fetchWithAuth(
+      `${API_BASE_URL}/portfolio`,
+      {},
+      'Không thể tải chứng chỉ',
+    );
   }
 
   async verifyCertificate(code: string) {

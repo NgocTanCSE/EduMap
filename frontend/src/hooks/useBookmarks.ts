@@ -17,6 +17,8 @@ const listeners = new Set<() => void>();
 export function useBookmarks() {
   const { isLoggedIn, loading: authLoading } = useAuth();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(cache ?? []);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const sync = useCallback((next: Bookmark[]) => {
     cache = next;
@@ -26,30 +28,43 @@ export function useBookmarks() {
 
   const fetchBookmarks = useCallback(async (): Promise<Bookmark[] | null> => {
     if (!isLoggedIn) return null;
-    if (cache) return cache;
-    if (inflight) return inflight;
-    inflight = bookmarkService
-      .list()
-      .then((r: any) => {
-        // Accept both `{ items: [...] }` and a raw array so a BFF/rewrite shape
-        // mismatch can never put a non-array into the shared cache.
-        const next: Bookmark[] = Array.isArray(r?.items)
-          ? r.items
-          : Array.isArray(r)
-            ? r
-            : [];
-        cache = next;
-        inflight = null;
-        listeners.forEach((l) => l());
-        return next;
-      })
-      .catch((e) => {
-        inflight = null;
-        throw e;
-      });
+    if (cache) {
+      setLoaded(true);
+      return cache;
+    }
+    // A retry (or first load after login) must show the loading state again
+    // instead of leaving a stale error panel on screen.
+    setLoaded(false);
+    setError(null);
+    if (!inflight) {
+      inflight = bookmarkService
+        .list()
+        .then((r: any) => {
+          // Accept both `{ items: [...] }` and a raw array so a BFF/rewrite shape
+          // mismatch can never put a non-array into the shared cache.
+          const next: Bookmark[] = Array.isArray(r?.items)
+            ? r.items
+            : Array.isArray(r)
+              ? r
+              : [];
+          cache = next;
+          listeners.forEach((l) => l());
+          return next;
+        })
+        .finally(() => {
+          inflight = null;
+        });
+    }
+
     try {
-      return await inflight;
-    } catch {
+      const next = await inflight;
+      setLoaded(true);
+      setError(null);
+      return next;
+    } catch (e: any) {
+      // A failed request must not leave the UI spinning forever.
+      setLoaded(true);
+      setError(e?.message || 'Không thể tải mục đã lưu');
       return null;
     }
   }, [isLoggedIn]);
@@ -83,10 +98,13 @@ export function useBookmarks() {
     if (!isLoggedIn) {
       cache = null;
       setBookmarks([]);
+      setLoaded(true);
+      setError(null);
       return;
     }
     if (cache) {
       setBookmarks(cache);
+      setLoaded(true);
       return;
     }
     let cancelled = false;
@@ -107,5 +125,12 @@ export function useBookmarks() {
     };
   }, []);
 
-  return { bookmarks, loading: isLoggedIn && !authLoading && !cache, toggle, has, refresh: fetchBookmarks };
+  return {
+    bookmarks,
+    loading: isLoggedIn && !authLoading && !loaded && !cache,
+    error,
+    toggle,
+    has,
+    refresh: fetchBookmarks,
+  };
 }
