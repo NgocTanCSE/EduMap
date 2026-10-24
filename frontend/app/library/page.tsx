@@ -88,9 +88,9 @@ export default function LibraryPage() {
             <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao</p>
           </div>
           <div className="flex gap-3">
-            {/* "Đã lưu" → mở trang chi tiết từng mục đã lưu ở bảng điều khiển */}
+            {/* "Đã lưu" → mở tab Đã lưu trong mục Hoạt động của tôi ở dashboard */}
             <Link
-              href="/dashboard/saved"
+              href="/dashboard#da-luu"
               className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all"
             >
               <Bookmark className="w-4 h-4" /> Đã lưu

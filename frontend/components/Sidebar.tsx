@@ -113,7 +113,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Cá nhân',
     items: [
-      { name: 'Hoạt động của tôi', href: '/dashboard/saved', icon: Bookmark },
+      { name: 'Hoạt động của tôi', href: '/dashboard#da-luu', icon: Bookmark },
       { name: 'Lưu trữ', href: '/storage', icon: FolderOpen },
       { name: 'Chứng chỉ', href: '/certificates', icon: Award },
       { name: 'Thông báo', href: '/notifications', icon: Bell },

@@ -15,9 +15,13 @@ import {
   Heart,
   History,
   CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
+import { useBookmarks } from "@/src/hooks/useBookmarks";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
+import { bookmarkLabel, targetUrl, type Bookmark } from "@/src/services/bookmark.service";
 
 type HistoryItem = { type: string; title: string | null; status: string; created_at: string };
 
@@ -40,13 +44,17 @@ const HISTORY_LABEL: Record<string, string> = {
  *  2. Quick stats: learning materials, skills, community, certificates.
  *  3. Engagement recap: upcoming mentoring slots + today's AI insight
  *     (best-effort: hidden gracefully if the dashboard BFF / AI service is down).
+ *  4. "Hoạt động của tôi": merged saved-items + registration/application history
+ *     (the old /dashboard/saved page now redirects here).
  */
 export default function DashboardPage() {
   const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
+  const { bookmarks, loading: bmLoading } = useBookmarks();
   const [overview, setOverview] = useState<any>(null);
   const [insight, setInsight] = useState<any>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [histLoading, setHistLoading] = useState(false);
+  const [tab, setTab] = useState<'saved' | 'history'>('history');
 
   useEffect(() => {
     if (authLoading || !isLoggedIn) return;
@@ -85,6 +93,21 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [authLoading, isLoggedIn]);
+
+  // Deep-link support for the merged "Đã lưu" tab: /dashboard#da-luu
+  useEffect(() => {
+    const applyHash = () => {
+      if (window.location.hash !== '#da-luu') return;
+      setTab('saved');
+      requestAnimationFrame(() => {
+        document.getElementById('hoat-dong')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    };
+
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, []);
 
   if (authLoading) {
     return (
@@ -172,13 +195,18 @@ export default function DashboardPage() {
           >
             <Settings className="h-3.5 w-3.5" /> Đổi mật khẩu
           </Link>
-          <Link
-            href="/dashboard/saved"
+          <button
+            type="button"
+            onClick={() => {
+              setTab('saved');
+              document.getElementById('hoat-dong')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
           >
             <Heart className="h-3.5 w-3.5 text-primary/70" /> Mục đã lưu
-          </Link>
+          </button>
           <button
+            type="button"
             onClick={() => logout()}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-4 text-sm font-medium text-foreground hover:bg-muted"
           >
@@ -269,39 +297,123 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {/* ===== Lịch sử hoạt động (moved from /dashboard/saved) ===== */}
-      <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
+      {/* ===== Hoạt động của tôi: Đã lưu + Lịch sử (merged from /dashboard/saved) ===== */}
+      <section id="hoat-dong" className="scroll-mt-6 rounded-lg border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <History className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold tracking-tight">Hoạt động của tôi</h2>
         </div>
-        {histLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-border">
+          <button
+            type="button"
+            onClick={() => setTab('saved')}
+            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+              tab === 'saved'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Đã lưu
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('history')}
+            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+              tab === 'history'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Lịch sử đăng ký / ứng tuyển
+          </button>
+        </div>
+
+        {/* ===== Đã lưu ===== */}
+        {tab === 'saved' && (
+          <div className="pt-4">
+            {bmLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+              </div>
+            ) : bookmarks.length === 0 ? (
+              <p className="text-sm text-muted-foreground/60">
+                Bạn chưa lưu mục nào. Nhấn tim ở thẻ chi tiết/bản ghi để lưu tại đây.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
+                {bookmarks.map((b: Bookmark) => {
+                  const url = targetUrl(b.target_type, b.target_id);
+                  return (
+                    <li key={`${b.target_type}:${b.target_id}`} className="flex items-center justify-between gap-3 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground/90 truncate">
+                          {b.title || b.target_id}
+                        </p>
+                        <p className="text-xs text-muted-foreground/60">
+                          {bookmarkLabel(b.target_type)} ·{' '}
+                          <CalendarDays className="inline h-3 w-3" />
+                          {new Date(b.created_at).toLocaleDateString('vi-VN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {url && (
+                          <Link
+                            href={url}
+                            className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                          >
+                            <ExternalLink className="inline h-3 w-3" /> Xem
+                          </Link>
+                        )}
+                        <BookmarkButton
+                          targetType={b.target_type}
+                          targetId={b.target_id}
+                          size="md"
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-        ) : history.length === 0 ? (
-          <p className="text-sm text-muted-foreground/60">
-            Chưa có lịch sử đăng ký hay ứng tuyển nào.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
-            {history.map((h: HistoryItem, i: number) => (
-              <li key={`${h.type}:${h.title ?? i}`} className="flex items-center justify-between gap-3 p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground/90 truncate">
-                    {h.title || '---'}
-                  </p>
-                  <p className="text-xs text-muted-foreground/60">
-                    {HISTORY_LABEL[h.type] || h.type} · trạng thái: {h.status}
-                  </p>
-                </div>
-                <CalendarDays className="h-4 w-4 text-muted-foreground/50" />
-                <span className="text-xs text-muted-foreground/60">
-                  {new Date(h.created_at).toLocaleDateString('vi-VN')}
-                </span>
-              </li>
-            ))}
-          </ul>
+        )}
+
+        {/* ===== Lịch sử ===== */}
+        {tab === 'history' && (
+          <div className="pt-4">
+            {histLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+              </div>
+            ) : history.length === 0 ? (
+              <p className="text-sm text-muted-foreground/60">
+                Chưa có lịch sử đăng ký hay ứng tuyển nào.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border rounded-lg border border-border bg-background/40">
+                {history.map((h: HistoryItem, i: number) => (
+                  <li key={`${h.type}:${h.title ?? i}`} className="flex items-center justify-between gap-3 p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground/90 truncate">
+                        {h.title || '---'}
+                      </p>
+                      <p className="text-xs text-muted-foreground/60">
+                        {HISTORY_LABEL[h.type] || h.type} · trạng thái: {h.status}
+                      </p>
+                    </div>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground/50" />
+                    <span className="text-xs text-muted-foreground/60">
+                      {new Date(h.created_at).toLocaleDateString('vi-VN')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </section>
     </main>

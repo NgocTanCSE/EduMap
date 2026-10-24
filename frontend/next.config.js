@@ -68,6 +68,17 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+  // `/dashboard/saved` was merged into `/dashboard` (tab "Đã lưu"). Keep old
+  // bookmarks/links working by redirecting to the merged section.
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/saved',
+        destination: '/dashboard#da-luu',
+        permanent: false,
+      },
+    ];
+  },
   // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
   // `/api/auth/login`, `/api/map/...`, etc. The BFF route handlers in
   // `app/api/*` (notably `/api/ai/chat`, `/api/ai/history`,
