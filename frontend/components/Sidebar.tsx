@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -10,7 +10,6 @@ import {
   Users,
   BrainCircuit,
   GraduationCap,
-  Bell,
   Wifi,
   Atom,
   Leaf,
@@ -31,10 +30,7 @@ import {
   MessagesSquare,
   Store,
   HandHeart,
-  FolderOpen,
-  Award,
   Medal,
-  Bookmark,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
@@ -110,72 +106,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { name: 'Quyên góp', href: '/donate', icon: HandHeart },
     ],
   },
-  {
-    label: 'Cá nhân',
-    items: [
-      { name: 'Hoạt động của tôi', href: '/dashboard#hoat-dong', icon: Bookmark },
-      { name: 'Lưu trữ', href: '/dashboard#luu-tru', icon: FolderOpen },
-      { name: 'Chứng chỉ', href: '/dashboard#chung-chi', icon: Award },
-      { name: 'Thông báo', href: '/dashboard#thong-bao', icon: Bell },
-    ],
-  },
 ];
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon;
-  const className = `flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
-    active
-      ? 'text-primary bg-primary/10 font-semibold'
-      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-  }`;
-  const content = (
-    <>
-      <Icon
-        className={`w-4 h-4 shrink-0 ${
-          active ? 'text-primary' : 'text-muted-foreground/70 group-hover:text-primary'
-        }`}
-      />
-      <span className="truncate">{item.name}</span>
-      {active && <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />}
-    </>
-  );
-
-  // Hash links (e.g. /dashboard#luu-tru) must be real anchors so the browser
-  // fires `hashchange` even when the user is already on /dashboard.
-  if (item.href.includes('#')) {
-    return (
-      <a
-        href={item.href}
-        aria-current={active ? 'page' : undefined}
-        className={className}
-        title={item.name}
-      >
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      aria-current={active ? 'page' : undefined}
-      className={className}
-      title={item.name}
-    >
-      {content}
-    </Link>
-  );
-}
-
-function NavGroup({
-  group,
-  activeHref,
-  activeHash,
-}: {
-  group: NavGroup;
-  activeHref: string;
-  activeHash: string;
-}) {
+function NavGroup({ group, activeHref }: { group: NavGroup; activeHref: string }) {
   return (
     <div className="mb-5">
       <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/50">
@@ -183,18 +116,31 @@ function NavGroup({
       </p>
       <nav className="space-y-0.5">
         {group.items.map((item) => {
-          const [itemPath, itemHash] = item.href.split('#');
-          // Only the most specific route is highlighted. Hash items are
-          // highlighted only when their hash matches the current URL. The
-          // "Hoạt động của tôi" item also covers its two sub-tabs (#da-luu,
-          // #lich-su).
-          const hashMatches = itemHash
-            ? itemHash === 'hoat-dong'
-              ? ['#hoat-dong', '#da-luu', '#lich-su'].includes(activeHash)
-              : activeHash === `#${itemHash}`
-            : activeHash === '';
-          const active = itemPath === activeHref && hashMatches;
-          return <NavLink key={item.href} item={item} active={active} />;
+          const Icon = item.icon;
+          // Only the most specific route is highlighted. Without this, visiting
+          // /career/roadmap would also mark the parent /career item as active.
+          const active = item.href === activeHref;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
+                active
+                  ? 'text-primary bg-primary/10 font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+              title={item.name}
+            >
+              <Icon
+                className={`w-4 h-4 shrink-0 ${
+                  active ? 'text-primary' : 'text-muted-foreground/70 group-hover:text-primary'
+                }`}
+              />
+              <span className="truncate">{item.name}</span>
+              {active && <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />}
+            </Link>
+          );
         })}
       </nav>
     </div>
@@ -289,20 +235,11 @@ function AccountSection() {
 
 export default function Sidebar() {
   const pathname = usePathname() || '';
-  const [activeHash, setActiveHash] = useState('');
-
-  useEffect(() => {
-    const updateHash = () => setActiveHash(window.location.hash);
-    updateHash();
-    window.addEventListener('hashchange', updateHash);
-    return () => window.removeEventListener('hashchange', updateHash);
-  }, []);
 
   // Pick the longest matching href so nested pages (e.g. /career/roadmap)
-  // highlight only their own item, not every ancestor item. Hash links are
-  // compared by pathname; the hash is handled separately in NavGroup.
+  // highlight only their own item, not every ancestor item.
   const activeHref =
-    NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href.split('#')[0]))
+    NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href))
       .filter((href) => pathname === href || pathname.startsWith(href + '/'))
       .sort((a, b) => b.length - a.length)[0] || '';
 
@@ -321,12 +258,7 @@ export default function Sidebar() {
       {/* Nav — scrollable, keeps the brand/account block pinned */}
       <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
         {NAV_GROUPS.map((group) => (
-          <NavGroup
-            key={group.label}
-            group={group}
-            activeHref={activeHref}
-            activeHash={activeHash}
-          />
+          <NavGroup key={group.label} group={group} activeHref={activeHref} />
         ))}
       </div>
 
