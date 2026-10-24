@@ -19,7 +19,7 @@ import {
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
 
-type HistoryItem = { type: string; title: string | null; status: string; created_at: Date };
+type HistoryItem = { type: string; title: string | null; status: string; created_at: string };
 
 const HISTORY_LABEL: Record<string, string> = {
   application: 'Việc làm đã ứng tuyển',
@@ -72,7 +72,7 @@ export default function DashboardPage() {
     dashboardService
       .getHistory()
       .then((data) => {
-        if (!cancelled) setHistory(data?.items ?? data ?? []);
+        if (!cancelled) setHistory(Array.isArray(data) ? data : []);
       })
       .catch(() => {
         if (!cancelled) setHistory([]);
@@ -118,7 +118,9 @@ export default function DashboardPage() {
   }
 
   const stats = overview?.stats ?? {};
-  const mentoring = overview?.upcoming_mentoring ?? [];
+  const mentoring = Array.isArray(overview?.upcoming_mentoring)
+    ? overview.upcoming_mentoring
+    : [];
 
   const STAT_CARDS = [
     { title: "Học liệu", value: stats.learning_materials ?? 0, icon: BookOpen },

@@ -8,7 +8,7 @@ import { dashboardService } from '@/reporting/services/dashboard.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { bookmarkLabel, targetUrl, type Bookmark } from '@/src/services/bookmark.service';
 
-type HistoryItem = { type: string; title: string | null; status: string; created_at: Date };
+type HistoryItem = { type: string; title: string | null; status: string; created_at: string };
 
 const HISTORY_LABEL: Record<string, string> = {
   application: 'Việc làm đã ứng tuyển',
@@ -32,7 +32,7 @@ export default function SavedPage() {
     dashboardService
       .getHistory()
       .then((data) => {
-        if (!cancelled) setHistory(data?.items ?? data ?? []);
+        if (!cancelled) setHistory(Array.isArray(data) ? data : []);
       })
       .catch(() => setHistory([]))
       .finally(() => !cancelled && setHistLoading(false));

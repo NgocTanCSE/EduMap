@@ -30,11 +30,18 @@ export function useBookmarks() {
     if (inflight) return inflight;
     inflight = bookmarkService
       .list()
-      .then((r) => {
-        cache = r.items ?? [];
+      .then((r: any) => {
+        // Accept both `{ items: [...] }` and a raw array so a BFF/rewrite shape
+        // mismatch can never put a non-array into the shared cache.
+        const next: Bookmark[] = Array.isArray(r?.items)
+          ? r.items
+          : Array.isArray(r)
+            ? r
+            : [];
+        cache = next;
         inflight = null;
         listeners.forEach((l) => l());
-        return cache;
+        return next;
       })
       .catch((e) => {
         inflight = null;
