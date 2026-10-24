@@ -7,7 +7,7 @@ export class CreateBookmarkDto {
     enum: BookmarkTargetType,
     example: BookmarkTargetType.JOB,
     description:
-      'Loại nội dung được đánh dấu (poi | internships | scholarships | job | event | lab | community_post | marketplace_product | library_item | mentor | donate_campaign | green | wifi | summer | hackathon)',
+      'Loại nội dung được đánh dấu (poi | internships | scholarships | job | event | opportunity | lab | community_post | marketplace_product | marketplace_service | shared_item | library_item | mentor | donate_campaign | green | wifi | summer | hackathon)',
   })
   @IsEnum(BookmarkTargetType)
   @IsNotEmpty()

@@ -1,16 +1,18 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { BookOpen, MapPin, Search, Filter, Loader2, Share2, Plus, MessageSquare, Box } from 'lucide-react';
+import { BookOpen, Search, Loader2, Share2, Plus, MessageSquare, Box } from 'lucide-react';
 import { shareService, SharedItem } from '@/src/services/share.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { marketplaceIllustration } from '@/src/lib/illustrations';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
 
 export default function ShareMarketplacePage() {
   const [items, setItems] = useState<SharedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
 
@@ -24,20 +26,39 @@ export default function ShareMarketplacePage() {
   const [requestMessage, setRequestMessage] = useState('');
   const [requesting, setRequesting] = useState(false);
 
+  // `/marketplace/books` redirects here with `?category=book`, so the books
+  // filter is deep-linkable instead of living on a separate duplicate page.
+  // Adopt the URL filter on the first render without firing an extra request
+  // for the unfiltered list first.
   useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get('category') || '';
+    if (activeCategory === '' && ['book', 'tool', 'electronic'].includes(initial)) {
+      setActiveCategory(initial);
+      return;
+    }
     fetchItems();
   }, [activeCategory]);
 
   const fetchItems = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await shareService.getItems(activeCategory || undefined);
       setItems((data as any).data || (Array.isArray(data) ? data : []) || []);
-    } catch (error: any) {
+    } catch (err: any) {
+      setError(err?.message || 'Không thể tải danh sách tài liệu.');
       toast.error('Không thể tải danh sách tài liệu');
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectCategory = (category: string) => {
+    setActiveCategory(category);
+    const url = new URL(window.location.href);
+    if (category) url.searchParams.set('category', category);
+    else url.searchParams.delete('category');
+    window.history.replaceState(null, '', url.toString());
   };
 
   const handleShareSubmit = async (e: React.FormEvent) => {
@@ -89,10 +110,13 @@ export default function ShareMarketplacePage() {
       }
   };
 
-  const filteredItems = items.filter(i => 
-      i.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      i.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = items.filter((item) => {
+      const needle = searchTerm.trim().toLowerCase();
+      if (!needle) return true;
+      return [item.name, item.description, item.owner?.full_name]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle));
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground p-8">
@@ -186,7 +210,8 @@ export default function ShareMarketplacePage() {
       )}
 
       <div className="w-full mx-auto space-y-8">
-        
+        <MarketplaceNav />
+
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10">
@@ -213,8 +238,9 @@ export default function ShareMarketplacePage() {
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
             <input 
-              type="text" 
-              placeholder="Tìm kiếm sách, học cụ..." 
+              type="search"
+              placeholder="Tìm kiếm sách, học cụ..."
+              aria-label="Tìm kiếm tài liệu chia sẻ"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-card border border-border rounded-lg py-4 pl-12 pr-4 outline-none focus:border-pink-500 transition-colors" 
@@ -229,7 +255,9 @@ export default function ShareMarketplacePage() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveCategory(tab.id)}
+                type="button"
+                aria-pressed={activeCategory === tab.id}
+                onClick={() => selectCategory(tab.id)}
                 className={`px-6 py-4 rounded-lg border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                   activeCategory === tab.id 
                     ? 'bg-pink-600 border-pink-500 text-white' 
@@ -245,11 +273,22 @@ export default function ShareMarketplacePage() {
         {/* Items List */}
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-pink-500 animate-spin" /></div>
+        ) : error ? (
+          <div role="alert" className="text-center py-12 bg-card border border-destructive/30 rounded-lg">
+            <p className="text-sm text-destructive">{error}</p>
+            <button
+              type="button"
+              onClick={fetchItems}
+              className="mt-4 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/80 transition-colors"
+            >
+              Thử lại
+            </button>
+          </div>
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map(item => (
               <div key={item.id} className="relative p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-pink-500/30 transition-colors group">
-                <BookmarkButton targetType="marketplace_product" targetId={item.id} size="sm" className="absolute top-3 right-3 z-20" />
+                <BookmarkButton targetType="shared_item" targetId={item.id} size="sm" className="absolute top-3 right-3 z-20" />
                 <div className="-mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl border-b border-border">
                   <Thumb
                     src={marketplaceIllustration(item.category)}
@@ -272,7 +311,7 @@ export default function ShareMarketplacePage() {
                     </span>
                     <h3 className="text-lg font-bold mb-2 group-hover:text-pink-400 transition-colors line-clamp-2">{item.name}</h3>
                     <p className="text-sm text-muted-foreground/60 line-clamp-3 leading-relaxed">
-                        {item.description}
+                        {item.description?.trim() || 'Người chia sẻ chưa thêm mô tả.'}
                     </p>
                 </div>
 
@@ -290,7 +329,20 @@ export default function ShareMarketplacePage() {
         ) : (
             <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <BookOpen className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                <p className="text-muted-foreground/40">Chưa có tài liệu nào trong chuyên mục này.</p>
+                <p className="text-muted-foreground/40">
+                  {searchTerm.trim()
+                    ? 'Không tìm thấy tài liệu phù hợp với từ khóa.'
+                    : 'Chưa có tài liệu nào trong chuyên mục này.'}
+                </p>
+                {searchTerm.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="mt-4 text-sm font-semibold text-primary hover:underline"
+                  >
+                    Xóa từ khóa
+                  </button>
+                )}
             </div>
         )}
 

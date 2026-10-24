@@ -16,9 +16,12 @@ const TITLE_JOINS: Record<string, { table: string; label: string }> = {
   poi: { table: 'map_points', label: 'name' },
   job: { table: 'jobs', label: 'title' },
   event: { table: 'events', label: 'title' },
+  opportunity: { table: 'opportunities', label: 'title' },
   internships: { table: 'internships', label: 'title' },
   scholarships: { table: 'scholarships', label: 'title' },
   marketplace_product: { table: 'products', label: 'name' },
+  marketplace_service: { table: 'business_services', label: 'name' },
+  shared_item: { table: 'shared_items', label: 'name' },
   // 'mentor' bỏ qua: bảng mentors chưa có cột id trên sqlite → sẽ rơi xuống
   // nhánh fallback trả về title = NULL (FE hiển thị target_id). Thêm lại khi
   // mentors có bảng hoàn chỉnh. try/catch nên loại này cũng không bánk endpoint.
