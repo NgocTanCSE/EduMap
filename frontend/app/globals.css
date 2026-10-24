@@ -192,3 +192,13 @@ html {
 .border-border {
   border-color: hsl(var(--border));
 }
+
+/* Mobile app shell: the sticky 56px header already occupies part of the
+   viewport, so page roots using `min-h-screen` should fill the remaining
+   space instead of forcing an extra 56px of empty scroll. Scoped to the
+   in-app content column so full-screen pages keep their 100vh layout. */
+@media (max-width: 1023px) {
+  #app-content .min-h-screen {
+    min-height: calc(100dvh - 3.5rem);
+  }
+}

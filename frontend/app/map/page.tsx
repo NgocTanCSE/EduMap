@@ -20,7 +20,7 @@ import { unwrapApiResponse } from '@/src/lib/api-utils';
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
   ssr: false,
   loading: () => (
-    <div className="h-screen w-full flex items-center justify-center bg-background">
+    <div className="h-[calc(100dvh-3.5rem)] w-full flex items-center justify-center bg-background lg:h-screen">
       <span className="text-muted-foreground">Đang tải bản đồ…</span>
     </div>
   ),
@@ -509,7 +509,7 @@ export default function MapPage() {
   if (!user) return null;
 
   return (
-    <div className="relative h-screen w-full bg-background overflow-hidden">
+    <div className="relative h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:h-screen">
       {/* Top toolbar — map-specific controls (search + category chips) kept clear of the global w-60 sidebar. The nav rail + account block now come from the global <Sidebar/> (via AppLayout), so /map shares the exact same left chrome as /dashboard. */}
       <div className="absolute top-4 left-0 z-50 flex items-center gap-3 bg-card/95 border border-border rounded-xl px-3 py-2 shadow-lg backdrop-blur-sm">
         <div className="relative">

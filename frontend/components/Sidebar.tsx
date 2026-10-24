@@ -31,6 +31,7 @@ import {
   Store,
   HandHeart,
   Medal,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
@@ -108,7 +109,15 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-function NavGroup({ group, activeHref }: { group: NavGroup; activeHref: string }) {
+function NavGroup({
+  group,
+  activeHref,
+  onNavigate,
+}: {
+  group: NavGroup;
+  activeHref: string;
+  onNavigate?: () => void;
+}) {
   return (
     <div className="mb-5">
       <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/50">
@@ -125,6 +134,7 @@ function NavGroup({ group, activeHref }: { group: NavGroup; activeHref: string }
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
+              onClick={onNavigate}
               className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
                 active
                   ? 'text-primary bg-primary/10 font-semibold'
@@ -147,7 +157,7 @@ function NavGroup({ group, activeHref }: { group: NavGroup; activeHref: string }
   );
 }
 
-function AccountSection() {
+function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isLoggedIn, loading, logout } = useAuth();
 
   // Hydration-safe: auth state is resolved from localStorage inside an effect, so the
@@ -181,6 +191,7 @@ function AccountSection() {
       <div className="p-4 border-t border-border">
         <Link
           href="/auth/login"
+          onClick={onNavigate}
           className="flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors"
         >
           <User className="w-4 h-4" />
@@ -214,6 +225,7 @@ function AccountSection() {
       <div className="flex gap-2 pt-1">
         <Link
           href="/profile"
+          onClick={onNavigate}
           className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium rounded-lg bg-muted/40 hover:bg-muted text-foreground transition-colors"
           title="Hồ sơ"
         >
@@ -221,7 +233,10 @@ function AccountSection() {
           Hồ sơ
         </Link>
         <button
-          onClick={() => logout()}
+          onClick={() => {
+            logout();
+            onNavigate?.();
+          }}
           className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-semibold rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
           title="Đăng xuất"
         >
@@ -233,8 +248,21 @@ function AccountSection() {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname() || '';
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  // Move focus into the drawer when it opens so keyboard users are not left
+  // tabbing through the page behind the backdrop.
+  React.useEffect(() => {
+    if (mobileOpen) closeButtonRef.current?.focus();
+  }, [mobileOpen]);
 
   // Pick the longest matching href so nested pages (e.g. /career/roadmap)
   // highlight only their own item, not every ancestor item.
@@ -244,26 +272,62 @@ export default function Sidebar() {
       .sort((a, b) => b.length - a.length)[0] || '';
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-card border-r border-border shadow-lg">
-      {/* Brand */}
-      <div className="p-4 border-b border-border">
-        <Link href="/" className="flex items-center gap-2.5 text-lg font-semibold text-foreground">
-          <EduMapLogo className="h-7 w-7 text-primary" />
-          <span>
-            Edu<span className="text-primary">Map</span>
-          </span>
-        </Link>
-      </div>
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Nav — scrollable, keeps the brand/account block pinned */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
-        {NAV_GROUPS.map((group) => (
-          <NavGroup key={group.label} group={group} activeHref={activeHref} />
-        ))}
-      </div>
+      <aside
+        id="app-sidebar"
+        role={mobileOpen ? 'dialog' : undefined}
+        aria-modal={mobileOpen || undefined}
+        aria-label="Điều hướng chính"
+        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-card border-r border-border shadow-lg transition-transform duration-200 ease-out lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full max-lg:invisible'
+        }`}
+      >
+        {/* Brand */}
+        <div className="p-4 border-b border-border flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            onClick={onClose}
+            className="flex items-center gap-2.5 text-lg font-semibold text-foreground"
+          >
+            <EduMapLogo className="h-7 w-7 text-primary" />
+            <span>
+              Edu<span className="text-primary">Map</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            ref={closeButtonRef}
+            onClick={onClose}
+            aria-label="Đóng menu điều hướng"
+            className="lg:hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-      {/* Account (avatar / profile / logout) */}
-      <AccountSection />
-    </aside>
+        {/* Nav — scrollable, keeps the brand/account block pinned */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
+          {NAV_GROUPS.map((group) => (
+            <NavGroup
+              key={group.label}
+              group={group}
+              activeHref={activeHref}
+              onNavigate={onClose}
+            />
+          ))}
+        </div>
+
+        {/* Account (avatar / profile / logout) */}
+        <AccountSection onNavigate={onClose} />
+      </aside>
+    </>
   );
 }

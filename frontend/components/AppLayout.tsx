@@ -1,8 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Menu } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
+import { EduMapLogo } from '@/components/ui/Logo';
 
 /**
  * Full-height / full-screen experiences paint their own chrome and must NOT
@@ -21,6 +24,39 @@ const FULL_SCREEN_PREFIXES = ['/auth', '/admin', '/mentor/call'];
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const isFullScreen = pathname === '/' || FULL_SCREEN_PREFIXES.some((p) => pathname.startsWith(p));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the drawer whenever the route changes (including link clicks inside
+  // the drawer that navigate to the same pathname).
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Lock background scrolling and support Escape while the mobile drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileOpen]);
+
+  // If the viewport grows past the mobile breakpoint while the drawer is open,
+  // drop the open state so the scroll lock/backdrop do not linger.
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => {
+      if (media.matches) setMobileOpen(false);
+    };
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   // Full-screen pages render their children directly (no chrome).
   if (isFullScreen) {
@@ -29,11 +65,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      {/* `ml-60` leaves room for the fixed w-60 sidebar. A plain <div> (not
-          <main>) is used because individual pages already render their own
-          <main>; nesting <main> in <main> is invalid HTML. */}
-      <div className="flex-1 min-h-screen ml-60 bg-background">{children}</div>
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+
+      {/* `lg:ml-60` leaves room for the fixed w-60 sidebar on desktop. On
+          mobile the sidebar becomes an off-canvas drawer and the content
+          takes the full width. A plain <div> (not <main>) is used because
+          individual pages already render their own <main>; nesting <main>
+          in <main> is invalid HTML. */}
+      <div className="flex min-h-screen flex-1 flex-col bg-background lg:ml-60">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Mở menu điều hướng"
+            aria-expanded={mobileOpen}
+            aria-controls="app-sidebar"
+            className="rounded-lg border border-border bg-card p-2 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link href="/" className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <EduMapLogo className="h-6 w-6 text-primary" />
+            <span>
+              Edu<span className="text-primary">Map</span>
+            </span>
+          </Link>
+        </header>
+
+        <div id="app-content" className="flex-1">{children}</div>
+      </div>
     </div>
   );
 }
