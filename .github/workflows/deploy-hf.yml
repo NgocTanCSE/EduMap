@@ -168,8 +168,10 @@ jobs:
               # OSRM data (1.3MB .pbf, not needed by Docker build)
               'osrm-data/**',
               # Binary document/image files
+              # NOTE: *.svg is intentionally NOT excluded — SVGs are text and
+              # power the local illustrations + default avatar/content images.
               '*.doc', '*.docx', '*.pdf',
-              '*.png', '*.jpg', '*.jpeg', '*.gif', '*.bmp', '*.ico', '*.svg',
+              '*.png', '*.jpg', '*.jpeg', '*.gif', '*.bmp', '*.ico',
               # Spreadsheets & diagrams
               '*.xlsx', '*.xls', '*.ppt', '*.pptm', '*.puml',
               # Binary data & archives
