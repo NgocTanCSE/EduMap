@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { adminService, User } from '@/reporting/services/admin.service';
+import { toast } from 'sonner';
 import { 
   Users, Search, MoreVertical, CheckCircle, XCircle, 
   AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter
@@ -44,9 +45,12 @@ export default function AdminUsersPage() {
     if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái người dùng sang ${status}?`)) return;
     try {
       await adminService.updateUserStatus(userId, status);
+      toast.success('Đã cập nhật trạng thái người dùng.');
       fetchUsers(meta.page);
     } catch (error) {
-      alert('Cập nhật trạng thái thất bại');
+      toast.error(
+        error instanceof Error ? error.message : 'Cập nhật trạng thái thất bại',
+      );
     }
   };
 

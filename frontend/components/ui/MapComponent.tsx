@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
@@ -316,7 +317,10 @@ export default function InteractiveMap({
       }
     } catch (error) {
       console.error('Routing error:', error);
-      alert('Không thể tính lộ trình: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
+      toast.error(
+        'Không thể tính lộ trình: ' +
+          (error instanceof Error ? error.message : 'Lỗi không xác định'),
+      );
       setRouteGeometry(null);
       setRouteInfo(null);
     } finally {

@@ -2,12 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { 
-  MessageSquare, Heart, Share2, MoreHorizontal, 
+  MessageSquare, Heart, Share2,
   Search, Users, TrendingUp, Flame, ShieldAlert, FileText, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { communityService } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
+import { shareLink } from '@/src/lib/share';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
@@ -20,6 +21,8 @@ export default function CommunityPage() {
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Create Post State
   const [isCreating, setIsCreating] = useState(false);
@@ -27,18 +30,27 @@ export default function CommunityPage() {
   const [newContent, setNewContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Debounce the search box so typing does not fire a request per keystroke.
   useEffect(() => {
-    fetchPosts(selectedGroupId || undefined);
-  }, [page, selectedGroupId]);
+    const timer = window.setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    fetchPosts(selectedGroupId || undefined, searchTerm || undefined);
+  }, [page, selectedGroupId, searchTerm]);
 
   useEffect(() => {
     fetchGroups();
   }, []);
 
-  const fetchPosts = async (groupId?: string) => {
+  const fetchPosts = async (groupId?: string, search?: string) => {
     try {
       if (page === 1) setLoading(true);
-      const data = await communityService.getPosts(page, 10, groupId);
+      const data = await communityService.getPosts(page, 10, groupId, search);
       // Unwrap backend { success, data: { posts, total } } wrapper if present
       const payload = (data as any)?.data ?? data;
       const posts = payload.posts || [];
@@ -62,11 +74,13 @@ export default function CommunityPage() {
     const group = groups.find(g => `#${g.name?.replace(/\s+/g, '')}` === tag);
     if (group) {
       setSelectedGroupId(group.id);
+      setPage(1);
     }
   };
 
   const handleGroupClick = (groupId: string) => {
     setSelectedGroupId(groupId);
+    setPage(1);
   };
 
   const fetchGroups = async () => {
@@ -75,12 +89,20 @@ export default function CommunityPage() {
       setGroups(Array.isArray(groupsData) ? groupsData : []);
       // Extract trending tags from group names if available
       const tags = groupsData?.map((g: any) => `#${g.name?.replace(/\s+/g, '')}`).slice(0, 4) || [];
-      setTrendingTags(tags.length > 0 ? tags : ['#ChuaCoDuLieu', '#KetNoi', '#HocTap', '#ChiaSe']);
+      setTrendingTags(tags);
     } catch (error) {
       console.error("Lỗi fetch groups:", error);
       setGroups([]);
-      setTrendingTags(['#ChuaCoDuLieu', '#KetNoi', '#HocTap', '#ChiaSe']);
+      setTrendingTags([]);
     }
+  };
+
+  const handleSharePost = async (post: any) => {
+    await shareLink({
+      title: post.title,
+      text: `${post.title} — Cộng đồng EduMap`,
+      url: `${window.location.origin}/community/post/${post.id}`,
+    });
   };
 
   const handleCreatePost = async (e: React.FormEvent) => {
@@ -233,7 +255,6 @@ export default function CommunityPage() {
                                     </p>
                                 </div>
                             </div>
-                            <button className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-card/20"><MoreHorizontal size={18}/></button>
                             <BookmarkButton targetType="community_post" targetId={post.id} size="sm" />
                         </div>
 
@@ -258,7 +279,12 @@ export default function CommunityPage() {
                                 <MessageSquare size={18} /> 
                                 {post.comment_count}
                             </Link>
-                            <button className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold ml-auto">
+                            <button
+                                type="button"
+                                onClick={() => handleSharePost(post)}
+                                aria-label={`Chia sẻ bài viết ${post.title}`}
+                                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold ml-auto"
+                            >
                                 <Share2 size={18} />
                             </button>
                         </div>
@@ -276,7 +302,20 @@ export default function CommunityPage() {
                 </>
             ) : (
                 <div className="text-center py-12 bg-card/30 border border-dashed border-border rounded-xl">
-                    <p className="text-muted-foreground">Chưa có bài viết nào.</p>
+                    <p className="text-muted-foreground">
+                      {searchTerm
+                        ? 'Không tìm thấy bài viết phù hợp với từ khóa.'
+                        : 'Chưa có bài viết nào.'}
+                    </p>
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchInput('')}
+                        className="mt-4 text-sm font-semibold text-primary hover:underline"
+                      >
+                        Xóa tìm kiếm
+                      </button>
+                    )}
                 </div>
             )}
           </div>
@@ -288,8 +327,11 @@ export default function CommunityPage() {
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input 
-                        type="text" 
+                        type="search"
                         placeholder="Tìm kiếm nội dung..." 
+                        aria-label="Tìm kiếm bài viết cộng đồng"
+                        value={searchInput}
+                        onChange={(event) => setSearchInput(event.target.value)}
                         className="w-full bg-card/40 border border-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary text-sm"
                     />
                 </div>
@@ -298,14 +340,17 @@ export default function CommunityPage() {
                     <h3 className="font-bold text-sm text-muted-foreground/60 flex items-center gap-2 uppercase tracking-widest"><Flame size={16} className="text-primary"/> Xu hướng</h3>
                     <ul className="space-y-3">
                         {trendingTags.length > 0 ? trendingTags.map((tag, i) => (
-                            <li key={i} 
-                                className="text-sm text-muted-foreground/40 hover:text-primary/70 cursor-pointer transition-colors font-medium"
-                                onClick={() => handleTagClick(tag)}
-                            >
-                                {tag}
+                            <li key={i}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleTagClick(tag)}
+                                    className="text-sm text-muted-foreground/40 hover:text-primary/70 transition-colors font-medium text-left"
+                                >
+                                    {tag}
+                                </button>
                             </li>
                         )) : (
-                            <li className="text-sm text-muted-foreground italic">Đang tải xu hướng...</li>
+                            <li className="text-sm text-muted-foreground italic">Chưa có xu hướng.</li>
                         )}
                     </ul>
                 </div>
@@ -314,15 +359,17 @@ export default function CommunityPage() {
                     <h3 className="font-bold text-sm text-muted-foreground/60 flex items-center gap-2 uppercase tracking-widest"><Users size={16} className="text-primary"/> Nhóm nổi bật</h3>
                     <div className="space-y-3">
                         {groups.length > 0 ? groups.slice(0, 3).map((group, i) => (
-                            <div key={group.id || i} 
-                                className="flex items-center gap-3 group cursor-pointer"
+                            <button
+                                type="button"
+                                key={group.id || i}
+                                className="flex w-full items-center gap-3 group text-left"
                                 onClick={() => handleGroupClick(group.id)}
                             >
                                 <div className={`w-8 h-8 rounded-lg bg-card flex items-center justify-center text-xs font-semibold text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-all ${selectedGroupId === group.id ? 'bg-primary/20 text-primary' : ''}`}>
                                     {(group.name || 'G')[0]}
                                 </div>
                                 <span className={`text-sm text-muted-foreground/40 group-hover:text-foreground font-medium transition-colors ${selectedGroupId === group.id ? 'text-foreground font-bold' : ''}`}>{group.name}</span>
-                            </div>
+                            </button>
                         )) : (
                             <div className="text-sm text-muted-foreground italic">Chưa có nhóm nào</div>
                         )}

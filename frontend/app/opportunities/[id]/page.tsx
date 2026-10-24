@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { Target, MapPin, Calendar, Users, ArrowLeft, Loader2, Share2, Compass, Tag } from 'lucide-react';
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
 import { authService } from '@/src/services/auth.service';
+import { shareLink } from '@/src/lib/share';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import Thumb from '@/components/ui/Thumb';
 import { opportunityIllustration } from '@/src/lib/illustrations';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
     const oppId = params.id;
@@ -31,6 +33,15 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShare = async () => {
+    if (!opportunity) return;
+    await shareLink({
+      title: opportunity.title,
+      text: `Cơ hội: ${opportunity.title}`,
+      url: `${window.location.origin}/opportunities/${opportunity.id}`,
+    });
   };
 
   const handleToggleTeam = async () => {
@@ -92,9 +103,17 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
                     <span className="px-4 py-2 rounded-full bg-primary/20 text-primary/90 text-xs font-bold uppercase tracking-widest border border-primary/30">
                         {opportunity.category}
                     </span>
-                    <button className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors">
-                        <Share2 className="w-5 h-5 text-muted-foreground/60" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <BookmarkButton targetType="opportunity" targetId={opportunity.id} size="sm" />
+                        <button
+                            type="button"
+                            onClick={handleShare}
+                            aria-label="Chia sẻ cơ hội"
+                            className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors"
+                        >
+                            <Share2 className="w-5 h-5 text-muted-foreground/60" />
+                        </button>
+                    </div>
                 </div>
                 
                 <h1 className="text-3xl md:text-3xl font-semibold leading-tight">{opportunity.title}</h1>

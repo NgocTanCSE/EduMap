@@ -15,12 +15,14 @@ export class CommunityController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'group_id', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
   async getPosts(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('group_id') groupId?: string,
+    @Query('search') search?: string,
   ) {
-    return this.communityService.getPosts(page, limit, undefined, groupId);
+    return this.communityService.getPosts(page, limit, search, groupId);
   }
 
   @Post('posts')

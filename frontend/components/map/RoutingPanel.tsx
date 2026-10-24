@@ -1,6 +1,18 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, MapPin, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation } from 'lucide-react';
+import { toast } from 'sonner';
+
+/** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
+function parseCoordinate(value: string): { lat: number; lng: number } | null {
+  const match = value.trim().match(/^(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)$/);
+  if (!match) return null;
+  const lat = Number(match[1].replace(',', '.'));
+  const lng = Number(match[2].replace(',', '.'));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
 
 interface RoutingPanelProps {
   onGetRoute: (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, options: { avoidFlood: boolean; avoidTraffic: boolean; date?: string }) => void;
@@ -78,17 +90,34 @@ export default function RoutingPanel({
     }
   };
 
-  const handleOriginSearch = () => {
-    alert('Tìm kiếm địa điểm - tính năng sẽ thêm sau');
-  };
+  // Keep the text fields in sync when a point is picked on the map.
+  useEffect(() => {
+    if (origin) setOriginInput(`${origin.lat.toFixed(6)}, ${origin.lng.toFixed(6)}`);
+  }, [origin]);
 
-  const handleDestSearch = () => {
-    alert('Tìm kiếm địa điểm - tính năng sẽ thêm sau');
+  useEffect(() => {
+    if (destination) setDestInput(`${destination.lat.toFixed(6)}, ${destination.lng.toFixed(6)}`);
+  }, [destination]);
+
+  const applyCoordinate = (type: 'origin' | 'destination') => {
+    const value = type === 'origin' ? originInput : destInput;
+    const coords = parseCoordinate(value);
+    if (!coords) {
+      toast.error('Nhập tọa độ theo dạng "vĩ độ, kinh độ". Ví dụ: 10.9574, 106.8427');
+      return;
+    }
+    if (type === 'origin') {
+      onSetOrigin(coords.lat, coords.lng);
+      setOriginInput(`${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+    } else {
+      onSetDestination(coords.lat, coords.lng);
+      setDestInput(`${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+    }
   };
 
   const handleUseCurrentLocation = async (type: 'origin' | 'destination') => {
     if (!navigator.geolocation) {
-      alert('Trình duyệt không hỗ trợ định vị');
+      toast.error('Trình duyệt không hỗ trợ định vị.');
       return;
     }
 
@@ -104,7 +133,7 @@ export default function RoutingPanel({
           setDestInput(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
         }
       },
-      (err) => alert('Không thể lấy vị trí hiện tại: ' + err.message),
+      (err) => toast.error('Không thể lấy vị trí hiện tại: ' + err.message),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -133,9 +162,12 @@ export default function RoutingPanel({
               type="text"
               value={originInput}
               onChange={(e) => setOriginInput(e.target.value)}
-              placeholder="Click vào bản đồ hoặc nhập tọa độ"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyCoordinate('origin');
+              }}
+              placeholder='Nhập "vĩ độ, kinh độ" hoặc click bản đồ'
+              aria-label="Tọa độ điểm xuất phát"
               className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              readOnly
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -146,10 +178,11 @@ export default function RoutingPanel({
               Vị trí hiện tại
             </button>
             <button
-              onClick={handleOriginSearch}
+              type="button"
+              onClick={() => applyCoordinate('origin')}
               className="text-xs px-2 py-1 bg-muted/30 text-muted-foreground rounded hover:bg-muted/50 transition-colors"
             >
-              <Search className="w-3 h-3 inline" /> Tìm
+              <Search className="w-3 h-3 inline" /> Dùng tọa độ
             </button>
           </div>
         </div>
@@ -172,9 +205,12 @@ export default function RoutingPanel({
               type="text"
               value={destInput}
               onChange={(e) => setDestInput(e.target.value)}
-              placeholder="Click vào bản đồ hoặc nhập tọa độ"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyCoordinate('destination');
+              }}
+              placeholder='Nhập "vĩ độ, kinh độ" hoặc click bản đồ'
+              aria-label="Tọa độ điểm đến"
               className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
-              readOnly
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -185,10 +221,11 @@ export default function RoutingPanel({
               Vị trí hiện tại
             </button>
             <button
-              onClick={handleDestSearch}
+              type="button"
+              onClick={() => applyCoordinate('destination')}
               className="text-xs px-2 py-1 bg-muted/30 text-muted-foreground rounded hover:bg-muted/50 transition-colors"
             >
-              <Search className="w-3 h-3 inline" /> Tìm
+              <Search className="w-3 h-3 inline" /> Dùng tọa độ
             </button>
           </div>
         </div>

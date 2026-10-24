@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
 import { authService } from '@/src/services/auth.service';
+import { shareLink } from '@/src/lib/share';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
@@ -42,6 +43,15 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShare = async () => {
+    if (!scholarship) return;
+    await shareLink({
+      title: scholarship.title,
+      text: `Học bổng: ${scholarship.title}`,
+      url: `${window.location.origin}/scholarships/${scholarship.id}`,
+    });
   };
 
   const handleCheckEligibility = async () => {
@@ -129,7 +139,12 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
               </span>
               <div className="flex items-center gap-2">
                 <BookmarkButton targetType="scholarships" targetId={scholarship.id} size="sm" />
-                <button className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors">
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  aria-label="Chia sẻ học bổng"
+                  className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors"
+                >
                   <Share2 className="w-5 h-5 text-muted-foreground/60" />
                 </button>
               </div>

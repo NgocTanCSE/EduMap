@@ -71,10 +71,18 @@ class CommunityService {
 /**
     * Lấy danh sách bài đăng (có phân trang)
     */
-  async getPosts(page: number = 1, limit: number = 10, groupId?: string): Promise<{posts: Post[], total: number}> {
+  async getPosts(
+    page: number = 1,
+    limit: number = 10,
+    groupId?: string,
+    search?: string,
+  ): Promise<{posts: Post[], total: number}> {
     let url = `${this.API_URL}/posts?page=${page}&limit=${limit}`;
     if (groupId) {
-      url += `&group_id=${groupId}`;
+      url += `&group_id=${encodeURIComponent(groupId)}`;
+    }
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
     }
     try {
       const response = await fetchWithRetry(url);

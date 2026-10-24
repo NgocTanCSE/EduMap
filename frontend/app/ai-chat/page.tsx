@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Bot, User, Sparkles, Loader2, Info, BookOpen } from "lucide-react";
+import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
 
 export default function AIChatPage() {
@@ -62,7 +63,8 @@ export default function AIChatPage() {
     if (!trimmedInput || isLoading) return;
 
     if (!token) {
-      alert("Vui lòng đăng nhập để sử dụng tính năng Chat AI.");
+      toast.error('Vui lòng đăng nhập để sử dụng tính năng Chat AI.');
+      window.location.href = '/auth/login?redirect=/ai-chat';
       return;
     }
     

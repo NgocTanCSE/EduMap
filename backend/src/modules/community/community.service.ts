@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { Post, Comment, Group } from './entities/community.entity';
 import { AIService } from '../ai/ai.service'; // Import AIService
 import { NotificationsService } from '../notifications/notifications.service'; // Import NotificationsService
@@ -72,8 +72,19 @@ export class CommunityService {
       whereCondition.group_id = groupId;
     }
 
+    // `search` was accepted by this method but never applied. Match it against
+    // both the title and body so the community search box filters server-side
+    // instead of only the handful of posts already loaded in the browser.
+    const term = search?.trim();
+    const where = term
+      ? [
+          { ...whereCondition, title: Like(`%${term}%`) },
+          { ...whereCondition, content: Like(`%${term}%`) },
+        ]
+      : whereCondition;
+
     const [posts, total] = await this.postRepo.findAndCount({
-      where: whereCondition,
+      where,
       relations: ['author', 'group'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,

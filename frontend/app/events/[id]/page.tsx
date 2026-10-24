@@ -2,11 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import {
   Calendar, MapPin, Ticket, ArrowLeft, Share2, ShieldCheck,
-  MessageCircle, Loader2, CheckCircle2, Download, Clock
+  Loader2, CheckCircle2, Download, Clock
 } from 'lucide-react';
 import Link from 'next/link';
 import { eventsService, Event, EventRegistrationResponse } from '@/src/services/events.service';
 import { authService } from '@/src/services/auth.service';
+import { shareLink } from '@/src/lib/share';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { eventIllustration } from '@/src/lib/illustrations';
@@ -39,6 +40,27 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShare = async () => {
+    if (!event) return;
+    await shareLink({
+      title: event.title,
+      text: `Sự kiện: ${event.title}`,
+      url: `${window.location.origin}/events/${event.id}`,
+    });
+  };
+
+  const downloadTicket = () => {
+    if (!ticket) return;
+    const link = document.createElement('a');
+    link.href = ticket.ticket_qr;
+    link.download = `ve-${ticket.ticket_code}.png`;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Đang tải vé của bạn.');
   };
 
   const handleRegister = async () => {
@@ -125,7 +147,11 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                   </div>
 
                   <div className="pt-6 border-t border-border flex gap-3">
-                    <button className="flex-1 py-3 rounded-xl bg-card hover:bg-card/50 transition-colors text-xs font-bold flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={downloadTicket}
+                      className="flex-1 py-3 rounded-xl bg-card hover:bg-card/50 transition-colors text-xs font-bold flex items-center justify-center gap-2"
+                    >
                       <Download className="w-4 h-4" /> TẢI VÉ
                     </button>
                     <button
@@ -140,7 +166,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             </div>
             <p className="text-center mt-6 text-muted-foreground/40 text-xs px-6">
               * Vui lòng xuất trình mã QR này tại quầy check-in để được vào cổng.
-              Thông tin vé cũng đã được gửi đến email của bạn.
+              Hãy tải vé hoặc chụp màn hình để sử dụng khi cần.
             </p>
           </div>
         ) : (
@@ -235,11 +261,12 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                   </button>
 
                   <div className="pt-6 border-t border-border space-y-3">
-                    <button className="w-full py-3 rounded-xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-foreground/5 transition-colors">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="w-full py-3 rounded-xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-2 hover:bg-foreground/5 transition-colors"
+                    >
                       <Share2 className="w-4 h-4" /> CHIA SẺ SỰ KIỆN
-                    </button>
-                    <button className="w-full py-3 rounded-xl border border-border text-xs font-bold flex items-center justify-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors">
-                      <MessageCircle className="w-4 h-4" /> HỎI ĐÁP VỀ SỰ KIỆN
                     </button>
                   </div>
                 </div>
