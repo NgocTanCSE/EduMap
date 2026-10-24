@@ -1,4 +1,5 @@
 import os
+import asyncio
 import json
 import ssl
 import io
@@ -259,6 +260,13 @@ class LLMService:
             }
             if top_p is not None:
                 payload["generationConfig"]["topP"] = float(top_p)
+            # Gemini 3.x cannot disable thinking and defaults to "medium".
+            # Long RAG prompts at that level can exceed the curl budget on HF
+            # Spaces ("0 bytes received" after 20s), so request the lowest
+            # supported level. Valid values are low/medium/high ("minimal" is
+            # rejected with HTTP 400). Gemini 2.x uses thinkingBudget instead.
+            if model.startswith("gemini-3"):
+                payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
             body_json = json.dumps(payload)
 
             try:
@@ -725,7 +733,11 @@ class LLMService:
 # 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
         from services.vector_store import vector_store
         try:
-            search_results = vector_store.query(message, n_results=3)
+            # ChromaDB + Gemini embeddings are synchronous (subprocess/urllib),
+            # so run them off the event loop. Otherwise a slow embedding call
+            # blocks every other endpoint (analytics, history, ...) and the
+            # NestJS 10s client times out even though this request is healthy.
+            search_results = await asyncio.to_thread(vector_store.query, message, n_results=3)
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])
             ids = search_results.get('ids', [[]])
@@ -741,7 +753,11 @@ class LLMService:
                     meta = meta_docs[i] if i < len(meta_docs) else {}
                     title = meta.get("title", f"Tài liệu tham khảo {i+1}")
                     doc_id = id_docs[i] if i < len(id_docs) else str(i)
-                    docs_str += f"\n--- Tài liệu {i+1} ({title}) ---\n{doc}\n"
+                    # Keep the prompt bounded: very large RAG documents make
+                    # Gemini slower and can push it past the curl timeout on
+                    # HF Spaces, which then falls back to a template reply.
+                    doc_text = doc if len(doc) <= 1200 else doc[:1200] + "..."
+                    docs_str += f"\n--- Tài liệu {i+1} ({title}) ---\n{doc_text}\n"
                     
                     sources.append({
                         "doc_id": doc_id,
@@ -798,7 +814,11 @@ class LLMService:
             if gen_fn is None:
                 continue
             try:
-                response = gen_fn(prompt, max_tokens=2048, temperature=0.3, top_p=0.8)
+                # Provider helpers use blocking subprocess/urllib calls. Run
+                # them in a worker thread so the event loop stays responsive.
+                response = await asyncio.to_thread(
+                    gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+                )
                 if response:
                     reply_text = response.strip()
                     break
@@ -854,7 +874,7 @@ class LLMService:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             return response
         except Exception as e:
             raise RuntimeError(f"Error in generate_career_advice: {e}")
@@ -878,13 +898,14 @@ class LLMService:
         keyword = (keywords[0] if keywords else "AI")
 
         # --- Primary: Adzuna API (real-time job data) ---
+        # Both helpers do blocking HTTP/SQLite work; keep the event loop free.
         job_data = None
         if self.has_adzuna:
-            job_data = self._fetch_adzuna_jobs(keyword)
+            job_data = await asyncio.to_thread(self._fetch_adzuna_jobs, keyword)
 
         # --- Fallback: local SQLite edumap.db ---
         if job_data is None:
-            job_data = self._get_local_trends(keyword)
+            job_data = await asyncio.to_thread(self._get_local_trends, keyword)
 
         # --- Build analysis via template (no LLM needed) ---
         analysis = self._generate_trends_analysis(keyword, job_data)
@@ -1017,31 +1038,31 @@ class LLMService:
         # rồi mới đến Cloudflare/HF (Cloudflare thường bị chặn TLS từ HF Spaces).
         if self.has_gemini:
             try:
-                response = self._gemini_generate(prompt)
+                response = await asyncio.to_thread(self._gemini_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"Gemini daily_insight failed: {e}")
         if self.has_nvidia:
             try:
-                response = self._nvidia_generate(prompt)
+                response = await asyncio.to_thread(self._nvidia_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"NVIDIA NIM daily_insight failed: {e}")
         if self.has_openrouter:
             try:
-                response = self._openrouter_generate(prompt)
+                response = await asyncio.to_thread(self._openrouter_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"OpenRouter daily_insight failed: {e}")
         if self.has_cf:
             try:
-                response = self._cloudflare_generate(prompt)
+                response = await asyncio.to_thread(self._cloudflare_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"Cloudflare daily_insight failed: {e}")
         if self.has_hf:
             try:
-                response = self._hf_generate(prompt)
+                response = await asyncio.to_thread(self._hf_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"HF daily_insight failed: {e}")
@@ -1150,7 +1171,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             
             if result and isinstance(result, list):
@@ -1192,7 +1213,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             
             if result:
@@ -1223,7 +1244,7 @@ class LLMService:
         Trả về JSON: {{summary, density_score, recommendations: []}}
         """
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho analyze_geo_density.")
@@ -1238,7 +1259,7 @@ class LLMService:
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho summarize_material.")
@@ -1253,7 +1274,7 @@ class LLMService:
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho match_mentors.")
@@ -1280,7 +1301,7 @@ class LLMService:
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho moderate_text.")
@@ -1294,7 +1315,7 @@ class LLMService:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
-            response = self._cloudflare_generate(prompt)
+            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho get_suggestions.")

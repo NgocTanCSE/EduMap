@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from collections import Counter, defaultdict
+import asyncio
 import json
 import logging
 import os
@@ -228,7 +229,14 @@ async def get_daily_insight(request_data: DashboardInsightRequest):
 
 @router.get("/stats")
 async def get_stats():
-    stats_data = _load_education_stats()
+    # The loaders are synchronous. Run each in a worker thread so a locked DB
+    # (the NestJS backend writes analytics events) or a slow disk can never
+    # block the event loop for other AI requests. Keep them sequential: in
+    # PostgreSQL mode all three share one psycopg2 connection, which is not
+    # safe for concurrent use.
+    stats_data = await asyncio.to_thread(_load_education_stats)
+    events = await asyncio.to_thread(_load_user_events, 500)
+    trending_skills = await asyncio.to_thread(_load_trending_skills)
     logger.info(f"Fetched {len(stats_data)} education stats records")
 
     sectors = _build_sectors(stats_data)
@@ -254,7 +262,6 @@ async def get_stats():
     )
     prediction_2025 = it_sector["prediction_2025"] if it_sector else 0
 
-    events = _load_user_events(limit=500)
     top_event = Counter(
         str(e.get("event_type") or "N/A") for e in events
     ).most_common(1)
@@ -279,7 +286,7 @@ async def get_stats():
         "status": "success",
         "historical_data": historical,
         "sectors": sectors,
-        "trending_skills": _load_trending_skills(),
+        "trending_skills": trending_skills,
         "insights": {
             "average_annual_growth_pct": avg_growth,
             "prediction_2025_it_students": int(prediction_2025),

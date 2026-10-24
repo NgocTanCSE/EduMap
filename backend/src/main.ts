@@ -121,7 +121,11 @@ Sử dụng JWT Bearer Token để xác thực. Lấy token từ endpoint \`\\\$
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  // `useGlobalPrefix: true` is required because the app uses
+  // `setGlobalPrefix('api')`. Without it Swagger is mounted at `/docs`
+  // while the startup log (and every other route) advertises `/api/docs`,
+  // so visiting `/api/docs` returns 404.
+  SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');

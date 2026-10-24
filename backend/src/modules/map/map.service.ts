@@ -509,7 +509,7 @@ export class MapService {
 
     const saved = await this.mapPointRepo.save(point);
     try {
-      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge/?background=true`, {}, { timeout: 3000 }).subscribe({
+      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`, {}, { timeout: 3000 }).subscribe({
         error: (err) => this.logger.warn(`Failed to auto-sync AI knowledge: ${err.message}`),
       });
     } catch (e) {
@@ -533,11 +533,11 @@ export class MapService {
       // Try AI Service first, fallback to Gemini
       try {
         const response = await firstValueFrom(
-          this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze/`, {
+          this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
             city: query,
             points: pointsData,
             context: context
-          })
+          }, { timeout: 45000 })
         );
         return response.data.ai_analysis || response.data;
       } catch (aiServiceError) {

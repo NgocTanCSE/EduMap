@@ -6,6 +6,11 @@ requests
 psycopg2-binary
 pandas
 chromadb>=0.4.0,<0.6.0
+# chromadb 0.5.x calls posthog.capture(distinct_id, event, props) positionally.
+# posthog>=6 changed the signature to capture(event, **kwargs), which raises
+# "capture() takes 1 positional argument but 3 were given" on every Chroma
+# query even when telemetry is disabled. Pin to the compatible 5.x line.
+posthog<6
 numpy
 redis
 scikit-learn

@@ -30,7 +30,7 @@ export class AIService {
   triggerKnowledgeSync(): void {
     try {
       this.httpService.post(
-        `${this.aiServiceUrl}/api/ai/sync-knowledge/?background=true`,
+        `${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`,
         {},
         { timeout: 5000 }
       ).subscribe({
@@ -109,7 +109,7 @@ export class AIService {
   async predictCareerPath(userData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend/`, userData, { timeout: 60000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend`, userData, { timeout: 60000 })
       );
       // Trả về top_careers để khớp với mong đợi của Frontend
       return response.data.top_careers || response.data;
@@ -128,7 +128,7 @@ export class AIService {
   async getMarketTrends() {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${this.aiServiceUrl}/api/ai/trends/`)
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/trends`, { timeout: 20000 })
       );
       return response.data;
     } catch (error: any) {
@@ -148,7 +148,7 @@ export class AIService {
   async getDailyInsight(dashboardData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight/`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/analytics/daily-insight`, {
             dashboard_data: dashboardData
         }, { timeout: 60000 })
       );
@@ -165,7 +165,7 @@ export class AIService {
   async analyzeGeoDensity(geoData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze/`, geoData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, geoData, { timeout: 45000 })
       );
       return response.data;
     } catch (error: any) {
@@ -183,7 +183,7 @@ export class AIService {
   async summarizeMaterial(materialData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize/`, materialData, { timeout: 60000 })
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/library/summarize`, materialData, { timeout: 60000 })
       );
       return response.data;
     } catch (error: any) {
@@ -219,7 +219,7 @@ export class AIService {
   async matchMentor(matchData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/mentor/match/`, matchData)
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/mentor/match`, matchData, { timeout: 45000 })
       );
       return response.data;
     } catch (error: any) {
@@ -258,10 +258,10 @@ export class AIService {
   async checkScholarshipEligibility(userData: any, scholarshipData: any) {
     try {
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/scholarship/check/`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/scholarship/check`, {
           user_data: userData,
           scholarship_data: scholarshipData
-        })
+        }, { timeout: 45000 })
       );
       return response.data;
     } catch (error: any) {
@@ -279,7 +279,7 @@ export class AIService {
   async getAnalyticsStats() {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats`)
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats`, { timeout: 15000 })
       );
       const data = response.data || {};
       const historicalData = Array.isArray(data.historical_data) ? data.historical_data : [];
@@ -345,7 +345,7 @@ export class AIService {
 
       // 2. Gửi sang AI Service
       const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat/`, {
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, {
           user_id: userId,
           message: message,
           history: history,

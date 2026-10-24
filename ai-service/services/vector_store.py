@@ -12,6 +12,19 @@ from typing import List, Dict
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 os.environ.setdefault("CHROMA_TELEMETRY_ENABLED", "False")
 
+# Belt-and-suspenders: chromadb 0.5.x still CALLS posthog.capture(...) even when
+# anonymized_telemetry is False (it only sets posthog.disabled, which is checked
+# after the argument binding). With posthog>=6 the call itself raises, so the
+# error survives the setting. Replace capture with a no-op before chromadb
+# imports it. requirements.txt also pins posthog<6.
+try:
+    import posthog as _posthog
+
+    _posthog.disabled = True
+    _posthog.capture = lambda *args, **kwargs: None
+except Exception:
+    pass
+
 try:
     import requests
 except ImportError:
