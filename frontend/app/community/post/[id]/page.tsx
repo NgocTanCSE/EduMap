@@ -13,6 +13,7 @@ import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {
     const postId = params.id;
+  const currentUser = authService.getUser();
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -162,7 +163,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             <form onSubmit={handleComment} className="flex gap-4">
                 <div className="w-10 h-10 rounded-full bg-card shrink-0 flex items-center justify-center border border-border overflow-hidden">
                     {authService.isLoggedIn() ? (
-                         <img src={authService.getUser()?.avatar_url || '/images/default-avatar.svg'} alt="" className="w-full h-full object-cover"/>
+                         <img
+                            src={currentUser?.avatar_url || avatarFallback(currentUser?.fullName)}
+                            onError={onImageError(avatarFallback(currentUser?.fullName))}
+                            alt=""
+                            className="w-full h-full object-cover"
+                         />
                     ) : (
                         <User className="w-5 h-5 text-muted-foreground" />
                     )}

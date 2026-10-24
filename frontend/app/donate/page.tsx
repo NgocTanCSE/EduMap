@@ -8,6 +8,7 @@ import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import Thumb from '@/components/ui/Thumb';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 
@@ -55,8 +56,9 @@ export default function DonationListPage() {
             return (
               <Link href={`/donate/campaign/${campaign.id}`} key={campaign.id} className="group">
                 <Card className="relative flex flex-col h-full">
-                  <div className="aspect-video relative">
+                  <div className="aspect-video relative overflow-hidden rounded-t-lg">
                     {/* Branded placeholder (no Unsplash stock) */}
+                    <Thumb src={undefined} alt={campaign.title} aspect="16/9" className="rounded-none" />
                     <div className="h-4 w-4 absolute top-3 left-3 bg-foreground/10 rounded-full flex items-center justify-center">
                       <Heart className="w-4 h-4 text-destructive" />
                     </div>

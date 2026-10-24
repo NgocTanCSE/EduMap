@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { hsConnectionService, NetworkResponse, HSUser } from '@/src/services/hs-connection.service';
 import { toast } from 'sonner';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 export default function HSConnectionPage() {
     const [network, setNetwork] = useState<NetworkResponse | null>(null);
@@ -97,7 +98,8 @@ export default function HSConnectionPage() {
                                         <div key={req.id} className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-border hover:bg-card transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <img 
-                                                    src={req.avatar_url || `/images/default-avatar.svg`} 
+                                                    src={req.avatar_url || avatarFallback(req.full_name)}
+                                                    onError={onImageError(avatarFallback(req.full_name))}
                                                     alt="" 
                                                     className="w-12 h-12 rounded-full border border-border"
                                                 />
@@ -146,7 +148,8 @@ export default function HSConnectionPage() {
                                         <div key={friend.id} className="flex items-center gap-4 p-4 bg-card/30 rounded-lg border border-border hover:border-border transition-colors cursor-pointer group">
                                             <div className="relative">
                                                 <img 
-                                                    src={friend.avatar_url || `/images/default-avatar.svg`} 
+                                                    src={friend.avatar_url || avatarFallback(friend.full_name)}
+                                                    onError={onImageError(avatarFallback(friend.full_name))}
                                                     alt="" 
                                                     className="w-12 h-12 rounded-full border border-border"
                                                 />
@@ -180,7 +183,8 @@ export default function HSConnectionPage() {
                                         <div key={suggest.id} className="bg-card/40 rounded-lg p-4 border border-border relative overflow-hidden group">
                                             <div className="flex flex-col items-center text-center space-y-3">
                                                 <img 
-                                                    src={suggest.avatar_url || `/images/default-avatar.svg`} 
+                                                    src={suggest.avatar_url || avatarFallback(suggest.full_name)}
+                                                    onError={onImageError(avatarFallback(suggest.full_name))}
                                                     alt="" 
                                                     className="w-16 h-16 rounded-full border-2 border-border group-hover:border-primary transition-colors"
                                                 />

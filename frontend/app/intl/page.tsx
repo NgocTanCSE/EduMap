@@ -4,6 +4,7 @@ import { Globe, PlaneTakeoff, GraduationCap, MapPin, Users, Loader2, ArrowRight,
 import { intlService, InternationalProgram, AlumniNetwork } from '@/src/services/intl.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { avatarFallback } from '@/src/lib/illustrations';
 
 export default function IntlPage() {
   const [activeTab, setActiveTab] = useState<'programs' | 'alumni'>('programs');
@@ -261,7 +262,7 @@ export default function IntlPage() {
                             <div key={person.id} className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-colors relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[50px] rounded-full" />
                                 <div className="flex items-center gap-4 mb-4">
-                                    <img src={`/images/default-avatar.svg`} alt="" className="w-12 h-12 rounded-full border border-border" />
+                                    <img src={avatarFallback(person.full_name)} alt="" className="w-12 h-12 rounded-full border border-border" />
                                     <div>
                                         <h3 className="font-bold">{person.full_name}</h3>
                                         <p className="text-xs text-primary flex items-center gap-1"><MapPin className="w-3 h-3"/> {person.country}</p>

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
-import { Heart, Users, Calendar, Share2, ShieldCheck, ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
+import { Users, Calendar, Share2, ShieldCheck, ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
 import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
@@ -144,16 +144,12 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/20 flex items-center justify-center">
-                        {donation.donor?.avatar_url ? (
-                          <img
-                            src={donation.donor.avatar_url}
-                            onError={onImageError(avatarFallback(donation.donor?.full_name))}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Heart className="w-5 h-5 text-primary/70" />
-                        )}
+                        <img
+                          src={donation.donor?.avatar_url || avatarFallback(donation.donor?.fullName || donation.donor?.full_name)}
+                          onError={onImageError(avatarFallback(donation.donor?.fullName || donation.donor?.full_name))}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div>
                         <p className="text-sm font-medium">{donation.donor?.fullName || 'Nhà hảo tâm ẩn danh'}</p>

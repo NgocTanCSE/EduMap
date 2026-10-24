@@ -117,11 +117,12 @@ export default function MentorPage() {
                                 </div>
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className="w-16 h-16 bg-card rounded-full border-2 border-primary/50 flex items-center justify-center font-semibold text-xl text-primary/70 overflow-hidden shrink-0">
-                                        {mentorData.user?.avatar_url ? (
-                                            <img src={mentorData.user.avatar_url} alt="" onError={onImageError(avatarFallback(match.name))} className="w-full h-full object-cover" />
-                                        ) : (
-                                            match.name.charAt(0)
-                                        )}
+                                        <img
+                                            src={mentorData.user?.avatar_url || avatarFallback(match.name)}
+                                            alt=""
+                                            onError={onImageError(avatarFallback(match.name))}
+                                            className="w-full h-full object-cover"
+                                        />
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-lg leading-tight line-clamp-1">{match.name}</h3>

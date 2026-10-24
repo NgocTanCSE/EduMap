@@ -7,6 +7,21 @@ export const ACCESS_TOKEN_KEY = 'edumap-access-token';
 export const REFRESH_TOKEN_KEY = 'edumap-refresh-token';
 export const USER_INFO_KEY = 'edumap-user-info';
 
+/**
+ * Older EduMap accounts were created with remote `ui-avatars.com` /
+ * `placehold.co` URLs. Those hosts are unreliable (and often blocked) on
+ * Hugging Face Spaces, so treat them as "no avatar" and let the UI draw the
+ * local gradient + initials placeholder instead.
+ */
+function sanitizeAvatarUrl(url?: string | null): string {
+  const trimmed = (url || '').trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\/(?:ui-avatars\.com|placehold\.co|via\.placeholder\.com)\//i.test(trimmed)) {
+    return '';
+  }
+  return trimmed;
+}
+
 interface DecodedToken {
   sub: string;
   email: string;
@@ -49,6 +64,9 @@ class AuthService {
       if (userInfoString) {
         try {
           this.currentUser = JSON.parse(userInfoString);
+          if (this.currentUser) {
+            this.currentUser.avatar_url = sanitizeAvatarUrl(this.currentUser.avatar_url);
+          }
           if (this.currentUser?.id === 'demo-user' || this.isDemoToken(this.currentUser?.id || '')) {
             this.clearAuthData();
           }
@@ -99,7 +117,7 @@ class AuthService {
         email: profile.email,
         fullName: profile.full_name || profile.fullName || '',
         role: profile.role || UserRole.STUDENT,
-        avatar_url: profile.avatar_url || '',
+        avatar_url: sanitizeAvatarUrl(profile.avatar_url),
         phone: profile.phone || '',
         bio: profile.bio || '',
         date_of_birth: profile.date_of_birth || '',
@@ -251,7 +269,7 @@ class AuthService {
       email: authData.email,
       fullName: authData.full_name || authData.fullName || 'Dev User',
       role: (authData.role || UserRole.STUDENT) as UserRole,
-      avatar_url: authData.avatar_url || '/images/default-avatar.svg',
+      avatar_url: sanitizeAvatarUrl(authData.avatar_url),
       phone: authData.phone || '',
       bio: authData.bio || '',
       date_of_birth: authData.date_of_birth || '',
@@ -283,7 +301,7 @@ class AuthService {
       email: authData.email,
       fullName: authData.full_name || authData.fullName || 'Học sinh EduMap',
       role: (authData.role || UserRole.STUDENT) as UserRole,
-      avatar_url: authData.avatar_url || '/images/default-avatar.svg',
+      avatar_url: sanitizeAvatarUrl(authData.avatar_url),
       phone: authData.phone || '',
       bio: authData.bio || '',
       date_of_birth: authData.date_of_birth || '',
@@ -315,7 +333,7 @@ class AuthService {
       email: authData.email,
       fullName: authData.full_name || authData.fullName || 'Người dùng Google',
       role: (authData.role || googleData.role || UserRole.STUDENT) as UserRole,
-      avatar_url: authData.avatar_url || googleData.avatar_url || '/images/default-avatar.svg',
+      avatar_url: sanitizeAvatarUrl(authData.avatar_url || googleData.avatar_url),
       phone: authData.phone || '',
       bio: authData.bio || '',
       date_of_birth: authData.date_of_birth || '',
@@ -354,7 +372,7 @@ class AuthService {
           email: updatedUser.email || this.currentUser?.email || '',
           fullName: updatedUser.full_name || this.currentUser?.fullName || '',
           role: updatedUser.role || this.currentUser?.role || UserRole.STUDENT,
-          avatar_url: updatedUser.avatar_url || this.currentUser?.avatar_url || '',
+          avatar_url: sanitizeAvatarUrl(updatedUser.avatar_url || this.currentUser?.avatar_url),
           phone: updatedUser.phone || this.currentUser?.phone || '',
           bio: updatedUser.bio || this.currentUser?.bio || '',
           date_of_birth: updatedUser.date_of_birth || this.currentUser?.date_of_birth || '',

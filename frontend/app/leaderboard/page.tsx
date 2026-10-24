@@ -7,6 +7,7 @@ import {
 import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 export default function LeaderboardPage() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
@@ -108,7 +109,7 @@ export default function LeaderboardPage() {
                 <div className="order-2 md:order-1 space-y-4 text-center pb-8">
                     <div className="relative inline-block">
                         <div className="w-24 h-24 rounded-full border-4 border-muted-foreground/30 overflow-hidden bg-card">
-                            <img src={topThree[1].avatar_url || `/images/default-avatar.svg`} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[1].avatar_url || avatarFallback(topThree[1].full_name)} onError={onImageError(avatarFallback(topThree[1].full_name))} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground rounded-full p-2">
                             <Medal className="w-5 h-5" />
@@ -127,7 +128,7 @@ export default function LeaderboardPage() {
                 <div className="order-1 md:order-2 space-y-6 text-center">
                     <div className="relative inline-block">
                         <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-card shadow-lg">
-                            <img src={topThree[0].avatar_url || `/images/default-avatar.svg`} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[0].avatar_url || avatarFallback(topThree[0].full_name)} onError={onImageError(avatarFallback(topThree[0].full_name))} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
                             <Crown className="w-10 h-10 fill-primary" />
@@ -146,7 +147,7 @@ export default function LeaderboardPage() {
                 <div className="order-3 space-y-4 text-center pb-4">
                     <div className="relative inline-block">
                         <div className="w-20 h-20 rounded-full border-4 border-amber-700 overflow-hidden bg-card">
-                            <img src={topThree[2].avatar_url || `/images/default-avatar.svg`} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[2].avatar_url || avatarFallback(topThree[2].full_name)} onError={onImageError(avatarFallback(topThree[2].full_name))} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-700 text-foreground rounded-full p-2">
                             <Medal className="w-4 h-4" />
@@ -174,7 +175,7 @@ export default function LeaderboardPage() {
                             {index + 4}
                         </div>
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-card shrink-0">
-                            <img src={user.avatar_url || `/images/default-avatar.svg`} alt="" className="w-full h-full object-cover" />
+                            <img src={user.avatar_url || avatarFallback(user.full_name)} onError={onImageError(avatarFallback(user.full_name))} alt="" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1">
                             <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-primary' : ''}`}>

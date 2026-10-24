@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 /**
  * Sidebar — left-hand navigation rail that lives on every "app" page.
@@ -201,13 +202,14 @@ function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
     );
   }
 
-  const avatar = user.avatar_url || '/images/default-avatar.svg';
+  const avatar = user.avatar_url || avatarFallback(user.fullName);
 
   return (
     <div className="p-4 border-t border-border space-y-3">
       <div className="flex items-center gap-3">
         <img
           src={avatar}
+          onError={onImageError(avatarFallback(user.fullName))}
           alt={user.fullName || 'user'}
           className="w-10 h-10 rounded-full border-2 border-border object-cover"
         />

@@ -147,7 +147,9 @@ export class AuthService {
       const newUser = this.userRepo.create({
         email,
         full_name: full_name || email.split('@')[0],
-        avatar_url: avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(full_name || email)}&background=4285F4&color=fff`,
+        // Leave empty when Google does not return a photo. The frontend renders
+        // a local gradient + initials avatar (no remote ui-avatars dependency).
+        avatar_url: avatar_url || '',
         password_hash,
         role: role || UserRole.STUDENT,
         status: 'active',
@@ -188,7 +190,7 @@ export class AuthService {
     const newUser = this.userRepo.create({
       email,
       full_name: 'Dev User',
-      avatar_url: 'https://ui-avatars.com/api/?name=Dev+User&background=4285F4&color=fff',
+      avatar_url: '',
       password_hash,
       role: UserRole.STUDENT, // Student (native enum, CA02)
       status: 'active',

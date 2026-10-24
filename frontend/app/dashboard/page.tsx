@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Loader2,
   LogOut,
@@ -17,6 +16,7 @@ import {
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "@/reporting/services/dashboard.service";
 import { PersonalHub } from "@/components/dashboard/PersonalHub";
+import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 
 /**
  * Dashboard — the user's home hub inside the unified left-sidebar shell.
@@ -106,15 +106,12 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm xl:col-span-2">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <Avatar className="h-16 w-16 border-2 border-border">
-              <AvatarImage
-                src={user.avatar_url || "/images/default-avatar.svg"}
-                alt={user.fullName}
-              />
-              <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
-                {user.fullName?.[0]?.toUpperCase() ?? "U"}
-              </AvatarFallback>
-            </Avatar>
+            <img
+              src={user.avatar_url || avatarFallback(user.fullName)}
+              onError={onImageError(avatarFallback(user.fullName))}
+              alt={user.fullName}
+              className="h-16 w-16 shrink-0 rounded-full border-2 border-border object-cover"
+            />
             <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-semibold leading-tight">
                 Chào, {user.fullName || "bạn"}!

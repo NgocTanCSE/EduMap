@@ -7,6 +7,7 @@ import { storageService } from '@/src/services/storage.service';
 import FileUpload from '@/src/components/ui/FileUpload';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -143,7 +144,12 @@ export default function ProfilePage() {
             
             <div className="relative group cursor-pointer shrink-0" onClick={() => !uploadingAvatar && document.getElementById('avatar-upload-input')?.click()}>
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/30">
-                <img src={user.avatar_url || `/images/default-avatar.svg`} alt="Avatar" className="w-full h-full object-cover" />
+                <img
+                  src={user.avatar_url || avatarFallback(user.fullName)}
+                  onError={onImageError(avatarFallback(user.fullName))}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="w-6 h-6 text-foreground" />
