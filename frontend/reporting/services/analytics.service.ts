@@ -53,15 +53,12 @@ export const analyticsService = {
     const payload = statsData?.data || statsData; // backend nests payload under data
 
     if (payload?.status === 'success' || payload?.historical_data) {
-      const fallbackSkills = [
-        { name: 'AI Engineering', growth: '+95%' },
-        { name: 'Sustainability', growth: '+80%' },
-        { name: 'Cybersecurity', growth: '+75%' },
-        { name: 'Cloud Computing', growth: '+70%' },
-      ];
-      const trendingSkills = Array.isArray(payload.trending_skills) && payload.trending_skills.length > 0
+      // Never invent skills here. If the jobs table has no active postings,
+      // return an empty list so the UI can show an honest empty state instead
+      // of displaying made-up "trending" skills.
+      const trendingSkills = Array.isArray(payload.trending_skills)
         ? payload.trending_skills
-        : fallbackSkills;
+        : [];
 
       return {
         success: true,

@@ -16,14 +16,10 @@ export default function JobsPage() {
     job_type: '',
   });
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
-  const fetchJobs = async () => {
+  const fetchJobs = async (params = searchParams) => {
     try {
       setLoading(true);
-      const data = await careerService.searchJobs(searchParams);
+      const data = await careerService.searchJobs(params);
       // Unwrap backend { success, data: { jobs: [...] } } wrapper if present
       const payload = data.data ?? data;
       setJobs(payload.jobs || []);
@@ -33,6 +29,17 @@ export default function JobsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Deep-link from /analytics/trends: /career/jobs?skill=docker
+    const urlParams = new URLSearchParams(window.location.search);
+    const skill = urlParams.get('skill') || urlParams.get('keyword') || '';
+    const initial = skill ? { ...searchParams, keyword: skill } : searchParams;
+    if (skill) setSearchParams(initial);
+    fetchJobs(initial);
+    // Only on mount — the search form triggers later requests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
