@@ -9,7 +9,9 @@ import {
   BarChart3,
   Briefcase,
   Download,
+  Info,
   Layers,
+  Lightbulb,
   MessageSquare,
   Minus,
   RefreshCw,
@@ -481,12 +483,12 @@ function SectorTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[680px] text-sm">
         <caption className="sr-only">
-          So sánh các ngành theo năm, tốc độ tăng trưởng kép và dự báo
+          So sánh các chỉ số theo năm, tốc độ tăng trưởng kép và dự báo
         </caption>
         <thead>
           <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
             <th scope="col" className="py-3 pr-4 font-semibold">
-              Ngành
+              Chỉ số
             </th>
             {years.map((year) => (
               <th
@@ -752,6 +754,10 @@ export default function AITrendsPage() {
 
   const localizedConclusion = useMemo(() => {
     let text = insights.conclusion || "";
+    // The backend groups education metrics and calls them "sectors". In the
+    // UI they are indicators (chỉ số), so keep the wording accurate even if
+    // an older backend still returns the original sentence.
+    text = text.split("các ngành").join("các chỉ số");
     Object.entries(SECTOR_LABELS).forEach(([en, vi]) => {
       text = text.split(en).join(vi);
     });
@@ -762,7 +768,7 @@ export default function AITrendsPage() {
     if (!hasData) return;
 
     const rows: (string | number)[][] = [
-      ["Ngành", ...allYears.map(String), "CAGR (%)", `Dự báo ${forecastYear} (%)`],
+      ["Chỉ số", ...allYears.map(String), "CAGR (%)", `Dự báo ${forecastYear} (%)`],
       ...sectors.map((sector) => [
         sectorLabel(sector.name),
         ...allYears.map(
@@ -874,6 +880,19 @@ export default function AITrendsPage() {
         }
       />
 
+      {/* Data provenance — be explicit that this is seeded/demo data, not a
+          live market feed. The education metrics are curated seed rows and
+          the skill counts come from the sample job postings in the DB. */}
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-card/60 px-4 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">Dữ liệu mẫu:</span>{" "}
+          Chỉ số giáo dục 2022–2024 được seed trong CSDL của EduMap; kỹ năng
+          được tổng hợp từ các tin tuyển dụng mẫu đang hoạt động. Đây không
+          phải số liệu thị trường trực tiếp.
+        </p>
+      </div>
+
       {/* Error banner — keeps stale data visible when a refresh fails. */}
       {error && (
         <div className="flex flex-col gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center">
@@ -935,7 +954,7 @@ export default function AITrendsPage() {
               tone={avgGrowth >= 0 ? "accent" : "muted"}
             />
             <KpiCard
-              label="Ngành đang theo dõi"
+              label="Chỉ số đang theo dõi"
               value={String(sectors.length)}
               hint={`${fmtInt(dataPoints)} điểm dữ liệu`}
               icon={Layers}
@@ -962,33 +981,59 @@ export default function AITrendsPage() {
           {/* Chart + skills */}
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <div className="rounded-xl border border-border bg-card p-5 sm:p-6 xl:col-span-2">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Diễn biến theo ngành
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Chọn một ngành để xem xu hướng và dự báo.
-                  </p>
-                </div>
-
-                {sectors.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <span className="sr-only">Chọn ngành</span>
-                    <select
-                      value={selected?.name ?? ""}
-                      onChange={(event) => setSelectedSector(event.target.value)}
-                      className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>option]:bg-card [&>option]:text-foreground"
-                    >
-                      {sectors.map((sector) => (
-                        <option key={sector.name} value={sector.name}>
-                          {sectorLabel(sector.name)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Diễn biến theo chỉ số
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Chọn một chỉ số bên dưới để xem xu hướng và dự báo.
+                </p>
               </div>
+
+              {sectors.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Chọn chỉ số
+                  </p>
+                  <div
+                    role="group"
+                    aria-label="Chọn chỉ số để xem biểu đồ"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {sectors.map((sector) => {
+                      const active = selected?.name === sector.name;
+                      return (
+                        <button
+                          key={sector.name}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setSelectedSector(sector.name)}
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                            active
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                          )}
+                        >
+                          {sectorLabel(sector.name)}
+                          <span
+                            className={cn(
+                              "tabular-nums",
+                              sector.growth_pct > 0
+                                ? "text-accent"
+                                : sector.growth_pct < 0
+                                  ? "text-destructive"
+                                  : "text-muted-foreground",
+                            )}
+                          >
+                            {fmtSigned(sector.growth_pct)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {selected ? (
                 <>
@@ -1030,7 +1075,7 @@ export default function AITrendsPage() {
                 </>
               ) : (
                 <p className="mt-8 text-sm text-muted-foreground">
-                  Chưa có dữ liệu ngành nào.
+                  Chưa có dữ liệu chỉ số nào.
                 </p>
               )}
             </div>
@@ -1075,10 +1120,10 @@ export default function AITrendsPage() {
               <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">
-                    So sánh các ngành
+                    So sánh các chỉ số
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Nhấn vào tên ngành để đưa ngành đó lên biểu đồ.
+                    Nhấn vào tên chỉ số để đưa chỉ số đó lên biểu đồ.
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -1099,23 +1144,23 @@ export default function AITrendsPage() {
           <section className="rounded-xl border border-primary/20 bg-primary/5 p-5 sm:p-6">
             <div className="flex flex-col gap-5 md:flex-row md:items-start">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <Sparkles className="h-5 w-5" />
+                <Lightbulb className="h-5 w-5" />
               </div>
 
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold text-foreground">
-                  Nhận định từ EduMap AI
+                  Điểm chính từ dữ liệu
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-foreground/70">
                   {localizedConclusion ||
-                    "Chưa có nhận định. Hãy tải lại dữ liệu để AI phân tích xu hướng hiện tại."}
+                    "Chưa có nhận định. Hãy tải lại dữ liệu để xem điểm chính mới."}
                 </p>
 
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                   {fastest && (
                     <li className="rounded-lg border border-border/60 bg-card/60 p-3 text-sm">
                       <span className="text-muted-foreground">
-                        Tăng nhanh nhất:{" "}
+                        Chỉ số tăng nhanh nhất:{" "}
                       </span>
                       <span className="font-medium text-foreground">
                         {sectorLabel(fastest.name)}
@@ -1129,7 +1174,7 @@ export default function AITrendsPage() {
                   {slowest && slowest.name !== fastest?.name && (
                     <li className="rounded-lg border border-border/60 bg-card/60 p-3 text-sm">
                       <span className="text-muted-foreground">
-                        Cần chú ý:{" "}
+                        Chỉ số cần chú ý:{" "}
                       </span>
                       <span className="font-medium text-foreground">
                         {sectorLabel(slowest.name)}
@@ -1220,8 +1265,9 @@ export default function AITrendsPage() {
           <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
             <span>
               Nguồn:{" "}
-              <span className="text-foreground/70">education_stats</span> +{" "}
-              <span className="text-foreground/70">jobs</span>
+              <span className="text-foreground/70">education_stats</span> (dữ
+              liệu mẫu) + <span className="text-foreground/70">jobs</span> (tin
+              mẫu đang hoạt động)
             </span>
             <span>Giai đoạn: {yearsLabel}</span>
             <span>{fmtInt(dataPoints)} điểm dữ liệu</span>

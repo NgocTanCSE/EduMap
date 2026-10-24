@@ -272,7 +272,7 @@ async def get_stats():
             f"{s['name']}: {s['growth_pct']}%/năm" for s in sectors[:5]
         ]
         conclusion = (
-            "Dựa trên dữ liệu, các ngành có nhu cầu tăng trưởng: "
+            "Dựa trên dữ liệu, các chỉ số giáo dục có mức tăng trưởng: "
             + ", ".join(conclusion_parts)
             + "."
         )
