@@ -1,4 +1,9 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+// Always use the same-origin BFF (`/api/*`) instead of an absolute
+// NEXT_PUBLIC_API_URL. The latter is inlined at build time and, on Hugging
+// Face Spaces, was baked as `http://localhost:7680/api` (or a different
+// deployment's domain), so every browser call failed even though the app was
+// served from the Space. Relative URLs work on localhost, Docker and HF alike.
+const API_URL = '/api';
 
 export const analyticsService = {
   async trackEvent(eventType: string, metadata: any = {}) {
@@ -35,32 +40,39 @@ export const analyticsService = {
   },
 
   async getAiTrends() {
-    const [statsResponse] = await Promise.allSettled([
-      fetch(`${API_URL}/ai/analytics/stats`)
-    ]);
-    
-    if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-      const statsData = await statsResponse.value.json();
-      const payload = statsData?.data || statsData; // backend nests payload under data
-      if (payload?.status === 'success' || payload?.historical_data) {
-        const trending_skills = [
-          { name: 'AI Engineering', growth: '+95%' },
-          { name: 'Sustainability', growth: '+80%' },
-          { name: 'Cybersecurity', growth: '+75%' },
-          { name: 'Cloud Computing', growth: '+70%' }
-        ];
-        
-        return {
-          success: true,
-          status: 'online',
-          historical_data: payload.historical_data || [],
-          sectors: payload.sectors || [],
-          insights: payload.insights || {},
-          trending_skills
-        };
-      }
+    const response = await fetch(`${API_URL}/ai/analytics/stats`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI trends service unavailable (HTTP ${response.status})`);
     }
-    
-    throw new Error('AI trends service unavailable');
+
+    const statsData = await response.json();
+    const payload = statsData?.data || statsData; // backend nests payload under data
+
+    if (payload?.status === 'success' || payload?.historical_data) {
+      const fallbackSkills = [
+        { name: 'AI Engineering', growth: '+95%' },
+        { name: 'Sustainability', growth: '+80%' },
+        { name: 'Cybersecurity', growth: '+75%' },
+        { name: 'Cloud Computing', growth: '+70%' },
+      ];
+      const trendingSkills = Array.isArray(payload.trending_skills) && payload.trending_skills.length > 0
+        ? payload.trending_skills
+        : fallbackSkills;
+
+      return {
+        success: true,
+        status: 'online',
+        historical_data: payload.historical_data || [],
+        sectors: payload.sectors || [],
+        insights: payload.insights || {},
+        trending_skills: trendingSkills,
+      };
+    }
+
+    throw new Error('AI trends service returned an unexpected payload');
   }
 };

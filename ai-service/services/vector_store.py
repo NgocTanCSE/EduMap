@@ -5,6 +5,13 @@ import urllib.error
 import urllib.parse
 from typing import List, Dict
 
+# ChromaDB's PostHog telemetry is incompatible with newer posthog releases and
+# logs a noisy "capture() takes 1 positional argument but 3 were given" error
+# on every collection query. Telemetry is not needed for EduMap — disable it
+# before chromadb reads its Settings.
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+os.environ.setdefault("CHROMA_TELEMETRY_ENABLED", "False")
+
 try:
     import requests
 except ImportError:
@@ -45,7 +52,8 @@ class VectorStoreService:
             m.strip()
             for m in os.getenv(
                 "GEMINI_EMBEDDING_MODEL",
-                "gemini-embedding-001,text-embedding-004",
+                # text-embedding-004 was shut down on 2026-01-14.
+                "gemini-embedding-001",
             ).split(",")
             if m.strip()
         ]
@@ -105,7 +113,15 @@ class VectorStoreService:
             _signal.alarm(15)
             try:
                 db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-                self.client = chromadb.PersistentClient(path=db_path)
+                try:
+                    from chromadb.config import Settings as ChromaSettings
+                    chroma_settings = ChromaSettings(anonymized_telemetry=False)
+                except Exception:
+                    chroma_settings = None
+                if chroma_settings is not None:
+                    self.client = chromadb.PersistentClient(path=db_path, settings=chroma_settings)
+                else:
+                    self.client = chromadb.PersistentClient(path=db_path)
                 self.collection = self.client.get_or_create_collection(name="edumap_docs")
                 print(f"Vector store initialized at {db_path}")
                 # Pin the embedding dimension from the already-seeded collection (if any)

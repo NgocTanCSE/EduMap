@@ -165,7 +165,7 @@ export default function StoragePage() {
                             </div>
 
                             <a 
-                                href={process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}${file.file_url}` : file.file_url} 
+                                href={file.file_url}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="absolute inset-0 z-0"

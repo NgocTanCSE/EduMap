@@ -279,14 +279,21 @@ export class AIService {
   async getAnalyticsStats() {
     try {
       const response = await firstValueFrom(
-        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats/`)
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/analytics/stats`)
       );
       const data = response.data || {};
       const historicalData = Array.isArray(data.historical_data) ? data.historical_data : [];
       const insights = data.insights || {};
-      const lastValue = historicalData.length > 0 ? Number(historicalData[historicalData.length - 1].value || 0) : 0;
+      const lastValue = historicalData.length > 0 ? Number(historicalData[historicalData.length - 1].value || historicalData[historicalData.length - 1].metric_value || 0) : 0;
       const accuracyRate = insights.average_annual_growth_pct ? Math.min(0.99, 0.75 + Math.abs(Number(insights.average_annual_growth_pct)) / 100) : 0.9;
-      const totalPredictions = await this.historyRepo.count();
+      // chat_histories may be absent on older SQLite deployments. A failed
+      // count must not turn the whole trends endpoint into a 503.
+      let totalPredictions = 0;
+      try {
+        totalPredictions = await this.historyRepo.count();
+      } catch (countError: any) {
+        this.logger.warn(`Could not count chat history for analytics: ${countError.message}`);
+      }
       return {
         success: true,
         data: {
@@ -295,6 +302,10 @@ export class AIService {
           active_models: 2,
           status: data.status || 'success',
           historical_data: historicalData,
+          // Pass the grouped sector history through — the trends page renders
+          // one growth chart per sector and previously always received [].
+          sectors: Array.isArray(data.sectors) ? data.sectors : [],
+          trending_skills: Array.isArray(data.trending_skills) ? data.trending_skills : [],
           insights,
           last_value: lastValue,
         }

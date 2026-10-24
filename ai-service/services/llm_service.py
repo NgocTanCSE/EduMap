@@ -77,7 +77,11 @@ class LLMService:
             m.strip()
             for m in os.getenv(
                 "GEMINI_MODEL",
-                "gemini-2.0-flash,gemini-1.5-flash,gemini-1.5-pro",
+                # Valid Gemini API models as of Oct 2026. The 1.5/2.0 models
+                # were shut down (2.0-flash on 2026-06-01) and returned 404
+                # from v1beta, which made every chat request waste three
+                # round-trips before falling back to another provider.
+                "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest",
             ).split(",")
             if m.strip()
         ]

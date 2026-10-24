@@ -18,7 +18,9 @@ COPY frontend/ ./
 RUN rm -f .env.local
 # Set build-time env vars for Next.js rewrites + public API URL
 ENV BACKEND_URL=http://127.0.0.1:3000
-ENV NEXT_PUBLIC_API_URL=http://localhost:7680/api
+# Relative on purpose: client code must call the same origin. An absolute
+# localhost URL gets inlined into the browser bundle and breaks on HF Spaces.
+ENV NEXT_PUBLIC_API_URL=/api
 RUN npm run build
 
 # === Stage 1b: Frontend production deps (no native modules — safe to prune) ===
@@ -121,7 +123,7 @@ ENV DB_SQLITE_PATH=/app/frontend/public/edumap.db
 ENV DB_SYNC=false
 ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
-ENV NEXT_PUBLIC_API_URL=http://localhost:7680/api
+ENV NEXT_PUBLIC_API_URL=/api
 ENV AI_SERVICE_URL=http://127.0.0.1:8000
 ENV OSRM_URL=http://127.0.0.1:8000
 ENV REDIS_HOST=127.0.0.1
@@ -129,6 +131,12 @@ ENV STORAGE_DIR=/app/uploads
 # --- AI model configs (default Cloudflare Workers AI models; override via HF Spaces secrets) ---
 ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
 ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
+# Gemini (primary on HF Spaces). Override via HF Spaces secrets if needed.
+# Old 1.5/2.0 models are shut down and return HTTP 404 from v1beta.
+ENV GEMINI_MODEL=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest
+ENV GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+# ChromaDB telemetry is incompatible with newer posthog and spams the logs.
+ENV ANONYMIZED_TELEMETRY=False
 # --- HuggingFace Inference API fallback (used when Cloudflare tokens absent) ---
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
