@@ -153,6 +153,78 @@ async def sync_knowledge(background_tasks: BackgroundTasks, background: bool = F
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Lỗi khi đồng bộ tri thức: {str(e)}")
 
+
+# ─── Incremental Embed endpoints (auto-embed on new books / locations) ───────
+# These mirror the endpoints in routers/library.py but are registered at the
+# top-level /api/ai/ prefix so the backend (ai.service.ts, map.service.ts)
+# can call POST /api/ai/embed directly. See library.py for background docs.
+@app.post("/api/ai/embed")
+async def incremental_embed(req_body: dict):
+    """Incrementally embed a SINGLE new document (book / location) into the
+    vector DB. Called automatically on create — NOT a full re-sync."""
+    from services.vector_store import vector_store
+    from pydantic import BaseModel, Field
+    from typing import Dict, Any
+
+    class EmbedRequest(BaseModel):
+        text: str = Field(..., description="Document text to embed")
+        metadata: Dict[str, Any] = Field(default_factory=dict)
+        id: str = Field(..., description="Document ID")
+
+    try:
+        req = EmbedRequest(**req_body)
+        ok = vector_store.embed_document(req.text, req.metadata, req.id)
+        if ok:
+            return {"status": "ok", "id": req.id, "message": "Document embedded successfully."}
+        return {"status": "error", "id": req.id, "message": "Vector store not available (graceful degradation)."}
+    except Exception as e:
+        print(f"[embed] Error embedding '{req_body.get('id', '?')}': {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/ai/embed-batch")
+async def incremental_embed_batch(req_body: dict, background_tasks: BackgroundTasks = None, background: bool = False):
+    """Batch incremental embed — embeds multiple documents."""
+    from services.vector_store import vector_store
+    from pydantic import BaseModel, Field
+    from typing import Dict, Any, List
+
+    class EmbedRequest(BaseModel):
+        text: str
+        metadata: Dict[str, Any] = Field(default_factory=dict)
+        id: str
+
+    class EmbedBatchRequest(BaseModel):
+        documents: List[EmbedRequest]
+
+    try:
+        req = EmbedBatchRequest(**req_body)
+        if background and background_tasks:
+            def _bg():
+                ok_count = 0
+                for d in req.documents:
+                    try:
+                        if vector_store.embed_document(d.text, d.metadata, d.id):
+                            ok_count += 1
+                    except Exception as ex:
+                        print(f"[embed-batch BG] '{d.id}' failed: {ex}")
+                print(f"[embed-batch BG] Done — {ok_count}/{len(req.documents)} embedded.")
+            background_tasks.add_task(_bg)
+            return {"status": "processing", "count": len(req.documents), "message": "Batch embed running in background."}
+
+        ok_count = 0
+        for d in req.documents:
+            try:
+                if vector_store.embed_document(d.text, d.metadata, d.id):
+                    ok_count += 1
+            except Exception as ex:
+                print(f"[embed-batch] '{d.id}' failed: {ex}")
+        return {"status": "ok", "count": len(req.documents), "embedded": ok_count}
+    except Exception as e:
+        print(f"[embed-batch] Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     ai_ready = bool(llm_service and getattr(llm_service, "is_ready", False))
