@@ -826,7 +826,7 @@ class LLMService:
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -989,7 +989,7 @@ class LLMService:
             return response
         except Exception as e:
             print(f"Error in generate_career_advice: {e}")
-            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình GEMINI_API_KEY, "                    f"CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
+            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình OPENROUTER_API_KEY (primary), "                    f"GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
 
     async def analyze_market_trends(self, market_data: list):
         """Phân tích xu hướng thị trường việc làm — LUÔN trả về kết quả thành công.
@@ -1542,7 +1542,7 @@ class LLMService:
         """
         try:
             if not self.is_ready:
-                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,
                 temperature=0.3, max_tokens=512, top_p=0.8,
