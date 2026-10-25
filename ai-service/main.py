@@ -72,6 +72,38 @@ for name in router_names:
         print(f"Router routers.{name} include FAIL: {e}")
 
 
+# ── Startup hook: auto-seed ChromaDB ─────────────────────────────────────────
+# HF Spaces uses an ephemeral ChromaDB (CHROMA_DB_PATH=/tmp/chroma_db) that is
+# wiped on every Space restart. Without auto-seeding the vector DB is empty on
+# first boot until a manual POST /api/ai/sync-knowledge or a library/career/
+# scholarship create event fires. This startup hook calls seed_data() in a
+# daemon thread so uvicorn can begin serving immediately while seeding proceeds
+# in parallel — if a request arrives before seeding completes, RAG degrades
+# gracefully (returns empty results instead of crashing).
+@app.on_event("startup")
+def _startup_seed_vector_db():
+    """Seed the vector DB (ChromaDB) at application startup."""
+    import threading
+
+    def _seed():
+        try:
+            from seed_vector_db import seed_data
+            print("=== Startup: seeding vector DB (ChromaDB)... ===")
+            result = seed_data()
+            print(
+                "=== Startup: seed_data() complete — "
+                f"{result.get('synced_count', '?')} documents, "
+                f"source={result.get('source', '?')}, "
+                f"status={result.get('status', '?')} ==="
+            )
+        except Exception as e:
+            # Non-fatal: a seeding failure must NOT prevent the AI service
+            # from starting. RAG will degrade gracefully on an empty vector DB.
+            print(f"Startup: seed_data() failed (non-fatal): {e}")
+
+    threading.Thread(target=_seed, daemon=True).start()
+
+
 # Endpoints
 @app.get("/api/ai/trends")
 async def get_trends():

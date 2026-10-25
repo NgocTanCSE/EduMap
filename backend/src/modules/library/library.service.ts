@@ -2,11 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LearningMaterial } from './entities/learning-material.entity';
+import { AIService } from '../ai/ai.service';
 
 @Injectable()
 export class LibraryService {
   constructor(
     @InjectRepository(LearningMaterial) private readonly materialRepo: Repository<LearningMaterial>,
+    private readonly aiService: AIService,
   ) {}
 
   async findAll(page: number = 1, limit: number = 10) {
@@ -77,6 +79,9 @@ export class LibraryService {
 
   async create(data: any): Promise<LearningMaterial> {
     const newItem = this.materialRepo.create(data);
-    return this.materialRepo.save(newItem) as unknown as Promise<LearningMaterial>;
+    const saved = await this.materialRepo.save(newItem) as unknown as LearningMaterial;
+    // Tự động kích hoạt đồng bộ sang AI Vector Store chạy ngầm
+    this.aiService.triggerKnowledgeSync();
+    return saved;
   }
 }
