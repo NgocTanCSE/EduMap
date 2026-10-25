@@ -86,7 +86,7 @@ export default function PredictiveCareerPage() {
             </button>
           ) : (
             <button 
-              onClick={fetchAIAdvice}
+              onClick={fetchAIRecommendations}
               className="px-8 py-3 bg-card font-bold rounded-lg hover:bg-card/50 transition-all"
             >
               THỬ LẠI

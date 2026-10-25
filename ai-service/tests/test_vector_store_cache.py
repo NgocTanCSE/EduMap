@@ -38,7 +38,9 @@ def _fresh_service():
     svc.has_nvidia_api = False
     svc._embed_dim = None
     svc._embed_cache = {}
+    svc._embed_cache_meta = {}
     svc._embed_cache_max = 128
+    svc._embed_cache_ttl = 1800.0
     svc._openrouter_embed_down_until = 0.0
     return svc
 

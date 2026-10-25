@@ -137,7 +137,8 @@ describe('CareerService', () => {
       expect(Array.isArray(first.missing_skills)).toBe(true);
       expect(first.demand_level).toBe('Cao');
       expect(first.radar_chart).toBeDefined();
-      expect(result.source).toBe('semantic');
+      expect(result.source).toBe('semantic-chroma');
+      expect(result.degraded).toBe(false);
     });
 
     it('should fall back to curated template (NOT if-else keyword matching) when AI service is unavailable', async () => {

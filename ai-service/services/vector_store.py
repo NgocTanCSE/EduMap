@@ -987,6 +987,7 @@ class VectorStoreService:
                 careers.append({
                     'doc_id': ids[i] if i < len(ids) else f'career_{i}',
                     'title': meta.get('title', 'N/A'),
+                    'category': meta.get('category', 'career'),
                     'field': meta.get('field', ''),
                     'description': doc[:500],
                     'skills_required': skills_required,
