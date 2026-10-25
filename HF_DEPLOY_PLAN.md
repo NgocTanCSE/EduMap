@@ -396,3 +396,33 @@ Nguyên nhân: Backend trả về 401 (thiếu auth). Đã fix để trả về 
 ### AI service db_ready: false
 
 Bình thường trong SQLite mode — PostgreSQL được tắt, AI service dựa vào backend để truy cập dữ liệu. Chat vẫn hoạt động vì sử dụng Cloudflare Workers AI.
+
+### career/roadmap "gọi AI không được" (FIXED 2026-10-25)
+
+**Root cause**: Frontend `career/roadmap/page.tsx` không gửi `Authorization: Bearer <token>` header. BFF route `/api/ai/learning-path` gọi `verifyJwt()` và trả về 401 nếu không có token.
+
+**Fix**: Thêm `authService.getAccessToken()` + `Authorization` header, đ thứ với pattern của `ai-chat/page.tsx`.
+
+**Thứ phụ trợ**: `_generate_text_with_fallback` trong `llm_service.py` đã đổi provider order từ OpenRouter→Cloudflare thành Gemini→OpenRouter→Cloudflare, giống `chat_with_rag`. OpenRouter + NVIDIA cũng chuyển từ `urllib.request.urlopen` → `curl --ipv4 --insecure` để tránh IPv6 blackhole trên HF Spaces.
+
+### Library AI summary "không hiện dữ liệu" (FIXED 2026-10-25)
+
+**Root cause**: `summarize_material` → `_generate_text_with_fallback` thử OpenRouter trước bằng `urllib.request.urlopen`, thất bại trên HF Spaces → rơi về template (degraded).
+
+**Fix**: Như trên — Gemini được thử trước tiên, OpenRouter dùng curl.
+
+### Deploying changes to HF Spaces
+
+Changes are committed to the local git repository. To deploy:
+
+```bash
+# 1. Push to GitHub (triggers HF Spaces auto-rebuild if connected)
+git push origin main
+
+# 2. Or push directly to HuggingFace Hub
+git remote add hf https://huggingface.co/spaces/tancse2005/Edumap
+git push hf main
+```
+
+Sau khi push, HF Spaces sẽ tự động rebuild Docker image. Kiểm tra logs tại:
+https://huggingface.co/spaces/tancse2005/Edumap › Settings › Logs

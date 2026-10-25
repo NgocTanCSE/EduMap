@@ -540,6 +540,45 @@ Danh sách todo đã được tạo với 29 mục, sắp xếp theo thứ tự 
 
 ### Mobile-specific fixes (Round 2)
 - `ProfileScreen.tsx`: xóa dead `Routes` variable, fix type annotation thành `ProfileMenuRoute` union type
+
+---
+
+## Phần bổ sung — HF Spaces AI Connectivity Fix (2026-10-25)
+
+### Vấn đề 1: career/roadmap "gọi AI không được"
+
+**Root cause**: Trang `frontend/app/career/roadmap/page.tsx` không gửi `Authorization` header trong fetch call đến BFF route `/api/ai/learning-path`. BFF route gọi `verifyJwt(token)` và trả về 401 "Chưa xác thực người dùng" nếu không có token. Trong khi `ai-chat/page.tsx` có gửi Bearer token đúng.
+
+**Fix**: Thêm `authService.getAccessToken()` + `Authorization: Bearer ${token}` header, đồng nhất với pattern của trang ai-chat.
+
+**Thứ phụ trợ**: `AI_SERVICE_URL` fallback trong BFF route dùng `http://ai-service:8000` (Docker Compose hostname), sai với HF Spaces. Đã đổi thành `http://127.0.0.1:8000`.
+
+### Vấn đề 2: Library AI summary "không hiện dữ liệu"
+
+**Root cause**: `summarize_material` dùng `_generate_text_with_fallback` với provider order: OpenRouter → NVIDIA → Cloudflare. OpenRouter dùng `urllib.request.urlopen` (không qua `curl --ipv4 --insecure`), thất bại trên HF Spaces (IPv6 blackhole/TLS timeout). Mất ~20s timeout rồi mới rơi về Cloudflare → Gemini.
+
+**Fix**: 
+- Đổi provider order trong `_generate_text_with_fallback` thành: Gemini → OpenRouter → NVIDIA → Cloudflare (trùng khớp với `chat_with_rag` đã hoạt động)
+- Chuyển `_openrouter_generate` và `_nvidia_generate` từ `urllib.request.urlopen` sang `curl --ipv4 --insecure`
+
+### Vấn đề 3: learning-path chậm ~95s
+
+**Root cause**: Hai nguyên nhân kết hợp:
+1. `_generate_text_with_fallback` thử OpenRouter trước (20s timeout) trước khi tới Gemini
+2. BFF route gọi ai-service hai lần: generate (90s timeout) + enrichment (75s timeout)
+
+**Fix**: Provider order fix (#2) giảm thời gian từ ~95s → ~5s. Enrichment giữ nguyên best-effort pattern.
+
+### Test kết quả sau fix (chờ deploy)
+
+| Endpoint | Trước fix | Sau fix (dự kiến) |
+|----------|-----------|-------------------|
+| `/api/ai/learning-path` | 200 (95s, cached) | 200 (~5s, Gemini first) |
+| `/api/ai/chat` | 200 (<25s) | 200 (<25s) |
+| `/api/library/resources/{id}/summary` | 200 degraded (template) | 200 AI-generated |
+| `/api/ai/search` | 200 | 200 |
+| `/api/library/search` | 200 (OpenLibrary) | 200 |
+| `/career/quiz` | 200 | **404 (đã xóa)** |
 - Mobile `tsconfig.json`: `strict: false` — đã cài đặt ESLint với flat config
 
 ### ESLint config details
