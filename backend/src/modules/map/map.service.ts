@@ -519,6 +519,13 @@ export class MapService {
   }
 
   async analyzeWithAI(query: string, context?: any): Promise<any> {
+    // A valid, empty GeoJSON FeatureCollection used as a safe default whenever
+    // the AI service cannot produce boundary polygons (Issue #7: GeoAI → GeoJSON).
+    // Declared at method scope so it is reachable from both the inner and outer
+    // catch blocks below (consts are block-scoped and would otherwise be
+    // invisible to the outer catch).
+    const emptyGeoJson = { type: 'FeatureCollection', features: [] };
+
     try {
       this.logger.log(`Performing AI Analysis for query: "${query}"`);
       
@@ -529,10 +536,6 @@ export class MapService {
         lat: p.lat,
         lng: p.lng
       }));
-
-      // A valid, empty GeoJSON FeatureCollection used as a safe default whenever
-      // the AI service cannot produce boundary polygons (Issue #7: GeoAI → GeoJSON).
-      const emptyGeoJson = { type: 'FeatureCollection', features: [] };
 
       // Try AI Service first, fallback to Cloudflare direct
       try {

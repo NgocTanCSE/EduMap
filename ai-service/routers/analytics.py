@@ -1,13 +1,16 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from collections import Counter, defaultdict
 import asyncio
 import json
 import logging
 import os
+import re
 import sqlite3
+import subprocess
 import traceback
+import urllib.parse
 
 router = APIRouter(prefix="/api/ai/analytics", tags=["6. AI Education Analytics"])
 

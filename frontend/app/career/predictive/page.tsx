@@ -20,10 +20,10 @@ export default function PredictiveCareerPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAIAdvice();
+    fetchAIRecommendations();
   }, []);
 
-  const fetchAIAdvice = async () => {
+  const fetchAIRecommendations = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -34,11 +34,17 @@ export default function PredictiveCareerPage() {
         return;
       }
 
-      const data = await careerService.getAIAdvice();
-      // Safely extract array regardless of wrapper format
-      const adviceData = data.recommendations || data.predictions || data.data || data;
-      if (Array.isArray(adviceData)) {
-        setPaths(adviceData.map((p: any, idx: number) => ({
+      // ————— Semantic vector search (ChromaDB cosine similarity) —————
+      // Replaces the previous LLM prompt-based getAIAdvice() which used
+      // if-else-style keyword probing. The semantic endpoint
+      // POST /api/career/suggest → ai-service /api/ai/career/recommend-semantic
+      // embeds the user's skills + interests → queries ChromaDB edumap_docs
+      // collection → returns top-N career paths ranked by cosine similarity.
+      // Falls back to curated templates only when all LLM providers are down.
+      const data = await careerService.getCareerSuggestions();
+      const suggestions = data?.top_suggestions || [];
+      if (Array.isArray(suggestions) && suggestions.length > 0) {
+        setPaths(suggestions.map((p: any, idx: number) => ({
           ...p,
           status: p.match_score > 80 ? 'High Fit' : p.match_score > 60 ? 'Learning' : 'Skill Gap',
           color: idx === 0 ? 'text-primary/70' : idx === 1 ? 'text-primary/70' : 'text-primary/70'
@@ -47,7 +53,7 @@ export default function PredictiveCareerPage() {
         setPaths([]);
       }
     } catch (err: any) {
-      console.error("Failed to fetch AI advice:", err);
+      console.error("Failed to fetch AI recommendations:", err);
       setError(err.message || "Không thể kết nối với trí tuệ nhân tạo. Vui lòng thử lại sau.");
       toast.error("Lỗi phân tích AI");
     } finally {

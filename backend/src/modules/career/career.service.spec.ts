@@ -15,6 +15,7 @@ describe('CareerService', () => {
   let service: CareerService;
   let careerPathRepo: jest.Mocked<Repository<CareerPath>>;
   let userSkillRepo: jest.Mocked<Repository<UserSkill>>;
+  let userCareerRepo: jest.Mocked<Repository<UserCareer>>;
   let aiService: jest.Mocked<AIService>;
 
   beforeEach(async () => {
@@ -32,6 +33,14 @@ describe('CareerService', () => {
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<UserSkill>>;
 
+    userCareerRepo = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    } as unknown as jest.Mocked<Repository<UserCareer>>;
+
     const jobRepo = {
       createQueryBuilder: jest.fn(),
       create: jest.fn(),
@@ -40,14 +49,6 @@ describe('CareerService', () => {
       find: jest.fn(),
       delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<Job>>;
-
-    const userCareerRepo = {
-      find: jest.fn(),
-      findOne: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      delete: jest.fn(),
-    } as unknown as jest.Mocked<Repository<UserCareer>>;
 
     const applicationRepo = {
       find: jest.fn(),
@@ -62,6 +63,7 @@ describe('CareerService', () => {
 
     aiService = {
       predictCareerPath: jest.fn(),
+      recommendCareerSemantic: jest.fn(),
       triggerKnowledgeSync: jest.fn(),
     } as unknown as jest.Mocked<AIService>;
 
@@ -87,111 +89,125 @@ describe('CareerService', () => {
   });
 
   describe('suggestCareer', () => {
-    it('should return suggestions with frontend-compatible field names (title, match_score)', async () => {
+    it('should return semantic-vector suggestions from AI service with frontend-compatible field names', async () => {
+      // Mock user skills + interests (career aspirations)
       userSkillRepo.find.mockResolvedValue([
         { skill_name: 'Python' } as any,
         { skill_name: 'React' } as any,
       ]);
-      careerPathRepo.find.mockResolvedValue([
-        {
-          id: 1,
-          title: 'Fullstack Developer',
-          field: 'IT',
-          description: 'Build web apps',
-          skills_required: ['Python', 'TypeScript', 'React'],
-          demand_level: 'Cao',
-        } as any,
-        {
-          id: 2,
-          title: 'Data Scientist',
-          field: 'IT',
-          description: 'Analyze data',
-          skills_required: ['Python', 'SQL', 'Statistics'],
-          demand_level: 'Cao',
-        } as any,
+      userCareerRepo.find.mockResolvedValue([
+        { goal_title: 'AI Engineer' } as any,
       ]);
+      careerPathRepo.find.mockResolvedValue([
+        { id: 1, title: 'AI Engineer', field: 'IT', description: 'Build AI systems', skills_required: ['Python', 'ML'], demand_level: 'Cao' } as any,
+      ]);
+
+      // Mock the AI semantic-vector service (ChromaDB cosine similarity)
+      (aiService.recommendCareerSemantic as jest.Mock).mockResolvedValue({
+        top_careers: [
+          {
+            title: 'AI Engineer',
+            field: 'IT',
+            match_score: 92,
+            explanation: 'Strong semantic match with your Python and ML skills.',
+            missing_skills: ['Deep Learning'],
+            demand_level: 'Cao',
+            radar_chart: { Technical: 92, 'Soft Skills': 75, 'Problem Solving': 88, Language: 80, Creativity: 70 },
+          },
+        ],
+        degraded: false,
+        source: 'semantic-chroma',
+      });
 
       const result = await service.suggestCareer('user-1');
 
+      // Must call the semantic endpoint
+      expect(aiService.recommendCareerSemantic).toHaveBeenCalled();
+
+      // Field names must match frontend expectations
       expect(result.top_suggestions).toBeDefined();
-      expect(result.top_suggestions.length).toBe(2);
+      expect(result.top_suggestions.length).toBe(1);
 
       const first = result.top_suggestions[0];
-      // Field name must be `title` (NOT career_title)
-      expect(first.title).toBe('Fullstack Developer');
-      expect(first.career_title).toBeUndefined();
-      // match_score must be a number (NOT a string like '100%')
+      expect(first.title).toBe('AI Engineer');
+      expect(first.career_title).toBeUndefined(); // old name must NOT be used
       expect(typeof first.match_score).toBe('number');
-      expect(first.match_score).toBeGreaterThan(0);
-      // Must include frontend-expected fields
+      expect(first.match_score).toBe(92);
       expect(first.explanation).toBeDefined();
       expect(Array.isArray(first.missing_skills)).toBe(true);
-      expect(first.demand_level).toBeDefined();
+      expect(first.demand_level).toBe('Cao');
+      expect(first.radar_chart).toBeDefined();
+      expect(result.source).toBe('semantic');
     });
 
-    it('should return fallback suggestions when database has no career paths', async () => {
+    it('should fall back to curated template (NOT if-else keyword matching) when AI service is unavailable', async () => {
       userSkillRepo.find.mockResolvedValue([
         { skill_name: 'Python' } as any,
+      ]);
+      userCareerRepo.find.mockResolvedValue([]);
+      careerPathRepo.find.mockResolvedValue([]);
+
+      // AI service returns null (unavailable)
+      (aiService.recommendCareerSemantic as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.suggestCareer('user-1');
+
+      // Must have called the semantic endpoint
+      expect(aiService.recommendCareerSemantic).toHaveBeenCalled();
+
+      // Should return template fallback (not if-else keyword matching)
+      expect(result.top_suggestions).toBeDefined();
+      expect(result.top_suggestions.length).toBe(3);
+      expect(result.degraded).toBe(true);
+      expect(result.source).toBe('template-fallback');
+
+      const first = result.top_suggestions[0];
+      expect(first.title).toBe('AI Engineer / Machine Learning Engineer');
+      expect(first.career_title).toBeUndefined();
+      expect(typeof first.match_score).toBe('number');
+      expect(first.match_score).toBe(85);
+      expect(Array.isArray(first.missing_skills)).toBe(true);
+      expect(first.demand_level).toBe('Cao');
+    });
+
+    it('should use template fallback when AI semantic returns empty top_careers', async () => {
+      userSkillRepo.find.mockResolvedValue([
+        { skill_name: 'Python' } as any,
+      ]);
+      userCareerRepo.find.mockResolvedValue([]);
+      careerPathRepo.find.mockResolvedValue([]);
+
+      // AI service returns empty top_careers
+      (aiService.recommendCareerSemantic as jest.Mock).mockResolvedValue({
+        top_careers: [],
+        degraded: true,
+        source: 'fallback-template',
+      });
+
+      const result = await service.suggestCareer('user-1');
+
+      // Should fall through to template fallback
+      expect(result.top_suggestions.length).toBe(3);
+      expect(result.degraded).toBe(true);
+      expect(result.source).toBe('template-fallback');
+    });
+
+    it('should include input_analysis with skills and interests', async () => {
+      userSkillRepo.find.mockResolvedValue([
+        { skill_name: 'Python' } as any,
+        { skill_name: 'Docker' } as any,
+      ]);
+      userCareerRepo.find.mockResolvedValue([
+        { goal_title: 'DevOps' } as any,
       ]);
       careerPathRepo.find.mockResolvedValue([]);
 
-      const result = await service.suggestCareer('user-1');
-
-      expect(result.top_suggestions).toBeDefined();
-      expect(result.top_suggestions.length).toBe(3);
-
-      const first = result.top_suggestions[0];
-      expect(first.title).toBeDefined();
-      expect(typeof first.match_score).toBe('number');
-      expect(Array.isArray(first.missing_skills)).toBe(true);
-      expect(first.explanation).toBeDefined();
-    });
-
-    it('should return fallback suggestions when user has no skills', async () => {
-      userSkillRepo.find.mockResolvedValue([]);
-      careerPathRepo.find.mockResolvedValue([
-        {
-          id: 1,
-          title: 'Fullstack Developer',
-          field: 'IT',
-          description: 'Build web apps',
-          skills_required: ['Python', 'TypeScript'],
-          demand_level: 'Cao',
-        } as any,
-      ]);
+      (aiService.recommendCareerSemantic as jest.Mock).mockResolvedValue(null);
 
       const result = await service.suggestCareer('user-1');
 
-      expect(result.top_suggestions).toBeDefined();
-      expect(result.top_suggestions.length).toBeGreaterThan(0);
-
-      const first = result.top_suggestions[0];
-      expect(first.title).toBe('Fullstack Developer');
-      expect(typeof first.match_score).toBe('number');
-      expect(first.match_score).toBe(0); // no matching skills → 0 match
-    });
-
-    it('should compute match_score as a number based on skill overlap', async () => {
-      userSkillRepo.find.mockResolvedValue([
-        { skill_name: 'Python' } as any,
-        { skill_name: 'React' } as any,
-        { skill_name: 'Docker' } as any,
-      ]);
-      // 2 out of 4 skills match → 50%
-      careerPathRepo.find.mockResolvedValue([
-        {
-          id: 1,
-          title: 'Fullstack Developer',
-          field: 'IT',
-          skills_required: ['Python', 'React', 'Docker', 'Kubernetes'],
-          demand_level: 'Cao',
-        } as any,
-      ]);
-
-      const result = await service.suggestCareer('user-1');
-      const suggestion = result.top_suggestions[0];
-      expect(suggestion.match_score).toBe(50); // 2/4 = 50%
-      expect(suggestion.missing_skills).toContain('Kubernetes');
+      expect(result.input_analysis.skills).toEqual(['python', 'docker']);
+      expect(result.input_analysis.interests).toEqual(['DevOps']);
     });
   });
 });

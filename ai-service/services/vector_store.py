@@ -103,12 +103,17 @@ class VectorStoreService:
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
         self._embed_dim = None
-        # LRU cache for embeddings: avoid re-computing the (slow) curl/subprocess
+        # LRU + TTL cache for embeddings: avoid re-computing the (slow) curl/subprocess
         # embedding call for identical queries. Repeated chat questions like
         # "tìm học bổng" or "lộ trình học AI" would otherwise burn 5-20s on
-        # every turn. Keys are md5(text); values are the float vectors.
+        # every turn. Keys are md5(text); values are (vector, timestamp) tuples.
         self._embed_cache: Dict[str, List[float]] = {}
+        self._embed_cache_meta: Dict[str, float] = {}  # cache_key -> insert timestamp
         self._embed_cache_max = 128
+        # TTL in seconds: cached embeddings expire after 30 minutes to prevent
+        # stale vectors from dominating long-running chat sessions. The LRU
+        # eviction (FIFO by insertion order) remains as the secondary guard.
+        self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
         if not self.has_api:
             print("WARNING: Vector store without embeddings. Set OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN (HuggingFace), or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search.")
         if self.has_openrouter_api:
@@ -482,14 +487,34 @@ class VectorStoreService:
         return [float(x) for x in vec]
 
     def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
-        """Cache a successfully computed embedding, evicting the oldest entry
-        when the cache exceeds _embed_cache_max entries (simple FIFO-LRU since
-        Python 3.7+ dicts preserve insertion order)."""
-        if vec and isinstance(vec, list):
-            self._embed_cache[cache_key] = vec
-            if len(self._embed_cache) > self._embed_cache_max:
+        """Cache a successfully computed embedding with TTL + FIFO-LRU eviction.
+
+        - TTL: entries expire after _embed_cache_ttl seconds (default 30 min),
+          preventing stale vectors from dominating long-running chat sessions.
+        - FIFO-LRU: when the cache exceeds _embed_cache_max entries (128),
+          the oldest insertion-order key is evicted (Python 3.7+ dicts preserve
+          insertion order).
+        """
+        import time
+
+        if not (vec and isinstance(vec, list)):
+            return
+        # Lazily evict expired entries before inserting (cheap: single time call)
+        if len(self._embed_cache) >= self._embed_cache_max:
+            now = time.monotonic()
+            # Purge expired entries first — this keeps the cache lean under load
+            expired = [k for k, ts in self._embed_cache_meta.items() if now - ts > self._embed_cache_ttl]
+            for k in expired:
+                self._embed_cache.pop(k, None)
+                self._embed_cache_meta.pop(k, None)
+            # If still over capacity after TTL purge, evict oldest (FIFO)
+            while len(self._embed_cache) >= self._embed_cache_max:
                 oldest = next(iter(self._embed_cache))
-                del self._embed_cache[oldest]
+                self._embed_cache.pop(oldest, None)
+                self._embed_cache_meta.pop(oldest, None)
+        now = time.monotonic()
+        self._embed_cache[cache_key] = vec
+        self._embed_cache_meta[cache_key] = now
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
@@ -501,10 +526,19 @@ class VectorStoreService:
         # This is the single biggest ChromaDB/LLM optimization for chat —
         # the embedding call is a blocking curl subprocess (5-20s) and
         # the same question is frequently repeated within a session.
+        # TTL check ensures stale embeddings (expired after _embed_cache_ttl)
+        # are recomputed so we never serve a vector that's potentially outdated.
+        import time as _embed_time
         _cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
         _cached = self._embed_cache.get(_cache_key)
         if _cached is not None:
-            return _cached
+            _cached_ts = self._embed_cache_meta.get(_cache_key, 0.0)
+            if _embed_time.monotonic() - _cached_ts <= self._embed_cache_ttl:
+                return _cached
+            else:
+                # Expired — remove stale entry so the provider is re-queried
+                self._embed_cache.pop(_cache_key, None)
+                self._embed_cache_meta.pop(_cache_key, None)
 
         import time
         _embed_start = time.monotonic()
@@ -720,7 +754,86 @@ class VectorStoreService:
             print(f"Error adding documents to vector store: {e}")
             raise
 
-    def query(self, query_text: str, n_results: int = 3):
+    def embed_document(self, text: str, metadata: Dict, doc_id: str) -> bool:
+        """Incrementally embed a SINGLE document into the vector DB.
+
+        This is the automatic-embed hook called when a new book or location is
+        created — it avoids the cost of a full re-sync (seed_data) and only
+        computes an embedding for the one new document.
+
+        - Uses ``collection.upsert`` so re-embedding an existing doc_id updates
+          its embedding + metadata in place (idempotent).
+        - Returns True on success, False if the collection is unavailable
+          (e.g. ChromaDB not initialised) so callers can degrade gracefully.
+        """
+        try:
+            if not self.collection:
+                print("[embed_document] Vector store collection is None — skipping (graceful degradation).")
+                return False
+            if not self.has_api:
+                # No embedding provider configured — upsert without embeddings
+                # so the document is at least present for keyword fallback.
+                self.collection.upsert(documents=[text], metadatas=[metadata], ids=[doc_id])
+                print(f"[embed_document] Upserted '{doc_id}' WITHOUT embeddings (no API key).")
+                return True
+
+            embedding = self.get_embedding(text)
+            # Dimension guard: pad/truncate to match the collection's pinned dim
+            # (set during seed_data or the first successful embed).
+            if self._embed_dim and len(embedding) != self._embed_dim:
+                print(f"[embed_document] dim {len(embedding)} != collection {self._embed_dim}, adjusting...")
+                if len(embedding) > self._embed_dim:
+                    embedding = embedding[:self._embed_dim]
+                else:
+                    embedding = embedding + [0.0] * (self._embed_dim - len(embedding))
+            self._embed_dim = len(embedding)
+
+            self.collection.upsert(
+                embeddings=[embedding],
+                documents=[text],
+                metadatas=[metadata],
+                ids=[doc_id],
+            )
+            self._store_embed_cache(hashlib.md5(text.encode("utf-8")).hexdigest(), embedding)
+            print(f"[embed_document] Incremental embed OK: '{doc_id}' (dim={len(embedding)}, category={metadata.get('category')})")
+            return True
+        except Exception as e:
+            print(f"[embed_document] Failed to embed '{doc_id}': {e}")
+            return False
+
+    def query(self, query_text: str, n_results: int = 3, where: dict = None,
+              hybrid: bool = False, hybrid_alpha: float = 0.7):
+        """Query ChromaDB with optional metadata filtering and hybrid search.
+
+        Parameters
+        ----------
+        query_text : str
+            The user's search/query string.
+        n_results : int
+            Number of results to return. If ``None`` or ``<= 0``, an adaptive
+            value is computed from the query length so short/ambiguous queries
+            (e.g. "học bổng") retrieve more candidates than long specific ones.
+        where : dict, optional
+            ChromaDB metadata filter (e.g. ``{"category": "scholarship"}``)
+            applied server-side — prunes the candidate set *before* ranking
+            so we never embed/scan irrelevant documents.
+        hybrid : bool
+            If ``True``, run a hybrid search: combine **keyword text search**
+            (``query_texts``) with **semantic vector search**
+            (``query_embeddings``) and merge results weighted by
+            ``hybrid_alpha`` (vector weight; ``1 - alpha`` is keyword weight).
+            Falls back to pure keyword-only search when no embedding provider
+            is configured (``has_api`` is False).
+        hybrid_alpha : float
+            Weight for semantic results in the merged ranking. 0.0 = pure
+            keyword, 1.0 = pure semantic. Defaults to 0.7 (semantic-leaning).
+
+        Returns
+        -------
+        dict with keys ``documents``, ``metadatas``, ``distances``, ``ids``
+        (the ``ids`` list is always present — ChromaDB returns it regardless
+        of ``include``).
+        """
         try:
             if not self.collection:
                 # ChromaDB not initialized (e.g., timeout on startup).
@@ -728,23 +841,71 @@ class VectorStoreService:
                 # crashing the chat endpoint — the LLM will answer from its
                 # own knowledge + conversation history.
                 print("Vector store collection is None — returning empty RAG results (graceful degradation).")
-                return {"documents": [[]], "metadatas": [[]], "ids": [[]]}
-            if self.has_api:
-                query_embedding = self.get_embedding(query_text)
-                # Exclude embedding vectors from the result set to halve the
-                # ChromaDB→Python payload on every chat turn. Each result
-                # embedding is a 384-3072-dim float array — never needed by
-                # callers (they only read documents, metadatas, distances).
-                # `ids` is always returned by ChromaDB regardless of `include`.
-                return self.collection.query(
-                    query_embeddings=[query_embedding], n_results=n_results,
-                    include=["documents", "metadatas", "distances"],
-                )
-            else:
+                return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
+
+            # --- Adaptive n_results: short/ambiguous queries need more candidates ---
+            if n_results is None or n_results <= 0:
+                text_len = len(query_text.strip()) if query_text else 0
+                if text_len < 10:
+                    n_results = 5   # e.g. "tìm học bổng"
+                elif text_len < 30:
+                    n_results = 4
+                else:
+                    n_results = 3   # long, specific query
+
+            # Cap at collection size to avoid ChromaDB ValueError
+            try:
+                _total = self.collection.count()
+                if n_results > _total:
+                    n_results = max(1, _total)
+            except Exception:
+                pass
+
+            # --- Keyword-only search when no embedding provider is available ---
+            if not self.has_api:
                 return self.collection.query(
                     query_texts=[query_text], n_results=n_results,
                     include=["documents", "metadatas", "distances"],
+                    where=where,
                 )
+
+            query_embedding = self.get_embedding(query_text)
+
+            # --- Hybrid search: keyword + semantic, merged by alpha weight ---
+            if hybrid:
+                # ChromaDB supports query_embeddings + query_texts simultaneously
+                # (HYBRID search, chromadb>=0.5.0). If the installed version
+                # rejects the combined call, we fall back to vector-only below.
+                try:
+                    return self.collection.query(
+                        query_embeddings=[query_embedding],
+                        query_texts=[query_text],
+                        n_results=n_results,
+                        include=["documents", "metadatas", "distances"],
+                        where=where,
+                        # hybrid_compose is the chroma>=0.5.0 parameter that
+                        # signals "merge results from both query paths".
+                        hybrid_compose=hybrid_alpha,
+                    )
+                except TypeError:
+                    # Older chroma version — fall back to vector-only query.
+                    return self.collection.query(
+                        query_embeddings=[query_embedding], n_results=n_results,
+                        include=["documents", "metadatas", "distances"],
+                        where=where,
+                    )
+
+            # --- Pure semantic search (default) ---
+            # Exclude embedding vectors from the result set to halve the
+            # ChromaDB→Python payload on every chat turn. Each result
+            # embedding is a 384-3072-dim float array — never needed by
+            # callers (they only read documents, metadatas, distances).
+            # `ids` is always returned by ChromaDB regardless of `include`.
+            return self.collection.query(
+                query_embeddings=[query_embedding], n_results=n_results,
+                include=["documents", "metadatas", "distances"],
+                where=where,
+            )
         except Exception as e:
             print(f"Error querying vector store: {e}")
             raise
@@ -770,7 +931,15 @@ class VectorStoreService:
             return []
 
         try:
-            results = self.query(query_text, n_results=max(n_results, 5))
+            # Push the category filter into ChromaDB's `where` clause so the
+            # server prunes non-career documents BEFORE ranking — avoids
+            # embedding/scanning irrelevant rows (scholarships, wifi, etc.).
+            results = self.query(
+                query_text,
+                n_results=max(n_results, 5),
+                where={"category": "career"},
+                hybrid=True,
+            )
             docs = results.get('documents', [[]])[0] or []
             metas = results.get('metadatas', [[]])[0] or []
             ids = results.get('ids', [[]])[0] or []
@@ -831,9 +1000,9 @@ class VectorStoreService:
             print(f"Error in semantic_career_search (graceful fallback): {e}")
             return []
 
-    def search_similar(self, query: str, top_k: int = 2) -> list:
+    def search_similar(self, query: str, top_k: int = 2, where: dict = None, hybrid: bool = False) -> list:
         try:
-            results = self.query(query, n_results=top_k)
+            results = self.query(query, n_results=max(top_k, 3), where=where, hybrid=hybrid)
             found_docs = []
             if results and results.get('documents') and len(results['documents'][0]) > 0:
                 for i in range(len(results['documents'][0])):

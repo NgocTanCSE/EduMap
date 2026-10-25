@@ -106,72 +106,46 @@ export class CareerService {
       };
     }
 
-    // ————— Fallback: if-else keyword matching —————
-    const topSuggestions = allPaths.map(path => {
-      const requiredSkills = (path.skills_required || []);
-      const matchedSkills = requiredSkills.filter(skill =>
-        userSkillNames.includes(skill.toLowerCase())
-      );
-      const missingSkills = requiredSkills.filter(skill =>
-        !userSkillNames.includes(skill.toLowerCase())
-      );
-
-      const totalSkillsCount = requiredSkills.length || 1;
-      const matchPercentage = Math.round((matchedSkills.length / totalSkillsCount) * 100);
-
-      return {
-        career_id: path.id,
-        title: path.title,              // frontend expects `title` (was `career_title`)
-        field: path.field,
-        match_score: matchPercentage,   // number, not string (was `match_rate: '95%'`)
-        explanation: path.description || `Lộ trình ${path.title} phù hợp với kỹ năng của bạn.`,
-        missing_skills: missingSkills.slice(0, 5),  // skills the user is missing
-        demand_level: 'Cao',
-      };
-    });
-
-    topSuggestions.sort((a, b) => b.match_score - a.match_score);
-    const suggestions = topSuggestions.slice(0, 5);
-
-    // Graceful fallback when DB has no career paths at all
-    if (suggestions.length === 0 && allPaths.length === 0) {
-      return {
-        message: 'Hệ thống chưa có dữ liệu lộ trình nghề nghiệp. Vui lòng liên hệ quản trị viên.',
-        top_suggestions: [
-          {
-            career_id: null,
-            title: 'AI Engineer / Machine Learning Engineer',
-            field: 'Công nghệ thông tin',
-            match_score: 85,
-            explanation: 'Ngành công nghệ thông tin và AI đang là xu hướng phát triển mạnh.',
-            missing_skills: ['Python', 'Machine Learning', 'Statistics'],
-            demand_level: 'Cao',
-          },
-          {
-            career_id: null,
-            title: 'Fullstack Developer',
-            field: 'Công nghệ thông tin',
-            match_score: 78,
-            explanation: 'Lĩnh vực phát triển web fullstack luôn có nhu cầu ổn định.',
-            missing_skills: ['TypeScript', 'React', 'Node.js'],
-            demand_level: 'Cao',
-          },
-          {
-            career_id: null,
-            title: 'Data Scientist',
-            field: 'Công nghệ thông tin',
-            match_score: 72,
-            explanation: 'Phân tích dữ liệu và khai phá thông tin ngành đang tăng trưởng.',
-            missing_skills: ['Python', 'Pandas', 'Statistics'],
-            demand_level: 'Trung bình',
-          },
-        ],
-      };
-    }
-
+    // ————— Fallback: curated template (no if-else keyword matching) —————
+    // When the AI service (semantic vector search) is unavailable, return a
+    // static set of high-demand career templates. This replaces the previous
+    // if-else keyword-matching logic which was crude and brittle — the career
+    // recommendation now ALWAYS goes through semantic vector search (ChromaDB
+    // cosine similarity) when the AI service is reachable, and degrades to
+    // these curated templates only when every provider is down.
     return {
-      input_analysis: { skills: userSkillNames },
-      top_suggestions: suggestions,
+      input_analysis: { skills: userSkillNames, interests },
+      top_suggestions: [
+        {
+          career_id: null,
+          title: 'AI Engineer / Machine Learning Engineer',
+          field: 'Công nghệ thông tin',
+          match_score: 85,
+          explanation: 'Ngành công nghệ thông tin và AI đang là xu hướng phát triển mạnh.',
+          missing_skills: ['Python', 'Machine Learning', 'Statistics'],
+          demand_level: 'Cao',
+        },
+        {
+          career_id: null,
+          title: 'Fullstack Developer',
+          field: 'Công nghệ thông tin',
+          match_score: 78,
+          explanation: 'Lĩnh vực phát triển web fullstack luôn có nhu cầu ổn định.',
+          missing_skills: ['TypeScript', 'React', 'Node.js'],
+          demand_level: 'Cao',
+        },
+        {
+          career_id: null,
+          title: 'Data Scientist',
+          field: 'Công nghệ thông tin',
+          match_score: 72,
+          explanation: 'Phân tích dữ liệu và khai phá thông tin ngành đang tăng trưởng.',
+          missing_skills: ['Python', 'Pandas', 'Statistics'],
+          demand_level: 'Trung bình',
+        },
+      ],
+      degraded: true,
+      source: 'template-fallback',
     };
   }
 

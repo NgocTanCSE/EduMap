@@ -978,7 +978,9 @@ class LLMService:
             # so run them off the event loop. Otherwise a slow embedding call
             # blocks every other endpoint (analytics, history, ...) and the
             # NestJS 10s client times out even though this request is healthy.
-            search_results = await asyncio.to_thread(vector_store.query, message, n_results=3)
+            search_results = await asyncio.to_thread(
+                vector_store.query, message, n_results=None, hybrid=True
+            )
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])
             ids = search_results.get('ids', [[]])
@@ -1099,7 +1101,12 @@ class LLMService:
         cache_key = hashlib.md5(f"chat_stream:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
         cached_res = cache_service.get(cache_key)
         if cached_res:
-            yield f"data: {json.dumps({'sources': cached_res.get('sources', []), 'token': cached_res.get('reply', ''), 'is_final': True, 'done': True})}\n\n"
+            # Stream the cached reply word-by-word so the user still sees
+            # a typing effect on cache hits (not a single block dump).
+            async for chunk in self._stream_word_by_word(
+                cached_res.get('reply', ''), sources=cached_res.get('sources', []), is_final=True
+            ):
+                yield chunk
             return
 
         history = history or []
@@ -1108,7 +1115,9 @@ class LLMService:
         docs_str = ""
 
         try:
-            search_results = await asyncio.to_thread(vector_store.query, message, n_results=3)
+            search_results = await asyncio.to_thread(
+                vector_store.query, message, n_results=None, hybrid=True
+            )
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])
             ids = search_results.get('ids', [[]])
@@ -1180,7 +1189,7 @@ class LLMService:
             except Exception as e:
                 print(f"OpenRouter streaming failed, falling back to non-stream: {e}")
 
-        # ---- 5. Fallback: non-streaming (yield entire response at once) ----
+        # ---- 5. Fallback: non-streaming (yield word-by-word for typing effect) ----
         reply_text = None
         last_err = None
         for gen_fn in [
@@ -1203,8 +1212,49 @@ class LLMService:
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
 
-        yield f"data: {json.dumps({'token': reply_text, 'is_final': True, 'done': True})}\n\n"
+        # Stream word-by-word so the UI shows a typing effect even when
+        # real SSE streaming from OpenRouter is unavailable.
+        async for chunk in self._stream_word_by_word(reply_text, sources=sources, is_final=True):
+            yield chunk
         cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
+
+    async def _stream_word_by_word(self, text: str, sources: list = None,
+                                   is_final: bool = False, delay: float = 0.03):
+        """Yield a pre-computed reply as individual SSE chunks with a typing delay.
+
+        Used when true streaming (OpenRouter SSE) is unavailable — the entire
+        reply is already in-memory, but we break it into word-level chunks so
+        the frontend still shows a *typing effect* (chữ chạy) instead of dumping
+        the whole answer at once.
+
+        Parameters
+        ----------
+        text : str
+            The full reply to stream.
+        sources : list
+            Source documents to send in the metadata chunk.
+        is_final : bool
+            If True, the last word chunk also carries ``is_final`` and ``done``.
+        delay : float
+            Seconds to sleep between word chunks (default 30 ms → ~readable but
+            not painfully slow; tuned for 1 vCPU HF Spaces).
+        """
+        import asyncio
+
+        # Send metadata (sources) first — mirrors the real-streaming path
+        yield f"data: {json.dumps({'sources': sources or [], 'meta': True})}\n\n"
+
+        # Split on word boundaries, keeping the separators (spaces, newlines)
+        import re
+        words = re.split(r'( +|\n+)', text)
+        words = [w for w in words if w]  # filter empty strings
+
+        for i, word in enumerate(words):
+            yield f"data: {json.dumps({'token': word, 'is_final': False})}\n\n"
+            await asyncio.sleep(delay)
+
+        if is_final:
+            yield f"data: {json.dumps({'done': True})}\n\n"
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
         """Fallback trả lời khi tất cả LLM provider đều thất bại (OpenRouter/Gemini/CF/HF unreachable từ HF Spaces).

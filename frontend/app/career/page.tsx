@@ -106,14 +106,14 @@ export default function CareerDashboardPage() {
               {loading ? (
                   <><CardSkeleton /><CardSkeleton /></>
               ) : suggestions.length > 0 ? suggestions.map((s: any) => (
-                <Link key={s.career_id} href={`/career/roadmap/${s.career_id}`} className="block">
+                <Link key={s.career_id ?? s.title} href={s.career_id ? `/career/roadmap/${s.career_id}` : '#'} className="block">
                     <div className="bg-card border border-border p-5 rounded-lg flex items-center justify-between group hover:border-primary/50 transition-all">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary/70 font-bold border border-primary/20 text-xs">
-                                {s.match_rate}
+                                {s.match_score !== undefined ? `${s.match_score}%` : 'N/A'}
                             </div>
                             <div>
-                                <h3 className="font-bold text-foreground">{s.career_title}</h3>
+                                <h3 className="font-bold text-foreground">{s.title}</h3>
                                 <p className="text-xs text-muted-foreground">{s.field}</p>
                             </div>
                         </div>
