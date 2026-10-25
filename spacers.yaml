@@ -17,6 +17,8 @@
 #   - CF_AI_GATEWAY_ID         (tùy chọn, ID của Cloudflare AI Gateway)
 #   - CF_AI_GATEWAY_ENABLED    (tùy chọn, true/false — bật dùng AI Gateway)
 #   - HF_TOKEN                 (tùy chọn, HF Inference API fallback)
+#   - OPENROUTER_API_KEY       (tùy chọn, OpenRouter — provider phụ trợ cho LLM)
+#   - OPENROUTER_MODEL         (tùy chọn, model OpenRouter; mặc định deepseek/deepseek-chat)
 #   - ORS_API_KEY              (tùy chọn, OpenRouteService routing)
 #   - ADZUNA_APP_ID, ADZUNA_APP_KEY (tùy chọn, thị trường việc làm)
 

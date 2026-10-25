@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { authService } from '@/src/services/auth.service';
 
 export default function CareerRoadmapPage() {
   const [roadmap, setRoadmap] = useState<any>(null);
@@ -26,11 +27,22 @@ export default function CareerRoadmapPage() {
 
   const generateRoadmap = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    
+    const token = authService.getAccessToken();
+    if (!token) {
+      toast.error('Vui lòng đăng nhập để sử dụng tính năng tạo lộ trình AI.');
+      window.location.href = '/auth/login?redirect=/career/roadmap';
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await fetch('/api/ai/learning-path', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           target_role: targetRole,
           current_level: currentLevel,

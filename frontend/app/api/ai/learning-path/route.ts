@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/src/lib/auth-utils';
 
-// The ai-service runs on the same Docker network as the frontend container
-// (the backend reaches it at http://ai-service:8000). The frontend compose
-// override does not export AI_SERVICE_URL, so fall back to that address.
-const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'http://ai-service:8000').replace(/\/$/, '');
+// On HF Spaces (single container via supervisord) the ai-service runs on
+// 127.0.0.1:8000. The Docker compose override uses the service hostname
+// `ai-service`, but the runtime fallback must use localhost so the BFF works
+// on HF Spaces even if the env var is not propagated to the Next.js process.
+const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     // 3. Re-build the learning-path payload (page sends target_level fields).
     const body = await req.json();
     const data = {
-      user_id: userId,
+      user_id: String(userId),
       current_level: body.current_level || 'Beginner',
       target_role: body.target_role || 'AI Developer',
       time_commitment_hours_per_week: body.time_commitment_hours_per_week || 10,
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
             `Mở rộng CHI TIẾT cho từng bước: mỗi bước liệt kê 2-3 sub-topic cụ thể và ` +
             `1-2 nguồn học (tên + URL). Trả về text thường, mỗi bước bắt đầu bằng "Bước N: <title>". ` +
             `Không cần lời chào, không dùng markdown đặc biệt.`,
-          user_id: userId,
+          user_id: String(userId),
         }),
         signal: enrichController.signal,
       });

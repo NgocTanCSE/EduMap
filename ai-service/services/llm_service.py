@@ -613,26 +613,38 @@ class LLMService:
         if top_p is not None:
             payload["top_p"] = float(top_p)
         body_json = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body_json,
-            headers={
-                "Authorization": f"Bearer {self.openrouter_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "HTTP-Referer": "https://edumap.ai",
-                "X-Title": "EduMap",
-            },
-            method="POST",
-        )
+        # Use curl (OpenSSL TLS) to bypass Python ssl/urllib IPv6 blackhole on
+        # HF Spaces — same pattern as Gemini, Cloudflare, and HF providers.
         try:
-            with urllib.request.urlopen(req, timeout=self.openrouter_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "ignore")[:300]
-            raise RuntimeError(f"OpenRouter HTTP {e.code}: {body}")
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: application/json",
+                    "-H", "HTTP-Referer: https://edumap.ai",
+                    "-H", "X-Title: EduMap",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.openrouter_timeout),
+                    url,
+                ],
+                capture_output=True, text=True, timeout=self.openrouter_timeout + 2,
+            )
         except Exception as e:
             raise RuntimeError(f"OpenRouter connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            raise RuntimeError(f"OpenRouter curl failed: {err}")
+
+        if not (proc.stdout or "").strip():
+            raise RuntimeError(f"OpenRouter returned empty response (curl stdout empty)")
+
+        try:
+            data = json.loads(proc.stdout)
+        except Exception:
+            raise RuntimeError(f"OpenRouter returned invalid JSON: {(proc.stdout or '')[:200]}")
 
         text = ""
         try:
@@ -664,24 +676,32 @@ class LLMService:
         if top_p is not None:
             payload["top_p"] = float(top_p)
         body_json = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body_json,
-            headers={
-                "Authorization": f"Bearer {self.nvidia_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            },
-            method="POST",
-        )
+        # Use curl (OpenSSL TLS) to bypass Python ssl/urllib IPv6 blackhole on HF Spaces.
         try:
-            with urllib.request.urlopen(req, timeout=self.nvidia_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "ignore")[:300]
-            raise RuntimeError(f"NVIDIA NIM HTTP {e.code}: {body}")
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.nvidia_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: application/json",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.nvidia_timeout),
+                    url,
+                ],
+                capture_output=True, text=True, timeout=self.nvidia_timeout + 2,
+            )
         except Exception as e:
             raise RuntimeError(f"NVIDIA NIM connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            raise RuntimeError(f"NVIDIA NIM curl failed: {err}")
+
+        try:
+            data = json.loads(proc.stdout or "{}")
+        except Exception:
+            raise RuntimeError(f"NVIDIA NIM returned invalid JSON: {(proc.stdout or '')[:200]}")
 
         text = ""
         try:
@@ -697,12 +717,15 @@ class LLMService:
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Try all configured LLM providers in priority order.
 
-        Order: OpenRouter → NVIDIA NIM → _cloudflare_generate.
+        Order: Gemini → NVIDIA NIM → OpenRouter → Cloudflare/HF.
 
-        ``_cloudflare_generate`` already chains Gemini → Cloudflare Workers AI
-        → HuggingFace Inference API internally, so this method only needs to
-        front-load OpenRouter and NVIDIA (which are NOT inside that chain)
-        before delegating to the existing three-provider cascade.
+        This mirrors the provider ordering used by ``chat_with_rag`` so that
+        every AI-dependent endpoint benefits from the same HF Spaces-reachable
+        primary provider (Gemini, which uses curl --ipv4 --insecure). Previously
+        OpenRouter was tried first here, which on HF Spaces timed out for ~20s
+        via ``urllib.request`` before falling through to Gemini — making the
+        learning-path endpoint take ~95 s and the library summary degrade to a
+        template fallback.
 
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError with a per-provider breakdown
@@ -710,6 +733,19 @@ class LLMService:
         """
         import time as _time
         errors: dict = {}
+
+        # 0. Google Gemini (primary — reachable from HF Spaces via curl)
+        if self.has_gemini:
+            try:
+                result = self._gemini_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+                )
+                if result:
+                    print("  -> Gemini generate OK")
+                    return result
+            except Exception as e:
+                errors["Gemini"] = str(e)
+                print(f"Gemini generate failed: {e}")
 
         # 1. OpenRouter (OpenAI-compatible, external provider)
         if self.has_openrouter:
@@ -737,7 +773,7 @@ class LLMService:
                 errors["NVIDIA"] = str(e)
                 print(f"NVIDIA NIM generate failed: {e}")
 
-        # 3. Cloudflare Workers AI (internally chains Gemini → CF → HF)
+        # 3. Cloudflare Workers AI (internally chains Gemini → CF → HF as fallback)
         try:
             result = self._cloudflare_generate(
                 prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
@@ -750,6 +786,10 @@ class LLMService:
 
         # Build a detailed, per-provider error message.
         parts = []
+        if not self.has_gemini:
+            parts.append("Gemini: không cấu hình")
+        elif errors.get("Gemini"):
+            parts.append(f"Gemini: {errors['Gemini'][:150]}")
         if not self.has_openrouter:
             parts.append("OpenRouter: không cấu hình")
         elif errors.get("OpenRouter"):

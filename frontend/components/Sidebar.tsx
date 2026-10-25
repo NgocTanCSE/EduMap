@@ -17,7 +17,6 @@ import {
   Trophy,
   Rocket,
   Sun,
-  HelpCircle,
   MapPin,
   LogOut,
   User,
@@ -75,7 +74,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Nghề nghiệp', href: '/career', icon: Compass },
       { name: 'Lộ trình nghề', href: '/career/roadmap', icon: MapPin },
-      { name: 'Câu đố nghề nghiệp', href: '/career/quiz', icon: HelpCircle },
       { name: 'Thực tập', href: '/internships', icon: Building2 },
       { name: 'Cơ hội', href: '/opportunities', icon: Rocket },
       { name: 'Xu hướng thị trường', href: '/analytics', icon: TrendingUp },
