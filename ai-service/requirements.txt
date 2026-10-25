@@ -16,3 +16,7 @@ pypdf
 redis
 scikit-learn
 scipy
+# Required by FastAPI for UploadFile / File (multipart/form-data) — used by the
+# PDF transcript endpoint (POST /api/ai/pdf/transcript). Without this, the
+# router import fails and the endpoint returns 404 in the HF Spaces container.
+python-multipart

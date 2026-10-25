@@ -152,7 +152,7 @@ export class AIService {
   async chatStream(message: string, history: any[], ctx: any, userId: string, res: any) {
     try {
       const stream = await this.httpService.axiosRef.post(
-        `${this.aiServiceUrl}/chat/stream`,
+        `${this.aiServiceUrl}/api/ai/chat/stream`,
         { message, history, context: ctx, user_id: userId },
         { responseType: 'stream' }
       );

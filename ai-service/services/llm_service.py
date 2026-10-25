@@ -1166,13 +1166,16 @@ class LLMService:
         # ---- 4. Try true streaming via OpenRouter ----
         if self.has_openrouter:
             try:
+                full_reply = ""
                 for token in self._openrouter_generate_stream(
                     prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 ):
+                    full_reply += token
                     yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
-                # Cache for future identical requests
-                cache_service.set(cache_key, {"reply": "", "sources": sources}, ttl=3600)
+                # Cache for future identical requests — store the full reply text
+                # so cache hits replay the complete streamed response.
+                cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
                 return
             except Exception as e:
                 print(f"OpenRouter streaming failed, falling back to non-stream: {e}")

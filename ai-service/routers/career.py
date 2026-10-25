@@ -29,6 +29,7 @@ class SemanticCareerRecommendation(BaseModel):
     explanation: str
     missing_skills: List[str]
     demand_level: Optional[str] = None
+    field: Optional[str] = None
     radar_chart: Optional[dict] = None
 
 class SemanticCareerResponse(BaseModel):

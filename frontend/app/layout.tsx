@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from 'sonner';
@@ -13,12 +13,19 @@ const inter = Inter({
   display: "swap",
 });
 
+// themeColor + viewport được thu thập tại đây (không còn trong `metadata` export).
+// Nguồn: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+export const viewport: Viewport = {
+  themeColor: "#E07A5F",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "EduMap - Bản đồ Giáo dục Thông minh Biên Hòa",
   description: "Khám phá không gian học tập, cơ hội thực tập, học bổng và cộng đồng giáo dục tại Biên Hòa, Đồng Nai.",
   manifest: "/manifest.json",
-  themeColor: "#E07A5F",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   keywords: ["EduMap", "Biên Hòa", "Đồng Nai", "Bản đồ giáo dục", "Học bổng", "Thực tập", "STEM", "Wifi miễn phí"],
   authors: [{ name: "EduMap Team" }],
   openGraph: {
