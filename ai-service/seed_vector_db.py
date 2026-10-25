@@ -138,7 +138,9 @@ def fetch_data_from_db(conn):
                 f"Lo trinh chi tiet: {r.get('description') or 'Chuong trinh dao tao gan lien voi nhu cau doanh nghiep.'}."
             )
             documents.append(doc_text)
-            metadatas.append({"title": r["title"], "category": "career", "source": "db_career_paths"})
+            # Include skills_required in metadata so the semantic search can
+            # compute match scores and missing-skills without re-parsing text.
+            metadatas.append({"title": r["title"], "category": "career", "source": "db_career_paths", "skills_required": skills_str, "field": r.get("field") or ""})
             ids.append(f"career_{r['id']}")
         if rows:
             print(f"  + Da doc {len(rows)} lo trinh nghe nghiep tu bang career_paths.")

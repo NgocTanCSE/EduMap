@@ -707,6 +707,88 @@ class VectorStoreService:
             print(f"Error querying vector store: {e}")
             raise
 
+    def semantic_career_search(self, skills: List[str], n_results: int = 3) -> list:
+        """Tìm kiếm career paths trong ChromaDB bằng semantic similarity với skill của user.
+
+        Thay thế approach if-else keyword matching trong career.service.ts.
+        Trả về danh sách career kèm metadata, match_score (dựa trên distance),
+        và missing_skills (skills_required không có trong input).
+        """
+        import json as _json
+
+        if not self.collection:
+            print("Vector store collection is None — semantic search disabled.")
+            return []
+        if not self.has_api:
+            # ChromaDB can still do keyword query without an embedding provider
+            query_text = " ".join(skills) if skills else ""
+        else:
+            query_text = " ".join(skills) if skills else ""
+        if not query_text.strip():
+            return []
+
+        try:
+            results = self.query(query_text, n_results=max(n_results, 5))
+            docs = results.get('documents', [[]])[0] or []
+            metas = results.get('metadatas', [[]])[0] or []
+            ids = results.get('ids', [[]])[0] or []
+            distances = (results.get('distances', [[]])[0] or [])
+
+            user_skills_lower = set(s.lower() for s in (skills or []))
+
+            careers = []
+            for i, doc in enumerate(docs):
+                meta = metas[i] if i < len(metas) else {}
+                # Only include career-path documents
+                if meta.get('category') != 'career':
+                    continue
+
+                # Parse skills_required from metadata (JSON string or comma-separated)
+                skills_required = []
+                raw_skills = meta.get('skills_required', '')
+                if isinstance(raw_skills, str):
+                    try:
+                        parsed = _json.loads(raw_skills)
+                        if isinstance(parsed, list):
+                            skills_required = [str(s).strip() for s in parsed if str(s).strip()]
+                        else:
+                            skills_required = [s.strip() for s in str(parsed).split(',') if s.strip()]
+                    except Exception:
+                        skills_required = [s.strip() for s in str(raw_skills).split(',') if s.strip()]
+                elif isinstance(raw_skills, list):
+                    skills_required = [str(s).strip() for s in raw_skills if str(s).strip()]
+
+                matched = [s for s in skills_required if s.lower() in user_skills_lower]
+                missing = [s for s in skills_required if s.lower() not in user_skills_lower]
+
+                # Convert ChromaDB distance to a 0-100 match score.
+                # Smaller distance = more similar. Using a sigmoid-like transform.
+                dist = distances[i] if i < len(distances) and distances[i] is not None else 0.0
+                sim = max(0.0, min(1.0, 1.0 / (1.0 + float(dist)))) if dist > 0 else 0.8
+                match_score = int(round(sim * 100))
+
+                # Ensure at least the skill-overlap ratio influences the score
+                if skills_required:
+                    overlap_ratio = len(matched) / len(skills_required)
+                    match_score = int(round(match_score * 0.6 + overlap_ratio * 100 * 0.4))
+                    match_score = max(0, min(100, match_score))
+
+                careers.append({
+                    'doc_id': ids[i] if i < len(ids) else f'career_{i}',
+                    'title': meta.get('title', 'N/A'),
+                    'field': meta.get('field', ''),
+                    'description': doc[:500],
+                    'skills_required': skills_required,
+                    'matched_skills': matched,
+                    'missing_skills': missing[:5],
+                    'match_score': match_score,
+                })
+
+            return careers
+        except Exception as e:
+            print(f"Error in semantic_career_search (graceful fallback): {e}")
+            return []
+
     def search_similar(self, query: str, top_k: int = 2) -> list:
         try:
             results = self.query(query, n_results=top_k)
@@ -722,6 +804,5 @@ class VectorStoreService:
         except Exception as e:
             print(f"Error in search_similar (graceful fallback): {e}")
             return []
-
 
 vector_store = VectorStoreService()

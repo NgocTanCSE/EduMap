@@ -48,8 +48,9 @@ export class ScholarshipService {
 
   /**
    * Kiểm tra điều kiện nộp đơn (Eligibility Check) - AI Powered
+   * Nhận thêm transcript_data (từ PDF bảng điểm) để tính điểm GPA
    */
-  async checkEligibility(userId: string, scholarshipId: string) {
+  async checkEligibility(userId: string, scholarshipId: string, body?: any) {
     const scholar = await this.scholarRepo.findOne({ where: { id: scholarshipId } });
     if (!scholar) throw new NotFoundException('Học bổng không tồn tại');
 
@@ -58,8 +59,11 @@ export class ScholarshipService {
     });
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
+    // Truyền dữ liệu bảng điểm PDF nếu có
+    const transcriptData = body?.gpa || body?.overall_grade || body?.courses ? body : null;
+    
     // Gọi AI Service để phân tích thực tế
-    const aiAnalysis = await this.aiService.checkScholarshipEligibility(user, scholar);
+    const aiAnalysis = await this.aiService.checkScholarshipEligibility(user, scholar, transcriptData);
     
     return aiAnalysis;
   }

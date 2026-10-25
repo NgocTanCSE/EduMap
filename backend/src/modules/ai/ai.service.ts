@@ -120,9 +120,53 @@ export class AIService {
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
-   }
- 
-   /**
+  }
+
+  /**
+   * Semantic-vector career recommendation via ChromaDB (replaces if-else keyword
+   * matching in CareerService.suggestCareer). Calls ai-service
+   * POST /api/ai/career/recommend-semantic.
+   * Returns null on failure so callers can fall back to the existing keyword logic.
+   */
+  async recommendCareerSemantic(skills: string[], interests: string[], experienceLevel: string, userId: string) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/career/recommend-semantic`, {
+          skills,
+          interests: interests || [],
+          experience_level: experienceLevel || 'beginner',
+          user_id: userId,
+        }, { timeout: 60000 })
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`AI Semantic Career Recommend unavailable: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * SSE streaming proxy — pipes the ai-service /chat/stream response directly
+   * to the NestJS response object so tokens arrive real-time on the frontend.
+   */
+  async chatStream(message: string, history: any[], ctx: any, userId: string, res: any) {
+    try {
+      const stream = await this.httpService.axiosRef.post(
+        `${this.aiServiceUrl}/chat/stream`,
+        { message, history, context: ctx, user_id: userId },
+        { responseType: 'stream' }
+      );
+      stream.data.pipe(res);
+    } catch (error: any) {
+      if (!res.headersSent) {
+        res.status(503).json({ message: 'AI streaming service is unavailable.' });
+      } else {
+        res.end();
+      }
+    }
+  }
+
+  /**
    * Phân tích xu hướng thị trường lao động
    */
   async getMarketTrends() {
@@ -257,14 +301,16 @@ export class AIService {
   }
 
   /**
-   * AI SCHOLARSHIP: Check if student profile matches scholarship requirements
+   * AI SCHOLARSHIP: Check if student profile matches scholarship requirements.
+   * Nhận thêm transcriptData (được trích xuất từ PDF bảng điểm) để tính GPA chính xác.
    */
-  async checkScholarshipEligibility(userData: any, scholarshipData: any) {
+  async checkScholarshipEligibility(userData: any, scholarshipData: any, transcriptData?: any) {
     try {
       const response = await firstValueFrom(
         this.httpService.post(`${this.aiServiceUrl}/api/ai/scholarship/check`, {
           user_data: userData,
-          scholarship_data: scholarshipData
+          scholarship_data: scholarshipData,
+          transcript_data: transcriptData,
         }, { timeout: 45000 })
       );
       return response.data;

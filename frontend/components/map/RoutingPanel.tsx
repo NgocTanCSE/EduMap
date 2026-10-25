@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Search, MapPin, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation } from 'lucide-react';
+import { Search, MapPin, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 /** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
@@ -35,6 +35,17 @@ interface RoutingPanelProps {
   onSetOrigin: (lat: number, lng: number) => void;
   onSetDestination: (lat: number, lng: number) => void;
   onSwap: () => void;
+  onSaveRoute?: () => void;
+  savedRoutes?: Array<{
+    id: string;
+    origin: { lat: number; lng: number };
+    destination: { lat: number; lng: number };
+    geometry: any;
+    info: { duration: number; distance: number };
+    saved_at: string;
+  }>;
+  onLoadRoute?: (route: any) => void;
+  onDeleteRoute?: (id: string) => void;
 }
 
 export default function RoutingPanel({
@@ -47,6 +58,10 @@ export default function RoutingPanel({
   onSetOrigin,
   onSetDestination,
   onSwap,
+  onSaveRoute,
+  savedRoutes = [],
+  onLoadRoute,
+  onDeleteRoute,
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
@@ -56,6 +71,7 @@ export default function RoutingPanel({
   const [avoidFlood, setAvoidFlood] = useState(false);
   const [avoidTraffic, setAvoidTraffic] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.round(seconds / 60);
@@ -274,6 +290,20 @@ export default function RoutingPanel({
           )}
         </button>
 
+        {/* Save Route Button (visible when a route is active but not yet explicitly saved) */}
+        {routeInfo && origin && destination && (
+          <button
+            onClick={() => {
+              if (onSaveRoute) onSaveRoute();
+              toast.success('Đã lưu lộ trình vào phiên');
+            }}
+            className="w-full py-2 bg-accent/10 text-accent font-medium rounded-lg hover:bg-accent/20 transition-colors flex items-center justify-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            Lưu lộ trình này
+          </button>
+        )}
+
         {/* Route Info */}
         {routeInfo && (
           <div className="border-t border-border pt-3 space-y-2">
@@ -375,6 +405,55 @@ export default function RoutingPanel({
                   ))}
                 </ul>
               </details>
+            )}
+          </div>
+        )}
+
+        {/* Saved Routes History */}
+        {savedRoutes && savedRoutes.length > 0 && (
+          <div className="border-t border-border pt-3 mt-2">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground/60 hover:text-foreground transition-colors"
+            >
+              <span className="flex items-center gap-1">
+                <History className="w-3.5 h-3.5" />
+                Lịch sử lộ trình ({savedRoutes.length})
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+            </button>
+            {showHistory && (
+              <div className="mt-2 space-y-1.5">
+                {savedRoutes.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between p-2 bg-muted/20 rounded-lg">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="text-xs text-muted-foreground/70 truncate">
+                        {r.origin.lat.toFixed(4)}, {r.origin.lng.toFixed(4)} → {r.destination.lat.toFixed(4)}, {r.destination.lng.toFixed(4)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground/50 mt-0.5">
+                        {formatDuration(r.info.duration)} • {formatDistance(r.info.distance)}
+                        {' • ' + new Date(r.saved_at).toLocaleDateString('vi-VN')}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => onLoadRoute?.(r)}
+                        className="p-1 text-xs text-primary hover:bg-primary/10 rounded"
+                        title="Tải lộ trình"
+                      >
+                        <Save className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteRoute?.(r.id)}
+                        className="p-1 text-xs text-destructive hover:bg-destructive/10 rounded"
+                        title="Xóa"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

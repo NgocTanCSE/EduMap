@@ -10,6 +10,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 from dotenv import load_dotenv
+from typing import List
 
 try:
     import requests
@@ -165,6 +166,9 @@ class LLMService:
         # OpenRouter embedding model (tuỳ chọn, dùng cho vector store)
         self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
         self.has_openrouter_embed = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
+        # Circuit breaker: after a network/TLS failure or 401 from OpenRouter,
+        # skip it for 5 minutes instead of burning the curl timeout on every retry.
+        self._openrouter_down_until = 0.0
         # --- NVIDIA NIM (OpenAI-compatible) — model chat/embed trên build.nvidia.com ---
         self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
         self.nvidia_base = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
@@ -173,6 +177,9 @@ class LLMService:
         self.nvidia_timeout = float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "30"))
         self.has_nvidia = bool(self.nvidia_key)
         self.has_nvidia_embed = bool(self.nvidia_key) and bool(self.nvidia_embed_model)
+        # Circuit breaker: after a network/TLS failure or 401 from NVIDIA NIM,
+        # skip it for 5 minutes instead of burning the curl timeout on every retry.
+        self._nvidia_down_until = 0.0
         # is_ready = True neu co bat ky nhanh LLM nao (OpenRouter / Gemini / Cloudflare / HF / NVIDIA)
         self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia
         if self.has_openrouter:
@@ -368,7 +375,7 @@ class LLMService:
         """
         import time as _time
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         request_started = _time.monotonic()
         cf_last_err = None
@@ -593,6 +600,9 @@ class LLMService:
         """
         if not self.has_openrouter:
             raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter.")
+        import time as _time
+        if _time.monotonic() < self._openrouter_down_until:
+            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
         url = f"{self.openrouter_base}/chat/completions"
         payload = {
             "model": self.openrouter_model,
@@ -623,19 +633,44 @@ class LLMService:
                 capture_output=True, text=True, timeout=self.openrouter_timeout + 2,
             )
         except Exception as e:
+            self._openrouter_down_until = _time.monotonic() + 300
             raise RuntimeError(f"OpenRouter connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            self._openrouter_down_until = _time.monotonic() + 300
             raise RuntimeError(f"OpenRouter curl failed: {err}")
 
         if not (proc.stdout or "").strip():
+            self._openrouter_down_until = _time.monotonic() + 300
             raise RuntimeError(f"OpenRouter returned empty response (curl stdout empty)")
 
         try:
             data = json.loads(proc.stdout)
         except Exception:
             raise RuntimeError(f"OpenRouter returned invalid JSON: {(proc.stdout or '')[:200]}")
+
+        # Check for API error responses (429 rate-limit, 401 invalid key, 404 model
+        # not found) WITHOUT confusing them with genuinely empty content. This
+        # prevents the "empty response" false-positive that triggered the slow
+        # Cloudflare/HF fallback cascade on every request.
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            low = message.lower()
+            if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
+                self._openrouter_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"OpenRouter auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                raise RuntimeError(f"OpenRouter rate-limited (429): {message[:150]}")
+            if self._is_model_not_found(code, message):
+                raise RuntimeError(f"OpenRouter model unavailable (HTTP {code}): {message[:150]}")
+            raise RuntimeError(f"OpenRouter API error (HTTP {code}): {message[:200]}")
 
         text = ""
         try:
@@ -648,6 +683,78 @@ class LLMService:
             raise RuntimeError(f"OpenRouter returned empty response: {str(data)[:200]}")
         return text
 
+    def _openrouter_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
+        """True token-by-token streaming via OpenRouter SSE (curl --ipv4 --insecure).
+
+        Uses subprocess.Popen + stdout PIPE so curl's streaming output is read
+        incrementally without buffering the entire response.  This replaces the
+        old post-hoc word-splitting that yielded artificial 50 ms chunks.
+
+        Yields individual token strings (content deltas).
+        """
+        if not self.has_openrouter:
+            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter streaming.")
+        import time as _time
+        if _time.monotonic() < self._openrouter_down_until:
+            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
+        url = f"{self.openrouter_base}/chat/completions"
+        payload = {
+            "model": self.openrouter_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": int(max_tokens or 1024),
+            "temperature": float(temperature),
+            "stream": True,
+        }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        body_json = json.dumps(payload).encode("utf-8")
+
+        try:
+            proc = subprocess.Popen(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-N",
+                    "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: text/event-stream",
+                    "-H", "HTTP-Referer: https://edumap.ai",
+                    "-H", "X-Title: EduMap",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.openrouter_timeout),
+                    url,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter stream connection failed: {type(e).__name__}: {e}")
+
+        try:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("data: "):
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    choice = chunk.get("choices", [{}])[0]
+                    delta = choice.get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        yield content
+        except Exception as e:
+            print(f"OpenRouter stream read error: {e}")
+        finally:
+            proc.kill()
+
     def _nvidia_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Gọi NVIDIA NIM (OpenAI-compatible chat completions).
 
@@ -656,6 +763,9 @@ class LLMService:
         """
         if not self.has_nvidia:
             raise RuntimeError("NVIDIA_API_KEY not set — cannot use NVIDIA NIM.")
+        import time as _time
+        if _time.monotonic() < self._nvidia_down_until:
+            raise RuntimeError("NVIDIA NIM temporarily disabled after a network failure.")
         url = f"{self.nvidia_base}/chat/completions"
         payload = {
             "model": self.nvidia_chat_model,
@@ -682,17 +792,41 @@ class LLMService:
                 ],
                 capture_output=True, text=True, timeout=self.nvidia_timeout + 2,
             )
-        except Exception as e:
+        except Exception:
+            import time as _time_ext
+            self._nvidia_down_until = _time_ext.monotonic() + 300
             raise RuntimeError(f"NVIDIA NIM connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            import time as _time_ext
+            self._nvidia_down_until = _time_ext.monotonic() + 300
             raise RuntimeError(f"NVIDIA NIM curl failed: {err}")
 
         try:
             data = json.loads(proc.stdout or "{}")
         except Exception:
             raise RuntimeError(f"NVIDIA NIM returned invalid JSON: {(proc.stdout or '')[:200]}")
+
+        # Check for API error responses (same pattern as OpenRouter).
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            low = message.lower()
+            if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
+                import time as _time_ext
+                self._nvidia_down_until = _time_ext.monotonic() + 300
+                raise RuntimeError(f"NVIDIA NIM auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                raise RuntimeError(f"NVIDIA NIM rate-limited (429): {message[:150]}")
+            if self._is_model_not_found(code, message):
+                raise RuntimeError(f"NVIDIA NIM model unavailable (HTTP {code}): {message[:150]}")
+            raise RuntimeError(f"NVIDIA NIM API error (HTTP {code}): {message[:200]}")
 
         text = ""
         try:
@@ -826,7 +960,7 @@ class LLMService:
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -945,6 +1079,130 @@ class LLMService:
         cache_service.set(cache_key, final_res, ttl=3600)
         return final_res
 
+    async def chat_with_rag_stream(self, message: str, history: list = None, context: dict = None):
+        """True streaming RAG chat — yields SSE-formatted data strings.
+
+        1. Lấy sources từ ChromaDB (giống chat_with_rag).
+        2. Build prompt the same way.
+        3. Gọi _openrouter_generate_stream để nhận từng token real-time.
+        4. Nếu OpenRouter không khả dụng, fallback sang non-streaming và
+           yield toàn bộ response dưới dạng một chunk.
+
+        Yield format: SSE data lines (``data: {json}\\n\\n``)
+        - Metadata chunk (with sources) sent first
+        - Token chunks
+        - Done chunk
+        """
+        from services.vector_store import vector_store
+
+        # ---- 1. RAG retrieval (shared with chat_with_rag) ----
+        cache_key = hashlib.md5(f"chat_stream:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
+        cached_res = cache_service.get(cache_key)
+        if cached_res:
+            yield f"data: {json.dumps({'sources': cached_res.get('sources', []), 'token': cached_res.get('reply', ''), 'is_final': True, 'done': True})}\n\n"
+            return
+
+        history = history or []
+        context = context or {}
+        sources = []
+        docs_str = ""
+
+        try:
+            search_results = await asyncio.to_thread(vector_store.query, message, n_results=3)
+            documents = search_results.get('documents', [[]])
+            metadatas = search_results.get('metadatas', [[]])
+            ids = search_results.get('ids', [[]])
+
+            context_docs = documents[0] if documents and len(documents) > 0 else []
+            meta_docs = metadatas[0] if metadatas and len(metadatas) > 0 else []
+            id_docs = ids[0] if ids and len(ids) > 0 else []
+
+            if context_docs:
+                for i, doc in enumerate(context_docs):
+                    meta = meta_docs[i] if i < len(meta_docs) else {}
+                    title = meta.get("title", f"Tài liệu tham khảo {i+1}")
+                    doc_id = id_docs[i] if i < len(id_docs) else str(i)
+                    doc_text = doc if len(doc) <= 1200 else doc[:1200] + "..."
+                    docs_str += f"\n--- Tài liệu {i+1} ({title}) ---\n{doc_text}\n"
+                    sources.append({"doc_id": doc_id, "title": title, "snippet": doc[:200] + "..." if len(doc) > 200 else doc})
+            else:
+                docs_str = "Không tìm thấy dữ liệu liên quan trong hệ thống kiến thức của EduMap."
+        except Exception as e:
+            print(f"Error querying vector store (stream): {e}")
+            docs_str = "Dữ liệu từ kho tri thức chưa sẵn sàng. Tôi sẽ trả lời dựa trên kiến thức chung."
+            sources = []
+
+        # ---- 2. Build prompt (same as chat_with_rag) ----
+        system_context_str = ""
+        if context:
+            system_context_str = "\nNGỮ CẢNH HỆ THỐNG THỜI GIAN THỰC:\n"
+            for key, value in context.items():
+                system_context_str += f"- {key}: {value}\n"
+
+        system_instruction = f"""
+        Bạn là Trợ lý ảo thông minh của EduMap DNTU (Trường Đại học Công nghệ Đồng Nai).
+        
+        DỮ LIỆU TỪ HỆ THỐNG RAG (Sự thật):
+        {docs_str}
+        {system_context_str}
+        
+        NGUYÊN TẮC HOẠT ĐỘNG (CORE RULES):
+        1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
+        2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
+        3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
+        4. Trình bày rõ ràng, sử dụng bullet points nếu cần thiết.
+        """
+
+        history_str = ""
+        for msg in history[-6:]:
+            role = "Sinh viên" if msg.get("role") == "user" else "Trợ lý"
+            history_str += f"{role}: {msg.get('content', '')}\n"
+
+        prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
+
+        # ---- 3. Send metadata (sources) first ----
+        yield f"data: {json.dumps({'sources': sources, 'meta': True})}\n\n"
+
+        # ---- 4. Try true streaming via OpenRouter ----
+        if self.has_openrouter:
+            try:
+                for token in self._openrouter_generate_stream(
+                    prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+                ):
+                    yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+                # Cache for future identical requests
+                cache_service.set(cache_key, {"reply": "", "sources": sources}, ttl=3600)
+                return
+            except Exception as e:
+                print(f"OpenRouter streaming failed, falling back to non-stream: {e}")
+
+        # ---- 5. Fallback: non-streaming (yield entire response at once) ----
+        reply_text = None
+        last_err = None
+        for gen_fn in [
+            self._openrouter_generate if self.has_openrouter else None,
+            self._nvidia_generate if self.has_nvidia else None,
+            self._cloudflare_generate if self.has_cf else None,
+            self._hf_generate if self.has_hf else None,
+        ]:
+            if gen_fn is None:
+                continue
+            try:
+                response = await asyncio.to_thread(gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8)
+                if response:
+                    reply_text = response.strip()
+                    break
+            except Exception as e:
+                last_err = str(e)
+                continue
+
+        if not reply_text:
+            reply_text = self._chat_fallback_reply(message, sources, context)
+
+        yield f"data: {json.dumps({'token': reply_text, 'is_final': True, 'done': True})}\n\n"
+        cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
+
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
         """Fallback trả lời khi tất cả LLM provider đều thất bại (OpenRouter/Gemini/CF/HF unreachable từ HF Spaces).
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
@@ -989,7 +1247,7 @@ class LLMService:
             return response
         except Exception as e:
             print(f"Error in generate_career_advice: {e}")
-            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình OPENROUTER_API_KEY (primary), "                    f"GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
+            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình OPENROUTER_API_KEY (primary), "                    f"NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
 
     async def analyze_market_trends(self, market_data: list):
         """Phân tích xu hướng thị trường việc làm — LUÔN trả về kết quả thành công.
@@ -1160,12 +1418,6 @@ class LLMService:
                 return {"insight": response}
             except Exception as e:
                 print(f"NVIDIA NIM daily_insight failed: {e}")
-        if self.has_gemini:
-            try:
-                response = await asyncio.to_thread(self._gemini_generate, prompt)
-                return {"insight": response}
-            except Exception as e:
-                print(f"Gemini daily_insight failed: {e}")
         if self.has_cf:
             try:
                 response = await asyncio.to_thread(self._cloudflare_generate, prompt)
@@ -1296,6 +1548,103 @@ class LLMService:
         except Exception as e:
             print(f"Error in recommend_career: {e}")
             return self._recommend_career_fallback(data, str(e))
+
+    async def recommend_career_semantic(self, skills: List[str], interests: List[str] = None,
+                                         experience_level: str = "beginner", user_id: str = None) -> list:
+        """Semantic-vector career recommendation via ChromaDB.
+
+        Thay thế if-else keyword matching trong career.service.ts bằng cosine-similarity
+        search trong ChromaDB. Flow:
+          1. Kết hợp skills + interests thành query text → embed → tìm top-N career paths
+             trong ChromaDB (các career_paths đã được seed bởi seed_vector_db.py).
+          2. Nếu LLM khả dụng, dùng LLM enrich mỗi kết quả với explanation + radar_chart.
+          3. Nếu LLM không khả dụng, dùng semantic results trực tiếp (graceful degradation).
+
+        Luôn trả về danh sách có cấu trúc: title, match_score, explanation, missing_skills,
+        radar_chart — khớp với backend career suggestCareer() output format.
+        """
+        interests = interests or []
+        from services.vector_store import vector_store
+
+        # 1. Semantic search in ChromaDB
+        all_input = list(skills) + list(interests)
+        semantic_results = await asyncio.to_thread(
+            vector_store.semantic_career_search, all_input, 5
+        ) if vector_store else []
+
+        # Cache key based on skill set
+        cache_key = hashlib.md5(f"career_semantic:{hashlib.md5(','.join(sorted(all_input)).encode()).hexdigest()}".encode()).hexdigest()
+        cached = cache_service.get(cache_key)
+        if cached and isinstance(cached, list):
+            return cached
+
+        if not semantic_results:
+            # Fallback: use template recommendations
+            return self._recommend_career_fallback(
+                type("Req", (), {"skills": all_input, "full_name": "", "mbti_type": None,
+                                  "career_aspirations": interests, "recent_keywords": None,
+                                  "holland_code": None, "user_id": user_id or "unknown",
+                                  "json": lambda self: json.dumps({"skills": self.skills,
+                                                                   "career_aspirations": self.career_aspirations})})(),
+                "No semantic results from ChromaDB"
+            )
+
+        # 2. Enrich with LLM if available, or use semantic results directly
+        enriched = []
+        if self.is_ready:
+            enrichment_prompt = f"""
+            Bạn là chuyên gia tư vấn nghề nghiệp. Dưới đây là {len(semantic_results)} gợi ý nghề nghiệp từ semantic search:
+            {json.dumps(semantic_results, ensure_ascii=False)}
+
+            Hồ sơ sinh viên:
+            - Kỹ năng: {', '.join(skills) if skills else 'Chưa có'}
+            - Sở thích: {', '.join(interests) if interests else 'Chưa có'}
+            - Trình độ: {experience_level}
+
+            Hãy tạo explanation ngắn gọn (1-2 câu) cho mỗi nghề nghiệp và thêm radar_chart cho 5 tiêu chí:
+            Technical, Soft Skills, Problem Solving, Language, Creativity.
+            Chỉ trả về JSON: [{title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}}]
+            Giữ nguyên match_score từ semantic results. Chỉ trả về JSON, không giải thích thêm.
+            """
+            try:
+                response = await asyncio.to_thread(
+                    self._generate_text_with_fallback, enrichment_prompt,
+                    temperature=0.3, max_tokens=2048, top_p=0.8
+                )
+                result = self._extract_json(response)
+                if result and isinstance(result, list) and len(result) > 0:
+                    enriched = result
+            except Exception as e:
+                print(f"Semantic career enrichment failed: {e}")
+
+        # 3. If enrichment failed, build from semantic results directly
+        if not enriched:
+            for item in semantic_results:
+                missing = item.get('missing_skills', [])
+                enriched.append({
+                    "title": item.get('title', ''),
+                    "match_score": item.get('match_score', 0),
+                    "explanation": f"Phù hợp với {len(item.get('matched_skills', []))} kỹ năng đã có. "
+                                   f"Lĩnh vực: {item.get('field', 'Không xác định')}. "
+                                   f"Bạn cần bổ sung: {', '.join(missing[:3]) if missing else 'không có'}."
+                                   if missing else
+                                   f"Phù hợp với {len(item.get('matched_skills', []))} kỹ năng. "
+                                   f"Lĩnh vực: {item.get('field', 'Không xác định')}.",
+                    "missing_skills": missing,
+                    "demand_level": "Cao",
+                    "radar_chart": {
+                        "Technical": item.get('match_score', 70),
+                        "Soft Skills": 70,
+                        "Problem Solving": 70,
+                        "Language": 65,
+                        "Creativity": 72,
+                    },
+                })
+
+        if enriched:
+            cache_service.set(cache_key, enriched, ttl=86400)
+
+        return enriched
 
     async def generate_learning_path(self, data: LearningPathRequest) -> dict:
         """
@@ -1522,7 +1871,7 @@ class LLMService:
         """Moderate user-generated content.
 
         Uses the full provider cascade (OpenRouter -> NVIDIA -> Cloudflare ->
-        Gemini -> HF). When EVERY provider is unavailable at runtime, returns a
+        HF). When EVERY provider is unavailable at runtime, returns a
         conservative safe result (rather than raising) so the community
         router can keep operating. Content reaching this method has already
         passed the regex Layer-1 pre-filter in ``moderation.py`` which catches
@@ -1542,7 +1891,7 @@ class LLMService:
         """
         try:
             if not self.is_ready:
-                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,
                 temperature=0.3, max_tokens=512, top_p=0.8,

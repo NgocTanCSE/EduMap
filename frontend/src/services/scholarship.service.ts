@@ -56,13 +56,18 @@ class ScholarshipService {
   /**
    * Kiểm tra điều kiện nộp đơn
    */
-  async checkEligibility(id: string): Promise<EligibilityResponse> {
+  async checkEligibility(id: string, transcript?: any): Promise<EligibilityResponse> {
     const token = authService.getAccessToken();
     if (!token) throw new Error('Vui lòng đăng nhập để kiểm tra điều kiện');
 
     try {
       const response = await fetchWithRetry(`${this.API_URL}/${id}/check-eligibility`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transcript || {}),
       });
       if (!response.ok) throw new Error('Kiểm tra thất bại');
       return unwrapApiResponse<any>(await response.json());

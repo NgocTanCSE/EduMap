@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Query, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query, HttpCode, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AIService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -24,6 +24,28 @@ export class AIController {
       return { message: 'Tin nhắn không được để trống.' };
     }
     return this.aiService.chat(msg, history || [], ctx, req.user.id);
+  }
+
+  @Post('chat-stream')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'F-05b: Chatbot AI streaming (SSE)' })
+  async chatStream(
+    @Request() req: any,
+    @Body('message') msg: string,
+    @Body('history') history: any[],
+    @Body('context') ctx: any,
+    @Res() res: any,
+  ) {
+    if (!msg || msg.trim().length === 0) {
+      res.status(400).json({ message: 'Tin nhắn không được để trống.' });
+      return;
+    }
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    await this.aiService.chatStream(msg, history || [], ctx, req.user.id, res);
   }
 
   @Get('history')

@@ -28,3 +28,16 @@ export function getBackendUrl(): string {
 
   return `${base}/api`;
 }
+
+/**
+ * Resolve the AI Service (FastAPI) URL for BFF routes that proxy directly
+ * to the ai-service (e.g. PDF upload, streaming SSE). In HF Spaces the
+ * ai-service runs on 127.0.0.1:8000 inside the same container.
+ */
+export function getAIServiceUrl(): string {
+  const raw =
+    process.env.AI_SERVICE_URL ||
+    'http://127.0.0.1:8000';
+
+  return raw.replace(/\/+$/, ''); // strip trailing slash
+}

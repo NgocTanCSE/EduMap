@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 # Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive']
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'pdf_transcript']
 
 for name in router_names:
     try:
@@ -85,7 +85,7 @@ async def get_trends():
 @app.post("/api/ai/predict")
 async def predict_user(data: dict):
     if not llm_service or not getattr(llm_service, "is_ready", False):
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
     try:
         return {"status": "success", "recommendation": await llm_service.generate_career_advice(data)}
     except Exception as e:

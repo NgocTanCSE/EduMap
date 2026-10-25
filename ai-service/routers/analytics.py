@@ -200,7 +200,16 @@ def _build_sectors(stats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             years_span = max(1, points[-1]["year"] - points[0]["year"])
             growth = ((last_value / first_value) ** (1 / years_span) - 1) * 100
 
-        prediction = int(last_value * (1 + growth / 100)) if growth else int(last_value * 1.15)
+        # Use Holt's linear exponential smoothing for prediction.
+        # Falls back to CAGR-based extrapolation when insufficient data points.
+        hist_years = [p["year"] for p in points]
+        hist_values = [p["metric_value"] for p in points]
+        target_year = 2025
+        steps_ahead = max(1, target_year - points[-1]["year"])
+        forecast = _holt_linear_forecast(hist_years, hist_values, steps_ahead=steps_ahead)
+        prediction = int(forecast[-1]) if forecast and forecast[-1] > 0 else (
+            int(last_value * (1 + growth / 100)) if growth else int(last_value * 1.15)
+        )
         sectors.append({
             "name": name,
             "growth_pct": round(growth, 2),
@@ -213,11 +222,49 @@ def _build_sectors(stats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sectors
 
 
+def _holt_linear_forecast(years: List[int], values: List[float],
+                           steps_ahead: int = 1, alpha: float = 0.3, beta: float = 0.1) -> List[float]:
+    """Holt's linear exponential smoothing (double exponential smoothing).
+
+    Dự báo time-series dựa trên numpy duy nhất — không cần statsmodels/prophet.
+    Thích hợp với HF Spaces môi trường lightweight + numpy-only.
+
+    Trả về danh sách `steps_ahead` giá trị dự báo.
+    """
+    import numpy as np
+
+    if len(values) < 2:
+        # Không đủ dữ liệu để smoothing — dùng linear extrapolation đơn giản
+        if len(values) == 1:
+            return [values[0]] * steps_ahead
+        return [0.0] * steps_ahead
+
+    y = np.array(values, dtype=float)
+    n = len(y)
+
+    # Khởi tạo level và trend
+    level = y[0]
+    trend = y[1] - y[0]
+
+    for t in range(1, n):
+        prev_level = level
+        level = alpha * y[t] + (1 - alpha) * (level + trend)
+        trend = beta * (level - prev_level) + (1 - beta) * trend
+
+    forecasts = []
+    for h in range(1, steps_ahead + 1):
+        forecast = level + h * trend
+        # Đảm bảo giá trị không âm (đây là số liệu thống kê sinh viên)
+        forecasts.append(max(0.0, float(forecast)))
+
+    return forecasts
+
+
 @router.post("/daily-insight")
 async def get_daily_insight(request_data: DashboardInsightRequest):
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
     try:
         insight = await llm_service.generate_daily_insight(request_data.dashboard_data or {})
         return insight
@@ -295,3 +342,55 @@ async def get_stats():
             "data_points": len(stats_data),
         },
     }
+
+
+@router.get("/forecast")
+async def get_forecast(steps: int = 3):
+    """Dự báo tăng trưởng giáo dục dựa trên Holt's Linear Exponential Smoothing.
+
+    Trả về dự báo `steps` năm tiếp theo cho mỗi sector. Phù hợp với môi trường
+    HF Spaces không có statsmodels/prophet.
+    """
+    try:
+        stats_data = await asyncio.to_thread(_load_education_stats)
+        if not stats_data:
+            return {
+                "status": "error",
+                "detail": "Chưa có dữ liệu education_stats trong CSDL.",
+            }
+
+        sectors = _build_sectors(stats_data)
+        forecast_result: Dict[str, Any] = {}
+
+        for sector in sectors:
+            points = sector.get("historical", [])
+            if len(points) < 2:
+                forecast_result[sector["name"]] = {
+                    "method": "insufficient_data",
+                    "forecast": [],
+                    "note": "Cần ít nhất 2 năm dữ liệu để dự báo."
+                }
+                continue
+
+            years = [p["year"] for p in points]
+            values = [p["metric_value"] for p in points]
+            fc = _holt_linear_forecast(years, values, steps_ahead=steps)
+
+            forecast_result[sector["name"]] = {
+                "method": "holt_linear_exponential_smoothing",
+                "historical_years": years,
+                "historical_values": values,
+                "forecast_years": [years[-1] + i + 1 for i in range(steps)],
+                "forecast_values": [round(v, 2) for v in fc],
+                "growth_pct": sector["growth_pct"],
+                "latest_value": sector["latest_value"],
+            }
+
+        return {
+            "status": "success",
+            "forecast": forecast_result,
+            "steps": steps,
+        }
+    except Exception as e:
+        logger.error(f"Error in get_forecast: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Lỗi dự báo: {str(e)}")

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Bot, User, Sparkles, Loader2, Info, BookOpen } from "lucide-react";
+import { Send, Bot, User, Loader2, BookOpen } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
 
@@ -67,7 +67,7 @@ export default function AIChatPage() {
       window.location.href = '/auth/login?redirect=/ai-chat';
       return;
     }
-    
+
     const userMessage = { role: 'user', content: trimmedInput };
     const newMessages = [...messages, userMessage];
     
@@ -75,13 +75,18 @@ export default function AIChatPage() {
     setInput('');
     setIsLoading(true);
 
+    // Add assistant placeholder message (streaming)
+    const assistantIndex = newMessages.length;
+    let accumulatedContent = '';
+    let sources: any[] = [];
+
     setMessages(prev => [
       ...prev,
-      { role: 'assistant', content: '...', sources: [] }
+      { role: 'assistant', content: '', sources: [], isStreaming: true }
     ]);
-    
+
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch('/api/ai/chat-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,32 +94,126 @@ export default function AIChatPage() {
         },
         body: JSON.stringify({ 
           message: trimmedInput, 
-          history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          history: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           context: {} 
         })
       });
 
-      const data = await res.json();
-      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.detail || 'AI service returned an error');
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body from streaming endpoint');
+      }
+
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process SSE events (terminated by double-newline)
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || ''; // Keep incomplete part in buffer
+
+        for (const part of parts) {
+          const trimmedPart = part.trim();
+          if (!trimmedPart.startsWith('data: ')) continue;
+
+          const dataStr = trimmedPart.slice(6).trim();
+          if (dataStr === '[DONE]') {
+            break;
+          }
+
+          try {
+            const data = JSON.parse(dataStr);
+
+            // Metadata chunk (sources first)
+            if (data.meta === true && data.sources) {
+              sources = data.sources;
+              setMessages(prev => {
+                const newArr = [...prev];
+                if (newArr[newArr.length - 1]?.role === 'assistant') {
+                  newArr[newArr.length - 1] = {
+                    role: 'assistant',
+                    content: accumulatedContent,
+                    sources: sources,
+                    isStreaming: true,
+                  };
+                }
+                return newArr;
+              });
+            }
+
+            // Token chunk
+            if (data.token !== undefined) {
+              accumulatedContent += data.token;
+              const isFinal = data.is_final || data.done;
+
+              setMessages(prev => {
+                const newArr = [...prev];
+                if (newArr[newArr.length - 1]?.role === 'assistant') {
+                  newArr[newArr.length - 1] = {
+                    role: 'assistant',
+                    content: accumulatedContent,
+                    sources: sources,
+                    isStreaming: !isFinal,
+                  };
+                }
+                return newArr;
+              });
+            }
+
+            // Done chunk
+            if (data.done) {
+              setMessages(prev => {
+                const newArr = [...prev];
+                if (newArr[newArr.length - 1]?.role === 'assistant') {
+                  newArr[newArr.length - 1] = {
+                    role: 'assistant',
+                    content: accumulatedContent,
+                    sources: sources,
+                    isStreaming: false,
+                  };
+                }
+                return newArr;
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to parse SSE chunk:', e);
+          }
+        }
+      }
+
+      // Final flush: ensure streaming flag is removed
       setMessages(prev => {
         const newArr = [...prev];
-        newArr[newArr.length - 1] = { 
-          role: 'assistant', 
-          content: data.reply || data.message || "Xin lỗi, mình gặp chút trục trặc khi suy nghĩ câu trả lời.",
-          sources: data.sources || [],
-          isError: data.error || !res.ok
-        };
+        if (newArr[newArr.length - 1]?.role === 'assistant' && newArr[newArr.length - 1]?.isStreaming) {
+          newArr[newArr.length - 1] = {
+            role: 'assistant',
+            content: accumulatedContent,
+            sources: sources,
+            isStreaming: false,
+          };
+        }
         return newArr;
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Chat Error:", err);
       setMessages(prev => {
         const newArr = [...prev];
         newArr[newArr.length - 1] = { 
           role: 'assistant', 
-          content: "Không thể kết nối đến máy chủ AI (Timeout). Vui lòng kiểm tra lại kết nối mạng của bạn.",
+          content: accumulatedContent || "Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra kết nối mạng.",
           sources: [],
-          isError: true
+          isError: true,
+          isStreaming: false,
         };
         return newArr;
       });
@@ -152,19 +251,24 @@ export default function AIChatPage() {
                       ? 'bg-red-950 border border-red-900 text-red-200 rounded-tl-none'
                       : 'bg-card border border-border text-muted-foreground/70 rounded-tl-none'
                 }`}>
-                  {m.content === '...' ? (
+                  {m.content === '' && m.isStreaming ? (
                     <div className="flex gap-1.5 py-2">
                       <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce"></span>
                       <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.2s]"></span>
                       <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap">{m.content}</div>
+                    <>
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                      {m.isStreaming && (
+                        <span className="inline-block w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce ml-0.5 [animation-delay:0.6s]"></span>
+                      )}
+                    </>
                   )}
                 </div>
                 
                 {/* Sources Display */}
-                {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
+                {m.role === 'assistant' && m.sources && m.sources.length > 0 && !m.isStreaming && (
                    <div className="mt-2 flex flex-col gap-2">
                       <p className="text-[9px] uppercase font-semibold text-muted-foreground/20 tracking-widest flex items-center gap-1 ml-2">
                          <BookOpen size={10} /> Tài liệu tham khảo

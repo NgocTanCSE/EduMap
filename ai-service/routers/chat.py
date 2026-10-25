@@ -13,7 +13,7 @@ router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
 async def chat_endpoint(request: ChatRequest):
     # Chỉ trả về trả lời THẬT từ AI — bỏ lời nhắn "bảo trì" mẫu
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 
@@ -73,35 +73,45 @@ async def get_chat_history(user_id: str, limit: int = 50):
 
 @router.post("/stream")
 async def chat_stream_endpoint(request: ChatRequest):
-    """Chat RAG với streaming (SSE) — trả về từng token real-time."""
+    """Chat RAG với streaming (SSE) — trả về từng token thực sự real-time.
+
+    Sử dụng chat_with_rag_stream để nhận token từng ký tự từ OpenRouter
+    (stream=True) qua curl --ipv4 --insecure, thay thế approach cũ
+    (gửi toàn bộ response rồi split thành từng từ với delay 50ms).
+    """
     if not llm_service or not llm_service.is_ready:
         raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng.")
 
     async def generate_stream():
         try:
             history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
-            full_response = await llm_service.chat_with_rag(
-                message=request.message,
-                history=history_dicts
-            )
-            reply = full_response.get("reply", "")
-            sources = full_response.get("sources", [])
 
-            words = reply.split()
-            for i, word in enumerate(words):
-                chunk = {
-                    "token": word + " ",
-                    "is_final": i == len(words) - 1,
-                    "sources": sources if i == len(words) - 1 else []
-                }
-                yield f"data: {json.dumps(chunk)}\n\n"
-                await asyncio.sleep(0.05)
-            yield f"data: {json.dumps({'done': True})}\n\n"
+            async for sse_chunk in llm_service.chat_with_rag_stream(
+                message=request.message,
+                history=history_dicts,
+                context=request.context
+            ):
+                yield sse_chunk
+
+            # Save chat history after streaming completes
+            if request.user_id and db_service is not None:
+                # Extract reply from cache or fallback; for simplicity,
+                # we save the user message and a note about streaming.
+                # A full reply is logged client-side.
+                db_service.save_chat_history(
+                    user_id=request.user_id,
+                    message=request.message,
+                    response="[streamed response]",
+                    sources=[],
+                    context=request.context
+                )
         except Exception as e:
+            print(f"Error in chat_stream: {e}")
             error_chunk = {
                 "error": str(e),
                 "token": "Hệ thống AI đang gặp sự cố. Vui lòng thử lại.",
-                "is_final": True
+                "is_final": True,
+                "done": True
             }
             yield f"data: {json.dumps(error_chunk)}\n\n"
 

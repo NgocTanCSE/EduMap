@@ -5,7 +5,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, type LucideIcon } from 'lucide-react';
+import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
@@ -261,6 +261,75 @@ export default function InteractiveMap({
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [routingMode, setRoutingMode] = useState<'idle' | 'setting_origin' | 'setting_destination'>('idle');
 
+  // --- Session persistence: lưu route vào localStorage để quay lại ---
+  const ROUTE_STORAGE_KEY = 'edumap_saved_routes';
+  const [savedRoutes, setSavedRoutes] = useState<Array<{
+    id: string;
+    origin: { lat: number; lng: number };
+    destination: { lat: number; lng: number };
+    geometry: any;
+    info: { duration: number; distance: number };
+    saved_at: string;
+  }>>([]);
+
+  // Tải lịch sử lộ trình đã lưu khi component mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ROUTE_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setSavedRoutes(parsed);
+          // Tự động khôi phục route cuối cùng nếu chưa có route hiện tại
+          if (parsed.length > 0 && !routeGeometry) {
+            const last = parsed[0];
+            setOrigin(last.origin);
+            setDestination(last.destination);
+            setRouteGeometry(last.geometry);
+            setRouteInfo({
+              duration: last.info.duration,
+              distance: last.info.distance,
+              segments: [],
+              floodWarnings: [],
+              avoidedFloodZones: [],
+              trafficAnalysis: undefined,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load saved routes from localStorage', e);
+    }
+  }, []); // chỉ chạy một lần khi mount
+
+  // Tự động lưu route hiện tại khi geometry thay đổi
+  useEffect(() => {
+    if (origin && destination && routeGeometry && routeInfo) {
+      const route = {
+        id: Date.now().toString(),
+        origin,
+        destination,
+        geometry: routeGeometry,
+        info: { duration: routeInfo.duration, distance: routeInfo.distance },
+        saved_at: new Date().toISOString(),
+      };
+      setSavedRoutes(prev => {
+        const isDup = prev.some(r =>
+          r.origin.lat === origin.lat && r.origin.lng === origin.lng &&
+          r.destination.lat === destination.lat && r.destination.lng === destination.lng
+        );
+        if (isDup) return prev;
+        const updated = [route, ...prev].slice(0, 10);
+        try {
+          localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify(updated));
+        } catch (e) {
+          console.warn('Failed to save route to localStorage', e);
+        }
+        return updated;
+      });
+    }
+  }, [routeGeometry, origin, destination, routeInfo]);
+
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (routingMode === 'setting_origin') {
       setOrigin({ lat, lng });
@@ -336,6 +405,62 @@ export default function InteractiveMap({
     setRoutingMode('idle');
   }, []);
 
+  // Tải một lộ trình đã lưu từ localStorage
+  const loadRoute = useCallback((route: any) => {
+    setOrigin(route.origin);
+    setDestination(route.destination);
+    setRouteGeometry(route.geometry);
+    setRouteInfo({
+      duration: route.info.duration,
+      distance: route.info.distance,
+      segments: [],
+      floodWarnings: [],
+      avoidedFloodZones: [],
+      trafficAnalysis: undefined,
+    });
+    setRoutingMode('idle');
+  }, []);
+
+  // Xóa một lộ trình đã lưu
+  const deleteSavedRoute = useCallback((id: string) => {
+    setSavedRoutes(prev => {
+      const updated = prev.filter(r => r.id !== id);
+      try {
+        localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to update localStorage', e);
+      }
+      return updated;
+    });
+  }, []);
+
+  // Lưu route hiện tại một cách rõ rệt (cập nhật timestamp nếu trùng lặp)
+  const saveCurrentRoute = useCallback(() => {
+    if (origin && destination && routeGeometry && routeInfo) {
+      const route = {
+        id: Date.now().toString(),
+        origin,
+        destination,
+        geometry: routeGeometry,
+        info: { duration: routeInfo.duration, distance: routeInfo.distance },
+        saved_at: new Date().toISOString(),
+      };
+      setSavedRoutes(prev => {
+        const filtered = prev.filter(r =>
+          !(r.origin.lat === origin.lat && r.origin.lng === origin.lng &&
+            r.destination.lat === destination.lat && r.destination.lng === destination.lng)
+        );
+        const updated = [route, ...filtered].slice(0, 10);
+        try {
+          localStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify(updated));
+        } catch (e) {
+          console.warn('Failed to save route to localStorage', e);
+        }
+        return updated;
+      });
+    }
+  }, [origin, destination, routeGeometry, routeInfo]);
+
   const swapLocations = useCallback(() => {
     const temp = origin;
     setOrigin(destination);
@@ -404,6 +529,10 @@ export default function InteractiveMap({
           onSetOrigin={setOriginPoint}
           onSetDestination={setDestinationPoint}
           onSwap={swapLocations}
+          onSaveRoute={saveCurrentRoute}
+          savedRoutes={savedRoutes}
+          onLoadRoute={loadRoute}
+          onDeleteRoute={deleteSavedRoute}
         />
       ) : (
         <button

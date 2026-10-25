@@ -8,6 +8,7 @@ from services.llm_service import llm_service
 class ScholarshipCheckRequest(BaseModel):
     user_data: Optional[dict] = Field(None, description="Thông tin sinh viên/người dùng")
     scholarship_data: Optional[dict] = Field(None, description="Thông tin học bổng cần kiểm tra")
+    transcript_data: Optional[dict] = Field(None, description="Dữ liệu bảng điểm PDF (gpa, overall_grade, courses) — trích xuất từ PDF transcript")
 
 
 router = APIRouter(prefix="/api/ai/scholarship", tags=["AI Scholarship"])
@@ -51,16 +52,28 @@ def _parse_json_object(text: str) -> Optional[dict]:
 async def check_scholarship_eligibility(data: ScholarshipCheckRequest):
     user_data = data.user_data or {}
     scholarship_data = data.scholarship_data or {}
+    transcript_data = data.transcript_data or {}
 
     # Chỉ trả về kết quả THẬT từ AI — bỏ thông báo "xin chúc mừng" mẫu
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
     try:
+        gpa_info = ""
+        if transcript_data:
+            gpa = transcript_data.get('gpa')
+            grade = transcript_data.get('overall_grade')
+            courses = transcript_data.get('courses', [])
+            if gpa:
+                gpa_info = f"\nĐiểm GPA từ bảng điểm PDF: {gpa}/4.0 (xếp loại: {grade or 'N/A'}, {len(courses)} môn học)."
+            elif grade:
+                gpa_info = f"\nXếp loại từ bảng điểm PDF: {grade} ({len(courses)} môn học)."
+
         prompt = f"""
         Bạn là chuyên gia tư vấn học bổng. Hãy đánh giá:
         - Người dùng: {user_data.get('full_name', 'Chưa cung cấp')}
         - Học bổng: {scholarship_data.get('title', 'Unknown')}
+        - Yêu cầu: {scholarship_data.get('requirements', 'Không có')}{gpa_info}
         Trả về JSON: {{"is_eligible": boolean, "message": string}}
         """
         response = await llm_service.chat_with_rag(prompt, [], {})

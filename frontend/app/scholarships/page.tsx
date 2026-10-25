@@ -39,6 +39,14 @@ export default function ScholarshipPage() {
   const [cvUploading, setCvUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfTranscript, setPdfTranscript] = useState<{
+    gpa: number | null;
+    overall_grade: string | null;
+    courses: any[];
+    student_name: string | null;
+  } | null>(null);
+
   useEffect(() => {
     fetchScholarships(1);
   }, []);
@@ -79,12 +87,63 @@ export default function ScholarshipPage() {
     }
     setCheckingId(scholarshipId);
     try {
-      const result = await scholarshipService.checkEligibility(scholarshipId);
+      const result = await scholarshipService.checkEligibility(scholarshipId, pdfTranscript);
       setEligibilityResult(prev => ({ ...prev, [scholarshipId]: result }));
     } catch (error: any) {
       toast.error(error.message || 'Lỗi khi kiểm tra hồ sơ');
     } finally {
       setCheckingId(null);
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.includes('pdf') && file.type !== 'application/pdf') {
+      toast.error('Vui lòng tải lên file PDF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File PDF quá lớn (giới hạn 10MB).');
+      return;
+    }
+
+    setPdfUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = authService.getAccessToken();
+      const res = await fetch('/api/ai/pdf-transcript', {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || data?.message || 'Lỗi trích xuất PDF');
+
+      const parsed = data.parsed;
+      if (parsed) {
+        setPdfTranscript({
+          gpa: parsed.gpa,
+          overall_grade: parsed.overall_grade,
+          courses: parsed.courses || [],
+          student_name: parsed.student_name,
+        });
+        toast.success(`Đã đọc bảng điểm: GPA ${parsed.gpa ?? 'N/A'} — ${parsed.overall_grade || 'Chưa xác định'}`);
+      } else {
+        setPdfTranscript(null);
+        toast('PDF đã được tải lên nhưng chưa tự động trích xuất GPA. Bạn vẫn có thể dùng dữ liệu thủ công.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Lỗi tải lên PDF');
+      console.error(err);
+    } finally {
+      setPdfUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -205,6 +264,36 @@ export default function ScholarshipPage() {
         icon={GraduationCap}
         right={<span className="text-xs text-foreground/40">{scholarships.length} chương trình</span>}
       />
+
+      {/* PDF Transcript Upload Section */}
+      <div className="mb-6 p-4 bg-card/50 border border-border rounded-xl">
+        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Tải lên bảng điểm (PDF) để tự động kiểm tra học bổng
+        </h3>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center justify-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg cursor-pointer hover:bg-primary/20 transition-colors text-sm font-medium">
+            <UploadCloud className="w-4 h-4 text-primary" />
+            {pdfUploading ? 'Đang xử lý...' : 'Chọn file PDF'}
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={handlePdfUpload}
+              disabled={pdfUploading}
+              className="hidden"
+            />
+          </label>
+          {pdfUploading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+          {pdfTranscript && (
+            <div className="text-xs text-foreground/60">
+              GPA: <span className="font-bold text-primary">{pdfTranscript.gpa ?? 'N/A'}</span> |
+              Xếp loại: <span className="font-bold text-accent">{pdfTranscript.overall_grade || 'N/A'}</span>
+              {pdfTranscript.courses.length > 0 && ` | ${pdfTranscript.courses.length} môn học`}
+            </div>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground/40 mt-2">Hỗ trợ PDF bảng điểm máy tính (text-based). File scan/OCR sẽ được cập nhật trong phiên bản sau.</p>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <SearchInput

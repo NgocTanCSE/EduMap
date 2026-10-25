@@ -165,6 +165,22 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 | `.env.example` + `.env` | Thêm `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `NVIDIA_API_KEY`. Cập nhật comment Gemini (giờ là fallback chứ không phải primary). |
 | `spacers.yaml` | `OPENROUTER_API_KEY` lên primary secret (được khuyến nghị). |
 
+### 2026-10-25b — Hardening OpenRouter + NVIDIA circuit breakers & error parsing
+
+| File | Thay đổi |
+|------|----------|
+| `ai-service/services/llm_service.py` | **Fix `_nvidia_generate` bị đổi tên thành `_generate_text_with_fallback`** bởi process bên ngoài — gây `AttributeError` khi fallback chain gọi `self._nvidia_generate()`. Đã rename lại đúng tên. |
+| `ai-service/services/llm_service.py` | **Thêm circuit breaker** (`_openrouter_down_until`, `_nvidia_down_until`) cho OpenRouter và NVIDIA — sau khi network/TLS failure hoặc 401, bỏ qua provider trong 5 phút thay vì chờ đủ timeout (6–30s) trên mỗi request. Giảm thời gian fallback từ 95s+ → ~5s khi provider đã hết lỗi. |
+| `ai-service/services/llm_service.py` | **Thêm error response parsing** vào `_openrouter_generate` và `_nvidia_generate` — phân biệt lỗi 429 (rate-limit), 401 (invalid key), 404 (model not found) thay vì báo sai "empty response". Ngăn chặn fallback không cần thiết sang Cloudflare (chậm 20–28s). |
+| `ai-service/services/llm_service.py` | **Xóa Gemini khỏi `generate_daily_insight`** — dòng 1163–1168 vẫn gọi `_gemini_generate` dù comment nói đã xóa. Provider chain giờ: OpenRouter → NVIDIA → Cloudflare → HF → template. |
+| `ai-service/services/llm_service.py` | **Cập nhật `moderate_text` docstring + error message** — bỏ Gemini khỏi provider cascade description. |
+| `ai-service/routers/chat.py` | Cập nhật error message: thêm `OPENROUTER_API_KEY (primary), NVIDIA_API_KEY` (cũ chỉ có CLOUDFLARE + HF). |
+| `ai-service/routers/analytics.py` | Cập nhật error message tương tự ở `get_daily_insight` route. |
+| `ai-service/routers/scholarship.py` | Cập nhật error message ở `check_scholarship_eligibility` route. |
+| `ai-service/main.py` | Cập nhật error message ở `/api/ai/predict` route. |
+| `ai-service/tests/test_moderation_fallback.py` | Fix `test_generate_text_with_fallback_error_message`: `"Cloudflare/Gemini/HF:"` → `"Cloudflare/HF:"`. |
+| `ai-service/tests/test_moderation_fallback.py` | **Thêm 6 test mới**: OpenRouter circuit breaker, 401 auth error parsing + circuit breaker set, 429 rate-limit not confused with empty, `_nvidia_generate` exists & callable, NVIDIA circuit breaker, `_generate_text_with_fallback` correctly calls `_nvidia_generate`. |
+
 ### Provider chain sau khi fix
 
 ```

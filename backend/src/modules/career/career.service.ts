@@ -65,17 +65,48 @@ export class CareerService {
   }
 
   /**
-   * Gợi ý nghề nghiệp thông minh (Hybrid: Logic + AI trong tương lai)
-   * Cập nhật để sử dụng dữ liệu UserSkill. Trường trả về khớp với frontend
-   * CareerQuizPage: title, match_score (number), explanation, missing_skills.
+   * Gợi ý nghề nghiệp thông minh (Hybrid: Semantic AI + Logic fallback)
+   * Ưu tiên dùng semantic vector search qua ChromaDB (ai-service),
+   * rồi fallback sang if-else keyword matching nếu AI không khả dụng.
    */
   async suggestCareer(userId: string) {
     const userSkills = await this.userSkillRepo.find({ where: { user_id: userId } });
     const userSkillNames = userSkills.map(s => s.skill_name.toLowerCase());
 
+    const userCareers = await this.userCareerRepo.find({ where: { user_id: userId } });
+    const interests = userCareers.map(uc => (uc.goal_title || `CareerPath_${uc.career_path_id}` || '')).filter(Boolean);
+
     const allPaths = await this.careerPathRepo.find();
 
-    // Build suggestion list from career paths + user skill overlap
+    // ————— Try AI semantic-vector search first —————
+    const aiResult = await this.aiService.recommendCareerSemantic(
+      userSkillNames, interests, 'beginner', userId
+    ).catch(() => null);
+
+    if (aiResult?.top_careers?.length > 0) {
+      const suggestions = aiResult.top_careers.map((c: any) => {
+        const match = allPaths.find(p => p.title.toLowerCase() === (c.title || '').toLowerCase());
+        return {
+          career_id: match ? match.id : null,
+          title: c.title,
+          field: c.field || match?.field || '',
+          match_score: c.match_score,
+          explanation: c.explanation,
+          missing_skills: c.missing_skills,
+          demand_level: c.demand_level || 'Cao',
+          radar_chart: c.radar_chart,
+        };
+      });
+
+      return {
+        input_analysis: { skills: userSkillNames, interests },
+        top_suggestions: suggestions,
+        degraded: aiResult.degraded || false,
+        source: aiResult.source || 'semantic',
+      };
+    }
+
+    // ————— Fallback: if-else keyword matching —————
     const topSuggestions = allPaths.map(path => {
       const requiredSkills = (path.skills_required || []);
       const matchedSkills = requiredSkills.filter(skill =>

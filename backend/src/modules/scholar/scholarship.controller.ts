@@ -26,12 +26,12 @@ export class ScholarshipController {
     return this.scholarService.getScholarshipById(id);
   }
 
-  @Get(':id/check-eligibility')
+  @Post(':id/check-eligibility')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Kiểm tra độ phù hợp của người dùng với học bổng' })
-  async check(@Request() req: any, @Param('id') id: string) {
-    return this.scholarService.checkEligibility(req.user.id, id);
+  @ApiOperation({ summary: 'Kiểm tra độ phù hợp của người dùng với học bổng (hỗ trợ truyền GPA từ bảng điểm PDF)' })
+  async check(@Request() req: any, @Param('id') id: string, @Body() body?: any) {
+    return this.scholarService.checkEligibility(req.user.id, id, body);
   }
 
   @Get('me/applications')

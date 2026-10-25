@@ -12,6 +12,7 @@ chromadb>=0.4.0,<0.6.0
 # query even when telemetry is disabled. Pin to the compatible 5.x line.
 posthog<6
 numpy
+pypdf
 redis
 scikit-learn
 scipy
