@@ -204,7 +204,7 @@ def test_embed_document_caches_embedding():
     svc.has_nvidia_api = False
     call_count = [0]
 
-    def mock_openrouter_embed(text):
+    def mock_openrouter_embed(text, **kwargs):
         call_count[0] += 1
         return [0.1] * 768
 

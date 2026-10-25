@@ -51,7 +51,7 @@ def test_embedding_cache_returns_stored_vector():
     svc = _fresh_service()
     call_count = [0]
 
-    def mock_embed(text):
+    def mock_embed(text, **kwargs):
         call_count[0] += 1
         return [0.1, 0.2, 0.3]
 
@@ -75,7 +75,7 @@ def test_embedding_cache_evicts_oldest():
     svc = _fresh_service()
     svc._embed_cache_max = 2  # small cache for testing
 
-    def mock_embed(text):
+    def mock_embed(text, **kwargs):
         return [float(ord(text[0]))]
 
     svc._openrouter_get_embedding = mock_embed
@@ -89,7 +89,7 @@ def test_embedding_cache_evicts_oldest():
 
     # Replace with a counting mock to detect cache hits vs misses
     call_count = [0]
-    def counting_mock(text):
+    def counting_mock(text, **kwargs):
         call_count[0] += 1
         return [0.0]
 

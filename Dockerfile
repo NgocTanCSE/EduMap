@@ -115,7 +115,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261025-fix-osrm-url
+ARG CACHEBUST=20261025-fix-openrouter-timeout+cf-embed-curl+hf-token-chain
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -153,6 +153,11 @@ ENV ANONYMIZED_TELEMETRY=False
 # --- HuggingFace Inference API fallback (used when Cloudflare tokens absent) ---
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
+# OpenRouter embedding model + timeout (embeddings via curl --ipv4 --insecure).
+# Default model works with OpenRouter's /v1/embeddings endpoint (OpenAI-compatible).
+# Override via HF Spaces secrets if a different model is preferred.
+ENV OPENROUTER_EMBEDDING_MODEL=text-embedding-3-small
+ENV OPENROUTER_TIMEOUT_SECONDS=15
 # Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous
 # Space revision (whose *.bin files may have been partially excluded by upload
 # ignore_patterns) can never block or crash the AI service at startup.

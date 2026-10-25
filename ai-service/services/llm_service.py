@@ -118,7 +118,7 @@ class LLMService:
         # Check env vars first, then fall back to huggingface_hub library which
         # also reads ~/.huggingface/token, /etc/huggingface/token, HF_HOME, etc.
         self.hf_token = (
-            os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or ""
+            os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or ""
         ).strip().strip('"').strip("'")
         if not self.hf_token:
             try:
@@ -161,7 +161,7 @@ class LLMService:
         self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
         self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
         self.openrouter_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat")
-        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "20"))
+        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "15"))
         self.has_openrouter = bool(self.openrouter_key)
         # OpenRouter embedding model (tuỳ chọn, dùng cho vector store)
         self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
@@ -638,6 +638,31 @@ class LLMService:
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            # curl can exit non-zero (e.g. timeout code 28) while still having
+            # received a partial response body — try to parse it so a 401/429/auth
+            # error body is surfaced instead of a generic "curl exit 28". This
+            # helps diagnose whether the 77-byte "Operation timed out" is a true
+            # network hang or an auth/model error that just didn't close the
+            # connection cleanly.
+            _stdout = (proc.stdout or "").strip()
+            if _stdout:
+                try:
+                    _partial = json.loads(_stdout)
+                    if isinstance(_partial, dict) and _partial.get("error"):
+                        _eno = _partial["error"]
+                        if isinstance(_eno, dict):
+                            _code = int(_eno.get("code") or 0)
+                            _msg = str(_eno.get("message", _stdout[:200]))
+                            _low = _msg.lower()
+                            if _code in (401, 403) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
+                                self._openrouter_down_until = _time.monotonic() + 300
+                                raise RuntimeError(f"OpenRouter auth error (HTTP {_code}): {_msg[:200]}")
+                            if _code == 429:
+                                self._openrouter_down_until = _time.monotonic() + 300
+                                raise RuntimeError(f"OpenRouter rate-limited (429): {_msg[:150]}")
+                            err = f"{err} | body: {_msg[:120]}"
+                except json.JSONDecodeError:
+                    pass
             self._openrouter_down_until = _time.monotonic() + 300
             raise RuntimeError(f"OpenRouter curl failed: {err}")
 
@@ -908,41 +933,93 @@ class LLMService:
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
-    def generate_embedding(self, text: str) -> list:
+    def generate_embedding(self, text: str, timeout_override: float = None) -> list:
         """Sinh embedding vector qua OpenRouter embedding endpoint.
 
         Yêu cầu: OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL được cấu hình.
         Trả về list[float]. Nếu không cấu hình hoặc gọi thất bại, ném RuntimeError
         để caller dùng fallback khác (Gemini/HF embedding).
+
+        Uses curl (OpenSSL TLS) for HF Spaces compatibility — same pattern as
+        _openrouter_generate and the embedding providers in vector_store.py.
         """
         if not self.has_openrouter_embed:
             raise RuntimeError("OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL not set — cannot use OpenRouter embedding.")
+        import time as _time_ext
+        if _time_ext.monotonic() < self._openrouter_down_until:
+            raise RuntimeError("OpenRouter embeddings temporarily disabled after a network failure (circuit breaker).")
+
         url = f"{self.openrouter_base}/embeddings"
-        payload = {
+        payload = json.dumps({
             "model": self.openrouter_embed_model,
             "input": text,
-        }
-        body_json = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body_json,
-            headers={
-                "Authorization": f"Bearer {self.openrouter_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "HTTP-Referer": "https://edumap.ai",
-                "X-Title": "EduMap",
-            },
-            method="POST",
-        )
+        }).encode("utf-8")
+        _emb_timeout = timeout_override or self.openrouter_timeout
+
         try:
-            with urllib.request.urlopen(req, timeout=self.openrouter_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", "ignore")[:300]
-            raise RuntimeError(f"OpenRouter embedding HTTP {e.code}: {body}")
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: application/json",
+                    "-H", "HTTP-Referer: https://edumap.ai",
+                    "-H", "X-Title: EduMap",
+                    "-d", payload,
+                    "--connect-timeout", "4",
+                    "--max-time", str(_emb_timeout),
+                    url,
+                ],
+                capture_output=True, text=True, timeout=_emb_timeout + 2,
+            )
         except Exception as e:
+            self._openrouter_down_until = _time_ext.monotonic() + 300
             raise RuntimeError(f"OpenRouter embedding connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
+            # curl can exit non-zero (e.g. timeout code 28) while still having
+            # received a partial response body — try to parse it so a 401/429
+            # auth error body is surfaced instead of a generic "curl exit 28".
+            _stdout = (proc.stdout or "").strip()
+            if _stdout:
+                try:
+                    _partial = json.loads(_stdout)
+                    if isinstance(_partial, dict) and _partial.get("error"):
+                        _eno = _partial["error"]
+                        if isinstance(_eno, dict):
+                            _code = int(_eno.get("code") or 0)
+                            _msg = str(_eno.get("message", _stdout[:120]))
+                            low = _msg.lower()
+                            if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
+                                self._openrouter_down_until = _time_ext.monotonic() + 300
+                                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {_code}): {_msg[:200]}")
+                            err = f"{err} | body: {_msg[:120]}"
+                except json.JSONDecodeError:
+                    pass
+            self._openrouter_down_until = _time_ext.monotonic() + 300
+            raise RuntimeError(f"OpenRouter embedding connection failed: {err}")
+
+        try:
+            data = json.loads(proc.stdout or "{}")
+        except Exception:
+            raise RuntimeError(f"OpenRouter embedding invalid JSON: {(proc.stdout or '')[:200]}")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            low = message.lower()
+            if code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
+                self._openrouter_down_until = _time_ext.monotonic() + 300
+                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                raise RuntimeError(f"OpenRouter embedding rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"OpenRouter embedding HTTP {code}: {message[:200]}")
 
         try:
             embedding = data["data"][0]["embedding"]

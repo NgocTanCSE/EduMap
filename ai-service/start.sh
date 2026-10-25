@@ -26,7 +26,7 @@ if [ -r /proc/1/environ ]; then
     PARENT_ENV=$(tr '\0' '\n' < /proc/1/environ 2>/dev/null || true)
     # List of all env vars that might be set as HF Spaces secrets
     SECRET_VARS="CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_MODEL \
-CLOUDFLARE_EMBEDDING_MODEL HF_TOKEN HUGGING_FACE_HUB_TOKEN \
+CLOUDFLARE_EMBEDDING_MODEL HF_TOKEN HF_API_TOKEN HUGGING_FACE_HUB_TOKEN \
 HF_LLM_MODEL HF_EMBEDDING_MODEL OPENAI_API_KEY ADZUNA_APP_ID \
 ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
 GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
@@ -43,7 +43,7 @@ fi
 
 # ── Recover HF_TOKEN from token file (HF Spaces auto-set) ───────────────────
 # If HF_TOKEN is still empty after PID 1 recovery, try HF token files.
-if [ -z "$HF_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
+if [ -z "$HF_TOKEN" ] && [ -z "$HF_API_TOKEN" ] && [ -z "$HUGGING_FACE_HUB_TOKEN" ]; then
     for token_file in "$HOME/.huggingface/token" "$HOME/.huggingface/HF_TOKEN" "/etc/huggingface/token" "/root/.huggingface/token"; do
         if [ -r "$token_file" ]; then
             HF_TOK=$(cat "$token_file" 2>/dev/null | tr -d '\n\r')
@@ -62,7 +62,8 @@ echo "AI service env check:"
 [ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
 [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo "  CLOUDFLARE_ACCOUNT_ID: ✓ set" || echo "  CLOUDFLARE_ACCOUNT_ID: ✗ NOT set"
 [ -n "$CF_AI_GATEWAY_ID" ] && echo "  CF_AI_GATEWAY_ID: ✓ set" || echo "  CF_AI_GATEWAY_ID: ✗ NOT set (direct Workers AI)"
-[ -n "$HF_TOKEN" ] && echo "  HF_TOKEN: ✓ set" || echo "  HF_TOKEN: ✗ NOT set"
+echo "[ -n "$HF_TOKEN" ] && echo "  HF_TOKEN: ✓ set" || echo "  HF_TOKEN: ✗ NOT set"
+[ -n "$HF_API_TOKEN" ] && echo "  HF_API_TOKEN: ✓ set" || echo "  HF_API_TOKEN: ✗ NOT set"
 [ -n "$NVIDIA_API_KEY" ] && echo "  NVIDIA_API_KEY: ✓ set" || echo "  NVIDIA_API_KEY: ✗ NOT set"
 
 # ── Launch AI service ───────────────────────────────────────────────────────
