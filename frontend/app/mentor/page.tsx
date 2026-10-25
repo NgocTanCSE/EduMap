@@ -45,8 +45,13 @@ export default function MentorPage() {
     
     try {
         setIsAiMatching(true);
-        toast.info('Gemini AI is analyzing your profile...');
-        const response = await mentorService.getRecommendations(user.id);
+        toast.info('AI is analyzing your profile...');
+        // Pass the active category as specialty filter, and user's region if available
+        const userRegion = (user as any)?.location || undefined;
+        const response = await mentorService.getRecommendations(user.id, {
+          specialty: activeCategory !== 'Tất cả' ? activeCategory : undefined,
+          region: userRegion,
+        });
         
         if (response && response.top_matches) {
             setAiMatches(response.top_matches);

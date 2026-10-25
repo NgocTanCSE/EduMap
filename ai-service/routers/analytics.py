@@ -104,8 +104,174 @@ def _parse_skills(raw: Any) -> List[str]:
     return []
 
 
-def _load_trending_skills(limit: int = 5) -> List[Dict[str, Any]]:
-    """Derive in-demand skills from active job postings."""
+# ──────────────────────── Hot-skill extraction ────────────────────────
+#
+# Skill taxonomy used to mine in-demand ("hot") skills out of job postings.
+# Mirrors the keyword set in frontend/app/api/career/jobs/route.ts so the
+# "hot skills" surfaced on the Market Trends page are consistent with the
+# skills the Jobs page already extracts from Adzuna results.
+#
+# Adzuna API reference (Vietnam job search):
+#   GET https://api.adzuna.com/v1/api/jobs/{country}/search/{page}
+#   params: app_id, app_key, results_per_page, what, latitude, longitude, radius
+#   response: { count, results: [ { title, company.display_name, category.label,
+#                                    location.display_name, salary_min, salary_max,
+#                                    description, ... } ] }
+# Source: https://developer.adzuna.com/  (in-repo implementation verified in
+#   frontend/app/api/career/jobs/route.ts and llm_service._fetch_adzuna_jobs)
+_SKILL_KEYWORDS: List[str] = [
+    # Languages & runtimes
+    'react', 'vue', 'angular', 'node', 'nodejs', 'python', 'java', 'go', 'rust',
+    'typescript', 'javascript', 'php', 'dart', 'flutter', 'android', 'ios',
+    'swift', 'kotlin', 'c++', 'c#', 'laravel', 'django', 'nestjs',
+    # Cloud & infra / DevOps
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'redis', 'nginx', 'jenkins',
+    'git', 'devops', 'ci/cd', 'microservices', 'rest api', 'linux',
+    # Data
+    'sql', 'postgresql', 'postgres', 'mongodb', 'mysql', 'graphql',
+    'data analysis', 'data science', 'machine learning', 'deep learning',
+    'tensorflow', 'pytorch', 'nlp', 'bigquery', 'snowflake',
+    # Design / soft
+    'figma', 'photoshop', 'seo', 'agile', 'scrum', 'product management',
+]
+
+
+def _extract_skills_from_text(text: str) -> List[str]:
+    """Extract known skill keywords from free-form job text.
+
+    Alphanumeric keywords are matched with word boundaries (so ``react`` does
+    not match ``reactive``); keywords containing special chars (``c++``,
+    ``c#``, ``ci/cd``) use a case-insensitive substring match because they are
+    distinctive enough that a substring hit is a true positive.
+    """
+    lower = (text or "").lower()
+    found: set = set()
+    for kw in _SKILL_KEYWORDS:
+        try:
+            if kw.isalnum():
+                if re.search(rf"\b{re.escape(kw)}\b", lower):
+                    found.add(kw)
+            else:
+                if kw.lower() in lower:
+                    found.add(kw)
+        except re.error:
+            continue
+    return list(found)
+
+
+def _adzuna_available() -> bool:
+    return bool(os.getenv("ADZUNA_APP_ID")) and bool(os.getenv("ADZUNA_APP_KEY"))
+
+
+def _fetch_adzuna_hot_skills(
+    results_per_page: int = 50, limit_skills: int = 10
+) -> List[Dict[str, Any]]:
+    """Fetch REAL job postings from the Adzuna API and extract hot skills.
+
+    Adzuna provides live Vietnam job postings (free tier: 5,000 req/month).
+    On HF Spaces we shell out to ``curl --ipv4 --insecure`` — the exact same
+    pattern already used by ``llm_service._fetch_adzuna_jobs`` and the
+    embedding chain — to bypass the Python ssl/urllib IPv6 blackhole that
+    makes TLS handshakes to Cloudflare/HF hang on HF Spaces.
+
+    The Adzuna keys are read from container env (set as HF Spaces secrets via
+    start.sh's PID-1 environ recovery) and are NEVER sent to the browser.
+
+    Returns ``[]`` when keys are missing or the request fails so the caller
+    can transparently fall back to the local SQLite ``jobs`` table.
+    """
+    app_id = os.getenv("ADZUNA_APP_ID")
+    app_key = os.getenv("ADZUNA_APP_KEY")
+    country = os.getenv("ADZUNA_COUNTRY", "vn")
+    if not (app_id and app_key):
+        return []
+
+    try:
+        url = (
+            f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?"
+            f"app_id={urllib.parse.quote(app_id)}&app_key={urllib.parse.quote(app_key)}"
+            f"&results_per_page={int(results_per_page)}"
+            f"&what={urllib.parse.quote('it')}"
+        )
+        # curl (OpenSSL TLS) — bypasses the Python ssl/urllib IPv6 blackhole
+        # on HF Spaces; --ipv4 forces IPv4, --insecure tolerates the
+        # Space's optional MITM proxy with a custom CA.
+        proc = subprocess.run(
+            [
+                "curl", "--ipv4", "--insecure", "-sS", "-X", "GET",
+                "-H", "User-Agent: EduMap-AI/1.0",
+                "-H", "Accept: application/json",
+                "--connect-timeout", "6",
+                "--max-time", "15",
+                url,
+            ],
+            capture_output=True, text=True, timeout=20,
+        )
+        if proc.returncode != 0 or not (proc.stdout or "").strip():
+            logger.warning(
+                "Adzuna hot-skill fetch failed (curl rc=%s); "
+                "falling back to local jobs table", proc.returncode,
+            )
+            return []
+        payload = json.loads(proc.stdout)
+        results = payload.get("results") or []
+
+        counter: Counter = Counter()
+        for r in results:
+            text = " ".join([
+                r.get("title", "") or "",
+                r.get("description", "") or "",
+                ((r.get("category") or {}).get("label", "") if isinstance(r.get("category"), dict) else ""),
+            ])
+            counter.update(_extract_skills_from_text(text))
+
+        if not counter:
+            return []
+
+        total = sum(counter.values()) or 1
+        logger.info(
+            "Adzuna: extracted %d hot skills from %d live job postings",
+            len(counter), len(results),
+        )
+        return [
+            {
+                "name": skill,
+                "growth": f"+{round(count / total * 100)}%",
+                "count": count,
+            }
+            for skill, count in counter.most_common(limit_skills)
+        ]
+    except Exception as e:
+        logger.warning(
+            "Adzuna hot-skill extraction failed (%s: %s); "
+            "falling back to local jobs table", type(e).__name__, e,
+        )
+        return []
+
+
+def _load_trending_skills(limit: int = 5) -> Tuple[List[Dict[str, Any]], str]:
+    """Derive in-demand ("hot") skills from active job postings.
+
+    PRIMARY: real-time job postings scraped from the Adzuna API (Vietnam) —
+      this is the actual recruitment data source. When
+      ``ADZUNA_APP_ID``/``ADZUNA_APP_KEY`` are set on HF Spaces, hot skills are
+      extracted from live job titles + descriptions instead of the small seeded
+      ``jobs`` table.
+
+    FALLBACK: active rows of the local ``jobs`` table (SQLite on HF Spaces,
+      PostgreSQL in local/provisioned envs), seeded by seed_crawled_data.sql and
+      optionally refreshed by the ITviec/Adzuna job crawler.
+
+    Returns a ``(skills, source)`` tuple so the UI can report provenance
+    ("adzuna" vs "local db") and stop calling the result "sample data" when it
+    is backed by real market postings.
+    """
+    # 1) Real market data first.
+    adzuna_skills = _fetch_adzuna_hot_skills(limit_skills=limit)
+    if adzuna_skills:
+        return adzuna_skills, "adzuna"
+
+    # 2) Graceful fallback to the local (seeded + crawler-populated) jobs table.
     jobs: List[Dict[str, Any]] = []
     try:
         from services.db_service import db_service
@@ -138,17 +304,20 @@ def _load_trending_skills(limit: int = 5) -> List[Dict[str, Any]]:
         counter.update(_parse_skills(job.get("required_skills")))
 
     if not counter:
-        return []
+        return [], "local"
 
     total = sum(counter.values()) or 1
-    return [
-        {
-            "name": skill,
-            "growth": f"+{round(count / total * 100)}%",
-            "count": count,
-        }
-        for skill, count in counter.most_common(limit)
-    ]
+    return (
+        [
+            {
+                "name": skill,
+                "growth": f"+{round(count / total * 100)}%",
+                "count": count,
+            }
+            for skill, count in counter.most_common(limit)
+        ],
+        "local",
+    )
 
 
 def _to_float(value: Any) -> Optional[float]:
@@ -286,8 +455,11 @@ async def get_stats():
     # safe for concurrent use.
     stats_data = await asyncio.to_thread(_load_education_stats)
     events = await asyncio.to_thread(_load_user_events, 500)
-    trending_skills = await asyncio.to_thread(_load_trending_skills)
-    logger.info(f"Fetched {len(stats_data)} education stats records")
+    trending_skills, skills_source = await asyncio.to_thread(_load_trending_skills)
+    logger.info(
+        "Fetched %d education stats records; trending skills source=%s (%d skills)",
+        len(stats_data), skills_source, len(trending_skills),
+    )
 
     sectors = _build_sectors(stats_data)
 
@@ -337,6 +509,10 @@ async def get_stats():
         "historical_data": historical,
         "sectors": sectors,
         "trending_skills": trending_skills,
+        # Provenance flag so the frontend can stop labeling the result as
+        # "sample data" when the skills actually came from live Adzuna jobs.
+        "trending_skills_source": skills_source,
+        "trending_skills_available": skills_source == "adzuna" or len(trending_skills) > 0,
         "insights": {
             "average_annual_growth_pct": avg_growth,
             "prediction_2025_it_students": int(prediction_2025),

@@ -5,7 +5,7 @@ import { unwrapApiResponse } from '@/src/lib/api-utils';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { message, history, context } = body;
+    const { message, history, context, session_id } = body;
 
     // Backend URL from env or fallback to local NestJS
     
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
         ...(authHeader ? { 'Authorization': authHeader } : {}),
       },
-      body: JSON.stringify({ message, history, context }),
+      body: JSON.stringify({ message, history, context, session_id }),
     });
 
     if (!response.ok) {

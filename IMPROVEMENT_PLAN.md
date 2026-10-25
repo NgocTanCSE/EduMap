@@ -87,19 +87,25 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 - Tạo trigger trong `library.service.ts` (backend) — khi thêm sách mới → gọi ai-service embed
 - Hoặc dùng message queue (Redis) để async embed
 
-### 2.6. Ghép mentor & học bản (Mentor Matching + Scholarship Screening) ✅ ĐÃ xong
+### 2.6. Ghép mentor & học bản (Mentor Matching + Scholarship Screening) ✅ Hoàn thiện
 
-**Trạng thái hiện tại**: Pre-filter by chuyên ngành (specialty) + cap số mentor gửi vào LLM.
+**Trạng thái**: 3-layer token-overflow defense + geographic & specialty pre-filter + PDF transcript — all verified ✅ (2026-10-25).
 
-**Đề xuất**: Pre-filter trước (khoảng cách, chuyên ngành) + đọc file PDF bảng điểm.
+**Đề xuất**: Pre-filter trước (khoảng cách, chuyên ngành) + đọc file PDF bảng điểm. → Đã hoàn thành.
 
 **Kế hoạch (đã hoàn thành 2026-10-25)**:
-- ✅ Filter mentor trong DB trước khi gửi vào prompt (by specialty — LIKE trên JSON column, tương thích SQLite + PostgreSQL)
-- ✅ Safety-net cap tại LLM layer (max_mentors, mặc định 15)
-- ✅ Fix Pydantic schema mismatch: backend gửi `id`/`specialties`/`bio` nhưng model yêu cầu `mentor_id`/`skills`/`mbti`/`available_days` → thêm alias + optional fields
-- ✅ Thêm `student_specialty`, `student_region`, `max_mentors` vào MatchRequest (backward compatible)
-- ✅ PDF bảng điểm đã tích hợp sẵn (pdf_transcript.py + scholarship.py + scholarship.service.ts)
-- ADR: [docs/decisions/ADR-006-mentor-matching-pre-filter.md](docs/decisions/ADR-006-mentor-matching-pre-filter.md)
+- Layer 1 — DB pre-filter (mentor.service.ts): filter verified mentors by specialty (LOWER LIKE) + region (LOWER(location) LIKE) + ORDER BY rating_avg DESC LIMIT 15. SQLite + PostgreSQL compatible.
+- Geographic pre-filter (cự ly): added `location` column to mentors + users entities, migration 1840000000000-AddMentorLocation, sqlite-bootstrap.ts self-heal. MentorPage passes activeCategory (specialty) + user.location (region).
+- Layer 2 — LLM safety cap (llm_service.py): slice [:max_mentors] before serialize.
+- Layer 3 — Pydantic fix (mentor_models.py): MentorProfile accepts id alias for mentor_id, all fields optional. MatchRequest has student_region, student_specialty, max_mentors.
+- BFF POST handler (check-eligibility/route.ts): forward body (transcript) + Authorization header.
+- Frontend detail page PDF UI (scholarships/[id]/page.tsx): upload PDF → pass to checkEligibility.
+- Frontend list page PDF UI (scholarships/page.tsx): handlePdfUpload → pdfTranscript state.
+- Backend scholarship service: passes transcriptData to aiService.checkScholarshipEligibility.
+- AI service PDF transcript (pdf_transcript.py): pypdf + regex parse GPA/courses/grades.
+- Frontend mentor service: getRecommendations(userId, { specialty, region }).
+- Tests: 6/6 Jest mentor tests pass, 12/12 Python AI tests pass. Backend tsc --noEmit exit 0. Frontend tsc --noEmit exit 0.
+- ADR: docs/decisions/ADR-006-mentor-matching-pre-filter.md
 
 ### 2.7. Phân tích mật độ trường học (GeoAI)
 
@@ -143,7 +149,7 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 | 🔴 Cao | Fix career/roadmap auth ( không gửi token) | Bug blocking chức năng chính |
 | 🔴 Cao | Fix _generate_text_with_fallback provider order (Gemini first) | Làm chậm/tiết kiệm AI 95s → ~5s |
 | 🔴 Cao | Fix _openrouter_generate (dùng curl) | OpenRouter trả về empty response |
-| 🟡 Trung | 6. Mentor matching + scholarship screening | Pre-filter by specialty + PDF transcript ✅ |
+| 🟢 Thấp | 6. Mentor matching + scholarship screening | ✅ Hoàn thiện (3-layer defense + DB pre-filter by region & specialty + PDF transcript) |
 | 🟡 Trung | Dự đoán nghề nghiệp (semantic vector) | Cải thiện chất lượng |
 | 🟡 Trung | Streaming SSE cho chat | UX tốt hơn |
 | 🟢 Thấp | Time-series forecast | Phức tạp, cần data lịch sử |

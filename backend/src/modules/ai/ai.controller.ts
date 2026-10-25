@@ -16,14 +16,15 @@ export class AIController {
   @ApiOperation({ summary: 'F-05: Chatbot AI (LLM + RAG)' })
   async chat(
     @Request() req: any,
-    @Body('message') msg: string, 
+    @Body('message') msg: string,
     @Body('history') history: any[],
-    @Body('context') ctx: any
+    @Body('context') ctx: any,
+    @Body('session_id') sessionId?: string,
   ) {
     if (!msg || msg.trim().length === 0) {
       return { message: 'Tin nhắn không được để trống.' };
     }
-    return this.aiService.chat(msg, history || [], ctx, req.user.id);
+    return this.aiService.chat(msg, history || [], ctx, req.user.id, sessionId);
   }
 
   @Post('chat-stream')
@@ -36,6 +37,7 @@ export class AIController {
     @Body('history') history: any[],
     @Body('context') ctx: any,
     @Res() res: any,
+    @Body('session_id') sessionId?: string,
   ) {
     if (!msg || msg.trim().length === 0) {
       res.status(400).json({ message: 'Tin nhắn không được để trống.' });
@@ -45,7 +47,7 @@ export class AIController {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
-    await this.aiService.chatStream(msg, history || [], ctx, req.user.id, res);
+    await this.aiService.chatStream(msg, history || [], ctx, req.user.id, res, sessionId);
   }
 
   @Get('history')

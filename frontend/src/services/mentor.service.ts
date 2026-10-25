@@ -30,8 +30,15 @@ class MentorService {
     return this.fetchWithAuth(`${API_BASE_URL}/mentors/${id}`);
   }
 
-  async getRecommendations(userId: string) {
-    return this.fetchWithAuth(`${API_BASE_URL}/mentors/recommend/${userId}`);
+  async getRecommendations(userId: string, options?: { specialty?: string; region?: string }) {
+    const params = new URLSearchParams();
+    if (options?.specialty) params.append('specialty', options.specialty);
+    if (options?.region) params.append('region', options.region);
+    const query = params.toString();
+    const url = query
+      ? `${API_BASE_URL}/mentors/recommend/${userId}?${query}`
+      : `${API_BASE_URL}/mentors/recommend/${userId}`;
+    return this.fetchWithAuth(url);
   }
 
   async getMentorSlots(mentorId: string, date?: string) {

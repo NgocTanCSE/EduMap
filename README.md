@@ -38,6 +38,8 @@ Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web 
 
 ## 🐳 Chạy local
 
+> **📌 Lưu ý quan trọng:** Dự án chỉ **chạy sản phẩm trên Hugging Face Spaces**. Môi trường local chỉ dùng để **phát triển code**, debug, và test unit. Để chạy thử local, dùng Docker build/run như bên dưới — tuy nhiên một số tính năng cần external services (PostgreSQL, Redis) sẽ không khả dụng trong single-container SQLite mode của HF Spaces.
+
 ```bash
 # Build
 docker build -t edumap .

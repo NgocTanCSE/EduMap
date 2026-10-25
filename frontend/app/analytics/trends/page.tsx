@@ -63,6 +63,9 @@ type TrendsPayload = {
   sectors?: Sector[];
   insights?: Insights;
   trending_skills?: TrendingSkill[];
+  // "adzuna" = hot skills extracted from live Adzuna job postings (real market data);
+  // "local"   = aggregated from the seeded/local DB jobs table (sample data).
+  trending_skills_source?: string;
 };
 
 /* ─────────────────────────── Helpers ──────────────────────────── */
@@ -880,16 +883,35 @@ export default function AITrendsPage() {
         }
       />
 
-      {/* Data provenance — be explicit that this is seeded/demo data, not a
-          live market feed. The education metrics are curated seed rows and
-          the skill counts come from the sample job postings in the DB. */}
+      {/* Data provenance — be explicit about whether the skill counts come
+          from live Adzuna job postings (real market data) or from the seeded
+          SQLite jobs table (sample data). The education metrics are always
+          curated seed rows from edumap.db. */}
       <div className="flex items-start gap-3 rounded-xl border border-border bg-card/60 px-4 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-xs leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Dữ liệu mẫu:</span>{" "}
-          Chỉ số giáo dục 2022–2024 được seed trong CSDL của EduMap; kỹ năng
-          được tổng hợp từ các tin tuyển dụng mẫu đang hoạt động. Đây không
-          phải số liệu thị trường trực tiếp.
+          {data?.trending_skills_source === "adzuna" ? (
+            <>
+              <span className="font-medium text-foreground">Thị trường thực:</span>{" "}
+              Kỹ năng được trích xuất từ dữ liệu tuyển dụng thực tế qua Adzuna
+              (Vietnam jobs). Chỉ số giáo dục 2022–2024 được seed trong CSDL.
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">Dữ liệu mẫu:</span>{" "}
+              Chỉ số giáo dục 2022–2024 được seed trong CSDL của EduMap; kỹ năng
+              được tổng hợp từ các tin tuyển dụng mẫu đang hoạt động. Đây không
+              phải số liệu thị trường trực tiếp — hãy cấu hình{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-foreground/80">
+                ADZUNA_APP_ID
+              </code>{" "}
+              +{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-foreground/80">
+                ADZUNA_APP_KEY
+              </code>{" "}
+              để kết nối dữ liệu tuyển dụng thực tế.
+            </>
+          )}
         </p>
       </div>
 

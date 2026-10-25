@@ -20,6 +20,14 @@ export default function AIChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
+  // Session ID for chat session memory (bộ nhớ phiên chat).
+  // Generated once on mount and reused across messages within this tab.
+  // On HF Spaces this ties to the in-memory SessionMemoryService.
+  const [sessionId] = useState(() => {
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `web_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  });
 
   // Load history from Backend on mount
   useEffect(() => {
@@ -95,7 +103,8 @@ export default function AIChatPage() {
         body: JSON.stringify({ 
           message: trimmedInput, 
           history: newMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-          context: {} 
+          context: {},
+          session_id: sessionId
         })
       });
 

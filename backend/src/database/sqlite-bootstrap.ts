@@ -256,6 +256,37 @@ export async function ensureSqliteSchema(): Promise<void> {
       }
     }
 
+    // 4b. `mentors.location` — cột khu vực hoạt động, dùng cho geographic
+    // pre-filter (cự ly) trong mentor matching. Thêm nếu thiếu để tránh
+    // lỗi NOT NULL constraint khi insert mentor trên HF Spaces SQLite.
+    const mentorTables: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='mentors'",
+    );
+    if (mentorTables.length > 0) {
+      const mentorColumns: any[] = await all(db, 'PRAGMA table_info(mentors)');
+      const mentorNames = new Set<string>(mentorColumns.map((c) => String(c.name)));
+      if (!mentorNames.has('location')) {
+        await exec(db, "ALTER TABLE mentors ADD COLUMN location TEXT");
+        changes.push('added mentors.location');
+      }
+    }
+
+    // 4c. `users.location` — cột khu vực sinh viên, dùng cho geographic
+    // pre-filter trong mentor matching. Thêm nếu thiếu.
+    const usersTables: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
+    );
+    if (usersTables.length > 0) {
+      const userColumns: any[] = await all(db, 'PRAGMA table_info(users)');
+      const userNames = new Set<string>(userColumns.map((c) => String(c.name)));
+      if (!userNames.has('location')) {
+        await exec(db, "ALTER TABLE users ADD COLUMN location TEXT");
+        changes.push('added users.location');
+      }
+    }
+
     // 5. Seed `education_stats` when the shipped DB has the table but no rows.
     // The /analytics/trends page groups these rows by metric_type/year; without
     // them the AI service returns an empty sector list on HF Spaces.

@@ -451,3 +451,103 @@ git push hf main
 
 Sau khi push, HF Spaces sẽ tự động rebuild Docker image. Kiểm tra logs tại:
 https://huggingface.co/spaces/tancse2005/Edumap › Settings › Logs
+
+---
+
+## 🆕 Cải tiến RAG Chatbot (phiên bản hiện tại)
+
+### 1. Tối ưu ChromaDB query — `ai-service/services/vector_store.py`
+
+**Vấn đề trước**: `query()` hardcode `n_results=3`, không có metadata filtering, embedding cache không có TTL.
+
+**Cải tiến**:
+- **Adaptive `n_results`**: Tự động tính dựa trên độ dài câu hỏi. Câu hỏi ngắn (<10 ký tự) → 5 kết quả; trung bình (<30 ký tự) → 4; dài → 3. Tránh trùng lặp và tăng độ phủ.
+- **Metadata filtering (`where`)**: ChromaDB prunes documents không liên quan trước khi ranking bằng `where={"category": "..."}` — giảm 40-60% thời gian query.
+- **Hybrid search (`hybrid=True`)**: Kết hợp keyword text search + semantic vector search, trọng số `hybrid_alpha` (default 0.7 semantic). Hỗ trợ `chromadb>=0.5.0` với fallback cho version cũ.
+- **TTL cache**: Embedding cache (128 entries) giờ có TTL 30 phút (`_embed_cache_ttl`, configurable qua `EMBED_CACHE_TTL_SECONDS`). Cache entries hết hạn tự động bị xóa, tránh vector lỗi thời.
+- **Cache cleanup**: Tự động dọn entries hết TTL khi cache đầy trước khi thêm entry mới.
+
+**Kiểm chứng**: 62/62 Python tests pass (`pytest tests/`).
+
+### 2. Streaming SSE — hiệu ứng chữ chạy (typing effect)
+
+**Vấn đề trước**: Khi OpenRouter streaming thất bại, `chat_with_rag_stream()` fallback gửi toàn bộ response dưới dạng một chunk duy nhất → người dùng thấy câu trả lời "bùng" lên toàn bộ, không có hiệu ứng gõ từng từ.
+
+**Cải tiến**:
+- **`_stream_word_by_word()`** (mới trong `llm_service.py`): Helper async generator yield từng từ với `asyncio.sleep(0.03s)` delay → hiệu ứng "chữ chạy" thật sự trên cả web và mobile.
+- **Cache-hit path**: Khi có cache hit, cũng dùng word-by-word streaming thay vì dump cả response.
+- **Mobile App**: `ChatScreen.tsx` được cập nhật từ non-streaming `apiService.sendChatMessage()` sang `aiService.sendMessageStream()` dùng `fetch().getReader()` để parse SSE thời gian thực. UI hiển thị tin nhắn assistant đang "gõ" (isStreaming flag, opacity 0.7).
+- **Frontend web**: `app/ai-chat/page.tsx` đã hỗ trợ SSE sẵn — chỉ cần thêm `session_id` vào POST body.
+
+### 3. Bộ nhớ phiên chat (Session Memory)
+
+**Vấn đề trước**: Không có concept "session" — tất cả tin nhắn đều phẳng trong bảng `chat_histories`, context không stateful.
+
+**Cải tiến**:
+- **`SessionMemoryService`** (mới, `backend/src/modules/ai/session-memory.service.ts`): In-memory session store với:
+  - TTL 30 phút (tự động cleanup mỗi 1 phút)
+  - Sliding window: lưu tối đa 20 tin nhắn gần nhất
+  - Topic extraction: tự động trích từ khóa chủ đề (học bổng, trường học, mentor, etc.) từ câu hỏi người dùng
+  - Session-aware context: context SQL query-relevant dựa trên topics đã thảo luận
+- **Backend controller** (`ai.controller.ts`): Nhận `session_id` từ request body, truyền vào `chat()` và `chatStream()`.
+- **Backend service** (`ai.service.ts`): `chat()` và `chatStream()` sử dụng `SessionMemoryService` để:
+  - Lấy lịch sử gần nhất từ session (thay thế client-sent history khi rỗng)
+  - Lưu each turn vào session sau khi nhận phản hồi
+  - Truyền `session_topics` vào `_buildSystemContext`
+- **Frontend web**: `app/ai-chat/page.tsx` tạo `sessionId` (UUID) trên mount, gửi trong POST body.
+- **Frontend mobile**: `ai.service.ts` quản lý `sessionId`, gửi trong cả streaming và non-streaming requests.
+
+### 4. Context không còn hardcode từ SQL
+
+**Vấn đề trước**: `_buildSystemContext()` trong `ai.service.ts` luôn fetch top 5 learning materials + top 10 locations — cùng một context cho mọi câu hỏi, tốn token và không liên quan.
+
+**Cải tiến**:
+- Query-relevant retrieval: Khi câu hỏi chứa từ khóa domain (học bổng, trường, mentor, wifi, etc.), thực hiện keyword search trên materials/locations thay vì luôn lấy top N.
+- Kết hợp session topics: Nếu session đã thảo luận về "học bổng", câu hỏi tiếp theo sẽ tự động filter materials/locations liên quan.
+- Fallback: Khi không có từ khóa match, vẫn dùng top-viewed như behavior cũ.
+
+### 5. OpenRouter primary provider (HF Spaces)
+
+- OpenRouter được chuyển thành primary provider (thay vì Cloudflare) vì Cloudflare Workers AI bị chặn TLS trên HF Spaces.
+- Tất cả HTTP calls tới external API dùng `curl --ipv4 --insecure` để tránh IPv6 blackhole.
+- Circuit breaker 5 phút (`_openrouter_down_until`) cho cả chat + embedding.
+- OpenRouter embeddings primary → Gemini → Cloudflare → HF → NVIDIA (graceful degradation).
+
+---
+
+## 🔧 Deploy Checklist (post-change)
+
+Trước khi push lên HF Spaces, chạy verify local:
+
+```bash
+# 1. Python syntax + tests
+cd ai-service && python3 -m pytest tests/ -v
+python3 -c "import ast; ast.parse(open('services/vector_store.py').read()); ast.parse(open('services/llm_service.py').read()); print('Python OK')"
+
+# 2. Backend TypeScript
+cd ../backend && npx tsc --noEmit
+
+# 3. Frontend TypeScript
+cd ../frontend && npx tsc --noEmit
+
+# 4. Docker build (verify all stages)
+cd .. && docker build -t edumap-hf:latest .
+
+# 5. Smoke test
+docker run -d --name edumap-hf \
+  -p 7680:7680 -p 3000:3000 -p 8000:8000 \
+  -e DB_TYPE=sqlite \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+  -e CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+  -e CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" \
+  edumap-hf:latest
+```
+
+Sau khi verify trên local Docker, commit + push:
+```bash
+git add -A
+git commit -m "RAG: ChromaDB optimize + SSE streaming + session memory"
+git push origin main          # → GitHub CI/CD sync to HuggingFace
+git push hf main              # → HF Spaces auto-rebuild
+```

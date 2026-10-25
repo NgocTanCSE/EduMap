@@ -3,7 +3,7 @@ import { getBackendUrl } from '@/src/lib/api-config';
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { message, history, context } = body;
+  const { message, history, context, session_id } = body;
 
   const authHeader = req.headers.get('Authorization');
 
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       'Content-Type': 'application/json',
       ...(authHeader ? { Authorization: authHeader } : {}),
     },
-    body: JSON.stringify({ message, history, context }),
+    body: JSON.stringify({ message, history, context, session_id }),
   });
 
   if (!backendResponse.ok) {

@@ -74,6 +74,14 @@ export class User {
   @Column({ nullable: true })
   mbti_type: string;
 
+  /**
+   * Khu vực / tỉnh thành nơi sinh viên đang sống hoặc quan tâm đến mentor ở đó.
+   * Dùng cho pre-filter theo cự ly (distance) trong mentor matching.
+   * Thêm theo ADR-006: geographic pre-filter gap.
+   */
+  @Column({ name: 'location', type: 'varchar', length: 255, nullable: true })
+  location: string;
+
   @Column(textArrayColumn())
   skills: string[];
 

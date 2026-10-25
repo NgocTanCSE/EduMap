@@ -32,13 +32,13 @@ export class SessionMemoryService implements OnModuleInit {
   private readonly MAX_MESSAGES = 20;                // sliding window
   private cleanupTimer: NodeJS.Timeout | null = null;
 
-  ngOnModuleInit() {
+  onModuleInit() {
     // Periodic cleanup: evict sessions idle longer than TTL
     this.cleanupTimer = setInterval(() => {
       const now = Date.now();
       let evicted = 0;
       for (const [sid, session] of this.sessions.entries()) {
-        if (now - session.lastActive.getTime() > SESSION_TTL_MS) {
+        if (now - session.lastActive.getTime() > this.SESSION_TTL_MS) {
           this.sessions.delete(sid);
           evicted++;
         }

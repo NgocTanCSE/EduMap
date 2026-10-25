@@ -23,6 +23,10 @@ export default function LibraryPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  // Track whether results are from OpenLibrary or local SQLite fallback
+  const [isFallback, setIsFallback] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -59,6 +63,12 @@ export default function LibraryPage() {
       } else {
         setResources(prev => [...prev, ...(Array.isArray(resourcesData) ? resourcesData : [])]);
       }
+
+      // Determine if results are from local SQLite fallback (not OpenLibrary)
+      const items = Array.isArray(resourcesData) ? resourcesData : [];
+      const allFallback = items.length > 0 && items.every((it: any) => it.source === 'local-sqlite');
+      setIsFallback(allFallback);
+      setTotalResults(meta.total ?? items.length);
 
       setHasMore(meta.currentPage < meta.totalPages);
       setPage(pageNum);
@@ -137,6 +147,22 @@ export default function LibraryPage() {
           ))}
         </div>
 
+        {/* Result count + fallback notice */}
+        {!loading && !loadingMore && (
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-sm text-muted-foreground">
+              Hiển thị <strong>{resources.length}</strong> / <strong>{totalResults}</strong> kết quả
+              {searchQuery && <span>, tìm kiếm: "<strong>{searchQuery}</strong>"</span>}
+              {activeTab !== 'Tất cả' && <span>, danh mục: <strong>{activeTab}</strong></span>}
+            </p>
+            {isFallback && (
+              <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1 rounded-full border border-amber-500/20">
+                ⚠️ Đang dùng dữ liệu cục bộ (OpenLibrary không khả dụng)
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Resources Grid — mỗi thẻ có sẵn 2 nút: Tải xuống + Xem chi tiết (mở link gốc đọc sách).
             Không còn popup modal "bảng General" / tóm tắt AI (AI đang lỗi 503 trên HF). */}
         {loading ? (
@@ -162,6 +188,10 @@ export default function LibraryPage() {
                     </>
                   )}
                   <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
+                  {/* Source badge: OpenLibrary vs Local SQLite */}
+                  <div className="absolute top-4 right-4 bg-black/40 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider text-muted-foreground border border-muted/20">
+                    {res.source === 'open-library' ? '📚 OpenLib' : '💾 Local'}
+                  </div>
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-1 text-amber-500 text-[10px] font-semibold mb-3 bg-amber-500/10 px-2 py-0.5 rounded-full w-max border border-amber-500/20 uppercase tracking-widest">

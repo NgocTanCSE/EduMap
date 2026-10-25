@@ -237,30 +237,22 @@ grep -n "edumap_docs\|books\|seed" ai-service/seed_vector_db.py | head -10
 
 ---
 
-### 6. Mentor/scholarship pre-filter (🟡 Trung)
+### 6. Mentor/scholarship pre-filter (✅ Hoàn thiện)
 
-**Hiện trạng**: Gửi full mentor list vào prompt.
+**Hiện trạng**: FULL mentor list gửi vào prompt → token overflow. Không có cột `location` trên mentor/user → không filter được theo khoảng cách. BFF POST mismatch (405) và thiếu UI PDF trên detail page.
 
-**Phương án**: SQL WHERE filter trước khi gửi prompt.
-
-**Commands**:
-```bash
-# 1. Sửa backend career.service.ts
-# File: backend/src/modules/career/career.service.ts
-grep -n "mentor\|filter\|recommend" backend/src/modules/career/career.service.ts | head -10
-
-# Thêm WHERE clause:
-#   specialty ILIKE '%keyword%', rating_avg > 3.0, is_verified = true
-#   LIMIT 10
-
-# 2. Frontend: thêm filter UI
-# File: frontend/app/career/page.tsx (hoặc recommendation component)
-grep -rn "mentor\|recommend" frontend/app/career/ --include="*.tsx" | head -10
-```
+**Đã giải quyết**:
+- **3-layer token-overflow defense**:
+  1. DB pre-filter (`mentor.service.ts:_filterMentorsBySpecialty()`): `LOWER(specialties) LIKE` + `LOWER(location) LIKE '%region%'` + `ORDER BY rating_avg DESC LIMIT 15` (SQLite + PostgreSQL compatible, không dùng `@>`).
+  2. LLM safety cap (`llm_service.py:match_mentors()`): `data.available_mentors[:max_mentors]` (default 15).
+  3. Pydantic fix (`mentor_models.py`): `MentorProfile` chấp nhận `id` alias cho `mentor_id`, tất cả fields optional.
+- **Geographic pre-filter (cự ly)**: migration `1840000000000-AddMentorLocation` thêm `location` vào `mentors` + `users`; `sqlite-bootstrap.ts` self-heal; `UpdateProfileDto` + `User` entity có `location`; `MentorPage` truyền activeCategory (specialty) + user.location (region).
+- **PDF transcript**: BFF POST handler (`check-eligibility/route.ts`), detail page + list page PDF upload UI, `scholarship.service.ts` forward transcript, `scholarship.py` accept `transcript_data`, `pdf_transcript.py` extract GPA/courses/grades.
 
 **HF Spaces considerations**:
 - SQLite query <10ms ✅
-- Giảm token input → giảm latency + chi phí OpenRouter
+- `location` column được thêm bởi `sqlite-bootstrap.ts` (idempotent, không chặn boot) ✅
+- `LIMIT 15` giữ token input nhỏ trên CPU 2GB ✅
 
 ---
 
@@ -338,7 +330,7 @@ grep -rn "Mapbox\|mapbox\|polyline\|route" frontend/app/map/ --include="*.tsx" |
 |---|----------|--------|-------|
 | 2 | Adzuna job trends | 2h | Set secrets, frontend component |
 | 5 | Auto-embed | 3h | `library.py:embed`, `library.service.ts`, seed update |
-| 6 | Mentor pre-filter | 2h | `career.service.ts`, frontend filter |
+| 6 | Mentor pre-filter | ✅ Done | mentor.service.ts, mentor_models.py, sqlite-bootstrap.ts |
 | 7 | GeoAI → GeoJSON | 2h | `geo_models.py`, `geo.py`, `llm_service.py`, frontend |
 
 ### Phase 3 — Low (1-2 ngày)

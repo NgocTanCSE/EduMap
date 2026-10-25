@@ -26,17 +26,23 @@ os.environ["AI_PREFLIGHT"] = "false"
 
 
 class _FakeCollection:
-    """Minimal ChromaDB collection stand-in for semantic_career_search tests."""
+    """Minimal ChromaDB collection stand-in for semantic_career_search tests.
 
-    def __init__(self, query_result):
+    Accepts **kwargs so it is compatible with query()'s where/hybrid_compose
+    parameters regardless of call signature.
+    """
+
+    def __init__(self, query_result, collection_count=None):
         self._result = query_result
+        self._count = collection_count if collection_count is not None else (
+            len(query_result.get("documents", [[]])[0]) if query_result else 0
+        )
 
-    def query(self, query_embeddings=None, query_texts=None,
-              n_results=3, include=None):
+    def query(self, **kwargs):
         return self._result
 
     def count(self):
-        return len(self._result.get("documents", [[]])[0])
+        return self._count
 
 
 def _make_vector_store():
@@ -45,8 +51,10 @@ def _make_vector_store():
     svc = object.__new__(VectorStoreService)
     svc._embed_dim = None
     svc._embed_cache = {}
+    svc._embed_cache_meta = {}
     svc._embed_cache_max = 128
-    svc.has_api = False  # disable real embedding to test the no-embed path
+    svc._embed_cache_ttl = 1800.0
+    svc.has_api = False  # disable real embedding by default
     return svc
 
 
@@ -69,7 +77,7 @@ def test_semantic_career_search_returns_structured_results():
     }
 
     svc = _make_vector_store()
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=2)
     svc.has_api = False  # use raw text query (no embedding)
 
     results = svc.semantic_career_search(
@@ -117,7 +125,7 @@ def test_semantic_career_search_filters_non_career_docs():
     }
 
     svc = _make_vector_store()
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=3)
 
     results = svc.semantic_career_search(skills=["python"], n_results=5)
 
@@ -140,7 +148,10 @@ def test_semantic_career_search_returns_empty_when_no_collection():
 def test_semantic_career_search_returns_empty_when_no_skills():
     """Should return empty list when skills list is empty/blank."""
     svc = _make_vector_store()
-    svc.collection = _FakeCollection({"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]})
+    svc.collection = _FakeCollection(
+        {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]},
+        collection_count=0,
+    )
 
     results = svc.semantic_career_search(skills=[], n_results=3)
     assert results == []
@@ -165,7 +176,7 @@ def test_semantic_career_search_match_score_range():
     }
 
     svc = _make_vector_store()
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=2)
 
     user_skills = ["python", "react"]
     results = svc.semantic_career_search(skills=user_skills, n_results=3)
@@ -191,7 +202,7 @@ def test_semantic_career_search_missing_skills_correctness():
     }
 
     svc = _make_vector_store()
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=1)
 
     user_skills = ["python", "sql"]
     results = svc.semantic_career_search(skills=user_skills, n_results=3)
@@ -220,7 +231,7 @@ def test_semantic_career_search_accepts_list_skills_required():
     }
 
     svc = _make_vector_store()
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=1)
 
     results = svc.semantic_career_search(skills=["python", "go"], n_results=3)
 
@@ -230,27 +241,25 @@ def test_semantic_career_search_accepts_list_skills_required():
 
 
 def test_semantic_career_search_handles_embedding_path():
-    """When has_api=True, semantic_career_search should call get_embedding."""
+    """When has_api=True, semantic_career_search should call get_embedding
+    and still return structured results."""
     from services.vector_store import VectorStoreService
 
     svc = object.__new__(VectorStoreService)
     svc._embed_dim = 768
     svc._embed_cache = {}
+    svc._embed_cache_meta = {}
     svc._embed_cache_max = 128
-    svc.has_api = True
-    svc.has_openrouter_api = True
-    svc.has_gemini_api = False
-    svc.has_cf_api = False
-    svc.has_hf_api = False
-    svc.has_nvidia_api = False
-    svc._openrouter_embed_down_until = 0.0
+    svc._embed_cache_ttl = 1800.0
 
     embed_calls = []
     def mock_embed(text):
         embed_calls.append(text)
         return [0.1] * 768
 
-    svc._openrouter_get_embedding = mock_embed
+    # Mock get_embedding directly to avoid spinning up real provider chain
+    svc.get_embedding = mock_embed
+    svc.has_api = True
 
     query_result = {
         "documents": [["Career doc"]],
@@ -261,7 +270,7 @@ def test_semantic_career_search_handles_embedding_path():
         "ids": [["career_1"]],
         "distances": [[0.15]],
     }
-    svc.collection = _FakeCollection(query_result)
+    svc.collection = _FakeCollection(query_result, collection_count=1)
 
     results = svc.semantic_career_search(skills=["python"], n_results=3)
 

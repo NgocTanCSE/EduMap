@@ -16,6 +16,15 @@ export class Mentor {
   @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
   specialties: string[];
 
+  /**
+   * Khu vực / tỉnh thành mentor đang hoạt động.
+   * Dùng cho pre-filter theo cự ly (distance) ở DB level — tránh gửi
+   * toàn bộ mentor vào prompt LLM. VD: "TP. Hồ Chí Minh", "Đồng Nai".
+   * Được bổ sung từ ADR-006 (geographic pre-filter gap).
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  location: string;
+
   @Column({ default: 0 })
   experience_years: number;
 

@@ -39,6 +39,12 @@ export class UpdateProfileDto {
   @IsOptional()
   mbti_type?: string;
 
+  @ApiProperty({ description: 'Khu vực / tỉnh thành (dùng cho lọc mentor theo cự ly)', example: 'TP. Hồ Chí Minh', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  location?: string;
+
   @ApiProperty({ description: 'Danh sách kỹ năng', example: ['TypeScript', 'NestJS'], required: false })
   @IsArray()
   @IsOptional()

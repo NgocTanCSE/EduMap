@@ -8,6 +8,7 @@ import { LearningMaterial } from '../library/entities/learning-material.entity';
 import { Location } from '../map/entities/location.entity';
 
 import { ChatHistory } from './entities/chat-history.entity';
+import { SessionMemoryService } from './session-memory.service';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { ChatHistory } from './entities/chat-history.entity';
     ConfigModule,
     TypeOrmModule.forFeature([LearningMaterial, Location, ChatHistory]),
   ],
-  providers: [AIService],
+  providers: [AIService, SessionMemoryService],
   controllers: [AIController],
   exports: [AIService],
 })

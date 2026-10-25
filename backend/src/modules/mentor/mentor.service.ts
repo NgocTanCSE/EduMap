@@ -112,13 +112,14 @@ export class MentorService {
     const specialtyFilters = this._deriveSpecialtyFilters(user, options?.specialty);
     const primarySpecialty = specialtyFilters[0] || null;
 
-    // ── 2. Pre-filter mentors at DB level (specialty + limit) ────────────
-    // Chỉ lấy mentors có chuyên môn khớp + sắp xếp theo rating để giữ lại
-    // những mentor tốt nhất. Đây là bước lọc TRƯỚC khi gửi LLM — tránh
+    // ── 2. Pre-filter mentors at DB level (specialty + region + limit) ────────────
+    // Chỉ lấy mentors có chuyên môn khớp + cùng khu vực (nếu có) + sắp xếp theo rating
+    // để giữ lại những mentor tốt nhất. Đây là bước lọc TRƯỚC khi gửi LLM — tránh
     // truyền toàn bộ bảng mentors vào prompt gây tràn token.
     const verifiedMentors = await this._filterMentorsBySpecialty(
       specialtyFilters,
       MentorService.MAX_MENTORS_TO_LLM,
+      options?.region,
     );
 
     if (verifiedMentors.length === 0) {
@@ -134,7 +135,7 @@ export class MentorService {
       skills: m.specialties || [], // alias — model accepts both
       mbti: user.mbti_type || '',
       available_days: [],
-      location: null,
+      location: m.location || null, // Use actual mentor location from DB (for geographic context)
       experience_years: m.experience_years || 0,
       rating_avg: parseFloat(m.rating_avg) || 0,
     }));
@@ -193,10 +194,14 @@ export class MentorService {
    * Pre-filter mentors tại DB level: chỉ lấy verified mentors có chuyên môn
    * khớp với danh sách specialty_filters, sắp xếp rating DESC, giới hạn `limit`.
    *
+   * Khi `region` được cung cấp, thêm điều kiện `LOWER(mentor.location) LIKE '%region%'`
+   * để lọc theo cự ly (geographic proximity) — tránh gửi mentor từ khu vực xa
+   * vào prompt LLM.
+   *
    * Dùng `LOWER(JSON) LIKE` để tương thích cả PostgreSQL (jsonb) và SQLite
    * (JSON string), tránh operator `@>` chỉ hoạt động trên PostgreSQL.
    */
-  private async _filterMentorsBySpecialty(specialties: string[], limit: number = 15): Promise<any[]> {
+  private async _filterMentorsBySpecialty(specialties: string[], limit: number = 15, region?: string): Promise<any[]> {
     const queryBuilder = this.mentorRepo
       .createQueryBuilder('mentor')
       .leftJoinAndSelect('mentor.user', 'user')
@@ -213,6 +218,14 @@ export class MentorService {
         params[`pattern_${i}`] = `%${s.toLowerCase()}%`;
       });
       queryBuilder.andWhere(`(${conditions.join(' OR ')})`, params);
+    }
+
+    // Geographic / distance pre-filter: chỉ giữ mentor ở khu vực sinh viên quan tâm.
+    // Dùng LIKE trên cột `location` (tương thích SQLite + PostgreSQL).
+    if (region && region.trim().length > 0) {
+      queryBuilder.andWhere('LOWER(mentor.location) LIKE :regionPattern', {
+        regionPattern: `%${region.toLowerCase()}%`,
+      });
     }
 
     return queryBuilder

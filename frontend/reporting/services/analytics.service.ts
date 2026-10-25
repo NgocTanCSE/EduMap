@@ -67,6 +67,9 @@ export const analyticsService = {
         sectors: payload.sectors || [],
         insights: payload.insights || {},
         trending_skills: trendingSkills,
+        // Forward provenance so the trends page can label the data honestly
+        // ("adzuna" = live market jobs, "local" = seeded DB sample).
+        trending_skills_source: payload.trending_skills_source || 'local',
       };
     }
 
