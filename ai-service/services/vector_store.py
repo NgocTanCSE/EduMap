@@ -103,7 +103,9 @@ class VectorStoreService:
         # crash the existing ChromaDB collection with a dimension mismatch.
         self._embed_dim = None
         if not self.has_api:
-            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare) OR HF_TOKEN (HuggingFace) for semantic search.")
+            print("WARNING: Vector store without embeddings. Set OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN (HuggingFace), or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search.")
+        if self.has_openrouter_api:
+            print(f"INFO: OpenRouter embeddings enabled (primary) with model={self.openrouter_embed_model}")
         if self.has_gemini_api:
             print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
@@ -165,6 +167,78 @@ class VectorStoreService:
             code in (404, 410, 7000)
             or any(r in low for r in self._EMBED_MODEL_NOT_FOUND_REASONS)
         )
+
+    def _openrouter_get_embedding(self, text: str) -> List[float]:
+        """Get an embedding from OpenRouter (OpenAI-compatible /v1/embeddings).
+
+        Uses curl for HF Spaces compatibility (IPv4 + skip TLS verification).
+        """
+        import subprocess
+        import time
+
+        if not self.has_openrouter_api:
+            raise RuntimeError("OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL not set.")
+        if time.monotonic() < getattr(self, "_openrouter_embed_down_until", 0.0):
+            raise RuntimeError("OpenRouter embeddings temporarily disabled after a network failure.")
+
+        url = f"{self.openrouter_base}/embeddings"
+        payload = json.dumps({"model": self.openrouter_embed_model, "input": text}).encode("utf-8")
+
+        try:
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", "Content-Type: application/json",
+                    "-d", payload,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.openrouter_timeout),
+                    url,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=self.openrouter_timeout + 2,
+            )
+        except Exception as e:
+            self._openrouter_embed_down_until = time.monotonic() + 300
+            raise RuntimeError(f"OpenRouter embedding connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
+            raise RuntimeError(f"OpenRouter embedding connection failed: {err}")
+
+        try:
+            data = json.loads(proc.stdout or "{}")
+        except Exception:
+            raise RuntimeError("OpenRouter embedding: invalid JSON response")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            code = int(getattr(err, "get", lambda k, d=0: d)("code", 0)) if isinstance(err, dict) else 0
+            message = str(err.get("message", "")) if isinstance(err, dict) else str(err)
+            low = message.lower()
+            if code in (401, 403) or "api key" in low:
+                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                raise RuntimeError(f"OpenRouter embedding rate-limited (429): {message[:100]}")
+            if self._is_embed_model_not_found(code, message):
+                raise RuntimeError(f"OpenRouter embedding model not found: {message[:200]}")
+            raise RuntimeError(f"OpenRouter embedding HTTP {code}: {message[:200]}")
+
+        vec = None
+        if isinstance(data, dict):
+            data_list = data.get("data")
+            if isinstance(data_list, list) and data_list:
+                item = data_list[0]
+                if isinstance(item, dict):
+                    vec = item.get("embedding")
+                elif isinstance(item, list):
+                    vec = item
+
+        if vec and isinstance(vec, list) and len(vec) > 0:
+            return [float(x) for x in vec]
+
+        raise RuntimeError(f"OpenRouter embedding returned empty vector: {str(data)[:200]}")
 
     def _gemini_get_embedding(self, text: str) -> List[float]:
         """Get an embedding from Google Gemini (primary on HF Spaces)."""
@@ -411,8 +485,30 @@ class VectorStoreService:
         _EMBED_GLOBAL_TIMEOUT = 12  # cap total embedding time so LLM can still respond within 60s backend timeout
         gemini_last_err = None
         cf_last_err = None
+        or_last_err = None
 
-        # --- Phan 0: Gemini embeddings (primary — reachable from HF Spaces) ---
+        # --- Phan 0: OpenRouter embeddings (primary — reachable from HF Spaces) ---
+        if self.has_openrouter_api and time.monotonic() >= getattr(self, "_openrouter_embed_down_until", 0.0):
+            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping OpenRouter embed")
+            else:
+                try:
+                    vec = self._openrouter_get_embedding(text)
+                    vec = [float(x) for x in vec]
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        print(f"OpenRouter embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        if len(vec) > self._embed_dim:
+                            vec = vec[:self._embed_dim]
+                        else:
+                            vec = vec + [0.0] * (self._embed_dim - len(vec))
+                    self._embed_dim = len(vec)
+                    print(f"  -> OpenRouter embedding OK (dim={len(vec)})")
+                    return vec
+                except Exception as e:
+                    or_last_err = str(e)
+                    print(f"OpenRouter embedding failed: {e}")
+
+        # --- Phan 1: Gemini embeddings (reachable from HF Spaces) ---
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
             try:
                 vec = self._gemini_get_embedding(text)
@@ -572,6 +668,7 @@ class VectorStoreService:
 
         raise RuntimeError(
             "Khong the lay embedding. "
+            f"OpenRouter: {or_last_err or ('khong cau hinh' if not self.has_openrouter_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
             f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
             f"HF: {'khong cau hinh' if not self.has_hf_api else 'that bai'}, "
@@ -594,6 +691,13 @@ class VectorStoreService:
 
     def query(self, query_text: str, n_results: int = 3):
         try:
+            if not self.collection:
+                # ChromaDB not initialized (e.g., timeout on startup).
+                # Return empty results so RAG degrades gracefully instead of
+                # crashing the chat endpoint — the LLM will answer from its
+                # own knowledge + conversation history.
+                print("Vector store collection is None — returning empty RAG results (graceful degradation).")
+                return {"documents": [[]], "metadatas": [[]], "ids": [[]]}
             if self.has_api:
                 query_embedding = self.get_embedding(query_text)
                 return self.collection.query(query_embeddings=[query_embedding], n_results=n_results)
@@ -616,8 +720,8 @@ class VectorStoreService:
                     })
             return found_docs
         except Exception as e:
-            print(f"Error in search_similar: {e}")
-            raise
+            print(f"Error in search_similar (graceful fallback): {e}")
+            return []
 
 
 vector_store = VectorStoreService()

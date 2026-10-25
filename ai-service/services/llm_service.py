@@ -875,7 +875,10 @@ class LLMService:
                 docs_str = "Không tìm thấy dữ liệu liên quan trong hệ thống kiến thức của EduMap."
         except Exception as e:
             print(f"Error querying vector store: {e}")
-            docs_str = "Lỗi kết nối kho dữ liệu."
+            # Graceful degradation: if embedding/RAG fails (all providers down),
+            # let the LLM answer from its own knowledge + conversation history
+            # instead of injecting an error string that the bot echoes back.
+            docs_str = "Dữ liệu từ kho tri thức chưa sẵn sàng. Tôi sẽ trả lời dựa trên kiến thức chung."
             sources = []
 
         # 2. Ngữ cảnh hệ thống (Dynamic Context)
