@@ -146,24 +146,139 @@ export class AIService {
   }
 
   /**
+   * Builds the dynamic system context (available books + educational locations)
+   * that is sent to the ai-service and stored alongside chat history.
+   * Shared by chat() (non-streaming) and chatStream() (SSE) so both paths
+   * produce identical system-context and persisted history records.
+   */
+  private async _buildSystemContext(message: string, context: any): Promise<any> {
+    let materials: any[] = [];
+    let points: any[] = [];
+    try {
+      [materials, points] = await Promise.all([
+        this.materialRepo.find({ take: 5, order: { view_count: 'DESC' } }),
+        this.locationRepo.find({ take: 10, where: { status: 'active' }, relations: ['category'] }),
+      ]);
+    } catch (dbError: any) {
+      this.logger.error(`Database context error: ${dbError.message}`);
+    }
+
+    return {
+      available_books: materials.map((m) => m.title),
+      educational_locations: points.map((p) => `${p.name} (${p.category?.display_name}) at ${p.address}`),
+      user_message: message,
+      ...(context || {}),
+    };
+  }
+
+  /**
    * SSE streaming proxy — pipes the ai-service /chat/stream response directly
    * to the NestJS response object so tokens arrive real-time on the frontend.
+   *
+   * In addition to forwarding raw SSE bytes, this method intercepts each chunk
+   * to reconstruct the full reply + sources, then persists them via
+   * historyRepo — mirroring the non-streaming chat() method.
+   *
+   * This is critical on HF Spaces where DB_TYPE=sqlite: the ai-service runs
+   * with db_service=None (no PostgreSQL) and cannot persist chat history
+   * itself. The NestJS SQLite historyRepo is therefore the single source of
+   * truth for the streaming conversation session.
    */
   async chatStream(message: string, history: any[], ctx: any, userId: string, res: any) {
+    let sourceStream: any;
+    let systemContext: any = ctx || {};
+
     try {
-      const stream = await this.httpService.axiosRef.post(
+      systemContext = await this._buildSystemContext(message, ctx);
+      const response = await this.httpService.axiosRef.post(
         `${this.aiServiceUrl}/api/ai/chat/stream`,
-        { message, history, context: ctx, user_id: userId },
+        { message, history, context: systemContext, user_id: userId },
         { responseType: 'stream' }
       );
-      stream.data.pipe(res);
+      sourceStream = response.data;
     } catch (error: any) {
       if (!res.headersSent) {
         res.status(503).json({ message: 'AI streaming service is unavailable.' });
-      } else {
-        res.end();
       }
+      return;
     }
+
+    // Accumulate the full reply + sources to persist chat history once the
+    // stream completes. The ai-service emits SSE chunks shaped as:
+    //   data: {"sources": [...], "meta": true}        (metadata, first)
+    //   data: {"token": "h", "is_final": false}       (token-by-token)
+    //   data: {"done": true}                          (completion)
+    //   data: {"token": "...", "is_final": true, "done": true}  (fallback/cache)
+    let fullReply = '';
+    let sources: any[] = [];
+    let buffer = '';
+
+    const saveToHistory = () => {
+      if (!userId || !fullReply) return;
+      // Fire-and-forget — a DB failure must never tear down an already-
+      // delivered stream. Errors are logged, not re-thrown.
+      this.historyRepo
+        .save(
+          this.historyRepo.create({
+            userId: userId,
+            message: message,
+            response: fullReply,
+            context: { ...systemContext, sources },
+          }),
+        )
+        .catch((saveError: any) =>
+          this.logger.error(`Error saving streaming chat history: ${saveError.message}`),
+        );
+    };
+
+    const safeEnd = () => {
+      try { res.end(); } catch { /* response already closed */ }
+    };
+
+    // If the client disconnects mid-stream, destroy the upstream so we don't
+    // keep consuming tokens we'll never deliver.
+    res.on('close', () => {
+      if (sourceStream && !sourceStream.destroyed) {
+        sourceStream.destroy();
+      }
+    });
+
+    sourceStream.on('data', (chunk: Buffer | string) => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
+
+      // 1. Forward raw SSE bytes to the client (real-time token delivery).
+      res.write(text);
+
+      // 2. Parse SSE events to reconstruct the full reply + sources for DB
+      //    persistence. Each event is "data: {json}\n\n".
+      buffer += text;
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const event of events) {
+        const line = event.trim();
+        if (!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if (!dataStr || dataStr === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (Array.isArray(parsed.sources)) sources = parsed.sources;
+          if (typeof parsed.token === 'string') fullReply += parsed.token;
+        } catch {
+          // Malformed SSE chunk — the client still receives the raw bytes
+          // forwarded above, so parsing errors here are non-fatal.
+        }
+      }
+    });
+
+    sourceStream.on('end', () => {
+      safeEnd();
+      saveToHistory();
+    });
+
+    sourceStream.on('error', (err: any) => {
+      this.logger.warn(`SSE stream error from ai-service: ${err.message}`);
+      safeEnd();
+    });
   }
 
   /**
@@ -374,24 +489,8 @@ export class AIService {
    */
   async chat(message: string, history: any[], context: any, userId?: string) {
     try {
-      // 1. Thu thập dữ liệu thực tế từ CSDL để làm ngữ cảnh (Context)
-      let materials = [];
-      let points = [];
-      try {
-        [materials, points] = await Promise.all([
-          this.materialRepo.find({ take: 5, order: { view_count: 'DESC' } }),
-          this.locationRepo.find({ take: 10, where: { status: 'active' }, relations: ['category'] })
-        ]);
-      } catch (dbError) {
-        this.logger.error(`Database context error: ${dbError.message}`);
-      }
-
-      const systemContext = {
-        available_books: materials.map(m => m.title),
-        educational_locations: points.map(p => `${p.name} (${p.category?.display_name}) at ${p.address}`),
-        user_message: message,
-        ...context
-      };
+      // 1. Enrich context with system data (shared with chatStream)
+      const systemContext = await this._buildSystemContext(message, context);
 
       // 2. Gửi sang AI Service
       const response = await firstValueFrom(

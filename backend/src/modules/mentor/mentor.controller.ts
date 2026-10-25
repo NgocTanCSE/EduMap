@@ -28,9 +28,13 @@ export class MentorController {
   }
 
   @Get('mentors/recommend/:userId')
-  @ApiOperation({ summary: 'Gợi ý Mentor phù hợp bằng AI Gemini' })
-  async getRecommendations(@Param('userId') userId: string) {
-    return this.mentorService.getAIRecommendedMentors(userId);
+  @ApiOperation({ summary: 'Gợi ý Mentor phù hợp bằng AI (có pre-filter theo chuyên môn/khu vực)' })
+  async getRecommendations(
+    @Param('userId') userId: string,
+    @Query('specialty') specialty?: string,
+    @Query('region') region?: string,
+  ) {
+    return this.mentorService.getAIRecommendedMentors(userId, { specialty, region });
   }
 
   @Get('mentors/:mentorId/slots')

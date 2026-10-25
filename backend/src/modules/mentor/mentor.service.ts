@@ -97,24 +97,46 @@ export class MentorService {
     return queryBuilder.orderBy('mentor.rating_avg', 'DESC').getMany();
   }
 
-  async getAIRecommendedMentors(userId: string) {
+  /**
+   * Số mentor tối đa gửi vào prompt LLM. Backend pre-filter giữ chỉ N mentor
+   * có chuyên môn phù hợp và rating cao nhất thay vì gửi toàn bộ danh sách.
+   * Ngăn tràn token khi hệ thống có hàng trăm mentor.
+   */
+  private static readonly MAX_MENTORS_TO_LLM = 15;
+
+  async getAIRecommendedMentors(userId: string, options?: { specialty?: string; region?: string }) {
     const user = await this.userRepo.findOne({ where: { id: userId as any } });
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
-    const verifiedMentors = await this.mentorRepo.find({
-      where: { is_verified: true },
-      relations: ['user']
-    });
+    // ── 1. Derive specialty filters from student profile ─────────────────
+    const specialtyFilters = this._deriveSpecialtyFilters(user, options?.specialty);
+    const primarySpecialty = specialtyFilters[0] || null;
+
+    // ── 2. Pre-filter mentors at DB level (specialty + limit) ────────────
+    // Chỉ lấy mentors có chuyên môn khớp + sắp xếp theo rating để giữ lại
+    // những mentor tốt nhất. Đây là bước lọc TRƯỚC khi gửi LLM — tránh
+    // truyền toàn bộ bảng mentors vào prompt gây tràn token.
+    const verifiedMentors = await this._filterMentorsBySpecialty(
+      specialtyFilters,
+      MentorService.MAX_MENTORS_TO_LLM,
+    );
 
     if (verifiedMentors.length === 0) {
-      return { message: "Hiện chưa có mentor nào khả dụng." };
+      return { message: "Hiện chưa có mentor nào phù hợp." };
     }
 
+    // ── 3. Map mentor data to match the AI service Pydantic model ────────
     const mentorsData = verifiedMentors.map(m => ({
-      id: m.user_id,
+      mentor_id: m.user_id,
       name: m.user?.full_name,
       bio: m.bio,
-      specialties: m.specialties
+      specialties: m.specialties || [],
+      skills: m.specialties || [], // alias — model accepts both
+      mbti: user.mbti_type || '',
+      available_days: [],
+      location: null,
+      experience_years: m.experience_years || 0,
+      rating_avg: parseFloat(m.rating_avg) || 0,
     }));
 
     const aiInput = {
@@ -122,10 +144,81 @@ export class MentorService {
       student_skills_needed: user.skills || ['Giao tiếp', 'Định hướng nghề nghiệp'],
       student_mbti: user.mbti_type || 'ENFP',
       preferred_days: ['T7', 'CN'],
-      available_mentors: mentorsData
+      available_mentors: mentorsData,
+      // Pre-filter metadata — helps LLM understand what was narrowed down
+      student_region: options?.region || null,
+      student_specialty: primarySpecialty,
+      max_mentors: MentorService.MAX_MENTORS_TO_LLM,
     };
 
     return this.aiService.matchMentor(aiInput);
+  }
+
+  /**
+   * Rút trích danh sách chuyên ngành/môn học liên quan từ hồ sơ sinh viên.
+   * Kết hợp major (chuyên ngành) + skills + interests, loại bỏ trùng lặp,
+   * giới hạn tối đa 5 chuyên ngành để tránh query quá phức tạp.
+   */
+  private _deriveSpecialtyFilters(user: any, explicitSpecialty?: string): string[] {
+    const filters: string[] = [];
+
+    if (explicitSpecialty) filters.push(explicitSpecialty);
+
+    if (user.major) filters.push(user.major);
+
+    if (Array.isArray(user.skills)) {
+      filters.push(...user.skills.slice(0, 3));
+    }
+
+    if (Array.isArray(user.interests)) {
+      filters.push(...user.interests.slice(0, 2));
+    }
+
+    // Loại bỏ trùng lặp (case-insensitive) và giới hạn số lượng
+    const seen = new Set<string>();
+    const unique = filters
+      .map(f => f.trim())
+      .filter(f => f.length > 1)
+      .filter(f => {
+        const lower = f.toLowerCase();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      });
+
+    return unique.slice(0, 5);
+  }
+
+  /**
+   * Pre-filter mentors tại DB level: chỉ lấy verified mentors có chuyên môn
+   * khớp với danh sách specialty_filters, sắp xếp rating DESC, giới hạn `limit`.
+   *
+   * Dùng `LOWER(JSON) LIKE` để tương thích cả PostgreSQL (jsonb) và SQLite
+   * (JSON string), tránh operator `@>` chỉ hoạt động trên PostgreSQL.
+   */
+  private async _filterMentorsBySpecialty(specialties: string[], limit: number = 15): Promise<any[]> {
+    const queryBuilder = this.mentorRepo
+      .createQueryBuilder('mentor')
+      .leftJoinAndSelect('mentor.user', 'user')
+      .where('mentor.is_verified = :isVerified', { isVerified: true });
+
+    if (specialties.length > 0) {
+      // SQLite: specialties stored as JSON text like ["AI","Python"].
+      // PostgreSQL: stored as jsonb. `LOWER(col) LIKE '%word%'` works on both.
+      const conditions = specialties.map((s, i) =>
+        `LOWER(mentor.specialties) LIKE :pattern_${i}`
+      );
+      const params: Record<string, any> = {};
+      specialties.forEach((s, i) => {
+        params[`pattern_${i}`] = `%${s.toLowerCase()}%`;
+      });
+      queryBuilder.andWhere(`(${conditions.join(' OR ')})`, params);
+    }
+
+    return queryBuilder
+      .orderBy('mentor.rating_avg', 'DESC')
+      .limit(limit)
+      .getMany();
   }
 
   /**

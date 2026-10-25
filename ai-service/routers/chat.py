@@ -93,18 +93,16 @@ async def chat_stream_endpoint(request: ChatRequest):
             ):
                 yield sse_chunk
 
-            # Save chat history after streaming completes
-            if request.user_id and db_service is not None:
-                # Extract reply from cache or fallback; for simplicity,
-                # we save the user message and a note about streaming.
-                # A full reply is logged client-side.
-                db_service.save_chat_history(
-                    user_id=request.user_id,
-                    message=request.message,
-                    response="[streamed response]",
-                    sources=[],
-                    context=request.context
-                )
+            # Chat history persistence for the streaming path is handled by the
+            # NestJS backend (ai.service.ts chatStream()), which reconstructs the
+            # full streamed reply from the SSE chunks and saves it via the SQLite
+            # historyRepo. The Python ai-service does NOT duplicate this here
+            # because:
+            #   1. In HF Spaces SQLite mode (DB_TYPE=sqlite), db_service is None.
+            #   2. In PostgreSQL mode, the NestJS backend already persists the
+            #      complete reply — saving here too would create a duplicate row
+            #      with a misleading "[streamed response]" placeholder instead
+            #      of the real answer.
         except Exception as e:
             print(f"Error in chat_stream: {e}")
             error_chunk = {

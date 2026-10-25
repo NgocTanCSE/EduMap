@@ -204,6 +204,10 @@ export default function MapPage() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  // Issue #7 (GeoAI → GeoJSON): GeoJSON FeatureCollection of education-hub
+  // boundaries returned by the AI geo-analysis endpoint. Rendered as
+  // polygon overlays on the map (see InteractiveMap.geoJsonData prop).
+  const [geoJsonData, setGeoJsonData] = useState<any>(null);
 
   // Pin form
   const [pinningCoord, setPinningCoord] = useState<{ lat: number; lng: number } | null>(null);
@@ -371,6 +375,7 @@ export default function MapPage() {
   const runAiAnalysis = useCallback(async () => {
     setAnalyzing(true);
     setAiAnalysis(null);
+    setGeoJsonData(null);
     try {
       const accessToken = authService.getAccessToken();
       const res = await fetchWithRetry('/api/map/ai-analysis', {
@@ -384,11 +389,16 @@ export default function MapPage() {
       if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`);
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
+      // Issue #7: capture BOTH the text analysis (for AiPanel) AND the
+      // GeoJSON boundary FeatureCollection (for map polygon rendering).
       setAiAnalysis({
         density_score: data.density_score,
         summary: data.summary,
         recommendations: data.recommendations || [],
       });
+      setGeoJsonData(
+        data.geojson && data.geojson.type === 'FeatureCollection' ? data.geojson : null
+      );
     } catch (err) {
       logger.error('AI analysis error', err);
       toast.error('Phân tích AI thất bại');
@@ -536,6 +546,7 @@ export default function MapPage() {
           onBoundsChange={handleBoundsChange}
           apiBaseUrl="/api"
           nearbyPoints={nearbyPois}
+          geoJsonData={geoJsonData}
         />
       </main>
 

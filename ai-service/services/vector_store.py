@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -102,6 +103,12 @@ class VectorStoreService:
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
         self._embed_dim = None
+        # LRU cache for embeddings: avoid re-computing the (slow) curl/subprocess
+        # embedding call for identical queries. Repeated chat questions like
+        # "tìm học bổng" or "lộ trình học AI" would otherwise burn 5-20s on
+        # every turn. Keys are md5(text); values are the float vectors.
+        self._embed_cache: Dict[str, List[float]] = {}
+        self._embed_cache_max = 128
         if not self.has_api:
             print("WARNING: Vector store without embeddings. Set OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN (HuggingFace), or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search.")
         if self.has_openrouter_api:
@@ -474,11 +481,30 @@ class VectorStoreService:
             raise RuntimeError(f"NVIDIA embedding returned empty vector: {str(data)[:200]}")
         return [float(x) for x in vec]
 
+    def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
+        """Cache a successfully computed embedding, evicting the oldest entry
+        when the cache exceeds _embed_cache_max entries (simple FIFO-LRU since
+        Python 3.7+ dicts preserve insertion order)."""
+        if vec and isinstance(vec, list):
+            self._embed_cache[cache_key] = vec
+            if len(self._embed_cache) > self._embed_cache_max:
+                oldest = next(iter(self._embed_cache))
+                del self._embed_cache[oldest]
+
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
             raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, hoặc NVIDIA_API_KEY + NVIDIA_EMBED_MODEL để dùng semantic search.")
         if not text:
             return []
+
+        # Fast path: return cached embedding for identical queries.
+        # This is the single biggest ChromaDB/LLM optimization for chat —
+        # the embedding call is a blocking curl subprocess (5-20s) and
+        # the same question is frequently repeated within a session.
+        _cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
+        _cached = self._embed_cache.get(_cache_key)
+        if _cached is not None:
+            return _cached
 
         import time
         _embed_start = time.monotonic()
@@ -503,6 +529,7 @@ class VectorStoreService:
                             vec = vec + [0.0] * (self._embed_dim - len(vec))
                     self._embed_dim = len(vec)
                     print(f"  -> OpenRouter embedding OK (dim={len(vec)})")
+                    self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
                     or_last_err = str(e)
@@ -521,6 +548,7 @@ class VectorStoreService:
                         vec = vec + [0.0] * (self._embed_dim - len(vec))
                 self._embed_dim = len(vec)
                 print(f"  -> Gemini embedding OK (dim={len(vec)})")
+                self._store_embed_cache(_cache_key, vec)
                 return vec
             except Exception as e:
                 gemini_last_err = str(e)
@@ -614,6 +642,7 @@ class VectorStoreService:
                             cf_last_err = f"{model}: dim {len(vec)} != da pin {self._embed_dim}"
                             print(f"Cloudflare embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break
                         self._embed_dim = len(vec)
+                        self._store_embed_cache(_cache_key, vec)
                         return vec
                     cf_last_err = f"{model}: response khong co gia tri embedding"
                     break
@@ -642,6 +671,7 @@ class VectorStoreService:
                             vec = vec + [0.0] * (self._embed_dim - len(vec))  # pad
                     self._embed_dim = len(vec)
                     print(f"  -> HF Inference API embedding OK (dim={len(vec)})")
+                    self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
                     print(f"HF Inference API embedding ALSO failed: {e}")
@@ -662,6 +692,7 @@ class VectorStoreService:
                             vec = vec + [0.0] * (self._embed_dim - len(vec))
                     self._embed_dim = len(vec)
                     print(f"  -> NVIDIA NIM embedding OK (dim={len(vec)})")
+                    self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
                     print(f"NVIDIA NIM embedding ALSO failed: {e}")
@@ -700,9 +731,20 @@ class VectorStoreService:
                 return {"documents": [[]], "metadatas": [[]], "ids": [[]]}
             if self.has_api:
                 query_embedding = self.get_embedding(query_text)
-                return self.collection.query(query_embeddings=[query_embedding], n_results=n_results)
+                # Exclude embedding vectors from the result set to halve the
+                # ChromaDB→Python payload on every chat turn. Each result
+                # embedding is a 384-3072-dim float array — never needed by
+                # callers (they only read documents, metadatas, distances).
+                # `ids` is always returned by ChromaDB regardless of `include`.
+                return self.collection.query(
+                    query_embeddings=[query_embedding], n_results=n_results,
+                    include=["documents", "metadatas", "distances"],
+                )
             else:
-                return self.collection.query(query_texts=[query_text], n_results=n_results)
+                return self.collection.query(
+                    query_texts=[query_text], n_results=n_results,
+                    include=["documents", "metadatas", "distances"],
+                )
         except Exception as e:
             print(f"Error querying vector store: {e}")
             raise

@@ -115,7 +115,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261018-curl-installed-v2
+ARG CACHEBUST=20261025-fix-osrm-url
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -125,7 +125,20 @@ ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
 ENV NEXT_PUBLIC_API_URL=/api
 ENV AI_SERVICE_URL=http://127.0.0.1:8000
-ENV OSRM_URL=http://127.0.0.1:8000
+# ── Routing provider chain ──────────────────────────────────────────
+# HF Spaces runs everything in a single container (supervisord): frontend
+# (7680), backend (3000), AI svc (8000). There is NO separate OSRM
+# container, so http://osrm:5000 (docker-compose) and http://127.0.0.1:8000
+# (→ ai-service, WRONG) don't apply here.
+#
+# routing.service.ts tries providers in order:
+#   1. OpenRouteService  — primary (needs ORS_API_KEY)
+#   2. OSRM (any URL)    — fallback (public demo server below)
+#   3. Haversine         — straight-line last resort
+#
+# Using the public OSRM demo server keeps the OSRM fallback alive on HF
+# Spaces when ORS exceeds its free 2,000 req/day quota.
+ENV OSRM_URL=https://router.project-osrm.org
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
 # --- AI model configs (default Cloudflare Workers AI models; override via HF Spaces secrets) ---

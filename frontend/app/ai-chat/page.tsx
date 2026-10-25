@@ -40,7 +40,7 @@ export default function AIChatPage() {
           const historyData = await res.json();
           const formattedHistory = historyData.flatMap((h: any) => [
             { role: 'user', content: h.message },
-            { role: 'assistant', content: h.response, sources: h.metadata?.sources || [] }
+            { role: 'assistant', content: h.response, sources: h.context?.sources || [] }
           ]);
           if (formattedHistory.length > 0) {
             setMessages(prev => [...prev, ...formattedHistory]);

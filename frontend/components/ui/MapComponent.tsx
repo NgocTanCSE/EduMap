@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, GeoJSON } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -221,6 +221,50 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null;
 }
 
+// GeoJSON boundary layer for AI geo-analysis (Issue #7: GeoAI → GeoJSON).
+// Renders each cluster's convex-hull Polygon as a filled boundary AND, for
+// degenerate clusters that collapsed to a Point geometry, a circle marker at
+// the hub centroid. Popups surface the hub metadata (point_count, density,
+// categories) so users can inspect a cluster without leaving the map.
+function HubGeoJsonLayer({ data }: { data: any }) {
+  if (!data || !Array.isArray(data.features) || data.features.length === 0) return null;
+  return (
+    <GeoJSON
+      data={data}
+      pathOptions={{
+        color: '#0ea5e9', // sky-500 boundary outline
+        weight: 3,
+        opacity: 0.95,
+        fillColor: '#0ea5e9',
+        fillOpacity: 0.14,
+      }}
+      pointToLayer={(feature: any, latlng: L.LatLngExpression) =>
+        L.circleMarker(latlng, {
+          radius: 6,
+          color: '#0ea5e9',
+          fillColor: '#0ea5e9',
+          fillOpacity: 0.85,
+        })
+      }
+      onEachFeature={(feature: any, layer: L.Layer) => {
+        const props = (feature.properties || {}) as Record<string, any>;
+        const pointCount = props.point_count;
+        if (pointCount === undefined) return;
+        const hubId = props.hub_id ?? '?';
+        const name = props.name || `Cụm giáo dục #${hubId}`;
+        const density = props.density_score;
+        const cats = (props.categories || []).join(', ');
+        const html = `
+          <div class="font-sans text-xs text-foreground">
+            <strong class="block text-sky-400">${name}</strong>
+            <span class="block opacity-80">${pointCount} cơ sở giáo dục</span>${cats ? `<span class="block opacity-80 mt-0.5">${cats}</span>` : ''}${density !== undefined ? `<span class="block opacity-80 mt-0.5">Mật độ: ${density}%</span>` : ''}
+          </div>`;
+        layer.bindPopup(html);
+      }}
+    />
+  );
+}
+
 interface InteractiveMapProps {
   points?: any[];
   selectedPoint?: any | null;
@@ -230,6 +274,10 @@ interface InteractiveMapProps {
   onBoundsChange?: (bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => void;
   apiBaseUrl?: string;
   nearbyPoints?: any[];
+  /** Issue #7 (GeoAI → GeoJSON): GeoJSON FeatureCollection of education-hub
+   *  boundary polygons produced by DBSCAN clustering. Rendered as polygon
+   *  overlays on the map. May be null (no analysis yet). */
+  geoJsonData?: any;
 }
 
 export default function InteractiveMap({ 
@@ -241,6 +289,7 @@ export default function InteractiveMap({
   onBoundsChange,
   apiBaseUrl = '/api',
   nearbyPoints = [],
+  geoJsonData = null,
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -563,6 +612,9 @@ export default function InteractiveMap({
         {/* Route Polyline */}
         {routeGeometry && <RoutePolyline geometry={routeGeometry} />}
         
+        {/* Issue #7 (GeoAI → GeoJSON): draw education-hub boundary polygons */}
+        {geoJsonData && <HubGeoJsonLayer data={geoJsonData} />}
+
         {showHeatmap ? (
           <HeatmapLayer points={points.filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).map(p => ({ lat: Number(p.lat), lng: Number(p.lng), intensity: 0.8 }))} />
         ) : (

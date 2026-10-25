@@ -17,6 +17,7 @@
 | Switch primary LLM: Gemini → OpenRouter | ✅ | `8c898b6` |
 | Fix RAG embedding chain: add OpenRouter embeddings + graceful degradation | ✅ | `c27d45b` |
 | Update `.env`, `.env.example`, `spacers.yaml`, `start.sh` | ✅ | `c27d45b` |
+| **Bug #8: Fix OSRM_URL in Dockerfile** — `http://127.0.0.1:8000` → `https://router.project-osrm.org` | ✅ | working tree |
 | Verify compile: Python ✅, Frontend TS ✅, Backend TS ✅ | ✅ | — |
 
 ### RAG fix chi tiết (đã deploy trong commit `c27d45b`)
@@ -72,7 +73,7 @@ ADZUNA_APP_ID, ADZUNA_APP_KEY
 | Cloudflare TLS blocked | Cannot use Cloudflare Workers AI | Skip, fallback to OpenRouter/Gemini/HF |
 | ChromaDB ephemeral | Vector DB wiped on restart | Seed at startup (`seed_vector_db.py`) |
 | No Redis | Cache + Socket.IO adapter | In-memory LRU (NestJS cache-manager) ✅ |
-| No OSRM | Local routing server unavailable | Use ORS API (`ORS_API_KEY`) |
+| No OSRM | Local routing server unavailable | Use ORS API (`ORS_API_KEY`) primary; OSRM fallback now uses `https://router.project-osrm.org` (Bug #8 ✅ fixed) |
 | Filesystem read-only except `/tmp`, `/app/uploads` | Cannot persist new data | SQLite write OK at `/app/frontend/public/edumap.db` |
 | Docker layers cached | Rebuild chậm khi thay đổi requirements.txt | Chỉ sửa requirements.txt khi thật sự cần thiết |
 
@@ -292,7 +293,7 @@ grep -rn "geo\|density\|heatmap\|map" frontend/app/ --include="*.tsx" | head -10
 
 ---
 
-### 8. Vẽ tuyến đường trên bản đồ — OSRM → ORS (🔴 Cao)
+### 8. Vẽ tuyến đường trên bản đồ — OSRM → ORS (🔴 Cao) ✅ ĐÃ HOÀN THẠNH
 
 **Hiện trạng**: `routing.service.ts` dùng ORS API (fallback), `OSRM_URL` bị sai (`http://127.0.0.1:8000`).
 
@@ -300,19 +301,19 @@ grep -rn "geo\|density\|heatmap\|map" frontend/app/ --include="*.tsx" | head -10
 
 **Commands**:
 ```bash
-# 1. Sửa Dockerfile — OSRM_URL không cần thiết trên HF Spaces
-# Hiện tại: ENV OSRM_URL=http://127.0.0.1:8000 (sai!)
-# Sửa: ENV OSRM_URL=
+# 1. Đã fix Dockerfile — OSRM_URL trỏ về public OSRM server (có sẵn trong image)
+#    Trước: ENV OSRM_URL=http://127.0.0.1:8000 (trùng với AI service, sai!)
+# Sau:  ENV OSRM_URL=https://router.project-osrm.org
 grep -n "OSRM_URL" Dockerfile
 
-# 2. Sửa routing.service.ts — bỏ OSRM fallback, chỉ dùng ORS
-# File: backend/src/modules/map/routing.service.ts
-sed -i 's|this.osrmUrl||g' backend/src/modules/map/routing.service.ts
+# 2. routing.service.ts đã có provider chain đúng (ORS → OSRM → Haversine)
+#    File: backend/src/modules/map/routing.service.ts — không cần thay đổi
+#    OSRM fallback giờ sẽ gọi https://router.project-osrm.org thay vì ai-service.
 
-# 3. Set ORS_API_KEY trên HF Spaces UI
+# 3. Set ORS_API_KEY trên HF Spaces UI (primary routing provider)
 #   ORS_API_KEY=<your_key> (get from openrouteservice.org)
 
-# 4. Frontend — render ORS route polyline trên Mapbox
+# 4. Frontend — render ORS route polyline trên Leaflet
 grep -rn "Mapbox\|mapbox\|polyline\|route" frontend/app/map/ --include="*.tsx" | head -10
 ```
 
@@ -326,11 +327,11 @@ grep -rn "Mapbox\|mapbox\|polyline\|route" frontend/app/map/ --include="*.tsx" |
 ## Roadmap triển khai (phases)
 
 ### Phase 1 — Critical (1-2 ngày)
-| # | Tính năng | Effort | Files |
-|---|----------|--------|-------|
-| 8 | Fix routing (ORS) | 30p | `routing.service.ts`, `Dockerfile` |
-| 1 | Semantic career matching | 3h | `career.py`, `career.service.ts`, `seed_vector_db.py`, frontend |
-| 4 | Chat SSE streaming | 4h | `chat.py:stream`, `chat/stream/route.ts`, `page.tsx` |
+| # | Tính năng | Effort | Files | Status |
+|---|----------|--------|-------|--------|
+| 8 | Fix routing (ORS) | 30p | `routing.service.ts`, `Dockerfile` | ✅ Đã fix (Dockerfile:128) |
+| 1 | Semantic career matching | 3h | `career.py`, `career.service.ts`, `seed_vector_db.py`, frontend | 🔄 Chưa làm |
+| 4 | Chat SSE streaming | 4h | `chat.py:stream`, `chat/stream/route.ts`, `page.tsx` | 🔄 Chưa làm |
 
 ### Phase 2 — Medium (2-4 ngày)
 | # | Tính năng | Effort | Files |
@@ -351,23 +352,26 @@ grep -rn "Mapbox\|mapbox\|polyline\|route" frontend/app/map/ --include="*.tsx" |
 
 1. ✅ RAG fix committed (`c27d45b`) — OpenRouter embeddings + graceful degradation
 2. ✅ Primary LLM = OpenRouter (Gemini removed from text generation)
-3. 🔄 Implement 8 features theo roadmap trên
-4. 🔄 **Build & test locally**: `docker compose up --build` → verify endpoints
-5. 🔄 **Set HF Spaces secrets** (qua UI):
+3. ✅ Bug #8 fix: `Dockerfile:128` — `OSRM_URL` sửa từ `http://127.0.0.1:8000` → `https://router.project-osrm.org`
+4. 🔄 Implement remaining 7 features theo roadmap trên
+5. 🔄 **Build & test locally**: `docker compose up --build` → verify endpoints
+6. 🔄 **Set HF Spaces secrets** (qua UI):
+   - `JWT_SECRET` ✅ (bắt buộc)
+   - `GOOGLE_CLIENT_ID` ✅ (bắt buộc cho OAuth)
    - `OPENROUTER_API_KEY` ✅ (primary LLM)
    - `OPENROUTER_EMBEDDING_MODEL` (RAG embeddings)
-   - `ORS_API_KEY` (routing)
+   - `ORS_API_KEY` (routing — primary provider)
    - `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` (job trends)
    - `GEMINI_API_KEY` (embeddings fallback)
-6. 🔄 **Update `start.sh`**: đã thêm `OPENROUTER_API_KEY`, `NVIDIA_API_KEY` vào SECRET_VARS ✅
-7. 🔄 **Push to GitHub**: `git push origin main` → GitHub Actions `deploy-hf.yml` auto-sync
-8. 🔄 **Verify on HF Spaces**:
-   - `POST /api/ai/chat` → 200, real AI response (không lỗi RAG)
+7. 🔄 **Update `start.sh`**: đã thêm `OPENROUTER_API_KEY`, `NVIDIA_API_KEY` vào SECRET_VARS ✅
+8. 🔄 **Push to GitHub**: `git push origin main` → GitHub Actions `deploy-hf.yml` auto-sync
+9. 🔄 **Verify on HF Spaces**:
+   - `GET /` → 200 (homepage)
+   - `GET /api/health` → `{"status":"ok","service":"edumap-backend"}`
+   - `GET /map` → 200 (map page)
+   - `GET /api/map/routing/route?lng1=106.6605&lat1=10.3163&lng2=106.8427&lat2=10.9574` → 200 + GeoJSON LineString (ORS→OSRM→Haversine fallback chain)
+   - `POST /api/ai/chat` → 200, real AI response
    - `GET /career/quiz` → 404
-   - `POST /api/ai/career/semantic-match` → 200, career matches
-   - `POST /api/ai/chat/stream` → SSE streaming
-   - `POST /api/map/route` → GeoJSON route
-   - `GET /api/ai/geo/density` → GeoJSON FeatureCollection
 
 ### Lệnh deploy
 
@@ -384,3 +388,14 @@ git push hf main
 
 > ⚠️ **Không thể tự động deploy** trong session này — không có `HF_TOKEN` hay GitHub credentials.
 > User cần tự thực hiện `git push origin main` để CI/CD deploy.
+
+---
+
+## 📍 Roadmap visualization
+
+Bản đồ lộ trình 8 cải tiến dạng SVG tĩnh (self-contained HTML):
+- **`docs/roadmap-on-map.html`** — bản đồ Việt Nam với 8 dừng chân theo tuyến đường Bắc→Nam, mỗi dừng gắn màu phase:
+  - **Pha 1 (đỏ)**: Bug #8 (✅ done), Tính năng 1 (Semantic career match), Tính năng 4 (Chat SSE)
+  - **Pha 2 (xanh)**: Tính năng 2 (Adzuna trends), 5 (Auto-embed), 6 (Mentor pre-filter), 7 (GeoAI→GeoJSON)
+  - **Pha 3 (xanh-lá)**: Tích năng 3 (Time-series forecast)
+- Bên phải: pipeline GitHub → CI → Docker → HF Spaces (supervisord) + chuỗi provider routing ORS → OSRM (public) → Haversine

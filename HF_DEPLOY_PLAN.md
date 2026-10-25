@@ -227,6 +227,30 @@ ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-l
 ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
 ```
 
+### Fix 6: OSRM_URL wrong host in Dockerfile (Bug #8)
+
+**Vấn đề**: `Dockerfile:128` có `ENV OSRM_URL=http://127.0.0.1:8000` — trỏ nhầm vào AI service (port 8000) thay vì OSRM. Khi routing service dùng OSRM fallback, request sẽ đi tới AI service → lỗi 502.
+
+**File**: `Dockerfile` (dòng 128)
+
+```dockerfile
+# TRƯỚC (lỗi):
+ENV OSRM_URL=http://127.0.0.1:8000    # → trùng với AI service, sai!
+
+# SAU (đã fix):
+# HF Spaces chạy single container (supervisord): frontend :7680, backend :3000,
+# ai-service :8000. Không có container OSRM riêng. Dùng public OSRM demo server
+# (giống docker-compose.override.yml dev mode) để giữ fallback chain hoạt động.
+ENV OSRM_URL=https://router.project-osrm.org
+```
+
+**Routing provider chain** (`routing.service.ts:200`):
+1. OpenRouteService (primary, cần `ORS_API_KEY`)
+2. OSRM public demo server (fallback, đã fix)
+3. Haversine straight-line (last resort)
+
+**Kiểm chứng**: `GET /api/map/routing/route?lng1=...&lat1=...&lng2=...&lat2=...` trả về GeoJSON LineString kể cả khi ORS không có key.
+
 ---
 
 ## 🧪 Test Suite (đã chứng minh trên Docker)
@@ -245,11 +269,12 @@ Chạy các lệnh sau sau khi container khởi động:
 | 8 | BFF search (public) | `curl "http://localhost:7680/api/ai/search?q=university"` | `200` + kết quả tìm kiếm |
 | 9 | Frontend map page | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/map` | `200` |
 | 10 | Frontend hackathon | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/hackathon` | `200` |
+| 11 | Map routing (ORS→OSRM→Haversine) | `curl "http://localhost:7680/api/map/routing/route?lng1=106.6605&lat1=10.3163&lng2=106.8427&lat2=10.9574"` | `200` + `data.routes[0].geometry` as GeoJSON LineString |
 
 ### Kết quả test (phiên bản đã fix)
 
 ```
-✅ All 10 tests passed — container restart verified (stability)
+✅ All 11 tests passed — container restart verified (stability)
 ```
 
 ---
@@ -364,7 +389,7 @@ docker-compose up --build
 | `BACKEND_URL` | `http://127.0.0.1:3000` | Backend API URL |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:7680/api` | Frontend BFF URL |
 | `AI_SERVICE_URL` | `http://127.0.0.1:8000` | AI service URL |
-| `OSRM_URL` | `http://127.0.0.1:8000` | Geo routing proxy |
+| `OSRM_URL` | `https://router.project-osrm.org` | Geo routing fallback (public OSRM demo server; used when ORS quota exhausted) |
 | `CLOUDFLARE_MODEL` | `@cf/meta/llama-3.1-8b-instruct-fp8,...` | Cloudflare LLM model list |
 | `CLOUDFLARE_EMBEDDING_MODEL` | `@cf/baai/bge-base-en-v1.5,...` | Cloudflare embedding model list |
 | `HF_LLM_MODEL` | `mistralai/Mistral-7B-Instruct-v0.2` | HF fallback model |

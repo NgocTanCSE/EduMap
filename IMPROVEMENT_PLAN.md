@@ -87,16 +87,19 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 - Tạo trigger trong `library.service.ts` (backend) — khi thêm sách mới → gọi ai-service embed
 - Hoặc dùng message queue (Redis) để async embed
 
-### 2.6. Ghép mentor & học bản (Mentor Matching + Scholarship Screening)
+### 2.6. Ghép mentor & học bản (Mentor Matching + Scholarship Screening) ✅ ĐÃ xong
 
-**Trạng thái hiện tại**: Đẩy toàn bộ danh sách vào prompt → token overflow.
+**Trạng thái hiện tại**: Pre-filter by chuyên ngành (specialty) + cap số mentor gửi vào LLM.
 
 **Đề xuất**: Pre-filter trước (khoảng cách, chuyên ngành) + đọc file PDF bảng điểm.
 
-**Kế hoạch**:
-- Filter mentor trong DB trước khi gửi vào prompt (by location, expertise)
-- Integrate PDF reader (PyPDF2) để extract transcript từ file upload
-- Chỉ gửi kết quả filter (top 5-10) vào prompt
+**Kế hoạch (đã hoàn thành 2026-10-25)**:
+- ✅ Filter mentor trong DB trước khi gửi vào prompt (by specialty — LIKE trên JSON column, tương thích SQLite + PostgreSQL)
+- ✅ Safety-net cap tại LLM layer (max_mentors, mặc định 15)
+- ✅ Fix Pydantic schema mismatch: backend gửi `id`/`specialties`/`bio` nhưng model yêu cầu `mentor_id`/`skills`/`mbti`/`available_days` → thêm alias + optional fields
+- ✅ Thêm `student_specialty`, `student_region`, `max_mentors` vào MatchRequest (backward compatible)
+- ✅ PDF bảng điểm đã tích hợp sẵn (pdf_transcript.py + scholarship.py + scholarship.service.ts)
+- ADR: [docs/decisions/ADR-006-mentor-matching-pre-filter.md](docs/decisions/ADR-006-mentor-matching-pre-filter.md)
 
 ### 2.7. Phân tích mật độ trường học (GeoAI)
 
@@ -140,7 +143,7 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 | 🔴 Cao | Fix career/roadmap auth ( không gửi token) | Bug blocking chức năng chính |
 | 🔴 Cao | Fix _generate_text_with_fallback provider order (Gemini first) | Làm chậm/tiết kiệm AI 95s → ~5s |
 | 🔴 Cao | Fix _openrouter_generate (dùng curl) | OpenRouter trả về empty response |
-| 🟡 Trung | Map route-drawing | Tính năng mới được đề xuất |
+| 🟡 Trung | 6. Mentor matching + scholarship screening | Pre-filter by specialty + PDF transcript ✅ |
 | 🟡 Trung | Dự đoán nghề nghiệp (semantic vector) | Cải thiện chất lượng |
 | 🟡 Trung | Streaming SSE cho chat | UX tốt hơn |
 | 🟢 Thấp | Time-series forecast | Phức tạp, cần data lịch sử |

@@ -530,7 +530,11 @@ export class MapService {
         lng: p.lng
       }));
 
-      // Try AI Service first, fallback to Gemini
+      // A valid, empty GeoJSON FeatureCollection used as a safe default whenever
+      // the AI service cannot produce boundary polygons (Issue #7: GeoAI → GeoJSON).
+      const emptyGeoJson = { type: 'FeatureCollection', features: [] };
+
+      // Try AI Service first, fallback to Cloudflare direct
       try {
         const response = await firstValueFrom(
           this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
@@ -539,10 +543,18 @@ export class MapService {
             context: context
           }, { timeout: 45000 })
         );
-        return response.data.ai_analysis || response.data;
+        const payload = response.data;
+        // Issue #7: surface the GeoJSON boundary FeatureCollection (hubs) that
+        // identify_education_hubs() now produces, alongside the text analysis.
+        // toFeatureCollection() also tolerates a legacy list-of-dicts / single
+        // Feature shape so the frontend always gets a valid FeatureCollection.
+        const geojson = this.toFeatureCollection(payload && payload.hubs);
+        const analysis = (payload && payload.ai_analysis) ? payload.ai_analysis : {};
+        return { ...analysis, geojson };
       } catch (aiServiceError) {
         this.logger.warn('AI Service unavailable, using Cloudflare direct');
-        return this.cloudflareAI.analyzeGeoDensity(query, pointsData);
+        const analysis = await this.cloudflareAI.analyzeGeoDensity(query, pointsData);
+        return { ...analysis, geojson: emptyGeoJson };
       }
     } catch (error: any) {
       this.logger.error(`Error during AI map analysis: ${error.message}`);
@@ -551,9 +563,28 @@ export class MapService {
         density_score: 7.5,
         recommendations: [
             { area: "Cơ sở vật chất", priority: "High", reason: "Mở rộng hệ thống phòng Lab và trạm Wi-Fi công cộng." }
-        ]
+        ],
+        geojson: emptyGeoJson,
       };
     }
+  }
+
+  /**
+   * Coerce an arbitrary value into a GeoJSON FeatureCollection (Issue #7).
+   * Used by callers that may receive either the new GeoJSON shape (a dict with
+   * type=FeatureCollection) or a legacy list of hub dicts / a single Feature.
+   */
+  private toFeatureCollection(value: any): any {
+    if (!value) return { type: 'FeatureCollection', features: [] };
+    if (value.type === 'FeatureCollection' && Array.isArray(value.features)) return value;
+    if (value.type === 'Feature') return { type: 'FeatureCollection', features: [value] };
+    if (Array.isArray(value)) {
+      const features = value
+        .filter((f) => f && typeof f === 'object' && f.type === 'Feature')
+        .map((f: any) => f as any);
+      return { type: 'FeatureCollection', features };
+    }
+    return { type: 'FeatureCollection', features: [] };
   }
 
   async getStats(): Promise<{ total: number; categories: Record<string, number> }> {

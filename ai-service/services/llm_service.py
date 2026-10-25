@@ -1285,18 +1285,41 @@ class LLMService:
         return {"status": "ok", "analysis": analysis}
 
     def _fetch_adzuna_jobs(self, keyword: str):
-        """Fetch live job listings from Adzuna API. Returns list of dicts or None on failure."""
+        """Fetch live job listings from Adzuna API via curl (--ipv4 --insecure).
+
+        Uses curl with --ipv4 --insecure to bypass the Python ssl/urllib IPv6
+        blackhole that causes hangs/timeouts on HF Spaces — the exact same
+        pattern used by the OpenRouter, Cloudflare, HF and NVIDIA providers.
+        Returns list of dicts or None on failure (falls back to local SQLite).
+        """
         try:
-            from collections import Counter  # noqa
             url = (
                 f"https://api.adzuna.com/v1/api/jobs/"
                 f"{self.adzuna_country}/search/1?"
                 f"app_id={self.adzuna_app_id}&app_key={self.adzuna_app_key}"
                 f"&results_per_page=10&what={urllib.parse.quote(keyword)}"
             )
-            req = urllib.request.Request(url, headers={"User-Agent": "EduMap-AI/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            # Use curl (OpenSSL TLS) — bypasses Python ssl/urllib IPv6 blackhole
+            # on HF Spaces. --ipv4 forces IPv4 (avoids the IPv6 blackhole that
+            # makes urllib.request.urlopen hang/timeout), --insecure skips the
+            # cert check (HF Spaces may sit behind a MITM proxy with a custom CA).
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "GET",
+                    "-H", "User-Agent: EduMap-AI/1.0",
+                    "-H", "Accept: application/json",
+                    "--connect-timeout", "6",
+                    "--max-time", "15",
+                    url,
+                ],
+                capture_output=True, text=True, timeout=20,
+            )
+            if proc.returncode != 0:
+                err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+                raise RuntimeError(f"Adzuna curl failed: {err}")
+            if not (proc.stdout or "").strip():
+                raise RuntimeError("Adzuna curl returned empty response (stdout empty)")
+            data = json.loads(proc.stdout)
             results = data.get("results", [])
             print(f"  Adzuna API: fetched {len(results)} jobs for '{keyword}'")
             return [
@@ -1733,12 +1756,52 @@ class LLMService:
             print(f"Error in summarize_material: {e}")
             return self._summarize_material_fallback(data, str(e))
 
-    async def match_mentors(self, data: MatchRequest) -> list:
-        """Match mentors for a student. Falls back to an empty list when all providers are down."""
+    async def match_mentors(self, data: "MatchRequest") -> list:
+        """Match mentors for a student. Falls back to an empty list when all providers are down.
+
+        Safety-net cap: ngay cả khi backend đã pre-filter, chúng ta vẫn giới hạn
+        số mentor trong prompt bằng ``data.max_mentors`` (mặc định 15) để đảm bảo
+        không có trường hợp nào gây tràn token khi số lượng mentor rất lớn.
+        """
         try:
             if not self.is_ready:
                 raise RuntimeError("AI Service chưa sẵn sàng.")
-            prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
+
+            # Safety-net: cắt bớt mentor xuống max_mentors (backend đã pre-filter,
+            # nhưng bảo vệ trường hợp backend quên hoặc gửi từ nguồn khác).
+            max_mentors = getattr(data, "max_mentors", 15)
+            mentors = data.available_mentors[:max_mentors] if data.available_mentors else []
+
+            # Serialize chỉ các mentor đã được cắt + pre-filter metadata
+            mentors_json = json.dumps(
+                [m.model_dump(mode="json") for m in mentors],
+                ensure_ascii=False,
+            )
+
+            student_specialty = getattr(data, "student_specialty", None)
+            student_region = getattr(data, "student_region", None)
+
+            pre_filter_info = ""
+            if student_specialty or student_region:
+                parts = []
+                if student_specialty:
+                    parts.append(f"Chuyên ngành: {student_specialty}")
+                if student_region:
+                    parts.append(f"Khu vực: {student_region}")
+                pre_filter_info = f" (Đã lọc trước theo: {', '.join(parts)})"
+
+            prompt = f"""Ghép nối mentor cho sinh viên{pre_filter_info}
+
+Sinh viên:
+- Kỹ năng cần: {json.dumps(data.student_skills_needed, ensure_ascii=False)}
+- MBTI: {data.student_mbti}
+- Ngày rảnh: {json.dumps(data.preferred_days, ensure_ascii=False)}
+
+Danh sách mentor đã được pre-filter (tối đa {max_mentors}):
+{mentors_json}
+
+Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
+
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
@@ -1845,9 +1908,17 @@ class LLMService:
         return []
 
     def _geo_analysis_fallback(self, data: "GeoDensityAnalysisRequest", hubs: list, err: str = "") -> dict:
-        """Template-based geo analysis when all LLM providers are down."""
+        """Template-based geo analysis when all LLM providers are down.
+
+        ``hubs`` may arrive as a GeoJSON ``FeatureCollection`` (the new shape
+        returned by ``identify_education_hubs``) or as a legacy list of dicts.
+        Count features robustly in either case.
+        """
         city = getattr(data, "city", "khu vực này") or "khu vực này"
-        hub_count = len(hubs) if hubs else 0
+        if isinstance(hubs, dict):
+            hub_count = len(hubs.get("features", []))
+        else:
+            hub_count = len(hubs or [])
         point_count = len(getattr(data, "points", []) or [])
         return {
             "summary": f"Phân tích dựa trên dữ liệu thống kê tĩnh cho {city}: {hub_count} cụm giáo dục, {point_count} điểm.",
