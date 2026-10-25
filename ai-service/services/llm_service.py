@@ -68,11 +68,13 @@ for _p in _load_paths:
 
 class LLMService:
     def __init__(self):
-        # ── Google Gemini (primary on HF Spaces) ────────────────────────────
+        # ── Google Gemini (embeddings + fallback text generation) ────────────
+        # Gemini key is still loaded for embeddings (vector_store.py) and may
+        # be used as a last-resort fallback. OpenRouter is the primary text
+        # generation provider (configured via OPENROUTER_API_KEY).
         # HF Spaces cannot complete a TLS handshake with api.cloudflare.com
         # (confirmed network-level issue, July 2026), so Cloudflare Workers AI
-        # is unusable there. Gemini is reachable and also provides embeddings
-        # with the same GEMINI_API_KEY.
+        # is unusable there. Gemini is reachable and also provides embeddings.
         self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         self.gemini_models = [
             m.strip()
@@ -171,13 +173,15 @@ class LLMService:
         self.nvidia_timeout = float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "30"))
         self.has_nvidia = bool(self.nvidia_key)
         self.has_nvidia_embed = bool(self.nvidia_key) and bool(self.nvidia_embed_model)
-        # is_ready = True neu co bat ky nhanh LLM nao (Gemini / Cloudflare / HF / OpenRouter / NVIDIA)
+        # is_ready = True neu co bat ky nhanh LLM nao (OpenRouter / Gemini / Cloudflare / HF / NVIDIA)
         self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia
-        if self.has_gemini:
-            print(f"INFO: Google Gemini la provider CHINH. Model={self.gemini_model_name}")
+        if self.has_openrouter:
+            print(f"INFO: OpenRouter la provider CHINH (primary). Model={self.openrouter_model}")
+        elif self.has_gemini:
+            print(f"INFO: Google Gemini la provider CHINH (fallback). Model={self.gemini_model_name}")
         if not self.is_ready:
-            print("ERROR: Khong co GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac HF_TOKEN. Cau hinh de dung AI chat.")
-        elif not self.has_gemini and not self.has_cf and self.has_hf:
+            print("ERROR: Khong co OPENROUTER_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac HF_TOKEN. Cau hinh de dung AI chat.")
+        elif not self.has_openrouter and not self.has_gemini and not self.has_cf and self.has_hf:
             print(f"INFO: Chi co HuggingFace Inference API. Model={self.hf_model}")
         if self.has_hf:
             # Never print the token itself; length + prefix is enough to spot
@@ -202,6 +206,8 @@ class LLMService:
             try:
                 from services.net import probe_tls
                 targets = []
+                if self.has_openrouter:
+                    targets.append("openrouter.ai")
                 if self.has_gemini:
                     targets.append("generativelanguage.googleapis.com")
                 if self.has_cf:
@@ -233,9 +239,12 @@ class LLMService:
     def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Call Google Gemini generateContent.
 
-        Gemini is the primary provider on HF Spaces: it is reachable from the
-        Space and one API key covers chat + embeddings. Requests use curl so
-        they follow the same IPv4/TLS workaround as the Cloudflare path.
+        Gemini is no longer the primary provider for text generation on HF
+        Spaces — OpenRouter holds that role now. This method is retained as a
+        last-resort fallback (invoked only inside _cloudflare_generate's
+        three-provider cascade after OpenRouter and NVIDIA have failed). Requests
+        use curl so they follow the same IPv4/TLS workaround as the other
+        providers.
         """
         import time as _time
 
@@ -359,26 +368,9 @@ class LLMService:
         """
         import time as _time
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
-        # --- Phan 0: Google Gemini (primary — reachable from HF Spaces) ---
-        gemini_last_err = None
         request_started = _time.monotonic()
-        if self.has_gemini and _time.monotonic() >= self._gemini_down_until:
-            try:
-                result = self._gemini_generate(
-                    prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                )
-                if result:
-                    print(f"  -> Gemini generate OK (model={self.gemini_model_name})")
-                    return result
-            except Exception as e:
-                gemini_last_err = str(e)
-                print(f"Gemini generate failed: {e}")
-
         cf_last_err = None
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
@@ -525,7 +517,6 @@ class LLMService:
 
         raise RuntimeError(
             "Không thể sinh nội dung. "
-            f"Gemini: {gemini_last_err or ('không cấu hình' if not self.has_gemini else 'không khả dụng')}, "
             f"Cloudflare: {cf_last_err or ('không cấu hình' if not self.has_cf else 'lỗi không xác định')}, "
             f"HuggingFace: {hf_last_err or ('không cấu hình' if not self.has_hf else 'lỗi kết nối/401')}"
         )
@@ -717,15 +708,11 @@ class LLMService:
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Try all configured LLM providers in priority order.
 
-        Order: Gemini → NVIDIA NIM → OpenRouter → Cloudflare/HF.
+        Order: OpenRouter → NVIDIA NIM → _cloudflare_generate (Cloudflare/HF).
 
-        This mirrors the provider ordering used by ``chat_with_rag`` so that
-        every AI-dependent endpoint benefits from the same HF Spaces-reachable
-        primary provider (Gemini, which uses curl --ipv4 --insecure). Previously
-        OpenRouter was tried first here, which on HF Spaces timed out for ~20s
-        via ``urllib.request`` before falling through to Gemini — making the
-        learning-path endpoint take ~95 s and the library summary degrade to a
-        template fallback.
+        OpenRouter is the primary provider (uses curl --ipv4 --insecure for
+        HF Spaces compatibility). NVIDIA follows, then the three-provider
+        Cloudflare/HF cascade.
 
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError with a per-provider breakdown
@@ -734,20 +721,7 @@ class LLMService:
         import time as _time
         errors: dict = {}
 
-        # 0. Google Gemini (primary — reachable from HF Spaces via curl)
-        if self.has_gemini:
-            try:
-                result = self._gemini_generate(
-                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
-                )
-                if result:
-                    print("  -> Gemini generate OK")
-                    return result
-            except Exception as e:
-                errors["Gemini"] = str(e)
-                print(f"Gemini generate failed: {e}")
-
-        # 1. OpenRouter (OpenAI-compatible, external provider)
+        # 1. OpenRouter (OpenAI-compatible, external provider — primary)
         if self.has_openrouter:
             try:
                 result = self._openrouter_generate(
@@ -773,7 +747,7 @@ class LLMService:
                 errors["NVIDIA"] = str(e)
                 print(f"NVIDIA NIM generate failed: {e}")
 
-        # 3. Cloudflare Workers AI (internally chains Gemini → CF → HF as fallback)
+        # 3. Cloudflare Workers AI / HF (internally chains CF → HF as fallback)
         try:
             result = self._cloudflare_generate(
                 prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
@@ -786,10 +760,6 @@ class LLMService:
 
         # Build a detailed, per-provider error message.
         parts = []
-        if not self.has_gemini:
-            parts.append("Gemini: không cấu hình")
-        elif errors.get("Gemini"):
-            parts.append(f"Gemini: {errors['Gemini'][:150]}")
         if not self.has_openrouter:
             parts.append("OpenRouter: không cấu hình")
         elif errors.get("OpenRouter"):
@@ -799,7 +769,7 @@ class LLMService:
         elif errors.get("NVIDIA"):
             parts.append(f"NVIDIA: {errors['NVIDIA'][:150]}")
         parts.append(
-            f"Cloudflare/Gemini/HF: {errors.get('Cloudflare', 'lỗi không xác định')[:150]}"
+            f"Cloudflare/HF: {errors.get('Cloudflare', 'lỗi không xác định')[:150]}"
         )
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
@@ -938,13 +908,13 @@ class LLMService:
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
 
-        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó NVIDIA NIM / OpenRouter / Cloudflare / HF.
+        # Ưu tiên OpenRouter (provider chính), sau đó NVIDIA / Cloudflare / HF.
+        # Gemini đã được loại bỏ vì API key không còn hoạt động trên HF Spaces.
         reply_text = None
         last_err = None
         for gen_fn in [
-            self._gemini_generate if self.has_gemini else None,
-            self._nvidia_generate if self.has_nvidia else None,
             self._openrouter_generate if self.has_openrouter else None,
+            self._nvidia_generate if self.has_nvidia else None,
             self._cloudflare_generate if self.has_cf else None,
             self._hf_generate if self.has_hf else None,
         ]:
@@ -973,7 +943,7 @@ class LLMService:
         return final_res
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-        """Fallback trả lời khi LLM không khả dụng (Cloudflare/HF unreachable from HF Spaces).
+        """Fallback trả lời khi tất cả LLM provider đều thất bại (OpenRouter/Gemini/CF/HF unreachable từ HF Spaces).
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
         available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
