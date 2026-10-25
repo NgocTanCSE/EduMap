@@ -66,47 +66,81 @@ export class CareerService {
 
   /**
    * Gợi ý nghề nghiệp thông minh (Hybrid: Logic + AI trong tương lai)
-   * Cập nhật để sử dụng dữ liệu UserSkill
+   * Cập nhật để sử dụng dữ liệu UserSkill. Trường trả về khớp với frontend
+   * CareerQuizPage: title, match_score (number), explanation, missing_skills.
    */
   async suggestCareer(userId: string) {
     const userSkills = await this.userSkillRepo.find({ where: { user_id: userId } });
-    if (!userSkills || userSkills.length === 0) {
-      // Fallback hoặc gợi ý các lộ trình nghề nghiệp chung nếu không tìm thấy kỹ năng
-      return {
-        message: 'Không tìm thấy kỹ năng người dùng. Vui lòng cập nhật hồ sơ kỹ năng để nhận gợi ý tốt hơn.',
-        top_suggestions: (await this.careerPathRepo.find()).slice(0, 3).map(path => ({
-          career_id: path.id,
-          career_title: path.title,
-          field: path.field,
-          match_rate: '0%',
-        })),
-      };
-    }
-
-    const allPaths = await this.careerPathRepo.find();
     const userSkillNames = userSkills.map(s => s.skill_name.toLowerCase());
 
+    const allPaths = await this.careerPathRepo.find();
+
+    // Build suggestion list from career paths + user skill overlap
     const topSuggestions = allPaths.map(path => {
-      const matchedSkills = (path.skills_required || []).filter(skill =>
+      const requiredSkills = (path.skills_required || []);
+      const matchedSkills = requiredSkills.filter(skill =>
         userSkillNames.includes(skill.toLowerCase())
       );
+      const missingSkills = requiredSkills.filter(skill =>
+        !userSkillNames.includes(skill.toLowerCase())
+      );
 
-      const totalSkillsCount = (path.skills_required || []).length || 1; // Tránh chia cho 0
+      const totalSkillsCount = requiredSkills.length || 1;
       const matchPercentage = Math.round((matchedSkills.length / totalSkillsCount) * 100);
 
       return {
         career_id: path.id,
-        career_title: path.title,
+        title: path.title,              // frontend expects `title` (was `career_title`)
         field: path.field,
-        match_rate: `${Math.max(matchPercentage, 0)}%`, // Đảm bảo không có phần trăm âm
+        match_score: matchPercentage,   // number, not string (was `match_rate: '95%'`)
+        explanation: path.description || `Lộ trình ${path.title} phù hợp với kỹ năng của bạn.`,
+        missing_skills: missingSkills.slice(0, 5),  // skills the user is missing
+        demand_level: 'Cao',
       };
     });
 
-    topSuggestions.sort((a, b) => parseFloat(b.match_rate) - parseFloat(a.match_rate));
+    topSuggestions.sort((a, b) => b.match_score - a.match_score);
+    const suggestions = topSuggestions.slice(0, 5);
+
+    // Graceful fallback when DB has no career paths at all
+    if (suggestions.length === 0 && allPaths.length === 0) {
+      return {
+        message: 'Hệ thống chưa có dữ liệu lộ trình nghề nghiệp. Vui lòng liên hệ quản trị viên.',
+        top_suggestions: [
+          {
+            career_id: null,
+            title: 'AI Engineer / Machine Learning Engineer',
+            field: 'Công nghệ thông tin',
+            match_score: 85,
+            explanation: 'Ngành công nghệ thông tin và AI đang là xu hướng phát triển mạnh.',
+            missing_skills: ['Python', 'Machine Learning', 'Statistics'],
+            demand_level: 'Cao',
+          },
+          {
+            career_id: null,
+            title: 'Fullstack Developer',
+            field: 'Công nghệ thông tin',
+            match_score: 78,
+            explanation: 'Lĩnh vực phát triển web fullstack luôn có nhu cầu ổn định.',
+            missing_skills: ['TypeScript', 'React', 'Node.js'],
+            demand_level: 'Cao',
+          },
+          {
+            career_id: null,
+            title: 'Data Scientist',
+            field: 'Công nghệ thông tin',
+            match_score: 72,
+            explanation: 'Phân tích dữ liệu và khai phá thông tin ngành đang tăng trưởng.',
+            missing_skills: ['Python', 'Pandas', 'Statistics'],
+            demand_level: 'Trung bình',
+          },
+        ],
+      };
+    }
 
     return {
       input_analysis: { skills: userSkillNames },
-      top_suggestions: topSuggestions.slice(0, 5),
+      top_suggestions: suggestions,
     };
   }
 

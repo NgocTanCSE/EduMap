@@ -78,4 +78,49 @@ describe('AIService', () => {
       );
     });
   });
+
+  describe('generateLearningPath', () => {
+    it('should pass through degraded (fallback) learning path when AI service is down', async () => {
+      // The Python AI service now returns 200 with a template-based fallback
+      // instead of raising a 503. The NestJS service must pass this through.
+      const degradedResult = {
+        target_role: 'Data Scientist',
+        total_estimated_months: 5.0,
+        steps: [
+          { step_number: 1, title: 'Nền tảng cho Data Scientist', estimated_weeks: 4, description: '...' },
+          { step_number: 2, title: 'Kỹ năng chuyên ngành', estimated_weeks: 6, description: '...' },
+        ],
+        degraded: true,
+        reason: 'AI unavailable -- template fallback',
+      };
+
+      httpService.post.mockReturnValue(of({ data: degradedResult } as any));
+
+      const result = await service.generateLearningPath({
+        user_id: 'user-1',
+        current_level: 'Beginner',
+        target_role: 'Data Scientist',
+        time_commitment_hours_per_week: 15,
+      });
+
+      expect(result).toEqual(degradedResult);
+      expect(result.degraded).toBe(true);
+      expect(result.steps.length).toBe(2);
+    });
+
+    it('should throw 503 when the AI service is completely unreachable', async () => {
+      httpService.post.mockReturnValue(
+        throwError(() => ({ message: 'connect ECONNREFUSED 127.0.0.1:8000' })),
+      );
+
+      await expect(
+        service.generateLearningPath({
+          user_id: 'user-1',
+          current_level: 'Beginner',
+          target_role: 'Developer',
+          time_commitment_hours_per_week: 10,
+        }),
+      ).rejects.toThrow(/tạm thời gián đoạn/);
+    });
+  });
 });

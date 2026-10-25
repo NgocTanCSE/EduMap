@@ -13,18 +13,32 @@ class MaterialSummaryResponse(BaseModel):
     summary: str
     key_concepts: List[KeyConcept] = []
     study_tips: List[str] = []
+    degraded: Optional[bool] = False
+    reason: Optional[str] = None
 
 @router.post("/summarize")
 async def summarize_material(data: MaterialSummaryRequest):
-    # Chỉ trả về tóm tắt THẬT từ AI — bỏ fallback thông điệp "bảo trì"/"lỗi" mẫu
     from services.llm_service import llm_service
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+    if not llm_service:
+        raise HTTPException(status_code=503, detail="AI Service chưa được khởi tạo.")
 
     try:
         analysis = await llm_service.summarize_material(data)
         if analysis:
-            return analysis
+            # Pass through degraded status if present
+            degraded = analysis.pop("_degraded", False) if isinstance(analysis, dict) else False
+            reason = analysis.pop("_reason", None) if isinstance(analysis, dict) else None
+            # Re-wrap in the Pydantic model for clean output
+            key_concepts = analysis.get("key_concepts", [])
+            if key_concepts and not isinstance(key_concepts[0], dict):
+                key_concepts = [{"concept": str(k), "explanation": ""} for k in key_concepts]
+            return MaterialSummaryResponse(
+                summary=analysis.get("summary", ""),
+                key_concepts=key_concepts,
+                study_tips=analysis.get("study_tips", []),
+                degraded=degraded,
+                reason=reason,
+            ).dict()
         raise HTTPException(status_code=502, detail="AI trả về kết quả tóm tắt không hợp lệ.")
     except HTTPException:
         raise

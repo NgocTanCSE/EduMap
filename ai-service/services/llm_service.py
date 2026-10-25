@@ -967,14 +967,16 @@ class LLMService:
         return res.get("reply")
 
     async def generate_career_advice(self, user_info: dict):
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        """Generate AI career advice. Falls back to a template response when all providers are down."""
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3)
             return response
         except Exception as e:
-            raise RuntimeError(f"Error in generate_career_advice: {e}")
+            print(f"Error in generate_career_advice: {e}")
+            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình GEMINI_API_KEY, "                    f"CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
 
     async def analyze_market_trends(self, market_data: list):
         """Phân tích xu hướng thị trường việc làm — LUÔN trả về kết quả thành công.
@@ -1245,102 +1247,103 @@ class LLMService:
             return None
 
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        
-        # Kiểm tra Cache
-        cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
-        cached_res = cache_service.get(cache_key)
-        if cached_res:
-            return cached_res
-
-        prompt = f"""
-        Phân tích hồ sơ sinh viên: {data.json()}
-        Đề xuất 3 nghề nghiệp phù hợp nhất tại Việt Nam.
-        Đối với mỗi nghề nghiệp, cung cấp điểm đánh giá (0-100) cho biểu đồ Radar trên 5 tiêu chí:
-        - Technical (Kỹ thuật)
-        - Soft Skills (Kỹ năng mềm)
-        - Problem Solving (Giải quyết vấn đề)
-        - Language (Ngoại ngữ)
-        - Creativity (Sáng tạo)
-        
-        Trả về mảng JSON gồm: title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}
-        Chỉ trả về JSON.
-        """
+        """Recommend careers. Falls back to a template list when all providers are down."""
         try:
+            # Kiểm tra Cache
+            cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
+            cached_res = cache_service.get(cache_key)
+            if cached_res:
+                return cached_res
+
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+
+            prompt = f"""
+            Phân tích hồ sơ sinh viên: {data.json()}
+            Đề xuất 3 nghề nghiệp phù hợp nhất tại Việt Nam.
+            Đối với mỗi nghề nghiệp, cung cấp điểm đánh giá (0-100) cho biểu đồ Radar trên 5 tiêu chí:
+            - Technical (Kỹ thuật)
+            - Soft Skills (Kỹ năng mềm)
+            - Problem Solving (Giải quyết vấn đề)
+            - Language (Ngoại ngữ)
+            - Creativity (Sáng tạo)
+            
+            Trả về mảng JSON gồm: title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}
+            Chỉ trả về JSON.
+            """
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
-            
+
             if result and isinstance(result, list):
-                # Lưu vào Cache (TTL 24 giờ cho đề xuất nghề nghiệp)
                 cache_service.set(cache_key, result, ttl=86400)
-                
+
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho recommend_career.")
             return result
         except Exception as e:
             print(f"Error in recommend_career: {e}")
-            raise RuntimeError(f"Error in recommend_career: {e}")
+            return self._recommend_career_fallback(data, str(e))
 
     async def generate_learning_path(self, data: LearningPathRequest) -> dict:
         """
         Tạo lộ trình học tập cá nhân hóa dựa trên trình độ và mục tiêu nghề nghiệp.
-        """
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-
-        # Kiểm tra Cache
-        cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
-        cached_res = cache_service.get(cache_key)
-        if cached_res:
-            return cached_res
-
-        prompt = f"""
-        Xây dựng lộ trình học tập chi tiết cho sinh viên:
-        - Mục tiêu: {data.target_role}
-        - Trình độ hiện tại: {data.current_level}
-        - Thời gian cam kết: {data.time_commitment_hours_per_week} giờ/tuần
-        
-        Yêu cầu:
-        1. Phân rã thành các bước (steps) cụ thể.
-        2. Mỗi bước bao gồm: step_number, title, estimated_weeks, description (tiếng Việt).
-        3. Tính toán total_estimated_months dựa trên tổng số tuần.
-        4. Trả về định dạng JSON: {{target_role, total_estimated_months, steps: []}}
-        
-        Chỉ trả về JSON.
+        Khi mọi provider AI đều thất bại, trả về lộ trình mẫu thay thế.
         """
         try:
+            # Kiểm tra Cache
+            cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
+            cached_res = cache_service.get(cache_key)
+            if cached_res:
+                return cached_res
+
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+
+            prompt = f"""
+            Xây dựng lộ trình học tập chi tiết cho sinh viên:
+            - Mục tiêu: {data.target_role}
+            - Trình độ hiện tại: {data.current_level}
+            - Thời gian cam kết: {data.time_commitment_hours_per_week} giờ/tuần
+            
+            Yêu cầu:
+            1. Phân rã thành các bước (steps) cụ thể.
+            2. Mỗi bước bao gồm: step_number, title, estimated_weeks, description (tiếng Việt).
+            3. Tính toán total_estimated_months dựa trên tổng số tuần.
+            4. Trả về định dạng JSON: {{target_role, total_estimated_months, steps: []}}
+            
+            Chỉ trả về JSON.
+            """
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=2048, top_p=0.8)
             result = self._extract_json(response)
-            
+
             if result:
-                # Lưu vào Cache (TTL 24 giờ cho lộ trình)
                 cache_service.set(cache_key, result, ttl=86400)
-            
+
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho generate_learning_path.")
             return result
         except Exception as e:
             print(f"Error in generate_learning_path: {e}")
-            raise RuntimeError(f"Error in generate_learning_path: {e}")
+            return self._learning_path_fallback(data, str(e))
 
     async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        
-        prompt = f"""
-        Phân tích mật độ giáo dục tại {data.city}.
-        Các cụm giáo dục (Hubs) được phát hiện: {json.dumps(hubs)}.
-        Tổng số điểm: {len(data.points)}.
-        
-        Hãy đưa ra:
-        1. Nhận xét về sự phân bổ.
-        2. Đánh giá mức độ thuận tiện cho sinh viên.
-        3. Đề xuất khu vực cần đầu tư thêm.
-        
-        Trả về JSON: {{summary, density_score, recommendations: []}}
-        """
+        """Analyze education density. Falls back to a template analysis when all providers are down."""
+        hubs = hubs or []
         try:
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+            prompt = f"""
+            Phân tích mật độ giáo dục tại {data.city}.
+            Các cụm giáo dục (Hubs) được phát hiện: {json.dumps(hubs)}.
+            Tổng số điểm: {len(data.points)}.
+            
+            Hãy đưa ra:
+            1. Nhận xét về sự phân bổ.
+            2. Đánh giá mức độ thuận tiện cho sinh viên.
+            3. Đề xuất khu vực cần đầu tư thêm.
+            
+            Trả về JSON: {{summary, density_score, recommendations: []}}
+            """
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None:
@@ -1348,14 +1351,14 @@ class LLMService:
             return result
         except Exception as e:
             print(f"Error in analyze_geo_density: {e}")
-            raise RuntimeError(f"Error in analyze_geo_density: {e}")
+            return self._geo_analysis_fallback(data, hubs, str(e))
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        
-        prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
+        """Summarize learning material. Falls back to a template summary when all providers are down."""
         try:
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+            prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=512)
             result = self._extract_json(response)
             if result is None:
@@ -1363,14 +1366,14 @@ class LLMService:
             return result
         except Exception as e:
             print(f"Error in summarize_material: {e}")
-            raise RuntimeError(f"Error in summarize_material: {e}")
+            return self._summarize_material_fallback(data, str(e))
 
     async def match_mentors(self, data: MatchRequest) -> list:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        
-        prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
+        """Match mentors for a student. Falls back to an empty list when all providers are down."""
         try:
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+            prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
@@ -1378,7 +1381,128 @@ class LLMService:
             return result
         except Exception as e:
             print(f"Error in match_mentors: {e}")
-            raise RuntimeError(f"Error in match_mentors: {e}")
+            return self._match_mentors_fallback(data, str(e))
+
+
+    # ------------------------------------------------------------------
+    #  Template-based graceful-degradation fallbacks
+    #  Each returns a valid-shaped dict/list so routers and callers still
+    #  get a 200 with degraded content instead of a 503/502 that blocks the
+    #  entire feature when every LLM provider is unreachable (the common case
+    #  on HF Spaces where Cloudflare TLS is blocked and HF returns 401).
+    # ------------------------------------------------------------------
+
+    def _learning_path_fallback(self, data: "LearningPathRequest", err: str = "") -> dict:
+        """Template-based learning path when all LLM providers are down."""
+        role = getattr(data, "target_role", "AI Developer") or "AI Developer"
+        level = getattr(data, "current_level", "Beginner") or "Beginner"
+        steps = [
+            {
+                "step_number": 1,
+                "title": f"Nền tảng cho {role}",
+                "estimated_weeks": 4,
+                "description": f"Bắt đầu với kiến thức cơ bản cần thiết cho vai trò {role} ở trình độ {level}.",
+            },
+            {
+                "step_number": 2,
+                "title": "Kỹ năng chuyên ngành",
+                "estimated_weeks": 6,
+                "description": "Phát triễn kỹ năng kỹ thuật và phần mềm liên quan.",
+            },
+            {
+                "step_number": 3,
+                "title": "Dự án thực tế",
+                "estimated_weeks": 8,
+                "description": "Xây dựng ít nhất một dự án cá nhân hoặc hợp tác để áp dụng kiến thức.",
+            },
+            {
+                "step_number": 4,
+                "title": "Phỏng vấn và phỏng trình bày",
+                "estimated_weeks": 2,
+                "description": " Chuẩn bị hồ sơ và kỹ năng phỏng vấn cho vai trò mục tiêu.",
+            },
+        ]
+        total_months = round(sum(s["estimated_weeks"] for s in steps) / 4.0, 1)
+        return {
+            "target_role": role,
+            "total_estimated_months": total_months,
+            "steps": steps,
+            "_degraded": True,
+            "_reason": f"AI unavailable -- template fallback ({err[:140]})",
+        }
+
+    def _recommend_career_fallback(self, data: "CareerAnalysisRequest", err: str = "") -> list:
+        """Template-based career recommendations when all LLM providers are down."""
+        skill = ""
+        if hasattr(data, "skills") and data.skills:
+            skill = str(data.skills)[:200]
+        reason = f"AI unavailable -- template fallback ({err[:140]})"
+        return [
+            {
+                "title": "AI Engineer / Machine Learning Engineer",
+                "match_score": 85,
+                "explanation": f"Dựa trên hồ sơ kỹ năng ({skill[:80]}), vai trò này có nhu cầu cao trên thị trường.",
+                "missing_skills": ["Python", "Machine Learning", "Statistics"],
+                "demand_level": "Cao",
+                "radar_chart": {"Technical": 85, "Soft Skills": 75, "Problem Solving": 80, "Language": 70, "Creativity": 82},
+                "_degraded": True,
+                "_reason": reason,
+            },
+            {
+                "title": "Fullstack Developer",
+                "match_score": 78,
+                "explanation": "Lĩnh vực phát triển web fullstack luôn có nhu cầu ổn định và cơ hội phát triển.",
+                "missing_skills": ["TypeScript", "React", "Node.js"],
+                "demand_level": "Cao",
+                "radar_chart": {"Technical": 78, "Soft Skills": 70, "Problem Solving": 75, "Language": 65, "Creativity": 72},
+                "_degraded": True,
+                "_reason": reason,
+            },
+        ]
+
+    def _summarize_material_fallback(self, data: "MaterialSummaryRequest", err: str = "") -> dict:
+        """Template-based material summary when all LLM providers are down."""
+        title = getattr(data, "title", "tài liệu") or "tài liệu"
+        content = getattr(data, "content", "") or ""
+        description = getattr(data, "description", "") or ""
+        text = (content + " " + description)[:500]
+        return {
+            "summary": f"Tóm tắt tự động (chế độ ngoại tuyến): Tài liệu '{title}' cung cấp kiến thức cơ bản. Chi tiết: {text[:200]}...",
+            "key_concepts": [{"concept": "Cốt lõi chính", "explanation": "Vui lòng đọc tài liệu gốc để biết chi tiết."}],
+            "study_tips": ["Đọc toàn bộ tài liệu", "Tạo ghi chú cá nhân", "Thực hành ngay khi học"],
+            "_degraded": True,
+            "_reason": f"AI unavailable -- template fallback ({err[:140]})",
+        }
+
+    def _match_mentors_fallback(self, data: "MatchRequest", err: str = "") -> list:
+        """Return an empty list when all LLM providers are down — the caller
+        can surface a message telling the user to try again later."""
+        return []
+
+    def _geo_analysis_fallback(self, data: "GeoDensityAnalysisRequest", hubs: list, err: str = "") -> dict:
+        """Template-based geo analysis when all LLM providers are down."""
+        city = getattr(data, "city", "khu vực này") or "khu vực này"
+        hub_count = len(hubs) if hubs else 0
+        point_count = len(getattr(data, "points", []) or [])
+        return {
+            "summary": f"Phân tích dựa trên dữ liệu thống kê tĩnh cho {city}: {hub_count} cụm giáo dục, {point_count} điểm.",
+            "density_score": round(hub_count / max(point_count, 1) * 100, 1) if point_count else 50.0,
+            "recommendations": [
+                "Xem xét mở thêm cơ sở giáo dục ở khu vực chưa đủ.",
+                "Tăng cường kết nối giữa các cụm giáo dục hiện có.",
+            ],
+            "_degraded": True,
+            "_reason": f"AI unavailable -- template fallback ({err[:140]})",
+        }
+
+    def _suggestions_fallback(self, err: str = "") -> list:
+        """Template-based career suggestions when all LLM providers are down."""
+        reason = f"AI unavailable -- template fallback ({err[:140]})"
+        return [
+            {"title": "AI Engineer", "description": "Phát triển trí tuệ nhân tạo và học máy.", "match_score": 85, "_degraded": True, "_reason": reason},
+            {"title": "Fullstack Developer", "description": "Phát triển web front-end và back-end.", "match_score": 78, "_degraded": True, "_reason": reason},
+            {"title": "Data Scientist", "description": "Phân tích dữ liệu và khai phá thông tin.", "match_score": 72, "_degraded": True, "_reason": reason},
+        ]
 
 
     async def moderate_text(self, text: str) -> dict:
@@ -1428,10 +1552,11 @@ class LLMService:
             }
 
     async def get_suggestions(self) -> list:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
+        """Generate AI career suggestions. Falls back to template suggestions when all providers are down."""
         try:
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+            prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=512)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
@@ -1439,6 +1564,6 @@ class LLMService:
             return result
         except Exception as e:
             print(f"Error in get_suggestions: {e}")
-            raise RuntimeError(f"Error in get_suggestions: {e}")
+            return self._suggestions_fallback(str(e))
 
 llm_service = LLMService()

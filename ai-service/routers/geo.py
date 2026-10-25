@@ -50,11 +50,15 @@ async def analyze_geo_density(data: GeoDensityAnalysisRequest):
         hubs = cs.identify_education_hubs(points) if points else []
 
         from services.llm_service import llm_service
-        if not llm_service or not llm_service.is_ready:
-            raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        if not llm_service:
+            raise HTTPException(status_code=503, detail="AI Service chưa được khởi tạo.")
         analysis = await llm_service.analyze_geo_density(data, hubs)
 
-        return {"hubs": hubs, "ai_analysis": analysis}
+        # Pass through degraded status if the AI method returned a fallback
+        degraded = analysis.pop("_degraded", False) if isinstance(analysis, dict) else False
+        reason = analysis.pop("_reason", None) if isinstance(analysis, dict) else None
+
+        return {"hubs": hubs, "ai_analysis": analysis, "degraded": degraded, "reason": reason}
     except HTTPException:
         raise
     except Exception as e:

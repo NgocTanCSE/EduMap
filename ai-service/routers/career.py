@@ -14,20 +14,38 @@ class RecommendedCareer(BaseModel):
 class CareerRecommendationResponse(BaseModel):
     user_id: str
     top_careers: List[RecommendedCareer]
+    degraded: Optional[bool] = False
+    reason: Optional[str] = None
 
 @router.post("/recommend", response_model=CareerRecommendationResponse)
 async def recommend_career(data: CareerAnalysisRequest):
-    # Chỉ trả về dữ liệu THẬT từ AI — bỏ mọi danh sách career mẫu fallback
     from services.llm_service import llm_service
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+    if not llm_service:
+        raise HTTPException(status_code=503, detail="AI Service chưa được khởi tạo.")
 
     try:
         ai_results = await llm_service.recommend_career(data)
-        top_careers = [RecommendedCareer(**item) for item in ai_results if item and isinstance(item, dict)]
+        # Detect degraded fallback (fallback items carry _degraded markers)
+        degraded = any(
+            isinstance(item, dict) and item.get("_degraded", False)
+            for item in ai_results
+        )
+        reason = next(
+            (item.get("_reason", "") for item in ai_results
+             if isinstance(item, dict) and "_reason" in item),
+            None,
+        )
+        # Strip internal markers before constructing model objects
+        clean = [
+            {k: v for k, v in item.items() if k not in ("_degraded", "_reason")}
+            for item in ai_results if item and isinstance(item, dict)
+        ]
+        top_careers = [RecommendedCareer(**item) for item in clean]
         return CareerRecommendationResponse(
             user_id=data.user_id,
-            top_careers=top_careers
+            top_careers=top_careers,
+            degraded=degraded,
+            reason=reason,
         )
     except Exception as e:
         print(f"Error in recommend_career: {str(e)}")
