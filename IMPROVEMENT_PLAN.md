@@ -150,18 +150,33 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 
 ## 5. Nhật ký thay đổi (Changelog)
 
-### 2026-10-25 — Fix AI connectivity & auth
+### 2026-10-25 — Fix AI connectivity & auth + Switch to OpenRouter
 
 | File | Thay đổi |
 |------|----------|
-| `ai-service/services/llm_service.py` | Đổi `_generate_text_with_fallback` thử provider theo thứ tự: Gemini → OpenRouter → NVIDIA → Cloudflare/HF (trùng khớp với `chat_with_rag`). Thêm Gemini vào error breakdown. |
+| `ai-service/services/llm_service.py` | **Switch primary LLM provider từ Gemini → OpenRouter** (theo yêu cầu người dùng: "loại bỏ AI của gemini, để lại openrouter"). OpenRouter được thử đầu tiên trong cả `_generate_text_with_fallback` và `chat_with_rag`. |
 | `ai-service/services/llm_service.py` | Fix `_openrouter_generate`: dùng `curl --ipv4 --insecure` thay vì `urllib.request.urlopen` (bypass IPv6 blackhole trên HF Spaces). |
 | `ai-service/services/llm_service.py` | Fix `_nvidia_generate`: dùng `curl --ipv4 --insecure` thay vì `urllib.request.urlopen`. |
-| `frontend/app/api/ai/learning-path/route.ts` | Fix `AI_SERVICE_URL` fallback: `http://ai-service:8000` → `http://127.0.0.1:8000` (đúng với Dockerfile ENV). |
-| `frontend/app/api/ai/learning-path/route.ts` | Ép `user_id: String(userId)` để tránh lỗi 422 Pydantic. |
-| `frontend/app/career/roadmap/page.tsx` | Thêm `Authorization: Bearer ${token}` vào fetch — đây là nguyên nhân chính career/roadmap "gọi AI không được". |
-| `frontend/app/career/quiz/page.tsx` | **XÓA** file (theo yêu cầu người dùng). |
-| `frontend/components/Sidebar.tsx` | XÓA menu "Câu đố nghề nghiệp" → `/career/quiz` và import `HelpCircle` không dùng. |
-| `.env.example` | Thêm `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `NVIDIA_API_KEY`, `NVIDIA_CHAT_MODEL`. |
-| `.env` | Thêm cùng. |
-| `spacers.yaml` | Thêm `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` vào danh sách HF Spaces secrets. |
+| `ai-service/services/llm_service.py` | Xóa block "Phan 0: Google Gemini" khỏi `_cloudflare_generate` (Gemini không còn được gọi ở bất kỳ đâu trong text generation chain). Cập nhật docstrings, error messages, preflight check. |
+| `frontend/app/api/ai/learning-path/route.ts` | Fix `AI_SERVICE_URL` fallback: `http://ai-service:8000` → `http://127.0.0.1:8000`. Ép `user_id: String(userId)`. |
+| `frontend/app/career/roadmap/page.tsx` | Thêm `Authorization: Bearer ${token}` — nguyên nhân chính career/roadmap "gọi AI không được". |
+| `frontend/app/career/quiz/page.tsx` | **XÓA** (theo yêu cầu người dùng). |
+| `frontend/components/Sidebar.tsx` | XÓA menu "Câu đố nghề nghiệp" + import `HelpCircle`. |
+| `.env.example` + `.env` | Thêm `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `NVIDIA_API_KEY`. Cập nhật comment Gemini (giờ là fallback chứ không phải primary). |
+| `spacers.yaml` | `OPENROUTER_API_KEY` lên primary secret (được khuyến nghị). |
+
+### Provider chain sau khi fix
+
+```
+Text Generation (chat, learning-path, summary, career, geo):
+  1. OpenRouter  (curl --ipv4 --insecure) ← PRIMARY
+  2. NVIDIA NIM  (curl --ipv4 --insecure)
+  3. Cloudflare Workers AI (curl) → HF Inference API (curl)
+  4. Template fallback (degraded content)
+
+Embeddings (vector_store.py):
+  1. Gemini (gemini-embedding-001) ← giữ nguyên, không bị ảnh hưởng
+  2. Cloudflare baai/gge-base-en-v1.5
+  3. HuggingFace Inference API
+  4. OpenRouter embeddings (tuỳ chọn)
+```
