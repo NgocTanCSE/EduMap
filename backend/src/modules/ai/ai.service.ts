@@ -8,6 +8,7 @@ import { LearningMaterial } from '../library/entities/learning-material.entity';
 import { Location } from '../map/entities/location.entity';
 
 import { ChatHistory } from './entities/chat-history.entity';
+import { SessionMemoryService } from './session-memory.service';
 
 @Injectable()
 export class AIService {
@@ -20,6 +21,7 @@ export class AIService {
     @InjectRepository(LearningMaterial) private readonly materialRepo: Repository<LearningMaterial>,
     @InjectRepository(Location) private readonly locationRepo: Repository<Location>,
     @InjectRepository(ChatHistory) private readonly historyRepo: Repository<ChatHistory>,
+    private readonly sessionMemory: SessionMemoryService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
   }
@@ -39,6 +41,27 @@ export class AIService {
       });
     } catch (error: any) {
       this.logger.warn(`Failed to trigger AI knowledge sync: ${error.message}`);
+    }
+  }
+
+  /**
+   * TỰ ĐỘNG NHÚNG (Embed) một tài liệu mới (sách / địa điểm) vào Vector DB.
+   * Gọi ngay khi có sách hay địa điểm mới — thay thế triggerKnowledgeSync()
+   * (full re-sync) bằng một phép nhúng độc lập, tăng tốc và không tốn tài nguyên.
+   */
+  async embedDocument(docText: string, metadata: Record<string, any>, docId: string): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${this.aiServiceUrl}/api/ai/embed`,
+          { text: docText, metadata, id: docId },
+          { timeout: 15000 }
+        )
+      );
+      this.logger.log(`[Auto-Embed] Document '${docId}' embedded into vector DB.`);
+    } catch (error: any) {
+      // Không làm gián đoạn luồng tạo — chỉ log cảnh báo
+      this.logger.warn(`[Auto-Embed] Failed to embed '${docId}': ${error.message}`);
     }
   }
 
@@ -148,17 +171,70 @@ export class AIService {
   /**
    * Builds the dynamic system context (available books + educational locations)
    * that is sent to the ai-service and stored alongside chat history.
-   * Shared by chat() (non-streaming) and chatStream() (SSE) so both paths
-   * produce identical system-context and persisted history records.
+   *
+   * CHANGED: Instead of always fetching the top-5 materials by view_count and
+   * top-10 locations (hardcoded, query-agnostic), this method now does
+   * **query-relevant** retrieval:
+   *   1. Search materials whose title/description match the user's message
+   *      (keyword filter), falling back to top-viewed if no match.
+   *   2. Search locations whose name/address match the message, with a
+   *      preference for locations discussed in the current session
+   *      (via SessionMemoryService.getSessionContext).
+   *   3. Include session topics as extra context so the LLM can reference
+   *      what's already been discussed in this conversation.
+   * This reduces token waste and improves RAG relevance.
    */
   private async _buildSystemContext(message: string, context: any): Promise<any> {
+    const sessionContext = this.sessionMemory.getSessionContext(context?.session_id || '');
+    const sessionTopics = sessionContext.topics;
+
+    // Build a keyword from the user message + session topics
+    // e.g. "tìm học bổng" + ["học bổng", "trường"] → search terms
+    const msgLower = (message || '').toLowerCase();
+    const searchTerms = [...sessionTopics, ...(message ? [message] : [])]
+      .join(' ')
+      .toLowerCase();
+
+    // --- Query-relevant materials ---
     let materials: any[] = [];
     let points: any[] = [];
     try {
-      [materials, points] = await Promise.all([
-        this.materialRepo.find({ take: 5, order: { view_count: 'DESC' } }),
-        this.locationRepo.find({ take: 10, where: { status: 'active' }, relations: ['category'] }),
+      const normQuery = `%${(message || '').trim()}%`;
+
+      // If the message contains domain keywords, do a keyword search;
+      // otherwise fall back to top-viewed (original behaviour).
+      const hasKeywordMatch = sessionTopics.length > 0 || /hoc|bong|truong|ai|mentor|nganh|lộ trình|wifi|stem|thuvien|sach/i.test(msgLower);
+
+      const [materialsResult, pointsResult] = await Promise.all([
+        hasKeywordMatch
+          ? this.materialRepo
+              .createQueryBuilder('material')
+              .where(
+                'material.deleted_at IS NULL AND ' +
+                '(LOWER(material.title) LIKE LOWER(:q) OR LOWER(material.description) LIKE LOWER(:q))',
+                { q: `%${searchTerms}%` }
+              )
+              .orderBy('material.view_count', 'DESC')
+              .take(5)
+              .getMany()
+          : this.materialRepo.find({ take: 5, order: { view_count: 'DESC' } }),
+
+        hasKeywordMatch
+          ? this.locationRepo
+              .createQueryBuilder('location')
+              .leftJoinAndSelect('location.category', 'category')
+              .where(
+                'location.status = :status AND ' +
+                '(LOWER(location.name) LIKE LOWER(:q) OR LOWER(location.address) LIKE LOWER(:q))',
+                { status: 'active', q: `%${searchTerms}%` }
+              )
+              .take(5)
+              .getMany()
+          : this.locationRepo.find({ take: 10, where: { status: 'active' }, relations: ['category'] }),
       ]);
+
+      materials = materialsResult;
+      points = pointsResult;
     } catch (dbError: any) {
       this.logger.error(`Database context error: ${dbError.message}`);
     }
@@ -167,6 +243,7 @@ export class AIService {
       available_books: materials.map((m) => m.title),
       educational_locations: points.map((p) => `${p.name} (${p.category?.display_name}) at ${p.address}`),
       user_message: message,
+      session_topics: sessionTopics,
       ...(context || {}),
     };
   }
@@ -184,9 +261,27 @@ export class AIService {
    * itself. The NestJS SQLite historyRepo is therefore the single source of
    * truth for the streaming conversation session.
    */
-  async chatStream(message: string, history: any[], ctx: any, userId: string, res: any) {
+  async chatStream(message: string, history: any[], ctx: any, userId: string, res: any, sessionId?: string) {
     let sourceStream: any;
     let systemContext: any = ctx || {};
+
+    // --- Session memory integration ---
+    // Get or create a session so we can track conversation topics and
+    // provide query-relevant SQL context (instead of always top-5/top-10).
+    const sid = sessionId || (userId ? `sess_${userId}` : undefined);
+    if (userId) {
+      try {
+        const session = this.sessionMemory.getOrCreateSession(userId, sid);
+        // If client sent no/empty history, use session's recent history
+        if (!history || history.length === 0) {
+          history = this.sessionMemory.getRecentHistory(session.id, 6);
+        }
+        // Ensure _buildSystemContext picks up session topics
+        systemContext = { ...systemContext, session_id: session.id };
+      } catch (e) {
+        this.logger.warn(`Session memory error in chatStream: ${(e as any).message}`);
+      }
+    }
 
     try {
       systemContext = await this._buildSystemContext(message, ctx);
@@ -229,6 +324,10 @@ export class AIService {
         .catch((saveError: any) =>
           this.logger.error(`Error saving streaming chat history: ${saveError.message}`),
         );
+      // Also save to session memory for short-term context
+      if (userId && sid) {
+        this.sessionMemory.addTurn(sid, message, fullReply);
+      }
     };
 
     const safeEnd = () => {
@@ -471,6 +570,10 @@ export class AIService {
           // one growth chart per sector and previously always received [].
           sectors: Array.isArray(data.sectors) ? data.sectors : [],
           trending_skills: Array.isArray(data.trending_skills) ? data.trending_skills : [],
+          // Provenance of the hot-skill list — "adzuna" when extracted from
+          // live Adzuna job postings, "local" from the seeded SQLite jobs
+          // table. Lets the UI report an honest data source.
+          trending_skills_source: data.trending_skills_source || "local",
           insights,
           last_value: lastValue,
         }
@@ -486,8 +589,27 @@ export class AIService {
 
   /**
    * Chatbot AI am hiểu dữ liệu hệ thống (RAG Lite)
+   *
+   * CHANGED: Added sessionId parameter for session-based memory.
+   *   - If sessionId provided, retrieves recent history from the session
+   *     (in-memory) instead of relying solely on the client-sent history.
+   *   - Saves each turn to the session so context persists across messages.
+   *   - Passes session_id to _buildSystemContext for query-relevant context.
    */
-  async chat(message: string, history: any[], context: any, userId?: string) {
+  async chat(message: string, history: any[], context: any, userId?: string, sessionId?: string) {
+    const sid = sessionId || (userId ? `sess_${userId}` : undefined);
+
+    // Get or create a session for memory tracking
+    if (userId) {
+      const session = this.sessionMemory.getOrCreateSession(userId, sid);
+      // If the client didn't send full history, use the session's recent history
+      if (!history || history.length === 0) {
+        history = this.sessionMemory.getRecentHistory(session.id, 6);
+      }
+      // Inject session_id into context so _buildSystemContext can read topics
+      context = { ...(context || {}), session_id: session.id };
+    }
+
     try {
       // 1. Enrich context with system data (shared with chatStream)
       const systemContext = await this._buildSystemContext(message, context);
@@ -519,11 +641,16 @@ export class AIService {
         }
       }
 
+      // 4. Session memory: save the turn for future context
+      if (userId && sid) {
+        this.sessionMemory.addTurn(sid, message, aiReply);
+      }
+
       return response.data;
     } catch (error: any) {
       const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
-      const detail = error?.response?.data?.detail 
-        || error?.response?.data?.message 
+      const detail = error?.response?.data?.detail
+        || error?.response?.data?.message
         || error?.message;
 
       this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);

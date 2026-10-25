@@ -40,7 +40,10 @@ export class LibraryService {
     const params: any = {};
     if (query) {
       params.query = `%${query}%`;
-      qb = qb.andWhere('(material.title ILIKE :query OR material.description ILIKE :query)', params);
+      // Use LIKE + LOWER() instead of ILIKE.
+      // ILIKE is PostgreSQL-only and throws SQLITE_ERROR on SQLite (HF Spaces mode).
+      // LOWER() + LIKE is standard SQL supported by both PostgreSQL and SQLite.
+      qb = qb.andWhere('(LOWER(material.title) LIKE LOWER(:query) OR LOWER(material.description) LIKE LOWER(:query))', params);
     }
     if (category) {
       params.category = category;
@@ -80,8 +83,19 @@ export class LibraryService {
   async create(data: any): Promise<LearningMaterial> {
     const newItem = this.materialRepo.create(data);
     const saved = await this.materialRepo.save(newItem) as unknown as LearningMaterial;
-    // Tự động kích hoạt đồng bộ sang AI Vector Store chạy ngầm
-    this.aiService.triggerKnowledgeSync();
+    // TỰ ĐỘNG NHÚNG (Embed) sách mới vào Vector DB ngay — thay vì triggerKnowledgeSync()
+    // (full re-sync), chỉ nhúng tài liệu vừa tạo để RAG tìm thấy ngay lập tức.
+    const docText = `Tai lieu hoc tap: ${saved.title}. ` +
+      `The loai / Nganh: ${saved.type || saved.subject || 'Chung'}. ` +
+      `Lop / khoi: ${saved.grade || 'Chung'}. ` +
+      `Tac gia (author_id): ${saved.author_id || 'DNTU'}. ` +
+      `Tom tat noi dung: ${saved.description || ''}.`;
+    this.aiService.embedDocument(
+      docText,
+      { title: saved.title, category: 'library', source: 'db_learning_materials',
+        type: saved.type, subject: saved.subject },
+      `material_${saved.id}`
+    );
     return saved;
   }
 }

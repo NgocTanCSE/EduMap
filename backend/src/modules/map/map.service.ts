@@ -508,12 +508,35 @@ export class MapService {
     });
 
     const saved = await this.mapPointRepo.save(point);
+    // TỰ ĐỘNG NHÚNG (Embed) địa điểm/POI mới vào Vector DB ngay — thay vì
+    // trigger full re-sync, chỉ nhúng POI vừa tạo để RAG tìm thấy ngay lập tức.
     try {
-      this.httpService.post(`${this.aiServiceUrl}/api/ai/sync-knowledge?background=true`, {}, { timeout: 3000 }).subscribe({
-        error: (err) => this.logger.warn(`Failed to auto-sync AI knowledge: ${err.message}`),
+      const poiData = this.mapPointToPoi(saved);
+      const categoryName = poiData?.category || data.category || 'Tien ich';
+      const docText = `Dia diem (${categoryName}): ${saved.name}. ` +
+        `Dia chi: ${saved.address || ''}, ${saved.city || ''}. ` +
+        `Thong tin gioi thieu: ${saved.description || 'Dia diem thuoc he thong ban do giao duc EduMap.'}.`;
+      this.httpService.post(
+        `${this.aiServiceUrl}/api/ai/embed`,
+        {
+          text: docText,
+          metadata: {
+            title: saved.name,
+            category: 'location',
+            source: 'db_locations',
+            address: saved.address || '',
+            city: saved.city || '',
+          },
+          id: `location_${saved.id}`,
+        },
+        { timeout: 15000 }
+      ).subscribe({
+        next: () => this.logger.log(`[Auto-Embed] POI '${saved.name}' (id=${saved.id}) embedded into vector DB.`),
+        error: (err: any) => this.logger.warn(`[Auto-Embed] Failed to embed POI '${saved.id}': ${err.message}`),
       });
     } catch (e) {
-      // Ignore background sync trigger error
+      // Không làm gián đoạn luồng tạo — chỉ log cảnh báo
+      this.logger.warn(`Auto-embed POI failed (non-fatal): ${e}`);
     }
     return this.mapPointToPoi(saved)!;
   }
