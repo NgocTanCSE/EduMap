@@ -1143,26 +1143,26 @@ class LLMService:
         
         dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
-        # Ưu tiên Gemini (reachable từ HF Spaces), sau đó NVIDIA NIM / OpenRouter/xkiro,
-        # rồi mới đến Cloudflare/HF (Cloudflare thường bị chặn TLS từ HF Spaces).
-        if self.has_gemini:
-            try:
-                response = await asyncio.to_thread(self._gemini_generate, prompt)
-                return {"insight": response}
-            except Exception as e:
-                print(f"Gemini daily_insight failed: {e}")
-        if self.has_nvidia:
-            try:
-                response = await asyncio.to_thread(self._nvidia_generate, prompt)
-                return {"insight": response}
-            except Exception as e:
-                print(f"NVIDIA NIM daily_insight failed: {e}")
+        # Ưu tiên OpenRouter (provider chính), sau đó NVIDIA NIM / Cloudflare / HF.
+        # Gemini đã bị loại bỏ khỏi chain text generation (chỉ còn dùng cho embeddings).
         if self.has_openrouter:
             try:
                 response = await asyncio.to_thread(self._openrouter_generate, prompt)
                 return {"insight": response}
             except Exception as e:
                 print(f"OpenRouter daily_insight failed: {e}")
+        if self.has_nvidia:
+            try:
+                response = await asyncio.to_thread(self._nvidia_generate, prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"NVIDIA NIM daily_insight failed: {e}")
+        if self.has_gemini:
+            try:
+                response = await asyncio.to_thread(self._gemini_generate, prompt)
+                return {"insight": response}
+            except Exception as e:
+                print(f"Gemini daily_insight failed: {e}")
         if self.has_cf:
             try:
                 response = await asyncio.to_thread(self._cloudflare_generate, prompt)
