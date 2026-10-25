@@ -47,8 +47,12 @@ export default function LibraryPage() {
       else setLoadingMore(true);
 
       const response = await libraryService.searchMaterials(searchQuery, activeTab, undefined, pageNum, 12);
-      const resourcesData = response.data?.items || response.data || response;
-      const meta = response.data?.meta || {};
+      // fetchWithAuth calls unwrapApiResponse which strips the outer { data: ... } wrapper,
+      // so the response can be either:
+      //   - { items: [...], meta: {...} }        (unwrapped — most common)
+      //   - { data: { items: [...], meta: {...} } }  (wrapped — defensive)
+      const resourcesData = response.data?.items || response.items || response;
+      const meta = response.data?.meta || response.meta || {};
 
       if (pageNum === 1) {
         setResources(Array.isArray(resourcesData) ? resourcesData : []);
