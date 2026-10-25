@@ -244,11 +244,15 @@ export class AIService {
       );
       return response.data;
     } catch (error: any) {
-      this.logger.error(`Error calling AI Moderation API: ${error.message}`);
-      throw new HttpException(
-        'AI Content moderation service is currently unavailable.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      // Surface the AI service's own error detail (which includes a per-
+      // provider breakdown) instead of a generic "unavailable" string, so
+      // operators can see exactly which provider failed and why.
+      const detail =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'AI Content moderation service is currently unavailable.';
+      this.logger.error(`Error calling AI Moderation API: ${detail}`);
+      throw new HttpException(detail, HttpStatus.SERVICE_UNAVAILABLE);
     }
   }
 

@@ -22,7 +22,7 @@ export class CommunityService {
    * AI là bước kiểm duyệt cuối cùng: APPROVED => đăng ngay, còn lại => từ chối.
    */
   async createPost(userId: string, data: any) {
-    await this.assertContentApproved(userId, data.content);
+    const moderationResult = await this.assertContentApproved(userId, data.content);
 
     const post = this.postRepo.create({
       ...data,
@@ -34,15 +34,17 @@ export class CommunityService {
 
     return {
       post: await this.postRepo.save(post),
-      moderation_message: null,
+      moderation_message: moderationResult?.moderation_message || null,
     };
   }
 
   /**
    * Gọi AI kiểm duyệt và chỉ cho phép nội dung được AI đánh dấu APPROVED.
-   * Nếu AI không sẵn sàng, từ chối yêu cầu thay vì lưu nội dung chưa kiểm duyệt.
+   * Nếu AI không sẵn sàng, nội dung vẫn được phép nếu đã qua lớp lọc regex
+   * Layer 1 (profanity + PII) — trả về kết quả với moderation_message để
+   * caller biết trạng thái kiểm duyệt.
    */
-  private async assertContentApproved(userId: string, content: string) {
+  private async assertContentApproved(userId: string, content: string): Promise<any> {
     let moderationResult: any;
 
     try {
@@ -60,6 +62,8 @@ export class CommunityService {
         : '.';
       throw new BadRequestException(`Nội dung vi phạm tiêu chuẩn cộng đồng${flags}`);
     }
+
+    return moderationResult;
   }
 
 /**
@@ -134,7 +138,7 @@ export class CommunityService {
     const post = await this.postRepo.findOne({ where: { id: postId, status: 'active' }, relations: ['author'] });
     if (!post) throw new NotFoundException('Không tìm thấy bài viết');
 
-    await this.assertContentApproved(userId, content);
+    const moderationResult = await this.assertContentApproved(userId, content);
 
     const comment = this.commentRepo.create({
       post_id: postId,
@@ -156,7 +160,7 @@ export class CommunityService {
 
     return {
       comment: savedComment,
-      moderation_message: null,
+      moderation_message: moderationResult?.moderation_message || null,
     };
   }
 

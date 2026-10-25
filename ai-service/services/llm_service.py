@@ -106,6 +106,11 @@ class LLMService:
         # Circuit breaker: after a network-level failure, skip Cloudflare for
         # 5 minutes instead of burning 20s on every request.
         self._cf_down_until = 0.0
+        # Circuit breaker for HuggingFace: after a 401/403 (invalid or
+        # expired token), the router fails identically on every call, so skip
+        # HF for 5 minutes instead of wasting the full per-request timeout on
+        # each retry.
+        self._hf_down_until = 0.0
         # --- HuggingFace Inference API fallback (khi Cloudflare ko ket noi duoc tu HF Spaces) ---
         # Check env vars first, then fall back to huggingface_hub library which
         # also reads ~/.huggingface/token, /etc/huggingface/token, HF_HOME, etc.
@@ -494,23 +499,35 @@ class LLMService:
             # end for model in model_candidates
             cf_last_err = last_err
 
+        # If Cloudflare is configured but circuit-broken, the block above was
+        # skipped — record a clear message so the final error does NOT
+        # misleadingly report "không cấu hình" (not configured) when it
+        # actually means "temporarily disabled after a network failure".
+        if self.has_cf and _time.monotonic() < self._cf_down_until and not cf_last_err:
+            cf_last_err = "Tạm thời gián đoạn (thất bại mạng, cooldown 5 phút)"
+
         # --- Phan 2: fallback ve HuggingFace Inference API ---
         # Keep the whole call under the backend's 60s timeout: CF budget + HF
         # timeout must not exceed it, otherwise Nest returns 503 first.
-        if self.has_hf and (_time.monotonic() - request_started) < 28:
+        hf_last_err = None
+        if self.has_hf and (_time.monotonic() - request_started) < 28 and _time.monotonic() >= self._hf_down_until:
             try:
                 result = self._hf_generate(prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p)
                 if result:
                     print(f"  -> HF Inference API generate OK (model={self.hf_model})")
                     return result
             except Exception as e:
+                hf_last_err = str(e)
                 print(f"HF Inference API generate ALSO failed: {e}")
+        elif self.has_hf and _time.monotonic() < self._hf_down_until:
+            hf_last_err = "Tạm thời gián đoạn (circuit breaker — 401/invalid token, cooldown 5 phút)"
+            print("[LLM] HuggingFace circuit breaker active — skipping HF fallback")
 
         raise RuntimeError(
             "Không thể sinh nội dung. "
             f"Gemini: {gemini_last_err or ('không cấu hình' if not self.has_gemini else 'không khả dụng')}, "
-            f"Cloudflare: {cf_last_err or 'không cấu hình'}, "
-            "HuggingFace: không khả dụng hoặc lỗi."
+            f"Cloudflare: {cf_last_err or ('không cấu hình' if not self.has_cf else 'lỗi không xác định')}, "
+            f"HuggingFace: {hf_last_err or ('không cấu hình' if not self.has_hf else 'lỗi kết nối/401')}"
         )
 
     def _hf_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
@@ -524,6 +541,10 @@ class LLMService:
         """
         if not self.has_hf:
             raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API.")
+        # Circuit breaker: after a 401 (invalid token), don't keep retrying.
+        import time as _time
+        if _time.monotonic() < self._hf_down_until:
+            raise RuntimeError("HuggingFace circuit breaker active — token/server error, cooldown 5 phút.")
 
         url = f"{self.hf_router_url}/v1/chat/completions"
         payload = {
@@ -552,6 +573,12 @@ class LLMService:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "ignore")[:300]
+            # 401/403 = invalid, expired, or insufficient-scope token — the
+            # request will fail identically every time, so set a 5-minute
+            # circuit breaker instead of hammering the router on every call.
+            if e.code in (401, 403):
+                self._hf_down_until = _time.monotonic() + 300
+                print(f"[LLM] HuggingFace circuit breaker set (HTTP {e.code}) — skipping HF for 5 minutes")
             raise RuntimeError(f"HF router HTTP {e.code}: {body}")
         except Exception as e:
             raise RuntimeError(f"HF router connection failed: {type(e).__name__}: {e}")
@@ -666,6 +693,76 @@ class LLMService:
         if not text:
             raise RuntimeError(f"NVIDIA NIM returned empty response: {str(data)[:200]}")
         return text
+
+    def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Try all configured LLM providers in priority order.
+
+        Order: OpenRouter → NVIDIA NIM → _cloudflare_generate.
+
+        ``_cloudflare_generate`` already chains Gemini → Cloudflare Workers AI
+        → HuggingFace Inference API internally, so this method only needs to
+        front-load OpenRouter and NVIDIA (which are NOT inside that chain)
+        before delegating to the existing three-provider cascade.
+
+        Returns the first successful text response. If every provider is
+        missing or fails, raises RuntimeError with a per-provider breakdown
+        so the caller (and logs) can see exactly what happened.
+        """
+        import time as _time
+        errors: dict = {}
+
+        # 1. OpenRouter (OpenAI-compatible, external provider)
+        if self.has_openrouter:
+            try:
+                result = self._openrouter_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+                )
+                if result:
+                    print("  -> OpenRouter generate OK")
+                    return result
+            except Exception as e:
+                errors["OpenRouter"] = str(e)
+                print(f"OpenRouter generate failed: {e}")
+
+        # 2. NVIDIA NIM (OpenAI-compatible, external provider)
+        if self.has_nvidia:
+            try:
+                result = self._nvidia_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+                )
+                if result:
+                    print("  -> NVIDIA NIM generate OK")
+                    return result
+            except Exception as e:
+                errors["NVIDIA"] = str(e)
+                print(f"NVIDIA NIM generate failed: {e}")
+
+        # 3. Cloudflare Workers AI (internally chains Gemini → CF → HF)
+        try:
+            result = self._cloudflare_generate(
+                prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+            )
+            if result:
+                print("  -> Cloudflare/HF generate OK")
+                return result
+        except Exception as e:
+            errors["Cloudflare"] = str(e)
+
+        # Build a detailed, per-provider error message.
+        parts = []
+        if not self.has_openrouter:
+            parts.append("OpenRouter: không cấu hình")
+        elif errors.get("OpenRouter"):
+            parts.append(f"OpenRouter: {errors['OpenRouter'][:150]}")
+        if not self.has_nvidia:
+            parts.append("NVIDIA: không cấu hình")
+        elif errors.get("NVIDIA"):
+            parts.append(f"NVIDIA: {errors['NVIDIA'][:150]}")
+        parts.append(
+            f"Cloudflare/Gemini/HF: {errors.get('Cloudflare', 'lỗi không xác định')[:150]}"
+        )
+
+        raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
     def generate_embedding(self, text: str) -> list:
         """Sinh embedding vector qua OpenRouter embedding endpoint.
@@ -874,7 +971,7 @@ class LLMService:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3)
             return response
         except Exception as e:
             raise RuntimeError(f"Error in generate_career_advice: {e}")
@@ -1171,7 +1268,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             
             if result and isinstance(result, list):
@@ -1213,7 +1310,7 @@ class LLMService:
         Chỉ trả về JSON.
         """
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=2048, top_p=0.8)
             result = self._extract_json(response)
             
             if result:
@@ -1244,7 +1341,7 @@ class LLMService:
         Trả về JSON: {{summary, density_score, recommendations: []}}
         """
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho analyze_geo_density.")
@@ -1259,7 +1356,7 @@ class LLMService:
         
         prompt = f"Tóm tắt tài liệu: {data.title}. Trả về JSON: {{summary, key_concepts: []}}"
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=512)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho summarize_material.")
@@ -1274,7 +1371,7 @@ class LLMService:
         
         prompt = f"Ghép nối mentor cho sinh viên. Request: {data.json()}. Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho match_mentors.")
@@ -1285,9 +1382,15 @@ class LLMService:
 
 
     async def moderate_text(self, text: str) -> dict:
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
-        
+        """Moderate user-generated content.
+
+        Uses the full provider cascade (OpenRouter -> NVIDIA -> Cloudflare ->
+        Gemini -> HF). When EVERY provider is unavailable at runtime, returns a
+        conservative safe result (rather than raising) so the community
+        router can keep operating. Content reaching this method has already
+        passed the regex Layer-1 pre-filter in ``moderation.py`` which catches
+        profanity and PII -- the degraded path simply trusts that pre-filter.
+        """
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
         Hãy phân tích văn bản sau: "{text}"
@@ -1295,27 +1398,41 @@ class LLMService:
         Các tiêu chí vi phạm:
         1. Ngôn từ thù ghét, thô tục, xúc phạm.
         2. Quảng cáo rác (Spam) không liên quan đến giáo dục.
-        3. Các liên kết (links) có dấu hiệu lừa đảo hoặc mã độc.
+        3. Các liên kết (links) có dấu hiệu lừa đảm hoặc mã độc.
         4. Nội dung nhạy cảm hoặc không phù hợp với môi trường học đường.
         
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            response = await asyncio.to_thread(
+                self._generate_text_with_fallback, prompt,
+                temperature=0.3, max_tokens=512, top_p=0.8,
+            )
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho moderate_text.")
             return result
         except Exception as e:
             print(f"Error in moderate_text: {e}")
-            raise RuntimeError(f"Error in moderate_text: {e}")
+            # Graceful degradation: all AI providers unavailable. Content was
+            # already pre-filtered by regex Layer 1 (profanity + PII) in the
+            # moderation router, so approve with low confidence instead of
+            # blocking every community post during an AI outage.
+            return {
+                "is_safe": True,
+                "confidence": 0.3,
+                "flags": [],
+                "reason": f"AI unavailable -- passed regex pre-filter only ({str(e)[:140]})",
+            }
 
     async def get_suggestions(self) -> list:
         if not self.is_ready:
             raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
         prompt = "Generate an array of 3 AI career suggestions. Each suggestion should be a JSON object with fields: title, description, match_score (0-100)."
         try:
-            response = await asyncio.to_thread(self._cloudflare_generate, prompt)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=512)
             result = self._extract_json(response)
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho get_suggestions.")
