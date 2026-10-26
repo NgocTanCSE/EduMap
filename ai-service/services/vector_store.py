@@ -103,8 +103,16 @@ class VectorStoreService:
         # Circuit breaker for NVIDIA NIM embeddings: 5-min cooldown after a failure.
         self._nvidia_embed_down_until = 0.0
 
+        # --- Shanghai AI Laboratory (01.ai / Kimi) embedding ---
+        self.kimi_key = (os.getenv("KIMI_API_KEY") or "").strip().strip('"').strip("'")
+        self.kimi_base = os.getenv("KIMI_BASE_URL", "https://api.01.ai/v1").rstrip("/")
+        self.kimi_embed_model = os.getenv("KIMI_EMBEDDING_MODEL", "kimi-embedding-0812")
+        self.kimi_timeout = float(os.getenv("KIMI_TIMEOUT_SECONDS", "30"))
+        self.has_kimi_api = bool(self.kimi_key) and bool(self.kimi_embed_model)
+        self._kimi_embed_down_until = 0.0
+
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
-        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_openrouter_api or self.has_nvidia_api
+        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_openrouter_api or self.has_nvidia_api or self.has_kimi_api
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
@@ -130,6 +138,8 @@ class VectorStoreService:
             print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-base-en-v1.5")
         if self.has_hf_api:
             print(f"INFO: HuggingFace Inference API fallback enabled with model={self.hf_embedding_model}")
+        if self.has_kimi_api:
+            print(f"INFO: Shanghai AI Laboratory (01.ai / Kimi) embeddings enabled with model={self.kimi_embed_model}")
 
         # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
@@ -592,6 +602,91 @@ class VectorStoreService:
             raise RuntimeError(f"NVIDIA embedding returned empty vector: {str(data)[:200]}")
         return [float(x) for x in vec]
 
+    def _kimi_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
+        """Get embedding from Shanghai AI Lab (01.ai / Kimi) — OpenAI-compatible /embeddings.
+
+        Uses curl (OpenSSL TLS) for HF Spaces compatibility.
+        Circuit breaker: 5-min cooldown after 401 or network failure.
+        """
+        if not self.has_kimi_api:
+            raise RuntimeError("KIMI_API_KEY + KIMI_EMBEDDING_MODEL not set — cannot use 01.ai embedding.")
+        import time as _ki_time
+        if _ki_time.monotonic() < getattr(self, "_kimi_embed_down_until", 0.0):
+            raise RuntimeError("01.ai (Kimi) embeddings temporarily disabled (circuit breaker, 5 min cooldown).")
+
+        url = f"{self.kimi_base}/embeddings"
+        payload = json.dumps({"model": self.kimi_embed_model, "input": text}).encode("utf-8")
+        _ki_timeout = timeout_override or self.kimi_timeout
+
+        try:
+            proc = subprocess.run(
+                ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                 "-H", f"Authorization: Bearer {self.kimi_key}",
+                 "-H", "Content-Type: application/json",
+                 "-H", "Accept: application/json",
+                 "-d", payload.decode("utf-8"),
+                 "--connect-timeout", "4",
+                 "--max-time", str(_ki_timeout), url],
+                capture_output=True, text=True, timeout=_ki_timeout + 2,
+            )
+        except Exception as e:
+            self._kimi_embed_down_until = _ki_time.monotonic() + 300
+            raise RuntimeError(f"01.ai embedding connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
+            _stdout = (proc.stdout or "").strip()
+            if _stdout:
+                try:
+                    _partial = json.loads(_stdout)
+                    if isinstance(_partial, dict):
+                        if "error" in _partial:
+                            _eno = _partial["error"]
+                            if isinstance(_eno, dict):
+                                _msg = str(_eno.get("message", _stdout[:120]))
+                                _code = int(_eno.get("code") or 0)
+                            else:
+                                _msg = str(_eno)
+                                _code = 0
+                            _low = _msg.lower()
+                            if _code in (401, 403) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
+                                self._kimi_embed_down_until = _ki_time.monotonic() + 300
+                                raise RuntimeError(f"01.ai embedding auth error (HTTP {_code}): {_msg[:200]}")
+                            err = f"{err} | body: {_msg[:120]}"
+                except json.JSONDecodeError:
+                    pass
+            self._kimi_embed_down_until = _ki_time.monotonic() + 300
+            raise RuntimeError(f"01.ai embedding connection failed: {err}")
+
+        try:
+            data = json.loads(proc.stdout or "{}")
+        except Exception:
+            raise RuntimeError(f"01.ai embedding invalid JSON: {(proc.stdout or '')[:200]}")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            if code in (401, 403) or "api key" in message.lower() or "invalid" in message.lower():
+                self._kimi_embed_down_until = _ki_time.monotonic() + 300
+                raise RuntimeError(f"01.ai embedding auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                self._kimi_embed_down_until = _ki_time.monotonic() + 300
+                raise RuntimeError(f"01.ai embedding rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"01.ai embedding API error (HTTP {code}): {message[:200]}")
+
+        try:
+            vec = data["data"][0]["embedding"]
+        except (KeyError, IndexError, TypeError):
+            raise RuntimeError(f"01.ai embedding returned unexpected format: {str(data)[:200]}")
+        if not isinstance(vec, list) or not vec:
+            raise RuntimeError(f"01.ai embedding returned empty vector: {str(data)[:200]}")
+        return [float(x) for x in vec]
+
     def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
         """Cache a successfully computed embedding with TTL + FIFO-LRU eviction.
 
@@ -899,13 +994,36 @@ class VectorStoreService:
                 except Exception as e:
                     print(f"NVIDIA NIM embedding ALSO failed: {e}")
 
+        # --- Phan 4: fallback ve 01.ai (Shanghai AI Laboratory) embedding ---
+        if self.has_kimi_api:
+            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping 01.ai fallback")
+            else:
+                try:
+                    _ki_remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
+                    vec = self._kimi_get_embedding(text, timeout_override=max(3, _ki_remaining))
+                    vec = [float(x) for x in vec]
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        print(f"01.ai embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        if len(vec) > self._embed_dim:
+                            vec = vec[:self._embed_dim]
+                        else:
+                            vec = vec + [0.0] * (self._embed_dim - len(vec))
+                    self._embed_dim = len(vec)
+                    print(f"  -> 01.ai (Kimi) embedding OK (dim={len(vec)})")
+                    self._store_embed_cache(_cache_key, vec)
+                    return vec
+                except Exception as e:
+                    print(f"01.ai (Kimi) embedding ALSO failed: {e}")
+
         raise RuntimeError(
             "Khong the lay embedding. "
             f"OpenRouter: {or_last_err or ('khong cau hinh' if not self.has_openrouter_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
             f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
             f"HF: {'khong cau hinh' if not self.has_hf_api else 'that bai'}, "
-            f"NVIDIA: {'khong cau hinh' if not self.has_nvidia_api else 'that bai'}"
+            f"NVIDIA: {'khong cau hinh' if not self.has_nvidia_api else 'that bai'}, "
+            f"01.ai: {'khong cau hinh' if not self.has_kimi_api else 'that bai'}"
         )
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):

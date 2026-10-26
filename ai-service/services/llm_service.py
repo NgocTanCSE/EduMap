@@ -180,8 +180,18 @@ class LLMService:
         # Circuit breaker: after a network/TLS failure or 401 from NVIDIA NIM,
         # skip it for 5 minutes instead of burning the curl timeout on every retry.
         self._nvidia_down_until = 0.0
-        # is_ready = True neu co bat ky nhanh LLM nao (OpenRouter / Gemini / Cloudflare / HF / NVIDIA)
-        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia
+        # --- Shanghai AI Laboratory (01.ai / Kimi) — OpenAI-compatible ---
+        self.kimi_key = (os.getenv("KIMI_API_KEY") or "").strip().strip('"').strip("'")
+        self.kimi_base = os.getenv("KIMI_BASE_URL", "https://api.01.ai/v1").rstrip("/")
+        self.kimi_model = os.getenv("KIMI_MODEL", "kore-gpt-9b")
+        self.kimi_timeout = float(os.getenv("KIMI_TIMEOUT_SECONDS", "30"))
+        self.has_kimi = bool(self.kimi_key)
+        self.kimi_embed_model = os.getenv("KIMI_EMBEDDING_MODEL", "kimi-embedding-0812")
+        self.has_kimi_embed = bool(self.kimi_key) and bool(self.kimi_embed_model)
+        self._kimi_down_until = 0.0
+        self._kimi_embed_down_until = 0.0
+        # is_ready = True neu co bat ky nhanh LLM nao (OpenRouter / Gemini / Cloudflare / HF / NVIDIA / Kimi)
+        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia or self.has_kimi
         if self.has_openrouter:
             print(f"INFO: OpenRouter la provider CHINH (primary). Model={self.openrouter_model}")
         elif self.has_gemini:
@@ -196,6 +206,10 @@ class LLMService:
             print(f"INFO: HF_TOKEN detected (len={len(self.hf_token)}, prefix={self.hf_token[:3]}...)")
         if self.has_cf:
             print(f"CLOUDFLARE_MODEL: {self.model_name}")
+        if self.has_kimi:
+            print(f"INFO: Shanghai AI Laboratory (01.ai / Kimi) enabled (secondary provider). Model={self.kimi_model}")
+        if self.has_nvidia:
+            print(f"INFO: NVIDIA NIM enabled (secondary provider). Model={self.nvidia_chat_model}")
         # --- Adzuna API (job market data — LLM-independent trends) ---
         self.adzuna_app_id = os.getenv("ADZUNA_APP_ID")
         self.adzuna_app_key = os.getenv("ADZUNA_APP_KEY")
@@ -864,13 +878,113 @@ class LLMService:
             raise RuntimeError(f"NVIDIA NIM returned empty response: {str(data)[:200]}")
         return text
 
+    def _kimi_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Gọi Shanghai AI Laboratory (01.ai / Kimi) chat completions API.
+
+        Endpoint: https://api.01.ai/v1/chat/completions (OpenAI-compatible format).
+        Yêu cầu: KIMI_API_KEY.
+        Uses curl --ipv4 --insecure for HF Spaces compatibility.
+        """
+        if not self.has_kimi:
+            raise RuntimeError("KIMI_API_KEY not set — cannot use Kimi.")
+        import time as _kt
+        if _kt.monotonic() < self._kimi_down_until:
+            raise RuntimeError("Kimi (01.ai) temporarily disabled after a network failure (circuit breaker, 5 min cooldown).")
+        url = f"{self.kimi_base}/chat/completions"
+        payload = {
+            "model": self.kimi_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": int(max_tokens or 1024),
+            "temperature": float(temperature),
+            "stream": False,
+        }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        body_json = json.dumps(payload).encode("utf-8")
+        try:
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.kimi_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: application/json",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.kimi_timeout),
+                    url,
+                ],
+                capture_output=True, text=True, timeout=self.kimi_timeout + 2,
+            )
+        except Exception:
+            import time as _kt2
+            self._kimi_down_until = _kt2.monotonic() + 300
+            raise RuntimeError(f"Kimi (01.ai) connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            _err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            # Try parsing partial stdout for auth/rate-limit error details
+            _stdout = (proc.stdout or "").strip()
+            if _stdout:
+                try:
+                    _partial = json.loads(_stdout)
+                    if isinstance(_partial, dict) and _partial.get("error"):
+                        _eno = _partial["error"]
+                        if isinstance(_eno, dict):
+                            _code = int(_eno.get("code") or 0)
+                            _msg = str(_eno.get("message", _stdout[:120]))
+                        else:
+                            _code = 0
+                            _msg = str(_eno)
+                        low = _msg.lower()
+                        if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
+                            self._kimi_down_until = _kt.monotonic() + 300
+                            raise RuntimeError(f"Kimi (01.ai) auth error (HTTP {_code}): {_msg[:200]}")
+                        _err = f"{_err} | body: {_msg[:120]}"
+                except json.JSONDecodeError:
+                    pass
+            self._kimi_down_until = _kt.monotonic() + 300
+            raise RuntimeError(f"Kimi (01.ai) curl failed: {_err}")
+
+        try:
+            data = json.loads(proc.stdout or "{}")
+        except Exception:
+            raise RuntimeError(f"Kimi (01.ai) returned invalid JSON: {(proc.stdout or '')[:200]}")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            low = message.lower()
+            if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
+                self._kimi_down_until = _kt.monotonic() + 300
+                raise RuntimeError(f"Kimi (01.ai) auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                self._kimi_down_until = _kt.monotonic() + 300
+                raise RuntimeError(f"Kimi (01.ai) rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"Kimi (01.ai) API error (HTTP {code}): {message[:200]}")
+
+        text = ""
+        try:
+            text = data["choices"][0]["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError):
+            if isinstance(data, dict):
+                text = data.get("generated_text") or ""
+        text = str(text).strip()
+        if not text:
+            raise RuntimeError(f"Kimi (01.ai) returned empty response: {str(data)[:200]}")
+        return text
+
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Try all configured LLM providers in priority order.
 
-        Order: OpenRouter → NVIDIA NIM → _cloudflare_generate (Cloudflare/HF).
+        Order: OpenRouter → NVIDIA NIM → Shanghai AI Lab (Kimi) → Cloudflare/HF.
 
         OpenRouter is the primary provider (uses curl --ipv4 --insecure for
-        HF Spaces compatibility). NVIDIA follows, then the three-provider
+        HF Spaces compatibility). NVIDIA and Kimi follow, then the three-provider
         Cloudflare/HF cascade.
 
         Returns the first successful text response. If every provider is
@@ -906,7 +1020,20 @@ class LLMService:
                 errors["NVIDIA"] = str(e)
                 print(f"NVIDIA NIM generate failed: {e}")
 
-        # 3. Cloudflare Workers AI / HF (internally chains CF → HF as fallback)
+        # 3. Shanghai AI Laboratory (01.ai / Kimi) — OpenAI-compatible
+        if self.has_kimi:
+            try:
+                result = self._kimi_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+                )
+                if result:
+                    print("  -> Kimi (01.ai) generate OK")
+                    return result
+            except Exception as e:
+                errors["Kimi"] = str(e)
+                print(f"Kimi (01.ai) generate failed: {e}")
+
+        # 4. Cloudflare Workers AI / HF (internally chains CF → HF as fallback)
         try:
             result = self._cloudflare_generate(
                 prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
@@ -927,6 +1054,10 @@ class LLMService:
             parts.append("NVIDIA: không cấu hình")
         elif errors.get("NVIDIA"):
             parts.append(f"NVIDIA: {errors['NVIDIA'][:150]}")
+        if not self.has_kimi:
+            parts.append("Kimi(01.ai): không cấu hình")
+        elif errors.get("Kimi"):
+            parts.append(f"Kimi(01.ai): {errors['Kimi'][:150]}")
         parts.append(
             f"Cloudflare/HF: {errors.get('Cloudflare', 'lỗi không xác định')[:150]}"
         )

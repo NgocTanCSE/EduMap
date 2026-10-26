@@ -115,7 +115,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261025-fix-openrouter-timeout+cf-embed-curl+hf-token-chain
+ARG CACHEBUST=20261025_kimi-provider_01ai
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -158,6 +158,14 @@ ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
 # Override via HF Spaces secrets if a different model is preferred.
 ENV OPENROUTER_EMBEDDING_MODEL=text-embedding-3-small
 ENV OPENROUTER_TIMEOUT_SECONDS=15
+# --- Shanghai AI Laboratory (01.ai / Kimi) — secondary LLM + embedding provider ---
+# Set KIMI_API_KEY as an HF Spaces Secret to enable Kimi as a fallback provider.
+# kore-gpt-9b is the standard Kimi chat model; kimi-embedding-0812 is the
+# OpenAI-compatible embedding model (768-dim, same as multilingual-e5-base).
+ENV KIMI_BASE_URL=https://api.01.ai/v1
+ENV KIMI_MODEL=kore-gpt-9b
+ENV KIMI_EMBEDDING_MODEL=kimi-embedding-0812
+ENV KIMI_TIMEOUT_SECONDS=30
 # Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous
 # Space revision (whose *.bin files may have been partially excluded by upload
 # ignore_patterns) can never block or crash the AI service at startup.

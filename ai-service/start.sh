@@ -32,7 +32,8 @@ ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
 GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
 CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED \
 OPENROUTER_API_KEY OPENROUTER_MODEL OPENROUTER_BASE_URL OPENROUTER_EMBEDDING_MODEL OPENROUTER_TIMEOUT_SECONDS \
-NVIDIA_API_KEY NIM_API_KEY NVIDIA_BASE_URL NVIDIA_CHAT_MODEL NVIDIA_EMBED_MODEL NVIDIA_TIMEOUT_SECONDS"
+NVIDIA_API_KEY NIM_API_KEY NVIDIA_BASE_URL NVIDIA_CHAT_MODEL NVIDIA_EMBED_MODEL NVIDIA_TIMEOUT_SECONDS \
+KIMI_API_KEY KIMI_BASE_URL KIMI_MODEL KIMI_EMBEDDING_MODEL KIMI_TIMEOUT_SECONDS"
     for var in $SECRET_VARS; do
         if [ -z "${!var}" ]; then
             val=$(echo "$PARENT_ENV" | grep "^${var}=" | head -1 | cut -d= -f2-)
@@ -65,6 +66,7 @@ echo "AI service env check:"
 echo "[ -n "$HF_TOKEN" ] && echo "  HF_TOKEN: ✓ set" || echo "  HF_TOKEN: ✗ NOT set"
 [ -n "$HF_API_TOKEN" ] && echo "  HF_API_TOKEN: ✓ set" || echo "  HF_API_TOKEN: ✗ NOT set"
 [ -n "$NVIDIA_API_KEY" ] && echo "  NVIDIA_API_KEY: ✓ set" || echo "  NVIDIA_API_KEY: ✗ NOT set"
+[ -n "$KIMI_API_KEY" ] && echo "  KIMI_API_KEY: ✓ set (Shanghai AI Laboratory / 01.ai, secondary provider)" || echo "  KIMI_API_KEY: ✗ NOT set"
 
 # ── Launch AI service ───────────────────────────────────────────────────────
 exec $PY -m uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5
