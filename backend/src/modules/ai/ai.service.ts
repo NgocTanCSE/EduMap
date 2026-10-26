@@ -283,36 +283,65 @@ export class AIService {
       }
     }
 
+    // Build system context ONCE — it depends only on the message + DB state,
+    // not on the ai-service being available. Building it inside the retry loop
+    // would wastefully re-run database queries on every failed attempt.
+    try {
+      systemContext = await this._buildSystemContext(message, systemContext);
+    } catch (ctxError: any) {
+      this.logger.warn(`Error building system context for chatStream: ${ctxError.message}`);
+    }
+
     // Retry loop: ai-service may be restarting after an HF Spaces secret change
-    // (Space restart causes ~30-60s downtime). Retry up to 3 times with 2s
-    // backoff before giving up with 503.
+    // (Space restart causes ~30-60s downtime) or may still be initializing
+    // (Python imports + ChromaDB seeding + LLM provider preflight can take
+    // 10-15s on a cold start). Retry up to 7 times with 3s backoff before
+    // giving up with 503 — the previous 3×2s (6s) was too short for HF Spaces
+    // cold starts, causing spurious 503s on first user request after deploy.
     let lastError: any;
     let response: any;
-    const maxRetries = 3;
+    const maxRetries = 7;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        systemContext = await this._buildSystemContext(message, ctx);
+        // Per-attempt timeout: 10s (was 15s). A hung ai-service should not
+        // block the stream for 15s per retry; 10s × 7 ≈ 70s ceiling which
+        // still fits within typical reverse-proxy timeouts.
         response = await this.httpService.axiosRef.post(
           `${this.aiServiceUrl}/api/ai/chat/stream`,
           { message, history, context: systemContext, user_id: userId },
-          { responseType: 'stream', timeout: 15000 },
+          { responseType: 'stream', timeout: 10000 },
         );
         sourceStream = response.data;
         break; // success
       } catch (error: any) {
         lastError = error;
+
+        // Retryable errors:
+        //  - ECONNREFUSED / ECONNRESET / EAI_AGAIN: ai-service process not
+        //    yet listening (cold start, crash-restart cycle, Space restart).
+        //  - HTTP 503 from ai-service: uvicorn is up but llm_service.is_ready
+        //    is False (no API keys configured yet, or all providers down).
+        //    On HF Spaces the Space may have just restarted and env vars
+        //    (secrets) are still being injected into the process environ.
         const isConnRefused = error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
           || (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
-        if (attempt < maxRetries && isConnRefused) {
-          this.logger.warn(`AI service not ready (attempt ${attempt}/${maxRetries}), retrying in 2s...`);
-          await new Promise((r) => setTimeout(r, 2000));
+        const isServiceUnavailable = error.response && error.response.status === 503;
+        const isRetryable = isConnRefused || isServiceUnavailable;
+
+        if (attempt < maxRetries && isRetryable) {
+          this.logger.warn(`AI service not ready (attempt ${attempt}/${maxRetries}), retrying in 3s...`);
+          await new Promise((r) => setTimeout(r, 3000));
           continue;
         }
         // Non-retryable error or exhausted retries
         if (!res.headersSent) {
+          const detail = lastError.response?.data?.detail
+            || lastError.response?.data?.message
+            || lastError.message
+            || 'Connection refused — ai-service may be restarting.';
           res.status(503).json({
             message: 'AI streaming service is unavailable.',
-            detail: lastError.message || 'Connection refused — ai-service may be restarting.',
+            detail: detail,
           });
         }
         return;
@@ -631,59 +660,85 @@ export class AIService {
       context = { ...(context || {}), session_id: session.id };
     }
 
-    try {
-      // 1. Enrich context with system data (shared with chatStream)
-      const systemContext = await this._buildSystemContext(message, context);
+    // 1. Enrich context with system data (shared with chatStream)
+    const systemContext = await this._buildSystemContext(message, context);
 
-      // 2. Gửi sang AI Service
-      const response = await firstValueFrom(
-        this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, {
-          user_id: userId,
-          message: message,
-          history: history,
-          context: systemContext,
-        }, { timeout: 60000 })  // 60s — AI service self-bounds CF+HF attempts to ~50s so its template fallback still fits
-      );
-
-      const aiReply = response.data.reply || response.data.message;
-
-      // 3. Persistent: Lưu vào Database nếu có userId
-      if (userId) {
-        try {
-          const newChat = this.historyRepo.create({
-            userId: userId,
+    // 2. Gửi sang AI Service — with retry for transient ai-service unavailability
+    //    (HF Spaces cold start, Space restart, secret rotation). Mirrors the
+    //    retry logic in chatStream but uses firstValueFrom (non-streaming).
+    let lastError: any;
+    let response: any;
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        response = await firstValueFrom(
+          this.httpService.post(`${this.aiServiceUrl}/api/ai/chat`, {
+            user_id: userId,
             message: message,
-            response: aiReply,
+            history: history,
             context: systemContext,
-          });
-          await this.historyRepo.save(newChat);
-        } catch (saveError) {
-          this.logger.error(`Error saving chat history: ${saveError.message}`);
+          }, { timeout: 60000 })  // 60s — AI service self-bounds CF+HF attempts to ~50s so its template fallback still fits
+        );
+        break; // success
+      } catch (error: any) {
+        lastError = error;
+
+        // Retryable: connection refused (ai-service not listening) or 503
+        // (ai-service up but llm_service.is_ready is False — common right
+        // after an HF Spaces Space restart when secrets are being injected).
+        const isConnRefused = error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
+          || (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')))
+          || (error.message && error.message.includes('ETIMEDOUT'));
+        const isServiceUnavailable = error.response && error.response.status === 503;
+        const isRetryable = isConnRefused || isServiceUnavailable;
+
+        if (attempt < maxRetries && isRetryable) {
+          this.logger.warn(`AI chat service not ready (attempt ${attempt}/${maxRetries}), retrying in 2s...`);
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
         }
+
+        // Exhausted retries or non-retryable error — fall through to throw
+        const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
+        const detail = error?.response?.data?.detail
+          || error?.response?.data?.message
+          || error?.message;
+
+        this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);
+
+        if (error?.response?.data?.detail) {
+          throw new HttpException(error.response.data.detail, status);
+        }
+
+        throw new HttpException(
+          detail || 'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and CLOUDFLARE_API_TOKEN are configured correctly.',
+          status,
+        );
       }
-
-      // 4. Session memory: save the turn for future context
-      if (userId && sid) {
-        this.sessionMemory.addTurn(sid, message, aiReply);
-      }
-
-      return response.data;
-    } catch (error: any) {
-      const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
-      const detail = error?.response?.data?.detail
-        || error?.response?.data?.message
-        || error?.message;
-
-      this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);
-
-      if (error?.response?.data?.detail) {
-        throw new HttpException(error.response.data.detail, status);
-      }
-
-      throw new HttpException(
-        detail || 'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and CLOUDFLARE_API_TOKEN are configured correctly.',
-        status,
-      );
     }
+
+    const aiReply = response.data.reply || response.data.message;
+
+    // 3. Persistent: Lưu vào Database nếu có userId
+    if (userId) {
+      try {
+        const newChat = this.historyRepo.create({
+          userId: userId,
+          message: message,
+          response: aiReply,
+          context: systemContext,
+        });
+        await this.historyRepo.save(newChat);
+      } catch (saveError: any) {
+        this.logger.error(`Error saving chat history: ${saveError.message}`);
+      }
+    }
+
+    // 4. Session memory: save the turn for future context
+    if (userId && sid) {
+      this.sessionMemory.addTurn(sid, message, aiReply);
+    }
+
+    return response.data;
   }
 }

@@ -831,7 +831,7 @@ class LLMService:
                 ],
                 capture_output=True, text=True, timeout=self.nvidia_timeout + 2,
             )
-        except Exception:
+        except Exception as e:
             import time as _time_ext
             self._nvidia_down_until = _time_ext.monotonic() + 300
             raise RuntimeError(f"NVIDIA NIM connection failed: {type(e).__name__}: {e}")
@@ -915,7 +915,7 @@ class LLMService:
                 ],
                 capture_output=True, text=True, timeout=self.kimi_timeout + 2,
             )
-        except Exception:
+        except Exception as e:
             import time as _kt2
             self._kimi_down_until = _kt2.monotonic() + 300
             raise RuntimeError(f"Kimi (01.ai) connection failed: {type(e).__name__}: {e}")

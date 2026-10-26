@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { of, throwError } from 'rxjs';
 import { AIService } from './ai.service';
+import { SessionMemoryService } from './session-memory.service';
 
 describe('AIService', () => {
   let service: AIService;
@@ -19,12 +20,26 @@ describe('AIService', () => {
     const mockConfigService = {
       get: jest.fn().mockReturnValue('http://127.0.0.1:8000'),
     };
+    const mockSessionMemory = {
+      getOrCreateSession: jest.fn().mockReturnValue({
+        id: 'sess_test',
+        userId: 'user-123',
+        messages: [],
+        topics: [],
+        preferredContext: {},
+      }),
+      getRecentHistory: jest.fn().mockReturnValue([]),
+      getSessionContext: jest.fn().mockReturnValue({ topics: [], preferredContext: {} }),
+      addTurn: jest.fn(),
+      endSession: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AIService,
         { provide: HttpService, useValue: mockHttpService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: SessionMemoryService, useValue: mockSessionMemory },
         { provide: 'LearningMaterialRepository', useValue: {} },
         { provide: 'LocationRepository', useValue: {} },
         { provide: 'ChatHistoryRepository', useValue: {} },
@@ -232,6 +247,10 @@ describe('AIService', () => {
       );
     });
 
+    // With the increased retry count (7 attempts × 3s backoff), a fully
+    // unreachable ai-service takes ~18s before giving up with 503.
+    // Jest's default 5s timeout is insufficient — use 30s to accommodate
+    // the retry-with-backoff logic tuned for HF Spaces cold-start scenarios.
     it('should return 503 when the ai-service is unreachable', async () => {
       (httpService.axiosRef.post as jest.Mock).mockRejectedValue(
         new Error('connect ECONNREFUSED 127.0.0.1:8000'),
@@ -247,7 +266,7 @@ describe('AIService', () => {
           message: 'AI streaming service is unavailable.',
         }),
       );
-    });
+    }, 30000);
 
     it('should NOT save history when userId is empty', async () => {
       const mockStream = new PassThrough();
