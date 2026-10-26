@@ -283,19 +283,40 @@ export class AIService {
       }
     }
 
-    try {
-      systemContext = await this._buildSystemContext(message, ctx);
-      const response = await this.httpService.axiosRef.post(
-        `${this.aiServiceUrl}/api/ai/chat/stream`,
-        { message, history, context: systemContext, user_id: userId },
-        { responseType: 'stream' }
-      );
-      sourceStream = response.data;
-    } catch (error: any) {
-      if (!res.headersSent) {
-        res.status(503).json({ message: 'AI streaming service is unavailable.' });
+    // Retry loop: ai-service may be restarting after an HF Spaces secret change
+    // (Space restart causes ~30-60s downtime). Retry up to 3 times with 2s
+    // backoff before giving up with 503.
+    let lastError: any;
+    let response: any;
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        systemContext = await this._buildSystemContext(message, ctx);
+        response = await this.httpService.axiosRef.post(
+          `${this.aiServiceUrl}/api/ai/chat/stream`,
+          { message, history, context: systemContext, user_id: userId },
+          { responseType: 'stream', timeout: 15000 },
+        );
+        sourceStream = response.data;
+        break; // success
+      } catch (error: any) {
+        lastError = error;
+        const isConnRefused = error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
+          || (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+        if (attempt < maxRetries && isConnRefused) {
+          this.logger.warn(`AI service not ready (attempt ${attempt}/${maxRetries}), retrying in 2s...`);
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        // Non-retryable error or exhausted retries
+        if (!res.headersSent) {
+          res.status(503).json({
+            message: 'AI streaming service is unavailable.',
+            detail: lastError.message || 'Connection refused — ai-service may be restarting.',
+          });
+        }
+        return;
       }
-      return;
     }
 
     // Accumulate the full reply + sources to persist chat history once the

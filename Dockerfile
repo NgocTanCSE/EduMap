@@ -115,7 +115,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261026_kimi-01ai-provider
+ARG CACHEBUST=20261026_kimi-01ai-provider+chatstream-retry
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
