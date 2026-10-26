@@ -1389,11 +1389,19 @@ class LLMService:
                 ):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
-                yield f"data: {json.dumps({'done': True})}\n\n"
-                # Cache for future identical requests — store the full reply text
-                # so cache hits replay the complete streamed response.
-                cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
-                return
+                # Only return if streaming produced actual content. If the
+                # generator yielded zero tokens (e.g. curl returned 200 with an
+                # empty body, or OpenRouter returned no choices), fall through
+                # to the non-streaming fallback so the user still gets a reply
+                # instead of an empty/null response.
+                if full_reply:
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                    # Cache for future identical requests — store the full reply text
+                    # so cache hits replay the complete streamed response.
+                    cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
+                    return
+                else:
+                    print("OpenRouter streaming returned empty reply, falling back to non-streaming")
             except Exception as e:
                 print(f"OpenRouter streaming failed, falling back to non-stream: {e}")
 
