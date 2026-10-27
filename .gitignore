@@ -85,6 +85,8 @@ ios/Pods/
 *.db-shm
 *.db-wal
 *.db.bak
+*.bak-*
+*.bak-realdata
 *.db-journal
 EduMap_Documentation.xlsx
 

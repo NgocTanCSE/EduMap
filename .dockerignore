@@ -17,6 +17,10 @@ backend/dist
 # node_modules (rebuilt inside Docker via npm ci)
 **/node_modules
 
+# Local DB backups (never needed in the image)
+**/*.bak*
+frontend/public/edumap.db.bak-realdata
+
 # Development data (large, not needed in Docker image)
 crawled_data/*
 !crawled_data/dongnai_unis.json
