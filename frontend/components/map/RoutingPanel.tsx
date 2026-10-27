@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Search, MapPin, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 /** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
 function parseCoordinate(value: string): { lat: number; lng: number } | null {
@@ -173,7 +175,7 @@ export default function RoutingPanel({
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-80 bg-card rounded-xl shadow-xl border border-border p-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed top-4 right-4 bottom-4 z-[50] w-80 max-w-[95vw] bg-card border border-border rounded-xl shadow-xl overflow-y-auto custom-scrollbar p-4 pb-20">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
           <Navigation className="w-5 h-5 text-primary" /> Chỉ đường
@@ -189,10 +191,10 @@ export default function RoutingPanel({
       <div className="space-y-3">
         {/* Origin */}
         <div className="relative">
-          <label className="block text-xs font-medium text-muted-foreground/60 mb-1">Điểm xuất phát</label>
+          <label className="label-form block mb-2">Điểm xuất phát</label>
           <div className="flex items-center gap-2">
             <MapPinIcon className="w-5 h-5 text-primary flex-shrink-0" />
-            <input
+            <Input
               type="text"
               value={originInput}
               onChange={(e) => setOriginInput(e.target.value)}
@@ -201,7 +203,7 @@ export default function RoutingPanel({
               }}
               placeholder='Nhập "vĩ độ, kinh độ" hoặc click bản đồ'
               aria-label="Tọa độ điểm xuất phát"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="form-input flex-1"
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -232,10 +234,10 @@ export default function RoutingPanel({
 
         {/* Destination */}
         <div className="relative">
-          <label className="block text-xs font-medium text-muted-foreground/60 mb-1">Điểm đến</label>
+          <label className="label-form block mb-2">Điểm đến</label>
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-destructive flex-shrink-0" />
-            <input
+            <Input
               type="text"
               value={destInput}
               onChange={(e) => setDestInput(e.target.value)}
@@ -244,7 +246,7 @@ export default function RoutingPanel({
               }}
               placeholder='Nhập "vĩ độ, kinh độ" hoặc click bản đồ'
               aria-label="Tọa độ điểm đến"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
+              className="form-input flex-1 focus:border-destructive focus:ring-destructive/20"
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -293,54 +295,44 @@ export default function RoutingPanel({
         </div>
 
         {/* Get Route Button */}
-        <button
+        <Button
           onClick={() => origin && destination && onGetRoute(origin, destination, { avoidFlood, avoidTraffic })}
           disabled={!origin || !destination || isLoading}
-          className="w-full py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          loading={isLoading}
+          icon={<Navigation className="w-5 h-5" />}
+          loadingText="ĐANG TÍNH LỘ TRÌNH..."
+          className="w-full py-2 bg-primary text-primary-foreground font-medium"
         >
-          {isLoading ? (
-            <>
-              <RotateCcw className="w-5 h-5 animate-spin" />
-              Đang tính lộ trình...
-            </>
-          ) : (
-            'Tính lộ trình'
-          )}
-        </button>
+          Tính lộ trình
+        </Button>
 
         {/* SafeRoute AI Button (Idea #12) */}
         {onGetSafeRoute && (
-          <button
+          <Button
             onClick={() => origin && destination && onGetSafeRoute(origin, destination, { avoidFlood, avoidTraffic, safetyWeight: 0.3 })}
             disabled={!origin || !destination || isSafeRouteLoading}
-            className="w-full py-2 bg-accent text-accent-foreground font-medium rounded-lg hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            loading={isSafeRouteLoading}
+            icon={<Shield className="w-4 h-4" />}
+            loadingText="ĐANG TÍNH..."
+            className="w-full py-2 bg-accent text-accent-foreground font-medium"
           >
-            {isSafeRouteLoading ? (
-              <>
-                <RotateCcw className="w-5 h-5 animate-spin" />
-                Đang tính lộ trình an toàn...
-              </>
-            ) : (
-              <>
-                <Shield className="w-4 h-4" />
-                SafeRoute AI
-              </>
-            )}
-          </button>
+            SafeRoute AI
+          </Button>
         )}
 
         {/* Save Route Button (visible when a route is active but not yet explicitly saved) */}
         {routeInfo && origin && destination && (
-          <button
+          <Button
             onClick={() => {
               if (onSaveRoute) onSaveRoute();
               toast.success('Đã lưu lộ trình vào phiên');
             }}
-            className="w-full py-2 bg-accent/10 text-accent font-medium rounded-lg hover:bg-accent/20 transition-colors flex items-center justify-center gap-2"
+            variant="outline"
+            className="w-full py-2 bg-accent/10 text-accent font-medium border-accent/30 hover:bg-accent/20"
+            icon={<Save className="w-4 h-4" />}
           >
-            <Save className="w-4 h-4" />
             Lưu lộ trình này
-          </button>
+          </Button>
         )}
 
         {/* Route Info */}

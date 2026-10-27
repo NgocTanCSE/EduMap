@@ -78,7 +78,6 @@ export type FeatureGroupId =
   | "career"
   | "community"
   | "experience"
-  | "safety"
   | "market";
 
 export type IconComponent = ComponentType<{ className?: string }>;
@@ -142,12 +141,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     description: "Thử thách xanh, chiến dịch mùa hè và các trạm Wifi công cộng.",
     icon: Leaf,
   },
-  {
-    id: "safety",
-    label: "AI an toàn",
-    description: "Rủi ro khí hậu, khảo sát thực địa và các công cụ phân tích bản đồ.",
-    icon: ShieldCheck,
-  },
+  /* ── Chợ & Đóng góp ───────────────────────────────────────────────── */
   {
     id: "market",
     label: "Chợ & Đóng góp",
@@ -163,10 +157,10 @@ export const FEATURES: Feature[] = [
     label: "Bản đồ",
     href: "/map",
     icon: Map,
-    description: "Bản đồ giáo dục tương tác: trường học, thư viện, trạm Wifi.",
+    description: "Bản đồ giáo dục tương tác: trường học, thư viện, Wifi. Gồm 10 công cụ: Data Hunter, Gap Predictor, Tối ưu nguồn lực, GeoVision AI, Kế hoạch khảo sát, Bảo vệ khí hậu, AI Agent, Tìm bằng giọng nói, Trạm Wifi, Thử thách xanh.",
     group: "core",
     sidebar: true,
-    keywords: ["bản đồ", "map", "gis", "poi"],
+    keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "ai-agent", "voice-search", "wifi", "green"],
   },
   {
     id: "dashboard",
@@ -203,7 +197,7 @@ export const FEATURES: Feature[] = [
   {
     id: "ai-agent",
     label: "AI Agent bản đồ",
-    href: "/ai-agent",
+    href: "/map?tool=ai-agent",
     icon: Bot,
     description: "Đặt câu hỏi dạng GIS, xem từng bước AI gọi công cụ.",
     group: "ai",
@@ -212,21 +206,19 @@ export const FEATURES: Feature[] = [
   {
     id: "talk2map",
     label: "Talk2Map",
-    href: "/talk2map",
+    href: "/map",
     icon: Search,
     description: "Nhập câu tiếng Việt tự nhiên, nhận kết quả trên bản đồ.",
     group: "ai",
-    sidebar: true,
     keywords: ["tìm kiếm", "ngôn ngữ tự nhiên", "nl search"],
   },
   {
     id: "voice-search",
     label: "Tìm bằng giọng nói",
-    href: "/voice-search",
+    href: "/map?tool=voice-search",
     icon: Mic,
     description: "Nói câu tìm kiếm, EduMap chuyển thành truy vấn bản đồ.",
     group: "ai",
-    sidebar: true,
     keywords: ["giọng nói", "voice", "speech", "stt"],
   },
   {
@@ -329,7 +321,6 @@ export const FEATURES: Feature[] = [
     icon: Route,
     description: "Lộ trình từng bước từ sinh viên tới vị trí mong muốn.",
     group: "career",
-    sidebar: true,
     keywords: ["lộ trình", "roadmap", "kỹ năng"],
   },
   {
@@ -367,7 +358,6 @@ export const FEATURES: Feature[] = [
     icon: Rocket,
     description: "Cuộc thi, chương trình tài trợ và hoạt động ngoại khoá.",
     group: "career",
-    sidebar: true,
     keywords: ["cơ hội", "cuộc thi", "opportunity"],
   },
   {
@@ -377,17 +367,15 @@ export const FEATURES: Feature[] = [
     icon: Radar,
     description: "AI quét và xếp hạng cơ hội phù hợp với hồ sơ của bạn.",
     group: "career",
-    sidebar: true,
     keywords: ["radar", "gợi ý", "phù hợp"],
   },
   {
     id: "analytics",
     label: "Xu hướng thị trường",
-    href: "/analytics",
+    href: "/analytics/trends",
     icon: BarChart3,
     description: "Thống kê kỹ năng, ngành nghề và nhu cầu tuyển dụng.",
     group: "career",
-    sidebar: true,
     keywords: ["phân tích", "thống kê", "analytics", "xu hướng"],
   },
 
@@ -475,11 +463,10 @@ export const FEATURES: Feature[] = [
   {
     id: "green",
     label: "Thử thách xanh",
-    href: "/green",
+    href: "/map?tool=green",
     icon: Leaf,
     description: "Hoạt động sống xanh, minh chứng và điểm thưởng.",
     group: "experience",
-    sidebar: true,
     keywords: ["xanh", "môi trường", "green", "carbon"],
   },
   {
@@ -495,70 +482,11 @@ export const FEATURES: Feature[] = [
   {
     id: "wifi",
     label: "Trạm Wifi",
-    href: "/wifi",
+    href: "/map?tool=wifi",
     icon: Wifi,
     description: "Bản đồ điểm Wifi miễn phí và đo tốc độ thực tế.",
     group: "experience",
-    sidebar: true,
     keywords: ["wifi", "internet", "tốc độ"],
-  },
-
-  /* ── AI an toàn ───────────────────────────────────────────────────── */
-  {
-    id: "climate-guardian",
-    label: "AI Bảo Vệ Khí Hậu",
-    href: "/climate-guardian",
-    icon: CloudRain,
-    description: "Đánh giá rủi ro ngập, thời tiết và gợi ý điểm an toàn.",
-    group: "safety",
-    sidebar: true,
-    keywords: ["khí hậu", "ngập", "climate", "rủi ro"],
-  },
-  {
-    id: "survey-planner",
-    label: "Kế hoạch khảo sát",
-    href: "/map/survey-planner",
-    icon: Crosshair,
-    description: "Chọn điểm khảo sát thực địa mang lại nhiều thông tin nhất.",
-    group: "safety",
-    sidebar: true,
-    keywords: ["khảo sát", "thực địa", "survey"],
-  },
-  {
-    id: "geo-vision",
-    label: "GeoVision AI",
-    href: "/map/geo-vision",
-    icon: Satellite,
-    description: "Phát hiện cơ sở giáo dục chưa có trên bản đồ từ ảnh vệ tinh.",
-    group: "safety",
-    keywords: ["vệ tinh", "vision", "ảnh", "phát hiện"],
-  },
-  {
-    id: "data-hunter",
-    label: "Data Hunter",
-    href: "/map/data-hunter",
-    icon: Database,
-    description: "Tìm và bổ sung điểm thiếu dữ liệu trên bản đồ.",
-    group: "safety",
-    keywords: ["dữ liệu", "data", "bổ sung"],
-  },
-  {
-    id: "gap-predictor",
-    label: "Gap Predictor",
-    href: "/map/gap-predictor",
-    icon: ScanSearch,
-    description: "Dự đoán khu vực còn thiếu cơ sở giáo dục.",
-    group: "safety",
-    keywords: ["khoảng trống", "gap", "dự đoán"],
-  },
-  {
-    id: "resource-optimizer",
-    label: "Tối ưu nguồn lực",
-    href: "/map/resource-optimizer",
-    icon: Filter,
-    description: "Đề xuất vị trí đặt nguồn lực theo nhu cầu thực tế.",
-    group: "safety",
-    keywords: ["tối ưu", "nguồn lực", "optimizer"],
   },
 
   /* ── Chợ & Đóng góp ───────────────────────────────────────────────── */

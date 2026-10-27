@@ -7,7 +7,7 @@ import { unwrapApiResponse } from '@/src/lib/api-utils';
  *
  * BFF proxy → backend GET /api/map/gap-forecast (MapController), which caches
  * the ai-service POST /api/ai/forecast/gaps result for 24 h and returns it as a
- * GeoJSON risk heatmap. Used by app/map/gap-predictor/page.tsx.
+ * GeoJSON risk heatmap. Used by the Gap Predictor tool tab on /map.
  *
  * Public (no auth) — mirrors /api/map/stats, /api/map/pois etc. which are all
  * @SkipThrottle and unauthenticated so the map renders for anonymous visitors.

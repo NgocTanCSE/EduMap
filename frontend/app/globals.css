@@ -153,6 +153,95 @@
   }
 }
 
+/* ── Typography scale (Desert Dusk) ────────────────────────────────────
+   ONE heading scale applied everywhere. Pages must use these tokens
+   instead of inventing `text-xl`/`text-3xl`/`text-2xl` arbitrarily —
+   that is what caused some titles to balloon while card titles were
+   lost in the noise. */
+@layer utilities {
+  .h1-page {    @apply text-2xl font-semibold tracking-tight sm:text-3xl; }
+  .h2-section { @apply text-xl font-semibold tracking-tight; }
+  .h3-card {    @apply text-base font-medium; }
+  .label-form { @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground/65; }
+  .label-pill { @apply text-[10px] font-bold uppercase tracking-wider; }
+}
+
+/* ── Form field system ──────────────────────────────────────────────────
+   Every input / select / textarea shares this exact shape so textboxes,
+   date pickers, and buttons line up pixel-for-pixel across pages:
+     • height 48 px (h-12) for comfortable touch targets
+     • border-radius 12 px (rounded-lg) — never square
+     • consistent 16 px horizontal padding
+     • focus ring uses --ring (terracotta) not a raw border-color swap */
+@layer components {
+  .form-input {
+    @apply w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .form-textarea {
+    @apply w-full resize-y rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .form-select {
+    @apply w-full appearance-none rounded-lg border border-border bg-background px-4 py-3 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Native <select> chevron — rendered via Tailwind bg-image so it
+     inherits the form-select padding. */
+  .form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+
+  /* Input group: icon-inside pattern that keeps the icon from
+     overlapping the text or the clear/search button. */
+  .input-icon {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none;
+  }
+  .input-with-icon {
+    @apply pl-10 pr-4;
+  }
+
+  /* Button-icon-text: reserves a fixed-width icon slot inside an
+     icon+text button so swapping the icon (e.g. CalendarPlus → spinner)
+     never shifts the label left/right. */
+  .btn-icon-slot {
+    @apply flex h-5 w-5 shrink-0 items-center justify-center;
+  }
+
+  /* Fixed-width icon wrapper for icon-only buttons (clear, close, toggle)
+     so the surrounding layout never reflows when the icon changes. */
+  .icon-fixed {
+    @apply flex h-4 w-4 shrink-0 items-center justify-center;
+  }
+
+  /* Card title that won't dwarf the body text — the previous text-2xl
+     on CardTitle made every card look like a billboard. */
+  .card-title {
+    @apply text-base font-semibold leading-tight tracking-tight text-foreground;
+  }
+}
+
+/* ── Native form control consistency ────────────────────────────────────
+   Strip the default square corners from date / time / number pickers
+   and textarea so they inherit the Desert Dusk form field style. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="number"],
+textarea,
+select {
+  @apply rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors;
+  padding: 0.75rem 1rem; /* matches form-input px-4 py-3 */
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.45) opacity(0.6);
+}
+
 /* Leaflet Dark Mode Tile Filter (Watermark-free, 100% Free OpenStreetMap) */
 .leaflet-dark-tiles .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);

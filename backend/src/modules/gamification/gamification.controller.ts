@@ -22,6 +22,8 @@ export class GamificationController {
   async getMyProgress(@Request() req: any) {
     try {
       const progress = await this.gamificationService.getUserProgress(req.user.id);
+      // Also fetch the user's rank so the frontend can show "Bạn hạng #N / M"
+      const rankInfo = await this.gamificationService.getUserRank(req.user.id);
       return {
         success: true,
         data: {
@@ -32,6 +34,8 @@ export class GamificationController {
           progress_percent: progress.points % 100,
           points_needed: 100 - (progress.points % 100),
           achievements: progress.achievements,
+          rank: rankInfo.rank,
+          total_users: rankInfo.total,
         },
       };
     } catch (error: any) {

@@ -1,49 +1,80 @@
-'use client';
+/**
+ * Unified Map Hub — `/map`
+ *
+ * Gộp toàn bộ các tính năng bản đồ con thành một trang bản đồ duy nhất với
+ * thanh tab công cụ. Các công cụ có sẵn:
+ *
+ * - home               — Bản đồ chính (POI duyệt, tìm kiếm, AI phân tích, voice)
+ * - data-hunter        — Truy đuổi dữ liệu thiếu (Idea #6)
+ * - gap-predictor      — Dự báo khoảng trống (Idea #3)
+ * - resource-optimizer — Tối ưu nguồn lực (Idea #1)
+ * - geo-vision         — GeoVision AI (Idea #10)
+ * - survey-planner     — Kế hoạch khảo sát AI (Idea #20)
+ * - climate            — AI Bảo vệ khí hậu (Idea #11)
+ *
+ * Mỗi công cụ cung cấp một Panel (điều khiển bên trái) và một Overlay
+ * (lớp bản đồ) — cả hai được render trên cùng một InteractiveMap. Các route
+ * cũ (/map/data-hunter, /map/geo-vision, …) redirect về /map?tool=<id>.
+ *
+ * Tuân AGENTS.md §8: .page-shell spacing, .card-surface, lucide icons,
+ * bản sao tiếng Việt, icon vector only.
+ */
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
-  Search, MapPin, X, List, ChevronLeft, ChevronRight, ChevronDown, BrainCircuit,
-  ThermometerSun, Layers, Save, Info, Flame, LogOut,
-  Maximize, Minimize, GraduationCap, Heart, BookOpen, Users, Wifi, Atom,
-  Briefcase, Globe, Leaf, Coffee, Star, Target, Shield, Mic, MicOff,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { logger } from '@/lib/logger';
-import { authService } from '@/src/services/auth.service';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { useRequireAuth } from '@/src/lib/require-auth';
-import { EduMapLogo } from '@/components/ui/Logo';
-import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
-import { unwrapApiResponse } from '@/src/lib/api-utils';
+  Search, MapPin, X, BrainCircuit,
+  ThermometerSun, Layers, Save, Info, Flame,
+  Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom,
+  Globe, Leaf, Coffee, Star, Shield, Mic, MicOff,
+  Home as HomeIcon, RefreshCw, AlertCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import { logger } from "@/lib/logger";
+import { authService } from "@/src/services/auth.service";
+import { useRequireAuth } from "@/src/lib/require-auth";
+import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
+import { unwrapApiResponse } from "@/src/lib/api-utils";
+import { MAP_TOOLS, MAP_TOOL_BY_ID } from "@/components/map/tools/registry";
+import type { MapTool, MapViewport } from "@/components/map/tools/types";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
-const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
+const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
   ssr: false,
   loading: () => (
-    <div className="h-[calc(100dvh-3.5rem)] w-full flex items-center justify-center bg-background lg:h-screen">
+    <div className="h-full w-full flex items-center justify-center bg-background">
       <span className="text-muted-foreground">Đang tải bản đồ…</span>
     </div>
   ),
 });
 
+// ─── Icons ──────────────────────────────────────────────────────────────────
 
-// Icons for facility-type POIs shown in the "selected place" detail card.
+/** Icons for facility-type POIs shown in the "selected place" detail card. */
 const FACILITY_ICONS: Record<string, { label: string; color: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  wifi: { label: 'WiFi', color: 'text-primary', Icon: Wifi },
-  library: { label: 'Thư viện', color: 'text-primary', Icon: BookOpen },
-  bookstore: { label: 'Nhà sách', color: 'text-destructive', Icon: BookOpen },
-  lab: { label: 'Lab', color: 'text-primary', Icon: Atom },
-  stem: { label: 'STEM', color: 'text-primary', Icon: Atom },
-  green: { label: 'Không gian xanh', color: 'text-accent', Icon: Leaf },
-  park: { label: 'Công viên', color: 'text-accent', Icon: Leaf },
-  cafe: { label: 'Cà phê', color: 'text-primary', Icon: Coffee },
-  restaurant: { label: 'Nhà hàng', color: 'text-primary', Icon: Globe },
-  university: { label: 'Trường', color: 'text-accent', Icon: GraduationCap },
-  school: { label: 'Trường', color: 'text-accent', Icon: GraduationCap },
+  wifi: { label: "WiFi", color: "text-primary", Icon: Wifi },
+  library: { label: "Thư viện", color: "text-primary", Icon: BookOpen },
+  bookstore: { label: "Nhà sách", color: "text-destructive", Icon: BookOpen },
+  lab: { label: "Lab", color: "text-primary", Icon: Atom },
+  stem: { label: "STEM", color: "text-primary", Icon: Atom },
+  green: { label: "Không gian xanh", color: "text-accent", Icon: Leaf },
+  park: { label: "Công viên", color: "text-accent", Icon: Leaf },
+  cafe: { label: "Cà phê", color: "text-primary", Icon: Coffee },
+  restaurant: { label: "Nhà hàng", color: "text-primary", Icon: Globe },
+  university: { label: "Trường", color: "text-accent", Icon: GraduationCap },
+  school: { label: "Trường", color: "text-accent", Icon: GraduationCap },
 };
 const facilityIconFor = (cat?: string) => {
-  const key = String(cat || '').toLowerCase();
-  return FACILITY_ICONS[key] || { label: cat || 'Địa điểm', color: 'text-muted-foreground', Icon: MapPin as React.ComponentType<{ className?: string }> };
+  const key = String(cat || "").toLowerCase();
+  return FACILITY_ICONS[key] || {
+    label: cat || "Địa điểm",
+    color: "text-muted-foreground",
+    Icon: MapPin as React.ComponentType<{ className?: string }>,
+  };
 };
 
 interface Location {
@@ -56,14 +87,6 @@ interface Location {
   lng: number;
 }
 
-/**
- * A "ghim" (featured pin) shown on the map as a special star marker. Each pin
- * links directly to its feature page (Trải nghiệm & Tiện ích / Chợ & Đóng góp).
- * Position data is sourced from the SAME backend table the feature page reads
- * from — e.g. WiFi pins come from `locations` (LIKE '%wifi%'), STEM labs from
- * `stem_labs.location_point`, etc. — so the pin and the feature page never
- * drift apart.
- */
 interface FeaturedPin {
   id: string;
   name: string;
@@ -75,36 +98,32 @@ interface FeaturedPin {
   featureLink: string;
 }
 
-// ---------- Sub-components ----------
+const DEFAULT_CENTER: [number, number] = [10.957, 106.843];
+
+// ─── Sub-components (unchanged from original page) ──────────────────────────
+
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [focused, setFocused] = useState(false);
   return (
     <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         placeholder="Tìm địa điểm (trường, thư viện, wifi ...)..."
-        className={`w-full pl-10 pr-3 py-2 text-sm text-foreground bg-card border rounded-lg outline-none transition-colors placeholder:text-muted-foreground/60 ${focused ? 'border-primary ring-1 ring-primary/20' : 'border-border'}`}
+        icon={Search}
+        className="form-input input-with-icon"
       />
     </div>
   );
 }
 
-/** Dropdown of matching locations shown when the user types a search term. */
 function SearchResults({
   results,
   onSelect,
-}: {
-  results: Location[];
-  onSelect: (loc: Location) => void;
-}) {
+}: { results: Location[]; onSelect: (loc: Location) => void }) {
   if (results.length === 0) return null;
   return (
-    <div className="absolute top-full left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg custom-scrollbar">
+    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg custom-scrollbar">
       {results.map((loc) => (
         <button
           key={loc.id}
@@ -112,14 +131,12 @@ function SearchResults({
           className="w-full flex items-start gap-3 p-3 text-left hover:bg-muted/50 transition-colors first:rounded-t-lg last:rounded-b-lg"
         >
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            {facilityIconFor(loc.category).Icon && (
-              React.createElement(facilityIconFor(loc.category).Icon, { className: "w-4 h-4 text-primary" })
-            )}
+            {React.createElement(facilityIconFor(loc.category).Icon, { className: "w-4 h-4 text-primary" })}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-medium text-foreground truncate">{loc.name}</div>
             <div className="text-[10px] text-muted-foreground/60 mt-0.5 line-clamp-1">
-              {loc.category} · {loc.address || 'Chưa có địa chỉ'}
+              {loc.category} · {loc.address || "Chưa có địa chỉ"}
             </div>
           </div>
         </button>
@@ -128,8 +145,10 @@ function SearchResults({
   );
 }
 
-function CategoryChips({ categories, active, onSelect }: { categories: string[]; active: string; onSelect: (c: string) => void }) {
-  const chips = ['all', ...categories];
+function CategoryChips({
+  categories, active, onSelect,
+}: { categories: string[]; active: string; onSelect: (c: string) => void }) {
+  const chips = ["all", ...categories];
   return (
     <div className="flex flex-wrap gap-2">
       {chips.map((c) => {
@@ -140,11 +159,11 @@ function CategoryChips({ categories, active, onSelect }: { categories: string[];
             onClick={() => onSelect(c)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-all ${
               on
-                ? 'bg-primary text-primary-foreground shadow'
-                : 'bg-muted/30 text-muted-foreground hover:bg-muted border-border'
+                ? "bg-primary text-primary-foreground shadow"
+                : "bg-muted/30 text-muted-foreground hover:bg-muted border-border"
             }`}
           >
-            {c === 'all' ? 'Tất cả' : c}
+            {c === "all" ? "Tất cả" : c}
           </button>
         );
       })}
@@ -157,10 +176,10 @@ function AiPanel({ open, onClose, analysis, loading }: {
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-96 bg-card border-l border-border flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-[100] w-96 max-w-[95vw] bg-card border-l border-border flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <h3 className="font-semibold text-foreground flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary" /> Phân tích khu vực
+          <BrainCircuit className="w-5 h-5 text-primary" /> Phân tích khu vực AI
         </h3>
         <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
           <X className="w-4 h-4" />
@@ -177,9 +196,13 @@ function AiPanel({ open, onClose, analysis, loading }: {
           <>
             <div className="flex items-center gap-2">
               <ThermometerSun className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium">Mật độ hoạt động: <b className="text-foreground">{analysis.density_score}</b></span>
+              <span className="text-sm font-medium">
+                Mật độ hoạt động: <b className="text-foreground">{analysis.density_score}</b>
+              </span>
             </div>
-            {analysis.summary && <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>}
+            {analysis.summary && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>
+            )}
             {analysis.recommendations && analysis.recommendations.length > 0 && (
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase">Gợi ý xung quanh bạn</p>
@@ -190,55 +213,142 @@ function AiPanel({ open, onClose, analysis, loading }: {
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground/60">Nhấn "Phân tích AI" trên bản đồ để nhận gợi ý địa điểm học tập quanh Biên Hòa.</p>
+          <p className="text-sm text-muted-foreground/60">
+            Nhấn "Phân tích AI" để nhận gợi ý địa điểm học tập quanh Biên Hòa.
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// ---------- Main ----------
-export default function MapPage() {
-  // Auth guard: chưa đăng nhập → quay về Google login
-  const { user } = useRequireAuth('/auth/login');
-  const { logout } = useAuth();
+// ─── Tool Tab ───────────────────────────────────────────────────────────────
 
-  // Map data
+function ToolTab({
+  tool, isActive, onClick, count,
+}: {
+  tool: MapTool; isActive: boolean; onClick: () => void; count?: number;
+}) {
+  const Icon = tool.icon;
+  const showCount = count && count > 0 && !isActive;
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+        isActive
+          ? "bg-primary/15 text-primary border border-primary/30 shadow"
+          : "text-muted-foreground hover:bg-muted/50 border border-transparent"
+      }`}
+      title={tool.longDescription}
+    >
+      <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "group-hover:text-foreground"}`} />
+      <span>{tool.label}</span>
+      {showCount && (
+        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[8px] font-bold text-white bg-destructive rounded-full">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function getResultCount(toolId: string, result: any): number | undefined {
+  if (!result) return undefined;
+  if (toolId === "data-hunter") return result?.summary?.gap_cells;
+  if (toolId === "gap-predictor") return result?.risk_ranking?.length;
+  if (toolId === "resource-optimizer") return result?.features?.length;
+  if (toolId === "geo-vision") return result?.detections?.length;
+  if (toolId === "survey-planner") return result?.features?.length;
+  if (toolId === "climate") return result?.risk_ranking?.length;
+  return undefined;
+}
+
+// ─── Main page ──────────────────────────────────────────────────────────────
+
+export default function MapPage() {
+  // Auth guard
+  const { user } = useRequireAuth("/auth/login");
+
+  // ─── Tool system state ───────────────────────────────────────────────────
+
+  const [activeTool, setActiveTool] = useState("home");
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const [toolResults, setToolResults] = useState<Record<string, any>>({});
+  const [toolLoading, setToolLoading] = useState<Record<string, boolean>>({});
+  const [toolError, setToolError] = useState<Record<string, string | null>>({});
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Read ?tool=<id> from URL on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const toolParam = params.get("tool");
+      if (toolParam && MAP_TOOL_BY_ID[toolParam]) {
+        setActiveTool(toolParam);
+      }
+    }
+  }, []);
+
+  const ensureToolState = useCallback((toolId: string) => {
+    if (toolId !== "home" && toolResults[toolId] === undefined) {
+      setToolResults((prev) => ({ ...prev, [toolId]: null }));
+      setToolLoading((prev) => ({ ...prev, [toolId]: false }));
+      setToolError((prev) => ({ ...prev, [toolId]: null }));
+    }
+  }, [toolResults]);
+
+  useEffect(() => {
+    ensureToolState(activeTool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool]);
+
+  const handleToolChange = (toolId: string) => {
+    setActiveTool(toolId);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (toolId === "home") url.searchParams.delete("tool");
+      else url.searchParams.set("tool", toolId);
+      window.history.replaceState({}, "", url);
+    }
+    sidebarRef.current?.scrollTo(0, 0);
+  };
+
+  // Callbacks shared with tool panels
+  const handleToolResult = useCallback((toolId: string, data: any) => {
+    setToolResults((prev) => ({ ...prev, [toolId]: data }));
+  }, []);
+  const handleToolLoading = useCallback((toolId: string, loading: boolean) => {
+    setToolLoading((prev) => ({ ...prev, [toolId]: loading }));
+  }, []);
+  const handleToolError = useCallback((toolId: string, error: string | null) => {
+    setToolError((prev) => ({ ...prev, [toolId]: error }));
+  }, []);
+
+  // ─── Base map state (Home tool) ──────────────────────────────────────────
+
   const [locations, setLocations] = useState<Location[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [mapStats, setMapStats] = useState<any>(null);
 
-  // UI
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  // Current viewport, fed back by MapEvents so the initial load + category
-  // switches fetch REAL bounds (not the whole-province DEFAULT_BBOX).
-  const [viewport, setViewport] =
-    useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
-  // Issue #7 (GeoAI → GeoJSON): GeoJSON FeatureCollection of education-hub
-  // boundaries returned by the AI geo-analysis endpoint. Rendered as
-  // polygon overlays on the map (see InteractiveMap.geoJsonData prop).
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
 
-  // Pin form
   const [pinningCoord, setPinningCoord] = useState<{ lat: number; lng: number } | null>(null);
-  const [pinForm, setPinForm] = useState({ name: '', category: 'school', description: '', address: '' });
+  const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
   const [isSavingPin, setIsSavingPin] = useState(false);
-
   const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
 
-  // Featured "ghim" pins (STEM, Green, Summer, Wifi, Marketplace, Donate)
   const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
   const [showFeaturedPins, setShowFeaturedPins] = useState(true);
-  const [showFeaturedLegend, setShowFeaturedLegend] = useState(false);
 
   const [fs, setFs] = useState(false);
 
@@ -248,18 +358,17 @@ export default function MapPage() {
   const [voiceIntent, setVoiceIntent] = useState<string | null>(null);
   const [showVoiceResults, setShowVoiceResults] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [voiceTranscript, setVoiceTranscript] = useState("");
 
-  // Nearby facilities of the selected POI (wifi / thư viện / trung tâm …).
-  // Computed client-side from the already-loaded `locations` — instant, no extra fetch.
-  const NEARBY_LIMIT_M = 1000; // ~1 km radius around the selected pin
+  // Nearby facilities (derived from selectedLocation)
+  const NEARBY_LIMIT_M = 1000;
   const nearbyPois = useMemo<Location[]>(() => {
     if (!selectedLocation) return [];
     const a = Number(selectedLocation.lat);
     const b = Number(selectedLocation.lng);
     if (!Number.isFinite(a) || !Number.isFinite(b)) return [];
     const toRad = (v: number) => (v * Math.PI) / 180;
-    const R = 6371000; // earth radius in m
+    const R = 6371000;
     return locations
       .filter((p) => p.id !== selectedLocation.id)
       .map((p) => {
@@ -279,24 +388,24 @@ export default function MapPage() {
       .map((x) => x.p);
   }, [selectedLocation, locations]);
 
-  // --- Fetch: stats ---
+  // ─── Fetch functions ─────────────────────────────────────────────────────
+
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetchWithRetry('/api/map/stats');
+      const res = await fetchWithRetry("/api/map/stats");
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
-      if (data.categories) {
+      if (data?.categories) {
         setCategoryCounts(data.categories);
         setMapStats(data);
       }
     } catch (err) {
-      logger.error('Failed to fetch map stats', err);
+      logger.error("Failed to fetch map stats", err);
     }
   }, []);
 
-  // --- Fetch: categories (5-min cache) ---
   const fetchCategoriesOnce = useCallback(async () => {
-    const CACHE_KEY = 'map_categories';
+    const CACHE_KEY = "map_categories";
     const CACHE_TTL = 5 * 60 * 1000;
     try {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -308,7 +417,7 @@ export default function MapPage() {
           return;
         }
       }
-      const catRes = await fetchWithRetry('/api/map/categories');
+      const catRes = await fetchWithRetry("/api/map/categories");
       const catDataRes = await catRes.json();
       const catData = catDataRes.data || catDataRes;
       const categoriesList = Array.isArray(catData) ? catData : [];
@@ -316,29 +425,115 @@ export default function MapPage() {
       setCategoriesLoaded(true);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data: categoriesList, timestamp: Date.now() }));
     } catch (error) {
-      logger.error('Error fetching categories', error);
+      logger.error("Error fetching categories", error);
     }
   }, []);
 
-  // --- Voice search (Idea #16) ---
+  const lastFetchRef = useRef<{
+    category: string;
+    bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  } | null>(null);
+
+  const fetchMapData = useCallback(
+    async (
+      category?: string,
+      bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+    ) => {
+      const curCategory = category || "all";
+      if (
+        bounds &&
+        lastFetchRef.current?.category === curCategory &&
+        lastFetchRef.current.bounds &&
+        lastFetchRef.current.bounds.minLat === bounds.minLat &&
+        lastFetchRef.current.bounds.maxLat === bounds.maxLat &&
+        lastFetchRef.current.bounds.minLng === bounds.minLng &&
+        lastFetchRef.current.bounds.maxLng === bounds.maxLng
+      ) {
+        return;
+      }
+      if (bounds) {
+        lastFetchRef.current = {
+          category: curCategory,
+          bounds: { minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng },
+        };
+      }
+      try {
+        setLoading(true);
+        let url = "/api/map/pois";
+        const params = new URLSearchParams();
+        if (category && category !== "all") params.set("category", category);
+        if (bounds) {
+          params.set("minLat", String(bounds.minLat));
+          params.set("maxLat", String(bounds.maxLat));
+          params.set("minLng", String(bounds.minLng));
+          params.set("maxLng", String(bounds.maxLng));
+        }
+        const qs = params.toString();
+        if (qs) url += "?" + qs;
+        const res = await fetchWithRetry(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const data = unwrapApiResponse<any>(json);
+        const list = Array.isArray(data) ? data : [];
+        setLocations(list);
+      } catch (err) {
+        logger.error("Error fetching map data", err);
+        toast.error("Không tải được dữ liệu bản đồ");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const runAiAnalysis = useCallback(async () => {
+    setAnalyzing(true);
+    setAiAnalysis(null);
+    setGeoJsonData(null);
+    try {
+      const accessToken = authService.getAccessToken();
+      const res = await fetchWithRetry("/api/map/ai-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ query: "Biên Hòa" }),
+      });
+      if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`);
+      const json = await res.json();
+      const data = unwrapApiResponse<any>(json);
+      setAiAnalysis({
+        density_score: data.density_score,
+        summary: data.summary,
+        recommendations: data.recommendations || [],
+      });
+      setGeoJsonData(
+        data.geojson && data.geojson.type === "FeatureCollection" ? data.geojson : null,
+      );
+    } catch (err) {
+      logger.error("AI analysis error", err);
+      toast.error("Phân tích AI thất bại");
+    } finally {
+      setAnalyzing(false);
+    }
+  }, []);
+
+  // Voice search (Idea #16)
   const startVoiceSearch = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      toast.error('Trình duyệt không hỗ trợ nhận dạng giọng nói. Vui lòng dùng Chrome.');
-      // Fallback: open the dedicated voice-search page which handles
-      // server-side Whisper STT.
-      window.location.href = '/voice-search';
+      toast.error("Trình duyệt không hỗ trợ nhận dạng giọng nói. Vui lòng dùng Chrome.");
+      window.location.href = "/voice-search";
       return;
     }
-
     const recognition = new SpeechRecognition();
-    recognition.lang = 'vi-VN';
+    recognition.lang = "vi-VN";
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 3;
-
     recognition.onresult = (event: any) => {
-      let final = '';
+      let final = "";
       for (let i = 0; i < event.results.length; i++) {
         const res = event.results[i];
         if (res.isFinal) {
@@ -350,30 +545,20 @@ export default function MapPage() {
         void sendVoiceQuery(final.trim());
       }
     };
-
-    recognition.onerror = () => {
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
+    recognition.onerror = () => { setIsRecording(false); };
+    recognition.onend = () => { setIsRecording(false); };
     try {
       recognition.start();
       setIsRecording(true);
       recognitionRef.current = recognition;
     } catch {
-      // SpeechRecognition constructor/start failed → fall back to server page.
-      window.location.href = '/voice-search';
+      window.location.href = "/voice-search";
     }
   }, []);
 
   const stopVoiceSearch = useCallback(() => {
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch {}
+      try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
     }
     setIsRecording(false);
@@ -385,9 +570,7 @@ export default function MapPage() {
     setVoiceResults([]);
     setVoiceIntent(null);
     try {
-      const res = await fetchWithRetry(
-        `/api/map/nl-search?q=${encodeURIComponent(text)}`,
-      );
+      const res = await fetchWithRetry(`/api/map/nl-search?q=${encodeURIComponent(text)}`);
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       setVoiceResults(data.results || []);
@@ -395,159 +578,44 @@ export default function MapPage() {
       if (data.results?.length > 0) {
         const first = data.results[0];
         setSelectedLocation({
-          id: first.id,
-          name: first.name,
-          category: first.category,
-          lat: Number(first.lat),
-          lng: Number(first.lng),
-          description: first.description,
-          address: first.address,
+          id: first.id, name: first.name, category: first.category,
+          lat: Number(first.lat), lng: Number(first.lng),
+          description: first.description, address: first.address,
           rating_avg: first.rating_avg,
         } as any);
       }
-      if (data.intent?.intent === 'report_form') {
-        toast('Báo cáo sự cố đã phát hiện — mở form báo cáo.');
+      if (data.intent?.intent === "report_form") {
+        toast("Báo cáo sự cố đã phát hiện — mở form báo cáo.");
       } else if ((data.results?.length || 0) === 0) {
-        toast.info('Không tìm thấy địa điểm nào — thử từ khóa khác.');
+        toast.info("Không tìm thấy địa điệm nào — thử từ khóa khác.");
       }
     } catch (err) {
-      toast.error('Lỗi tìm kiếm bằng giọng nói — vui lòng thử lại.');
+      toast.error("Lỗi tìm kiếm bằng giọng nói — vui lòng thử lại.");
     }
   }, []);
 
-  // --- Fetch: fixed locations (schools, labs, libraries có sẵn) ---
   const fetchFixedLocations = useCallback(async () => {
     try {
-      // `/api/map/fixed-locations` never existed on the backend (404 in
-      // production). `/api/map/locations` is the real BFF route and returns the
-      // merged map_points + locations POI list with `lat`/`lng`.
-      const res = await fetchWithRetry('/api/map/locations');
+      const res = await fetchWithRetry("/api/map/locations");
       const json = await res.json();
       const data = unwrapApiResponse<any[]>(json);
       const list = Array.isArray(data) ? data : [];
       setFixedLocations(list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))));
     } catch (error) {
-      logger.error('Error fetching fixed locations', error);
+      logger.error("Error fetching fixed locations", error);
     }
   }, []);
 
-  // --- Fetch: featured pins (ghim) — STEM Labs, Green, Summer, Wifi, Marketplace, Donate ---
   const fetchFeaturedPins = useCallback(async () => {
     try {
-      const res = await fetchWithRetry('/api/map/featured-pins');
+      const res = await fetchWithRetry("/api/map/featured-pins");
       const json = await res.json();
       const data = unwrapApiResponse<any[]>(json);
       const list = Array.isArray(data) ? data : [];
       const valid = list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
       setFeaturedPins(valid);
     } catch (error) {
-      logger.error('Error fetching featured pins', error);
-    }
-  }, []);
-
-  // Guards against a redundant bounds refetch wiping the loaded POI list. On
-  // SQLite the backend ignores viewport bounds and always returns the full set,
-  // so a same-viewport refetch would `setLocations` a fresh array; combined with
-  // UUIDs shared between `map_points` and `locations`, that is what let the
-  // SAME id re-resolve to a different coordinate between renders (the selected
-  // marker appeared to "jump" to a nearby POI). Skip the fetch when the viewport
-  // and category are unchanged.
-  const lastFetchRef = useRef<{
-    category: string;
-    bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number };
-  } | null>(null);
-
-  // --- Fetch: POIs by bounds (GET) — UNCHANGED endpoint (/api/map/pois),
-  // now backed by the BFF GET handler that proxies to backend GET /map/pois
-  // (same query contract: category, minLat/maxLat/minLng/maxLng).
-  const fetchMapData = useCallback(
-    async (
-      category?: string,
-      bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }
-    ) => {
-      const curCategory = category || 'all';
-      if (
-        bounds &&
-        lastFetchRef.current?.category === curCategory &&
-        lastFetchRef.current.bounds &&
-        lastFetchRef.current.bounds.minLat === bounds.minLat &&
-        lastFetchRef.current.bounds.maxLat === bounds.maxLat &&
-        lastFetchRef.current.bounds.minLng === bounds.minLng &&
-        lastFetchRef.current.bounds.maxLng === bounds.maxLng
-      ) {
-        return; // viewport + category unchanged → don't wipe the loaded POIs
-      }
-      if (bounds) {
-        lastFetchRef.current = {
-          category: curCategory,
-          bounds: { minLat: bounds.minLat, maxLat: bounds.maxLat, minLng: bounds.minLng, maxLng: bounds.maxLng },
-        };
-      }
-      try {
-        setLoading(true);
-        logger.info('Fetching map data', { category, bounds });
-
-        let url = '/api/map/pois';
-        const params = new URLSearchParams();
-        if (category && category !== 'all') params.set('category', category);
-        if (bounds) {
-          params.set('minLat', String(bounds.minLat));
-          params.set('maxLat', String(bounds.maxLat));
-          params.set('minLng', String(bounds.minLng));
-          params.set('maxLng', String(bounds.maxLng));
-        }
-        const qs = params.toString();
-        if (qs) url += '?' + qs;
-
-        const res = await fetchWithRetry(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        const data = unwrapApiResponse<any>(json);
-        const list = Array.isArray(data) ? data : [];
-        setLocations(list);
-      } catch (err) {
-        logger.error('Error fetching map data', err);
-        toast.error('Không tải được dữ liệu bản đồ');
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  // --- Fetch: AI analysis (POST) — UNCHANGED endpoint + body ---
-  const runAiAnalysis = useCallback(async () => {
-    setAnalyzing(true);
-    setAiAnalysis(null);
-    setGeoJsonData(null);
-    try {
-      const accessToken = authService.getAccessToken();
-      const res = await fetchWithRetry('/api/map/ai-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify({ query: 'Biên Hòa' }),
-      });
-      if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`);
-      const json = await res.json();
-      const data = unwrapApiResponse<any>(json);
-      // Issue #7: capture BOTH the text analysis (for AiPanel) AND the
-      // GeoJSON boundary FeatureCollection (for map polygon rendering).
-      setAiAnalysis({
-        density_score: data.density_score,
-        summary: data.summary,
-        recommendations: data.recommendations || [],
-      });
-      setGeoJsonData(
-        data.geojson && data.geojson.type === 'FeatureCollection' ? data.geojson : null
-      );
-    } catch (err) {
-      logger.error('AI analysis error', err);
-      toast.error('Phân tích AI thất bại');
-    } finally {
-      setAnalyzing(false);
+      logger.error("Error fetching featured pins", error);
     }
   }, []);
 
@@ -557,99 +625,84 @@ export default function MapPage() {
     fetchCategoriesOnce();
     fetchFixedLocations();
     fetchFeaturedPins();
-    // Initial viewport fetch is now driven by MapEvents.onReady (real bounds),
-    // NOT fetchMapData('all') over DEFAULT_BBOX (whole province) which was slow.
-  }, [fetchStats, fetchCategoriesOnce, fetchMapData, fetchFeaturedPins]);
+  }, [fetchStats, fetchCategoriesOnce, fetchFeaturedPins]);
 
-  // Category change → refetch (bounds empty like initial)
   const handleCategoryChange = (c: string) => {
     setActiveCategory(c);
     setSelectedLocation(null);
-    fetchMapData(c === 'all' ? undefined : c, viewport || undefined);
+    fetchMapData(c === "all" ? undefined : c, viewport || undefined);
   };
 
   const handleBoundsChange = useCallback(
     (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
-      setViewport(bounds); // keep for category switches
-      fetchMapData(activeCategory === 'all' ? undefined : activeCategory, bounds);
+      setViewport(bounds);
+      if (activeTool === "home") {
+        fetchMapData(activeCategory === "all" ? undefined : activeCategory, bounds);
+      }
     },
-    [fetchMapData, activeCategory]
+    [fetchMapData, activeCategory, activeTool],
   );
 
   const handleMapClick = (lat: number, lng: number) => {
     if (!authService.isLoggedIn()) {
-      toast('Vui lòng đăng nhập để ghim vị trí mới', { description: 'Chuyển hướng đến trang đăng nhập Google' });
+      toast("Vui lòng đăng nhập để ghim vị trí mới", { description: "Chuyển hướng đến trang đăng nhập Google" });
       return;
     }
     setPinningCoord({ lat, lng });
-    setPinForm({ name: '', category: 'school', description: '', address: '' });
+    setPinForm({ name: "", category: "school", description: "", address: "" });
   };
 
   const handleSelectFixedLocation = (loc: Location) => {
     setPinningCoord({ lat: loc.lat, lng: loc.lng });
     setPinForm({
-      name: loc.name,
-      category: loc.category,
-      description: loc.description || '',
-      address: loc.address || '',
+      name: loc.name, category: loc.category,
+      description: loc.description || "", address: loc.address || "",
     });
   };
 
-  // client-side search filter on the loaded list (no new endpoint)
   const filteredLocations = locations.filter((loc) => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
     return (
       loc.name.toLowerCase().includes(term) ||
-      (loc.category || '').toLowerCase().includes(term) ||
-      (loc.address || '').toLowerCase().includes(term)
+      (loc.category || "").toLowerCase().includes(term) ||
+      (loc.address || "").toLowerCase().includes(term)
     );
   });
 
-  const handleSelectLocation = (loc: Location) => {
-    // `nearbyPois` is derived via useMemo from `locations`; just record the selection.
-    setSelectedLocation(loc);
-  };
-
-  // --- Pin save (POST /api/map/pois) — UNCHANGED endpoint + body ---
   const handleSavePin = async () => {
     if (!pinForm.name || !pinningCoord) {
-      toast.warning('Vui lòng nhập tên địa điểm.');
+      toast.warning("Vui lòng nhập tên địa điểm.");
       return;
     }
     try {
       setIsSavingPin(true);
       const accessToken = authService.getAccessToken();
-      const res = await fetchWithRetry('/api/map/pois', {
-        method: 'POST',
+      const res = await fetchWithRetry("/api/map/pois", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({
-          ...pinForm,
-          lat: pinningCoord.lat,
-          lng: pinningCoord.lng,
-        }),
+        body: JSON.stringify({ ...pinForm, lat: pinningCoord.lat, lng: pinningCoord.lng }),
       });
       const errJson = await res.json();
       const errData = unwrapApiResponse<any>(errJson);
       if (res.ok) {
-        toast.success('Đã ghim vị trí thành công!');
+        toast.success("Đã ghim vị trí thành công!");
         setPinningCoord(null);
-        fetchMapData(activeCategory === 'all' ? undefined : activeCategory);
+        fetchMapData(activeCategory === "all" ? undefined : activeCategory);
       } else {
-        toast.error((errData as any)?.message || 'Lỗi khi ghim vị trí.');
+        toast.error((errData as any)?.message || "Lỗi khi ghim vị trí.");
       }
     } catch (error) {
-      logger.error('Save pin error', error);
-      toast.error('Lỗi khi ghim vị trí.');
+      logger.error("Save pin error", error);
+      toast.error("Lỗi khi ghim vị trí.");
     } finally {
       setIsSavingPin(false);
     }
   };
 
-  // fullscreen toggle
   const toggleFullscreen = () => {
     if (!fs && !document.fullscreenElement) {
       document.documentElement.requestFullscreen?.();
@@ -660,32 +713,209 @@ export default function MapPage() {
     }
   };
 
-  // Wait until the auth guard is ready so we don't flash the gate while logged out
+  const showHomeControls = activeTool === "home";
+  const activeToolDef = activeTool === "home" ? null : MAP_TOOL_BY_ID[activeTool];
+  const hideBase = activeToolDef?.hideBaseLayers ?? false;
+
+  // Active tool overlay / panel props (must be after all useState declarations)
+  const overlayNode = activeToolDef
+    ? React.createElement(activeToolDef.Overlay, {
+        result: toolResults[activeTool],
+        viewport,
+        points: locations,
+        loading: toolLoading[activeTool],
+        onFeatureSelect: setSelectedLocation,
+      } as any)
+    : null;
+
+  const toolPanelProps = activeToolDef
+    ? {
+        viewport,
+        result: toolResults[activeTool],
+        onResult: (data: any) => handleToolResult(activeTool, data),
+        loading: toolLoading[activeTool],
+        setLoading: (l: boolean) => handleToolLoading(activeTool, l),
+        error: toolError[activeTool],
+        setError: (e: string | null) => handleToolError(activeTool, e),
+        active: true,
+        user,
+      } as any
+    : null;
+
+  // Wait until the auth guard is ready
   if (!user) return null;
 
   return (
-    <div className="relative h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:h-screen">
-      {/* Top toolbar — map-specific controls (search + category chips) kept clear of the global w-60 sidebar. The nav rail + account block now come from the global <Sidebar/> (via AppLayout), so /map shares the exact same left chrome as /dashboard. */}
-      <div className="absolute top-4 left-0 z-50 flex items-center gap-3 bg-card/95 border border-border rounded-xl px-3 py-2 shadow-lg backdrop-blur-sm">
-        <div className="relative">
-          <SearchBar value={searchTerm} onChange={setSearchTerm} />
-          {searchTerm.trim() && (
-            <SearchResults
-              results={filteredLocations.slice(0, 8)}
-              onSelect={(loc) => { setSelectedLocation(loc); setSearchTerm(''); }}
+    <div className="flex h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:h-screen">
+      {/* ─── Left sidebar: tool tabs + panel ─── */}
+      <aside className="w-80 lg:w-96 flex flex-col border-r border-border bg-card overflow-hidden">
+        {/* Tab bar */}
+        <div className="border-b border-border p-3 bg-card overflow-x-auto">
+          <div className="flex flex-wrap gap-1.5">
+            <ToolTab
+              tool={{
+                id: "home", label: "Bản đồ", longLabel: "Bản đồ chính",
+                icon: HomeIcon, description: "Duyệt POI, tìm kiếm, phân tích AI",
+                longDescription: "Duyệt địa điểm giáo dục, tìm kiếm, phân tích AI, tìm bằng giọng nói.",
+                authRequired: false, hideBaseLayers: false,
+                Panel: (() => null) as any, Overlay: (() => null) as any,
+              } as MapTool}
+              isActive={activeTool === "home"}
+              onClick={() => handleToolChange("home")}
             />
-          )}
+            {MAP_TOOLS.map((tool) => (
+              <ToolTab
+                key={tool.id}
+                tool={tool}
+                isActive={activeTool === tool.id}
+                onClick={() => handleToolChange(tool.id)}
+                count={getResultCount(tool.id, toolResults[tool.id])}
+              />
+            ))}
+          </div>
         </div>
-        <div className="w-px h-7 bg-border" />
-        <CategoryChips categories={categories} active={activeCategory} onSelect={handleCategoryChange} />
-      </div>
 
-      {/* --- Map (main surface, full-bleed) --- */}
-      <main className="absolute inset-0">
-          <InteractiveMap
-          points={filteredLocations}
+        {/* Panel content — scrollable */}
+        <div ref={sidebarRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+          {showHomeControls ? (
+            // ─── Home tool: existing map controls ───
+            <>
+              {/* Search */}
+              <div className="relative">
+                <SearchBar value={searchTerm} onChange={setSearchTerm} />
+                {searchTerm.trim() && (
+                  <SearchResults
+                    results={filteredLocations.slice(0, 8)}
+                    onSelect={(loc) => { setSelectedLocation(loc); setSearchTerm(""); }}
+                  />
+                )}
+              </div>
+
+              {/* Category chips */}
+              <CategoryChips categories={categories} active={activeCategory} onSelect={handleCategoryChange} />
+
+              {/* Selected place detail */}
+              {selectedLocation && (
+                <div className="card-surface p-3 card-equal">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      {React.createElement(facilityIconFor(selectedLocation.category).Icon, {
+                        className: `w-5 h-5 ${facilityIconFor(selectedLocation.category).color}`,
+                      })}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-foreground text-sm">{selectedLocation.name}</h3>
+                      {selectedLocation.category && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/30 text-muted-foreground/70">
+                          {selectedLocation.category}
+                        </span>
+                      )}
+                      {selectedLocation.address && (
+                        <p className="text-[10px] text-muted-foreground/65 mt-1">{selectedLocation.address}</p>
+                      )}
+                      {selectedLocation.description && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-1 line-clamp-2">
+                          {selectedLocation.description}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setSelectedLocation(null)}
+                      className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground/60"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Nearby facilities */}
+              {selectedLocation && nearbyPois.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Gần đây ({nearbyPois.length})</span>
+                  </div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {nearbyPois.map((poi) => (
+                      <button
+                        key={poi.id}
+                        onClick={() => setSelectedLocation(poi)}
+                        className="w-full flex items-center gap-2 p-2 text-left rounded-lg hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="w-5 h-5 flex items-center justify-center">
+                          {React.createElement(facilityIconFor(poi.category).Icon, { className: "w-3 h-3 text-primary" })}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-foreground truncate">{poi.name}</div>
+                          <div className="text-[9px] text-muted-foreground/60">{poi.category}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI analysis trigger */}
+              <button
+                onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
+                disabled={analyzing}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-60"
+              >
+                {analyzing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Đang phân tích AI…
+                  </>
+                ) : (
+                  <>
+                    <BrainCircuit className="w-4 h-4" /> Phân tích AI khu vực
+                  </>
+                )}
+              </button>
+
+              {/* Map stats */}
+              {mapStats && (
+                <div className="p-3 rounded-xl bg-muted/10 border border-border">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground mb-2">
+                    <Info className="w-3.5 h-3.5" />
+                    <span>Thống kê khu vực</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                    {Object.entries(categoryCounts).map(([k, v]) => (
+                      <div key={k} className="flex justify-between">
+                        <span className="capitalize text-muted-foreground">{k}</span>
+                        <b className="text-foreground">{v as number}</b>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : activeToolDef ? (
+            activeToolDef.authRequired && !user ? (
+              <div className="p-4 text-center text-muted-foreground">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                <p className="text-sm">Cần đăng nhập để sử dụng công cụ này.</p>
+                <button
+                  onClick={() => (window.location.href = "/auth/login")}
+                  className="mt-2 text-primary hover:underline text-xs font-medium"
+                >
+                  Đăng nhập →
+                </button>
+              </div>
+            ) : (
+              <activeToolDef.Panel {...toolPanelProps!} />
+            )
+          ) : null}
+        </div>
+      </aside>
+
+      {/* ─── Map (main surface) ─── */}
+      <main className="flex-1 relative min-h-0">
+        <InteractiveMap
+          points={hideBase ? [] : filteredLocations}
           selectedPoint={selectedLocation}
-          onSelectPoint={handleSelectLocation}
+          onSelectPoint={setSelectedLocation}
           onMapClick={handleMapClick}
           showHeatmap={showHeatmap}
           onBoundsChange={handleBoundsChange}
@@ -693,31 +923,30 @@ export default function MapPage() {
           nearbyPoints={nearbyPois}
           geoJsonData={geoJsonData}
           featuredPins={showFeaturedPins ? featuredPins : []}
+          overlay={overlayNode}
         />
       </main>
 
-      {/* --- Floating control panel (right) — toggles hiện/ẩn tính năng --- */}
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-center gap-2">
+      {/* ─── Floating toolbar (bottom-right) ─── */}
+      <div className="fixed bottom-6 right-6 z-[70] flex flex-col items-center gap-2">
         <div className="flex flex-col gap-2 rounded-xl bg-card border border-border shadow-lg p-1.5">
           <button
             onClick={isRecording ? stopVoiceSearch : startVoiceSearch}
             title="Tìm bằng giọng nói (Voice-to-Geo)"
-            className={`p-2 rounded-lg transition-colors ${isRecording ? 'bg-destructive text-destructive-foreground animate-pulse' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "text-muted-foreground/60 hover:bg-muted/50"}`}
           >
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             title="Bật/tắt lớp nhiệt độ"
-            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showHeatmap ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}
           >
             <Flame className="w-4 h-4" />
           </button>
           <button
             onClick={() => {
-              // SafeRoute AI (Idea #12): trigger via the RoutingPanel button
-              // The InteractiveMap component handles the full flow internally.
-              const event = new CustomEvent('toggleSafeRoute');
+              const event = new CustomEvent("toggleSafeRoute");
               window.dispatchEvent(event);
             }}
             title="Chỉ đường an toàn AI (SafeRoute)"
@@ -725,44 +954,25 @@ export default function MapPage() {
           >
             <Shield className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
-            title="Phân tích AI khu vực"
-            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
-          >
-            <BrainCircuit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => { window.location.href = '/map/data-hunter'; }}
-            title="Truy đuổi dữ liệu thiếu (Missing Data Hunter)"
-            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground transition-colors"
-          >
-            <Target className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => { window.location.href = '/map/survey-planner'; }}
-            title="Kế hoạch khảo sát AI (Active Learning)"
-            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground transition-colors"
-          >
-            <MapPin className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowHeatmap(true)}
-            title="Chế độ xem lớp"
-            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors"
-          >
-            <Layers className="w-4 h-4" />
-          </button>
+          {showHomeControls && (
+            <button
+              onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
+              title="Phân tích AI khu vực"
+              className={`p-2 rounded-lg transition-colors ${showAiPanel ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}
+            >
+              <BrainCircuit className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => setShowFeaturedPins(!showFeaturedPins)}
-            title={showFeaturedPins ? 'Ẩn ghim đặc trưng' : 'Hiện ghim đặc trưng'}
-            className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            title={showFeaturedPins ? "Ẩn ghim đặc trưng" : "Hiện ghim đặc trưng"}
+            className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}
           >
             <Star className="w-4 h-4" />
           </button>
           <button
             onClick={toggleFullscreen}
-            title={fs ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+            title={fs ? "Thoát toàn màn hình" : "Toàn màn hình"}
             className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors"
           >
             {fs ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
@@ -770,9 +980,9 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Voice search results overlay (Idea #16) */}
+      {/* ─── Voice search results overlay ─── */}
       {showVoiceResults && voiceResults.length > 0 && (
-        <div className="fixed bottom-24 right-6 z-40 w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
+        <div className="fixed bottom-24 right-6 z-[60] w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mic className="w-4 h-4 text-primary" />
@@ -819,15 +1029,17 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* AI Analysis side panel */}
-      <AiPanel open={showAiPanel} onClose={() => setShowAiPanel(false)} analysis={aiAnalysis} loading={analyzing} />
+      {/* ─── AI Analysis side panel (Home only) ─── */}
+      {showHomeControls && (
+        <AiPanel open={showAiPanel} onClose={() => setShowAiPanel(false)} analysis={aiAnalysis} loading={analyzing} />
+      )}
 
-      {/* Pin modal */}
+      {/* ─── Pin modal ─── */}
       {pinningCoord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-card/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-lg w-full max-w-md p-5">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-card/40 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Ghim vị trí mới</h3>
+              <h3 className="h3-card">Ghim vị trí mới</h3>
               <button
                 onClick={() => setPinningCoord(null)}
                 className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground"
@@ -836,10 +1048,9 @@ export default function MapPage() {
               </button>
             </div>
 
-            {/* Chọn từ địa điểm cố định có sẵn (trường, lab, thư viện...) */}
             {fixedLocations.length > 0 && (
               <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
-                <label className="text-xs font-medium text-muted-foreground/60 block mb-2">Chọn từ địa điểm cố định</label>
+                <label className="label-form block mb-2">Chọn từ địa điểm cố định</label>
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
                   {fixedLocations.map((loc) => (
                     <button
@@ -851,78 +1062,63 @@ export default function MapPage() {
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted-foreground/65 mt-2">Nhấn một địa điểm để tự động điền tên, loại, địa chỉ và tọa độ.</p>
+                <p className="text-[10px] text-muted-foreground/65 mt-2">Nhấn một địa điểm để tự động điền.</p>
               </div>
             )}
 
-            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Tên địa điểm</label>
-            <input
+            <label className="label-form block mb-2">Tên địa điểm</label>
+            <Input
               type="text"
               value={pinForm.name}
               onChange={(e) => setPinForm({ ...pinForm, name: e.target.value })}
               placeholder="VD: Thư viện ABC"
-              className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
+              className="form-input mb-3"
             />
-
-            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Danh mục</label>
-            <select
+            <label className="label-form block mb-2">Danh mục</label>
+            <Select
               value={pinForm.category}
               onChange={(e) => setPinForm({ ...pinForm, category: e.target.value })}
-              className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
+              className="form-select mb-3"
             >
               {categoriesLoaded && categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
-
-            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Địa chỉ</label>
-            <input
+            </Select>
+            <label className="label-form block mb-2">Địa chỉ</label>
+            <Input
               type="text"
               value={pinForm.address}
               onChange={(e) => setPinForm({ ...pinForm, address: e.target.value })}
               placeholder="Số nhà, đường, phường..."
-              className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
+              className="form-input mb-3"
             />
-
-            <label className="text-xs font-medium text-muted-foreground/60 block mb-1">Mô tả</label>
-            <textarea
+            <label className="label-form block mb-2">Mô tả</label>
+            <Textarea
               value={pinForm.description}
               onChange={(e) => setPinForm({ ...pinForm, description: e.target.value })}
               placeholder="Mô tả ngắn gọn (giờ mở cửa, tiện ích...)"
-              className="w-full text-sm text-foreground bg-card border border-border rounded-lg px-3 py-2 mb-3 outline-none focus:ring-1 focus:ring-primary"
               rows={3}
+              className="form-textarea mb-3"
             />
-
             <div className="flex gap-2 pt-1">
-              <button
+              <Button
                 onClick={() => setPinningCoord(null)}
-                className="flex-1 h-10 text-sm font-medium text-muted-foreground/60 hover:bg-muted/50 border border-border rounded-lg transition-colors"
+                variant="outline"
+                className="flex-1 h-10 text-sm font-medium"
               >
                 Hủy
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleSavePin}
                 disabled={isSavingPin || !pinForm.name}
-                className="flex-1 h-10 text-sm font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                loading={isSavingPin}
+                icon={<Save className="w-4 h-4" />}
+                loadingText="ĐANG LƯU..."
+                className="flex-1 h-10 text-sm font-semibold bg-primary"
               >
-                {isSavingPin ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <Save className="w-4 h-4" />}
-                {isSavingPin ? 'Đang lưu...' : 'Lưu địa điểm'}
-              </button>
+                Lưu địa điểm
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Map stats legend (subtle) */}
-      {mapStats && (
-        <div className="fixed bottom-6 left-64 z-20 rounded-xl bg-card/90 border border-border px-3 py-2 shadow-lg text-xs text-muted-foreground/60">
-          <div className="font-medium text-foreground/60 mb-1 flex items-center gap-1">
-            <Info className="w-3 h-3" /> Thống kê khu vực
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {Object.entries(categoryCounts).map(([k, v]) => (
-              <div key={k} className="flex justify-between"><span className="capitalize">{k}</span><b>{v as number}</b></div>
-            ))}
           </div>
         </div>
       )}

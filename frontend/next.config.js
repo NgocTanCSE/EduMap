@@ -126,7 +126,12 @@ const nextConfig = {
       {
         // `config` is excluded so `/api/config` always hits the Next route
         // handler (runtime Google client ID) instead of the backend.
-        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|offline/tutor|offline/status|config$).*)',
+        // `gamification` is excluded so `/api/gamification/*` always hits the
+        // BFF route handlers in `app/api/gamification/*` — they unwrap the
+        // response envelope and forward auth headers. Without this exclusion
+        // a rewrite could bypass the BFF and return the raw envelope to the
+        // client, breaking the gamification service's response parsing.
+        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|gamification|offline/tutor|offline/status|config$).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

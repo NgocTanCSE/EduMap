@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
 import EmptyState from "@/components/ui/EmptyState";
@@ -799,56 +802,54 @@ function CreateResourceModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          Đăng nguồn lực (cung cấp)
-        </h3>
+        <h3 className="h3-card mb-4">Đăng nguồn lực (cung cấp)</h3>
         <div className="grid grid-cols-2 gap-3">
-          <select
+          <Select
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value as any })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm"
+            className="form-select"
           >
             {RESOURCE_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
-          </select>
-          <input
+          </Select>
+          <Input
             type="text"
             placeholder="Tiêu đề"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm"
+            className="form-input"
           />
-          <input
+          <Input
             type="text"
             placeholder="Địa điểm"
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
-          <input
+          <Input
             type="text"
             placeholder="Điện thoại/email liên hệ"
             value={form.contact_method || ""}
             onChange={(e) =>
               setForm({ ...form, contact_method: e.target.value })
             }
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
-          <input
+          <Input
             type="text"
             placeholder="Nhãn (phân cách bằng dấu phẩy)"
             onChange={(e) => handleTags(e.target.value)}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
         </div>
-        <textarea
+        <Textarea
           placeholder="Mô tả chi tiết"
           value={form.description || ""}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
-          className="w-full mt-3 px-3 py-2 bg-card border border-border rounded-lg text-sm"
+          className="form-textarea mt-3"
           rows={3}
         />
         <div className="flex justify-end gap-3 mt-4">
@@ -878,60 +879,60 @@ function CreateRequestModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Đăng yêu cầu (cần nhận)</h3>
+        <h3 className="h3-card mb-4">Đăng yêu cầu (cần nhận)</h3>
         <div className="grid grid-cols-2 gap-3">
-          <select
+          <Select
             value={form.need_type}
             onChange={(e) =>
               setForm({ ...form, need_type: e.target.value as any })
             }
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm"
+            className="form-select"
           >
             {RESOURCE_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={form.urgency}
             onChange={(e) =>
               setForm({ ...form, urgency: e.target.value as any })
             }
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm"
+            className="form-select"
           >
             {Object.entries(URGENCY_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
             ))}
-          </select>
-          <input
+          </Select>
+          <Input
             type="text"
             placeholder="Tiêu đề"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
-          <input
+          <Input
             type="text"
             placeholder="Địa điểm"
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
-          <input
+          <Input
             type="datetime-local"
             value={form.deadline || ""}
             onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-            className="px-3 py-2 bg-card border border-border rounded-lg text-sm col-span-2"
+            className="form-input col-span-2"
           />
         </div>
-        <textarea
+        <Textarea
           placeholder="Mô tả chi tiết nhu cầu"
           value={form.description || ""}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
-          className="w-full mt-3 px-3 py-2 bg-card border border-border rounded-lg text-sm"
+          className="form-textarea mt-3"
           rows={3}
         />
         <div className="flex justify-end gap-3 mt-4">

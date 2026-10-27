@@ -2,20 +2,40 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+  extends React.InputHTMLAttributes<HTMLInputElement> {
+  icon?: React.ElementType;
+}
 
+/**
+ * Shared text input — Desert Dusk form system.
+ *
+ * Replaces the dozens of hand-rolled `rounded-xl px-4 py-3 border border-border
+ * bg-background focus:border-primary` blocks scattered across pages.
+ * Radius, padding and focus-ring now come from the `.form-input` token in
+ * globals.css so every textbox lines up pixel-for-pixel.
+ *
+ * Usage:
+ *   <Input placeholder="Tìm kiếm..." />
+ *   <Input icon={Search} placeholder="..." />   // icon inside, auto-pl
+ */
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, icon: Icon, ...props }, ref) => {
     return (
-      <input
-        type={type}
-        className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          className
+      <div className="relative w-full">
+        {Icon && (
+          <Icon className="input-icon text-muted-foreground/60" aria-hidden="true" />
         )}
-        ref={ref}
-        {...props}
-      />
+        <input
+          type={type}
+          className={cn(
+            "form-input",
+            Icon && "input-with-icon",
+            className
+          )}
+          ref={ref}
+          {...props}
+        />
+      </div>
     )
   }
 )

@@ -10,11 +10,15 @@ export interface LeaderboardUser {
 }
 
 export interface UserProgress {
+  userId?: string;
   points: number;
   level: number;
   next_level_points: number;
   progress_percent: number;
   points_needed: number;
+  achievements: string[];
+  rank?: number;
+  total_users?: number;
 }
 
 class GamificationService {

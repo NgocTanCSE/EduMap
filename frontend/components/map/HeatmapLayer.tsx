@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
-import "leaflet.heat";
 
 interface HeatmapLayerProps {
   points: { lat: number; lng: number; intensity?: number }[];
@@ -13,6 +12,14 @@ export default function HeatmapLayer({ points }: HeatmapLayerProps) {
 
   useEffect(() => {
     if (!map || !points || points.length === 0) return;
+
+    // Dynamically load leaflet.heat plugin — client-only (SSR-safe)
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require("leaflet.heat");
+    }
+
+    let heatLayer: any;
 
     // Kiểm tra xem extension leaflet.heat đã được nạp chưa
     if (!L || typeof (L as any).heatLayer !== 'function') {
@@ -29,8 +36,7 @@ export default function HeatmapLayer({ points }: HeatmapLayerProps) {
 
       if (heatData.length === 0) return;
 
-      // @ts-ignore
-      const heatLayer = (L as any).heatLayer(heatData, {
+      heatLayer = (L as any).heatLayer(heatData, {
         radius: 25,
         blur: 15,
         maxZoom: 17,
@@ -44,15 +50,15 @@ export default function HeatmapLayer({ points }: HeatmapLayerProps) {
       });
 
       heatLayer.addTo(map);
-
-      return () => {
-        if (map && heatLayer) {
-          map.removeLayer(heatLayer);
-        }
-      };
     } catch (error) {
       console.error("Error adding HeatmapLayer:", error);
     }
+
+    return () => {
+      if (heatLayer && map) {
+        try { map.removeLayer(heatLayer); } catch { /* layer may not have been created */ }
+      }
+    };
   }, [map, points]);
 
   return null;

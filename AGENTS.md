@@ -72,6 +72,40 @@ HF Spaces Docker container (public port 7680)
 - Build: multi-stage `Dockerfile`.
 - PostgreSQL/Redis/MinIO/NGINX/OSRM are replaced by SQLite, in-process LRU
   cache, filesystem, Next.js BFF and public OSRM/ORS respectively.
+
+### Unified Hub pattern (2026-10-27)
+
+Multiple standalone pages that share a domain have been consolidated into
+**hub pages with tab/tool navigation**:
+
+- **`/map` (Map Hub)** — 10 tool tabs in a single sidebar panel:
+  Data Hunter, Gap Predictor, Resource Optimizer, GeoVision AI, Survey Planner,
+  Climate Guardian, AI Agent, Voice Search, Wifi, Green.
+  - Old routes (`/map/data-hunter`, `/climate-guardian`, `/ai-agent`,
+    `/voice-search`, `/wifi`, `/green`, `/talk2map`) now redirect to
+    `/map?tool=<id>` (or `/map` for Talk2Map since search is built into the
+    map page).
+  - Tools use `next/dynamic({ ssr: false })` to avoid leaflet SSR crashes.
+  - Registry: `components/map/tools/registry.tsx` (10 tools, `MAP_TOOLS` array).
+  - Each tool module exports `XxxPanel` + `XxxOverlay` as named exports.
+
+- **`/career` (Career Hub)** — tab bar with 7 tabs:
+  Tổng quan (dashboard), Việc làm (jobs), Lộ trình (roadmap), Dự báo (predictive),
+  Cơ hộp (opportunities), Opportunity Radar, Thống kê (analytics).
+  - Old sidebar items removed: `career-roadmap`, `opportunities`,
+    `opportunity-radar`, `analytics`. `career-jobs` and `career-predictive`
+    were already hidden from sidebar.
+  - Sub-pages (`/career/jobs`, `/career/roadmap`, `/career/predictive`,
+    `/opportunities`, `/opportunities/radar`, `/analytics/trends`) remain
+    accessible as full pages — tabs navigate to them directly.
+  - The `internships` feature stays as a separate sidebar item (distinct data
+    source).
+
+- Feature catalog (`src/lib/feature-catalog.ts`) is the single source of truth
+  for sidebar rendering. `sidebar: true` = appears in the left rail.
+  25 items remain on the sidebar after consolidation (was 35).
+- PostgreSQL/Redis/MinIO/NGINX/OSRM are replaced by SQLite, in-process LRU
+  cache, filesystem, Next.js BFF and public OSRM/ORS respectively.
 - **ImpactMatch (Idea #9)** — need↔sponsor matching: `backend/src/modules/impact-match/*`
   (entities `sponsor_needs`/`sponsor_profiles`, `ImpactMatchService` with SQLite
   pre-filter + AI ranking via `AIService.impactMatchRank`), `ai-service` endpoint

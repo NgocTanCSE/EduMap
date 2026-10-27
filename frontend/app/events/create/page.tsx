@@ -3,10 +3,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarPlus, Image as ImageIcon, Loader2, MapPin } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Image as ImageIcon, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import FileUpload from '@/src/components/ui/FileUpload';
 import { authService } from '@/src/services/auth.service';
 import { eventIllustration } from '@/src/lib/illustrations';
@@ -143,7 +147,7 @@ export default function CreateEventPage() {
     <ContentShell className="max-w-5xl mx-auto">
       <Link
         href="/events"
-        className="flex w-fit items-center gap-2 text-sm font-bold text-muted-foreground/65 transition-colors hover:text-foreground"
+        className="flex w-fit items-center gap-2 text-sm font-bold text-muted-foreground/60 transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> QUAY LẠI DANH SÁCH
       </Link>
@@ -154,105 +158,82 @@ export default function CreateEventPage() {
         icon={CalendarPlus}
       />
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-3">
           <div className="rounded-xl border border-border bg-card p-6 space-y-5">
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                Tên sự kiện *
-              </label>
-              <input
+              <label className="label-form block mb-2">Tên sự kiện *</label>
+              <Input
                 value={form.title}
                 onChange={(e) => update('title', e.target.value)}
                 placeholder="VD: Workshop Hướng nghiệp Công nghệ 4.0"
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                Mô tả *
-              </label>
-              <textarea
+              <label className="label-form block mb-2">Mô tả *</label>
+              <Textarea
                 value={form.description}
                 onChange={(e) => update('description', e.target.value)}
                 placeholder="Giới thiệu nội dung, đối tượng tham gia và lợi ích của sự kiện..."
                 rows={6}
-                className="w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 required
               />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Loại sự kiện
-                </label>
-                <select
+                <label className="label-form block mb-2">Loại sự kiện</label>
+                <Select
                   value={form.type}
                   onChange={(e) => update('type', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 >
                   {EVENT_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Sức chứa
-                </label>
-                <input
+                <label className="label-form block mb-2">Sức chứa</label>
+                <Input
                   type="number"
                   min={1}
                   value={form.capacity}
                   onChange={(e) => update('capacity', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                Địa điểm
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-                <input
-                  value={form.address}
-                  onChange={(e) => update('address', e.target.value)}
-                  placeholder="VD: Trường ĐH Lạc Hồng, Biên Hòa, Đồng Nai"
-                  className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-4 text-sm outline-none transition-colors focus:border-primary"
-                />
-              </div>
+              <label className="label-form block mb-2">Địa điểm</label>
+              <Input
+                icon={MapPin}
+                value={form.address}
+                onChange={(e) => update('address', e.target.value)}
+                placeholder="VD: Trường ĐH Lạc Hồng, Biên Hòa, Đồng Nai"
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Bắt đầu *
-                </label>
-                <input
+                <label className="label-form block mb-2">Bắt đầu *</label>
+                <Input
                   type="datetime-local"
                   value={form.start_date}
                   onChange={(e) => update('start_date', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                   required
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Kết thúc *
-                </label>
-                <input
+                <label className="label-form block mb-2">Kết thúc *</label>
+                <Input
                   type="datetime-local"
                   value={form.end_date}
                   onChange={(e) => update('end_date', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                   required
                 />
               </div>
@@ -260,39 +241,30 @@ export default function CreateEventPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Giá vé (VND)
-                </label>
-                <input
+                <label className="label-form block mb-2">Giá vé (VND)</label>
+                <Input
                   type="number"
                   min={0}
                   value={form.price}
                   onChange={(e) => update('price', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Vĩ độ
-                </label>
-                <input
+                <label className="label-form block mb-2">Vĩ độ</label>
+                <Input
                   type="number"
                   step="any"
                   value={form.latitude}
                   onChange={(e) => update('latitude', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                  Kinh độ
-                </label>
-                <input
+                <label className="label-form block mb-2">Kinh độ</label>
+                <Input
                   type="number"
                   step="any"
                   value={form.longitude}
                   onChange={(e) => update('longitude', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                 />
               </div>
             </div>
@@ -301,7 +273,7 @@ export default function CreateEventPage() {
 
         <div className="space-y-5 lg:col-span-2">
           <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
+            <div className="mb-3 flex items-center gap-2 label-form">
               <ImageIcon className="h-4 w-4 text-primary" /> Ảnh bìa sự kiện
             </div>
             <div className="mb-4 overflow-hidden rounded-lg border border-border">
@@ -319,14 +291,16 @@ export default function CreateEventPage() {
             </p>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
+            loading={submitting}
+            icon={<CalendarPlus className="h-5 w-5" />}
+            loadingText="ĐANG TẠO..."
+            className="w-full rounded-xl bg-primary px-6 py-4 text-sm font-bold text-primary-foreground hover:bg-primary/85"
           >
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CalendarPlus className="h-5 w-5" />}
-            {submitting ? 'ĐANG TẠO...' : 'TẠO SỰ KIỆN'}
-          </button>
+            TẠO SỰ KIỆN
+          </Button>
 
           <p className="text-center text-[11px] text-muted-foreground/60">
             Bạn cần đăng nhập bằng tài khoản EduMap để tạo sự kiện.

@@ -302,7 +302,7 @@ export default function AIChatPage() {
             <Bot className="w-6 h-6 text-foreground" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-foreground">DNTU Assistant</h1>
+          <h1 className="h1-page">DNTU Assistant</h1>
           </div>
         </div>
         {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
@@ -342,7 +342,7 @@ export default function AIChatPage() {
                 {/* Sources Display */}
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && !m.isStreaming && (
                    <div className="mt-2 flex flex-col gap-2">
-                      <p className="text-[9px] uppercase font-semibold text-muted-foreground/20 tracking-widest flex items-center gap-1 ml-2">
+                      <p className="text-[9px] uppercase font-semibold text-soft tracking-widest flex items-center gap-1 ml-2">
                          <BookOpen size={10} /> Tài liệu tham khảo
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -356,7 +356,7 @@ export default function AIChatPage() {
                    </div>
                 )}
 
-                <span className="text-[9px] text-muted-foreground/20 uppercase font-semibold tracking-[0.2em] px-2">
+                <span className="text-[9px] text-soft uppercase font-semibold tracking-[0.2em] px-2">
                   {m.role === 'assistant' ? 'EduMap AI' : 'Sinh viên'}
                 </span>
               </div>
@@ -372,14 +372,15 @@ export default function AIChatPage() {
           disabled={isLoading}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          className="border-none bg-transparent focus-visible:ring-0 px-6 text-primary text-sm placeholder:text-muted-foreground/10"
+          className="flex-1 form-input"
         />
         {/* Voice input button (Idea #16) */}
         <Button
           onClick={toggleVoiceRecording}
           disabled={isLoading}
           variant="ghost"
-          className={`rounded-lg shrink-0 h-12 w-12 border border-border ${
+          size="sm"
+          className={`shrink-0 ${
             isVoiceRecording
               ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
               : 'text-muted-foreground/60 hover:bg-muted/50'
@@ -391,9 +392,12 @@ export default function AIChatPage() {
         <Button
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
-          className="rounded-lg shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
+          size="sm"
+          loading={isLoading}
+          icon={<Send className="w-5 h-5" />}
+          className="shrink-0 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
         >
-          {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          GỬI
         </Button>
       </div>
     </div>

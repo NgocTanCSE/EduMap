@@ -5,7 +5,7 @@ import {
   TrendingUp, Users, Loader2, Target, Award
 } from 'lucide-react';
 import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
-import { authService } from '@/src/services/auth.service';
+import { authService, CurrentUser } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
@@ -13,23 +13,53 @@ export default function LeaderboardPage() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [leaderboardError, setLeaderboardError] = useState(false);
+
   const currentUser = authService.getUser();
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  /**
+   * Fetch leaderboard and my-progress independently.
+   * Using Promise.allSettled so that a failure in getMyProgress (e.g. 401
+   * token-expired) does NOT wipe the leaderboard data. Each result is
+   * handled separately so the user always sees the leaderboard.
+   */
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [leaderboardData, myProgress] = await Promise.all([
+
+      const [leaderboardResult, progressResult] = await Promise.allSettled([
         gamificationService.getLeaderboard(),
         authService.isLoggedIn() ? gamificationService.getMyProgress() : Promise.resolve(null)
       ]);
-      
-      setUsers(leaderboardData);
-      setProgress(myProgress);
+
+      // Leaderboard — always show even if progress fails
+      if (leaderboardResult.status === 'fulfilled') {
+        setUsers(leaderboardResult.value || []);
+        setLeaderboardError(false);
+      } else {
+        setUsers([]);
+        setLeaderboardError(true);
+        toast.error('Không thể tải bảng xếp hạng');
+      }
+
+      // My Progress — independent; missing progress is not fatal
+      if (progressResult.status === 'fulfilled' && progressResult.value) {
+        setProgress(progressResult.value as UserProgress);
+      } else if (progressResult.status === 'rejected') {
+        // If the user was logged in but progress fetch failed, log them out
+        if (progressResult.reason?.message?.includes('401')) {
+          // Token likely expired — authService.isLoggedIn() will catch this
+          // on next render and the page will show login UI state.
+          console.error('My-progress auth failure:', progressResult.reason);
+        } else {
+          console.error('My-progress fetch error:', progressResult.reason);
+        }
+        setProgress(null);
+      }
     } catch (error: any) {
       toast.error('Không thể tải dữ liệu bảng xếp hạng');
     } finally {
@@ -65,20 +95,34 @@ export default function LeaderboardPage() {
         </div>
 
         {/* My Progress Card (If logged in) */}
-        {progress && (
+        {progress && currentUser && (
           <div className="bg-card border border-border rounded-lg p-8 flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card/40">
-                    <span className="text-3xl font-semibold text-primary">{progress.level}</span>
+                <div className="w-24 h-24 rounded-full border-4 border-primary/30 overflow-hidden bg-card/40 shrink-0">
+                    {currentUser.avatar_url ? (
+                        <img src={currentUser.avatar_url} onError={onImageError(avatarFallback(currentUser.fullName || currentUser.email))} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-primary">
+                            {currentUser.fullName?.[0] || currentUser.email?.[0] || '?'}
+                        </div>
+                    )}
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-primary-foreground">LEVEL</div>
+                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-primary-foreground">LEVEL {progress.level}</div>
             </div>
             
             <div className="flex-1 space-y-4 w-full text-center md:text-left">
                 <div className="flex justify-between items-end">
                     <div>
-                        <h2 className="text-xl font-bold">Thứ hạng của bạn</h2>
-                        <p className="text-muted-foreground/60 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
+                        <h2 className="text-xl font-bold">
+                            {currentUser.fullName || currentUser.email}
+                        </h2>
+                        <p className="text-muted-foreground/60 text-xs mt-1">
+                            {progress.rank !== undefined && progress.total_users !== undefined
+                                ? `Hạng #${progress.rank}${progress.total_users > 0 ? ` / ${progress.total_users} người chơi` : ''}`
+                                : (progress.points === 0
+                                    ? 'Hãy tham gia hoạt động để lên hạng!'
+                                    : `Điểm của bạn chưa đủ để nằm trong top ${users.length}`)}
+                        </p>
                     </div>
                     <div className="text-right">
                         <span className="text-2xl font-semibold text-foreground">{progress.points.toLocaleString()}</span>
@@ -168,6 +212,13 @@ export default function LeaderboardPage() {
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">Bảng xếp hạng chi tiết</span>
                 <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
             </div>
+            {users.length === 0 ? (
+                <div className="p-12 text-center text-muted-foreground/60">
+                    {leaderboardError
+                        ? 'Không thể tải bảng xếp hạng. Vui lòng thử lại.'
+                        : 'Chưa có ai trên bảng xếp hạng. Hãy là người đầu tiên tham gia!'}
+                </div>
+            ) : (
             <div className="divide-y divide-white/5">
                 {others.map((user, index) => (
                     <div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-card/20 group ${user.id === currentUser?.id ? 'bg-primary/10' : ''}`}>
@@ -190,7 +241,29 @@ export default function LeaderboardPage() {
                     </div>
                 ))}
             </div>
+            )}
         </div>
+
+        {/* Not-in-top-10 notice */}
+        {progress && currentUser && users.length > 0 && (
+            <div className="mb-4 text-center">
+                <p className="text-xs text-muted-foreground/60">
+                    {users.findIndex(u => u.id === currentUser?.id) < 0 && (
+                        progress.rank !== undefined && progress.total_users !== undefined ? (
+                            <>
+                                {currentUser.fullName || currentUser.email} — bạn đang hạng #{progress.rank}/{progress.total_users}. 
+                                Hãy tham gia hoạt động để lên hạng!
+                            </>
+                        ) : (
+                            <>
+                                {currentUser.fullName || currentUser.email} — bạn chưa nằm trong top {users.length}. 
+                                Hãy tham gia hoạt động để lên hạng!
+                            </>
+                        )
+                    )}
+                </p>
+            </div>
+        )}
 
       </div>
     </div>

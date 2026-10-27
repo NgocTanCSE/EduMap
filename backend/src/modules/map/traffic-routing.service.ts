@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TrafficSegment } from './entities/traffic-segment.entity';
+import { isPostgresNow } from '../../common/utils/db-column.utils';
 
 export interface TrafficInfo {
   segmentId: string;
@@ -125,29 +126,32 @@ export class TrafficRoutingService {
   ): Promise<TrafficInfo> {
     // Try to find matching traffic segment in DB
     try {
-      const dbSegments = await this.trafficSegmentRepo
-        .createQueryBuilder('ts')
-        .where(`ST_DWithin(ts.coordinates, ST_MakeLine(ST_MakePoint(:lng1, :lat1), ST_MakePoint(:lng2, :lat2)), 0.001)`)
-        .setParameters({ lng1: p1[0], lat1: p1[1], lng2: p2[0], lat2: p2[1] })
-        .limit(1)
-        .getMany();
+      if (isPostgresNow()) {
+        // Postgres + PostGIS: ST_DWithin / ST_MakePoint are native geometry/geography functions.
+        const dbSegments = await this.trafficSegmentRepo
+          .createQueryBuilder('ts')
+          .where(`ST_DWithin(ts.coordinates, ST_MakeLine(ST_MakePoint(:lng1, :lat1), ST_MakePoint(:lng2, :lat2)), 0.001)`)
+          .setParameters({ lng1: p1[0], lat1: p1[1], lng2: p2[0], lat2: p2[1] })
+          .limit(1)
+          .getMany();
 
-      if (dbSegments.length > 0) {
-        const seg = dbSegments[0];
-        const profile = seg.congestionProfile?.hourlySpeedFactor || this.peakHourProfiles[seg.roadType] || this.peakHourProfiles.primary;
-        let factor = profile[hour] || 1.0;
-        if (isWeekend) factor *= this.weekendFactor;
-        factor = Math.min(factor, 1.0);
-
-        return {
-          segmentId: seg.id,
-          roadName: seg.roadName,
-          roadType: seg.roadType,
-          congestionLevel: seg.congestionLevel,
-          currentSpeedFactor: factor,
-          freeFlowSpeed: seg.freeFlowSpeed,
-          estimatedSpeed: seg.freeFlowSpeed * factor,
-        };
+        if (dbSegments.length > 0) {
+          return this.buildTrafficInfoFromSegment(dbSegments[0], hour, isWeekend);
+        }
+      } else {
+        // ── SQLite / HF Spaces free tier ──────────────────────────────
+        // SQLite has NO PostGIS functions (no ST_DWithin, ST_MakePoint,
+        // ST_MakeLine) — the raw query above would throw
+        // `SQLITE_ERROR: no such function: ST_MakePoint` on every call.
+        // Per AGENTS.md §7 we must NOT ship PostGIS SQL to SQLite; instead
+        // load the (small) candidate segments and filter by Haversine
+        // proximity in JS, mirroring WifiService.getWifiPointsNearby().
+        const allSegments = await this.trafficSegmentRepo.find();
+        for (const seg of allSegments) {
+          if (this._segmentNearRoute(p1, p2, seg.coordinates, 200)) {
+            return this.buildTrafficInfoFromSegment(seg, hour, isWeekend);
+          }
+        }
       }
     } catch (error: any) {
       this.logger.warn(`TrafficSegment DB query failed (table may not exist in this environment), falling back to heuristic: ${error.message}`);
@@ -155,6 +159,44 @@ export class TrafficRoutingService {
 
     // Heuristic based on road type detection from coordinates (used when DB
     // table doesn't exist or no matching segment was found).
+    return this.heuristicTraffic(p1, p2, hour, isWeekend);
+  }
+
+  /**
+   * Build a `TrafficInfo` result from a DB-backed TrafficSegment, applying the
+   * hourly speed profile (DB congestion profile overrides the built-in one).
+   */
+  private buildTrafficInfoFromSegment(
+    seg: TrafficSegment,
+    hour: number,
+    isWeekend: boolean,
+  ): TrafficInfo {
+    const profile = seg.congestionProfile?.hourlySpeedFactor || this.peakHourProfiles[seg.roadType] || this.peakHourProfiles.primary;
+    let factor = profile[hour] || 1.0;
+    if (isWeekend) factor *= this.weekendFactor;
+    factor = Math.min(factor, 1.0);
+
+    return {
+      segmentId: seg.id,
+      roadName: seg.roadName,
+      roadType: seg.roadType,
+      congestionLevel: seg.congestionLevel,
+      currentSpeedFactor: factor,
+      freeFlowSpeed: seg.freeFlowSpeed,
+      estimatedSpeed: seg.freeFlowSpeed * factor,
+    };
+  }
+
+  /**
+   * Pure heuristic estimate (used as the DB fallback). Identical to the
+   * previous inline fallback so behavior is unchanged when no DB segment matches.
+   */
+  private heuristicTraffic(
+    p1: [number, number],
+    p2: [number, number],
+    hour: number,
+    isWeekend: boolean,
+  ): TrafficInfo {
     const roadType = this.detectRoadType(p1, p2);
     const freeFlowSpeed = this.defaultFreeFlowSpeeds[roadType] || 40;
     const profile = this.peakHourProfiles[roadType] || this.peakHourProfiles.primary;
@@ -162,7 +204,6 @@ export class TrafficRoutingService {
     if (isWeekend) factor *= this.weekendFactor;
     factor = Math.min(factor, 1.0);
 
-    // Determine congestion level from factor
     let congestionLevel = 0;
     if (factor < 0.5) congestionLevel = 3;
     else if (factor < 0.7) congestionLevel = 2;
@@ -177,6 +218,132 @@ export class TrafficRoutingService {
       freeFlowSpeed,
       estimatedSpeed: freeFlowSpeed * factor,
     };
+  }
+
+  /**
+   * Robustly extract [[lng, lat], ...] from a `coordinates` value that may
+   * arrive as a parsed GeoJSON object ({type:'LineString',coordinates:[...]})
+   * or as a raw JSON string (SQLite `json` column hydration variants).
+   */
+  private _parseLineStringCoords(coordinates: any): [number, number][] | null {
+    let value = coordinates;
+    if (typeof value === 'string') {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        return null;
+      }
+    }
+    if (!value || typeof value !== 'object') return null;
+    // GeoJSON geometry: { type: 'LineString', coordinates: [[lng, lat], ...] }
+    if (Array.isArray(value.coordinates) && value.type === 'LineString') {
+      return value.coordinates as [number, number][];
+    }
+    // Bare coordinate array [[lng, lat], ...]
+    if (Array.isArray(value)) {
+      const first = value[0];
+      if (Array.isArray(first) && first.length >= 2) return value as [number, number][];
+    }
+    return null;
+  }
+
+  /**
+   * Great-circle distance in metres between two [lng, lat] points (Haversine,
+   * R = 6371000 m) — duplicates WifiService._haversineMeters so this service
+   * stays self-contained and testable in isolation.
+   */
+  private _haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  /**
+   * Minimum distance (metres) from point (lat, lng) to the great-circle arc
+   * approximated by the closest stored-segment vertex. Used by the SQLite path
+   * to decide whether a DB traffic segment runs near the route segment.
+   */
+  private _pointToLineMinDistance(lat: number, lng: number, line: [number, number][]): number {
+    if (!line || line.length === 0) return Infinity;
+    let best = Infinity;
+    for (let i = 0; i < line.length - 1; i++) {
+      const a = line[i];
+      const b = line[i + 1];
+      const d = this._pointToSegmentMeters(lat, lng, a[1], a[0], b[1], b[0]);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  /**
+   * Distance (metres) from point (plat, plng) to the straight segment between
+   * (aLat, aLng) and (bLat, bLng), using a nearest-point Haversine test.
+   */
+  private _pointToSegmentMeters(
+    plat: number, plng: number,
+    aLat: number, aLng: number, bLat: number, bLng: number,
+  ): number {
+    const latDelta = bLat - aLat;
+    const lngDelta = bLng - aLng;
+    // Project the point onto the segment (param t in [0,1]).
+    const denom = latDelta * latDelta + lngDelta * lngDelta;
+    let t = 0;
+    if (denom !== 0) {
+      t = ((plat - aLat) * latDelta + (plng - aLng) * lngDelta) / denom;
+      t = Math.max(0, Math.min(1, t));
+    }
+    const nearLat = aLat + t * latDelta;
+    const nearLng = aLng + t * lngDelta;
+    return this._haversineMeters(plat, plng, nearLat, nearLng);
+  }
+
+  /**
+   * Returns true when the route segment p1→p2 passes within `thresholdMeters`
+   * of the stored traffic segment's LineString (nearest vertex/edge distance).
+   */
+  private _segmentNearRoute(
+    p1: [number, number],
+    p2: [number, number],
+    coordinates: any,
+    thresholdMeters: number,
+  ): boolean {
+    const line = this._parseLineStringCoords(coordinates);
+    if (!line) return false;
+
+    // Check both route endpoints and a midpoint against the stored line.
+    const routePoints: [number, number][] = [p1, p2];
+    if (line.length) {
+      const mid: [number, number] = [
+        (p1[0] + p2[0]) / 2,
+        (p1[1] + p2[1]) / 2,
+      ];
+      routePoints.push(mid);
+    }
+
+    for (const pt of routePoints) {
+      // pt = [lng, lat]; haversine takes (lat, lng)
+      if (this._pointToLineMinDistance(pt[1], pt[0], line) <= thresholdMeters) {
+        return true;
+      }
+    }
+
+    // Also check whether any stored-line vertex lies within the route segment.
+    for (const v of line) {
+      const d1 = this._haversineMeters(p1[1], p1[0], v[1], v[0]);
+      const d2 = this._haversineMeters(p2[1], p2[0], v[1], v[0]);
+      const segLen = this._haversineMeters(p1[1], p1[0], p2[1], p2[0]);
+      // vertex is on the segment if d1+d2 ≈ segLen (within tolerance)
+      if (d1 + d2 <= segLen + 5 && Math.min(d1, d2) <= thresholdMeters) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private detectRoadType(p1: number[], p2: number[]): string {

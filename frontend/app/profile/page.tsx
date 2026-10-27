@@ -66,14 +66,16 @@ export default function ProfilePage() {
           // Dùng giá trị mặc định nếu chưa có cài đặt
         }
 
-        const [progressData, badgesData, leaderboardData] = await Promise.all([
+        // Fetch gamification data independently so a failure in one
+        // (e.g. 401 on getMyProgress) doesn't wipe the others.
+        const [progressResult, badgesResult, leaderboardResult] = await Promise.allSettled([
             gamificationService.getMyProgress(),
             gamificationService.getMyBadges(),
             gamificationService.getLeaderboard()
         ]);
-        setProgress(progressData);
-        setBadges(badgesData);
-        setLeaderboard(leaderboardData.slice(0, 5));
+        if (progressResult.status === 'fulfilled') setProgress(progressResult.value);
+        if (badgesResult.status === 'fulfilled') setBadges(badgesResult.value);
+        if (leaderboardResult.status === 'fulfilled') setLeaderboard((leaderboardResult.value || []).slice(0, 5));
       } else {
         window.location.href = '/auth/login';
       }

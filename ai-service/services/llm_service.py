@@ -10,7 +10,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Any
 
 try:
     import requests

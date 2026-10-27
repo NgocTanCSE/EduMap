@@ -333,6 +333,13 @@ interface InteractiveMapProps {
   geoJsonData?: any;
   /** Featured "ghim" pins that link to feature pages (/stem, /green, etc.) */
   featuredPins?: FeaturedPin[];
+  /**
+   * Optional tool overlay rendered inside the MapContainer AFTER the base POI
+   * layers but BEFORE routing/origin markers. Lets the unified Map Hub render
+   * per-tool analysis layers (gap cells, risk heatmaps, survey candidates,
+   * satellite detections, etc.) on the SAME shared map instance.
+   */
+  overlay?: React.ReactNode;
 }
 
 export default function InteractiveMap({ 
@@ -346,6 +353,7 @@ export default function InteractiveMap({
   nearbyPoints = [],
   geoJsonData = null,
   featuredPins = [],
+  overlay = null,
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -968,6 +976,11 @@ export default function InteractiveMap({
         {/* Origin/Destination Markers */}
         {origin && <OriginMarker position={[origin.lat, origin.lng]} />}
         {destination && <DestinationMarker position={[destination.lat, destination.lng]} />}
+
+        {/* Tool overlay layers (e.g. gap cells, risk heatmap, survey candidates).
+            Rendered after base POIs / featured pins so they appear above the
+            base layers but below the routing / origin-destination markers. */}
+        {overlay}
 
         <MapController selectedPoint={selectedPoint} />
         <MapEvents onBoundsChange={onBoundsChange} />

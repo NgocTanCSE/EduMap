@@ -9,6 +9,13 @@ interface SearchInputProps {
   className?: string;
 }
 
+/**
+ * Shared debounced search box — Desert Dusk design system.
+ *
+ * Uses the `.form-input` token (rounded-lg, px-4 py-3, terracotta focus ring)
+ * so the search box lines up with every other textbox. The clear (✕) button
+ * is positioned inside a fixed-width slot so the search icon never overlaps it.
+ */
 export default function SearchInput({
   value,
   onChange,
@@ -39,18 +46,19 @@ export default function SearchInput({
 
   return (
     <div className={`relative ${className}`}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+      <Search className="input-icon" aria-hidden="true" />
       <input
         type="text"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-10 pr-10 py-2.5 bg-muted/20 border border-border/10 rounded-xl text-sm text-foreground placeholder-white/40 focus:outline-none focus:border-primary/50 transition-colors"
+        className="form-input input-with-icon pr-10"
       />
       {localValue && (
         <button
           onClick={handleClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/20 transition-colors"
+          className="icon-fixed absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors"
+          aria-label="Xóa tìm kiếm"
         >
           <X className="w-4 h-4" />
         </button>

@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
+import { requireAuth } from '@/src/lib/auth-utils';
 
 export async function GET(req: NextRequest) {
-    const authHeader = req.headers.get('Authorization');
-  
-  if (!authHeader) {
-    return NextResponse.json(
-      { message: 'Vui lòng đăng nhập để xem huy hiệu' },
-      { status: 401 }
-    );
-  }
+  // Defense-in-depth: verify JWT at BFF layer before forwarding
+  const authError = requireAuth(req);
+  if (authError) return authError;
+
+  const authHeader = req.headers.get('Authorization');
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': authHeader,
+    'Authorization': authHeader || '',
   };
 
   try {

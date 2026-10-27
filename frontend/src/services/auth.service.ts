@@ -179,35 +179,52 @@ class AuthService {
 
   private updateCurrentUserFromAccessToken() {
     const token = this.getAccessToken();
-    if (token) {
-      const decoded = this.parseJwt(token);
-      if (decoded) {
-        // Here, we might not have fullName or avatar_url from the token itself
-        // In a real app, these would come from the login response or a separate user profile API call
-        // For now, we'll try to preserve existing or set empty
-        this.currentUser = {
-          id: decoded.sub,
-          email: decoded.email,
-          role: decoded.role,
-          fullName: this.currentUser?.fullName || '', // Keep existing if available, else empty
-          avatar_url: this.currentUser?.avatar_url || '' // Keep existing if available, else empty
-        };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(USER_INFO_KEY, JSON.stringify(this.currentUser));
-        }
-      } else {
-        this.clearAuthData(); // Invalid token
-      }
-    } else {
+    if (!token) {
       this.currentUser = null;
       if (typeof window !== 'undefined') {
         localStorage.removeItem(USER_INFO_KEY);
       }
+      return;
+    }
+
+    // Reject stale demo tokens that may have been written by a previous version
+    if (this.isDemoToken(token)) {
+      this.clearAuthData();
+      return;
+    }
+
+    const decoded = this.parseJwt(token);
+    if (!decoded) {
+      this.clearAuthData(); // Invalid token
+      return;
+    }
+
+    // --- CRITICAL: check token expiration -------------------------------
+    // jwtDecode() does NOT verify the `exp` claim, so without this check
+    // getUser() would return a stale user whose JWT is already expired.
+    // This must be consistent with isLoggedIn() which DOES check exp.
+    if (!decoded.exp || Date.now() / 1000 >= decoded.exp) {
+      this.clearAuthData();
+      return;
+    }
+
+    // Here, we might not have fullName or avatar_url from the token itself
+    // In a real app, these would come from the login response or a separate user profile API call
+    // For now, we'll try to preserve existing or set empty
+    this.currentUser = {
+      id: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+      fullName: this.currentUser?.fullName || '', // Keep existing if available, else empty
+      avatar_url: this.currentUser?.avatar_url || '' // Keep existing if available, else empty
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(USER_INFO_KEY, JSON.stringify(this.currentUser));
     }
   }
 
   getUser(): CurrentUser | null {
-    // If currentUser is null, try to rebuild from token
+    // If currentUser is null, try to rebuild from token (with expiry check)
     if (!this.currentUser && this.accessToken) {
       this.updateCurrentUserFromAccessToken();
     }
