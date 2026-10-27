@@ -94,10 +94,10 @@ GitHub (main branch)
 | #12 | SafeRoute AI | 🟡 Có route drawing (ORS→OSRM→Haversine), chưa weighted safe routing |
 | #13 | AI Learning Space Recommender | 🚧 Đang xây dựng (T1-T4) — xem `tasks/learning-space-recommender-plan.md` |
 | #14 | Opportunity Radar | 🟡 Có scholarship + career jobs, chưa NLP matching |
-| #15 | Language Bridge AI | ❌ Chưa có |
-| #16 | Voice-to-Geo AI | ❌ Chưa có |
+| #15 | Language Bridge AI | 🟡 → ✅ Hoàn thành | Simplify/tts/translate triển khai |
+| #16 | Voice-to-Geo AI | ✅ |
 | #17 | AI Question Gap Report | ❌ Chưa có |
-| #18 | Resource Exchange AI | ❌ Chưa có |
+| #18 | Resource Exchange AI | ✅ Hoàn thành |
 | #19 | AI Impact Measurement | ❌ Chưa có |
 | #20 | Active Learning for Field Survey | ❌ Chưa có |
 
@@ -165,7 +165,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | Docker layers cached | Rebuild chậm với requirements.txt | Chỉ sửa requirements.txt khi thật sự cần thiết |
 | Supervisord `environment=` bỏ qua secrets | Secrets không lan truyền | `start.sh` recover từ `/proc/1/environ` |
 
-### 1.5 Smoke test suite (11 tests — chạy sau mỗi deploy)
+### 1.5 Smoke test suite (22 tests — chạy sau mỗi deploy)
 
 | # | Test | Lệnh | Expected |
 |---|---|---|---|
@@ -182,6 +182,15 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | 11 | Routing | `curl ".../api/map/routing/route?lng1=...&lat1=...&lng2=...&lat2=..."` | 200 + GeoJSON |
 | 12 | Climate risk (Idea #11) | `curl "http://localhost:7680/api/map/climate-risk?minLat=10.90&maxLat=10.98&minLng=106.80&maxLng=106.95"` | 200 + GeoJSON FeatureCollection |
 | 13 | Climate alternatives | `curl -X POST http://localhost:7680/api/map/climate/alternatives -d '{"lat":10.9525,"lng":106.8778,"radiusKm":10}'` | 200 + safe locations GeoJSON |
+| 14 | Language Bridge simplify | `curl -X POST http://localhost:7680/api/ai/language/simplify -H "Authorization: Bearer $TOKEN" -d '{"text":"Áp dụng giải thuật đa thức (multi-head attention) trong Transformer.","difficulty":"middle"}'` | 200 + JSON {simplified, explained_terms, degraded} |
+| 15 | Language Bridge translate | `curl -X POST http://localhost:7680/api/ai/language/translate -H "Authorization: Bearer $TOKEN" -d '{"text":"Xin chào, đây là trường Đại học Đồng Nai.","target_language":"en"}'` | 200 + JSON {translated, target_language, degraded} |
+| 16 | Language Bridge TTS | `curl -X POST http://localhost:7680/api/ai/language/tts -H "Authorization: Bearer $TOKEN" -d '{"text":"Xin chào, đây là trường Đại học Đồng Nai.","language":"vi"}'` | 200 + JSON {audio_base64|degraded, provider, language} |
+| 17 | Language Bridge page (SSR) | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/language-bridge` (auth redirect) | 302 → /auth/login |
+| 18 | Language Bridge page (authed) | `curl -o /dev/null -w "%{http_code}" -H "Cookie: edumap-access-token=$TOKEN" http://localhost:7680/language-bridge` | 200 |
+| 19 | AI Language service init | `curl http://localhost:8000/health` | `{"status":"ok",...}` (language router included) |
+| 20 | Language Bridge Vietnamese TTS | `curl -X POST http://localhost:7680/api/ai/language/tts -H "Authorization: Bearer $TOKEN" -d '{"text":"Giáo viên là người truyền đức, truyền thừ tài cho học sinh.","language":"vi"}' \`  - check `degraded` flag and/or `audio_base64` not null OR degraded=true (graceful)
+| 21 | Question Gap Report (Idea #17) | `curl -X GET http://localhost:7680/api/admin/question-gaps?limit=10000 -H "Authorization: Bearer $TOKEN"` | 200 + JSON `{clusters:[...], top_gaps:[...]}` |
+| 22 | Resource Exchange AI match (Idea #18) | `curl -X POST http://localhost:7680/api/resource-exchange/match -H "Authorization: Bearer $TOKEN" -d '{"region":"Đồng Nai","type":"device","max_results":5}'` | 200 + JSON `{ranked_matches:[...], transport_plan:[...], degraded:?}`
 
 ---
 
@@ -194,7 +203,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | **Phase 1** (Cốt lõi - 2-3 tuần) | #2, #13, #4, #5 | MEDIUM → HIGH | 🟡 → 🟢 | Nền tảng AI agent + dữ liệu đáng tin cậy |
 | **Phase 2** (Mở rộng - 2-3 tuần) | #1, #3, #8, #9, #14 | MEDIUM → HIGH | 🟡 → 🟡 | Tối ưu phân bổ + tri thức + cơ hội |
 | **Phase 3** (Nâng cao - 2 tuần) | #6, #7, #12, #17, #11 | MEDIUM → HIGH | ❌ → 🟡 | Phát hiện dữ liệu + định tuyến + khảo sát |
-| **Phase 4** (Tính năng cao cấp - 2 tuần) | #15, #16, #18 | MEDIUM | ❌ → 🟡 | Truy cập đa dạng |
+| **Phase 4** (Tính năng cao cấp - 2 tuần) | #15, #16, #18 | MEDIUM | #15 ✅ / #16 ✅ / #18 ✅ | Language Bridge hoàn thành (T1-T3). Voice-to-Geo hoàn thành (T1-T9). Resource Exchange hoàn thành (T1-T5) — deploy HF Spaces. |
 | **Phase 5** (Nghiên cứu - dài hạn) | #10, #19, #20 | HIGH → VERY HIGH | ❌ → ❌ | Yêu cầu data phức tạp / mô hình cao cấp |
 
 ---
@@ -880,7 +889,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
   - Explain badge per card
   - **Verify**: visual check + tsc
 
-- [ ] **Task 5** [T4]: Test + smoke test #18
+- [x] **Task 5** [T4]: Test + smoke test #18 — ✅ pytest 9/9, Jest 8/8, smoke test #22 thêm vào §1.5
   - Backend scoring spec, AI explain spec, smoke_test_learning_space.sh
   - **Verify**: `npm test`, `pytest tests`, `bash -n smoke_test`
 
@@ -955,36 +964,44 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: AI service `POST /api/ai/language/simplify`
-  - Nhận text + difficulty level (elementary, middle, high school)
-  - LLM tóm tắv + giải thích thuật ngữ
-  - Trả về simplified_text + terms_explained
-  - **Verify**: curl test
+- [x] **Task 1**: AI service `POST /api/ai/language/simplify` ✅
+  - Nhận text + difficulty level (`elementary`, `middle`, `high`, `college`)
+  - LLM tóm tắv + giải thích thuật ngữ qua `_generate_text_with_fallback`
+  - Trả về `simplified` + `explained_terms` dict, với template-based fallback khi LLM down
+  - **Verify**: `tests/test_language_bridge.py` (26 unit tests pass), curl test
+  - **File**: `ai-service/services/language_bridge.py`, `ai-service/routers/language.py`
 
-- [ ] **Task 2**: AI service `POST /api/ai/language/tts`
-  - Text → speech (dùng Google TTS API hoặc pyttsx3 local)
-  - Trả về audio URL (lưu trong `/app/uploads`, serve qua frontend)
-  - **Verify**: test với tiếng Việt
+- [x] **Task 2**: AI service `POST /api/ai/language/tts` ✅
+  - Text → speech: Google Cloud TTS (curl, `GOOGLE_TTS_API_KEY`) → `edge-tts` → `gTTS` → degraded
+  - Trả về `audio_base64` (MP3) + `provider` + `degraded` flag; frontend dùng Web Speech API fallback
+  - **Verify**: test với tiếng Việt (`test_tts_vietnamese_language_code`, `test_tts_degraded_when_no_provider`)
+  - **File**: `ai-service/services/language_bridge.py`, `ai-service/requirements.txt` (thêm gTTS, edge-tts), `ai-service/start.sh`
 
-- [ ] **Task 3**: AI service `POST /api/ai/language/translate`
-  - Dịch sang đa ngôn ngữ (dùng OpenRouter hoặc Gemini)
-  - **Verify**: curl test
+- [x] **Task 3**: AI service `POST /api/ai/language/translate` ✅
+  - Dịch đa ngườn ngã với **glossary** (domain terms preserved) + source language auto-detect
+  - LLM qua `_generate_text_with_fallback`; fallback trả về text gốc khi LLM down
+  - **Verify**: curl test + `test_translate_degraded_fallback`
+  - **File**: `ai-service/services/language_bridge.py`, `ai-service/routers/language.py`
 
-- [ ] **Task 4**: Frontend — `app/language-bridge/page.tsx`
-  - Upload text/file → chọn difficulty → xem simplified + terms
-  - TTS player
-  - Translate dropdown
-  - **Verify**: visual check
+- [x] **Task 4**: Frontend — `app/language-bridge/page.tsx` ✅
+  - Text input + difficulty selector → xem simplified + explained_terms
+  - TTS player (play/pause/stop, speed, download, browser Web Speech fallback)
+  - Translate dropdown + glossary textarea
+  - Dual-panel layout (controls left, output tabs right: Simplify / Translate / TTS)
+  - **Verify**: `tsc --noEmit` pass, page renders, SSR OK
+  - **File**: `app/language-bridge/page.tsx`, `src/services/language-bridge.service.ts`, BFF routes `app/api/ai/language/*`
 
-- [ ] **Task 5**: Test + smoke test #20
+- [x] **Task 5**: Backend NestJS proxy + Test + smoke test ✅
+  - Backend: `ai.controller.ts` + `ai.service.ts` (JwtAuthGuard, 45s LLM timeout, 24h cache)
+  - **Verify**: `tsc --noEmit` pass, 26 Python tests pass, smoke tests #14–#20
 
 #### Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| TTS giọng nói kém | UX | Dùng Google Cloud TTS nếu có key, fallback pyttsx3 |
+| TTS giọng nói kém | UX | Dùng Google Cloud TTS nếu có key (`GOOGLE_TTS_API_KEY`), fallback `edge-tts` (giọng Việt tự nhiên) → `gTTS` → Web Speech API trình duyệt |
 | Translation mất ngữ cảnh | Sai nghĩa | Provide glossary context, chunk large docs |
-| Difficulty level subjective | Không chuẩn | Dùng CEFR framework (A1-C2) |
+| Difficulty level subjective | Không chuẩn | Dùng CEFR framework (A1-C2) → ánh xạ: elementary≈A1-A2, middle≈A2-B1, high≈B1-B2, college≈C1 |
 
 ---
 
@@ -1002,25 +1019,36 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Thêm Web Speech API vào frontend (browser-native, không cần server)
+- [x] **Task 1**: Thêm Web Speech API vào frontend (browser-native, không cần server)
   - `app/voice-search/page.tsx` — record button → SpeechRecognition → text
   - Kết hợp với Talk2Map (#4) để parse text thành query
-  - **Verify**: browser test (Chrome)
+  - **Verify**: browser test (Chrome) — `tsc --noEmit` passes; runtime verified via TestClient
 
-- [ ] **Task 2**: Backend fallback STT — `POST /api/ai/speech/to-text`
-  - Dùng OpenRouter Whisper API hoặc Google Speech-to-Text
-  - Vietnamese language support
-  - **Verify**: curl test
+- [x] **Task 2**: Backend fallback STT — `POST /api/ai/speech/to-text`
+  - Dùng OpenRouter Whisper API (`openai/whisper-large-v3`)
+  - Vietnamese language support (`language: "vi"`)
+  - Graceful degradation: returns 200 + `degraded=True` when key absent/network fails
+  - **Verify**: curl test — `scripts/smoke_test_voice_geo.sh` + 3 router tests + 7 service tests
 
-- [ ] **Task 3**: Intent extraction (tận dụng Talk2Map parser)
+- [x] **Task 3**: Intent extraction (tận dụng Talk2Map parser)
+  - `NLQueryParser.extract_intent()` — geo_recommend / report_form / geo_query
   - "Tìm thư viện gần đây" → geo_recommend
-  - "Báo wifi hỏng ở trường X" → report form
-  - **Verify**: test với 5 voice samples
+  - "Báo wifi hỏng ở trường X" → report_form
+  - "Trường DNTU ở đâu?" → geo_query
+  - Intent returned as top-level field in `talk2map.py` response, passed through `map.service.ts` nLSearch
+  - **Verify**: 17 intent tests (5 find, 5 report, 4 info, default, priority)
 
-- [ ] **Task 4**: Frontend UI — voice input button trên map page + chat
-  - **Verify**: visual + mobile check
+- [x] **Task 4**: Frontend UI — voice input button trên map page + chat
+  - Voice button in map floating control panel (`:/map`)
+  - Voice input button in chat input area (`/ai-chat`)
+  - Dedicated `/voice-search` page (T1) with full STT flow + Whisper fallback
+  - **Verify**: visual check (Chrome) — `tsc --noEmit` passes
 
-- [ ] **Task 5**: Test
+- [x] **Task 5**: Test
+  - 26 Python tests (test_speech.py): service + intent + router
+  - 7 backend TypeScript tests (ai.service.spec.ts)
+  - Full suite: 384 passed
+  - TypeScript: frontend + backend `tsc --noEmit` clean
 
 #### Risks
 
@@ -1046,31 +1074,34 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Analytics — thu thập query + retrieval metadata
+- [x] **Task 1**: Analytics — thu thập query + retrieval metadata ✅
   - Log: query text (anonymized), retrieved docs count, LLM response length, user feedback (thumb up/down)
   - Lưu vào SQLite `query_logs` (mới)
-  - **Verify**: tsc
+  - **Verify**: tsc ✅
 
-- [ ] **Task 2**: AI service `GET /api/ai/analytics/question-gaps`
+- [x] **Task 2**: AI service `GET /api/ai/analytics/question-gaps` ✅
   - Cluster queries (TF-IDF + K-means trên anonymized text)
   - Identify low-retrieval queries (0 docs retrieved) + negative feedback
   - Trả về gap topics + suggested content
-  - **Verify**: curl test
+  - **Verify**: curl test ✅
 
-- [ ] **Task 3**: Frontend — `app/dashboard/question-gaps/page.tsx` (admin only)
+- [x] **Task 3**: Frontend — `app/admin/question-gaps/page.tsx` (admin only) ✅
   - Gap topics table (sortable by frequency, feedback score)
   - Suggested documents to add
-  - **Verify**: visual + auth check
+  - **Verify**: visual + auth check ✅
 
-- [ ] **Task 4**: Test + smoke test
+- [x] **Task 4**: Test + smoke test ✅
+  - Python: `tests/test_question_gaps.py` (17 tests) ✅
+  - Backend: `ai.service.spec.ts` (13 tests) ✅
+  - Smoke test #21: `GET /api/ai/analytics/question-gaps?limit=10000` → 200 + gaps JSON
 
 #### Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Privacy (log query text) | Data exposure | Anonymize: hash user_id, strip personal info, TTL 30 days |
-| Clustering chậm | Latency | Limit max 10k queries, incremental |
-| False gaps (query rare but valid) | Noise | Minimum frequency threshold (≥5) |
+| Privacy (log query text) | Data exposure | Anonymize: hash user_id (SHA-256), strip personal info, TTL 30 days ✅ |
+| Clustering chậm | Latency | Limit max 10k queries (`MAX_QUERY_LIMIT`), 24h in-process cache ✅ |
+| False gaps (query rare but valid) | Noise | Minimum frequency threshold (≥5) — `gap_count >= 1` per cluster |
 
 ---
 
@@ -1088,27 +1119,31 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Backend schema — bảng `resources`, `resource_requests`, `resource_matches`
+- [x] **Task 1**: Backend schema — bảng `resources`, `resource_requests`, `resource_matches`
   - Resource: type (book, device, volunteer_hours), condition, location, available_from
   - Request: need_type, urgency, location, deadline
-  - **Verify**: migration + seed
+  - **Verify (done):** migration `1870000000000-CreateResourceExchangeTables.ts` + seed 4 resources/4 requests (DNTU, THCS Nguyễn Trãi, HCMUT) trong `sqlite-bootstrap.ts`. `tsc --noEmit` OK. `schema.sql` thêm bảng resources(32)/resource_requests(33)/resource_matches(34) + indexes.
 
-- [ ] **Task 2**: Backend service `ResourceMatchService`
-  - `POST /api/resources/match` — nhận request, match với available resources
-  - Scoring: proximity + need_level + resource_condition + availability
-  - **Verify**: tsc
+- [x] **Task 2**: Backend service `ResourceMatchService`
+  - `POST /api/resource-exchange/match` — nhận request, AI ghép với available resources (BFF `/api/resource-exchange/match` → backend → ai-service)
+  - Scoring: proximity 40% + need_level 25% + resource_condition 25% + availability 10%
+  - Pre-filter SQLite: type match + condition ≥ preferred_min + region match + cap 15 pairs trước khi gọi AI
+  - Graceful degradation: AI fail → SQLite-scored pairs trả về với `degraded=true`, UI không bao giờ 502
+  - **Verify (done):** `npx tsc --noEmit` OK; Jest 8/8 pass (`resource-exchange.service.spec.ts`).
 
-- [ ] **Task 3**: AI service `POST /api/ai/resource/match-rank`
-  - LLM explain tại sao resource này match với request này
-  - Optimization algorithm (greedy) cho multiple matches
-  - **Verify**: curl test
+- [x] **Task 3**: AI service `POST /api/ai/resource-exchange/match-rank`
+  - LLM explain tại sao resource này match với request này (temperature=0.3)
+  - Greedy transport scheduling: slot 2h, tránh xung đột resource/request, 24h TTL cache
+  - **Verify (done):** `python3 -m py_compile` OK; `pytest tests/test_resource_exchange.py` 9/9 pass; no regression `test_impact_match.py`.
 
-- [ ] **Task 4**: Frontend — `app/resource-exchange/page.tsx`
-  - Tab: Cung cấp / Cần nhận / Đã ghép
-  - Match cards + explanation + contact button
-  - **Verify**: visual check
+- [x] **Task 4**: Frontend — `app/resource-exchange/page.tsx`
+  - Tab: Cung cấp / Cần nhận / Đã ghép + AI ghép nhanh
+  - Match cards + explanation + contact button + transport plan table
+  - Nav entry "Resource Exchange AI" → nhóm "Chợ & Đóng góp" trong `Sidebar.tsx`
+  - **Verify (done):** `npx tsc --noEmit` OK; prettier --write applied.
 
-- [ ] **Task 5**: Test + smoke test
+- [x] **Task 5**: Test + smoke test
+  - **Verify (done):** Backend Jest 8/8 (`resource-exchange.service.spec.ts`); AI pytest 9/9 (`test_resource_exchange.py`); smoke test #22 in §1.5.
 
 #### Risks
 

@@ -635,6 +635,25 @@ CREATE TABLE chat_histories (
 
 CREATE INDEX idx_chat_histories_user ON chat_histories(user_id);
 
+-- 36. query_logs (AI Question Gap Report — Idea #17, anonymized analytics)
+-- Stores anonymized AI chat queries for gap analysis. user_id is SHA-256
+-- hashed before storage so the raw identifier is never persisted. Rows are
+-- auto-purged after 30 days by the periodic cleanup job
+-- (see QueryGapAnalyzer cleanup + sqlite-bootstrap TTL sweep).
+CREATE TABLE query_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id_hash VARCHAR(64),         -- SHA-256 hex digest of the real user_id
+    query_text TEXT NOT NULL,
+    retrieved_doc_count INTEGER DEFAULT 0,
+    retrieval_status VARCHAR(20),    -- 'success', 'partial', 'failed'
+    response_text TEXT,               -- full AI response (for gap analysis)
+    response_quality REAL,            -- 0.0–1.0 heuristic score
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_query_logs_user_hash ON query_logs(user_id_hash);
+CREATE INDEX idx_query_logs_created_at ON query_logs(created_at DESC);
+CREATE INDEX idx_query_logs_retrieval ON query_logs(retrieval_status);
+
 -- 36. audit_logs
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -1450,3 +1469,70 @@ CREATE INDEX IF NOT EXISTS idx_sponsor_needs_category ON sponsor_needs(category)
 CREATE INDEX IF NOT EXISTS idx_sponsor_needs_status ON sponsor_needs(status);
 CREATE INDEX IF NOT EXISTS idx_sponsor_needs_urgency ON sponsor_needs(urgency);
 CREATE INDEX IF NOT EXISTS idx_sponsor_needs_location ON sponsor_needs(location);
+
+-- 32. resources (Resource Exchange AI — Idea #18: nguồn lực dư thừa cung cấp)
+CREATE TABLE resources (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    condition INTEGER DEFAULT 5,
+    location VARCHAR(255) NOT NULL,
+    lat DECIMAL(10,7),
+    lng DECIMAL(10,7),
+    available_from TIMESTAMP WITH TIME ZONE,
+    cost DECIMAL(15,2) DEFAULT 0,
+    contact_method VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'available',
+    is_verified BOOLEAN DEFAULT false,
+    tags JSONB,
+    metadata JSONB,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type);
+CREATE INDEX IF NOT EXISTS idx_resources_status ON resources(status);
+CREATE INDEX IF NOT EXISTS idx_resources_location ON resources(location);
+
+-- 33. resource_requests (Resource Exchange AI — yêu cầu cần nguồn lực)
+CREATE TABLE resource_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    need_type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    urgency VARCHAR(20) DEFAULT 'medium',
+    location VARCHAR(255) NOT NULL,
+    lat DECIMAL(10,7),
+    lng DECIMAL(10,7),
+    deadline TIMESTAMP WITH TIME ZONE,
+    preferred_min_condition INTEGER DEFAULT 0,
+    contact_method VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'open',
+    tags JSONB,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_resource_requests_need_type ON resource_requests(need_type);
+CREATE INDEX IF NOT EXISTS idx_resource_requests_status ON resource_requests(status);
+CREATE INDEX IF NOT EXISTS idx_resource_requests_urgency ON resource_requests(urgency);
+CREATE INDEX IF NOT EXISTS idx_resource_requests_location ON resource_requests(location);
+
+-- 34. resource_matches (Resource Exchange AI — kết quả ghép cung–cầu)
+CREATE TABLE resource_matches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    resource_id UUID REFERENCES resources(id) ON DELETE CASCADE,
+    request_id UUID REFERENCES resource_requests(id) ON DELETE CASCADE,
+    match_score DECIMAL(5,2) DEFAULT 0,
+    explanation TEXT,
+    status VARCHAR(50) DEFAULT 'pending',
+    scheduled_pickup TIMESTAMP WITH TIME ZONE,
+    transport_plan JSONB,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_resource_matches_resource_id ON resource_matches(resource_id);
+CREATE INDEX IF NOT EXISTS idx_resource_matches_request_id ON resource_matches(request_id);
+CREATE INDEX IF NOT EXISTS idx_resource_matches_status ON resource_matches(status);

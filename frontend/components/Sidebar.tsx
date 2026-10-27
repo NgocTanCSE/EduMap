@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Map,
@@ -35,10 +35,13 @@ import {
   CloudRain,
   CloudOff,
   Target,
-} from 'lucide-react';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { EduMapLogo } from '@/components/ui/Logo';
-import { avatarFallback, onImageError } from '@/src/lib/illustrations';
+  Languages,
+  Package,
+  Mic,
+} from "lucide-react";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { EduMapLogo } from "@/components/ui/Logo";
+import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 
 /**
  * Sidebar — left-hand navigation rail that lives on every "app" page.
@@ -53,72 +56,85 @@ import { avatarFallback, onImageError } from '@/src/lib/illustrations';
  * `/mentor/call` opt out and paint their own chrome).
  */
 
-type NavItem = { name: string; href: string; icon: React.ComponentType<{ className?: string }> };
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
 type NavGroup = { label: string; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Tổng quan',
+    label: "Tổng quan",
     items: [
-      { name: 'Bản đồ', href: '/map', icon: Map },
-      { name: 'Bảng điều khiển', href: '/dashboard', icon: LayoutDashboard },
+      { name: "Bản đồ", href: "/map", icon: Map },
+      { name: "Bảng điều khiển", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: 'Học tập',
+    label: "Học tập",
     items: [
-      { name: 'Thư viện', href: '/library', icon: BookOpen },
-      { name: 'Trợ lý AI', href: '/ai-chat', icon: BrainCircuit },
-      { name: 'Đồ thị tri thức AI', href: '/knowledge-graph', icon: Network },
-      { name: 'Talk2Map', href: '/talk2map', icon: Search },
-      { name: 'Trợ lý ngoại tuyến', href: '/offline-tutor', icon: CloudOff },
-      { name: 'Học bổng', href: '/scholarships', icon: GraduationCap },
-      { name: 'Du học & Trao đổi', href: '/intl', icon: Plane },
+      { name: "Thư viện", href: "/library", icon: BookOpen },
+      { name: "Trợ lý AI", href: "/ai-chat", icon: BrainCircuit },
+      { name: "Đồ thị tri thức AI", href: "/knowledge-graph", icon: Network },
+      { name: "Talk2Map", href: "/talk2map", icon: Search },
+      { name: "Tìm bằng giọng nói", href: "/voice-search", icon: Mic },
+      { name: "Language Bridge AI", href: "/language-bridge", icon: Languages },
+      { name: "Trợ lý ngoại tuyến", href: "/offline-tutor", icon: CloudOff },
+      { name: "Học bổng", href: "/scholarships", icon: GraduationCap },
+      { name: "Du học & Trao đổi", href: "/intl", icon: Plane },
     ],
   },
   {
-    label: 'Hướng nghiệp',
+    label: "Hướng nghiệp",
     items: [
-      { name: 'Nghề nghiệp', href: '/career', icon: Compass },
-      { name: 'Lộ trình nghề', href: '/career/roadmap', icon: MapPin },
-      { name: 'Thực tập', href: '/internships', icon: Building2 },
-      { name: 'Cơ hội', href: '/opportunities', icon: Rocket },
-      { name: 'Opportunity Radar', href: '/opportunities/radar', icon: Target },
-      { name: 'Xu hướng thị trường', href: '/analytics', icon: TrendingUp },
+      { name: "Nghề nghiệp", href: "/career", icon: Compass },
+      { name: "Lộ trình nghề", href: "/career/roadmap", icon: MapPin },
+      { name: "Thực tập", href: "/internships", icon: Building2 },
+      { name: "Cơ hội", href: "/opportunities", icon: Rocket },
+      { name: "Opportunity Radar", href: "/opportunities/radar", icon: Target },
+      { name: "Xu hướng thị trường", href: "/analytics", icon: TrendingUp },
     ],
   },
   {
-    label: 'Cộng đồng',
+    label: "Cộng đồng",
     items: [
-      { name: 'Cố vấn', href: '/mentor', icon: Users },
-      { name: 'Cộng đồng', href: '/community', icon: MessagesSquare },
-      { name: 'Kết nối THPT', href: '/hs-connection', icon: Network },
-      { name: 'Sự kiện', href: '/events', icon: Calendar },
-      { name: 'Hackathon', href: '/hackathon', icon: Trophy },
-      { name: 'Bảng xếp hạng', href: '/leaderboard', icon: Medal },
+      { name: "Cố vấn", href: "/mentor", icon: Users },
+      { name: "Cộng đồng", href: "/community", icon: MessagesSquare },
+      { name: "Kết nối THPT", href: "/hs-connection", icon: Network },
+      { name: "Sự kiện", href: "/events", icon: Calendar },
+      { name: "Hackathon", href: "/hackathon", icon: Trophy },
+      { name: "Bảng xếp hạng", href: "/leaderboard", icon: Medal },
     ],
   },
   {
-    label: 'Trải nghiệm & Tiện ích',
+    label: "Trải nghiệm & Tiện ích",
     items: [
-      { name: 'STEM Labs', href: '/stem', icon: Atom },
-      { name: 'Thử thách xanh', href: '/green', icon: Leaf },
-      { name: 'Mùa hè xanh', href: '/summer', icon: Sun },
-      { name: 'Trạm Wifi', href: '/wifi', icon: Wifi },
+      { name: "STEM Labs", href: "/stem", icon: Atom },
+      { name: "Thử thách xanh", href: "/green", icon: Leaf },
+      { name: "Mùa hè xanh", href: "/summer", icon: Sun },
+      { name: "Trạm Wifi", href: "/wifi", icon: Wifi },
     ],
   },
   {
-    label: 'AI an toàn',
+    label: "AI an toàn",
     items: [
-      { name: 'AI Bảo Vệ Khí Hậu', href: '/climate-guardian', icon: CloudRain },
+      { name: "AI Bảo Vệ Khí Hậu", href: "/climate-guardian", icon: CloudRain },
+      { name: "Kế hoạch khảo sát", href: "/map/survey-planner", icon: Target },
     ],
   },
   {
-    label: 'Chợ & Đóng góp',
+    label: "Chợ & Đóng góp",
     items: [
-      { name: 'Chợ trao đổi', href: '/marketplace', icon: Store },
-      { name: 'Quyên góp', href: '/donate', icon: HandHeart },
-      { name: 'ImpactMatch', href: '/impact-match', icon: Target },
+      { name: "Chợ trao đổi", href: "/marketplace", icon: Store },
+      { name: "Quyên góp", href: "/donate", icon: HandHeart },
+      { name: "ImpactMatch", href: "/impact-match", icon: Target },
+      { name: "Đo lường Tác động AI", href: "/dashboard/impact", icon: TrendingUp },
+      {
+        name: "Resource Exchange AI",
+        href: "/resource-exchange",
+        icon: Package,
+      },
     ],
   },
 ];
@@ -147,22 +163,26 @@ function NavGroup({
             <Link
               key={item.href}
               href={item.href}
-              aria-current={active ? 'page' : undefined}
+              aria-current={active ? "page" : undefined}
               onClick={onNavigate}
               className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
                 active
-                  ? 'text-primary bg-primary/10 font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? "text-primary bg-primary/10 font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
               title={item.name}
             >
               <Icon
                 className={`w-4 h-4 shrink-0 ${
-                  active ? 'text-primary' : 'text-muted-foreground/70 group-hover:text-primary'
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground/70 group-hover:text-primary"
                 }`}
               />
               <span className="truncate">{item.name}</span>
-              {active && <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />}
+              {active && (
+                <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />
+              )}
             </Link>
           );
         })}
@@ -223,11 +243,13 @@ function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
         <img
           src={avatar}
           onError={onImageError(avatarFallback(user.fullName))}
-          alt={user.fullName || 'user'}
+          alt={user.fullName || "user"}
           className="w-10 h-10 rounded-full border-2 border-border object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground truncate">{user.fullName}</p>
+          <p className="text-sm font-semibold text-foreground truncate">
+            {user.fullName}
+          </p>
           <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           {user.role && (
             <p className="text-[10px] font-black uppercase text-primary/70 mt-0.5">
@@ -270,7 +292,7 @@ export default function Sidebar({
   mobileOpen?: boolean;
   onClose?: () => void;
 }) {
-  const pathname = usePathname() || '';
+  const pathname = usePathname() || "";
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   // Move focus into the drawer when it opens so keyboard users are not left
@@ -283,8 +305,8 @@ export default function Sidebar({
   // highlight only their own item, not every ancestor item.
   const activeHref =
     NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href))
-      .filter((href) => pathname === href || pathname.startsWith(href + '/'))
-      .sort((a, b) => b.length - a.length)[0] || '';
+      .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+      .sort((a, b) => b.length - a.length)[0] || "";
 
   return (
     <>
@@ -298,11 +320,11 @@ export default function Sidebar({
 
       <aside
         id="app-sidebar"
-        role={mobileOpen ? 'dialog' : undefined}
+        role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen || undefined}
         aria-label="Điều hướng chính"
         className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-card border-r border-border shadow-lg transition-transform duration-200 ease-out lg:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full max-lg:invisible'
+          mobileOpen ? "translate-x-0" : "-translate-x-full max-lg:invisible"
         }`}
       >
         {/* Brand */}

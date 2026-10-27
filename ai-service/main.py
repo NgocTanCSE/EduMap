@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 # Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space']
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey']
 
 for name in router_names:
     try:

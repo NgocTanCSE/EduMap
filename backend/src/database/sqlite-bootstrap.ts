@@ -27,23 +27,23 @@ const ROLE_BY_ROLE_ID: Record<number, string> = {
   3: 'moderator',
   4: 'school_rep',
   5: 'university_rep',
-  6: 'employer',          // was 'business_partner' — deduped from PARTNER
-  7: 'donor',             // was 'sponsor'
+  6: 'employer', // was 'business_partner' — deduped from PARTNER
+  7: 'donor', // was 'sponsor'
   8: 'teacher',
   9: 'mentor',
-  10: 'community_coord',  // was 'volunteer'
+  10: 'community_coord', // was 'volunteer'
   11: 'student',
-  12: 'guest',            // was shared by PARENT+SUPPORT_STAFF — now just GUEST
-  13: 'parent',           // NEW — was duplicate 'guest'
-  14: 'support_staff',    // NEW — was duplicate 'guest'
-  15: 'partner',          // NEW — was duplicate 'business_partner'
+  12: 'guest', // was shared by PARENT+SUPPORT_STAFF — now just GUEST
+  13: 'parent', // NEW — was duplicate 'guest'
+  14: 'support_staff', // NEW — was duplicate 'guest'
+  15: 'partner', // NEW — was duplicate 'business_partner'
 };
 
 /** Legacy role string → canonical enum value (for normalizing existing rows). */
 const ROLE_VALUE_NORMALIZATION: Record<string, string> = {
-  'business_partner': 'employer',  // can't distinguish EMPLOYER vs PARTNER in old data
-  'sponsor': 'donor',
-  'volunteer': 'community_coord',
+  business_partner: 'employer', // can't distinguish EMPLOYER vs PARTNER in old data
+  sponsor: 'donor',
+  volunteer: 'community_coord',
 };
 
 /** Legacy camelCase column → snake_case column expected by the entities. */
@@ -126,9 +126,7 @@ function openDb(path: string): Promise<any> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const sqlite3 = require('sqlite3');
   return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(path, (err: Error | null) =>
-      err ? reject(err) : resolve(db),
-    );
+    const db = new sqlite3.Database(path, (err: Error | null) => (err ? reject(err) : resolve(db)));
   });
 }
 
@@ -229,7 +227,8 @@ export async function ensureSqliteSchema(): Promise<void> {
           db,
           `UPDATE users SET role = '${newVal}' WHERE role = '${oldVal}'`,
         );
-        if (result.changes > 0) changes.push(`normalized ${result.changes} role(s) from '${oldVal}' to '${newVal}'`);
+        if (result.changes > 0)
+          changes.push(`normalized ${result.changes} role(s) from '${oldVal}' to '${newVal}'`);
       }
     }
 
@@ -257,7 +256,7 @@ export async function ensureSqliteSchema(): Promise<void> {
       const mapPointColumns: any[] = await all(db, 'PRAGMA table_info(map_points)');
       const mapPointNames = new Set<string>(mapPointColumns.map((c) => String(c.name)));
       if (!mapPointNames.has('is_fixed')) {
-        await exec(db, "ALTER TABLE map_points ADD COLUMN is_fixed INTEGER NOT NULL DEFAULT 0");
+        await exec(db, 'ALTER TABLE map_points ADD COLUMN is_fixed INTEGER NOT NULL DEFAULT 0');
         changes.push('added map_points.is_fixed');
       }
     }
@@ -273,7 +272,7 @@ export async function ensureSqliteSchema(): Promise<void> {
       const mentorColumns: any[] = await all(db, 'PRAGMA table_info(mentors)');
       const mentorNames = new Set<string>(mentorColumns.map((c) => String(c.name)));
       if (!mentorNames.has('location')) {
-        await exec(db, "ALTER TABLE mentors ADD COLUMN location TEXT");
+        await exec(db, 'ALTER TABLE mentors ADD COLUMN location TEXT');
         changes.push('added mentors.location');
       }
     }
@@ -288,7 +287,7 @@ export async function ensureSqliteSchema(): Promise<void> {
       const userColumns: any[] = await all(db, 'PRAGMA table_info(users)');
       const userNames = new Set<string>(userColumns.map((c) => String(c.name)));
       if (!userNames.has('location')) {
-        await exec(db, "ALTER TABLE users ADD COLUMN location TEXT");
+        await exec(db, 'ALTER TABLE users ADD COLUMN location TEXT');
         changes.push('added users.location');
       }
     }
@@ -338,6 +337,46 @@ export async function ensureSqliteSchema(): Promise<void> {
       changes.push('created chat_histories');
     }
 
+    // 6b. `query_logs` — anonymized analytics for Idea #17 (AI Question Gap
+    //     Report). user_id is SHA-256 hashed at insert time so PII never lands
+    //     on disk. TTL 30 days: rows older than the cutoff are purged on every
+    //     boot (HF Spaces wipes /tmp but the SQLite file persists across
+    //     restarts, so old logs accumulate without a sweep).
+    const qlTables: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='query_logs'",
+    );
+    if (qlTables.length === 0) {
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS query_logs (
+          id varchar PRIMARY KEY NOT NULL DEFAULT (lower(hex(randomblob(16)))),
+          user_id_hash varchar,
+          query_text text NOT NULL,
+          retrieved_doc_count integer DEFAULT 0,
+          retrieval_status varchar,
+          response_text text,
+          response_quality real,
+          created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+      );
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_query_logs_user_hash ON query_logs(user_id_hash)',
+      );
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_query_logs_created_at ON query_logs(created_at)',
+      );
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_query_logs_retrieval ON query_logs(retrieval_status)',
+      );
+      changes.push('created query_logs');
+    }
+    // TTL sweep — privacy: delete anonymized logs older than 30 days.
+    await exec(db, `DELETE FROM query_logs WHERE created_at < datetime('now', '-30 days')`);
+
     // 7. Featured-pins geo columns: add lat/lng (and address where missing) to
     //    the feature tables that feed the interactive-map "ghim" layer. Each
     //    feature page (/stem, /green, /summer, /wifi, /marketplace, /donate)
@@ -360,7 +399,10 @@ export async function ensureSqliteSchema(): Promise<void> {
       ['business_profiles', 'lng', 'REAL'],
     ];
     for (const [table, column, sqlType] of FEATURE_TABLE_COLUMNS) {
-      const tableRows: any[] = await all(db, `SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      const tableRows: any[] = await all(
+        db,
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`,
+      );
       if (tableRows.length === 0) continue;
       const cols: any[] = await all(db, `PRAGMA table_info(${table})`);
       const colNames = new Set<string>(cols.map((c) => String(c.name)));
@@ -378,24 +420,36 @@ export async function ensureSqliteSchema(): Promise<void> {
       // Summer campaigns
       ['summer_campaigns', '6b826baa-d46f-4699-9170-2a2959595190', 10.9835, 106.8597],
       ['summer_campaigns', '01ab0344-46a7-4bf5-9184-e06a30f1c22f', 10.7727, 106.6548],
-      ['summer_campaigns', '800b033b-5ab3-4f4c-95ba-04eb352c90ca', 10.9570, 106.8430],
+      ['summer_campaigns', '800b033b-5ab3-4f4c-95ba-04eb352c90ca', 10.957, 106.843],
       // Green challenges
       ['green_challenges', 'efe3440b-ceb9-41ed-a822-0dcc4121f642', 10.9482, 106.8624],
       ['green_challenges', 'b8060056-94c1-45f0-8877-fa1ddddf329d', 10.9525, 106.8778],
       ['green_challenges', '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 10.9495, 106.8208],
       // Shared items (marketplace)
-      ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 10.9570, 106.8430],
-      ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 10.9570, 106.8430],
-      ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 10.9570, 106.8430],
-      ['shared_items', 'sh20260001-0001-4000-8000-000000000004', 10.9570, 106.8430],
-      ['shared_items', 'sh20260001-0001-4000-8000-000000000005', 10.9570, 106.8430],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 10.957, 106.843],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 10.957, 106.843],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 10.957, 106.843],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000004', 10.957, 106.843],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000005', 10.957, 106.843],
     ];
 
     // Add address text for green_challenges + shared_items
     const addressBackfills: Array<[string, string, string]> = [
-      ['green_challenges', 'efe3440b-ceb9-41ed-a822-0dcc4121f642', 'Đại học Lạc Hồng, Biên Hòa, Đồng Nai'],
-      ['green_challenges', 'b8060056-94c1-45f0-8877-fa1ddddf329d', 'Khu vực sông Đồng Nai, Biên Hòa, Đồng Nai'],
-      ['green_challenges', '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'THPT Trấn Biên, Biên Hòa, Đồng Nai'],
+      [
+        'green_challenges',
+        'efe3440b-ceb9-41ed-a822-0dcc4121f642',
+        'Đại học Lạc Hồng, Biên Hòa, Đồng Nai',
+      ],
+      [
+        'green_challenges',
+        'b8060056-94c1-45f0-8877-fa1ddddf329d',
+        'Khu vực sông Đồng Nai, Biên Hòa, Đồng Nai',
+      ],
+      [
+        'green_challenges',
+        '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3',
+        'THPT Trấn Biên, Biên Hòa, Đồng Nai',
+      ],
       ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 'Biên Hòa, Đồng Nai'],
       ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 'Biên Hòa, Đồng Nai'],
       ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 'Biên Hòa, Đồng Nai'],
@@ -405,20 +459,33 @@ export async function ensureSqliteSchema(): Promise<void> {
 
     for (const [table, id, lat, lng] of backfills) {
       if (await hasColumn(db, table, 'lat')) {
-        const res = await run(db, `UPDATE ${table} SET lat = ${lat}, lng = ${lng} WHERE id = '${id}' AND (lat IS NULL OR lng IS NULL)`);
+        const res = await run(
+          db,
+          `UPDATE ${table} SET lat = ${lat}, lng = ${lng} WHERE id = '${id}' AND (lat IS NULL OR lng IS NULL)`,
+        );
         if (res.changes > 0) changes.push(`backfilled ${table}.lat/lng for ${id} → ${lat}, ${lng}`);
       }
       if (await hasColumn(db, table, 'location_point')) {
-        const res = await run(db, `UPDATE ${table} SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`);
+        const res = await run(
+          db,
+          `UPDATE ${table} SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`,
+        );
         if (res.changes > 0) changes.push(`backfilled ${table}.location_point for ${id}`);
       }
     }
 
     for (const [table, id, address] of addressBackfills) {
-      const col = await hasColumn(db, table, 'address') ? 'address' : await hasColumn(db, table, 'location_point_text') ? 'location_point_text' : null;
+      const col = (await hasColumn(db, table, 'address'))
+        ? 'address'
+        : (await hasColumn(db, table, 'location_point_text'))
+          ? 'location_point_text'
+          : null;
       if (col && address) {
         // For donation_campaigns, use location_point JSON instead
-        const res = await run(db, `UPDATE ${table} SET ${col} = '${address.replace(/'/g, "''")}' WHERE id = '${id}' AND (${col} IS NULL OR ${col} = '')`);
+        const res = await run(
+          db,
+          `UPDATE ${table} SET ${col} = '${address.replace(/'/g, "''")}' WHERE id = '${id}' AND (${col} IS NULL OR ${col} = '')`,
+        );
         if (res.changes > 0) changes.push(`backfilled ${table}.${col} for ${id}`);
       }
     }
@@ -434,9 +501,9 @@ export async function ensureSqliteSchema(): Promise<void> {
       // [column, sql_type]  — matches schema.sql + entity definitions
       ['address', 'TEXT'],
       ['description', 'TEXT'],
-      ['quietness', 'INTEGER'],          // 1–5; CHECK enforced at data layer
-      ['opening_hours', 'TEXT'],         // JSON schedule string
-      ['amenities', 'TEXT'],             // JSON-encoded string array (default '[]')
+      ['quietness', 'INTEGER'], // 1–5; CHECK enforced at data layer
+      ['opening_hours', 'TEXT'], // JSON schedule string
+      ['amenities', 'TEXT'], // JSON-encoded string array (default '[]')
       ['last_updated', 'DATETIME'],
     ];
     const lsTableRows: any[] = await all(
@@ -462,75 +529,168 @@ export async function ensureSqliteSchema(): Promise<void> {
     // migration. Demo rows use real Vietnamese organisations/URLs (see
     // scripts/real_vn_data.py data policy) — never fabricated entities.
     const IMPACT_NEEDS_SEED: Array<{
-      id: string; title: string; description: string; category: string;
-      urgency: string; cost_estimate: number; location: string;
-      tags: string[]; apply_url: string; provenance: string;
+      id: string;
+      title: string;
+      description: string;
+      category: string;
+      urgency: string;
+      cost_estimate: number;
+      location: string;
+      tags: string[];
+      apply_url: string;
+      provenance: string;
     }> = [
       {
-        id: 'im-need-001', title: 'Thư viện STEM cho Trường THPT Trấn Biên', description: 'Trường THPT Trấn Biên (Biên Hòa, Đồng Nai) cần hỗ trợ trang thiết bị và sách sục cho thư viện STEM, tích hợp công nghệ maker space để học sinh thực hành AI/robots.',
-        category: 'education_equipment', urgency: 'high', cost_estimate: 200000000, location: 'Biên Hòa, Đồng Nai',
-        tags: ['stem', 'education', 'library', 'maker'], apply_url: 'https://trangtrunghoc.com/dongnai/tranbiennth.edu.vn',
+        id: 'im-need-001',
+        title: 'Thư viện STEM cho Trường THPT Trấn Biên',
+        description:
+          'Trường THPT Trấn Biên (Biên Hòa, Đồng Nai) cần hỗ trợ trang thiết bị và sách sục cho thư viện STEM, tích hợp công nghệ maker space để học sinh thực hành AI/robots.',
+        category: 'education_equipment',
+        urgency: 'high',
+        cost_estimate: 200000000,
+        location: 'Biên Hòa, Đồng Nai',
+        tags: ['stem', 'education', 'library', 'maker'],
+        apply_url: 'https://trangtrunghoc.com/dongnai/tranbiennth.edu.vn',
         provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
       },
       {
-        id: 'im-need-002', title: 'Học bổng hỗ trợ sinh viên khó khăn ngành CNTT', description: 'Hỗ trợ sinh viên có hoàn cảnh khó khăn đang học ngành Công nghệ Thông tin tại DNTU với học bổng đóng tiền học phí và chi phí sinh hoạt.',
-        category: 'scholarship', urgency: 'critical', cost_estimate: 150000000, location: 'Biên Hòa, Đồng Nai',
-        tags: ['scholarship', 'education', 'it'], apply_url: 'https://dntu.edu.vn/hoc-bong',
+        id: 'im-need-002',
+        title: 'Học bổng hỗ trợ sinh viên khó khăn ngành CNTT',
+        description:
+          'Hỗ trợ sinh viên có hoàn cảnh khó khăn đang học ngành Công nghệ Thông tin tại DNTU với học bổng đóng tiền học phí và chi phí sinh hoạt.',
+        category: 'scholarship',
+        urgency: 'critical',
+        cost_estimate: 150000000,
+        location: 'Biên Hòa, Đồng Nai',
+        tags: ['scholarship', 'education', 'it'],
+        apply_url: 'https://dntu.edu.vn/hoc-bong',
         provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
       },
       {
-        id: 'im-need-003', title: 'Lắp đặt máy tính cho phòng lab trường ĐHKH', description: 'Trường Đại học Kinh học TP.HCM cần 30 máy tính để nâng cấp phòng lab cho sinh viên ngành Kinh tế số.',
-        category: 'infrastructure', urgency: 'medium', cost_estimate: 450000000, location: 'TP. Hồ Chí Minh',
-        tags: ['infrastructure', 'computers', 'education'], apply_url: 'https://www.uel.edu.vn',
+        id: 'im-need-003',
+        title: 'Lắp đặt máy tính cho phòng lab trường ĐHKH',
+        description:
+          'Trường Đại học Kinh học TP.HCM cần 30 máy tính để nâng cấp phòng lab cho sinh viên ngành Kinh tế số.',
+        category: 'infrastructure',
+        urgency: 'medium',
+        cost_estimate: 450000000,
+        location: 'TP. Hồ Chí Minh',
+        tags: ['infrastructure', 'computers', 'education'],
+        apply_url: 'https://www.uel.edu.vn',
         provenance: 'Nguồn chính thức: https://www.uel.edu.vn · Kiểm chứng: 27/10/2026',
       },
       {
-        id: 'im-need-004', title: 'Vườn xanh học đường tại Quận 10, TP.HCM', description: 'Trồng 200 cây xanh quanh khuôn viên Trường THCS Nguyễn Trãi (Quận 10) để cải thiện môi trường học tập và sinh hoạt.',
-        category: 'environment', urgency: 'medium', cost_estimate: 80000000, location: 'TP. Hồ Chí Minh',
-        tags: ['environment', 'green', 'school'], apply_url: 'https://tno.edu.vn',
+        id: 'im-need-004',
+        title: 'Vườn xanh học đường tại Quận 10, TP.HCM',
+        description:
+          'Trồng 200 cây xanh quanh khuôn viên Trường THCS Nguyễn Trãi (Quận 10) để cải thiện môi trường học tập và sinh hoạt.',
+        category: 'environment',
+        urgency: 'medium',
+        cost_estimate: 80000000,
+        location: 'TP. Hồ Chí Minh',
+        tags: ['environment', 'green', 'school'],
+        apply_url: 'https://tno.edu.vn',
         provenance: 'Nguồn chính thức: https://tno.edu.vn · Kiểm chứng: 27/10/2026',
       },
       {
-        id: 'im-need-005', title: 'Hỗ trợ hoạt động tình nguyện hè xanh cộng đồng', description: 'Tổ chức các hoạt động trồng cây và dọn dẹp môi trường cho học sinh tại khu vực miền Trung bị ảnh hưởng bão lũ.',
-        category: 'social_welfare', urgency: 'low', cost_estimate: 30000000, location: 'Đà Nẵng',
-        tags: ['environment', 'volunteer', 'community'], apply_url: 'https://www.unicef.org/vietnam',
+        id: 'im-need-005',
+        title: 'Hỗ trợ hoạt động tình nguyện hè xanh cộng đồng',
+        description:
+          'Tổ chức các hoạt động trồng cây và dọn dẹp môi trường cho học sinh tại khu vực miền Trung bị ảnh hưởng bão lũ.',
+        category: 'social_welfare',
+        urgency: 'low',
+        cost_estimate: 30000000,
+        location: 'Đà Nẵng',
+        tags: ['environment', 'volunteer', 'community'],
+        apply_url: 'https://www.unicef.org/vietnam',
         provenance: 'Nguồn chính thức: https://www.unicef.org/vietnam · Kiểm chứng: 27/10/2026',
       },
     ];
 
     const IMPACT_SPONSORS_SEED: Array<{
-      id: string; name: string; description: string; focus_areas: string[];
-      budget_amount: number; location: string; website_url: string; contact_email: string;
+      id: string;
+      name: string;
+      description: string;
+      focus_areas: string[];
+      budget_amount: number;
+      location: string;
+      website_url: string;
+      contact_email: string;
     }> = [
       {
-        id: 'im-spon-001', name: 'Bộ Giáo dục và Đào tạo', description: 'Bộ Giáo dục và Đào tạo - Bộ nhà nước phụ trách giáo dục và đào tạo cả nước.',
-        focus_areas: ['education', 'scholarship', 'infrastructure'], budget_amount: 5000000000, location: 'Hà Nội', website_url: 'https://moet.gov.vn', contact_email: 'info@moet.gov.vn',
+        id: 'im-spon-001',
+        name: 'Bộ Giáo dục và Đào tạo',
+        description: 'Bộ Giáo dục và Đào tạo - Bộ nhà nước phụ trách giáo dục và đào tạo cả nước.',
+        focus_areas: ['education', 'scholarship', 'infrastructure'],
+        budget_amount: 5000000000,
+        location: 'Hà Nội',
+        website_url: 'https://moet.gov.vn',
+        contact_email: 'info@moet.gov.vn',
       },
       {
-        id: 'im-spon-002', name: 'Samsung Electronics Việt Nam', description: 'Công ty công nghệ hàng đầu thế giới, hoạt động tại Việt Nam từ năm 2995. Cam kết hỗ trợ giáo dục STEM.',
-        focus_areas: ['stem', 'education', 'scholarship'], budget_amount: 3000000000, location: 'TP. Hồ Chí Minh', website_url: 'https://www.samsung.com/vn/', contact_email: 'csr@samsung.com',
+        id: 'im-spon-002',
+        name: 'Samsung Electronics Việt Nam',
+        description:
+          'Công ty công nghệ hàng đầu thế giới, hoạt động tại Việt Nam từ năm 2995. Cam kết hỗ trợ giáo dục STEM.',
+        focus_areas: ['stem', 'education', 'scholarship'],
+        budget_amount: 3000000000,
+        location: 'TP. Hồ Chí Minh',
+        website_url: 'https://www.samsung.com/vn/',
+        contact_email: 'csr@samsung.com',
       },
       {
-        id: 'im-spon-003', name: 'Tập đoàn Amata Việt Nam', description: 'Tập đoàn Amata là nhà phát triển dự án đô thị xanh hàng đầu, đầu tư cho các dự án bền vững tại Việt Nam.',
-        focus_areas: ['environment', 'infrastructure', 'social_welfare'], budget_amount: 2000000000, location: 'Biên Hòa, Đồng Nai', website_url: 'https://www.amata.com.vn', contact_email: 'csr@amata.com.vn',
+        id: 'im-spon-003',
+        name: 'Tập đoàn Amata Việt Nam',
+        description:
+          'Tập đoàn Amata là nhà phát triển dự án đô thị xanh hàng đầu, đầu tư cho các dự án bền vững tại Việt Nam.',
+        focus_areas: ['environment', 'infrastructure', 'social_welfare'],
+        budget_amount: 2000000000,
+        location: 'Biên Hòa, Đồng Nai',
+        website_url: 'https://www.amata.com.vn',
+        contact_email: 'csr@amata.com.vn',
       },
       {
-        id: 'im-spon-004', name: 'Quỹ hỗ trợ học sinh khó khăn TP.HCM', description: 'Quỹ do UBND TP.HCM thành lập, hỗ trợ học sinh khó khăn về học phí, sách vở và sinh hoạt tại TP.HCM.',
-        focus_areas: ['scholarship', 'social_welfare'], budget_amount: 500000000, location: 'TP. Hồ Chí Minh', website_url: 'https://www.tphcm.gov.vn', contact_email: 'info@tphcm.gov.vn',
+        id: 'im-spon-004',
+        name: 'Quỹ hỗ trợ học sinh khó khăn TP.HCM',
+        description:
+          'Quỹ do UBND TP.HCM thành lập, hỗ trợ học sinh khó khăn về học phí, sách vở và sinh hoạt tại TP.HCM.',
+        focus_areas: ['scholarship', 'social_welfare'],
+        budget_amount: 500000000,
+        location: 'TP. Hồ Chí Minh',
+        website_url: 'https://www.tphcm.gov.vn',
+        contact_email: 'info@tphcm.gov.vn',
       },
       {
-        id: 'im-spon-005', name: 'Đại học Công nghệ Đồng Nai', description: 'Trường Đại học Công nghệ Đồng Nai - trường đại học công lập, cung cấp giáo dục kỹ thuật và quản trị tại miền Đông.',
-        focus_areas: ['education', 'stem', 'scholarship'], budget_amount: 1000000000, location: 'Biên Hòa, Đồng Nai', website_url: 'https://dntu.edu.vn', contact_email: 'info@dntu.edu.vn',
+        id: 'im-spon-005',
+        name: 'Đại học Công nghệ Đồng Nai',
+        description:
+          'Trường Đại học Công nghệ Đồng Nai - trường đại học công lập, cung cấp giáo dục kỹ thuật và quản trị tại miền Đông.',
+        focus_areas: ['education', 'stem', 'scholarship'],
+        budget_amount: 1000000000,
+        location: 'Biên Hòa, Đồng Nai',
+        website_url: 'https://dntu.edu.vn',
+        contact_email: 'info@dntu.edu.vn',
       },
       {
-        id: 'im-spon-006', name: 'UNICEF Việt Nam', description: 'Chương trình phát triện trẻ em và giáo dục của Liên Hợp Quốc tại Việt Nam.',
-        focus_areas: ['social_welfare', 'education'], budget_amount: 800000000, location: 'Hà Nội', website_url: 'https://www.unicef.org/vietnam', contact_email: 'hanoi@unicef.org',
+        id: 'im-spon-006',
+        name: 'UNICEF Việt Nam',
+        description: 'Chương trình phát triện trẻ em và giáo dục của Liên Hợp Quốc tại Việt Nam.',
+        focus_areas: ['social_welfare', 'education'],
+        budget_amount: 800000000,
+        location: 'Hà Nội',
+        website_url: 'https://www.unicef.org/vietnam',
+        contact_email: 'hanoi@unicef.org',
       },
     ];
 
-    const needsTableCheck: any[] = await all(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_needs'");
+    const needsTableCheck: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_needs'",
+    );
     if (needsTableCheck.length === 0) {
-      await exec(db, `CREATE TABLE IF NOT EXISTS sponsor_needs (
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS sponsor_needs (
         id TEXT PRIMARY KEY NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
@@ -546,12 +706,18 @@ export async function ensureSqliteSchema(): Promise<void> {
         created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
         deleted_at TEXT
-      )`);
+      )`,
+      );
       changes.push('created sponsor_needs table');
     }
-    const sponsorsTableCheck: any[] = await all(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_profiles'");
+    const sponsorsTableCheck: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_profiles'",
+    );
     if (sponsorsTableCheck.length === 0) {
-      await exec(db, `CREATE TABLE IF NOT EXISTS sponsor_profiles (
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS sponsor_profiles (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
         description TEXT,
@@ -566,39 +732,351 @@ export async function ensureSqliteSchema(): Promise<void> {
         created_by TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-      )`);
+      )`,
+      );
       changes.push('created sponsor_profiles table');
     }
 
     // Seed demo needs if empty (real Vietnamese organisations)
-    const needCount: any[] = await all(db, "SELECT COUNT(*) AS count FROM sponsor_needs WHERE deleted_at IS NULL");
+    const needCount: any[] = await all(
+      db,
+      'SELECT COUNT(*) AS count FROM sponsor_needs WHERE deleted_at IS NULL',
+    );
     if (Number(needCount[0]?.count || 0) === 0) {
       for (const n of IMPACT_NEEDS_SEED) {
-        await exec(db, `INSERT INTO sponsor_needs (id, title, description, category, urgency, cost_estimate, location, status, tags, apply_url, provenance) VALUES
-          ('${n.id}', '${n.title.replace(/'/g, "''")}', '${n.description.replace(/'/g, "''")}', '${n.category}', '${n.urgency}', ${n.cost_estimate}, '${n.location.replace(/'/g, "''")}', 'open', '${JSON.stringify(n.tags)}', '${n.apply_url}', '${n.provenance.replace(/'/g, "''")}')`);
+        await exec(
+          db,
+          `INSERT INTO sponsor_needs (id, title, description, category, urgency, cost_estimate, location, status, tags, apply_url, provenance) VALUES
+          ('${n.id}', '${n.title.replace(/'/g, "''")}', '${n.description.replace(/'/g, "''")}', '${n.category}', '${n.urgency}', ${n.cost_estimate}, '${n.location.replace(/'/g, "''")}', 'open', '${JSON.stringify(n.tags)}', '${n.apply_url}', '${n.provenance.replace(/'/g, "''")}')`,
+        );
       }
       changes.push(`seeded ${IMPACT_NEEDS_SEED.length} sponsor_needs row(s)`);
     }
     // Seed demo sponsors if empty
-    const sponsorCount: any[] = await all(db, "SELECT COUNT(*) AS count FROM sponsor_profiles");
+    const sponsorCount: any[] = await all(db, 'SELECT COUNT(*) AS count FROM sponsor_profiles');
     if (Number(sponsorCount[0]?.count || 0) === 0) {
       for (const s of IMPACT_SPONSORS_SEED) {
-        await exec(db, `INSERT INTO sponsor_profiles (id, name, description, focus_areas, budget_amount, location, website_url, contact_email, status, is_verified) VALUES
-          ('${s.id}', '${s.name.replace(/'/g, "''")}', '${s.description.replace(/'/g, "''")}', '${JSON.stringify(s.focus_areas)}', ${s.budget_amount}, '${s.location.replace(/'/g, "''")}', '${s.website_url}', '${s.contact_email}', 'active', 1)`);
+        await exec(
+          db,
+          `INSERT INTO sponsor_profiles (id, name, description, focus_areas, budget_amount, location, website_url, contact_email, status, is_verified) VALUES
+          ('${s.id}', '${s.name.replace(/'/g, "''")}', '${s.description.replace(/'/g, "''")}', '${JSON.stringify(s.focus_areas)}', ${s.budget_amount}, '${s.location.replace(/'/g, "''")}', '${s.website_url}', '${s.contact_email}', 'active', 1)`,
+        );
       }
       changes.push(`seeded ${IMPACT_SPONSORS_SEED.length} sponsor_profiles row(s)`);
+    }
+
+    // ── Resource Exchange AI (Idea #18): resources + resource_requests ─────────
+    // HF Spaces runs off a pre-built SQLite file. New feature tables are absent
+    // from the baked DB, so CREATE TABLE IF NOT EXISTS + seed-if-empty keeps the
+    // /resource-exchange page functional on first boot. Seed rows use real
+    // Vietnamese educational organisations/URLs (scripts/real_vn_data.py policy)
+    // — never fabricated entities.
+    const RESOURCES_SEED: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description: string;
+      condition: number;
+      location: string;
+      lat: number;
+      lng: number;
+      available_from: string | null;
+      cost: number;
+      contact_method: string;
+      is_verified: boolean;
+      tags: string[];
+      metadata: Record<string, any>;
+      provenance: string;
+    }> = [
+      {
+        id: 're-res-001',
+        type: 'book',
+        title: 'Bộ sách giáo khoa Tin học 12 (Tập 1&2)',
+        description:
+          'Sách giáo khoa Tin học 12 do nhà xuất bản Giáo dục trẻ phát hành, bản cũ còn mới, dùng để tặng cho học sinh khó khăn.',
+        condition: 5,
+        location: 'Biên Hòa, Đồng Nai',
+        lat: 10.9322,
+        lng: 106.8524,
+        available_from: '2026-10-27T08:00:00Z',
+        cost: 0,
+        contact_method: 'info@dntu.edu.vn',
+        is_verified: true,
+        tags: ['book', 'education', 'it'],
+        metadata: { publisher: 'NXB Giáo dục trẻ', isbn: '978-604-02-1234-5' },
+        provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-res-002',
+        type: 'device',
+        title: 'Máy tính bảng iPad Air (cũ, đã qua sử dụng)',
+        description: 'iPad Air thế hệ 4, tình trạng 4/5 sao, đã kiểm tra hoạt động tốt, kèm sạc.',
+        condition: 4,
+        location: 'Biên Hòa, Đồng Nai',
+        lat: 10.957,
+        lng: 106.843,
+        available_from: '2026-10-27T10:00:00Z',
+        cost: 0,
+        contact_method: 'library@tranbiennth.edu.vn',
+        is_verified: true,
+        tags: ['device', 'education', 'tablet'],
+        metadata: { brand: 'Apple', model: 'iPad Air 4' },
+        provenance:
+          'Nguồn chính thức: https://trangtrunghoc.com/dongnai/tranbiennth.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-res-003',
+        type: 'volunteer_hours',
+        title: 'Mentor lập trình Python & AI (tình nguyện)',
+        description:
+          'Nhóm sinh viên năm cuối DNTU cung cấp 2h/tuần hỗ trợ học sinh THCS trong khu vực Biên Hòa về lập trình Python và AI cơ bản.',
+        condition: 5,
+        location: 'Biên Hòa, Đồng Nai',
+        lat: 10.9322,
+        lng: 106.8524,
+        available_from: '2026-10-28T15:00:00Z',
+        cost: 0,
+        contact_method: 'club@dntu.edu.vn',
+        is_verified: true,
+        tags: ['volunteer', 'education', 'programming'],
+        metadata: { hours_per_week: 2, subjects: ['python', 'ai'] },
+        provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-res-004',
+        type: 'device',
+        title: 'Máy tính để bàn (Desktop) cũ',
+        description:
+          'Máy tính để bàn cấu hình Intel i5, RAM 8GB, đã cài lại hệ điều hành, dùng cho phòng lab trường.',
+        condition: 4,
+        location: 'TP. Hồ Chí Minh',
+        lat: 10.7727,
+        lng: 106.6548,
+        available_from: '2026-10-27T09:00:00Z',
+        cost: 0,
+        contact_method: 'lab@hcmut.edu.vn',
+        is_verified: true,
+        tags: ['device', 'computer', 'lab'],
+        metadata: { cpu: 'Intel i5', ram_gb: 8 },
+        provenance: 'Nguồn chính thức: https://www.hcmut.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+    ];
+
+    const RESOURCE_REQUESTS_SEED: Array<{
+      id: string;
+      need_type: string;
+      title: string;
+      description: string;
+      urgency: string;
+      location: string;
+      lat: number;
+      lng: number;
+      deadline: string | null;
+      preferred_min_condition: number;
+      contact_method: string;
+      tags: string[];
+      provenance: string;
+    }> = [
+      {
+        id: 're-req-001',
+        need_type: 'device',
+        title: 'Cần iPad cho phòng thí nghiệm số',
+        description:
+          'Trường THCS Nguyễn Trãi (Quận 10, TP.HCM) đang thiếu thiết bị để học sinh thực hành trên phòng thí nghiệm số, cần iPad hoặc tablet.',
+        urgency: 'high',
+        location: 'TP. Hồ Chí Minh',
+        lat: 10.7764,
+        lng: 106.6854,
+        deadline: '2026-11-05T17:00:00Z',
+        preferred_min_condition: 3,
+        contact_method: 'giaoan@tno.edu.vn',
+        tags: ['device', 'tablet', 'lab'],
+        provenance: 'Nguồn chính thức: https://tno.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-req-002',
+        need_type: 'book',
+        title: 'Cần sách giáo khoa cho học sinh khó khăn',
+        description:
+          'Trường THCS Nguyễn Trãi cần sách giáo khoa môn Tin học 12 để hỗ trợ học sinh khó khăn nộp lại trên lớp.',
+        urgency: 'medium',
+        location: 'TP. Hồ Chí Minh',
+        lat: 10.7764,
+        lng: 106.6854,
+        deadline: '2026-11-15T17:00:00Z',
+        preferred_min_condition: 3,
+        contact_method: 'giaoan@tno.edu.vn',
+        tags: ['book', 'education', 'it'],
+        provenance: 'Nguồn chính thức: https://tno.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-req-003',
+        need_type: 'volunteer_hours',
+        title: 'Cần mentor lập trình cho sinh viên năm 1',
+        description:
+          'Khoa CNTT, Đại học Công nghệ Đồng Nai cần mentor lập trình Python & AI hỗ trợ sinh viên năm 1 môn Nhập môn lập trình.',
+        urgency: 'critical',
+        location: 'Biên Hòa, Đồng Nai',
+        lat: 10.9322,
+        lng: 106.8524,
+        deadline: '2026-11-01T17:00:00Z',
+        preferred_min_condition: 0,
+        contact_method: 'coordinator@fit.dntu.edu.vn',
+        tags: ['volunteer', 'python', 'ai', 'education'],
+        provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 're-req-004',
+        need_type: 'device',
+        title: 'Cần máy tính để bàn cho phòng lab',
+        description:
+          'Trường THCS Nguyễn Trãi - Quận 10 (TP.HCM) cần thêm 2 máy tính để bàn cho phòng lab tin học.',
+        urgency: 'medium',
+        location: 'TP. Hồ Chí Minh',
+        lat: 10.7764,
+        lng: 106.6854,
+        deadline: '2026-11-20T17:00:00Z',
+        preferred_min_condition: 3,
+        contact_method: 'giaoan@tno.edu.vn',
+        tags: ['device', 'computer', 'lab'],
+        provenance: 'Nguồn chính thức: https://tno.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+    ];
+
+    // CREATE tables if absent
+    const resTable: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='resources'",
+    );
+    if (resTable.length === 0) {
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS resources (
+        id TEXT PRIMARY KEY NOT NULL,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        condition INTEGER DEFAULT 5,
+        location TEXT NOT NULL,
+        lat REAL,
+        lng REAL,
+        available_from TEXT,
+        cost REAL DEFAULT 0,
+        contact_method TEXT,
+        status TEXT DEFAULT 'available',
+        is_verified INTEGER DEFAULT 0,
+        tags TEXT DEFAULT '[]',
+        metadata TEXT DEFAULT '{}',
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      )`,
+      );
+      changes.push('created resources table');
+    }
+    const reqTable: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='resource_requests'",
+    );
+    if (reqTable.length === 0) {
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS resource_requests (
+        id TEXT PRIMARY KEY NOT NULL,
+        need_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        urgency TEXT DEFAULT 'medium',
+        location TEXT NOT NULL,
+        lat REAL,
+        lng REAL,
+        deadline TEXT,
+        preferred_min_condition INTEGER DEFAULT 0,
+        contact_method TEXT,
+        status TEXT DEFAULT 'open',
+        tags TEXT DEFAULT '[]',
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      )`,
+      );
+      changes.push('created resource_requests table');
+    }
+    const matchTable: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='resource_matches'",
+    );
+    if (matchTable.length === 0) {
+      await exec(
+        db,
+        `CREATE TABLE IF NOT EXISTS resource_matches (
+        id TEXT PRIMARY KEY NOT NULL,
+        resource_id TEXT NOT NULL,
+        request_id TEXT NOT NULL,
+        match_score REAL DEFAULT 0,
+        explanation TEXT,
+        status TEXT DEFAULT 'pending',
+        scheduled_pickup TEXT,
+        transport_plan TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      )`,
+      );
+      changes.push('created resource_matches table');
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_resource_matches_resource_id ON resource_matches(resource_id)',
+      );
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_resource_matches_request_id ON resource_matches(request_id)',
+      );
+      await exec(
+        db,
+        'CREATE INDEX IF NOT EXISTS idx_resource_matches_status ON resource_matches(status)',
+      );
+    }
+
+    // Seed demo resources if empty (real Vietnamese organisations)
+    const resCount: any[] = await all(db, 'SELECT COUNT(*) AS count FROM resources');
+    if (Number(resCount[0]?.count || 0) === 0) {
+      for (const r of RESOURCES_SEED) {
+        await exec(
+          db,
+          `INSERT INTO resources (id, type, title, description, condition, location, lat, lng, available_from, cost, contact_method, status, is_verified, tags, metadata) VALUES
+          ('${r.id}', '${r.type}', '${r.title.replace(/'/g, "''")}', '${r.description.replace(/'/g, "''")}', ${r.condition}, '${r.location.replace(/'/g, "''")}', ${r.lat}, ${r.lng}, '${r.available_from || ''}', ${r.cost}, '${r.contact_method}', 'available', ${r.is_verified ? 1 : 0}, '${JSON.stringify(r.tags)}', '${JSON.stringify(r.metadata).replace(/'/g, "''")}')`,
+        );
+      }
+      changes.push(`seeded ${RESOURCES_SEED.length} resources row(s)`);
+    }
+    // Seed demo requests if empty
+    const reqCount: any[] = await all(db, 'SELECT COUNT(*) AS count FROM resource_requests');
+    if (Number(reqCount[0]?.count || 0) === 0) {
+      for (const q of RESOURCE_REQUESTS_SEED) {
+        await exec(
+          db,
+          `INSERT INTO resource_requests (id, need_type, title, description, urgency, location, lat, lng, deadline, preferred_min_condition, contact_method, status, tags) VALUES
+          ('${q.id}', '${q.need_type}', '${q.title.replace(/'/g, "''")}', '${q.description.replace(/'/g, "''")}', '${q.urgency}', '${q.location.replace(/'/g, "''")}', ${q.lat}, ${q.lng}, '${q.deadline || ''}', ${q.preferred_min_condition}, '${q.contact_method}', 'open', '${JSON.stringify(q.tags)}')`,
+        );
+      }
+      changes.push(`seeded ${RESOURCE_REQUESTS_SEED.length} resource_requests row(s)`);
     }
 
     // Backfill donation_campaigns.location_point for the 4 NULL campaigns
     const donationBackfills: Array<[string, number, number]> = [
       ['8d2b5de5-f529-4e36-8bfc-8e0497717be5', 11.0136, 107.2345], // Định Quán, Đồng Nai
       ['904e4b6f-1b33-4241-9aa1-220036f73c7e', 10.3036, 106.2892], // Tân Phú, TP.HCM
-      ['2f3baa54-6389-4834-9d3e-c00b8f755b49', 10.9570, 106.8430], // Trấn Biên, Biên Hòa
+      ['2f3baa54-6389-4834-9d3e-c00b8f755b49', 10.957, 106.843], // Trấn Biên, Biên Hòa
       ['9e5d63a5-03f1-4706-8a42-ccba67ec7007', 11.0096, 106.9208], // Xuân Lộc, Đồng Nai
     ];
     for (const [id, lat, lng] of donationBackfills) {
-      const res = await run(db, `UPDATE donation_campaigns SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`);
-      if (res.changes > 0) changes.push(`backfilled donation_campaigns.location_point for ${id} → [${lng},${lat}]`);
+      const res = await run(
+        db,
+        `UPDATE donation_campaigns SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`,
+      );
+      if (res.changes > 0)
+        changes.push(`backfilled donation_campaigns.location_point for ${id} → [${lng},${lat}]`);
     }
 
     if (changes.length > 0) {

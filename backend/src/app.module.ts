@@ -60,7 +60,9 @@ import { PinModule } from './modules/pin/pin.module';
 import { BlockchainModule } from './modules/blockchain/blockchain.module';
 import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 import { ImpactMatchModule } from './modules/impact-match/impact-match.module';
+import { ImpactMeasurementModule } from './modules/impact-measurement/impact-measurement.module';
 import { GeoModule } from './modules/geo/geo.module';
+import { ResourceExchangeModule } from './modules/resource-exchange/resource-exchange.module';
 
 @Module({
   imports: [
@@ -76,45 +78,60 @@ import { GeoModule } from './modules/geo/geo.module';
       useFactory: async () => {
         // HF Spaces mode: skip Redis entirely, use in-memory LRU cache
         if (process.env.DB_TYPE === 'sqlite') {
-          console.log('[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)');
+          console.log(
+            '[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)',
+          );
           return { store: memoryStore(), ttl: 300 } as any;
         }
         try {
           return {
             store: await redisStore({
-              socket: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
+              socket: {
+                host: process.env.REDIS_HOST || 'localhost',
+                port: Number(process.env.REDIS_PORT) || 6379,
+              },
             }),
           } as any;
         } catch (err) {
-          console.warn('[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:', (err as Error).message);
+          console.warn(
+            '[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:',
+            (err as Error).message,
+          );
           return { store: memoryStore() } as any;
         }
       },
     }),
     // Bull queues are disabled in SQLite/HF Spaces mode (no Redis)
-    ...(process.env.DB_TYPE === 'sqlite' ? [] : [
-      BullModule.forRoot({
-        redis: { host: process.env.REDIS_HOST || 'localhost', port: Number(process.env.REDIS_PORT) || 6379 },
-      }),
-    ]),
+    ...(process.env.DB_TYPE === 'sqlite'
+      ? []
+      : [
+          BullModule.forRoot({
+            redis: {
+              host: process.env.REDIS_HOST || 'localhost',
+              port: Number(process.env.REDIS_PORT) || 6379,
+            },
+          }),
+        ]),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: process.env.DB_TYPE === 'postgres' ? 'postgres' : 'sqlite',
       ...(process.env.DB_TYPE === 'postgres'
         ? {
-          host: process.env.DB_HOST || 'localhost',
-          port: parseInt(process.env.DB_PORT) || 5432,
-          username: process.env.DB_USERNAME || 'admin',
-          password: process.env.DB_PASSWORD
-            ? process.env.DB_PASSWORD
-            : process.env.NODE_ENV === 'production'
-              ? (() => { throw new Error('DB_PASSWORD environment variable is required in production.'); })()
-              : 'password123',
-          database: process.env.DB_DATABASE || 'edumap_db',
-        }
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT) || 5432,
+            username: process.env.DB_USERNAME || 'admin',
+            password: process.env.DB_PASSWORD
+              ? process.env.DB_PASSWORD
+              : process.env.NODE_ENV === 'production'
+                ? (() => {
+                    throw new Error('DB_PASSWORD environment variable is required in production.');
+                  })()
+                : 'password123',
+            database: process.env.DB_DATABASE || 'edumap_db',
+          }
         : {
-          database: process.env.DB_SQLITE_PATH || ':memory:',
-        }),
+            database: process.env.DB_SQLITE_PATH || ':memory:',
+          }),
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.DB_SYNC === 'true',
     }),
@@ -184,15 +201,15 @@ import { GeoModule } from './modules/geo/geo.module';
     BlockchainModule,
     BookmarksModule,
     ImpactMatchModule,
+    ImpactMeasurementModule,
     GeoModule,
+    ResourceExchangeModule,
   ],
   controllers: [
     // Liveness probe used by the healthcheck (GET /api/health).
     HealthController,
   ],
-  providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

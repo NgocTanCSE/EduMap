@@ -46,6 +46,98 @@ HF Spaces Docker container (public port 7680)
 - Build: multi-stage `Dockerfile`.
 - PostgreSQL/Redis/MinIO/NGINX/OSRM are replaced by SQLite, in-process LRU
   cache, filesystem, Next.js BFF and public OSRM/ORS respectively.
+- **ImpactMatch (Idea #9)** — need↔sponsor matching: `backend/src/modules/impact-match/*`
+  (entities `sponsor_needs`/`sponsor_profiles`, `ImpactMatchService` with SQLite
+  pre-filter + AI ranking via `AIService.impactMatchRank`), `ai-service` endpoint
+  `POST /api/ai/impactmatch/rank` (mirrors mentor matching pattern). New tables
+  are healed by `ensureSqliteSchema()` + demo-seeded from real Vietnamese orgs
+  in `sqlite-bootstrap.ts`. Frontend at `app/impact-match/page.tsx` (dual panel).
+  Nav entry added under "Chợ & Đóng góp". Ranking uses the same
+  `_generate_text_with_fallback` cascade with `temperature=0.3`,
+  `max_tokens=2048`, `top_p=0.8` — budget stays under the NestJS stream timeout;
+  graceful-degradation `_impact_match_fallback` returns template-based scores.
+
+- **Resource Exchange AI (Idea #18)** — need↔supply matching for books,
+  devices & volunteer hours: `backend/src/modules/resource-exchange/*`
+  (entities `resources`/`resource_requests`/`resource_matches`,
+  `ResourceMatchService` with SQLite **pre-filter** — type match + condition ≥
+  preferred_min + region match + hard cap 15 pairs) + AI ranking/reasoning via
+  `AIService.resourceExchangeMatchRank`), `ai-service` endpoint
+  `POST /api/ai/resource-exchange/match-rank` (mirrors `rank_impact_matches`,
+  uses the same `_generate_text_with_fallback` cascade with `temperature=0.3`,
+  `max_tokens=2048`, `top_p=0.8`; the 24h-slot greedy transport schedule is
+  computed in Python via `_build_transport_schedule` — deterministic &
+  conflict-free — and is **not** an LLM call, so it never blocks on token
+  latency). Backend proxy: `POST /api/resource-exchange/match` → ai-service
+  (sync, 45s timeout). `llm_service.py` adds `rank_resource_matches`,
+  `_build_transport_schedule` (slot_minutes=120, staggered, skip duplicate
+  resource_id/request_id), and graceful-degradation
+  `_resource_exchange_fallback` (returns SQLite-scored pairs with
+  `degraded=true`, so the feature never 502s). New tables healed by
+  `ensureSqliteSchema()` + seeded from **real** Vietnamese institutions
+  (DNTU, THCS Nguyễn Trãi, HCMUT) in `sqlite-bootstrap.ts` — see AGENTS.md §6.
+  Frontend at `app/resource-exchange/page.tsx` (3-tab dual panel: Cung cấp /
+  Cần nhận / Đã ghép) + BFF routes `app/api/resource-exchange/{resources,
+  requests, match}/route.ts` (mirror `app/api/impact-match/*`) + service
+  `src/services/resource-exchange.service.ts`. Scoring weights: proximity 0.40,
+  need_level (urgencyWeight/4)·100 × 0.25, condition (res.condition/5·100 ×
+  0.25), availability × 0.10. Nav entry added under "Chợ & Đóng góp".
+  - **Verify:** backend `npx tsc --noEmit` OK, Jest 8/8; AI service
+    `pytest tests/test_resource_exchange.py` 9/9; `py_compile` OK; frontend
+    `npx tsc --noEmit` OK (no resource-exchange errors).
+
+## 2.3 AI Question Gap Report (Idea #17)
+
+- **Goal:** find topics users ask about but the AI can't answer well.
+- **T1 (logging):** `query_logs` table (anonymized) — `user_id_hash` (SHA-256),
+  `query_text`, `retrieved_doc_count`, `retrieval_status`, `response_text`,
+  `response_quality`. Logged in `AIService._logQuery()` (fire-and-forget from
+  `chat()` + `chatStream()`). TTL 30-day sweep in `sqlite-bootstrap.ts`.
+- **T2 (AI service):** `GET /api/ai/analytics/question-gaps` — `QuestionGapAnalyzer`
+  reads `query_logs` (capped at 10 000), clusters via TF-IDF + K-Means (keyword
+  fallback when sklearn missing), identifies gaps (`retrieval_status='failed'`,
+  `retrieved_doc_count=0`, or `response_quality<0.30`), recommends docs via
+  `llm_service._generate_text_with_fallback` with template fallback. 24 h
+  in-process cache. Router at `ai-service/routers/question_gaps.py`.
+- **T3 (frontend):** `app/admin/question-gaps/page.tsx` (admin-only) — cluster
+  cards, gap table, doc recommendations, privacy notice. Backend proxy at
+  `GET /admin/question-gaps` → `aiService.getQuestionGaps()` (30 min LRU cache).
+- **Tests:** `ai-service/tests/test_question_gaps.py` (17 tests), backend
+  `ai.service.spec.ts` (13 new tests).
+- **Smoke test:** `curl -X GET .../api/admin/question-gaps?limit=10000 -H "Authorization: Bearer $TOKEN"` → 200 + JSON report.
+
+## 2.1 AI Knowledge Graph (Idea #8)
+
+- **T1** `ai-service/services/knowledge_graph.py` — `KnowledgeGraphService`
+  with SQLite adjacency-list tables `kg_nodes`, `kg_edges`,
+  `kg_extraction_review`. Builds graph from source tables (`map_points`,
+  `scholarships`, `opportunities`, `career_paths`, `learning_materials`,
+  `internships`, `international_programs`, denormalised `provider/org`
+  columns from `organizations` table which is empty). 1-degree traversal cap
+  (`query()`). NLP extraction (`extract_entities()`) with LLM → rule-based
+  fallback + circuit breaker; low-confidence results queued in
+  `kg_extraction_review` for human approval.
+- **T2** `ai-service/routers/knowledge.py` — FastAPI router mounted at
+  `/api/ai/knowledge/*`: `GET /graph`, `POST /query`, `POST /suggest-partners`,
+  `POST /extract`, `GET /reviews`, `POST /reviews/{id}/approve`, `POST /seed`.
+  Registered in `main.py` `router_names` list.
+- **T3** `backend/src/modules/ai/` — proxy methods
+  (`getKnowledgeGraph`, `queryKnowledgeGraph`, `suggestKnowledgePartners`,
+  `extractEntities`, `triggerKnowledgeGraphSync`) + NestJS controller routes
+  at `/ai/knowledge/*`. **Hourly sync** runs as a daemon thread in
+  `ai-service/main.py` startup hook (`_startup_seed_knowledge_graph`) —
+  `ScheduleModule` is disabled in SQLite/HF mode. Env-tunable:
+  `KNOWLEDGE_GRAPH_SYNC_INTERVAL` (default 3600s).
+- **T4** Frontend: BFF routes at `app/api/ai/knowledge/{graph,query,suggest-partners,extract,sync}/route.ts`
+  → NestJS backend proxy → ai-service. Service at `src/services/knowledge.service.ts`.
+  D3 force-directed graph page at `app/knowledge-graph/page.tsx` via
+  `components/knowledge/ForceGraph.tsx`. Dependency: `d3` + `@types/d3` added
+  to `package.json`. Nav entry added in `components/Sidebar.tsx` under
+  "Học tập" group.
+- AGENTS.md §6 data policy applies: real Vietnamese organisations only,
+  provenance footers, honest empty states, AGENTS.md §3 timeouts
+  preserved (graph queries are local SQLite, sub-100ms).
+
 
 ## 3. AI provider chain
 
@@ -80,6 +172,101 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   detections — the frontend shows a warning, never a crash.
 - `ai-service/start.sh` recovers `GEO_VISION_MODEL`, `GEO_VISION_TIMEOUT_SECONDS`,
   and `BING_MAPS_API_KEY` from PID 1 environ (HF Spaces secret propagation fix).
+
+- **AI Climate Learning Guardian (Idea #11):** `ai-service/services/climate_guardian.py`
+  (`ClimateGuardianService` singleton) + `ai-service/routers/climate.py`
+  (`POST /api/ai/climate/risk`, `POST /api/ai/climate/alternatives`).
+  - Risk model: `risk_score = 0.35·flood_risk + 0.35·weather_risk + 0.30·access_risk`
+  - Flood zones: loaded from SQLite `flood_zones` table (seeded by
+    `scripts/migrate_real_data.py` from `scripts/real_vn_data.py:FLOOD_ZONES`)
+    with a static fallback (`STATIC_FLOOD_ZONES`) for empty-DB.
+  - Weather: OpenWeatherMap (requires `OWM_API_KEY` HF Space secret) via
+    `curl --ipv4 --insecure`; degrades to static hazard map when key absent.
+  - Elevation: Open-Meteo free elevation API; cached on disk in `/tmp/`.
+  - 24h in-process TTL cache (mirrors `forecast.py`) on both endpoints.
+  - Backend proxy: `GET /api/map/climate-risk` + `POST /api/map/climate/alternatives`
+    in `map.controller.ts` / `map.service.ts` (with 24h LRU cache + graceful
+    degraded GeoJSON fallback).
+  - Frontend: `app/climate-guardian/page.tsx` + `components/climate-guardian/ClimateGuardianMap.tsx`
+    (twin-panel: controls left, Leaflet risk heatmap + safe-alternative markers right).
+  - Nav entry: "AI Bảo Vệ Khí Hậu" under new group "AI an toàn" in `Sidebar.tsx`.
+  - Data policy: all flood zones have `Nguồn chính thức` + `Kiểm chứng` provenance.
+  - Smoke test entries #12–#13 in `tasks/dntu-ai-ideas-plan.md` §1.5.
+
+- **AI Language Bridge (Idea #15 — MEDIUM):** `ai-service/services/language_bridge.py`
+  (`LanguageBridgeService` singleton) + `ai-service/routers/language.py`
+  (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
+  `POST /api/ai/language/tts`).
+  - Simplify/translate use `_generate_text_with_fallback` cascade
+    (OpenRouter → NVIDIA → Kimi → Cloudflare → HF) with `temperature=0.3`,
+    `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
+    never 502s when all providers are down (HF Spaces free plan).
+  - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
+    `high` (THPT), `college` (đại học). LLM explains jargon per level.
+  - Translation supports an optional **glossary** dict so domain terms are
+    preserved (mitigates "context loss" risk).
+  - TTS provider chain: Google Cloud TTS (via `curl --ipv4 --insecure`,
+    needs `GOOGLE_TTS_API_KEY` HF secret) → `edge-tts` (keyless, good VN
+    voices) → `gTTS` (keyless) → degraded text-only (`audio_base64=None`,
+    frontend falls back to browser Web Speech API `speechSynthesis`).
+  - `gTTS` and `edge-tts` added to `ai-service/requirements.txt`.
+    `GOOGLE_TTS_API_KEY` recovered in `ai-service/start.sh` from PID 1 environ.
+  - Backend proxy: `POST /api/ai/language/{simplify,translate,tts}` in
+    `ai.controller.ts` / `ai.service.ts` (JwtAuthGuard-protected, 45s LLM
+    timeout, 30s TTS timeout, 24h in-process cache for simplify/translate).
+  - BFF routes: `app/api/ai/language/{simplify,translate,tts}/route.ts`.
+    Frontend service: `src/services/language-bridge.service.ts`.
+    Frontend page: `app/language-bridge/page.tsx` (dual-panel: controls left,
+    output tabs right — Simplify / Translate / TTS). TTS player with browser
+    Web Speech API fallback.
+  - Nav entry: "Language Bridge AI" under "Học tập" in `Sidebar.tsx`.
+  - Smoke test entries #14–#20 in `tasks/dntu-ai-ideas-plan.md` §1.5.
+
+- **Voice-to-Geo AI (Idea #16 — MEDIUM):** `ai-service/services/speech.py`
+  (`SpeechService` singleton) + `ai-service/routers/speech.py`
+  (`POST /api/ai/speech/to-text`).
+  - Client-side STT: Web Speech API (`SpeechRecognition`, `lang='vi-VN'`)
+    on the frontend — privacy-first, audio never leaves the browser.
+  - Server-side STT fallback: OpenRouter Whisper (`openai/whisper-large-v3`)
+    via `curl --ipv4 --insecure` — used when Chrome's Vietnamese recognition
+    is unreliable. `OPENROUTER_API_KEY` (existing HF Spaces secret) is reused;
+    `OPENROUTER_STT_MODEL` and `OPENROUTER_STT_TIMEOUT_SECONDS=25` are set as
+    Dockerfile ENV defaults.
+  - Per-provider circuit breaker (5 min / 300 s) after auth or network failure,
+    matching `llm_service.py`.
+  - **Never 503/502**: returns 200 with `degraded=True` + empty `text` +
+    human-readable `error` when Whisper is unavailable (no key, circuit open,
+    network failure). The frontend falls back to the client-side transcript.
+  - STT key is read **dynamically** via `SpeechService._get_openrouter_key()`
+    (not at module import) so test fixtures and HF Spaces secret propagation
+    are always respected.
+  - Intent classification: `NLQueryParser.extract_intent()` — regex baseline
+    (no LLM needed, works on HF Spaces free plan). Three intents:
+    `geo_recommend` (find query: "Tìm thư viện gần đây"),
+    `report_form` (issue report: "Báo wifi hỏng ở trường X"),
+    `geo_query` (info question: "Trường DNTU ở đâu?").
+    Report keywords take priority; find verbs ("tìm") → geo_recommend;
+    question words ("ở đâu", "là gì", "bao nhiêu") → geo_query; default geo_recommend.
+  - Intent is returned as a top-level `intent` field in the Talk2Map router
+    response (`ai-service/routers/talk2map.py`), passed through
+    `map.service.ts nLSearch()` (with TypeScript `_classifyIntentFallback()`
+    mirror for when ai-service is unreachable), and surfaced in the
+    `NlsResponse` frontend type.
+  - Backend proxy: `POST /api/ai/speech/to-text` in `ai.controller.ts` /
+    `ai.service.ts` (public, no JwtAuthGuard — STT uses base64 audio, not
+    user identity; frontend captures audio client-side). 30s timeout,
+    degrades to empty text + `degraded=True` on ai-service unreachable.
+  - BFF route: `app/api/ai/speech/to-text/route.ts` (POST proxy → backend).
+    Frontend page: `app/voice-search/page.tsx` (full-page voice search:
+    record button → Web Speech API → Whisper fallback → nl-search → results
+    overlay; report_form intent shows a pre-filled report form).
+  - Voice buttons on `/map` (floating control panel) and `/ai-chat`
+    (input area) — both use Web Speech API, fall back to Whisper, and
+    route transcripts through the Talk2Map nl-search pipeline.
+  - Nav entry: "Tìm bằng giọng nói" (Mic icon) under "Học tập" in `Sidebar.tsx`.
+  - Smoke test: `scripts/smoke_test_voice_geo.sh` (STT degraded path + intent
+    classification for geo_recommend / geo_query / report_form).
+  - Tests: `tests/test_speech.py` (26 tests: SpeechService + intent + router).
 
 Rules that must be preserved:
 
@@ -126,6 +313,24 @@ HF_TOKEN=<token> ./deploy-hf.sh
 - `HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base` (768-dim).
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
+- `OWM_API_KEY` — OpenWeatherMap API key (HF Space secret, optional). When set,
+  the Climate Learning Guardian fetches real-time weather severity; when absent,
+  it falls back to a static flood-hazard map built from real Vietnamese flood
+  zone polygons (Đồng Nai, Cửu Long, Đà Nẵng, TPHCM) seeded via
+  `scripts/migrate_real_data.py`.
+- `GOOGLE_TTS_API_KEY` — Google Cloud TTS API key (HF Space secret, optional).
+  When set, the Language Bridge uses Google Cloud TTS (best voice quality);
+  when absent, it falls back to `edge-tts` (Microsoft Edge online, keyless)
+  then `gTTS` (Google Translate TTS, keyless), then degrades to text-only
+  (browser Web Speech API). The Language Bridge LLM endpoints (simplify,
+  translate) do NOT require this key — they use the same `_generate_text_with_fallback`
+  cascade as all other AI features.
+- `OPENROUTER_STT_MODEL=openai/whisper-large-v3` — Whisper model slug for
+  server-side STT fallback (Voice-to-Geo, Idea #16). `OPENROUTER_API_KEY`
+  is reused (same OpenRouter inference API). `OPENROUTER_STT_TIMEOUT_SECONDS=25`.
+  These are Dockerfile ENV defaults; override via HF Spaces secrets if needed.
+  The STT key is read dynamically at call time (not import time) to support
+  HF Spaces secret propagation.
 
 ## 6. Data policy (verified Vietnamese content only)
 

@@ -2412,6 +2412,219 @@ Trả về **mảng JSON** sau:
         }
 
 
+    async def rank_resource_matches(self, data: "ResourceExchangeRequest") -> dict:
+        """Rank resource↔request pairs and build a greedy transport schedule.
+        Falls back gracefully when all LLM providers are down.
+
+        Mirrors ``rank_impact_matches``: the backend has already pre-filtered at
+        the SQLite layer (type/condition/location, LIMIT 15) and produced a
+        SQLite-side score per pair. We still enforce a hard cap via
+        ``max_results`` to guarantee no token overflow, then ask the LLM to:
+
+          1. Re-rank pairs by semantic fit (0–100).
+          2. Explain WHY each resource matches the request.
+          3. Suggest next steps (contact, pickup).
+
+        The greedy transport schedule is computed in Python (not the LLM) so
+        it is deterministic and conflict-free — see ``_build_transport_schedule``.
+
+        Returns a dict so the router can detect ``degraded`` + ``reason`` for
+        graceful-degradation signalling to the frontend.
+        """
+        try:
+            if not self.is_ready:
+                raise RuntimeError(
+                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, "
+                    "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
+                )
+
+            max_results = getattr(data, "max_results", 15) or 15
+            max_results = max(1, min(max_results, 30))
+            pairs = (data.pairs or [])[:max_results]
+
+            # Serialize pairs to compact JSON for the LLM prompt
+            pairs_json = json.dumps(
+                [p.model_dump(mode="json") for p in pairs],
+                ensure_ascii=False,
+            )
+
+            region = getattr(data, "region", None)
+            rtype = getattr(data, "type", None)
+            pre_filter_parts = []
+            if region:
+                pre_filter_parts.append(f"Khu vực: {region}")
+            if rtype:
+                pre_filter_parts.append(f"Loại: {rtype}")
+            pre_filter_info = ""
+            if pre_filter_parts:
+                pre_filter_info = f" (Đã lọc trước: {', '.join(pre_filter_parts)})"
+
+            prompt = f"""Bạn là chuyên gia ghép nối nguồn lực (sách, thiết bị, giờ tình nguyện) đến nơi cần cho lĩnh vực giáo dục tại Việt Nam.{pre_filter_info}
+
+Nhiệm vụ: Xếp hạng các cặp (nguồn lực ↔ yêu cầu) dưới đây theo mức độ phù hợp.
+Các yếu tố cần xem xét:
+1. **Khoảng cách**: nguồn lực và yêu cầu có cùng khu vực / sát nhau không?
+2. **Khẩn cấp**: yêu cầu urgency cao nên được ưu tiên.
+3. **Điều kiện**: resource_condition có đáp ứng preferred_min_condition không?
+4. **Loại**: resource.type phải khớp với request.need_type.
+5. **Tin cậy**: resource.is_verified hay không (ưu tiên verified).
+
+Danh sách cặp đã pre-filter (tối đa {max_results}):
+{pairs_json}
+
+Trả về **mảng JSON** sau:
+[{{resource_id, request_id, match_score (0-100), explanation (string), match_reasons: [string], next_steps: [string]}}]
+
+- match_score: số thực 0-100, càng cao càng phù hợp.
+- explanation: 1 câu giải thích ngắn gọn tại sao cặp này match.
+- match_reasons: 2-3 lý do ngắn gọn.
+- next_steps: 1-2 bước tiếp theo (ví dụ: "Liên hệ người cung cấp qua contact_method", "Xác nhận lịch giao nhận").
+- Sắp xếp theo match_score giảm dần.
+- Nếu không có cặp nào phù hợp, trả về mảng rỗng []."""
+
+            response = await asyncio.to_thread(
+                self._generate_text_with_fallback,
+                prompt,
+                temperature=0.3,
+                max_tokens=2048,
+                top_p=0.8,
+            )
+            result = self._extract_json(response)
+            if result is None or not isinstance(result, list):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho rank_resource_matches.")
+
+            # Normalise LLM output into the canonical shape
+            clean = []
+            for m in result:
+                if isinstance(m, dict):
+                    clean.append({
+                        "resource_id": m.get("resource_id", ""),
+                        "request_id": m.get("request_id", ""),
+                        "match_score": float(m.get("match_score", 0)),
+                        "explanation": m.get("explanation", ""),
+                        "match_reasons": m.get("match_reasons", []) or [],
+                        "next_steps": m.get("next_steps", []) or [],
+                    })
+
+            # Greedy transport schedule (Python, conflict-free)
+            transport_plan = self._build_transport_schedule(clean)
+
+            return {
+                "ranked_matches": clean,
+                "transport_plan": transport_plan,
+                "degraded": False,
+                "reason": None,
+            }
+        except Exception as e:
+            print(f"Error in rank_resource_matches: {e}")
+            return self._resource_exchange_fallback(data, str(e))
+
+
+    def _build_transport_schedule(self, matches: list, base_time_iso: str = None) -> list:
+        """Greedy constraint-based scheduler — Idea #18 T3.
+
+        Goal: build a pickup schedule for the ranked matches such that:
+          • each resource is picked up at most ONCE (no double-booking the
+            same physical item / volunteer slot), and
+          • each request is fulfilled at most ONCE.
+
+        Strategy (greedy by priority):
+          Iterate matches in score order. For each match, if neither its
+          ``resource_id`` nor its ``request_id`` has been scheduled yet, assign
+          the next sequential pickup slot (2-hour window, staggered by 2h).
+          Conflicts (resource/request already allocated) are skipped — the
+          resource/request will still show as a high-scoring match on the UI,
+          the user just picks the next-best un-conflicted pair.
+
+        This never raises — a scheduling failure degrades to a single slot
+        per match (best-effort) so the UI always renders a plan.
+        """
+        import datetime as dt
+
+        try:
+            if base_time_iso:
+                current = dt.datetime.fromisoformat(base_time_iso.replace("Z", "+00:00"))
+            else:
+                current = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
+        except Exception:
+            current = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
+
+        slot_minutes = 120  # 2 giờ mỗi lần giao nhận
+        scheduled_resources = set()
+        scheduled_requests = set()
+        plan = []
+        order = 1
+
+        for m in matches:
+            rid = m.get("resource_id", "")
+            reqid = m.get("request_id", "")
+            # Conflict check: skip if this resource OR request is already booked
+            if rid in scheduled_resources or reqid in scheduled_requests:
+                continue
+            scheduled_resources.add(rid)
+            scheduled_requests.add(reqid)
+            start = current + dt.timedelta(minutes=(order - 1) * slot_minutes)
+            plan.append({
+                "resource_id": rid,
+                "request_id": reqid,
+                "pickup_datetime": start.isoformat(),
+                "pickup_order": order,
+            })
+            order += 1
+
+        return plan
+
+
+    def _resource_exchange_fallback(self, data: "ResourceExchangeRequest", err: str = "") -> dict:
+        """Graceful-degradation fallback when all LLM providers are down.
+
+        Preserves the SQLite-side scoring produced by the backend (proximity +
+        need_level + condition + availability → 0–100) and builds a greedy
+        transport schedule in Python. Returns a valid-shaped dict with
+        ``degraded=True`` so the router (and ultimately the frontend) can
+        surface a helpful message instead of a 502 that blocks the feature.
+        """
+        reason = f"AI unavailable — graceful degradation ({err[:140]})"
+        pairs = (data.pairs or [])[:15]
+
+        template_matches = []
+        for p in pairs:
+            score = float(getattr(p, "match_score", 0) or 0)
+            resource = getattr(p, "resource", None) or {}
+            request = getattr(p, "request", None) or {}
+            res_title = getattr(resource, "title", None)
+            if not res_title and isinstance(resource, dict):
+                res_title = resource.get("title")
+            req_title = getattr(request, "title", None)
+            if not req_title and isinstance(request, dict):
+                req_title = request.get("title")
+            reasons = list(getattr(p, "match_reasons", []) or [])
+            if not reasons:
+                reasons.append("Phù hợp về loại, khu vực và điều kiện (template).")
+            template_matches.append({
+                "resource_id": p.resource_id,
+                "request_id": p.request_id,
+                "match_score": round(score, 1),
+                "explanation": (
+                    f"Nguồn lực '{res_title or '?'}' "
+                    f"phù hợp với nhu cầu '{req_title or '?'}' "
+                    f"dựa trên trường hợp điểm số sơ bộ."
+                ),
+                "match_reasons": reasons,
+                "next_steps": ["Liên hệ người cung cấp qua contact_method để xác nhận."],
+            })
+
+        template_matches.sort(key=lambda x: x["match_score"], reverse=True)
+        transport_plan = self._build_transport_schedule(template_matches)
+
+        return {
+            "ranked_matches": template_matches,
+            "transport_plan": transport_plan,
+            "degraded": True,
+            "reason": reason,
+        }
+
+
     # ------------------------------------------------------------------
     #  Template-based graceful-degradation fallbacks
     #  Each returns a valid-shaped dict/list so routers and callers still
