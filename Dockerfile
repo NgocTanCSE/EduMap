@@ -48,6 +48,10 @@ RUN npx nest build
 FROM python:3.11-slim AS ai-deps
 WORKDIR /app
 COPY ai-service/requirements.txt ./
+# Install torch from CPU-only index first (avoids pulling CUDA runtime wheels
+# which would add ~2GB to the image — wasteful on HF Spaces free tier).
+# See: https://pytorch.org/get-started/locally/
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # === Stage 4: Runtime — combines all 3 services ===
@@ -111,11 +115,11 @@ RUN touch services/__init__.py routers/__init__.py && \
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models
+RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models /app/uploads/offline-models
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261027_talk2map-vietnamese-nl-gis+admin-ssr-fix
+ARG CACHEBUST=20261027_talk2map-vietnamese-nl-gis+admin-ssr-fix+edge-ai-tutor
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -125,6 +129,12 @@ ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
 ENV NEXT_PUBLIC_API_URL=/api
 ENV AI_SERVICE_URL=http://127.0.0.1:8000
+# ── Edge AI Tutor (offline LLM) ──────────────────────────────────────────
+# TinyLlama 1.1B model is downloaded at runtime from HF Hub to a writable
+# volume (/app/uploads). It must NOT be bundled in the Docker image
+# (*.bin/*.safetensors excluded by .huggingfaceignore + .dockerignore).
+ENV OFFLINE_MODEL_NAME=TinyLlama/TinyLlama-1.1B-Chat-v1.0
+ENV OFFLINE_MODEL_CACHE=/app/uploads/offline-models
 # ── Routing provider chain ──────────────────────────────────────────
 # HF Spaces runs everything in a single container (supervisord): frontend
 # (7680), backend (3000), AI svc (8000). There is NO separate OSRM

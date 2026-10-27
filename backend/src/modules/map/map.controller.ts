@@ -254,7 +254,45 @@ export class MapController {
   }
 
 
-  @Get('fixed-locations')
+  /**
+   * GET /api/map/data-gaps — Idea #6: Missing Data Hunter.
+   *
+   * Grid-based coverage analysis + attribute gap detection. Accepts query
+   * params (grid_size_km, top_n, min_lat, max_lat, min_lng, max_lng,
+   * categories) and returns a cached (TTL 3600 s) GeoJSON FeatureCollection
+   * of gap grid-cells + attribute gap summary. The heavy computation runs in
+   * the ai-service; this backend fetches POIs, POSTs them, and caches.
+   */
+  @Get('data-gaps')
+  @SkipThrottle()
+  async getDataGaps(
+    @Query('grid_size_km') gridSizeKm?: string,
+    @Query('top_n') topN?: string,
+    @Query('min_lat') minLat?: string,
+    @Query('max_lat') maxLat?: string,
+    @Query('min_lng') minLng?: string,
+    @Query('max_lng') maxLng?: string,
+    @Query('categories') categories?: string,
+  ) {
+    try {
+      const gridSize = gridSizeKm ? parseFloat(gridSizeKm) : 1.0;
+      const n = topN ? Math.max(1, Math.min(500, parseInt(topN, 10))) : 50;
+      const cats = categories ? categories.split(',').filter(Boolean) : undefined;
+      const bounds = (minLat && maxLat && minLng && maxLng)
+        ? {
+            minLat: parseFloat(minLat),
+            maxLat: parseFloat(maxLat),
+            minLng: parseFloat(minLng),
+            maxLng: parseFloat(maxLng),
+          }
+        : undefined;
+      const result = await this.mapService.getDataGaps({ grid_size_km: gridSize, top_n: n, bounds, categories: cats });
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error(`Error getting data gaps: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve data gaps');
+    }
+  }
   @SkipThrottle()
   async getFixedLocations() {
     try {

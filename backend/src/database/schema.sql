@@ -1401,3 +1401,46 @@ CREATE TABLE IF NOT EXISTS user_management (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_user_management_user ON user_management(user_id);
+
+-- 30. sponsor_profiles (ImpactMatch — Idea #9: need ↔ sponsor)
+CREATE TABLE sponsor_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    focus_areas JSONB,
+    budget_amount DECIMAL(15,2) DEFAULT 0,
+    budget_currency VARCHAR(10) DEFAULT 'VND',
+    location VARCHAR(255),
+    website_url TEXT,
+    contact_email VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'active',
+    is_verified BOOLEAN DEFAULT false,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sponsor_profiles_location ON sponsor_profiles(location);
+CREATE INDEX IF NOT EXISTS idx_sponsor_profiles_status ON sponsor_profiles(status);
+
+-- 31. sponsor_needs (ImpactMatch — những nhu cầu cần nguồn lực tài trợ)
+CREATE TABLE sponsor_needs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100) NOT NULL,
+    urgency VARCHAR(20) DEFAULT 'medium',
+    cost_estimate DECIMAL(15,2) DEFAULT 0,
+    location VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'open',
+    tags JSONB,
+    apply_url TEXT,
+    provenance TEXT,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_sponsor_needs_category ON sponsor_needs(category);
+CREATE INDEX IF NOT EXISTS idx_sponsor_needs_status ON sponsor_needs(status);
+CREATE INDEX IF NOT EXISTS idx_sponsor_needs_urgency ON sponsor_needs(urgency);
+CREATE INDEX IF NOT EXISTS idx_sponsor_needs_location ON sponsor_needs(location);

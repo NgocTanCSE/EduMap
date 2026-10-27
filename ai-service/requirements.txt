@@ -20,3 +20,14 @@ scipy
 # PDF transcript endpoint (POST /api/ai/pdf/transcript). Without this, the
 # router import fails and the endpoint returns 404 in the HF Spaces container.
 python-multipart
+
+# ── Edge AI Tutor (offline LLM) ──────────────────────────────────────────
+# Idea #7: TinyLlama 1.1B 4-bit runs locally in the ai-service container on
+# HF Spaces free plan (CPU-only). No external API calls required.
+# torch is installed separately in the Dockerfile ai-deps stage from the
+# CPU-only wheel index (see Dockerfile Stage 3) to avoid pulling the CUDA
+# runtime which would double the image size.
+transformers>=4.40.0
+huggingface_hub>=0.23.0
+accelerate>=0.30.0
+sentencepiece>=0.2.0

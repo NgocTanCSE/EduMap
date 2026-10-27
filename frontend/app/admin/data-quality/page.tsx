@@ -1,10 +1,29 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
+import nextDynamic from 'next/dynamic';
+import { MapPin, AlertTriangle, RefreshCw, Filter, Database, BarChart3, Search, Download } from 'lucide-react';
 
 // Prevent Next.js from prerendering this page (react-leaflet requires `window`).
 export const dynamic = 'force-dynamic';
-import { MapPin, AlertTriangle, RefreshCw, Filter, Database, BarChart3, Search, Download } from 'lucide-react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+
+// Dynamically import react-leaflet components with SSR disabled to avoid
+// `window is not defined` errors during Next.js build (Issue: admin/data-quality prerender).
+const MapContainer: any = nextDynamic(
+  () => import('react-leaflet').then((mod: any) => ({ default: mod.MapContainer })),
+  { ssr: false }
+);
+const TileLayer: any = nextDynamic(
+  () => import('react-leaflet').then((mod: any) => ({ default: mod.TileLayer })),
+  { ssr: false }
+);
+const CircleMarker: any = nextDynamic(
+  () => import('react-leaflet').then((mod: any) => ({ default: mod.CircleMarker })),
+  { ssr: false }
+);
+const Popup: any = nextDynamic(
+  () => import('react-leaflet').then((mod: any) => ({ default: mod.Popup })),
+  { ssr: false }
+);
 import 'leaflet/dist/leaflet.css';
 import { adminService, Anomaly, DataQualityReport } from '@/reporting/services/admin.service';
 import { toast } from 'sonner';

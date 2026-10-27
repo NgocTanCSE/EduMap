@@ -740,6 +740,115 @@ export class MapService {
     }
   }
 
+  /**
+   * GET /api/map/data-gaps → proxy + cache (TTL 3600 s).
+   * Idea #6: Missing Data Hunter.
+   *
+   * Fetches live POI data from the DB, builds the points payload, and POSTs
+   * them to the ai-service POST /api/ai/data/gaps (grid-based coverage +
+   * attribute gap detection). Results are cached per parameter-set so
+   * repeated map views are served from cache instead of recomputing the
+   * grid on a 1-vCPU HF Spaces container.
+   *
+   * On ai-service failure: returns a valid-but-degraded GeoJSON FeatureCollection
+   * so the frontend map never hard-fails (matching the "degrade, never crash"
+   * policy from AGENTS.md).
+   */
+  async getDataGaps(params: {
+    grid_size_km?: number;
+    top_n?: number;
+    bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+    categories?: string[];
+  }): Promise<any> {
+    const gridSizeKm = params.grid_size_km ? Number(params.grid_size_km) : 1.0;
+    const topN = params.top_n ? Math.max(1, Math.min(500, Number(params.top_n))) : 50;
+    const categories = params.categories;
+    const bounds = params.bounds;
+
+    // Deterministic cache key from the input parameters.
+    const cacheKey = `data-gaps:${gridSizeKm}:${topN}:${JSON.stringify(bounds || {})}:${JSON.stringify(categories || [])}`;
+
+    const now = Date.now();
+    const cached = this._resourceOptCache.get(cacheKey);
+    if (cached && now < cached.expires) {
+      this.logger.debug(`Data gaps cache hit: ${cacheKey}`);
+      return cached.data;
+    }
+
+    // ── On cache miss: fetch POI data from the DB ──────────────────────
+    let pois: PointOfInterest[] = [];
+    try {
+      if (bounds) {
+        pois = await this.findAllPois(bounds);
+      } else {
+        pois = await this.findAllPois();
+      }
+    } catch (dbErr: any) {
+      this.logger.warn(`DB fetch for data gaps failed: ${dbErr.message}`);
+    }
+
+    // Apply category filter if specified.
+    let points = pois.map((p) => ({
+      ...p,
+      lat: p.lat,
+      lng: p.lng,
+    }));
+    if (categories && categories.length > 0) {
+      const catsLower = categories.map((c) => c.toLowerCase().trim());
+      points = points.filter((p) => catsLower.includes(String(p.category || '').toLowerCase()));
+    }
+
+    // ── Proxy POST to ai-service data hunter ───────────────────────────
+    const requestBody: any = {
+      points: points,
+      grid_size_km: gridSizeKm,
+      top_n: topN,
+      ...(bounds ? { bounds } : {}),
+      ...(categories && categories.length > 0 ? { categories } : {}),
+    };
+
+    let result: any;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/data/gaps`, requestBody, { timeout: 30000 })
+      );
+      result = response.data || {};
+    } catch (aiError: any) {
+      const detail = aiError?.response?.data?.detail || aiError.message || 'AI service unavailable';
+      this.logger.error(`AI data gaps failed: ${detail}`);
+
+      // Graceful degradation: return a minimal valid GeoJSON so the frontend
+      // map shows an empty-state instead of crashing.
+      result = {
+        type: 'FeatureCollection',
+        features: [],
+        summary: {
+          total_cells: 0,
+          gap_cells: 0,
+          gap_rate: 0.0,
+          total_points: points.length,
+          grid_size_km: gridSizeKm,
+          attribute_gaps: {},
+        },
+        attribute_gaps: {},
+        metadata: {
+          method: 'grid_based_coverage_analysis',
+          degraded: true,
+          reason: `Dịch vụ AI phân tích khoảng trống dữ liệu tạm thời không khả dụng: ${detail}`,
+        },
+      };
+    }
+
+    // Cache the result (reuse the resource-opt cache slot).
+    this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
+    if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
+      const oldestKey = this._resourceOptCache.keys().next().value;
+      if (oldestKey) this._resourceOptCache.delete(oldestKey);
+    }
+
+    return result;
+  }
+
   async getFixedLocations(): Promise<PointOfInterest[]> {
     try {
       const points = await this.mapPointRepo.find({ where: { is_fixed: true } });
