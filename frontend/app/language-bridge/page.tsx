@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ChevronLeft, BookOpen, Globe, Volume2, Play, Pause, Square,
   Send, Sparkles, AlertCircle, RefreshCw, Download, ExternalLink,
-  Languages, FileText, Info, Check, X,
+  Languages, FileText, Info, Check, X, Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -285,7 +285,7 @@ export default function LanguageBridgePage() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhập nội dung cần đơn giản hóa, dịch hoặc chuyển thành giọng nói..."
-            className="w-full h-32 px-3 py-2 text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none custom-scrollbar"
+            className="w-full h-32 px-3 py-2 text-sm text-foreground rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none custom-scrollbar"
           />
           <div className="text-[10px] text-muted-foreground text-right">
             {text.length} ký tự {text.length > 16000 && '(giới hạn 16.000)'}
@@ -474,13 +474,27 @@ export default function LanguageBridgePage() {
           </div>
 
           {ttsResult?.audio_base64 && (
-            <button
-              onClick={handleDownload}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-muted text-muted-foreground text-xs transition-colors hover:bg-muted/50"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Tải xuống MP3
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDownload}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-muted text-muted-foreground text-xs transition-colors hover:bg-muted/50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Tải xuống MP3
+              </button>
+              <button
+                onClick={() => {
+                  const content = simplifyResult?.simplified || translateResult?.translated || text;
+                  navigator.clipboard.writeText(content || '');
+                  toast.success('Đã sao chép nội dung.');
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-muted text-muted-foreground text-xs transition-colors hover:bg-muted/50"
+                title="Lưu / sao chép nội dung"
+              >
+                <Save className="w-3.5 h-3.5" />
+                Lưu
+              </button>
+            </div>
           )}
         </div>
 

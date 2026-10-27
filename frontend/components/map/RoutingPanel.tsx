@@ -267,31 +267,33 @@ export default function RoutingPanel({
         </div>
 
         {/* Options */}
-        <div className="border-t border-border pt-3 space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={avoidFlood}
-              onChange={(e) => setAvoidFlood(e.target.checked)}
-              className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
-            />
-            <div className="flex items-center gap-1">
-              <Shield className="w-4 h-4 text-primary" />
-              <span className="text-sm text-muted-foreground/80">Tránh khu vực ngập</span>
-            </div>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={avoidTraffic}
-              onChange={(e) => setAvoidTraffic(e.target.checked)}
-              className="w-4 h-4 text-primary/90 border-border rounded focus:ring-primary"
-            />
-            <div className="flex items-center gap-1">
-              <Car className="w-4 h-4 text-primary/90" />
-              <span className="text-sm text-muted-foreground/80">Tránh kẹt xe (giờ cao điểm)</span>
-            </div>
-          </label>
+        <div className="border-t border-border pt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={avoidFlood}
+                onChange={(e) => setAvoidFlood(e.target.checked)}
+                className="w-4 h-4 text-primary border-border rounded focus:ring-primary shrink-0"
+              />
+              <div className="flex items-center gap-1 min-w-0">
+                <Shield className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm text-muted-foreground/80 truncate">Tránh khu vực ngập</span>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={avoidTraffic}
+                onChange={(e) => setAvoidTraffic(e.target.checked)}
+                className="w-4 h-4 text-primary/90 border-border rounded focus:ring-primary shrink-0"
+              />
+              <div className="flex items-center gap-1 min-w-0">
+                <Car className="w-4 h-4 text-primary/90 shrink-0" />
+                <span className="text-sm text-muted-foreground/80 truncate">Tránh kẹt xe (giờ cao điểm)</span>
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Get Route Button */}

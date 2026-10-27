@@ -250,7 +250,7 @@ export default function ImpactMeasurementPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
@@ -296,15 +296,11 @@ export default function ImpactMeasurementPage() {
         </button>
       </div>
 
-      {/* Degraded banner */}
       {report?.degraded && (
         <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-sm text-amber-900">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <span className="font-medium">Chế độ giảm tốc:</span> {report.reason}
-            <span className="block mt-1">
-              Dữ liệu "trước" thiếu → backend dùng baseline tổng dân × 0.70 (giả thuyến). Xem causal notes bên dưới.
-            </span>
           </div>
         </div>
       )}

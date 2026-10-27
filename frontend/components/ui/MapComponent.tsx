@@ -333,6 +333,9 @@ interface InteractiveMapProps {
   geoJsonData?: any;
   /** Featured "ghim" pins that link to feature pages (/stem, /green, etc.) */
   featuredPins?: FeaturedPin[];
+  /** Callback when a featured pin is clicked — lets the parent open a popup
+   *  instead of redirecting away from the current page. */
+  onFeaturedPinClick?: (pin: FeaturedPin) => void;
   /**
    * Optional tool overlay rendered inside the MapContainer AFTER the base POI
    * layers but BEFORE routing/origin markers. Lets the unified Map Hub render
@@ -353,6 +356,7 @@ export default function InteractiveMap({
   nearbyPoints = [],
   geoJsonData = null,
   featuredPins = [],
+  onFeaturedPinClick,
   overlay = null,
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
@@ -926,17 +930,20 @@ export default function InteractiveMap({
                 const lng = Number(p.lng);
 
                 return (
-                  <Marker
-                    key={p.id}
-                    position={[lat, lng]}
-                    icon={getFeaturedIconForCategory(p.category)}
-                    eventHandlers={{
-                      click: () => {
-                        // Navigate directly to the feature page
-                        window.location.href = p.featureLink;
-                      },
-                    }}
-                  >
+                    <Marker
+                      key={p.id}
+                      position={[lat, lng]}
+                      icon={getFeaturedIconForCategory(p.category)}
+                      eventHandlers={{
+                        click: () => {
+                          if (onFeaturedPinClick) {
+                            onFeaturedPinClick(p);
+                          } else {
+                            window.location.href = p.featureLink;
+                          }
+                        },
+                      }}
+                    >
                     <Tooltip direction="top" offset={[0, -30]} opacity={1}>
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
@@ -958,7 +965,11 @@ export default function InteractiveMap({
                           <button
                             className="bg-primary text-primary-foreground text-[9px] font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
                             onClick={() => {
-                              window.location.href = p.featureLink;
+                              if (onFeaturedPinClick) {
+                                onFeaturedPinClick(p);
+                              } else {
+                                window.location.href = p.featureLink;
+                              }
                             }}
                           >
                             <Star className="w-3 h-3 fill-current" />

@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
+import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 
 export default function AIChatPage() {
   const [messages, setMessages] = useState<any[]>([
@@ -22,6 +23,7 @@ export default function AIChatPage() {
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
   // Voice-to-Geo (Idea #16): voice input button on chat page
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [showVoicePopup, setShowVoicePopup] = useState(false);
   const recognitionRef = useRef<any>(null);
   // Session ID for chat session memory (bộ nhớ phiên chat).
   // Generated once on mount and reused across messages within this tab.
@@ -81,9 +83,8 @@ export default function AIChatPage() {
     // Privacy-first: prefer client-side Web Speech API.
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      // Fallback: navigate to the dedicated voice-search page which
-      // handles server-side Whisper STT.
-      window.location.href = '/voice-search';
+      // Fallback: open voice-search popup instead of redirecting away.
+      setShowVoicePopup(true);
       return;
     }
 
@@ -400,6 +401,14 @@ export default function AIChatPage() {
           GỬI
         </Button>
       </div>
+
+      <VoiceSearchPopup
+        open={showVoicePopup}
+        onClose={() => setShowVoicePopup(false)}
+        onResult={(text, intent) => {
+          setInput((prev) => (prev ? prev + ' ' + text : text));
+        }}
+      />
     </div>
   );
 }

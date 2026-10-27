@@ -391,16 +391,6 @@ export const FEATURES: Feature[] = [
     keywords: ["cố vấn", "mentor", "hướng dẫn"],
   },
   {
-    id: "community",
-    label: "Cộng đồng",
-    href: "/community",
-    icon: MessagesSquare,
-    description: "Bảng tin hỏi đáp, chia sẻ kinh nghiệm giữa học sinh, sinh viên.",
-    group: "community",
-    sidebar: true,
-    keywords: ["cộng đồng", "bài viết", "thảo luận"],
-  },
-  {
     id: "hs-connection",
     label: "Kết nối THPT",
     href: "/hs-connection",

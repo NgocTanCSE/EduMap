@@ -42,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
+import { FeaturedPinPopup } from "@/components/ui/FeaturedPinPopup";
 
 const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
   ssr: false,
@@ -104,7 +106,7 @@ const DEFAULT_CENTER: [number, number] = [10.957, 106.843];
 
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="relative">
+    <div className="relative mb-3">
       <Input
         type="text"
         value={value}
@@ -343,6 +345,7 @@ export default function MapPage() {
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
 
   const [pinningCoord, setPinningCoord] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<{ id: string; name: string; category: string; lat: number; lng: number; description?: string; address?: string; featureLink: string } | null>(null);
   const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
@@ -359,6 +362,7 @@ export default function MapPage() {
   const [showVoiceResults, setShowVoiceResults] = useState(false);
   const recognitionRef = useRef<any>(null);
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [showVoicePopup, setShowVoicePopup] = useState(false);
 
   // Nearby facilities (derived from selectedLocation)
   const NEARBY_LIMIT_M = 1000;
@@ -552,7 +556,7 @@ export default function MapPage() {
       setIsRecording(true);
       recognitionRef.current = recognition;
     } catch {
-      window.location.href = "/voice-search";
+      setShowVoicePopup(true);
     }
   }, []);
 
@@ -923,6 +927,7 @@ export default function MapPage() {
           nearbyPoints={nearbyPois}
           geoJsonData={geoJsonData}
           featuredPins={showFeaturedPins ? featuredPins : []}
+          onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin as any)}
           overlay={overlayNode}
         />
       </main>
@@ -1122,6 +1127,28 @@ export default function MapPage() {
           </div>
         </div>
       )}
+
+      {/* Voice Search Popup (replaces redirect to /voice-search) */}
+      <VoiceSearchPopup
+        open={showVoicePopup}
+        onClose={() => setShowVoicePopup(false)}
+        onResult={(text, intent) => {
+          setVoiceTranscript(text);
+          void sendVoiceQuery(text);
+        }}
+      />
+
+      {/* Featured Pin Popup (replaces redirect to feature page) */}
+      <FeaturedPinPopup
+        open={!!selectedFeaturedPin}
+        pin={selectedFeaturedPin || null}
+        onClose={() => setSelectedFeaturedPin(null)}
+        onGo={(href) => {
+          setSelectedFeaturedPin(null);
+          window.location.href = href;
+        }}
+      />
+
     </div>
   );
 }
