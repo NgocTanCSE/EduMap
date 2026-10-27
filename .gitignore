@@ -81,7 +81,11 @@ ios/Pods/
 *.db
 # EXCEPT the committed SQLite DB that powers the frontend SQLite layer (HF Spaces)
 !frontend/public/*.db
-Video/
+# SQLite journal/WAL files (HF Spaces restarts recreate these)
+*.db-shm
+*.db-wal
+*.db.bak
+*.db-journal
 EduMap_Documentation.xlsx
 
 # AI Vector DB (regenerated at runtime, not needed in version control)
