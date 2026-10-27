@@ -1314,11 +1314,17 @@ CREATE TABLE IF NOT EXISTS learning_spots (
     name VARCHAR(255) NOT NULL,
     location GEOGRAPHY(POINT, 4326),
     type VARCHAR(50), -- cafe, library, study_space
+    address TEXT,
+    description TEXT,
     has_wifi BOOLEAN DEFAULT TRUE,
     has_power_outlets BOOLEAN DEFAULT TRUE,
+    quietness INTEGER CHECK (quietness >= 1 AND quietness <= 5), -- 1=noisy, 5=very quiet; NULL=unknown
+    opening_hours JSONB, -- {"monday":"08:00-17:00",...}; null day = closed; NULL = unpublished
+    amenities TEXT[],
     rating_avg DECIMAL(3,2) DEFAULT 0,
     total_capacity INTEGER DEFAULT 50,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP WITH TIME ZONE
 );
 CREATE INDEX IF NOT EXISTS idx_learning_spots_location ON learning_spots USING GIST(location);
 

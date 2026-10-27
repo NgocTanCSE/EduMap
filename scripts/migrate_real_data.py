@@ -55,6 +55,8 @@ CONTENT_TABLES = [
     "donation_campaigns",
     "learning_materials",
     "groups",
+    "learning_spots",
+    "flood_zones",
 ]
 
 # Tables that only ever contained demo/test rows on the shipped DB.
@@ -100,6 +102,27 @@ def insert(con: sqlite3.Connection, table: str, cols: list[str], rows: list[tupl
         rows,
     )
     return len(rows)
+
+
+def ensure_column(con: sqlite3.Connection, table: str, column: str, sql_type: str,
+                  default_sql: str = None) -> bool:
+    """Idempotently add a column to a SQLite table if it doesn't exist.
+
+    Mirrors the self-healing logic in backend/src/database/sqlite-bootstrap.ts
+    so the migrate script can run against a raw shipped DB that hasn't been
+    bootstrapped yet.
+    """
+    try:
+        cols = [r[1] for r in con.execute(f'PRAGMA table_info("{table}")').fetchall()]
+    except sqlite3.OperationalError:
+        return False  # table doesn't exist
+    if column in cols:
+        return False
+    ddl = f'ALTER TABLE "{table}" ADD COLUMN "{column}" {sql_type}'
+    if default_sql:
+        ddl += f' {default_sql}'
+    con.execute(ddl)
+    return True
 
 
 def main() -> int:
@@ -298,6 +321,28 @@ def main() -> int:
     ], rows)
     print(f"  + summer_campaigns       {n}")
 
+    # ---------------------------------------------------------------- flood_zones
+    # Seed real Vietnamese flood-hazard zones (Idea #11: AI Climate Learning
+    # Guardian). The flood_zones table is empty on the shipped SQLite DB (the
+    # TypeORM migration only seeds it on PostgreSQL); populate it here so the
+    # ai-service can load real hazard polygons from the DB.
+    if con.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='flood_zones'"
+    ).fetchone():
+        rows = []
+        for (key, name, desc, polygon_geojson, risk_level, metadata_json, source_url) in D.FLOOD_ZONES:
+            rows.append((
+                D.uid(key), name, D.with_source(desc, source_url),
+                polygon_geojson, risk_level, metadata_json, NOW, NOW,
+            ))
+        n = insert(con, "flood_zones", [
+            "id", "name", "description", "coordinates",
+            "riskLevel", "metadata", "createdAt", "updatedAt",
+        ], rows)
+        print(f"  + flood_zones            {n}")
+    else:
+        print(f"  ! flood_zones            table not found (skipped)")
+
     # ---------------------------------------------------------------- donation_campaigns
     rows = []
     for (key, title, desc, target, org, address, start, end, url) in D.DONATION_CAMPAIGNS:
@@ -340,6 +385,42 @@ def main() -> int:
         "member_count", "privacy", "owner_id", "created_at", "updated_at", "deleted_at",
     ], rows)
     print(f"  + groups                 {n}")
+
+    # ---------------------------------------------------------------- learning_spots
+    # Real Vietnamese study spaces (libraries + study cafés) with opening hours,
+    # quietness, amenities, and provenance. Coordinates stored as GeoJSON Point
+    # (lng, lat) per the locations/location_point convention used elsewhere.
+    #
+    # The shipped SQLite DB ships with the original 8-column learning_spots;
+    # the recommender needs the extended columns. Ensure they exist here (the
+    # runtime bootstrap at backend/src/database/sqlite-bootstrap.ts does the
+    # same on HF boot, but this runs first when re-seeding the bundled DB).
+    for col, sql_type, default_sql in [
+        ("address", "TEXT", None),
+        ("description", "TEXT", None),
+        ("quietness", "INTEGER", None),
+        ("opening_hours", "TEXT", None),
+        ("amenities", "TEXT", "DEFAULT '[]'"),
+        ("last_updated", "DATETIME", None),
+    ]:
+        if ensure_column(con, "learning_spots", col, sql_type, default_sql):
+            print(f"  + learning_spots.{col} added")
+    con.execute("UPDATE learning_spots SET amenities = '[]' WHERE amenities IS NULL")
+
+    rows = []
+    for (key, name, typ, lat, lng, address, desc, has_wifi, has_power, quietness,
+         opening_hours, amenities, rating_avg, total_capacity, url) in D.LEARNING_SPOTS:
+        rows.append((
+            D.uid(key), name, D.geo(lng, lat), typ, address,
+            D.with_source(desc, url), has_wifi, has_power, quietness,
+            opening_hours, amenities, rating_avg, total_capacity, NOW, NOW,
+        ))
+    n = insert(con, "learning_spots", [
+        "id", "name", "location", "type", "address", "description",
+        "has_wifi", "has_power_outlets", "quietness", "opening_hours",
+        "amenities", "rating_avg", "total_capacity", "created_at", "last_updated",
+    ], rows)
+    print(f"  + learning_spots         {n}")
 
     con.commit()
 

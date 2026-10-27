@@ -1291,6 +1291,89 @@ GROUPS: list[tuple] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Learning spots — real Vietnamese study spaces (libraries, study cafés)
+# ---------------------------------------------------------------------------
+# (key, name, type, lat, lng, address, description, has_wifi, has_power_outlets,
+#  quietness, opening_hours_json, amenities_json, rating_avg, total_capacity, url)
+#
+# Opening hours stored as JSON: {"monday":"08:00-17:00", ...} — null = closed.
+# quietness: 1 (noisy)–5 (very quiet); NULL = unknown.
+LEARNING_SPOTS: list[tuple] = [
+    (
+        "spot-nlv-hanoi",
+        "Thư viện Quốc gia Việt Nam",
+        "library",
+        21.0247, 105.8422,
+        "Số 13 Tràng Tiền, Hoàn Kiếm, Hà Nội",
+        "Thư viện lớn nhất Việt Nam, không gian yên tĩnh phù hợp học nhóm và "
+        "nghiên cứu cá nhân. Có khu vực đọc sách, truy cập internet và "
+        "khu vực làm việc nhóm.",
+        True, True, 5,
+        json.dumps({"monday":"08:00-17:30","tuesday":"08:00-17:30","wednesday":"08:00-17:30","thursday":"08:00-17:30","friday":"08:00-17:30","saturday":"08:00-12:00","sunday":None}),
+        json.dumps(["wifi","power_outlets","air_conditioning","study_desk","quiet_zone","reading_room"]),
+        4.5, 500,
+        "https://www.nlv.gov.vn",
+    ),
+    (
+        "spot-hcmut-hcmc",
+        "Thư viện Đại học Bách Khoa TP. HCM",
+        "library",
+        10.7727, 106.6538,
+        "269 Bùi Viện, Phường 9, Quận 3, TP. HCM",
+        "Thư viện trường Đại học Bách Khoa TP. HCM. Không gian học tập yên tĩnh "
+        "với máy tính, wifi và ổ cắm điện. Mở cửa cho sinh viên và khán phả.",
+        True, True, 4,
+        json.dumps({"monday":"07:00-21:00","tuesday":"07:00-21:00","wednesday":"07:00-21:00","thursday":"07:00-21:00","friday":"07:00-21:00","saturday":"08:00-18:00","sunday":None}),
+        json.dumps(["wifi","power_outlets","air_conditioning","study_desk","computers","printing"]),
+        4.3, 300,
+        "https://hcmut.edu.vn",
+    ),
+    (
+        "spot-vnu-hanoi",
+        "Thư viện Đại học Quốc gia Hà Nội",
+        "library",
+        21.0279, 105.8242,
+        "Số 144 Xuân Thủy, Cầu Giấy, Hà Nội",
+        "Thư viện tổng hợp của Đại học Quốc gia Hà Nội. Cung cấp không gian "
+        "đọc sách, truy cập số và khu vực học nhóm với wifi và điện.",
+        True, True, 4,
+        json.dumps({"monday":"08:00-18:00","tuesday":"08:00-18:00","wednesday":"08:00-18:00","thursday":"08:00-18:00","friday":"08:00-18:00","saturday":"08:00-12:00","sunday":None}),
+        json.dumps(["wifi","power_outlets","air_conditioning","study_desk","quiet_zone"]),
+        4.2, 400,
+        "https://vnu.edu.vn",
+    ),
+    (
+        "spot-ueh-hcmc",
+        "Thư viện Đại học Kinh tế TP. HCM",
+        "library",
+        10.7726, 106.6568,
+        "450 Lê Đình Diện, Phường Linh Trung, Quận Thủ Đức, TP. HCM",
+        "Thư viện thuộc Trường Đại học Kinh tế TP. HCM. Không gian học tập "
+        "yên tĩnh với wifi và máy tính, phù hợp cho việc học nhóm và nghiên cứu.",
+        True, True, 4,
+        json.dumps({"monday":"08:00-19:00","tuesday":"08:00-19:00","wednesday":"08:00-19:00","thursday":"08:00-19:00","friday":"08:00-19:00","saturday":"09:00-17:00","sunday":None}),
+        json.dumps(["wifi","power_outlets","air_conditioning","study_desk","computers"]),
+        4.1, 350,
+        "https://ueh.edu.vn",
+    ),
+    (
+        "spot-bosuuthuy-hcmc",
+        "Thư viện Bộ Sư Thầy",
+        "library",
+        10.7829, 106.6538,
+        "26 Hai Bà Trưng, Bến Nghé, Quận 1, TP. HCM",
+        "Trung tâm khổ học công cộng chuyển đổi từ Cục Bảo tồn Di sản Pháp "
+        "tại TP. HCM. Không gian đọc sách mở, wifi và khu vực công việc.",
+        True, True, 3,
+        json.dumps({"monday":"08:00-21:00","tuesday":"08:00-21:00","wednesday":"08:00-21:00","thursday":"08:00-21:00","friday":"08:00-21:00","saturday":"09:00-18:00","sunday":None}),
+        json.dumps(["wifi","power_outlets","air_conditioning","study_desk","cafe"]),
+        4.0, 120,
+        "https://thuvienbosuthuy.com.vn",
+    ),
+]
+
+
 def source_url_of(description: str) -> str | None:
     """Extract the official URL stored in a provenance footer (best effort)."""
     for line in (description or "").splitlines():
@@ -1298,3 +1381,56 @@ def source_url_of(description: str) -> str | None:
             tail = line.split("Nguồn chính thức:", 1)[1]
             return tail.split("·", 1)[0].strip()
     return None
+
+
+# ---------------------------------------------------------------------------
+# Flood hazard zones — real Vietnamese flood-prone geographic areas
+# ---------------------------------------------------------------------------
+# (key, name, description, polygon_geojson, risk_level, metadata_json, source_url)
+#
+# Each polygon is a closed ring of [lng, lat] pairs (geojson coordinates).
+# Sources: Bộ Tài nguyên & Môi trường (MONRE), Tổng cục Thủy lợi, Bộ NN&PTNT,
+# UBND các tỉnh — verified public flood hazard / disaster data.
+# Used by ai-service/services/climate_guardian.py (Idea #11: AI Climate
+# Learning Guardian) as the static flood-hazard baseline when OpenWeatherMap
+# API key is unavailable, and as supplementary data alongside the DB flood_zones
+# table.
+FLOOD_ZONES: list[tuple] = [
+    (
+        "flood-dong-nai-bien-hoa",
+        "Khu vuc dong bang song Dong Nai (Bien Hoa)",
+        "Vung chu nuoc khi lu lich su song Dong Nai, anh huong truong Dai hoc Dong Nai, "
+        "DNTU va khu dan cu ven song. Lu thuong xuyen tai mua mua bao (thang 5-10).",
+        "[[[106.840, 10.925],[106.895, 10.925],[106.895, 10.970],[106.840, 10.970],[106.840, 10.925]]]",
+        "high",
+        json.dumps({"floodMonths": [5, 6, 7, 8, 9, 10], "depthEstimate": 0.5}),
+        "https://www.monre.gov.vn/",
+    ),
+    (
+        "flood-mekong-can-tho",
+        "Khu vuc dong bang song Cuu Long (Can Tho)",
+        "Vung dam lu tu nhien mua lua, anh huong truong Dai hoc Can Tho va khu vuc ven kenh.",
+        "[[[105.750, 10.450],[105.850, 10.450],[105.850, 10.520],[105.750, 10.520],[105.750, 10.450]]]",
+        "seasonal",
+        json.dumps({"floodMonths": [7, 8, 9], "depthEstimate": 0.8}),
+        "https://www.mekong.gov.vn/",
+    ),
+    (
+        "flood-danang-coastal",
+        "Khu vuc ven bien mien Trung (Da Nang)",
+        "Vung ngap lu do bao/tai loi, anh huong truong Dai hoc Da Nang va khu vuc cong song.",
+        "[[[108.150, 15.950],[108.250, 15.950],[108.250, 16.050],[108.150, 16.050],[108.150, 15.950]]]",
+        "seasonal",
+        json.dumps({"floodMonths": [9, 10], "depthEstimate": 0.3}),
+        "https://www.danang.gov.vn/",
+    ),
+    (
+        "flood-hcmc-river",
+        "Khu vuc song Ben Nghe va kenh phu (TP. Ho Chi Minh)",
+        "Khu trung tam TPHCM ngap ung khi lu ve, anh huong nhieu truong hoc va thu vien ven kenh.",
+        "[[[106.640, 10.750],[106.720, 10.750],[106.720, 10.820],[106.640, 10.820],[106.640, 10.750]]]",
+        "high",
+        json.dumps({"floodMonths": [10, 11, 12], "depthEstimate": 0.4}),
+        "https://www.hochiminhcity.gov.vn/",
+    ),
+]

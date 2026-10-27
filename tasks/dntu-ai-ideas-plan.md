@@ -92,7 +92,7 @@ GitHub (main branch)
 | #10 | GeoVision AI (satellite imagery) | ❌ Chưa có |
 | #11 | AI Climate Learning Guardian | ❌ Chưa có |
 | #12 | SafeRoute AI | 🟡 Có route drawing (ORS→OSRM→Haversine), chưa weighted safe routing |
-| #13 | AI Learning Space Recommender | 🟡 Có `/api/ai/geo/recommend`, chưa đầy đủ |
+| #13 | AI Learning Space Recommender | 🚧 Đang xây dựng (T1-T4) — xem `tasks/learning-space-recommender-plan.md` |
 | #14 | Opportunity Radar | 🟡 Có scholarship + career jobs, chưa NLP matching |
 | #15 | Language Bridge AI | ❌ Chưa có |
 | #16 | Voice-to-Geo AI | ❌ Chưa có |
@@ -180,6 +180,8 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | 9 | Map page | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/map` | 200 |
 | 10 | Hackathon page | `curl -o /dev/null -w "%{http_code}" http://localhost:7680/hackathon` | 200 |
 | 11 | Routing | `curl ".../api/map/routing/route?lng1=...&lat1=...&lng2=...&lat2=..."` | 200 + GeoJSON |
+| 12 | Climate risk (Idea #11) | `curl "http://localhost:7680/api/map/climate-risk?minLat=10.90&maxLat=10.98&minLng=106.80&maxLng=106.95"` | 200 + GeoJSON FeatureCollection |
+| 13 | Climate alternatives | `curl -X POST http://localhost:7680/api/map/climate/alternatives -d '{"lat":10.9525,"lng":106.8778,"radiusKm":10}'` | 200 + safe locations GeoJSON |
 
 ---
 
@@ -757,25 +759,25 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Tạo `ai-service/services/climate_guardian.py` (mới)
+- [x] **Task 1**: Tạo `ai-service/services/climate_guardian.py` (mới)
   - Load weather data: dùng OpenWeatherMap API (cần key) hoặc dùng static flood map data
   - Dữ liệu địa hình: SRTM elevation data (có thể dùng OpenStreetMap elevation)
   - Risk model: weighted(gia_ngap, thoi_tiet_extreme, khoang_cach_truong)
   - **Verify**: test với synthetic flood scenario
 
-- [ ] **Task 2**: Router `routers/climate.py`
+- [x] **Task 2**: Router `routers/climate.py`
   - `POST /api/ai/climate/risk` — nhận bounding box, ngày, trả về risk heatmap GeoJSON
   - `POST /api/ai/climate/alternatives` — đề xuất điểm học thay thế an toàn
   - **Verify**: curl test
 
-- [ ] **Task 3**: Backend proxy `GET /api/map/climate-risk?bbox=...`
+- [x] **Task 3**: Backend proxy `GET /api/map/climate-risk?bbox=...`
 
-- [ ] **Task 4**: Frontend — `app/climate-guardian/page.tsx`
+- [x] **Task 4**: Frontend — `app/climate-guardian/page.tsx`
   - Overlay risk heatmap lên bản đồ
   - Alternative locations list + route đến
   - **Verify**: visual check
 
-- [ ] **Task 5**: Test + smoke test
+- [x] **Task 5**: Test + smoke test
 
 #### Risks
 
@@ -850,40 +852,45 @@ HF_TOKEN=<token> ./deploy-hf.sh
 **Độ khó:** Trung bình
 
 #### Kiến trúc HF Spaces
-- Đã có `recommend_nearby_opportunities` trong `geo.py` — mở rộng thành recommendation engine đầy đủ
-- Thêm: filtering bằng LLM để explain, scoring algorithm
+- Đã có `LearningSpot` entity ↔ `learning_spots` table (trống, cần mở rút `opening_hours`, `quietness`, `amenities`) + `LearningCommunityModule` (`/learning-spots`)
+- Scoring: backend NestJS `LearningSpaceRecommenderService` (tích hợp `learning-community` module), normalized weighted scoring
+- Explain: AI service FastAPI `POST /api/ai/learning-space/explain` (LLM + 24h cache + static fallback)
+- Chi tiết kế hoạch: xem `tasks/learning-space-recommender-plan.md`
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Backend service — `LearningSpaceRecommenderService` (mới)
-  - Query SQLite `map_points`, `wifi_locations`, `locations` với filters
-  - Scoring: weighted(distance, rating, open_now, has_wifi, accessibility)
-  - Explain: LLM summary tại sao place được recommend (qua `/api/ai/geo/recommend-explain`)
-  - **Verify**: tsc + scoring test
+- [ ] **Task 1** [T1]: Backend `LearningSpaceRecommenderService` — scoring algorithm
+  - Schema: mở rộng `learning_spots` (`opening_hours`, `quietness`, `amenities`, `address`, `description`) + `sqlite-bootstrap.ts` self-heal
+  - Scoring: weighted(distance, rating, open_now, has_wifi, quietness, capacity) — normalized [0,1]
+  - Explain: gọi AI service, graceful degrade nếu AI down
+  - **Verify**: tsc + scoring unit test
 
-- [ ] **Task 2**: Backend endpoint `GET /api/map/recommend`
-  - Params: lat, lng, radius, category, min_rating, open_now, has_wifi, limit
-  - Trả về ranked list + GeoJSON
+- [ ] **Task 2** [T1]: Backend endpoint `GET /api/learning-spots/recommend`
+  - Params: lat, lng, radius, has_wifi, min_rating, quietness_min, open_now, limit, w_*
+  - Trả về ranked list + GeoJSON + `degraded`/`reason`
   - **Verify**: curl test
 
-- [ ] **Task 3**: AI service `POST /api/ai/geo/recommend-explain`
-  - Nhận place + user preferences, trả về explanation text
-  - **Verify**: curl test
+- [ ] **Task 3** [T2]: AI service `POST /api/ai/learning-space/explain`
+  - Nhận spot + user preferences, trả về explanation text (LLM + 24h cache + fallback template)
+  - **Verify**: curl test + pytest
 
-- [ ] **Task 4**: Frontend — `app/learning-spaces/page.tsx`
-  - Filter panel (distance, rating, amenities, open hours)
-  - Results grid + map pins
-  - Explain hover per card
-  - **Verify**: visual check
+- [ ] **Task 4** [T3]: Frontend — `app/learning-spaces/page.tsx`
+  - Filter panel (distance, rating, amenities, open hours, quietness)
+  - Results grid + map pins (Leaflet)
+  - Explain badge per card
+  - **Verify**: visual check + tsc
 
-- [ ] **Task 5**: Test + smoke test #18
+- [ ] **Task 5** [T4]: Test + smoke test #18
+  - Backend scoring spec, AI explain spec, smoke_test_learning_space.sh
+  - **Verify**: `npm test`, `pytest tests`, `bash -n smoke_test`
 
 #### Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Scoring bias (địa gần = luôn top) | Không công bằng | Normalize scores, allow re-rank by different criteria |
-| LLM explain chậm | Latency | Cache explanations 24h, fallback static templates |
+| Scoring bias (địa gần = luôn top) | Không công bằng | Normalize scores [0,1] per criterion, configurable weights |
+| LLM explain chậm | Latency | Cache explanations 24h, fallback static templates, ≤8s timeout |
+| SQLite schema drift on HF (columns missing) | Crash | `sqlite-bootstrap.ts` self-heal + entity sync cùng schema
 
 ---
 
@@ -1311,7 +1318,7 @@ Mở rộng từ 11 tests hiện tại → thêm tests cho từng feature mới:
 | #8 Knowledge Graph | `GET /api/knowledge/graph/:id` | 200 + graph JSON |
 | #9 ImpactMatch | `GET /api/impactmatch/suggestions?...` | 200 + matches |
 | #12 SafeRoute | `GET /api/map/safe-route?...` | 200 + routes |
-| #13 Learning Space | `GET /api/map/recommend?...` | 200 + ranked |
+| #13 Learning Space | `GET /api/learning-spots/recommend?...` | 200 + ranked + explain |
 | #14 Opportunity | `POST /api/ai/opportunity/match` | 200 + matches |
 | #15 Language Bridge | `POST /api/ai/language/simplify` | 200 + simplified |
 | #16 Voice-to-Geo | `POST /api/ai/speech/to-text` | 200 + text |
@@ -1365,7 +1372,7 @@ ai-service/
 │   ├── knowledge.py          ← #8
 │   ├── impactmatch.py        ← #9
 │   ├── climate.py            ← #11
-│   ├── recommendation.py     ← #13
+│   ├── learning_space.py       ← #13
 │   ├── opportunity.py        ← #14
 │   ├── language.py           ← #15
 │   ├── speech.py             ← #16
@@ -1396,7 +1403,7 @@ frontend/
 │   ├── impact-match/             ← #9
 │   ├── climate-guardian/         ← #11
 │   ├── map/safe-route/           ← #12 (extension)
-│   ├── learning-spaces/          ← #13
+│   ├── learning-spaces/          ← #13 (filter panel + map)
 │   ├── opportunities/radar/      ← #14 (extension)
 │   ├── language-bridge/          ← #15
 │   ├── voice-search/             ← #16

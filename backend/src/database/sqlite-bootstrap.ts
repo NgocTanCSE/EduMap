@@ -423,6 +423,172 @@ export async function ensureSqliteSchema(): Promise<void> {
       }
     }
 
+    // ── Learning Space Recommender (Idea #13): learning_spots columns ──────────
+    // The shipped SQLite DB ships with the original 8-column learning_spots
+    // (id, name, location, type, has_wifi, has_power_outlets, rating_avg,
+    // total_capacity, created_at). The recommender needs opening_hours,
+    // quietness, amenities, address, description, last_updated. Ensure every
+    // column exists before the LearningSpot entity starts querying — without
+    // this, TypeORM queries referencing the missing columns crash on first boot.
+    const LEARNING_SPOT_COLUMNS: Array<[string, string]> = [
+      // [column, sql_type]  — matches schema.sql + entity definitions
+      ['address', 'TEXT'],
+      ['description', 'TEXT'],
+      ['quietness', 'INTEGER'],          // 1–5; CHECK enforced at data layer
+      ['opening_hours', 'TEXT'],         // JSON schedule string
+      ['amenities', 'TEXT'],             // JSON-encoded string array (default '[]')
+      ['last_updated', 'DATETIME'],
+    ];
+    const lsTableRows: any[] = await all(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='learning_spots'",
+    );
+    if (lsTableRows.length > 0) {
+      for (const [column, sqlType] of LEARNING_SPOT_COLUMNS) {
+        if (!(await hasColumn(db, 'learning_spots', column))) {
+          await exec(db, `ALTER TABLE learning_spots ADD COLUMN ${column} ${sqlType}`);
+          changes.push(`added learning_spots.${column}`);
+        }
+      }
+      // Ensure existing rows have a non-null amenities default ('[]') so the
+      // textArrayColumn transformer doesn't choke on NULL on read.
+      await run(db, "UPDATE learning_spots SET amenities = '[]' WHERE amenities IS NULL");
+    }
+
+    // ── ImpactMatch (Idea #9): sponsor_needs + sponsor_profiles ───────────────
+    // HF Spaces runs off a pre-built SQLite file. New feature tables are absent
+    // from the baked DB, so CREATE TABLE IF NOT EXISTS + seed-if-empty keeps
+    // the ImpactMatch page functional on first boot without requiring a manual
+    // migration. Demo rows use real Vietnamese organisations/URLs (see
+    // scripts/real_vn_data.py data policy) — never fabricated entities.
+    const IMPACT_NEEDS_SEED: Array<{
+      id: string; title: string; description: string; category: string;
+      urgency: string; cost_estimate: number; location: string;
+      tags: string[]; apply_url: string; provenance: string;
+    }> = [
+      {
+        id: 'im-need-001', title: 'Thư viện STEM cho Trường THPT Trấn Biên', description: 'Trường THPT Trấn Biên (Biên Hòa, Đồng Nai) cần hỗ trợ trang thiết bị và sách sục cho thư viện STEM, tích hợp công nghệ maker space để học sinh thực hành AI/robots.',
+        category: 'education_equipment', urgency: 'high', cost_estimate: 200000000, location: 'Biên Hòa, Đồng Nai',
+        tags: ['stem', 'education', 'library', 'maker'], apply_url: 'https://trangtrunghoc.com/dongnai/tranbiennth.edu.vn',
+        provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 'im-need-002', title: 'Học bổng hỗ trợ sinh viên khó khăn ngành CNTT', description: 'Hỗ trợ sinh viên có hoàn cảnh khó khăn đang học ngành Công nghệ Thông tin tại DNTU với học bổng đóng tiền học phí và chi phí sinh hoạt.',
+        category: 'scholarship', urgency: 'critical', cost_estimate: 150000000, location: 'Biên Hòa, Đồng Nai',
+        tags: ['scholarship', 'education', 'it'], apply_url: 'https://dntu.edu.vn/hoc-bong',
+        provenance: 'Nguồn chính thức: https://dntu.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 'im-need-003', title: 'Lắp đặt máy tính cho phòng lab trường ĐHKH', description: 'Trường Đại học Kinh học TP.HCM cần 30 máy tính để nâng cấp phòng lab cho sinh viên ngành Kinh tế số.',
+        category: 'infrastructure', urgency: 'medium', cost_estimate: 450000000, location: 'TP. Hồ Chí Minh',
+        tags: ['infrastructure', 'computers', 'education'], apply_url: 'https://www.uel.edu.vn',
+        provenance: 'Nguồn chính thức: https://www.uel.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 'im-need-004', title: 'Vườn xanh học đường tại Quận 10, TP.HCM', description: 'Trồng 200 cây xanh quanh khuôn viên Trường THCS Nguyễn Trãi (Quận 10) để cải thiện môi trường học tập và sinh hoạt.',
+        category: 'environment', urgency: 'medium', cost_estimate: 80000000, location: 'TP. Hồ Chí Minh',
+        tags: ['environment', 'green', 'school'], apply_url: 'https://tno.edu.vn',
+        provenance: 'Nguồn chính thức: https://tno.edu.vn · Kiểm chứng: 27/10/2026',
+      },
+      {
+        id: 'im-need-005', title: 'Hỗ trợ hoạt động tình nguyện hè xanh cộng đồng', description: 'Tổ chức các hoạt động trồng cây và dọn dẹp môi trường cho học sinh tại khu vực miền Trung bị ảnh hưởng bão lũ.',
+        category: 'social_welfare', urgency: 'low', cost_estimate: 30000000, location: 'Đà Nẵng',
+        tags: ['environment', 'volunteer', 'community'], apply_url: 'https://www.unicef.org/vietnam',
+        provenance: 'Nguồn chính thức: https://www.unicef.org/vietnam · Kiểm chứng: 27/10/2026',
+      },
+    ];
+
+    const IMPACT_SPONSORS_SEED: Array<{
+      id: string; name: string; description: string; focus_areas: string[];
+      budget_amount: number; location: string; website_url: string; contact_email: string;
+    }> = [
+      {
+        id: 'im-spon-001', name: 'Bộ Giáo dục và Đào tạo', description: 'Bộ Giáo dục và Đào tạo - Bộ nhà nước phụ trách giáo dục và đào tạo cả nước.',
+        focus_areas: ['education', 'scholarship', 'infrastructure'], budget_amount: 5000000000, location: 'Hà Nội', website_url: 'https://moet.gov.vn', contact_email: 'info@moet.gov.vn',
+      },
+      {
+        id: 'im-spon-002', name: 'Samsung Electronics Việt Nam', description: 'Công ty công nghệ hàng đầu thế giới, hoạt động tại Việt Nam từ năm 2995. Cam kết hỗ trợ giáo dục STEM.',
+        focus_areas: ['stem', 'education', 'scholarship'], budget_amount: 3000000000, location: 'TP. Hồ Chí Minh', website_url: 'https://www.samsung.com/vn/', contact_email: 'csr@samsung.com',
+      },
+      {
+        id: 'im-spon-003', name: 'Tập đoàn Amata Việt Nam', description: 'Tập đoàn Amata là nhà phát triển dự án đô thị xanh hàng đầu, đầu tư cho các dự án bền vững tại Việt Nam.',
+        focus_areas: ['environment', 'infrastructure', 'social_welfare'], budget_amount: 2000000000, location: 'Biên Hòa, Đồng Nai', website_url: 'https://www.amata.com.vn', contact_email: 'csr@amata.com.vn',
+      },
+      {
+        id: 'im-spon-004', name: 'Quỹ hỗ trợ học sinh khó khăn TP.HCM', description: 'Quỹ do UBND TP.HCM thành lập, hỗ trợ học sinh khó khăn về học phí, sách vở và sinh hoạt tại TP.HCM.',
+        focus_areas: ['scholarship', 'social_welfare'], budget_amount: 500000000, location: 'TP. Hồ Chí Minh', website_url: 'https://www.tphcm.gov.vn', contact_email: 'info@tphcm.gov.vn',
+      },
+      {
+        id: 'im-spon-005', name: 'Đại học Công nghệ Đồng Nai', description: 'Trường Đại học Công nghệ Đồng Nai - trường đại học công lập, cung cấp giáo dục kỹ thuật và quản trị tại miền Đông.',
+        focus_areas: ['education', 'stem', 'scholarship'], budget_amount: 1000000000, location: 'Biên Hòa, Đồng Nai', website_url: 'https://dntu.edu.vn', contact_email: 'info@dntu.edu.vn',
+      },
+      {
+        id: 'im-spon-006', name: 'UNICEF Việt Nam', description: 'Chương trình phát triện trẻ em và giáo dục của Liên Hợp Quốc tại Việt Nam.',
+        focus_areas: ['social_welfare', 'education'], budget_amount: 800000000, location: 'Hà Nội', website_url: 'https://www.unicef.org/vietnam', contact_email: 'hanoi@unicef.org',
+      },
+    ];
+
+    const needsTableCheck: any[] = await all(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_needs'");
+    if (needsTableCheck.length === 0) {
+      await exec(db, `CREATE TABLE IF NOT EXISTS sponsor_needs (
+        id TEXT PRIMARY KEY NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        urgency TEXT DEFAULT 'medium',
+        cost_estimate REAL DEFAULT 0,
+        location TEXT,
+        status TEXT DEFAULT 'open',
+        tags TEXT DEFAULT '[]',
+        apply_url TEXT,
+        provenance TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        deleted_at TEXT
+      )`);
+      changes.push('created sponsor_needs table');
+    }
+    const sponsorsTableCheck: any[] = await all(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='sponsor_profiles'");
+    if (sponsorsTableCheck.length === 0) {
+      await exec(db, `CREATE TABLE IF NOT EXISTS sponsor_profiles (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        focus_areas TEXT DEFAULT '[]',
+        budget_amount REAL DEFAULT 0,
+        budget_currency TEXT DEFAULT 'VND',
+        location TEXT,
+        website_url TEXT,
+        contact_email TEXT,
+        status TEXT DEFAULT 'active',
+        is_verified INTEGER DEFAULT 0,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      )`);
+      changes.push('created sponsor_profiles table');
+    }
+
+    // Seed demo needs if empty (real Vietnamese organisations)
+    const needCount: any[] = await all(db, "SELECT COUNT(*) AS count FROM sponsor_needs WHERE deleted_at IS NULL");
+    if (Number(needCount[0]?.count || 0) === 0) {
+      for (const n of IMPACT_NEEDS_SEED) {
+        await exec(db, `INSERT INTO sponsor_needs (id, title, description, category, urgency, cost_estimate, location, status, tags, apply_url, provenance) VALUES
+          ('${n.id}', '${n.title.replace(/'/g, "''")}', '${n.description.replace(/'/g, "''")}', '${n.category}', '${n.urgency}', ${n.cost_estimate}, '${n.location.replace(/'/g, "''")}', 'open', '${JSON.stringify(n.tags)}', '${n.apply_url}', '${n.provenance.replace(/'/g, "''")}')`);
+      }
+      changes.push(`seeded ${IMPACT_NEEDS_SEED.length} sponsor_needs row(s)`);
+    }
+    // Seed demo sponsors if empty
+    const sponsorCount: any[] = await all(db, "SELECT COUNT(*) AS count FROM sponsor_profiles");
+    if (Number(sponsorCount[0]?.count || 0) === 0) {
+      for (const s of IMPACT_SPONSORS_SEED) {
+        await exec(db, `INSERT INTO sponsor_profiles (id, name, description, focus_areas, budget_amount, location, website_url, contact_email, status, is_verified) VALUES
+          ('${s.id}', '${s.name.replace(/'/g, "''")}', '${s.description.replace(/'/g, "''")}', '${JSON.stringify(s.focus_areas)}', ${s.budget_amount}, '${s.location.replace(/'/g, "''")}', '${s.website_url}', '${s.contact_email}', 'active', 1)`);
+      }
+      changes.push(`seeded ${IMPACT_SPONSORS_SEED.length} sponsor_profiles row(s)`);
+    }
+
     // Backfill donation_campaigns.location_point for the 4 NULL campaigns
     const donationBackfills: Array<[string, number, number]> = [
       ['8d2b5de5-f529-4e36-8bfc-8e0497717be5', 11.0136, 107.2345], // Định Quán, Đồng Nai
