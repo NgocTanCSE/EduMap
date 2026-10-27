@@ -247,6 +247,50 @@ def test_embed_document_for_book_and_location():
     print("✓ test_embed_document_for_book_and_location")
 
 
+def test_add_documents_partial_failure_is_tolerated():
+    """A single failing embedding must NOT discard the whole batch.
+
+    Production symptom this guards against: seed_data() reported
+    `0 documents, status=error` on HF Spaces because one slow provider made the
+    old batch-wide list comprehension raise. Now the failing document is
+    skipped and the rest are stored.
+    """
+    MockCollection = _mock_chromadb()
+    svc = _fresh_service(collection=MockCollection())
+
+    def _flaky_embedding(text):
+        if "BAD" in text:
+            raise RuntimeError("Khong the lay embedding (gioi han 6.0s)")
+        return [0.01] * 768
+
+    svc.get_embedding = _flaky_embedding
+    stats = svc.add_documents(
+        ["Doc A", "BAD Doc B", "Doc C"],
+        [{"title": "A"}, {"title": "B"}, {"title": "C"}],
+        ["doc_a", "doc_b", "doc_c"],
+    )
+
+    assert stats == {"added": 2, "failed": 1, "total": 3}
+    assert svc.collection.count() == 2
+    ids = set(svc.collection.documents.keys())
+    assert ids == {"doc_a", "doc_c"}
+    print("✓ test_add_documents_partial_failure_is_tolerated")
+
+
+def test_add_documents_all_success():
+    """All documents are stored and reported when embeddings work."""
+    MockCollection = _mock_chromadb()
+    svc = _fresh_service(collection=MockCollection())
+    stats = svc.add_documents(
+        ["Doc A", "Doc B"],
+        [{"title": "A"}, {"title": "B"}],
+        ["doc_a", "doc_b"],
+    )
+    assert stats == {"added": 2, "failed": 0, "total": 2}
+    assert svc.collection.count() == 2
+    print("✓ test_add_documents_all_success")
+
+
 if __name__ == "__main__":
     test_embed_document_with_api_and_collection()
     test_embed_document_no_api_upserts_text_only()
@@ -255,4 +299,6 @@ if __name__ == "__main__":
     test_embed_document_upsert_is_idempotent()
     test_embed_document_caches_embedding()
     test_embed_document_for_book_and_location()
+    test_add_documents_partial_failure_is_tolerated()
+    test_add_documents_all_success()
     print("\n✅ All embed_document tests passed!")

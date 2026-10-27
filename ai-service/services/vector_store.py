@@ -1087,16 +1087,52 @@ class VectorStoreService:
             f"01.ai: {kimi_last_err or ('khong cau hinh' if not getattr(self, 'has_kimi_api', False) else 'khong kha dung')}"
         )
 
-    def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
+    def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
+        """Upsert documents into ChromaDB, tolerating per-document failures.
+
+        Previous behaviour embedded the WHOLE batch in one list comprehension,
+        so a single slow/unavailable embedding provider lost every document and
+        `seed_data()` reported `0 documents, status=error` (observed on HF
+        Spaces free tier). Now each document is embedded independently:
+        documents whose embedding succeeds are stored, failures are skipped and
+        counted, and the caller can report an honest partial sync.
+
+        Returns {"added": int, "failed": int, "total": int}.
+        """
+        total = len(documents)
+        stats = {"added": 0, "failed": 0, "total": total}
         try:
             if not self.collection:
                 raise RuntimeError("Vector store collection chưa được khởi tạo.")
             save_fn = getattr(self.collection, "upsert", self.collection.add)
-            if self.has_api:
-                embeddings = [self.get_embedding(doc) for doc in documents]
-                save_fn(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
-            else:
+
+            if not self.has_api:
                 save_fn(documents=documents, metadatas=metadatas, ids=ids)
+                stats["added"] = total
+                return stats
+
+            ok_docs, ok_meta, ok_ids, ok_emb = [], [], [], []
+            failures = []
+            for doc, meta, doc_id in zip(documents, metadatas, ids):
+                try:
+                    ok_emb.append(self.get_embedding(doc))
+                    ok_docs.append(doc)
+                    ok_meta.append(meta)
+                    ok_ids.append(doc_id)
+                except Exception as doc_err:  # noqa: BLE001 - per-document isolation
+                    failures.append(f"{doc_id}: {doc_err}")
+                    print(f"[add_documents] skipped '{doc_id}': {doc_err}")
+
+            if ok_docs:
+                save_fn(documents=ok_docs, embeddings=ok_emb, metadatas=ok_meta, ids=ok_ids)
+            stats["added"] = len(ok_docs)
+            stats["failed"] = len(failures)
+            if failures:
+                print(
+                    f"[add_documents] partial sync: {stats['added']}/{total} stored, "
+                    f"{stats['failed']} skipped (embedding unavailable)"
+                )
+            return stats
         except Exception as e:
             print(f"Error adding documents to vector store: {e}")
             raise

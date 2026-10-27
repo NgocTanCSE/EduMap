@@ -464,9 +464,9 @@ def get_default_fallback_knowledge():
             "metadata": {"title": "Giới thiệu EduMap", "category": "general", "source": "fallback"}
         },
         {
-            "id": "scholarship_talent_2026",
-            "doc": "Học bổng EduMap Talent 2026 dành cho sinh viên có thành tích học tập xuất sắc (GPA > 3.6) hoặc đạt giải cao trong các kỳ thi Hackathon. Giá trị học bổng lên đến 50.000.000 VNĐ và cơ hội thực tập tại các tập đoàn công nghệ đối tác.",
-            "metadata": {"title": "Học bổng Talent 2026", "category": "scholarship", "source": "fallback"}
+            "id": "scholarship_australia_awards",
+            "doc": "Học bổng Chính phủ Australia (Australia Awards) là học bổng toàn phần bậc thạc sĩ tại các trường đại học Australia, do Chính phủ Australia tài trợ qua Aus4Skills. Kỳ intake 2027 đóng đơn ngày 30/4/2026; intake 2028 dự kiến mở đơn đầu năm 2027. Nguồn chính thức: https://australiaawardsvietnam.org/applicants/key-dates/",
+            "metadata": {"title": "Học bổng Australia Awards", "category": "scholarship", "source": "fallback"}
         },
         {
             "id": "stem_lab_rules",
@@ -539,14 +539,62 @@ def seed_data():
         source = "fallback"
 
     print(f"-> Dang danh chi muc (indexing) {len(documents)} tai lieu vao ChromaDB...")
+
+    # ── Seed budget ──────────────────────────────────────────────────────
+    # The interactive embedding budget (EMBED_GLOBAL_TIMEOUT_SECONDS=6,
+    # EMBED_PROVIDER_TIMEOUT_SECONDS=4) is tuned so chat never blocks. Seeding
+    # runs in a background daemon thread at startup, so it can afford a longer
+    # budget — a cold HF Spaces container regularly needs >4s for the first
+    # remote embedding, which used to make the seed fail with 0 documents and
+    # `status=error` on every fresh Space.
+    _prev_global = getattr(vector_store, "embed_global_timeout", None)
+    _prev_provider = getattr(vector_store, "embed_provider_timeout", None)
+    _seed_global = float(os.getenv("SEED_EMBED_GLOBAL_TIMEOUT_SECONDS", "25"))
+    _seed_provider = float(os.getenv("SEED_EMBED_PROVIDER_TIMEOUT_SECONDS", "12"))
+
+    def _index_batch():
+        vector_store.embed_global_timeout = _seed_global
+        vector_store.embed_provider_timeout = _seed_provider
+        try:
+            return vector_store.add_documents(documents, metadatas, ids)
+        finally:
+            if _prev_global is not None:
+                vector_store.embed_global_timeout = _prev_global
+            if _prev_provider is not None:
+                vector_store.embed_provider_timeout = _prev_provider
+
     try:
-        vector_store.add_documents(documents, metadatas, ids)
-        print(f"=== THANH CONG: Da cap nhat {len(documents)} tai lieu vao Vector Database (source={source})! ===")
+        try:
+            stats = _index_batch()
+        except Exception as first_err:
+            # One retry: the first remote call of a fresh container often fails
+            # while DNS/TLS warm up. Providers also have 5-min circuit breakers,
+            # so a retry is cheap once the first attempt already failed fast.
+            print(f"Indexing attempt 1 failed ({first_err}) — retrying once in 10s...")
+            import time as _seed_time
+            _seed_time.sleep(10)
+            stats = _index_batch()
+
+        added = int(stats.get("added", 0))
+        failed = int(stats.get("failed", 0))
+        if added == 0:
+            print("=== Startup: seed_data() complete — 0 documents (embedding providers unavailable) ===")
+            return {
+                "status": "error",
+                "message": "Không thể tạo embedding cho tài liệu nào — các nhà cung cấp embedding đều không khả dụng.",
+                "synced_count": 0,
+                "failed_count": failed,
+                "source": source,
+            }
+        print(f"=== THANH CONG: Da cap nhat {added}/{len(documents)} tai lieu vao Vector Database (source={source})! ===")
+        if failed:
+            print(f"=== CANH BAO: {failed} tai lieu bi bo qua vi khong tao duoc embedding ===")
         return {
-            "status": "success",
-            "message": f"Đã đồng bộ thành công {len(documents)} tài liệu vào ChromaDB.",
-            "synced_count": len(documents),
-            "source": source
+            "status": "success" if failed == 0 else "partial",
+            "message": f"Đã đồng bộ {added}/{len(documents)} tài liệu vào ChromaDB.",
+            "synced_count": added,
+            "failed_count": failed,
+            "source": source,
         }
     except Exception as e:
         print(f"Loi khi indexing vao ChromaDB: {e}")

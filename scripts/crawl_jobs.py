@@ -85,7 +85,16 @@ PAGE_SIZE = 100
 REMOTEOK_URL = 'https://remoteok.com/api'
 REMOTIVE_URL = 'https://api.remotive.com/v1/projects'
 REMOTIVE_LIMIT = 50  # offset-pagination step
-ADZUNA_COUNTRY = os.getenv('ADZUNA_COUNTRY', 'vn')
+# Adzuna only exposes endpoints for a fixed list of countries. Vietnam is NOT
+# one of them — `https://api.adzuna.com/v1/api/jobs/vn/search/1` returns
+# HTTP 404 (seen in the HF crawler logs). Keep the crawler enabled only when
+# ADZUNA_COUNTRY is a real endpoint, otherwise skip with an explicit message
+# instead of retrying a URL that can never succeed.
+ADZUNA_SUPPORTED_COUNTRIES = {
+    'gb', 'us', 'at', 'au', 'be', 'br', 'ca', 'ch', 'de', 'es',
+    'fr', 'in', 'it', 'mx', 'nl', 'nz', 'pl', 'sg', 'za',
+}
+ADZUNA_COUNTRY = (os.getenv('ADZUNA_COUNTRY', 'vn') or 'vn').lower()
 ADZUNA_APP_ID = os.getenv('ADZUNA_APP_ID', '')
 ADZUNA_APP_KEY = os.getenv('ADZUNA_APP_KEY', '')
 
@@ -478,9 +487,23 @@ def crawl_remotive():
     return out
 
 
+def adzuna_is_supported():
+    """True when ADZUNA_COUNTRY is an Adzuna endpoint that actually exists."""
+    return ADZUNA_COUNTRY in ADZUNA_SUPPORTED_COUNTRIES
+
+
 def crawl_adzuna():
-    """Source: Adzuna Vietnam (free tier, needs ADZUNA_APP_ID + ADZUNA_APP_KEY)."""
+    """Source: Adzuna (free tier, needs ADZUNA_APP_ID + ADZUNA_APP_KEY).
+
+    Adzuna has no Vietnam endpoint, so the default `vn` country is skipped
+    (the previous code hammered a 404 URL on every crawl run). Set
+    ADZUNA_COUNTRY to a supported market (e.g. `sg`, `gb`, `us`) to enable.
+    """
     if not (ADZUNA_APP_ID and ADZUNA_APP_KEY):
+        return []
+    if not adzuna_is_supported():
+        print(f"  ⏭️  Adzuna: country '{ADZUNA_COUNTRY}' is not supported by the API "
+              f"(supported: {', '.join(sorted(ADZUNA_SUPPORTED_COUNTRIES))}). Skipped.")
         return []
     out = []
     for page in range(1, 6):                # <=250 jobs
@@ -704,9 +727,9 @@ def main():
     else:
         print("\n⏭️  RemoteOK/Remotive skipped (set CRAWL_INCLUDE_REMOTE=1 to enable non-Vietnam remote jobs)")
 
-    # --- Source 6 (env-gated): Adzuna Vietnam ---
-    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
-        print("\n📍 Crawling Adzuna (VN)...")
+    # --- Source 6 (env-gated): Adzuna (country must be a supported market) ---
+    if ADZUNA_APP_ID and ADZUNA_APP_KEY and adzuna_is_supported():
+        print(f"\n📍 Crawling Adzuna ({ADZUNA_COUNTRY.upper()})...")
         try:
             jobs = crawl_adzuna()
             for job in jobs:
@@ -719,6 +742,9 @@ def main():
             print(f"  Adzuna: {len(jobs)} jobs found")
         except Exception as e:
             print(f"  [error] Adzuna: {e}")
+    elif ADZUNA_APP_ID and ADZUNA_APP_KEY:
+        print(f"\n⏭️  Adzuna skipped: country '{ADZUNA_COUNTRY}' has no Adzuna endpoint "
+              f"(Adzuna does not cover Vietnam).")
     else:
         print("\n⏭️  Adzuna skipped (set ADZUNA_APP_ID + ADZUNA_APP_KEY to enable)")
 

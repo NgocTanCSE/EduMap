@@ -6,9 +6,33 @@
 
 ## 1. Deployment model (IMPORTANT — do not forget)
 
-- **Production runs ONLY on Hugging Face Spaces (Docker).**
+> ### ⚠️ Deployment contract (read this first)
+>
+> - **Runtime = Hugging Face Spaces, FREE plan, and nowhere else.**
+>   The Space (`tancse2005/Edumap`) runs on the **free CPU tier**: 2 vCPU /
+>   16 GB RAM, **ephemeral disk**, **sleeps after ~48 h of inactivity**, and
+>   every restart wipes `/tmp`. There is **no** paid hardware, no persistent
+>   volume, no external Postgres/Redis/MinIO/Chroma server.
+> - **Local machine = code editing only.** `/home/ngoctan/Downloads/EduMap`
+>   exists to write code, read code, and run unit tests / typechecks. A local
+>   run (even a green one) is **never** proof that the feature works: the only
+>   accepted verification is a request against
+>   <https://tancse2005-edumap.hf.space> after a deploy.
+> - Consequences that shape every design decision:
+>   - Anything written to `/tmp` (ChromaDB vectors, uploads, caches, elevation
+>     tiles) disappears on restart → features must degrade gracefully and
+>     re-seed on boot, never assume warm state.
+>   - Cold start takes tens of seconds → frontends/proxies need retries and
+>     honest loading states; a first-request 503 is a cold start, not a bug.
+>   - No GPU / no bundled models → all AI work goes through remote APIs
+>     (OpenRouter → NVIDIA → Cloudflare → HF) with template fallbacks.
+>   - Only one container, one public port (7680) → internal services must stay
+>     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
+
+- **Production runs ONLY on Hugging Face Spaces (Docker, free plan).**
   - Space: <https://huggingface.co/spaces/tancse2005/Edumap>
   - Public URL: <https://tancse2005-edumap.hf.space>
+  - Hardware: **free CPU basic** — no GPU, no persistent storage.
 - **Local (`/home/ngoctan/Downloads/EduMap`) is for code editing, unit tests,
   and inspection only.** Do not treat a local run as the source of truth for
   runtime behaviour. Validate runtime fixes on the HF Space.
@@ -24,6 +48,8 @@
   > (or `huggingface-cli upload`), or force-push only after confirming you
   > intend to replace the Space tree. The deployed files themselves did match
   > local HEAD when this note was written.
+  > **No deploys from the agent:** there is no `HF_TOKEN` in this environment.
+  > The user (tan) performs the deploy; the agent only prepares the commit.
 - HF Spaces rebuilds the Docker image automatically on push. A Space restart
   wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
 - **Secrets live in HF Spaces → Settings → Secrets**, not in the repo.
@@ -410,9 +436,35 @@ fabricated. The following rules now apply to every feature:
 - `@edumap.vn` accounts (96) are **demo login accounts**, not feature content.
   Keep `admin@edumap.vn` — it is the admin login on HF.
 
-## 7. Current known limitations on HF
+## 7. Current known limitations on HF (free plan)
 
+- **Free-tier reality:** 2 vCPU, no GPU, ephemeral disk, ~48 h sleep timer.
+  The first request after a restart can take 30–60 s (container + Next.js +
+  NestJS + FastAPI + Chroma bootstrap). A one-off 503 is a cold start; only a
+  repeated failure is a bug.
 - AI chat history and uploads are ephemeral (`/tmp`).
-- Geo/PostGIS analytics is limited in SQLite mode.
-- ChromaDB is re-created on every Space restart; seeding runs in a background
-  thread and RAG degrades gracefully until it finishes.
+- Geo/PostGIS analytics is limited in SQLite mode — there is no `ST_DWithin`,
+  `ST_MakePoint` or `::geography`. Query builders MUST branch on
+  `isPostgresNow()` and compute distances in JS (see
+  `WifiService.getWifiPointsNearby`) instead of shipping PostGIS SQL to SQLite.
+- **`DB_SYNC` must stay `false`** on HF (set in the Dockerfile). The shipped
+  `edumap.db` predates parts of the entity set, so `synchronize: true` dies on
+  NOT NULL drift (e.g. `temporary_locations.category_id`,
+  `temporary_green_challenges.created_by`). Schema changes ship as explicit
+  migrations / `ensureSqliteSchema()`, never via `synchronize`.
+- **ChromaDB is re-created on every Space restart.** Startup seeding runs in a
+  daemon thread with a longer embedding budget
+  (`SEED_EMBED_GLOBAL_TIMEOUT_SECONDS`=25,
+  `SEED_EMBED_PROVIDER_TIMEOUT_SECONDS`=12) and is now per-document tolerant:
+  a document whose embedding fails is skipped instead of aborting the whole
+  batch, and `seed_data()` reports `status: "partial"` with
+  `synced_count`/`failed_count`. RAG still degrades to LLM-only answers when
+  every embedding provider is down.
+- **Adzuna has no Vietnam endpoint.** `ADZUNA_COUNTRY=vn` (default) is skipped
+  with an explicit log line; set a supported market (`sg`, `gb`, …) to use it.
+- `GET /api/impact-measurement/measure` takes query strings — its DTO uses
+  `@IsNumberString()` and the controller converts to numbers. Do not put
+  `@IsNumber()` on GET query params (that caused a production 400).
+- The websocket/SSE chat path is only reachable through
+  `POST /api/ai/chat-stream` (JWT required) → NestJS proxy
+  `['/api/ai/chat/stream', '/chat/stream']` → ai-service `POST /api/ai/chat/stream`.

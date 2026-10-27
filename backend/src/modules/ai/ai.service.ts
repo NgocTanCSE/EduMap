@@ -366,14 +366,24 @@ export class AIService {
     // cold starts, causing spurious 503s on first user request after deploy.
     let lastError: any;
     let response: any;
+
+    // Candidate ai-service streaming paths, tried in order. The canonical
+    // route is `/api/ai/chat/stream`; older builds (before the router carried
+    // its own full prefix) only exposed `/chat/stream`. Trying both makes the
+    // proxy self-healing across deploys instead of returning 503 when the
+    // route table differs by one prefix.
+    const streamPaths = ['/api/ai/chat/stream', '/chat/stream'];
+    let pathIndex = 0;
+
     const maxRetries = 7;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const streamPath = streamPaths[pathIndex];
       try {
         // Per-attempt timeout: 10s (was 15s). A hung ai-service should not
         // block the stream for 15s per retry; 10s × 7 ≈ 70s ceiling which
         // still fits within typical reverse-proxy timeouts.
         response = await this.httpService.axiosRef.post(
-          `${this.aiServiceUrl}/api/ai/chat/stream`,
+          `${this.aiServiceUrl}${streamPath}`,
           { message, history, context: systemContext, user_id: userId },
           { responseType: 'stream', timeout: 10000 },
         );
@@ -381,6 +391,18 @@ export class AIService {
         break; // success
       } catch (error: any) {
         lastError = error;
+
+        // 404 = the ai-service is up but this deploy registered the chat
+        // route under a different prefix. Switch to the next candidate
+        // immediately (no backoff) before treating it as a hard failure.
+        if (error.response?.status === 404 && pathIndex < streamPaths.length - 1) {
+          pathIndex += 1;
+          this.logger.warn(
+            `AI stream path ${streamPath} returned 404 — retrying with ${streamPaths[pathIndex]}`,
+          );
+          attempt -= 1; // don't burn a retry slot on a routing mismatch
+          continue;
+        }
 
         // Retryable errors:
         //  - ECONNREFUSED / ECONNRESET / EAI_AGAIN: ai-service process not

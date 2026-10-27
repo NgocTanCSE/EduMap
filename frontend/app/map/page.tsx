@@ -418,7 +418,10 @@ export default function MapPage() {
   // --- Fetch: fixed locations (schools, labs, libraries có sẵn) ---
   const fetchFixedLocations = useCallback(async () => {
     try {
-      const res = await fetchWithRetry('/api/map/fixed-locations');
+      // `/api/map/fixed-locations` never existed on the backend (404 in
+      // production). `/api/map/locations` is the real BFF route and returns the
+      // merged map_points + locations POI list with `lat`/`lng`.
+      const res = await fetchWithRetry('/api/map/locations');
       const json = await res.json();
       const data = unwrapApiResponse<any[]>(json);
       const list = Array.isArray(data) ? data : [];

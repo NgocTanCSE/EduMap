@@ -1,7 +1,12 @@
 import { Controller, Get, Post, Body, Query, UseGuards, InternalServerErrorException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ImpactMeasurementService } from './impact-measurement.service';
-import { ImpactMetricsQueryDto, MeasureImpactDto } from './dto/impact-measurement.dto';
+import {
+  FACILITY_TYPE_VALUES,
+  FacilityType,
+  ImpactMetricsQueryDto,
+  MeasureImpactQueryDto,
+} from './dto/impact-measurement.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('19. AI Impact Measurement')
@@ -41,19 +46,31 @@ export class ImpactMeasurementController {
    */
   @Get('measure')
   @ApiOperation({ summary: 'Full AI impact report — before/after diff + trend + impact score + CI (T1+T2)' })
-  async getMeasure(@Query() params: MeasureImpactDto) {
+  async getMeasure(@Query() params: MeasureImpactQueryDto) {
     try {
+      // Query params are strings — convert to the numeric MeasureImpactDto.
+      // (Passing the raw strings through made class-validator return 400.)
+      const toNum = (v?: string) => {
+        if (v === undefined || v === null || v === '') return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      const rawTypes = params.facilityTypes;
+      const facilityTypes = (Array.isArray(rawTypes) ? rawTypes : String(rawTypes ?? '').split(','))
+        .map((t) => String(t).trim().toLowerCase())
+        .filter((t) => (FACILITY_TYPE_VALUES as readonly string[]).includes(t)) as FacilityType[];
+
       const data = await this.impactMeasurementService.measure({
-        minLat: params.minLat,
-        maxLat: params.maxLat,
-        minLng: params.minLng,
-        maxLng: params.maxLng,
-        lat: params.lat,
-        lng: params.lng,
-        radiusKm: params.radiusKm,
+        minLat: toNum(params.minLat),
+        maxLat: toNum(params.maxLat),
+        minLng: toNum(params.minLng),
+        maxLng: toNum(params.maxLng),
+        lat: toNum(params.lat),
+        lng: toNum(params.lng),
+        radiusKm: toNum(params.radiusKm),
         deploymentDate: params.deploymentDate,
         region: params.region,
-        facilityTypes: params.facilityTypes,
+        facilityTypes: facilityTypes.length ? facilityTypes : undefined,
       });
       return { success: true, data };
     } catch (error: any) {

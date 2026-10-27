@@ -59,17 +59,32 @@ for name in router_names:
         module = __import__(f'routers.{name}', fromlist=['router'])
         r = getattr(module, 'router', None)
         if r is not None:
-            if name == 'chat':
-                app.include_router(r, prefix="/api/ai")
-            elif name == 'suggestions':
-                app.include_router(r, prefix="/api/ai")
-            else:
-                app.include_router(r)
+            # Every router declares its own full path prefix (e.g.
+            # "/api/ai/chat", "/api/ai/survey"). Mount them uniformly so the
+            # route table is identical no matter which main.py revision runs.
+            app.include_router(r)
             print(f"Router routers.{name} included successfully")
         else:
             print(f"Router module routers.{name} does not have 'router' attribute")
     except Exception as e:
         print(f"Router routers.{name} include FAIL: {e}")
+
+# Startup diagnostics: make a missing chat route obvious in the HF logs.
+# NOTE: include_router() registers lazy `_IncludedRouter` proxies, so
+# `app.routes` does not expose the resolved paths even after startup (it made
+# this diagnostic print a false "not registered" warning). The OpenAPI schema
+# resolves the proxies, so it is the reliable source for the real route table.
+@app.on_event("startup")
+def _log_registered_routes():
+    try:
+        paths = sorted(app.openapi().get("paths", {}).keys())
+        chat_paths = [p for p in paths if "/chat" in p or "suggestions" in p]
+        print(f"CHAT ROUTES REGISTERED: {chat_paths}")
+        if "/api/ai/chat/stream" not in paths:
+            print("WARNING: /api/ai/chat/stream is NOT registered — chat will 404!")
+        print(f"TOTAL API ROUTES REGISTERED: {len(paths)}")
+    except Exception as _diag_err:  # pragma: no cover - diagnostics only
+        print(f"Route diagnostics failed (non-fatal): {_diag_err}")
 
 
 # ── Startup hook: auto-seed ChromaDB ─────────────────────────────────────────

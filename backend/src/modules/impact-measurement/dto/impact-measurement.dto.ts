@@ -40,3 +40,25 @@ export class MeasureImpactDto {
   @IsOptional() @IsString() region?: string;
   @IsOptional() facilityTypes?: FacilityType[];
 }
+
+/**
+ * Query-string variant of MeasureImpactDto for `GET /measure`.
+ *
+ * HTTP query params are ALWAYS strings, so `@IsNumber()` on a GET handler
+ * makes class-validator reject every request with 400 Bad Request
+ * (observed in production on HF). Validation therefore uses
+ * `@IsNumberString()` and the controller converts to numbers afterwards.
+ * `facilityTypes` arrives as a comma-separated list (or repeated params).
+ */
+export class MeasureImpactQueryDto {
+  @IsOptional() @IsNumberString() minLat?: string;
+  @IsOptional() @IsNumberString() maxLat?: string;
+  @IsOptional() @IsNumberString() minLng?: string;
+  @IsOptional() @IsNumberString() maxLng?: string;
+  @IsOptional() @IsNumberString() lat?: string;
+  @IsOptional() @IsNumberString() lng?: string;
+  @IsOptional() @IsNumberString() radiusKm?: string;
+  @IsOptional() @IsString() deploymentDate?: string;
+  @IsOptional() @IsString() region?: string;
+  @IsOptional() facilityTypes?: string | string[];
+}

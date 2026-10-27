@@ -6,7 +6,13 @@ from services.db_service import db_service
 import json
 import asyncio
 
-router = APIRouter(prefix="/chat", tags=["1. AI RAG Chat"])
+# NOTE: the prefix is the FULL public path, like every other router in this
+# service (survey, knowledge, talk2map, …). Do NOT rely on main.py adding
+# "/api/ai" for this module: that special case produced
+# `POST /api/ai/chat/stream -> 404` in production because the deployed
+# main.py did not apply the extra prefix. Keeping the full path here makes
+# the route independent of how the router is mounted.
+router = APIRouter(prefix="/api/ai/chat", tags=["1. AI RAG Chat"])
 
 @router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse)

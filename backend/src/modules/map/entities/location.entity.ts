@@ -18,7 +18,12 @@ export class Location {
   @JoinColumn({ name: 'category_id' })
   category: LocationCategory;
 
-  @Column()
+  // Nullable on purpose: the shipped SQLite DB contains ~3.2k real POIs
+  // imported without a category (parks, bus stops, restaurants…). Declaring
+  // this NOT NULL made TypeORM's `synchronize` die with
+  // `SQLITE_CONSTRAINT: NOT NULL constraint failed: temporary_locations.category_id`
+  // and blocked the backend from booting with DB_SYNC=true.
+  @Column({ nullable: true })
   category_id: number;
 
   @Column(geoPointColumn())
