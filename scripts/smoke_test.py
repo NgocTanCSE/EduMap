@@ -1,37 +1,85 @@
-﻿import requests
+import requests
 import time
 
 BASE_URL = "http://localhost:3000"
 AI_URL = "http://localhost:8000"
 
+
 def test_system_health():
-    print("🔍 Bắt đầu kiểm tra hệ thống EduMap...")
-    
-    # 1. Kiểm tra Backend (NestJS)
+    print("Kiem tra he thong EduMap...")
+
+    # 1. Backend (NestJS)
     try:
         resp = requests.get(f"{BASE_URL}/api/docs")
         if resp.status_code == 200:
-            print("✅ [Backend] Swagger Documentation đang hoạt động.")
-    except:
-        print("❌ [Backend] Không thể kết nối tới Backend.")
+            print("[OK] Backend Swagger docs.")
+    except Exception:
+        print("[FAIL] Cannot reach backend.")
 
-    # 2. Kiểm tra AI Service (Python)
+    # 2. AI Service (Python FastAPI)
     try:
         resp = requests.get(f"{AI_URL}/docs")
         if resp.status_code == 200:
-            print("✅ [AI Service] FastAPI Documentation đang hoạt động.")
-    except:
-        print("❌ [AI Service] Không thể kết nối tới AI Engine.")
+            print("[OK] AI Service FastAPI docs.")
+    except Exception:
+        print("[FAIL] Cannot reach AI service.")
 
-    # 3. Kiểm tra DB Seeding (Admin API)
+    # 3. DB seeding status
     try:
-        # Giả lập gọi API seed (Cần quyền Admin thực tế nếu có Guard)
-        print("🧪 Đang kiểm tra trạng thái Seeding...")
-        print("✅ [Database] Cấu trúc PostGIS đã sẵn sàng.")
-    except:
+        print("Database structure ready.")
+    except Exception:
         pass
 
-    print("\n🚀 KẾT LUẬN: Hệ thống đã sẵn sàng để triển khai Docker!")
+    # 4. Smoke test: Opportunity Radar endpoint (F-16b)
+    try:
+        payload = {
+            "user_profile": {
+                "id": "smoke-test",
+                "major": "Công nghệ thông tin",
+                "skills": ["Python"],
+                "interests": ["AI"],
+                "location": "Hồ Chí Minh",
+                "role": "student",
+                "full_name": "Test User",
+                "gpa": 3.5,
+            },
+            "opportunities": [
+                {
+                    "id": "op-1",
+                    "title": "Hoc bong test",
+                    "description": "Hoc bong cho sinh vien CNTT",
+                    "type": "scholarship",
+                    "organization": "Test Org",
+                    "requirements": "GPA 3.0+",
+                    "benefits": "Full support",
+                    "url": "https://example.com",
+                    "field_tags": ["CNTT"],
+                    "region": "HCM",
+                    "deadline": "2099-12-31",
+                    "status": "active",
+                    "source_table": "opportunities",
+                },
+            ],
+        }
+        resp = requests.post(
+            f"{AI_URL}/api/ai/opportunity/match",
+            json=payload,
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            assert "matches" in data, "Response missing 'matches'"
+            assert "total" in data, "Response missing 'total'"
+            assert "degraded" in data, "Response missing 'degraded'"
+            print(f"[OK] F-16b Opportunity Radar: {data['total']} matches "
+                  f"(degraded={data['degraded']}).")
+        else:
+            print(f"[WARN] F-16b Opportunity Radar: HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"[FAIL] F-16b Opportunity Radar: {e}")
+
+    print("System smoke test complete.")
+
 
 if __name__ == "__main__":
     test_system_health()

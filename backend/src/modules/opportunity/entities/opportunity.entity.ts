@@ -1,6 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index } from 'typeorm';
+import { geoPointColumn, jsonColumn, datetimeColumn } from '../../../common/utils/db-column.utils';
 
 @Entity('opportunities')
+@Index(['category', 'status'])
+@Index(['deadline'])
+@Index(['region', 'status'])
+@Index(['field_tags'], { where: "status = 'active'" })
 export class Opportunity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -8,30 +13,53 @@ export class Opportunity {
   @Column()
   title: string;
 
+  /** scholarship / internship / hackathon / research / volunteer / job */
   @Column({ name: 'type', nullable: true })
-  category: string; // exchange/competition/grant/internship
+  category: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({
-    name: 'location_point',
-    type: process.env.DB_TYPE === 'postgres' ? 'geography' : 'json',
-    ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { ...(process.env.DB_TYPE === 'postgres' ? { spatialFeatureType: 'Point' } : {}), srid: 4326 } : {}) } : {}),
-    nullable: true,
-  })
+  @Column({ nullable: true })
+  organization: string;
+
+  /** GeoJSON Point (Postgres geography / SQLite json). */
+  @Column({ name: 'location_point', ...geoPointColumn(), nullable: true })
   location: any;
 
   @Column({ nullable: true })
   address: string;
 
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
+  @Column({ ...datetimeColumn(true, true) })
   deadline: Date;
+
+  @Column({ type: 'text', nullable: true })
+  requirements: string;
+
+  @Column({ type: 'text', nullable: true })
+  benefits: string;
+
+  /** Official application page URL (provenance link shown in the UI). */
+  @Column({ nullable: true })
+  url: string;
+
+  /** Field tags stored as JSON on SQLite, jsonb on Postgres. */
+  @Column({ name: 'field_tags', ...jsonColumn(true) })
+  field_tags: string[];
+
+  @Column({ nullable: true })
+  region: string;
+
+  @Column({ default: 'open' })
+  status: string;
+
+  @Column({ name: 'created_by', nullable: true })
+  created_by: string;
 
   @Column({ default: false })
   is_team_finding_open: boolean;
 
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
+  @Column({ ...jsonColumn(true) })
   tags: string[];
 
   @CreateDateColumn()
@@ -39,4 +67,7 @@ export class Opportunity {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deleted_at: Date;
 }

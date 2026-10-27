@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 # Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter']
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space']
 
 for name in router_names:
     try:
@@ -102,6 +102,52 @@ def _startup_seed_vector_db():
             print(f"Startup: seed_data() failed (non-fatal): {e}")
 
     threading.Thread(target=_seed, daemon=True).start()
+
+
+# ── Startup hook: auto-seed Knowledge Graph ────────────────────────────────
+# HF Spaces runs everything in one container; the SQLite DB at
+# DB_SQLITE_PATH is pre-built at deploy time but may be updated by the
+# hourly crawler job. The knowledge graph (Idea #8) is a derived SQLite
+# adjacency list (kg_nodes / kg_edges) built FROM those content tables, so it
+# must be (re)seeded at startup and refreshed hourly.
+#
+# This startup hook seeds the graph in a daemon thread (non-blocking) so
+# uvicorn can begin serving immediately while seeding proceeds. Requests that
+# arrive before seeding completes get whatever nodes exist (possibly 0 →
+# frontend shows an empty state, which is the honest default per AGENTS.md).
+#
+# A repeating background thread then re-seeds every 60 minutes (hourly sync
+# per T3) so the graph stays in sync with crawled data. In SQLite/HF mode
+# ScheduleModule is disabled, so the loop lives here instead of in NestJS.
+@app.on_event("startup")
+def _startup_seed_knowledge_graph():
+    """Seed the AI Knowledge Graph at startup + start hourly refresh thread."""
+    import threading
+    import time as _time
+
+    # Sync interval (env-tunable; default 3600s = 1 hour per T3 spec).
+    sync_interval = int(os.getenv("KNOWLEDGE_GRAPH_SYNC_INTERVAL", "3600"))
+
+    def _seed_once():
+        try:
+            from services.knowledge_graph import KnowledgeGraphService
+            svc = KnowledgeGraphService()
+            result = svc.seed_graph()
+            print(
+                f"=== Startup: knowledge graph seeded — "
+                f"{result.get('nodes', 0)} nodes, {result.get('edges', 0)} edges ==="
+            )
+        except Exception as e:
+            print(f"Startup: knowledge graph seed failed (non-fatal): {e}")
+
+    def _loop():
+        """Initial seed immediately, then re-seed every sync_interval."""
+        _seed_once()
+        while True:
+            _time.sleep(sync_interval)
+            _seed_once()
+
+    threading.Thread(target=_loop, daemon=True).start()
 
 
 # Endpoints

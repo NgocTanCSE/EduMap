@@ -2126,6 +2126,112 @@ class LLMService:
             print(f"Error in summarize_material: {e}")
             return self._summarize_material_fallback(data, str(e))
 
+    async def explain_learning_space_recommendation(self, spot: dict, preferences: dict) -> dict:
+        """Generate a human-readable explanation of why a learning spot was
+        recommended, given its attributes and the user's search preferences.
+
+        Caches results for 24h (TTL=86400s) keyed on spot_id + a hash of the
+        preferences, so repeated requests for the same spot don't re-hit the LLM.
+        Falls back to a static template when all providers are down.
+        """
+        try:
+            # ── Cache lookup (24h) ──────────────────────────────────────
+            cache_key = hashlib.md5(
+                f"ls_explain:{spot.get('id', '')}:{hashlib.md5(json.dumps(preferences, sort_keys=True, default=str).encode()).hexdigest()}"
+                .encode()
+            ).hexdigest()
+            cached = cache_service.get(cache_key)
+            if cached and isinstance(cached, dict) and cached.get("explanation"):
+                return cached
+
+            if not self.is_ready:
+                raise RuntimeError("AI Service chưa sẵn sàng.")
+
+            # ── Build a concise, Vietnamese prompt ───────────────────────
+            spot_name = spot.get("name", "địa điểm")
+            spot_type = spot.get("type", "")
+            rating = spot.get("rating_avg", 0)
+            quietness = spot.get("quietness", "")
+            has_wifi = spot.get("has_wifi", False)
+            amenities = spot.get("amenities", [])
+            distance = spot.get("distance_km", "?")
+            open_now = spot.get("open_now", False)
+            criteria = spot.get("matching_criteria", {})
+
+            def _fmt(v, scale: float = 1):
+                try:
+                    return round(float(v) * scale, 1)
+                except (TypeError, ValueError):
+                    return "không rõ"
+
+            prompt = (
+                f"Giải thích ngắn gọn (1-2 câu, tiếng Việt) tại sao địa điểm "
+                f"'{spot_name}' (loại: {spot_type}) được đề xuất cho người dùng "
+                f"đang tìm nơi học gần đây. Thông tin: cách {distance} km, "
+                f"đánh giá {rating}/5, yên tĩnh {quietness}/5, wifi: "
+                f"{'có' if has_wifi else 'không'}, tiện ích: "
+                f"{', '.join(amenities) if amenities else 'không rõ'}, "
+                f"đang mở: {'có' if open_now else 'không'}. "
+                f"Điểm số tiêu chí: khoảng cách {_fmt(criteria.get('distance'))}, "
+                f"đánh giá {_fmt(criteria.get('rating'))}, wifi {_fmt(criteria.get('wifi'))}, "
+                f"yên tĩnh {_fmt(criteria.get('quietness'))}, mở cửa {_fmt(criteria.get('open_now'))}. "
+                f"Người dùng ưu tiên: {json.dumps(preferences, default=str, ensure_ascii=False)}. "
+                f"Trả về JSON: {{explanation: \"...\"}}"
+            )
+
+            response = await asyncio.to_thread(
+                self._generate_text_with_fallback, prompt,
+                temperature=0.4, max_tokens=300,
+            )
+            result = self._extract_json(response)
+            if result is None or not result.get("explanation"):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho learning_space_explain.")
+
+            out = {
+                "explanation": str(result["explanation"]),
+                "degraded": False,
+                "reason": None,
+            }
+            cache_service.set(cache_key, out, ttl=86400)
+            return out
+        except Exception as e:
+            print(f"Error in explain_learning_space_recommendation: {e}")
+            return self._explain_learning_space_fallback(spot, preferences, str(e))
+
+    def _explain_learning_space_fallback(self, spot: dict, preferences: dict, err: str = "") -> dict:
+        """Template-based explanation when all LLM providers are down."""
+        name = spot.get("name", "địa điệm")
+        rating = spot.get("rating_avg", 0)
+        quietness = spot.get("quietness", "")
+        has_wifi = spot.get("has_wifi", False)
+        distance = spot.get("distance_km", "?")
+        criteria = spot.get("matching_criteria", {}) or {}
+
+        reasons = []
+        if criteria.get("distance", 0) >= 0.7:
+            reasons.append(f"gần bạn ({distance} km)")
+        if criteria.get("rating", 0) >= 0.7:
+            reasons.append(f"đánh giá cao ({rating}/5)")
+        if criteria.get("quietness", 0) >= 0.7:
+            reasons.append(f"không gian yên tĩnh (độ yên tĩnh {quietness}/5)")
+        if has_wifi:
+            reasons.append("có Wi-Fi")
+        if criteria.get("open_now", 0) >= 0.7:
+            reasons.append("hiện đang mở cửa")
+        if not reasons:
+            reasons.append("phù hợp với tiêu chí tìm kiếm của bạn")
+
+        explanation = (
+            f"{name} được đề xuất vì: {', '.join(reasons)}. "
+            f"(Giải thích tự động khi AI không khả dụng.)"
+        )
+        return {
+            "explanation": explanation,
+            "degraded": True,
+            "_degraded": True,
+            "reason": f"AI unavailable -- template fallback ({err[:150]})",
+        }
+
     async def match_mentors(self, data: "MatchRequest") -> list:
         """Match mentors for a student. Falls back to an empty list when all providers are down.
 
@@ -2180,6 +2286,130 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
         except Exception as e:
             print(f"Error in match_mentors: {e}")
             return self._match_mentors_fallback(data, str(e))
+
+
+    async def rank_impact_matches(self, data: "ImpactMatchRequest") -> dict:
+        """Rank need↔sponsor pairs by match quality. Falls back gracefully
+        when all LLM providers are down.
+
+        Mirrors ``match_mentors``: the backend has already pre-filtered at
+        the SQLite layer (cost / location / category, LIMIT 15). We still
+        enforce a hard cap via ``max_results`` to guarantee no token overflow.
+
+        Returns a dict (not a list) so the router can detect the ``degraded``
+        + ``reason`` flags for graceful-degradation signalling.
+        """
+        try:
+            if not self.is_ready:
+                raise RuntimeError(
+                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, "
+                    "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
+                )
+
+            max_results = getattr(data, "max_results", 15) or 15
+            max_results = max(1, min(max_results, 30))
+            pairs = (data.pairs or [])[:max_results]
+
+            # Serialize pairs to compact JSON for the LLM prompt
+            pairs_json = json.dumps(
+                [p.model_dump(mode="json") for p in pairs],
+                ensure_ascii=False,
+            )
+
+            region = getattr(data, "region", None)
+            category = getattr(data, "category", None)
+            pre_filter_parts = []
+            if region:
+                pre_filter_parts.append(f"Khu vực: {region}")
+            if category:
+                pre_filter_parts.append(f"Danh mục: {category}")
+            pre_filter_info = ""
+            if pre_filter_parts:
+                pre_filter_info = f" (Đã lọc trước: {', '.join(pre_filter_parts)})"
+
+            prompt = f"""Bạn là chuyên gia ghép nối nguồn lực đến nơi cần cho lĩnh vực giáo dục tại Việt Nam.{pre_filter_info}
+
+Nhiệm vụ: Xếp hạng các cặp (nhu cầu ↔ nhà tài trợ) dưới đây theo mức độ phù hợp.
+Các yếu tố cần xem xét:
+1. **Chi phí**: nhà tài trợ có ngân sách đủ trả cho nhu cầu không? (budget_amount >= cost_estimate)
+2. **Lĩnh vực**: nhà tài trợ có focus_areas phù hợp với category/tags của nhu cầu không?
+3. **Khu vực**: nhà tài trợ và nhu cầu có cùng khu vực (location) không?
+4. **Khẩn cấp**: nhu cầu cấp bậc urgency cao nên được ưu tiên.
+5. **Độ tin cậy**: nhà tài trợ is_verified hay không (ưu tiên verified).
+
+Danh sách cặp đã pre-filter (tối đa {max_results}):
+{pairs_json}
+
+Trả về **mảng JSON** sau:
+[{{need_id, sponsor_id, match_score (0-100), match_reasons: [string], next_steps: [string]}}]
+
+- match_score: số thực 0-100, càng cao càng phù hợp.
+- match_reasons: 2-3 lý do ngắn gọn tại sao cặp này phù hợp.
+- next_steps: 1-2 bước tiếp theo đề xuất (ví dụ: "Liên hệ sponsor qua email", "Gửi đề xuất chi tiết").
+- Sắp xếp theo match_score giảm dần.
+- Nếu không có cặp nào phù hợp, trả về mảng rỗng []."""
+
+            response = await asyncio.to_thread(
+                self._generate_text_with_fallback,
+                prompt,
+                temperature=0.3,
+                max_tokens=2048,
+                top_p=0.8,
+            )
+            result = self._extract_json(response)
+            if result is None or not isinstance(result, list):
+                raise RuntimeError("AI trả về JSON không hợp lệ cho rank_impact_matches.")
+
+            # Normalise: ensure each match has the required keys
+            clean = []
+            for m in result:
+                if isinstance(m, dict):
+                    clean.append({
+                        "need_id": m.get("need_id", ""),
+                        "sponsor_id": m.get("sponsor_id", ""),
+                        "match_score": float(m.get("match_score", 0)),
+                        "match_reasons": m.get("match_reasons", []) or [],
+                        "next_steps": m.get("next_steps", []) or [],
+                    })
+            return {"ranked_matches": clean, "degraded": False, "reason": None}
+        except Exception as e:
+            print(f"Error in rank_impact_matches: {e}")
+            return self._impact_match_fallback(data, str(e))
+
+
+    def _impact_match_fallback(self, data: "ImpactMatchRequest", err: str = "") -> dict:
+        """Graceful-degradation fallback when all LLM providers are down.
+
+        Returns a dict with an empty ``ranked_matches`` list and
+        ``degraded=True`` so the router (and ultimately the frontend) can
+        surface a helpful message instead of a 502 that blocks the feature.
+        """
+        reason = f"AI unavailable -- graceful degradation ({err[:140]})"
+        # Build a lightweight template ranking using pure cost-fit heuristic
+        # so the user still gets _some_ ordered suggestions even offline.
+        pairs = (data.pairs or [])[:15]
+        template_matches = []
+        for p in pairs:
+            budget = float(p.sponsor.budget_amount)
+            cost = float(p.need.cost_estimate)
+            cost_fit = min(100, (budget / cost * 50) + 50) if cost > 0 else 50
+            cat_ok = 1 if getattr(p, "category_match", False) else 0
+            score = round(cost_fit * 0.7 + cat_ok * 30, 1)
+            template_matches.append({
+                "need_id": p.need_id,
+                "sponsor_id": p.sponsor_id,
+                "match_score": score,
+                "match_reasons": [
+                    f"Dựa trên phù hợp ngân sách (template): sponsor có ngân sách {budget:,.0f} cho nhu cầu {cost:,.0f}.",
+                ],
+                "next_steps": ["Liên hệ sponsor qua email/website để thảo luận chi tiết."],
+            })
+        template_matches.sort(key=lambda x: x["match_score"], reverse=True)
+        return {
+            "ranked_matches": template_matches,
+            "degraded": True,
+            "reason": reason,
+        }
 
 
     # ------------------------------------------------------------------
@@ -2371,5 +2601,306 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
         except Exception as e:
             print(f"Error in get_suggestions: {e}")
             return self._suggestions_fallback(str(e))
+
+    async def match_opportunities(self, data: "OpportunityMatchRequest") -> dict:
+        """NLP-powered opportunity matching for the Opportunity Radar (F-16b).
+
+        The backend has ALREADY pre-filtered candidates (status, deadline >
+        today, soft-delete, optional type/field keyword) via SQLite — this
+        method only needs to:
+          1. Extract eligibility criteria (GPA, major, skills, language,
+             experience) from each opportunity's free-text description.
+          2. Compute a match_score (0-100) and confidence (0-1, threshold 0.6)
+             against the user's profile (major, skills, interests, location,
+             optional gpa).
+          3. Build a per-opportunity document checklist and match reasons.
+          4. Filter expired deadlines (defence-in-depth) and sort by score.
+
+        Candidates are processed in batches of <=8 to keep each LLM call within
+        the embedding/RAG timeout budget on the free HF Spaces plan.
+
+        On any failure (all providers down, JSON parse error, timeout) the
+        method degrades to a pure keyword heuristic
+        (``_opportunity_match_fallback``) so the frontend radar always returns
+        something usable.
+        """
+        try:
+            profile = getattr(data, "user_profile", None)
+            if not profile:
+                raise RuntimeError("Missing user_profile in opportunity match request")
+
+            opportunities = getattr(data, "opportunities", None) or []
+            if not opportunities:
+                return self._empty_match_response(profile)
+
+            if not self.is_ready:
+                raise RuntimeError(
+                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), "
+                    "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
+                )
+
+            # Batch to respect the timeout budget — 8 ops per LLM call.
+            BATCH = 8
+            user_id = _profile_id(profile)
+
+            all_matches: list = []
+            import datetime as _dt
+            now_dt = _dt.datetime.now()
+
+            for i in range(0, len(opportunities), BATCH):
+                batch = opportunities[i : i + BATCH]
+                batch_matches = await asyncio.to_thread(self._match_batch, profile, batch)
+                all_matches.extend(batch_matches)
+
+            # Defence-in-depth: filter expired + sort by score (desc)
+            live = [
+                m for m in all_matches
+                if not m.get("deadline") or _safe_date(m["deadline"]) > now_dt
+            ]
+            live.sort(key=lambda m: m["match_score"], reverse=True)
+
+            return {
+                "user_id": user_id,
+                "matches": live,
+                "total": len(live),
+                "filtered_count": len(all_matches) - len(live),
+                "degraded": False,
+                "reason": None,
+            }
+        except Exception as e:
+            print(f"Error in match_opportunities: {e}")
+            profile = getattr(data, "user_profile", None)
+            opportunities = getattr(data, "opportunities", None) or []
+            return self._opportunity_match_fallback(profile, opportunities, str(e))
+
+    def _match_batch(self, profile: Any, batch: list) -> list:
+        """Score a single batch (<=8 candidates) with one LLM prompt.
+
+        Synchronous helper intended to be called from ``asyncio.to_thread``
+        so the event loop is not blocked during the HTTP round-trip.
+        """
+        profile_json = _to_json(profile)
+        batch_json = _to_json(batch)
+
+        prompt = f"""Bạn là chuyên gia tư vấn học tập và việc làm tại Việt Nam.
+Hãy phân tích hồ sơ người dùng và một danh sách cơ hội (học bổng, thực tập, công việc, cuộc thi...) và trả về điểm số phù hợp.
+
+Hồ sơ người dùng:
+{profile_json}
+
+Danh sách cơ hội (đã được lọc trước theo deadline và trạng thái):
+{batch_json}
+
+Nhiệm vụ: Với mỗi cơ hộp, hãy:
+1. Trích xuất điều kiện (extracted_criteria): required_gpa (số thực hoặc null), required_major (chuỗi hoặc null), required_skills (mảng), required_language (chuỗi hoặc null), required_experience (chuỗi hoặc null), is_team_based (bool hoặc null).
+2. Tính match_score (0-100): càng cao càng phù hợp, dựa trên major, skills, interests, location, gpa so với required_*.
+3. Tính confidence (0-1): mức độ tự tin của điểm số. >=0.6 là tin cậy.
+4. confidence_level: "high" nếu confidence >= 0.6, "medium" 0.4-0.6, "low" < 0.4.
+5. is_eligible: true nếu score >= 60 (ngưỡng trước deadline).
+6. match_reasons: 2-3 lý do ngắn bằng tiếng Việt.
+7. checklist: danh sách tài liệu cần chuẩn bị (tiếng Việt).
+
+LƯU Ý:
+- Nếu một cơ hộp đã hết hạn (deadline < hôm nay), loại khỏi kết quả.
+- Nếu không đủ thông tin để đánh giá, confidence thấp.
+- Chỉ trả về JSON dưới đây, không giải thích thêm.
+
+JSON kết quả:
+[{{id, title, organization, type, url, deadline, region, match_score, confidence, confidence_level, is_eligible, extracted_criteria: {{required_gpa, required_major, required_skills, required_language, required_experience, is_team_based}}, match_reasons: [string], checklist: [string]}}]"""
+
+        response = self._generate_text_with_fallback(prompt, temperature=0.3, max_tokens=2048, top_p=0.8)
+        result = self._extract_json(response)
+
+        if result is None or not isinstance(result, list):
+            raise RuntimeError("AI trả về JSON không hợp lệ cho match_opportunities.")
+
+        clean = []
+        for m in result:
+            if isinstance(m, dict):
+                clean.append({
+                    "id": str(m.get("id", "")),
+                    "title": m.get("title", ""),
+                    "organization": m.get("organization", ""),
+                    "type": m.get("type", "other"),
+                    "url": m.get("url") or None,
+                    "deadline": m.get("deadline") or None,
+                    "region": m.get("region", ""),
+                    "match_score": max(0, min(100, float(m.get("match_score", 0)))),
+                    "confidence": max(0.0, min(1.0, float(m.get("confidence", 0.0)))),
+                    "confidence_level": m.get("confidence_level", "low"),
+                    "is_eligible": bool(m.get("is_eligible", False)),
+                    "extracted_criteria": m.get("extracted_criteria", {}) or {},
+                    "match_reasons": m.get("match_reasons", []) or [],
+                    "checklist": m.get("checklist", []) or [],
+                })
+        return clean
+
+    def _opportunity_match_fallback(self, profile: Any, opportunities: list, err: str = "") -> dict:
+        """Keyword-based graceful-degradation fallback when all LLM providers are down.
+
+        Runs a simple keyword-overlap match between the user's major, skills
+        and interests and each opportunity's text. Every match is tagged
+        ``_degraded`` (stripped by the router) and confidence is capped low
+        so the frontend shows a "low confidence" badge.
+        """
+        reason = f"AI unavailable -- template fallback ({err[:140]})"
+        import datetime as _dt
+
+        major = ""
+        skills: list = []
+        interests: list = []
+        location = ""
+
+        if isinstance(profile, dict):
+            major = profile.get("major", "") or ""
+            skills = profile.get("skills", []) or []
+            interests = profile.get("interests", []) or []
+            location = profile.get("location", "") or ""
+        else:
+            major = getattr(profile, "major", "") or ""
+            skills = list(getattr(profile, "skills", []) or [])
+            interests = list(getattr(profile, "interests", []) or [])
+            location = getattr(profile, "location", "") or ""
+
+        profile_terms = [major] + list(skills) + list(interests)
+        profile_terms = [str(t).lower() for t in profile_terms if t]
+        region_lower = str(location).lower()
+
+        now = _dt.datetime.now()
+        matches = []
+        for opp in opportunities or []:
+            opp_dict = opp if isinstance(opp, dict) else _to_dict(opp)
+            dl = opp_dict.get("deadline")
+            if dl and _safe_date(dl) <= now:
+                continue
+            text = f"{opp_dict.get('title','')} {opp_dict.get('description','')} "
+            text += f"{opp_dict.get('requirements','')} {opp_dict.get('organization','')} "
+            text += f"{' '.join(opp_dict.get('field_tags', []) or [])}"
+            text_lower = text.lower()
+
+            score = 0
+            reasons: list = []
+            for term in profile_terms:
+                if term and term in text_lower:
+                    score += 12
+                    if len(reasons) < 4:
+                        reasons.append(f"Khớp: {term.capitalize()}")
+            if region_lower and (
+                opp_dict.get("region", "").lower().find(region_lower) >= 0
+                or text_lower.find(region_lower) >= 0
+            ):
+                score += 15
+                if len(reasons) < 4:
+                    reasons.append("Khu vực phù hợp")
+            score = min(100, score)
+            if not reasons:
+                reasons = ["Dựa trên từ khóa hồ sơ"]
+
+            matches.append({
+                "id": str(opp_dict.get("id", "")),
+                "title": opp_dict.get("title", ""),
+                "organization": opp_dict.get("organization", ""),
+                "type": opp_dict.get("type", "other"),
+                "url": opp_dict.get("url") or None,
+                "deadline": dl,
+                "region": opp_dict.get("region", ""),
+                "match_score": score,
+                "confidence": 0.3,
+                "confidence_level": "low",
+                "is_eligible": score >= 40,
+                "extracted_criteria": {},
+                "match_reasons": reasons,
+                "checklist": _build_checklist(opp_dict, text_lower),
+                "_degraded": True,
+                "_reason": reason,
+            })
+
+        matches.sort(key=lambda m: m["match_score"], reverse=True)
+        return {
+            "user_id": _profile_id(profile),
+            "matches": matches,
+            "total": len(matches),
+            "filtered_count": len(opportunities or []) - len(matches),
+            "degraded": True,
+            "reason": reason,
+        }
+
+    def _empty_match_response(self, profile: Any) -> dict:
+        return {
+            "user_id": _profile_id(profile),
+            "matches": [],
+            "total": 0,
+            "filtered_count": 0,
+            "degraded": False,
+            "reason": "Không có cơ hộp nào khả dụng để khớp.",
+        }
+
+
+def _profile_id(profile: Any) -> str:
+    if isinstance(profile, dict):
+        return profile.get("id", "unknown")
+    return getattr(profile, "id", "unknown")
+
+
+def _to_json(obj: Any) -> str:
+    """Serialise Pydantic models / dicts to a compact JSON string."""
+    if obj is None:
+        return "{}"
+    if isinstance(obj, dict):
+        return json.dumps(obj, ensure_ascii=False, default=str)
+    if hasattr(obj, "model_dump"):
+        return json.dumps(obj.model_dump(mode="json"), ensure_ascii=False, default=str)
+    if hasattr(obj, "json") and callable(obj.json):
+        try:
+            return json.dumps(obj.json(), ensure_ascii=False, default=str)
+        except Exception:
+            pass
+    return json.dumps(obj, ensure_ascii=False, default=str)
+
+
+def _to_dict(obj: Any) -> dict:
+    if obj is None:
+        return {}
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump(mode="json")
+    return dict(vars(obj)) if hasattr(obj, "__dict__") else {}
+
+
+def _safe_date(val: Any):
+    """Parse a date string defensively; returns datetime or a minimal sentinel."""
+    import datetime as _dt
+    if val is None:
+        return None
+    if isinstance(val, _dt.datetime):
+        return val
+    if isinstance(val, _dt.date):
+        return _dt.datetime.combine(val, _dt.time.min)
+    try:
+        s = str(val)
+        # Normalise ISO-8601 trailing 'Z' and split on timezone offset.
+        s = s.replace("Z", "+00:00").split("+")[0].split(".")[0] if "T" in s else s
+        return _dt.datetime.fromisoformat(s)
+    except Exception:
+        return _dt.datetime.min
+
+
+def _build_checklist(opp: dict, text_lower: str) -> list:
+    items = ["Hồ sơ cá nhân / CV"]
+    if any(k in text_lower for k in ("điểm", "gpa", "xếp loại")):
+        items.append("Bảng điểm (GPA) / Bằng cấp")
+    if any(k in text_lower for k in ("tiếng anh", "ielts", "toefl", "ngoại ngữ")):
+        items.append("Chứng chỉ ngoại ngữ (IELTS/TOEFL/Tiếng Anh)")
+    if any(k in text_lower for k in ("bài luận", "personal statement", "luận văn")):
+        items.append("Bài luận cá nhân")
+    if any(k in text_lower for k in ("portfolio", "dự án", "project")):
+        items.append("Portfolio / dự án")
+    if any(k in text_lower for k in ("thư giới thiệu", "recommendation")):
+        items.append("Thư giới thiệu")
+    if opp.get("type") == "scholarship":
+        items.append("Bản sao bằng cấp + Chứng nhận hành vi")
+    return items
+
 
 llm_service = LLMService()

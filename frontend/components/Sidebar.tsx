@@ -32,6 +32,9 @@ import {
   HandHeart,
   Medal,
   X,
+  CloudRain,
+  CloudOff,
+  Target,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { EduMapLogo } from '@/components/ui/Logo';
@@ -66,7 +69,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Thư viện', href: '/library', icon: BookOpen },
       { name: 'Trợ lý AI', href: '/ai-chat', icon: BrainCircuit },
+      { name: 'Đồ thị tri thức AI', href: '/knowledge-graph', icon: Network },
       { name: 'Talk2Map', href: '/talk2map', icon: Search },
+      { name: 'Trợ lý ngoại tuyến', href: '/offline-tutor', icon: CloudOff },
       { name: 'Học bổng', href: '/scholarships', icon: GraduationCap },
       { name: 'Du học & Trao đổi', href: '/intl', icon: Plane },
     ],
@@ -78,6 +83,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { name: 'Lộ trình nghề', href: '/career/roadmap', icon: MapPin },
       { name: 'Thực tập', href: '/internships', icon: Building2 },
       { name: 'Cơ hội', href: '/opportunities', icon: Rocket },
+      { name: 'Opportunity Radar', href: '/opportunities/radar', icon: Target },
       { name: 'Xu hướng thị trường', href: '/analytics', icon: TrendingUp },
     ],
   },
@@ -102,10 +108,17 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'AI an toàn',
+    items: [
+      { name: 'AI Bảo Vệ Khí Hậu', href: '/climate-guardian', icon: CloudRain },
+    ],
+  },
+  {
     label: 'Chợ & Đóng góp',
     items: [
       { name: 'Chợ trao đổi', href: '/marketplace', icon: Store },
       { name: 'Quyên góp', href: '/donate', icon: HandHeart },
+      { name: 'ImpactMatch', href: '/impact-match', icon: Target },
     ],
   },
 ];

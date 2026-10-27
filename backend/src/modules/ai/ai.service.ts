@@ -169,6 +169,26 @@ export class AIService {
   }
 
   /**
+   * Gửi thông tin địa điểm học tập + tiêu chí người dùng tới AI service để
+   * sinh giải thích tại sao địa điệml được đề xuất. Graceful degrade: trả về
+   * null khi AI service không khả dụng (caller falls back to static template).
+   */
+  async explainLearningSpace(spot: any, preferences: any): Promise<any | null> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/learning-space/explain`, {
+          spot,
+          preferences,
+        }, { timeout: 10000 })
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`AI Learning Space Explain unavailable: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Builds the dynamic system context (available books + educational locations)
    * that is sent to the ai-service and stored alongside chat history.
    *
@@ -768,6 +788,27 @@ export class AIService {
   }
 
   /**
+   * AI IMPACT-MATCH: Rank need↔sponsor pairs after SQLite pre-filter.
+   * Mirrors matchMentor() but targets /api/ai/impactmatch/rank.
+   * The ImpactMatchService already pre-filtered by cost/location/category
+   * (LIMIT 15) to keep the LLM payload small and avoid token overflow.
+   */
+  async impactMatchRank(rankData: any) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/impactmatch/rank`, rankData, { timeout: 45000 })
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.error(`Error calling AI ImpactMatch Rank API: ${error.message}`);
+      throw new HttpException(
+        'Dịch vụ ghép nối AI đang tạm thời gián đoạn.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
    * AI COMMUNITY: Moderate user-generated content
    */
   async moderateContent(userId: string, text: string) {
@@ -810,6 +851,34 @@ export class AIService {
       this.logger.error(`Error calling AI Scholarship Check API: ${error.message}`);
       throw new HttpException(
         'AI Scholarship eligibility service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
+   * AI OPPORTUNITY RADAR (T2): NLP criteria extraction + semantic matching.
+   *
+   * Proxies the pre-filtered opportunity candidates + user profile to the
+   * ai-service POST /api/ai/opportunity/match endpoint. That endpoint extracts
+   * eligibility criteria (GPA, major, skills, language, experience) from each
+   * opportunity's text via the LLM, computes a match score (0–100) with a
+   * confidence (threshold 0.6), filters expired deadlines and builds a
+   * required-document checklist.
+   *
+   * Timeouts follow the AGENTS.md embedding budget rules — a slow provider
+   * must never starve the fallbacks or leave the radar empty.
+   */
+  async matchOpportunities(data: { user_profile: any; opportunities: any[] }) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/opportunity/match`, data, { timeout: 45000 })
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.error(`Error calling AI Opportunity Match API: ${error.message}`);
+      throw new HttpException(
+        'AI Opportunity Radar service is currently unavailable.',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
@@ -968,5 +1037,96 @@ export class AIService {
     }
 
     return response.data;
+  }
+
+  /**
+   * ─── AI Knowledge Graph (Idea #8) proxy methods ──────────────────────
+   * Forward to the FastAPI ai-service at /api/ai/knowledge/*.
+   * All methods degrade gracefully (return empty / degraded payload) when
+   * the ai-service is restarting (HF Spaces cold start) — never 503 the
+   * frontend, so the graph page shows an empty state instead of crashing.
+   */
+
+  /** GET /api/ai/knowledge/graph — returns {nodes, edges, meta} */
+  async getKnowledgeGraph(nodeTypes?: string[], limit = 500) {
+    const params = new URLSearchParams();
+    if (nodeTypes && nodeTypes.length) params.set("node_types", nodeTypes.join(","));
+    params.set("limit", String(limit));
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/knowledge/graph?${params.toString()}`, { timeout: 15000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`AI Knowledge Graph proxy failed: ${error.message}`);
+      return { nodes: [], edges: [], meta: {}, degraded: true, reason: error.message };
+    }
+  }
+
+  /** POST /api/ai/knowledge/query — 1-degree graph traversal */
+  async queryKnowledgeGraph(nodeId: string, edgeTypes?: string[], depth = 1, limit = 50) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/knowledge/query`, {
+          node_id: nodeId,
+          edge_types: edgeTypes,
+          depth,
+          limit,
+        }, { timeout: 15000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Knowledge Graph query proxy failed: ${error.message}`);
+      return { start_node: null, neighbors: [], edges: [],
+               meta: { degraded: true, reason: error.message } };
+    }
+  }
+
+  /** POST /api/ai/knowledge/suggest-partners — gợi ý tài trợ/đối tác phù hợp */
+  async suggestKnowledgePartners(query: string, limit = 10, focusType?: string) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/knowledge/suggest-partners`, {
+          query, limit, focus_type: focusType,
+        }, { timeout: 15000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Knowledge Graph suggest-partners proxy failed: ${error.message}`);
+      return { query, count: 0, suggestions: [], degraded: true, reason: error.message };
+    }
+  }
+
+  /** POST /api/ai/knowledge/extract — NLP entity extraction */
+  async extractEntities(text: string) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/knowledge/extract`, { text },
+          { timeout: 15000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Knowledge Graph extract proxy failed: ${error.message}`);
+      return { entities: [], linked_nodes: [], confidence: 0, degraded: true,
+               reason: error.message };
+    }
+  }
+
+  /** POST /api/ai/knowledge/seed — (re)build the graph from source tables */
+  async triggerKnowledgeGraphSync(background = false) {
+    try {
+      this.httpService.post(
+        `${this.aiServiceUrl}/api/ai/knowledge/seed?background=${background}`,
+        {},
+        { timeout: background ? 5000 : 60000 },
+      ).subscribe({
+        next: () => this.logger.log('Triggered knowledge graph sync'),
+        error: (err: any) => this.logger.warn(`Knowledge graph sync failed: ${err.message}`),
+      });
+      return { success: true, message: 'Đã kích hoạt đồng bộ knowledge graph.' };
+    } catch (error: any) {
+      this.logger.warn(`Failed to trigger knowledge graph sync: ${error.message}`);
+      return { success: false, message: error.message };
+    }
   }
 }
