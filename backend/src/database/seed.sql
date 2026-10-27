@@ -408,13 +408,15 @@ ON CONFLICT (id) DO NOTHING;
 SELECT setval('location_categories_id_seq', (SELECT MAX(id) FROM location_categories));
 
 -- Seed Scholarships
-INSERT INTO scholarships (title, description, provider, value_amount, deadline) VALUES 
-('Học bổng Toàn phần ASEAN 2026', 'Học bổng dành cho sinh viên xuất sắc khối ngành kỹ thuật tại Đông Nam Á.', 'Chính phủ Singapore', 50000.0, '2026-09-01'),
-('Quỹ Tài năng Trẻ EduMap', 'Hỗ trợ các dự án khởi nghiệp sáng tạo trong lĩnh vực giáo dục.', 'EduMap Foundation', 2000.0, '2026-07-15'),
-('Học bổng Lập trình viên Tương lai', 'Dành cho các bạn nữ có đam mê với lập trình và khoa học dữ liệu.', 'Google Vietnam', 5000.0, '2026-08-30'),
-('Học bổng Eureka 2026', 'Học bổng dành cho thí sinh xuất sắc tại cuộc thi Eureka 2026, khối ngành công nghệ thông tin và AI.', 'Eureka Organization', 10000.0, '2026-03-10'),
-('Học bổng P2A 2026', 'Học bổng hỗ trợ sinh viên tham gia P2A AI Appathon 2026, phát triển ứng dụng AI.', 'P2A Vietnam', 8000.0, '2026-04-05'),
-('Học bổng Innovation 2026', 'Học bổng dành cho dự án đổi mới giáo dục và thành phố thông minh tại Innovation Challenge 2026.', 'Innovation Fund', 12000.0, '2026-04-25')
+INSERT INTO scholarships (title, description, provider, value_amount, deadline, apply_url) VALUES
+ ('Học bổng Chính phủ Australia (Australia Awards)', 'Học bổng toàn phần bậc thạc sĩ tại Australia, do Chính phủ Australia tài trợ qua Aus4Skills. Kỳ intake 2027 đã đóng đơn ngày 30/4/2026.', 'Chính phủ Australia (Aus4Skills)', 0, '2027-04-30', 'https://australiaawardsvietnam.org/applicants/key-dates/'),
+ ('Học bổng Chevening (Vương quốc Anh)', 'Học bổng toàn phần thạc sĩ một năm tại Vương quốc Anh do Bộ Ngoại giao Anh tài trợ.', 'UK Government (FCDO)', 0, NULL, 'https://www.chevening.org/scholarship/vietnam/'),
+ ('Học bổng Fulbright Việt Nam', 'Chương trình học bổng thạc sĩ tại Hoa Kỳ do Chính phủ Hoa Kỳ và Việt Nam đồng tài trợ.', 'Fulbright Vietnam', 0, NULL, 'https://fulbright.edu.vn/'),
+ ('Học bổng MEXT của Chính phủ Nhật Bản', 'Học bổng du học sinh chính phủ Nhật Bản cho bậc đại học, thạc sĩ và nghiên cứu sinh.', 'Chính phủ Nhật Bản (MEXT)', 0, NULL, 'https://www.studyinjapan.go.jp/en/planning/scholarship/'),
+ ('Học bổng Chính phủ Hàn Quốc (GKS)', 'Global Korea Scholarship dành cho sinh viên quốc tế học tại Hàn Quốc, do NIIED quản lý.', 'Chính phủ Hàn Quốc (NIIED)', 0, NULL, 'https://www.studyinkorea.go.kr/en/sub/gks/allnew_invitation.do'),
+ ('Học bổng DAAD của CHLB Đức', 'Học bổng thạc sĩ, tiến sĩ và nghiên cứu ngắn hạn tại Đức do DAAD tài trợ.', 'DAAD Germany', 0, NULL, 'https://www.daad.de/en/study-and-research-in-germany/scholarships/'),
+ ('Học bổng Erasmus Mundus (EU)', 'Học bổng thạc sĩ liên kết châu Âu do Ủy ban châu Âu tài trợ.', 'European Commission', 0, NULL, 'https://erasmus-plus.ec.europa.eu/opportunities/opportunities-for-individuals/students/erasmus-mundus-joint-masters'),
+ ('Học bổng ASEAN của Singapore', 'Học bổng toàn phần cho học sinh/sinh viên ASEAN học tại Singapore, do MOE tuyển chọn.', 'Ministry of Education Singapore', 0, NULL, 'https://www.moe.gov.sg/financial-matters/awards-scholarships/asean-scholarship')
 ON CONFLICT DO NOTHING;
 
 -- Migrate Map Points to Locations (Ensure app sees the data)
@@ -423,19 +425,11 @@ SELECT id, name, description, type_id, location, address, city, status, created_
 FROM map_points
 ON CONFLICT (id) DO NOTHING;
 
--- Seed Career Data (Jobs, User Careers, User Skills, Applications)
+-- Seed Career Data (User Careers, User Skills, Applications)
 -- Using Business user 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306' and Student3 user '31e1fd5b-a1c6-44fe-a5c5-b12adad42001'
 
-INSERT INTO jobs (id, title, description, company_name, location, job_type, salary_range, required_skills, experience_level, status, posted_by_user_id) VALUES
-('b2345678-1234-1234-1234-123456789012', 'Software Engineer Intern', 'Thực tập sinh lập trình web Backend với Node.js và NestJS.', 'Công ty Cổ phần Sonadezi', 'Biên Hòa, Đồng Nai', 'internship', '3.000.000 - 5.000.000 VND', '["Node.js", "TypeScript", "PostgreSQL"]', 'Mới ra trường / Sinh viên', 'active', 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306'),
-('c3456789-1234-1234-1234-123456789012', 'Fullstack Developer', 'Lập trình viên Fullstack ReactJS và NestJS', 'Amata VN', 'KCN Amata, Biên Hòa', 'full_time', '15.000.000 - 25.000.000 VND', '["React", "Node.js", "Docker"]', '1-3 năm', 'active', 'd9c7edeb-0b15-4d26-8c40-f2bdcc902306')
-ON CONFLICT DO NOTHING;
 
--- --- Công việc mới 2026 ---
-INSERT INTO jobs (id, title, description, company_name, location, job_type, salary_range, required_skills, experience_level, application_deadline, views, status, posted_by_user_id, career_path_id, created_at, updated_at) VALUES
-  ('j20260001-0001-4000-8000-000000000001', 'AI Engineer (Machine Learning)', 'Tìm kiếm ML engineer có kinh nghiệm PyTorch, TensorFlow. Dự án AI trong giáo dục.', 'VNG Corporation', 'Quận 12, TP. Hồ Chí Minh', 'full_time', '25 - 40 triệu', '["python","pytorch","tensorflow","machine-learning","docker"]', '3-5 năm', '2026-06-30 23:59:59', 0, 'active', NULL, NULL, '2026-01-15 10:00:00', '2026-01-15 10:00:00'),
-  ('j20260001-0001-4000-8000-000000000002', 'Fullstack Developer (React/NestJS)', 'Phát triển ứng dụng web fullstack cho nền tảng giáo dục. Stack: React, NestJS, PostgreSQL.', 'FPT Software', 'Quận 1, TP. Hồ Chí Minh', 'full_time', '20 - 35 triệu', '["react","nestjs","postgresql","typescript","docker"]', '2-3 năm', '2026-07-15 23:59:59', 0, 'active', NULL, NULL, '2026-01-20 10:00:00', '2026-01-20 10:00:00'),
-  ('j20260001-0001-4000-8000-000000000003', 'Data Analyst Intern', 'Thực tập sinh phân tích dữ liệu, hỗ trợ bộ phận marketing và giáo dục.', 'EduMap Foundation', 'Biên Hòa, Đồng Nai', 'internship', 'Thỏa thuận', '["sql","python","pandas","tableau"]', 'Mới ra trường / Sinh viên', '2026-05-31 23:59:59', 0, 'active', NULL, NULL, '2026-02-01 10:00:00', '2026-02-01 10:00:00');
+-- Jobs are populated by scripts/crawl_jobs.py at runtime.
 
 INSERT INTO user_skills (id, user_id, skill_name, proficiency_level, description) VALUES
 ('d4567890-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'JavaScript', 'intermediate', 'Có 1 năm kinh nghiệm làm project trên trường.'),
@@ -457,7 +451,6 @@ VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', NULL, 'Chứng nhận Khóa họ
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO user_certificates (id, user_id, template_id, issued_at, verify_code, qr_url, pdf_url, blockchain_metadata, status) VALUES
-('c1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '2025-10-15', 'CERT-REACT-2025-001', '/api/certificates/verify-qr/CERT-REACT-2025-001', '/api/certificates/download/CERT-REACT-2025-001.pdf', '{"issuer":"EduMap Academy","tx_hash":"0xabc123"}', 'active'),
 ('d1234567-1234-1234-1234-123456789012', '31e1fd5b-a1c6-44fe-a5c5-b12adad42001', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '2025-08-30', 'CERT-VOL-2025-089', '/api/certificates/verify-qr/CERT-VOL-2025-089', '/api/certificates/download/CERT-VOL-2025-089.pdf', '{"issuer":"Hội Sinh Viên Tỉnh Đồng Nai","tx_hash":"0xdef456"}', 'active')
 ON CONFLICT (id) DO NOTHING;
 
@@ -467,7 +460,6 @@ INSERT INTO mentors (user_id, bio, specialties, experience_years, rating_avg, to
 ('44d1d199-b0da-4dc0-9580-d65c7217acdc', 'Full-stack Developer với chuyên môn sâu về React, Node.js và kiến trúc microservices.', '["Lập trình Web", "React", "Node.js", "Microservices"]', 8, 4.9, 200, 500000, true),
 ('2f64dbc8-9a2d-44ef-ab79-e0aee6f79630', 'Kỹ sư AI/ML tại tập đoàn công nghệ hàng đầu, chuyên về NLP và Computer Vision.', '["Trí tuệ nhân tạo", "Machine Learning", "Python", "Deep Learning"]', 9, 4.7, 120, 600000, true),
 ('8b77d9d4-9a15-4431-9ccb-ea01b4abf788', 'Data Engineer với kinh nghiệm xây dựng hệ thống xử lý dữ liệu lớn cho các ngân hàng thương mại.', '["Khoa học dữ liệu", "Big Data", "Python", "SQL"]', 7, 4.6, 90, 450000, true),
-('e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f', 'Nhà sáng lập EduMap, chuyên gia khởi nghiệp và đổi mới sáng tạo trong lĩnh vực EdTech.', '["Khởi nghiệp", "Chiến lược kinh doanh", "EdTech", "Gọi vốn"]', 12, 4.9, 80, 800000, true),
 ('aa49e56c-fc8e-4aa1-82de-01b6d00f3213', 'Giảng viên Đại học với 15 năm kinh nghiệm giảng dạy Toán học và Khoa học máy tính.', '["Toán học", "Khoa học máy tính", "Giảng dạy", "Thuật toán"]', 15, 4.8, 300, 200000, true),
 ('27515053-6cf9-4e78-91da-894e87ed526b', 'Chuyên gia Marketing số với chiến dịch từng đạt giải thưởng quốc gia về tiếp thị giáo dục.', '["Marketing số", "Content Marketing", "SEO", "Truyền thông"]', 8, 4.5, 60, 350000, true),
 ('610004e2-374e-4aba-8cbe-1bad85c471ef', 'Kỹ sư Cơ điện tử với kinh nghiệm thiết kế hệ thống tự động hóa cho các khu công nghiệp.', '["Cơ điện tử", "Tự động hóa", "IoT", "Robotics"]', 11, 4.7, 110, 400000, true),
@@ -476,14 +468,14 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- Seed International Programs
 INSERT INTO international_programs (id, title, type, description, host_country, organization, application_deadline, benefits, apply_url) VALUES
-('a1000001-0001-4000-8000-000000000001', 'Chương trình Trao đổi Sinh viên ASEAN 2026', 'exchange', 'Chương trình trao đổi học kỳ tại các trường đại học hàng đầu Đông Nam Á dành cho sinh viên xuất sắc.', 'Singapore', 'SEAMEO', '2026-09-30 23:59:59+07', '["Miễn học phí", "Hỗ trợ ký túc xá", "Trợ cấp sinh hoạt $500/tháng"]', 'https://seameo.org/exchange'),
-('a1000001-0001-4000-8000-000000000002', 'Học bổng Chính phủ Đức DAAD 2026', 'scholarship', 'Học bổng toàn phần cho bậc Thạc sĩ tại các trường đại học kỹ thuật hàng đầu nước Đức.', 'Đức', 'DAAD', '2026-08-15 23:59:59+07', '["100% học phí", "Vé máy bay khứ hồi", "Bảo hiểm y tế", "Trợ cấp €850/tháng"]', 'https://daad.de/scholarships'),
-('a1000001-0001-4000-8000-000000000003', 'Chương trình Thực tập Sinh viên Nhật Bản (JENESYS)', 'exchange', 'Chương trình giao lưu văn hóa và thực tập công nghệ tại các tập đoàn Nhật Bản.', 'Nhật Bản', 'JENESYS', '2026-07-01 23:59:59+07', '["Vé máy bay", "Chỗ ở miễn phí", "Học tiếng Nhật", "Thực tập tại doanh nghiệp"]', 'https://jenesys.jp/apply'),
-('a1000001-0001-4000-8000-000000000004', 'Học bổng Tiến sĩ toàn phần GSIS Hàn Quốc', 'scholarship', 'Học bổng toàn phần cho bậc Tiến sĩ tại các trường đại học thành viên GSIS Hàn Quốc.', 'Hàn Quốc', 'GSIS', '2026-10-31 23:59:59+07', '["100% học phí", "Trợ cấp nghiên cứu", "Bảo hiểm", "Ký túc xá"]', 'https://gsis.ac.kr/scholarship'),
-('a1000001-0001-4000-8000-000000000005', 'Workshop Khởi nghiệp Sáng tạo Silicon Valley 2026', 'workshop', 'Chương trình đào tạo khởi nghiệp 2 tuần tại Thung lũng Silicon dành cho startup trẻ Việt Nam.', 'Hoa Kỳ', 'VietTech Group', '2026-06-15 23:59:59+07', '["Mentor từ Big Tech", "Kết nối quỹ đầu tư", "Chứng chỉ hoàn thành", "Visa hỗ trợ"]', 'https://viettech.com/silicon-valley'),
-('a1000001-0001-4000-8000-000000000006', 'Học bổng Chính phủ Australia (AAS) 2027', 'scholarship', 'Học bổng phát triển do Chính phủ Australia tài trợ cho lãnh đạo trẻ các nước đang phát triển.', 'Australia', 'Australian Government', '2027-04-30 23:59:59+07', '["100% học phí", "Vé máy bay", "Trợ cấp định cư", "Bảo hiểm sức khỏe"]', 'https://australiaawards.gov.au'),
-('a1000001-0001-4000-8000-000000000007', 'Seminar Du học Châu Âu - EduMap 2026', 'seminar', 'Hội thảo trực tuyến với đại diện tuyển sinh từ 20 trường đại học hàng đầu châu Âu.', 'Trực tuyến', 'EduMap', '2026-05-20 23:59:59+07', '["Tư vấn 1-1", "Học bổng riêng", "Miễn phí đăng ký", "Quà tặng tài liệu"]', 'https://edumap.vn/intl/seminar'),
-('a1000001-0001-4000-8000-000000000008', 'Chương trình Thực tập tại Liên Hợp Quốc (UN Internship)', 'exchange', 'Thực tập 6 tháng tại các cơ quan Liên Hợp Quốc tại New York, Geneva, và Bangkok.', 'Hoa Kỳ', 'Liên Hợp Quốc', '2026-12-31 23:59:59+07', '["Trợ cấp $2,000/tháng", "Kinh nghiệm quốc tế", "Networking toàn cầu", "Chứng chỉ UN"]', 'https://careers.un.org/internship')
+ ('a1000001-0001-4000-8000-000000000001', 'AFS Vietnam — Giao lưu văn hóa quốc tế', 'exchange', 'Chương trình trao đổi văn hóa dành cho học sinh THPT Việt Nam sang học tập tại các nước đối tác.', 'Nhiều quốc gia', 'AFS Vietnam', NULL, 'Sống cùng gia đình bản xứ, học tại trường địa phương, hỗ trợ của mạng lưới AFS.', 'https://afsvietnam.org/'),
+ ('a1000001-0001-4000-8000-000000000002', 'DAAD Vietnam — Du học và nghiên cứu tại Đức', 'program', 'Văn phòng đại diện DAAD tại Việt Nam cung cấp học bổng và tư vấn du học Đức.', 'Đức', 'DAAD Vietnam', NULL, 'Học bổng thạc sĩ, tiến sĩ, nghiên cứu ngắn hạn và khóa học tiếng Đức.', 'https://www.daad.de/en/worldwide/daad-vietnam/'),
+ ('a1000001-0001-4000-8000-000000000003', 'JENESYS — Trao đổi thanh niên Nhật Bản – châu Á', 'exchange', 'Chương trình của Chính phủ Nhật Bản mời thanh niên các nước châu Á sang Nhật Bản giao lưu.', 'Nhật Bản', 'Government of Japan (MOFA)', NULL, 'Tài trợ chi phí đi lại, lưu trú và hoạt động giao lưu tại Nhật Bản.', 'https://www.mofa.go.jp/region/asia-paci/jenesys/'),
+ ('a1000001-0001-4000-8000-000000000004', 'YSEALI — Sáng kiến Lãnh đạo trẻ Đông Nam Á', 'fellowship', 'Chương trình của Bộ Ngoại giao Hoa Kỳ dành cho thanh niên 18–35 tuổi Đông Nam Á.', 'Hoa Kỳ', 'U.S. Department of State', NULL, 'Đào tạo lãnh đạo, mạng lưới cựu học viên, quỹ hạt giống cho dự án cộng đồng.', 'https://yseali.state.gov/'),
+ ('a1000001-0001-4000-8000-000000000005', 'Global UGRAD — Trao đổi đại học toàn cầu', 'exchange', 'Học bổng trao đổi một học kỳ tại Hoa Kỳ dành cho sinh viên đại học các nước.', 'Hoa Kỳ', 'U.S. Department of State (World Learning)', NULL, 'Miễn học phí, chỗ ở, sinh hoạt phí và vé máy bay.', 'https://exchanges.state.gov/us/program/global-undergraduate-exchange-program'),
+ ('a1000001-0001-4000-8000-000000000006', 'Erasmus+ — Trao đổi và hợp tác giáo dục châu Âu', 'exchange', 'Chương trình của Liên minh châu Âu hỗ trợ trao đổi sinh viên và hợp tác đại học.', 'EU', 'European Commission', NULL, 'Học bổng trao đổi ngắn hạn, thực tập và học bổng thạc sĩ liên kết EMJM.', 'https://erasmus-plus.ec.europa.eu/'),
+ ('a1000001-0001-4000-8000-000000000007', 'Campus France Vietnam — Du học Pháp', 'program', 'Cơ quan chính thức của Chính phủ Pháp về du học, học bổng và thủ tục visa.', 'Pháp', 'Campus France Vietnam', NULL, 'Tư vấn miễn phí, học bổng của Chính phủ Pháp và các trường, hỗ trợ visa.', 'https://www.vietnam.campusfrance.org/'),
+ ('a1000001-0001-4000-8000-000000000008', 'SEAMEO RIHED — Hợp tác giáo dục đại học Đông Nam Á', 'program', 'Trung tâm hợp tác giáo dục đại học khu vực Đông Nam Á, điều phối trao đổi sinh viên.', 'Đông Nam Á', 'SEAMEO RIHED', NULL, 'Mạng lưới đại học Đông Nam Á, học bổng và chương trình trao đổi ngắn hạn.', 'https://rihed.seameo.org/')
 ON CONFLICT DO NOTHING;
 
 
@@ -496,20 +488,11 @@ ON CONFLICT DO NOTHING;
 --  table on error — which hid these competitions whenever Devpost answered.)
 -- ============================================================
 INSERT INTO hackathons (id, title, description, start_date, end_date, status, created_at) VALUES
-  (uuid_generate_v4(), 'EduMap Smart Cities Hackathon 2026', 'Build solutions for smarter education using GIS, AI, and open data.', '2026-10-15 00:00:00', '2026-11-15 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
-  (uuid_generate_v4(), 'EduMap GreenTech Challenge', 'Hack for sustainable education solutions — green campuses, eco-apps, carbon tracking.', '2026-09-01 00:00:00', '2026-10-01 23:59:59', 'completed', CURRENT_TIMESTAMP),
-  (uuid_generate_v4(), 'EduMap AI Tutor Hackathon', 'Create AI-powered tutoring tools for personalized learning.', '2026-11-01 00:00:00', '2026-12-01 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
-  (uuid_generate_v4(), 'Eureka 2026 Hackathon', 'Eureka 2026 - Cuộc thi sáng tạo khoa học và công nghệ cho sinh viên Việt Nam.', '2026-03-15 00:00:00', '2026-03-20 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
-  (uuid_generate_v4(), 'P2A AI Appathon 2026', 'P2A - Phát triển ứng dụng AI 2026, lập trình ứng dụng AI giải quyết vấn đề thực tế.', '2026-04-10 00:00:00', '2026-04-12 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
-  (uuid_generate_v4(), 'Innovation Challenge 2026', 'Innovation Challenge 2026 - Giáo dục tương lai và thành phố thông minh.', '2026-05-05 00:00:00', '2026-05-08 23:59:59', 'upcoming', CURRENT_TIMESTAMP)
+  (uuid_generate_v4(), 'Techfest Vietnam 2026 — Hackathon & Demo Day', 'Phần thi hackathon và trình diễn giải pháp trong khuôn khổ Techfest Vietnam 2026 do Bộ Khoa học và Công nghệ chủ trì.', '2026-11-25 00:00:00', '2026-11-27 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'GDG DevFest Vietnam 2026 Hackathon', 'Hackathon cộng đồng trong khuôn khổ DevFest Vietnam 2026 của Google Developer Groups.', '2026-11-14 00:00:00', '2026-11-14 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'Google Solution Challenge 2027', 'Cuộc thi toàn cầu của Google dành cho sinh viên giải quyết 17 Mục tiêu Phát triển Bền vững.', '2027-01-15 00:00:00', '2027-06-30 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'Vietnam Innovation Challenge 2027', 'Chương trình tìm kiếm giải pháp đổi mới sáng tạo do Trung tâm Đổi mới sáng tạo Quốc gia (NIC) tổ chức.', '2027-03-01 00:00:00', '2027-03-31 23:59:59', 'upcoming', CURRENT_TIMESTAMP),
+  (uuid_generate_v4(), 'ASEAN Data Science Explorers 2027', 'Cuộc thi phân tích dữ liệu khu vực Đông Nam Á do Quỹ ASEAN và SAP tổ chức.', '2027-02-01 00:00:00', '2027-04-30 23:59:59', 'upcoming', CURRENT_TIMESTAMP)
 ON CONFLICT DO NOTHING;
 
--- === 48. Sample Jobs (replaces Adzuna/Ticketmaster external API) ===
-INSERT INTO jobs (id, title, description, company_name, location, job_type, salary_range, required_skills, experience_level, application_deadline, views, status, posted_by_user_id, career_path_id, created_at, updated_at) VALUES
-  ('b2345678-1234-1234-1234-123456789012', 'Software Engineer Intern', 'Thuc tap sinh phat trien phan mem tai cong ty Sonadezi.', 'Cong ty Co phan Sonadezi', 'Bien Ho, Dong Nai', 'internship', 'Thoa thuan', '[]', 'Sinh vien', '2025-03-31 23:59:59', 42, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('c3456789-1234-1234-1234-123456789012', 'Fullstack Developer', 'Phat trien ung dung web fullstack.', 'Amata VN', 'KCN Amata, Bien Ho', 'full_time', '15 - 30 trieu', '["nodejs","react","typescript"]', '2-3 nam', '2025-02-28 23:59:59', 18, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('a1b2c3d4-1111-4000-8000-000000000001', 'Backend Developer (Python/FastAPI)', 'Tim kiem developer co kinh nghiem voi Python, FastAPI, PostgreSQL. Cong ty fintech tai Quan 1, TP.HCM.', 'FPT Software', 'Quan 1, TP. Ho Chi Minh', 'full_time', '15 - 30 trieu', '["python","fastapi","postgresql","docker","aws"]', '2-3 nam', '2025-01-15 23:59:59', 42, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('a1b2c3d4-2222-4000-8000-000000000002', 'Frontend Developer (React.js)', 'Frontend developer voi React.js, TypeScript. Co hoi phat trien du an that cho sinh vien.', 'Toa nha FPT, Quan 10', 'Quan 10, TP. Ho Chi Minh', 'internship', 'Thoa thuan', '["react","typescript","javascript","html","css"]', 'Moi ra truong', '2025-01-20 23:59:59', 18, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('a1b2c3d4-3333-4000-8000-000000000003', 'Fullstack Developer (Node.js/React)', 'Phat trien ung dung web fullstack cho nen tai giao duc. Stack: Node.js, Express, React, PostgreSQL.', 'Truong Dai hoc Bach Khoa TP.HCM', 'Phu Tho, TP. Ho Chi Minh', 'full_time', '20 - 35 trieu', '["nodejs","react","postgresql","docker","nestjs"]', '3-5 nam', '2025-01-25 23:59:59', 7, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('a1b2c3d4-4444-4000-8000-000000000004', 'AI Engineer (Machine Learning)', 'Tim kiem ML engineer voi kinh nghiem PyTorch, TensorFlow. Du an AI trong giao duc.', 'VNG Corporation', 'Quan 12, TP. Ho Chi Minh', 'full_time', '25 - 40 trieu', '["python","pytorch","tensorflow","machine-learning","docker"]', '3-5 nam', '2025-01-30 23:59:59', 15, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00'),
-  ('a1b2c3d4-5555-4000-8000-000000000005', 'Mobile Developer (Flutter/Dart)', 'Phat trien app di dong da nen tang (iOS + Android) bang Flutter cho sinh vien.', 'Cong ty CTV CMC', 'Da Nang', 'full_time', '12 - 20 trieu', '["flutter","dart","mobile","firebase"]', '1-2 nam', '2025-02-01 23:59:59', 9, 'active', NULL, NULL, '2024-12-01 10:00:00', '2024-12-01 10:00:00');
+-- === 48. Jobs are crawled (no seeded demo postings) ===

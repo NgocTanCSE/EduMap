@@ -101,7 +101,33 @@ HF_TOKEN=<token> ./deploy-hf.sh
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
 
-## 6. Current known limitations on HF
+## 6. Data policy (verified Vietnamese content only)
+
+Users verified the live HF Space and reported the seeded feature data as
+fabricated. The following rules now apply to every feature:
+
+- **Source of truth:** `scripts/real_vn_data.py` — real Vietnamese or
+  Vietnam-facing organisations with official URLs and a `Kiểm chứng` date.
+- **Apply it:** `python3 scripts/migrate_real_data.py` (backs up to
+  `edumap.db.bak-realdata`, clears demo tables, inserts curated rows).
+- **Never** re-add `EduMap Foundation`, `EduMap Academy`, `EduMap Smart Cities
+  Hackathon`, `Test Campaign`, `Test activity`, `BBF Activity` or synthetic
+  mentors on `@edumap.vn`. `scripts/seed_edu_data.py` now refuses to run
+  unless `ALLOW_DEMO_SEED=1`.
+- **Volatile data is crawled, not seeded:** jobs come from
+  `scripts/crawl_jobs.py` (VietnamWorks; RemoteOK/Remotive are opt-in via
+  `CRAWL_INCLUDE_REMOTE=1`). `clean_text()` must preserve Vietnamese
+  diacritics — ASCII-folding was the cause of `Cong ty CTV CMC`-style rows.
+- **Honest empty states beat fake rows.** `posts`, `shared_items`, `surveys`,
+  `mentors`, `green_activities`, `summer_activities` are intentionally empty;
+  the UI shows an empty state instead of invented people/listings.
+- **Provenance is user-visible:** every description ends with
+  `Nguồn chính thức: <url> · Kiểm chứng: <date>`, and scholarship pages render
+  an “Nguồn chính thức ↗” link from `apply_url`.
+- `@edumap.vn` accounts (96) are **demo login accounts**, not feature content.
+  Keep `admin@edumap.vn` — it is the admin login on HF.
+
+## 7. Current known limitations on HF
 
 - AI chat history and uploads are ephemeral (`/tmp`).
 - Geo/PostGIS analytics is limited in SQLite mode.

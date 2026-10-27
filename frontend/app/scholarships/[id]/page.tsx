@@ -194,7 +194,7 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
           <div className="relative z-10 space-y-6">
             <div className="flex justify-between items-start mb-2">
               <span className="px-4 py-2 rounded-full bg-primary/20 text-primary/90 text-xs font-bold uppercase tracking-widest border border-primary/30">
-                {scholarship.provider || 'Tổ chức EduMap'}
+                {scholarship.provider || 'Đang cập nhật'}
               </span>
               <div className="flex items-center gap-2">
                 <BookmarkButton targetType="scholarships" targetId={scholarship.id} size="sm" />
@@ -260,18 +260,36 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
                 <div>
                   <h3 className="font-bold text-lg mb-2">Học bổng</h3>
                   <p className="text-sm text-muted-foreground/60">{scholarship.title}</p>
-                  <p className="text-xs text-muted-foreground/40 mt-1">{scholarship.provider || 'Tổ chức EduMap'}</p>
+                  <p className="text-xs text-muted-foreground/40 mt-1">{scholarship.provider || 'Đang cập nhật'}</p>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                     <DollarSign className="w-3.5 h-3.5 text-accent" />
-                    <span>{Number(scholarship.value_amount).toLocaleString()} USD</span>
+                    <span>
+                      {Number(scholarship.value_amount) > 0
+                        ? `${Number(scholarship.value_amount).toLocaleString()} USD`
+                        : 'Toàn phần / theo chương trình'}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                     <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span>Hạn nộp: {deadline.toLocaleDateString('vi-VN')}</span>
+                    <span>
+                      Hạn nộp: {deadline.getTime() > 0
+                        ? deadline.toLocaleDateString('vi-VN')
+                        : 'Xem trang chính thức'}
+                    </span>
                   </div>
+                  {scholarship.apply_url && (
+                    <a
+                      href={scholarship.apply_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs font-semibold text-primary hover:underline"
+                    >
+                      Nguồn chính thức ↗
+                    </a>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-border">

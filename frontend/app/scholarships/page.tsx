@@ -344,7 +344,7 @@ export default function ScholarshipPage() {
                       {item.title}
                     </h3>
                     <p className="text-xs text-primary/70 font-medium">
-                      {item.provider || 'Tổ chức EduMap'}
+                      {item.provider || 'Đang cập nhật'}
                     </p>
                   </div>
                   <BookmarkButton targetType="scholarships" targetId={item.id} size="sm" />
@@ -360,7 +360,10 @@ export default function ScholarshipPage() {
                     <DollarSign className="w-3.5 h-3.5 text-accent" /> {Number(item.value_amount).toLocaleString()} USD
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-primary" /> Hạn nộp: {new Date(item.deadline).toLocaleDateString()}
+                    <Clock className="w-3.5 h-3.5 text-primary" /> Hạn nộp:{' '}
+                    {item.deadline && new Date(item.deadline).getTime() > 0
+                      ? new Date(item.deadline).toLocaleDateString('vi-VN')
+                      : 'Xem trang chính thức'}
                   </span>
                 </div>
 

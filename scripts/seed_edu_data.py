@@ -91,6 +91,19 @@ def seed_internships(cur):
         """, (str(uuid.uuid4()), title, desc, field, salary, deadline, admin_id[0], 'open', datetime.now(), datetime.now()))
 
 def main():
+    # DEMO-ONLY SCRIPT (PostgreSQL). The production deployment is SQLite on
+    # Hugging Face Spaces and uses scripts/real_vn_data.py instead. This file
+    # contains fabricated organisations (EduMap Foundation, EduMap Academy, …)
+    # and must not run by accident.
+    import os as _os
+    if _os.getenv("ALLOW_DEMO_SEED", "0") not in ("1", "true", "True"):
+        print(
+            "⛔ seed_edu_data.py is a legacy DEMO seeder with fabricated rows.\n"
+            "   Production uses scripts/migrate_real_data.py (verified VN data).\n"
+            "   Set ALLOW_DEMO_SEED=1 only if you explicitly want the demo rows."
+        )
+        return
+
     conn = get_db_connection()
     if not conn:
         return

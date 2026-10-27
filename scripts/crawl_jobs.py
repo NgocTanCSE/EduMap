@@ -296,7 +296,7 @@ def crawl_topcv_html():
     return results
 
 
-def crawl_vietnamworks_html():
+def crawl_vietnamworks_html(url='https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'):
     """Fallback: scrape VietnamWorks (Next.js __NEXT_DATA__ JSON extraction).
 
     VietnamWorks is a Next.js site — the old JSON-in-HTML pattern no longer
@@ -306,7 +306,6 @@ def crawl_vietnamworks_html():
     Each job object has: jobTitle, company, location, salary, url,
     imageUrl, logoUrl — so we get the REAL per-company logo, not an index match.
     """
-    url = 'https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'
     raw = fetch_url(url, timeout=15)
     if not raw:
         return []
@@ -328,40 +327,66 @@ def crawl_vietnamworks_html():
         print("  [vietnamworks] Failed to parse __NEXT_DATA__ JSON")
         return []
 
-    # Navigate to outstandingJobs list
-    outstanding = next_data.get("props", {}).get("pageProps", {}).get("outstandingJobs", [])
-    if not outstanding or not isinstance(outstanding, list):
-        print(f"  [vietnamworks] outstandingJobs not found or empty (got {len(outstanding) if outstanding else 0} items)")
+    page_props = next_data.get("props", {}).get("pageProps", {}) or {}
+
+    # VietnamWorks renamed its lists over time; collect every job-shaped list.
+    outstanding = []
+    for key in ("outstandingJobs", "jobs", "jobList", "searchResults", "items"):
+        value = page_props.get(key)
+        if isinstance(value, list) and value:
+            outstanding.extend(value)
+    # Some deploys nest the list under data/results.
+    for key in ("data", "results"):
+        value = page_props.get(key)
+        if isinstance(value, dict):
+            for nested in ("jobs", "jobList", "items"):
+                if isinstance(value.get(nested), list):
+                    outstanding.extend(value[nested])
+
+    if not outstanding:
+        print("  [vietnamworks] no job list found in __NEXT_DATA__")
         return []
 
-    for job in outstanding[:30]:
+    seen = set()
+    for job in outstanding[:60]:
         if not isinstance(job, dict):
             continue
         title = job.get("jobTitle", "") or job.get("title", "")
         company = job.get("company", "")
+        if isinstance(company, dict):
+            company = company.get("name") or company.get("displayName") or company.get("companyName") or ""
         location = job.get("location", "Vietnam")
-        salary = job.get("salary") or job.get("prettySalary", "Thoa thuan")
-        job_url = job.get("url", "") or job.get("link", "")
+        if isinstance(location, dict):
+            location = location.get("name") or location.get("displayName") or "Việt Nam"
+        salary = job.get("salary") or job.get("prettySalary") or job.get("salaryRange")
+        job_url = job.get("url", "") or job.get("link", "") or job.get("jobUrl", "")
         # logoUrl is full-size company logo; imageUrl is thumbnail
         image_url = job.get("logoUrl") or job.get("imageUrl") or job.get("logo") or None
         # Ensure full URL
         if image_url and image_url.startswith("//"):
             image_url = "https:" + image_url
+        title = clean_text(title)
+        if len(title) < 3:
+            continue
+        dedup_key = f"{title}|{clean_text(company)}"
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
 
         results.append({
-            'title': clean_text(title) if title else 'Unknown',
-            'company_name': clean_text(company) if company else 'Unknown',
-            'location': clean_text(location) if location else 'Vietnam',
-            'salary_range': clean_text(str(salary)[:100]) if salary else 'Thoa thuan',
+            'title': title,
+            'company_name': clean_text(company) if company else 'Nhà tuyển dụng',
+            'location': clean_text(location) if location else 'Việt Nam',
+            'salary_range': clean_text(str(salary))[:100] if salary else 'Thỏa thuận',
             'description': clean_text(job.get("description", ""))[:500] if job.get("description") else '',
-            'job_type': 'full_time',
-            'required_skills': json.dumps([]),
-            'experience_level': clean_text(job.get("experienceLevel", "")) if job.get("experienceLevel") else 'Chua xac dinh',
+            'job_type': str(job.get("jobType") or job.get("type") or 'full_time').lower(),
+            'required_skills': json.dumps([], ensure_ascii=False),
+            'experience_level': clean_text(job.get("experienceLevel", "")) if job.get("experienceLevel") else 'Chưa xác định',
             'source_url': job_url if job_url else url,
             'image_url': image_url,
         })
     if results:
-        print(f"  VietnamWorks: extracted {len(results)} jobs (from outstandingJobs)")
+        print(f"  VietnamWorks: extracted {len(results)} jobs ({url})")
     return results
 
 
@@ -490,11 +515,21 @@ def crawl_adzuna():
 
 
 def clean_text(text):
-    """Unescape HTML entities and clean text."""
-    if not text:
+    """Unescape HTML entities and clean text, PRESERVING Vietnamese diacritics.
+
+    The previous implementation stripped every non-ASCII character, which
+    turned real Vietnamese job titles into unreadable strings such as
+    "Cong ty CTV CMC" / "Thoa thuan". SQLite stores UTF-8 natively, so there is
+    no reason to ASCII-fold. We only strip control characters and HTML tags.
+    """
+    if text is None:
         return ''
-    text = _html.unescape(text)
-    return re.sub(r'[^\x00-\x7f]', '', text)  # Remove non-ASCII for SQLite
+    text = _html.unescape(str(text))
+    # Drop HTML tags that sometimes leak into JSON/HTML scrapes.
+    text = re.sub(r'<[^>]{1,200}>', ' ', text)
+    # Remove control chars except tab/newline, then collapse whitespace.
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 def generate_uuid_from_seed(seed_str):
@@ -607,49 +642,67 @@ def main():
         print(f"  [error] TopCV: {e}")
 
     # --- Source 3: VietnamWorks (HTML / __NEXT_DATA__) ---
+    # The listing page exposes only 5 "outstandingJobs" per render, but each
+    # `?page=N` returns a different set, so paginate to collect real Vietnamese
+    # postings instead of a handful.
     print("\n📍 Crawling VietnamWorks HTML...")
-    try:
-        jobs = crawl_vietnamworks_html()
-        for job in jobs:
-            insert_job(cursor, job)
-            if cursor.rowcount > 0:
-                total_inserted += 1
-            else:
-                total_skipped += 1
-        conn.commit()
-        print(f"  VietnamWorks: {len(jobs)} jobs found")
-    except Exception as e:
-        print(f"  [error] VietnamWorks: {e}")
+    vnw_base = 'https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'
+    vnw_pages = int(os.getenv('VNW_PAGES', '12'))
+    vnw_seen = set()
+    vnw_total = 0
+    for page_no in range(1, vnw_pages + 1):
+        vnw_url = f"{vnw_base}?page={page_no}" if page_no > 1 else vnw_base
+        try:
+            jobs = crawl_vietnamworks_html(vnw_url)
+            for job in jobs:
+                key = f"{job.get('title')}|{job.get('company_name')}"
+                if key in vnw_seen:
+                    continue
+                vnw_seen.add(key)
+                insert_job(cursor, job)
+                vnw_total += 1
+            conn.commit()
+        except Exception as e:
+            print(f"  [error] VietnamWorks page {page_no}: {e}")
+        time.sleep(0.6)
+    total_inserted += vnw_total
+    print(f"  VietnamWorks: {vnw_total} unique Vietnamese jobs found")
 
-    # --- Source 4: RemoteOK (public API, no key) ---
-    print("\n📍 Crawling RemoteOK API...")
-    try:
-        jobs = crawl_remoteok_api()
-        for job in jobs:
-            insert_job(cursor, job)
-            if cursor.rowcount > 0:
-                total_inserted += 1
-            else:
-                total_skipped += 1
-        conn.commit()
-        print(f"  RemoteOK: {len(jobs)} jobs found")
-    except Exception as e:
-        print(f"  [error] RemoteOK: {e}")
+    # --- Source 4/5: global remote boards (opt-in only) ---
+    # EduMap is a Vietnam-first product: RemoteOK/Remotive return mostly
+    # non-Vietnamese remote roles that made the Jobs page feel fake/irrelevant.
+    # Set CRAWL_INCLUDE_REMOTE=1 if you explicitly want them.
+    include_remote = os.getenv('CRAWL_INCLUDE_REMOTE', '0') not in ('0', '', 'false', 'False')
+    if include_remote:
+        print("\n📍 Crawling RemoteOK API...")
+        try:
+            jobs = crawl_remoteok_api()
+            for job in jobs:
+                insert_job(cursor, job)
+                if cursor.rowcount > 0:
+                    total_inserted += 1
+                else:
+                    total_skipped += 1
+            conn.commit()
+            print(f"  RemoteOK: {len(jobs)} jobs found")
+        except Exception as e:
+            print(f"  [error] RemoteOK: {e}")
 
-    # --- Source 5: Remotive (public API, offset-paginated) ---
-    print("\n📍 Crawling Remotive API...")
-    try:
-        jobs = crawl_remotive()
-        for job in jobs:
-            insert_job(cursor, job)
-            if cursor.rowcount > 0:
-                total_inserted += 1
-            else:
-                total_skipped += 1
-        conn.commit()
-        print(f"  Remotive: {len(jobs)} jobs found")
-    except Exception as e:
-        print(f"  [error] Remotive: {e}")
+        print("\n📍 Crawling Remotive API...")
+        try:
+            jobs = crawl_remotive()
+            for job in jobs:
+                insert_job(cursor, job)
+                if cursor.rowcount > 0:
+                    total_inserted += 1
+                else:
+                    total_skipped += 1
+            conn.commit()
+            print(f"  Remotive: {len(jobs)} jobs found")
+        except Exception as e:
+            print(f"  [error] Remotive: {e}")
+    else:
+        print("\n⏭️  RemoteOK/Remotive skipped (set CRAWL_INCLUDE_REMOTE=1 to enable non-Vietnam remote jobs)")
 
     # --- Source 6 (env-gated): Adzuna Vietnam ---
     if ADZUNA_APP_ID and ADZUNA_APP_KEY:

@@ -10,6 +10,11 @@ export interface Scholarship {
   value_amount: number;
   deadline: string;
   requirements: any;
+  /** Official application page (provenance link shown in the UI). */
+  apply_url?: string;
+  eligibility_criteria?: string;
+  location?: string;
+  status?: string;
 }
 
 export interface EligibilityResponse {
