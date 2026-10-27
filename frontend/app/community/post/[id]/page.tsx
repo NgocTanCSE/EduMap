@@ -105,7 +105,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
     <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
         
-        <Link href="/community" className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors text-sm font-bold w-fit">
+        <Link href="/community" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
@@ -139,15 +139,15 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             </div>
 
             <div className="mt-8 pt-4 border-t border-border flex items-center gap-6">
-                <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/40 hover:text-primary transition-colors font-bold group">
+                <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors font-bold group">
                     <Heart size={20} className="group-active:scale-75 transition-transform" /> 
                     {post.like_count}
                 </button>
-                <div className="flex items-center gap-2 text-muted-foreground/40 font-bold">
+                <div className="flex items-center gap-2 text-muted-foreground/60 font-bold">
                     <MessageSquare size={20} /> 
                     {post.comment_count}
                 </div>
-                <button className="flex items-center gap-2 text-muted-foreground/40 hover:text-primary transition-colors font-bold ml-auto">
+                <button className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors font-bold ml-auto">
                     <Share2 size={20} />
                 </button>
             </div>
@@ -189,7 +189,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                         <button 
                             type="submit"
                             disabled={!authService.isLoggedIn() || submitting || !newComment.trim()}
-                            className="bg-primary hover:bg-primary/90 text-foreground font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                         >
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Gửi
                         </button>

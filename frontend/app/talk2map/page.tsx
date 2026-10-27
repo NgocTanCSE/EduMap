@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Search, X, MapPin, Star, Wifi, Clock, CalendarDays, ShoppingCart, GraduationCap, BookOpen, Leaf, Coffee } from 'lucide-react';
+import { Search, X, MapPin, Star, Wifi, Clock, CalendarDays, ShoppingCart, GraduationCap, BookOpen, Leaf, Coffee, Compass, Ruler } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
@@ -249,13 +249,19 @@ export default function Talk2MapPage() {
                 {/* Location + radius */}
                 <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
                   {result.parsed_query.location && (
-                    <span>📍 {result.parsed_query.location}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" /> {result.parsed_query.location}
+                    </span>
                   )}
                   {result.parsed_query.reference_location && (
-                    <span>🧭 Gần: {result.parsed_query.reference_location}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Compass className="h-3.5 w-3.5 shrink-0" /> Gần: {result.parsed_query.reference_location}
+                    </span>
                   )}
                   {result.parsed_query.radius_km && (
-                    <span>📏 Bán kính: {result.parsed_query.radius_km} km</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ruler className="h-3.5 w-3.5 shrink-0" /> Bán kính: {result.parsed_query.radius_km} km
+                    </span>
                   )}
                 </div>
               </div>
@@ -343,8 +349,9 @@ function PoiCard({ poi }: { poi: PoiResult }) {
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">{categoryLabel}</p>
           {poi.address && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-              📍 {poi.address}
+            <p className="mt-1 inline-flex items-start gap-1 text-xs text-muted-foreground line-clamp-2">
+              <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+              <span className="line-clamp-2">{poi.address}</span>
             </p>
           )}
           {poi.description && (

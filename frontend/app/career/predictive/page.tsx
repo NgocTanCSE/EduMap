@@ -98,7 +98,7 @@ export default function PredictiveCareerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Profile Analysis */}
@@ -114,7 +114,7 @@ export default function PredictiveCareerPage() {
            </div>
            <div className="flex-1 text-center md:text-left">
               <h1 className="text-2xl font-bold mb-2">Phân tích từ AI</h1>
-              <p className="text-sm text-muted-foreground/50 leading-relaxed mb-6">
+              <p className="text-sm text-muted-foreground/65 leading-relaxed mb-6">
                  Dựa trên lịch sử học tập, kỹ năng hiện tại và các tương tác của bạn trên hệ thống EduMap, AI đã mô phỏng các kịch bản nghề nghiệp phù hợp nhất.
               </p>
               <div className="flex gap-4 justify-center md:justify-start">
@@ -140,13 +140,13 @@ export default function PredictiveCareerPage() {
                       </div>
                       <div>
                          <h3 className="text-xl font-bold">{path.title}</h3>
-                         <p className="text-xs text-muted-foreground/40">{path.status} • {path.explanation}</p>
+                         <p className="text-xs text-muted-foreground/60">{path.status} • {path.explanation}</p>
                       </div>
                    </div>
                    <div className="flex items-center gap-8">
                       <div className="text-right">
                          <p className="text-3xl font-bold">{path.match_score}%</p>
-                         <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold">Match Score</p>
+                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-bold">Match Score</p>
                       </div>
                       <div className="w-12 h-12 rounded-full border border-border flex items-center justify-center group-hover:bg-muted/30 group-hover:text-foreground transition-all">
                          <ArrowRight className="w-5 h-5" />
@@ -155,7 +155,7 @@ export default function PredictiveCareerPage() {
                 </div>
               )) : (
                 <div className="p-10 text-center border border-dashed border-border rounded-xl">
-                   <p className="text-muted-foreground/30">AI chưa có đủ dữ liệu để phân tích. Hãy hoàn thành thêm các khóa học và cập nhật kỹ năng nhé!</p>
+                   <p className="text-muted-foreground/45">AI chưa có đủ dữ liệu để phân tích. Hãy hoàn thành thêm các khóa học và cập nhật kỹ năng nhé!</p>
                 </div>
               )}
            </div>
@@ -175,12 +175,12 @@ export default function PredictiveCareerPage() {
                       {skill}
                    </li>
                  )) || (
-                   <li className="text-sm text-muted-foreground/40 italic">Cập nhật kỹ năng để nhận gợi ý</li>
+                   <li className="text-sm text-muted-foreground/60 italic">Cập nhật kỹ năng để nhận gợi ý</li>
                  )}
               </ul>
               <button 
                 onClick={() => window.location.href = '/library'}
-                className="w-full mt-8 py-3 rounded-lg bg-primary hover:bg-primary/80 text-foreground text-xs font-bold transition-all"
+                className="w-full mt-8 py-3 rounded-lg bg-primary hover:bg-primary/80 text-primary-foreground text-xs font-bold transition-all"
               >
                  KHÁM PHÁ HỌC LIỆU
               </button>
@@ -193,7 +193,7 @@ export default function PredictiveCareerPage() {
               <div className="space-y-4">
                  <div className="p-4 rounded-xl bg-black/20 border border-border hover:bg-card/40 cursor-pointer transition-all">
                     <p className="text-xs font-bold">Lộ trình học tập cá nhân hóa</p>
-                    <p className="text-[10px] text-muted-foreground/40 mt-1">Dựa trên kịch bản {paths[0]?.title || 'nghề nghiệp'}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">Dựa trên kịch bản {paths[0]?.title || 'nghề nghiệp'}</p>
                  </div>
               </div>
            </div>

@@ -264,7 +264,11 @@ export default function ResourceOptimizerPage() {
         {result?.summary && (
           <div className="text-[10px] text-muted-foreground space-y-1">
             <div>Độ phức tạp: {result.summary.candidate_count} ứng cử viên · {result.summary.demand_count} điểm nhu cầu</div>
-            {result.summary.pre_filtered && <div>⚠ Đã lọc xuống ≤200 ứng cử viên</div>}
+            {result.summary.pre_filtered && (
+              <div className="flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> Đã lọc xuống ≤200 ứng cử viên
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Thời gian: {result.summary.elapsed_ms}ms</span>
               <span>Giải thuật: {result.summary.solver}</span>

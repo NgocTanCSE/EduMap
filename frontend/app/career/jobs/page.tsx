@@ -4,7 +4,6 @@ import { careerService } from '@/src/services/career.service';
 import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';
-import { jobIllustration } from '@/src/lib/illustrations';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function JobsPage() {
@@ -47,13 +46,13 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         <header className="space-y-4">
           <h1 className="text-2xl font-bold text-primary">
             Career Opportunities
           </h1>
-          <p className="text-muted-foreground/40">Discover jobs and courses tailored to your professional growth.</p>
+          <p className="text-muted-foreground/60">Discover jobs and courses tailored to your professional growth.</p>
         </header>
 
         {/* Search & Filter Bar */}
@@ -78,7 +77,7 @@ export default function JobsPage() {
               onChange={e => setSearchParams({...searchParams, location: e.target.value})}
             />
           </div>
-          <button type="submit" className="bg-primary hover:bg-yellow-700 px-8 py-3 rounded-xl font-bold transition-all shadow-lg">
+          <button type="submit" className="bg-primary hover:bg-primary/90 px-8 py-3 rounded-xl font-bold text-primary-foreground transition-all shadow-lg">
             Find Opportunities
           </button>
         </form>
@@ -93,13 +92,9 @@ export default function JobsPage() {
                 <div className="relative bg-card border border-border p-6 rounded-lg flex justify-between items-center hover:border-primary/50 transition-all hover:bg-card/50 group">
                   <BookmarkButton targetType="job" targetId={job.id} size="sm" className="absolute top-3 right-3 z-20" />
                   <div className="flex items-start gap-4 min-w-0">
-                    <div className="hidden sm:block w-14 h-14 shrink-0 rounded-lg overflow-hidden border border-border">
-                      <img
-                        src={jobIllustration(job.title, job.company_name)}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <span className="icon-tile hidden h-14 w-14 sm:flex" aria-hidden="true">
+                      <Briefcase className="h-5 w-5" />
+                    </span>
                     <div className="space-y-3 min-w-0">
                       <div className="flex items-center gap-2">
                           <span className="bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-primary/20">
@@ -108,7 +103,7 @@ export default function JobsPage() {
                           <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{job.title}</h3>
                       </div>
                       
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/40">
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/60">
                         <div className="flex items-center gap-1">
                           <Building2 size={16} />
                           <span>{job.company_name}</span>
@@ -125,7 +120,7 @@ export default function JobsPage() {
 
                       <div className="flex flex-wrap gap-2 pt-2">
                           {job.required_skills?.slice(0, 3).map((skill: string) => (
-                              <span key={skill} className="text-[10px] bg-card text-muted-foreground/40 px-2 py-1 rounded">
+                              <span key={skill} className="text-[10px] bg-card text-muted-foreground/60 px-2 py-1 rounded">
                                   {skill}
                               </span>
                           ))}

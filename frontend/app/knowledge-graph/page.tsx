@@ -194,7 +194,7 @@ export default function KnowledgeGraphPage() {
               </div>
             ) : graph.nodes.length === 0 ? (
               <div className="flex h-full w-full items-center justify-center text-center">
-                <Network className="h-12 w-12 text-muted-foreground/30 mb-2" />
+                <Network className="h-12 w-12 text-muted-foreground/45 mb-2" />
                 <div>
                   <p className="text-muted-foreground">Knowledge graph đang trống.</p>
                   <p className="text-sm text-muted-foreground/70">

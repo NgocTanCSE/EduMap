@@ -49,7 +49,7 @@ export default function LeaderboardPage() {
   const others = users.slice(3);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
@@ -58,7 +58,7 @@ export default function LeaderboardPage() {
             <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Vinh danh những nỗ lực</h1>
-          <p className="text-muted-foreground/40 max-w-2xl mx-auto">
+          <p className="text-muted-foreground/60 max-w-2xl mx-auto">
             Càng học tập, quyên góp và tham gia hoạt động cộng đồng, thứ hạng của bạn càng cao.
             Hãy cùng nhau xây dựng cộng đồng học tập tích cực!
           </p>
@@ -71,18 +71,18 @@ export default function LeaderboardPage() {
                 <div className="w-24 h-24 rounded-full border-4 border-primary/30 flex items-center justify-center bg-card/40">
                     <span className="text-3xl font-semibold text-primary">{progress.level}</span>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-white">LEVEL</div>
+                <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-primary-foreground">LEVEL</div>
             </div>
             
             <div className="flex-1 space-y-4 w-full text-center md:text-left">
                 <div className="flex justify-between items-end">
                     <div>
                         <h2 className="text-xl font-bold">Thứ hạng của bạn</h2>
-                        <p className="text-muted-foreground/40 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
+                        <p className="text-muted-foreground/60 text-xs">Bạn còn thiếu {progress.points_needed.toLocaleString()} XP để lên cấp {progress.level + 1}</p>
                     </div>
                     <div className="text-right">
                         <span className="text-2xl font-semibold text-foreground">{progress.points.toLocaleString()}</span>
-                        <span className="text-xs text-muted-foreground/40 font-bold ml-1">XP</span>
+                        <span className="text-xs text-muted-foreground/60 font-bold ml-1">XP</span>
                     </div>
                 </div>
                 
@@ -93,7 +93,7 @@ export default function LeaderboardPage() {
                     />
                 </div>
                 
-                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                     <span>Cấp độ {progress.level}</span>
                     <span className="text-primary">{progress.progress_percent}% hoàn thành</span>
                     <span>Cấp độ {progress.level + 1}</span>
@@ -118,7 +118,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div>
                         <p className="font-bold">{topThree[1].full_name}</p>
-                        <p className="text-xs text-muted-foreground/40">Level {topThree[1].level} • {topThree[1].points.toLocaleString()} XP</p>
+                        <p className="text-xs text-muted-foreground/60">Level {topThree[1].level} • {topThree[1].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
@@ -133,11 +133,11 @@ export default function LeaderboardPage() {
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
                             <Crown className="w-10 h-10 fill-primary" />
                         </div>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-foreground font-semibold px-4 py-1.5 rounded-lg text-base">#1</div>
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-primary-foreground font-semibold px-4 py-1.5 rounded-lg text-base">#1</div>
                     </div>
                     <div>
                         <p className="text-xl font-semibold text-primary">{topThree[0].full_name}</p>
-                        <p className="text-sm text-muted-foreground/40">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
+                        <p className="text-sm text-muted-foreground/60">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
@@ -156,7 +156,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div>
                         <p className="font-bold">{topThree[2].full_name}</p>
-                        <p className="text-xs text-muted-foreground/40">Level {topThree[2].level} • {topThree[2].points.toLocaleString()} XP</p>
+                        <p className="text-xs text-muted-foreground/60">Level {topThree[2].level} • {topThree[2].points.toLocaleString()} XP</p>
                     </div>
                 </div>
             )}
@@ -165,7 +165,7 @@ export default function LeaderboardPage() {
         {/* Others List */}
         <div className="bg-card border border-border rounded-lg overflow-hidden w-full mx-auto">
             <div className="p-6 border-b border-border flex justify-between items-center bg-card/20">
-                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/40">Bảng xếp hạng chi tiết</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">Bảng xếp hạng chi tiết</span>
                 <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
             </div>
             <div className="divide-y divide-white/5">
@@ -181,11 +181,11 @@ export default function LeaderboardPage() {
                             <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-primary' : ''}`}>
                                 {user.full_name} {user.id === currentUser?.id && '(Bạn)'}
                             </p>
-                            <p className="text-[10px] text-muted-foreground/40 uppercase font-semibold">Cấp độ {user.level}</p>
+                            <p className="text-[10px] text-muted-foreground/60 uppercase font-semibold">Cấp độ {user.level}</p>
                         </div>
                         <div className="text-right">
                             <p className="font-mono font-bold text-sm">{user.points.toLocaleString()}</p>
-                            <p className="text-[10px] text-muted-foreground/40 uppercase font-semibold">XP</p>
+                            <p className="text-[10px] text-muted-foreground/60 uppercase font-semibold">XP</p>
                         </div>
                     </div>
                 ))}

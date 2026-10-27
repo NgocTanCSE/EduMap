@@ -29,7 +29,7 @@ export default function AdminAuditLogsPage() {
   }, [meta.page]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -39,24 +39,24 @@ export default function AdminAuditLogsPage() {
               <Activity className="w-8 h-8" />
               Nhật ký Hoạt động
             </h1>
-            <p className="text-muted-foreground/40 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
           </div>
         </div>
 
         {/* Logs Table */}
         <div className="rounded-xl overflow-hidden border border-border bg-card/30">
           {loading ? (
-            <div className="p-20 text-center text-muted-foreground/40">Đang tải dữ liệu...</div>
+            <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>
           ) : (
             <>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-card/50">
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Thời gian</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Người thực hiện</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Hành động</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Tài nguyên</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Chi tiết</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Thời gian</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Người thực hiện</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Hành động</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Tài nguyên</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -75,7 +75,7 @@ export default function AdminAuditLogsPage() {
                            </div>
                            <div>
                               <p className="font-bold">{log.user?.full_name || 'Hệ thống'}</p>
-                              <p className="text-[10px] text-muted-foreground/30">{log.user?.email || ''}</p>
+                              <p className="text-[10px] text-muted-foreground/45">{log.user?.email || ''}</p>
                            </div>
                         </div>
                       </td>
@@ -90,7 +90,7 @@ export default function AdminAuditLogsPage() {
                            <span className="text-muted-foreground/60 uppercase text-[10px] font-bold">{log.resource}</span>
                         </div>
                       </td>
-                      <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground/40 italic">
+                      <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground/60 italic">
                         {JSON.stringify(log.new_data)}
                       </td>
                     </tr>
@@ -100,7 +100,7 @@ export default function AdminAuditLogsPage() {
 
               {/* Pagination */}
               <div className="p-6 border-t border-border flex justify-between items-center">
-                <p className="text-xs text-muted-foreground/40">
+                <p className="text-xs text-muted-foreground/60">
                   Hiển thị {logs.length} trên {meta.total} bản ghi
                 </p>
                 <div className="flex gap-2">

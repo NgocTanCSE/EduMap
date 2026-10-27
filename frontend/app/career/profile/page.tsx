@@ -2,9 +2,27 @@
 import React, { useState, useEffect } from 'react';
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
-import { Plus, Trash2, BrainCircuit, Target } from 'lucide-react';
-import { SkillProficiency } from '@/src/types/career-types';
+import { BrainCircuit, Loader2, Plus, Target, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import SectionHeader from '@/components/ui/SectionHeader';
+import EmptyState from '@/components/ui/EmptyState';
+
+/**
+ * Career profile — skills, goals and AI advice.
+ *
+ * UI sync notes: the page used to be an English island inside a Vietnamese
+ * app (headings, placeholders, toasts, even the proficiency <option> values
+ * were shown raw). All user-facing copy is now Vietnamese, the frame matches
+ * `page-shell`, and buttons use `text-primary-foreground` on the terracotta
+ * primary token instead of light-theme text.
+ */
+
+const PROFICIENCY_LABELS: Record<string, string> = {
+  beginner: 'Mới bắt đầu',
+  intermediate: 'Trung cấp',
+  advanced: 'Thành thạo',
+  expert: 'Chuyên gia',
+};
 
 export default function CareerProfilePage() {
   const [skills, setSkills] = useState<any[]>([]);
@@ -26,13 +44,13 @@ export default function CareerProfilePage() {
       setLoading(true);
       const [skillsData, aspirationsData] = await Promise.all([
         careerService.getUserSkills(),
-        careerService.getUserCareers()
+        careerService.getUserCareers(),
       ]);
       setSkills(skillsData);
       setAspirations(aspirationsData);
     } catch (err) {
       console.error('Error loading profile:', err);
-      setErrorMessage('Could not load profile data.');
+      setErrorMessage('Không tải được dữ liệu hồ sơ nghề nghiệp.');
     } finally {
       setLoading(false);
     }
@@ -44,9 +62,9 @@ export default function CareerProfilePage() {
       await careerService.addUserSkill(newSkill);
       setNewSkill({ skill_name: '', proficiency_level: 'beginner' });
       fetchProfileData();
-      toast.success('Skill added to your profile');
+      toast.success('Đã thêm kỹ năng vào hồ sơ');
     } catch (err) {
-      toast.error('Failed to add skill');
+      toast.error('Không thêm được kỹ năng');
     }
   };
 
@@ -54,9 +72,9 @@ export default function CareerProfilePage() {
     try {
       await careerService.deleteUserSkill(id);
       fetchProfileData();
-      toast.success('Skill removed');
+      toast.success('Đã xoá kỹ năng');
     } catch (err) {
-      toast.error('Failed to remove skill');
+      toast.error('Không xoá được kỹ năng');
     }
   };
 
@@ -66,9 +84,9 @@ export default function CareerProfilePage() {
       await careerService.addUserCareer(newAspiration);
       setNewAspiration({ goal_title: '', description: '' });
       fetchProfileData();
-      toast.success('Goal saved successfully');
+      toast.success('Đã lưu mục tiêu nghề nghiệp');
     } catch (err) {
-      toast.error('Failed to save goal');
+      toast.error('Không lưu được mục tiêu');
     }
   };
 
@@ -76,163 +94,219 @@ export default function CareerProfilePage() {
     try {
       setLoading(true);
       const advice = await careerService.getAIAdvice();
-      setAiAdvice(advice[0] || advice); // Gemini returns array or object
-      toast.success('AI Analysis complete!');
+      setAiAdvice(advice[0] || advice); // backend may return array or object
+      toast.success('AI đã phân tích xong');
     } catch (err) {
-      toast.error('AI was unable to process your request');
+      toast.error('AI tạm thời chưa xử lý được yêu cầu');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && skills.length === 0) return <div className="text-foreground text-center mt-20">Loading profile...</div>;
+  if (loading && skills.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-foreground/60">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải hồ sơ…
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
-      <div className="w-full mx-auto space-y-12">
-        <header className="flex justify-between items-center border-b border-border pb-6">
-          <h1 className="text-2xl font-bold">Career Profile</h1>
+    <main className="page-shell">
+      <SectionHeader
+        icon={BrainCircuit}
+        title="Hồ sơ nghề nghiệp"
+        subtitle="Ghi lại kỹ năng và mục tiêu để AI gợi ý lộ trình phù hợp."
+        right={
           <div className="text-right">
-             <p className="text-muted-foreground/40 text-sm">Managing aspirations for</p>
-             <p className="text-primary/70 font-medium">{authService.getUser()?.email}</p>
+            <p className="text-xs text-foreground/55">Đang quản lý cho</p>
+            <p className="text-sm font-medium text-primary">{authService.getUser()?.email}</p>
           </div>
-        </header>
+        }
+      />
 
-        {/* Skills Section */}
-        <section className="space-y-6 bg-card/30 p-6 rounded-lg border border-border">
-          <div className="flex items-center gap-2 text-2xl font-semibold text-primary/70">
-            <BrainCircuit />
-            <h2>Your Skills</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {skills.map(skill => (
-              <div key={skill.id} className="bg-card border border-border p-4 rounded-xl flex justify-between items-center transition-all hover:border-primary/50">
-                <div>
-                  <h3 className="font-bold text-foreground">{skill.skill_name}</h3>
-                  <p className="text-[10px] text-primary/70 uppercase tracking-widest font-bold mt-1">{skill.proficiency_level}</p>
+      {errorMessage && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </p>
+      )}
+
+      {/* Skills */}
+      <section className="card-surface space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <BrainCircuit className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Kỹ năng của bạn</h2>
+        </div>
+
+        {skills.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {skills.map((skill) => (
+              <div
+                key={skill.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/60 p-3"
+              >
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold text-foreground">{skill.skill_name}</h3>
+                  <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                    {PROFICIENCY_LABELS[skill.proficiency_level] || skill.proficiency_level}
+                  </p>
                 </div>
-                <button onClick={() => handleDeleteSkill(skill.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <Trash2 size={18} />
+                <button
+                  onClick={() => handleDeleteSkill(skill.id)}
+                  aria-label={`Xoá kỹ năng ${skill.skill_name}`}
+                  className="rounded-md p-1.5 text-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
-            {skills.length === 0 && <p className="text-muted-foreground italic col-span-2">No skills added yet.</p>}
           </div>
+        ) : (
+          <EmptyState
+            icon={<BrainCircuit className="h-6 w-6 text-foreground/30" />}
+            title="Chưa có kỹ năng nào"
+            description="Thêm kỹ năng đầu tiên để AI hiểu hồ sơ của bạn."
+          />
+        )}
 
-          <form onSubmit={handleAddSkill} className="flex gap-2 bg-card/40 p-2 rounded-xl border border-border">
-            <input 
-              type="text" 
-              placeholder="Add new skill (e.g., Python)" 
-              className="flex-1 bg-transparent rounded-lg px-4 py-2 focus:outline-none"
-              value={newSkill.skill_name}
-              onChange={e => setNewSkill({...newSkill, skill_name: e.target.value})}
-              required
-            />
-            <select 
-              className="bg-card border-none rounded-lg px-2 py-2 text-sm outline-none"
-              value={newSkill.proficiency_level}
-              onChange={e => setNewSkill({...newSkill, proficiency_level: e.target.value})}
-            >
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-              <option value="expert">Expert</option>
-            </select>
-            <button type="submit" className="bg-primary hover:bg-primary/90 p-2 rounded-lg transition-colors">
-              <Plus />
-            </button>
-          </form>
-        </section>
+        <form onSubmit={handleAddSkill} className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            placeholder="Thêm kỹ năng (ví dụ: Python)"
+            aria-label="Tên kỹ năng"
+            className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            value={newSkill.skill_name}
+            onChange={(e) => setNewSkill({ ...newSkill, skill_name: e.target.value })}
+            required
+          />
+          <select
+            aria-label="Mức độ thành thạo"
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+            value={newSkill.proficiency_level}
+            onChange={(e) => setNewSkill({ ...newSkill, proficiency_level: e.target.value })}
+          >
+            {Object.entries(PROFICIENCY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Thêm
+          </button>
+        </form>
+      </section>
 
-        {/* Aspirations Section */}
-        <section className="space-y-6 bg-card/30 p-6 rounded-lg border border-border">
-          <div className="flex items-center gap-2 text-2xl font-semibold text-primary/70">
-            <Target />
-            <h2>Career Aspirations</h2>
-          </div>
-          
-          <div className="space-y-4">
-            {aspirations.map(asp => (
-              <div key={asp.id} className="bg-card border border-border p-4 rounded-xl border-l-4 border-l-primary">
-                <h3 className="font-bold text-lg text-foreground">{asp.goal_title}</h3>
-                <p className="text-muted-foreground/40 text-sm mt-1">{asp.description}</p>
+      {/* Aspirations */}
+      <section className="card-surface space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Mục tiêu nghề nghiệp</h2>
+        </div>
+
+        {aspirations.length > 0 ? (
+          <div className="space-y-3">
+            {aspirations.map((asp) => (
+              <div key={asp.id} className="rounded-lg border border-border border-l-2 border-l-primary bg-background/60 p-3">
+                <h3 className="text-sm font-semibold text-foreground">{asp.goal_title}</h3>
+                {asp.description && (
+                  <p className="mt-1 text-xs leading-relaxed text-foreground/60">{asp.description}</p>
+                )}
               </div>
             ))}
-            {aspirations.length === 0 && <p className="text-muted-foreground italic">No career goals defined yet.</p>}
           </div>
+        ) : (
+          <EmptyState
+            icon={<Target className="h-6 w-6 text-foreground/30" />}
+            title="Chưa có mục tiêu nào"
+            description="Đặt mục tiêu nghề nghiệp để nhận lộ trình gợi ý."
+          />
+        )}
 
-          <form onSubmit={handleAddAspiration} className="space-y-4 bg-card/40 p-4 rounded-xl border border-border">
-            <input 
-              type="text" 
-              placeholder="Career goal (e.g., Senior Data Scientist)" 
-              className="w-full bg-transparent border-b border-border px-0 py-2 focus:outline-none focus:border-primary transition-colors"
-              value={newAspiration.goal_title}
-              onChange={e => setNewAspiration({...newAspiration, goal_title: e.target.value})}
-              required
-            />
-            <textarea 
-              placeholder="Brief description of your goal" 
-              className="w-full bg-transparent border-b border-border px-0 py-2 focus:outline-none focus:border-primary transition-colors"
-              value={newAspiration.description}
-              onChange={e => setNewAspiration({...newAspiration, description: e.target.value})}
-            />
-            <button type="submit" className="w-full bg-primary hover:bg-primary py-3 rounded-xl font-bold transition-all shadow-lg active:scale-[0.98]">
-              Add Career Goal
-            </button>
-          </form>
-        </section>
+        <form onSubmit={handleAddAspiration} className="space-y-3">
+          <input
+            type="text"
+            placeholder="Mục tiêu (ví dụ: Chuyên viên phân tích dữ liệu)"
+            aria-label="Mục tiêu nghề nghiệp"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            value={newAspiration.goal_title}
+            onChange={(e) => setNewAspiration({ ...newAspiration, goal_title: e.target.value })}
+            required
+          />
+          <textarea
+            placeholder="Mô tả ngắn về mục tiêu"
+            aria-label="Mô tả mục tiêu"
+            rows={2}
+            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            value={newAspiration.description}
+            onChange={(e) => setNewAspiration({ ...newAspiration, description: e.target.value })}
+          />
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Lưu mục tiêu
+          </button>
+        </form>
+      </section>
 
-        {/* AI Advice Section */}
-        <section className="bg-card border border-primary/30 p-8 rounded-xl space-y-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16" />
-          
-          <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-3 text-2xl font-semibold text-muted-foreground/70">
-              <BrainCircuit className="w-8 h-8 text-primary/70 animate-pulse" />
-              <h2>Career Mentor</h2>
-            </div>
-            <button 
-              onClick={handleGetAIAdvice}
-              disabled={loading}
-              className="bg-primary hover:bg-primary/90 px-8 py-3 rounded-full font-bold transition-all shadow-lg disabled:opacity-50"
-            >
-              {loading ? 'Analyzing...' : 'Generate New Advice'}
-            </button>
+      {/* AI advice */}
+      <section className="card-surface space-y-4 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Cố vấn nghề nghiệp AI</h2>
           </div>
+          <button
+            onClick={handleGetAIAdvice}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {loading ? 'Đang phân tích…' : 'Tạo gợi ý mới'}
+          </button>
+        </div>
 
-          {aiAdvice ? (
-            <div className="bg-black/60 p-8 rounded-lg space-y-6 border border-border relative z-10 backdrop-blur-sm">
-              <div>
-                <h3 className="text-2xl font-bold text-primary mb-2">{aiAdvice.title}</h3>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Match Score:</span>
-                    <span className="text-lg font-semibold text-primary">{aiAdvice.match_score}%</span>
-                </div>
-              </div>
-              
-              <p className="text-muted-foreground/60 leading-relaxed text-lg">{aiAdvice.explanation}</p>
-              
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h4 className="font-bold text-sm uppercase text-muted-foreground tracking-wider">Recommended Skills to Master:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {aiAdvice.missing_skills?.map((skill: string) => (
-                    <span key={skill} className="bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm border border-primary/20 font-medium">
-                      {skill}
-                    </span>
-                  ))}
-                  {(!aiAdvice.missing_skills || aiAdvice.missing_skills.length === 0) && <p className="text-muted-foreground text-sm italic">Hồ sơ của bạn đã rất hoàn thiện cho nghề này!</p>}
-                </div>
+        {aiAdvice ? (
+          <div className="space-y-4 rounded-lg border border-border bg-background/60 p-4">
+            <div>
+              <h3 className="text-base font-semibold text-primary">{aiAdvice.title}</h3>
+              <p className="mt-1 text-xs text-foreground/55">
+                Điểm phù hợp:{' '}
+                <span className="font-semibold text-foreground">{aiAdvice.match_score}%</span>
+              </p>
+            </div>
+
+            <p className="text-sm leading-relaxed text-foreground/70">{aiAdvice.explanation}</p>
+
+            <div className="space-y-2 border-t border-border pt-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/55">
+                Kỹ năng nên bổ sung
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {aiAdvice.missing_skills?.map((skill: string) => (
+                  <span
+                    key={skill}
+                    className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {(!aiAdvice.missing_skills || aiAdvice.missing_skills.length === 0) && (
+                  <p className="text-xs italic text-foreground/60">
+                    Hồ sơ của bạn đã rất phù hợp với nghề này.
+                  </p>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="py-12 text-center relative z-10">
-                <p className="text-muted-foreground/40 text-lg italic mb-2">"The best way to predict the future is to create it."</p>
-                <p className="text-muted-foreground">Let our AI analyze your current profile to suggest the most optimal career paths and skill upgrades.</p>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-foreground/55">
+            Nhấn “Tạo gợi ý mới” để AI phân tích hồ sơ và đề xuất lộ trình phù hợp.
+          </p>
+        )}
+      </section>
+    </main>
   );
 }

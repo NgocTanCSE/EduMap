@@ -267,7 +267,7 @@ export default function DataHunterPage() {
             <span>Danh sách ưu tiên khảo sát</span>
           </div>
           {topGaps.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground/50">Chưa có dữ liệu. Nhấn "Phân tích lại".</p>
+            <p className="text-[10px] text-muted-foreground/65">Chưa có dữ liệu. Nhấn "Phân tích lại".</p>
           ) : (
             <div className="space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
               {topGaps.map((f: any, i: number) => {

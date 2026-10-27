@@ -80,7 +80,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
   const [focused, setFocused] = useState(false);
   return (
     <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
       <input
         type="text"
         value={value}
@@ -88,7 +88,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholder="Tìm địa điểm (trường, thư viện, wifi ...)..."
-        className={`w-full pl-10 pr-3 py-2 text-sm text-foreground bg-card border rounded-lg outline-none transition-colors placeholder:text-muted-foreground/40 ${focused ? 'border-primary ring-1 ring-primary/20' : 'border-border'}`}
+        className={`w-full pl-10 pr-3 py-2 text-sm text-foreground bg-card border rounded-lg outline-none transition-colors placeholder:text-muted-foreground/60 ${focused ? 'border-primary ring-1 ring-primary/20' : 'border-border'}`}
       />
     </div>
   );
@@ -140,7 +140,7 @@ function CategoryChips({ categories, active, onSelect }: { categories: string[];
             onClick={() => onSelect(c)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full capitalize transition-all ${
               on
-                ? 'bg-primary text-foreground shadow'
+                ? 'bg-primary text-primary-foreground shadow'
                 : 'bg-muted/30 text-muted-foreground hover:bg-muted border-border'
             }`}
           >
@@ -190,7 +190,7 @@ function AiPanel({ open, onClose, analysis, loading }: {
             )}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground/40">Nhấn "Phân tích AI" trên bản đồ để nhận gợi ý địa điểm học tập quanh Biên Hòa.</p>
+          <p className="text-sm text-muted-foreground/60">Nhấn "Phân tích AI" trên bản đồ để nhận gợi ý địa điểm học tập quanh Biên Hòa.</p>
         )}
       </div>
     </div>
@@ -702,14 +702,14 @@ export default function MapPage() {
           <button
             onClick={isRecording ? stopVoiceSearch : startVoiceSearch}
             title="Tìm bằng giọng nói (Voice-to-Geo)"
-            className={`p-2 rounded-lg transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${isRecording ? 'bg-destructive text-destructive-foreground animate-pulse' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             title="Bật/tắt lớp nhiệt độ"
-            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <Flame className="w-4 h-4" />
           </button>
@@ -728,7 +728,7 @@ export default function MapPage() {
           <button
             onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
             title="Phân tích AI khu vực"
-            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <BrainCircuit className="w-4 h-4" />
           </button>
@@ -756,7 +756,7 @@ export default function MapPage() {
           <button
             onClick={() => setShowFeaturedPins(!showFeaturedPins)}
             title={showFeaturedPins ? 'Ẩn ghim đặc trưng' : 'Hiện ghim đặc trưng'}
-            className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+            className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? 'bg-primary text-primary-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <Star className="w-4 h-4" />
           </button>
@@ -851,7 +851,7 @@ export default function MapPage() {
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted-foreground/50 mt-2">Nhấn một địa điểm để tự động điền tên, loại, địa chỉ và tọa độ.</p>
+                <p className="text-[10px] text-muted-foreground/65 mt-2">Nhấn một địa điểm để tự động điền tên, loại, địa chỉ và tọa độ.</p>
               </div>
             )}
 
@@ -903,7 +903,7 @@ export default function MapPage() {
               <button
                 onClick={handleSavePin}
                 disabled={isSavingPin || !pinForm.name}
-                className="flex-1 h-10 text-sm font-semibold text-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 h-10 text-sm font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
               >
                 {isSavingPin ? <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <Save className="w-4 h-4" />}
                 {isSavingPin ? 'Đang lưu...' : 'Lưu địa điểm'}

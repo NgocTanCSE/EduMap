@@ -216,7 +216,7 @@ export default function GapPredictorPage() {
             <span>Bảng xếp hạng khu vực nguy cơ</span>
           </div>
           {riskRanking.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground/50">Chưa có dữ liệu.</p>
+            <p className="text-[10px] text-muted-foreground/65">Chưa có dữ liệu.</p>
           ) : (
             <div className="space-y-1">
               {riskRanking.map((r: any, i: number) => {

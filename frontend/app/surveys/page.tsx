@@ -27,7 +27,7 @@ export default function SurveysPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
@@ -65,7 +65,7 @@ export default function SurveysPage() {
                                 <h3 className="text-xl font-bold mb-4 group-hover:text-accent transition-colors line-clamp-2 flex-1">
                                     {survey.title}
                                 </h3>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground/40 mb-6 pt-4 border-t border-border">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground/60 mb-6 pt-4 border-t border-border">
                                     <Calendar className="w-4 h-4" /> Đăng ngày {new Date(survey.created_at).toLocaleDateString('vi-VN')}
                                 </div>
                                 <div className="flex items-center justify-between text-xs font-bold text-accent group-hover:translate-x-2 transition-transform w-fit">
@@ -78,7 +78,7 @@ export default function SurveysPage() {
             ) : (
                 <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                     <ClipboardList className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                    <p className="text-muted-foreground/40">Hiện tại không có cuộc khảo sát nào.</p>
+                    <p className="text-muted-foreground/60">Hiện tại không có cuộc khảo sát nào.</p>
                 </div>
             )}
         </div>

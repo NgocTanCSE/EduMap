@@ -94,15 +94,15 @@ export default function VolunteerPage() {
   const progress = Math.min(100, (totalHours / 50) * 100);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       
       {/* Log Activity Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
-                <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Plus className="text-primary w-6 h-6"/> Ghi nhận giờ</h3>
-                <p className="text-sm text-muted-foreground/40 mb-6">Thêm hoạt động tình nguyện mới của bạn vào hệ thống.</p>
+                <p className="text-sm text-muted-foreground/60 mb-6">Thêm hoạt động tình nguyện mới của bạn vào hệ thống.</p>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -163,11 +163,11 @@ export default function VolunteerPage() {
                     <button 
                         type="submit" 
                         disabled={submitting}
-                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-all shadow-lg disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all shadow-lg disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null} LƯU HOẠT ĐỘNG
                     </button>
-                    <p className="text-[10px] text-center text-muted-foreground/40"><ShieldCheck className="w-3 h-3 inline mr-1"/> Hệ thống sẽ cần phê duyệt sau khi lưu.</p>
+                    <p className="text-[10px] text-center text-muted-foreground/60"><ShieldCheck className="w-3 h-3 inline mr-1"/> Hệ thống sẽ cần phê duyệt sau khi lưu.</p>
                 </form>
             </div>
         </div>
@@ -202,7 +202,7 @@ export default function VolunteerPage() {
              <h3 className="font-bold text-foreground/80">Tổng giờ Tình nguyện</h3>
              
              <div className="w-full mt-6 space-y-2">
-                 <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground/40">
+                 <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground/60">
                      <span>Tiến độ chứng nhận</span>
                      <span className="text-primary">{totalHours}/50h</span>
                  </div>
@@ -241,7 +241,7 @@ export default function VolunteerPage() {
                                         {act.status === 'verified' ? 'Đã xác thực' : 'Đang chờ duyệt'}
                                     </span>
                                 </div>
-                                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground/40 mb-2">
+                                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground/60 mb-2">
                                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3"/> {new Date(act.date).toLocaleDateString('vi-VN')}</span>
                                     {act.campaign_name && <span className="flex items-center gap-1"><HeartHandshake className="w-3 h-3"/> {act.campaign_name}</span>}
                                 </div>
@@ -253,7 +253,7 @@ export default function VolunteerPage() {
             ) : (
                 <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                     <FileText className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                    <p className="text-muted-foreground/40 mb-4">Bạn chưa ghi nhận hoạt động tình nguyện nào.</p>
+                    <p className="text-muted-foreground/60 mb-4">Bạn chưa ghi nhận hoạt động tình nguyện nào.</p>
                     <button onClick={() => setShowForm(true)} className="px-6 py-2 rounded-xl border border-border hover:bg-card/20 text-sm font-bold transition-all">
                         Thêm hoạt động đầu tiên
                     </button>

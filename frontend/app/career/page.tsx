@@ -55,21 +55,21 @@ export default function CareerDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Hero Section */}
         <section className="bg-card p-6 rounded-lg border border-border">
           <div className="space-y-5">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Ignite Your <span className="text-primary">Professional Journey</span>
+              Khởi động <span className="text-primary">lộ trình nghề nghiệp</span> của bạn
             </h1>
             <div className="flex flex-wrap gap-4 pt-4">
               <Link href="/career/jobs" className="bg-card text-foreground px-8 py-4 rounded-lg font-semibold flex items-center gap-2 hover:bg-muted transition-all">
-                <Search size={20} /> Find Opportunities
+                <Search size={20} /> Tìm cơ hội
               </Link>
               <Link href="/career/profile" className="bg-card text-foreground border border-border px-8 py-4 rounded-lg font-semibold flex items-center gap-2 hover:bg-card/50 transition-all">
-                <UserCircle size={20} /> My Career Profile
+                <UserCircle size={20} /> Hồ sơ nghề nghiệp
               </Link>
             </div>
           </div>
@@ -80,9 +80,9 @@ export default function CareerDashboardPage() {
           {loading ? (
               <><StatSkeleton /><StatSkeleton /><StatSkeleton /></>
           ) : [
-            { label: 'Skills Mastered', value: stats.skillsCount, color: 'text-primary/70', icon: Rocket },
-            { label: 'Career Goals', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
-            { label: 'Applications', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
+            { label: 'Kỹ năng đã có', value: stats.skillsCount, color: 'text-primary/70', icon: Rocket },
+            { label: 'Mục tiêu nghề nghiệp', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
+            { label: 'Hồ sơ đã nộp', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
           ].map((stat, i) => (
             <div key={i} className="bg-card/50 border border-border p-8 rounded-xl flex items-center justify-between">
               <div className="space-y-1">
@@ -100,13 +100,13 @@ export default function CareerDashboardPage() {
           <section className="space-y-6">
             <div className="flex items-center gap-2 text-2xl font-bold">
               <Sparkles className="text-primary/70" />
-              <h2>AI Recommended Paths</h2>
+              <h2>Lộ trình AI gợi ý</h2>
             </div>
             <div className="space-y-4">
               {loading ? (
                   <><CardSkeleton /><CardSkeleton /></>
               ) : suggestions.length > 0 ? suggestions.map((s: any) => (
-                <Link key={s.career_id ?? s.title} href={s.career_id ? `/career/roadmap/${s.career_id}` : '#'} className="block">
+                <Link key={s.career_id ?? s.title} href="/career/roadmap" className="block">
                     <div className="bg-card border border-border p-5 rounded-lg flex items-center justify-between group hover:border-primary/50 transition-all">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary/70 font-bold border border-primary/20 text-xs">
@@ -122,7 +122,7 @@ export default function CareerDashboardPage() {
                 </Link>
               )) : (
                 <div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
-                    <p className="text-muted-foreground italic">No suggestions yet. Update your profile to see AI recommendations.</p>
+                    <p className="text-muted-foreground italic">Chưa có gợi ý. Cập nhật hồ sơ để AI đề xuất lộ trình phù hợp.</p>
                 </div>
               )}
             </div>
@@ -132,7 +132,7 @@ export default function CareerDashboardPage() {
           <section className="space-y-6">
             <div className="flex items-center gap-2 text-2xl font-bold">
               <TrendingUp className="text-primary/70" />
-              <h2>Newest Opportunities</h2>
+              <h2>Cơ hội mới nhất</h2>
             </div>
             <div className="space-y-4">
               {loading ? (
@@ -154,11 +154,11 @@ export default function CareerDashboardPage() {
                 </Link>
               )) : (
                 <div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
-                    <p className="text-muted-foreground italic">No new jobs available at the moment.</p>
+                    <p className="text-muted-foreground italic">Hiện chưa có tin tuyển dụng mới.</p>
                 </div>
               )}
-              <Link href="/career/jobs" className="text-muted-foreground/40 hover:text-foreground text-sm font-bold flex items-center gap-1 justify-center pt-2">
-                  View all opportunities <ChevronRight size={16} />
+              <Link href="/career/jobs" className="text-muted-foreground/60 hover:text-foreground text-sm font-bold flex items-center gap-1 justify-center pt-2">
+                  Xem tất cả cơ hội <ChevronRight size={16} />
               </Link>
             </div>
           </section>

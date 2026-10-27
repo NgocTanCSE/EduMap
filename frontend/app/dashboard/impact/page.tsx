@@ -255,7 +255,7 @@ export default function ImpactMeasurementPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-sky-600" />
+            <BarChart3 className="h-6 w-6 text-primary" />
             Đo lường Tác động AI
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -310,7 +310,7 @@ export default function ImpactMeasurementPage() {
       )}
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50/60 p-3 text-sm text-red-900">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -337,7 +337,7 @@ export default function ImpactMeasurementPage() {
             <div className="flex justify-center">
               <ScoreGaugeSvg />
             </div>
-            <p className={`text-xs mt-1 ${report.degraded ? "text-amber-600" : "text-emerald-600"}`}>
+            <p className={`text-xs mt-1 ${report.degraded ? "text-primary" : "text-accent"}`}>
               {report.degraded ? "Tính toán giảm tốc" : "Tính toán AI"}
             </p>
           </div>
@@ -371,7 +371,7 @@ export default function ImpactMeasurementPage() {
             <TrendSvg />
             <p className="mt-2 text-xs text-muted-foreground">
               {`Xu hướng: `}
-              <span className={`font-medium ${report.trend.trend === "tăng" ? "text-emerald-600" : report.trend.trend === "giảm" ? "text-red-600" : "text-muted-foreground"}`}>
+              <span className={`font-medium ${report.trend.trend === "tăng" ? "text-accent" : report.trend.trend === "giảm" ? "text-destructive" : "text-muted-foreground"}`}>
                 {report.trend.trend} ({fmtPct(report.trend.growth_rate_pct)})
               </span>
             </p>
@@ -381,7 +381,7 @@ export default function ImpactMeasurementPage() {
             <div className="grid grid-cols-3 gap-2 text-center">
               <div><p className="text-2xl font-bold">{fmtNumber(report.people_in_radius?.before)}</p><p className="text-xs text-muted-foreground">Trước</p></div>
               <div><p className="text-2xl font-bold">{fmtNumber(report.people_in_radius?.after)}</p><p className="text-xs text-muted-foreground">Sau</p></div>
-              <div className={`text-2xl font-bold ${report.people_in_radius?.delta >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+              <div className={`text-2xl font-bold ${report.people_in_radius?.delta >= 0 ? "text-accent" : "text-destructive"}`}>
                 {(report.people_in_radius?.delta >= 0 ? "+" : "") + fmtNumber(report.people_in_radius?.delta)}
                 <p className="text-xs text-muted-foreground font-normal">Chênh lệch</p>
               </div>

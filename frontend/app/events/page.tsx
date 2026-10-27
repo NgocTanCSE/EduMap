@@ -94,11 +94,11 @@ export default function EventsListPage() {
                     <BookmarkButton targetType="event" targetId={event.id} size="sm" className="absolute top-3 right-3 z-10" />
                   </div>
                   <CardHeader>
-                    <CardTitle className="text-base line-clamp-2 group-hover:text-primary transition-colors">
+                    <CardTitle className="min-h-[2.75rem] text-base line-clamp-2 group-hover:text-primary transition-colors">
                       {event.title}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-foreground/60">
+                  <CardContent className="flex flex-1 flex-col space-y-2 text-sm text-foreground/60">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary" />
                       {startDate.toLocaleDateString('vi-VN')} ·{' '}
@@ -126,7 +126,7 @@ export default function EventsListPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 text-xs font-medium text-primary">
+                    <div className="mt-auto flex items-center justify-between pt-2 text-xs font-medium text-primary">
                       CHI TIẾT <ArrowRight className="w-3 h-3" />
                     </div>
                   </CardContent>

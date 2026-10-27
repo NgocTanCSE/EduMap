@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
             Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến <strong>{email}</strong>.
           </p>
           <Link href="/auth">
-            <button className="w-full h-12 rounded-xl bg-primary text-foreground font-bold hover:bg-primary/80 transition-all">
+            <button className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/80 transition-all">
               Quay lại đăng nhập
             </button>
           </Link>
@@ -59,19 +59,19 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-card/50 border border-border rounded-xl p-8 ">
-        <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors mb-8 text-sm group">
+        <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors mb-8 text-sm group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Quay lại
         </Link>
 
         <h1 className="text-3xl font-semibold mb-2 tracking-tight">Quên mật khẩu?</h1>
-        <p className="text-muted-foreground/50 mb-8 text-sm">
+        <p className="text-muted-foreground/65 mb-8 text-sm">
           Nhập email của bạn và chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest px-1">Email hệ thống</label>
+            <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest px-1">Email hệ thống</label>
             <div className="relative group">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/20 group-focus-within:text-primary transition-colors" />
               <input
@@ -94,7 +94,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-14 bg-primary hover:bg-primary text-foreground rounded-lg font-bold shadow-lg  transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-14 bg-primary hover:bg-primary text-primary-foreground rounded-lg font-bold shadow-lg  transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

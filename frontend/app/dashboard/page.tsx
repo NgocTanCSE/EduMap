@@ -70,7 +70,7 @@ export default function DashboardPage() {
     return (
       <main className="w-full min-h-full px-6 py-10 md:px-8">
         <div className="mx-auto max-w-xl rounded-lg border border-border bg-card p-8 text-center shadow-sm">
-          <User className="mx-auto h-10 w-10 text-muted-foreground/40" />
+          <User className="mx-auto h-10 w-10 text-muted-foreground/60" />
           <h1 className="mt-4 text-2xl font-semibold">Chào bạn!</h1>
           <p className="mt-2 text-sm text-muted-foreground/70">
             Đăng nhập để quản lý tài khoản, xem thống kê và hoạt động của bạn
@@ -165,7 +165,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/65">
             Thống kê nhanh
           </h2>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                     <Icon className="h-4 w-4" />
                   </div>
                   <p className="text-xl font-semibold text-primary">{s.value}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/65">
                     {s.title}
                   </p>
                 </div>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
             Lịch mentoring sắp tới
           </h2>
           {mentoring.length === 0 ? (
-            <p className="text-sm text-muted-foreground/50">
+            <p className="text-sm text-muted-foreground/65">
               Chưa có lịch mentoring nào.
             </p>
           ) : (
@@ -243,7 +243,7 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground/50">
+            <p className="text-sm text-muted-foreground/65">
               Chưa có gợi ý nào hôm nay.
             </p>
           )}

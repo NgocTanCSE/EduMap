@@ -293,9 +293,9 @@ export default function CartPage() {
                             className="h-full w-full object-cover"
                           />
                         ) : product ? (
-                          <ShoppingCart className="h-8 w-8 text-muted-foreground/30" />
+                          <ShoppingCart className="h-8 w-8 text-muted-foreground/45" />
                         ) : (
-                          <GraduationCap className="h-8 w-8 text-muted-foreground/30" />
+                          <GraduationCap className="h-8 w-8 text-muted-foreground/45" />
                         )}
                       </div>
 

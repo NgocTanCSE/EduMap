@@ -942,7 +942,7 @@ export default function AITrendsPage() {
       {!hasData ? (
         error ? null : (
           <div className="rounded-xl border border-border bg-card p-10 text-center">
-            <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground/50" />
+            <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground/65" />
             <h2 className="mt-4 text-lg font-semibold text-foreground">
               Chưa có dữ liệu xu hướng
             </h2>

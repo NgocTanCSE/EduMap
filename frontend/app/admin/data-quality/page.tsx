@@ -45,9 +45,9 @@ const CATEGORY_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const PRIORITY_COLORS = {
-  high: 'bg-red-500/20 text-red-400 border-red-500/30',
-  medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  high: 'bg-destructive/20 text-destructive border-destructive/30',
+  medium: 'bg-primary/20 text-primary border-primary/30',
+  low: 'bg-accent/20 text-accent border-accent/30',
 };
 
 const ANOMALY_TYPE_LABELS: Record<string, string> = {
@@ -138,7 +138,7 @@ export default function AdminDataQualityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex justify-between items-end">
@@ -173,12 +173,12 @@ export default function AdminDataQualityPage() {
                 <div className="text-2xl font-bold text-primary">{report.summary.total_checked}</div>
                 <div className="text-xs text-muted-foreground/60">Tổng POI kiểm tra</div>
               </div>
-              <div className="p-6 rounded-xl bg-red-500/10 border border-red-500/20">
-                <div className="text-2xl font-bold text-red-400">{report.summary.total_anomalies}</div>
+              <div className="p-6 rounded-xl bg-destructive/10 border border-destructive/20">
+                <div className="text-2xl font-bold text-destructive">{report.summary.total_anomalies}</div>
                 <div className="text-xs text-muted-foreground/60">Điểm bất thường</div>
               </div>
               <div className="p-6 rounded-xl bg-card/50 border border-border">
-                <div className="text-2xl font-bold text-amber-400">{report.summary.anomaly_rate}%</div>
+                <div className="text-2xl font-bold text-primary">{report.summary.anomaly_rate}%</div>
                 <div className="text-xs text-muted-foreground/60">Tỷ lệ anomaly</div>
               </div>
               <div className="p-6 rounded-xl bg-card/50 border border-border">
@@ -238,7 +238,7 @@ export default function AdminDataQualityPage() {
           </div>
 
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
             <input
               type="text"
               placeholder="Tìm kiếm theo tên, địa chỉ, loại lỗi..."
@@ -260,7 +260,7 @@ export default function AdminDataQualityPage() {
               URL.revokeObjectURL(url);
               toast.success('Đã xuất file CSV');
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-foreground rounded-lg font-bold text-sm hover:bg-primary/80 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-sm hover:bg-primary/80 transition-all"
           >
             <Download className="w-4 h-4" />
             Xuất CSV
@@ -273,7 +273,7 @@ export default function AdminDataQualityPage() {
           <div className="bg-card/30 border border-border rounded-xl overflow-hidden">
             <div className="p-4 border-b border-border bg-card/50 flex items-center justify-between">
               <h2 className="font-bold flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <AlertTriangle className="w-4 h-4 text-destructive" />
                 Danh sách Anomaly ({filteredAnomalies.length})
               </h2>
               <span className="text-xs text-muted-foreground/60">
@@ -304,7 +304,7 @@ export default function AdminDataQualityPage() {
                           </span>
                         </td>
                         <td className="p-3">
-                          <div className="font-medium">{a.name || <i className="text-muted-foreground/40">Không tên</i>}</div>
+                          <div className="font-medium">{a.name || <i className="text-muted-foreground/60">Không tên</i>}</div>
                           <div className="text-xs text-muted-foreground/60">
                             {a.address || a.city || '—'}
                           </div>
@@ -312,7 +312,7 @@ export default function AdminDataQualityPage() {
                         <td className="p-3">
                           <div className="flex flex-wrap gap-1">
                             {a.anomaly_types.map((t) => (
-                              <span key={t} className="px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs">
+                              <span key={t} className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs">
                                 {ANOMALY_TYPE_LABELS[t] || t}
                               </span>
                             ))}
@@ -321,7 +321,7 @@ export default function AdminDataQualityPage() {
                         <td className="p-3 text-right">
                           <span className="font-bold">{Math.round(a.confidence * 100)}%</span>
                           {a.iforest_score !== null && (
-                            <div className="text-xs text-muted-foreground/40">
+                            <div className="text-xs text-muted-foreground/60">
                               IF: {a.iforest_score}
                             </div>
                           )}
@@ -414,7 +414,7 @@ function MapComponentWithAnomalies({ points }: { points: any[] }) {
               </div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {pt.anomaly_types.map((t: string) => (
-                  <span key={t} className="text-xs bg-red-500/20 text-red-400 px-1 rounded">
+                  <span key={t} className="text-xs bg-destructive/20 text-destructive px-1 rounded">
                     {ANOMALY_TYPE_LABELS[t] || t}
                   </span>
                 ))}

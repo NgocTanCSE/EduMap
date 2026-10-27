@@ -72,19 +72,19 @@ export default function MentorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Header & AI Match */}
         <div className="bg-card p-10 rounded-lg border border-border flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
             <div className="relative z-10 space-y-4 max-w-xl">
                 <h1 className="text-2xl font-semibold">EduMap Mentor Hub</h1>
-                <p className="text-muted-foreground/40">Connect with industry experts, get 1-on-1 guidance, and accelerate your career growth with personalized mentorship.</p>
+                <p className="text-muted-foreground/60">Connect with industry experts, get 1-on-1 guidance, and accelerate your career growth with personalized mentorship.</p>
                 <div className="pt-4">
                     <button 
                         onClick={handleAiMatch}
                         disabled={isAiMatching}
-                        className="bg-primary hover:bg-primary/90 text-foreground px-8 py-4 rounded-lg font-semibold flex items-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 rounded-lg font-semibold flex items-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                         <BrainCircuit className={isAiMatching ? "animate-pulse" : ""} />
                         {isAiMatching ? 'Gemini AI is Matching...' : 'Find My Perfect Mentor with AI'}
@@ -110,7 +110,7 @@ export default function MentorPage() {
             <section className="space-y-6">
                 <div className="flex items-center gap-2 text-2xl font-bold">
                     <Sparkles className="text-primary/70" />
-                    <h2>Top AI Matches For You</h2>
+                    <h2>Cố vấn phù hợp với bạn</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {aiMatches.map((match: any, idx: number) => {
@@ -161,7 +161,7 @@ export default function MentorPage() {
             <button 
                 key={cat} 
                 onClick={() => setActiveCategory(cat)}
-                className={`px-6 py-2.5 rounded-xl border text-sm font-bold transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-card text-foreground border-border' : 'bg-transparent border-border text-muted-foreground/40 hover:text-foreground hover:border-border'}`}
+                className={`px-6 py-2.5 rounded-xl border text-sm font-bold transition-all whitespace-nowrap ${activeCategory === cat ? 'bg-card text-foreground border-border' : 'bg-transparent border-border text-muted-foreground/60 hover:text-foreground hover:border-border'}`}
             >
               {cat}
             </button>
@@ -198,7 +198,7 @@ export default function MentorPage() {
                             <span className="text-xs font-semibold">{mentor.rating_avg || 5.0}</span>
                         </div>
                         </div>
-                        <p className="text-muted-foreground/40 text-sm mb-3 line-clamp-1">{mentor.bio || "EduMap Verified Mentor"}</p>
+                        <p className="text-muted-foreground/60 text-sm mb-3 line-clamp-1">{mentor.bio || "EduMap Verified Mentor"}</p>
                         <div className="flex flex-wrap gap-2">
                         {mentor.specialties?.slice(0, 3).map((skill: string) => (
                             <span key={skill} className="px-2 py-1 rounded bg-card/40 border border-border text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">{skill}</span>
@@ -212,7 +212,7 @@ export default function MentorPage() {
                   <Link href={`/mentor/${mentor.user_id}`} className="py-3 rounded-xl bg-card/40 border border-border text-xs font-bold hover:bg-black/60 transition-colors flex items-center justify-center gap-2">
                     <UserCheck className="w-4 h-4" /> Xem Hồ Sơ
                   </Link>
-                  <Link href={`/mentor/${mentor.user_id}?action=book`} className="py-3 rounded-xl bg-primary hover:bg-primary text-foreground text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]">
+                  <Link href={`/mentor/${mentor.user_id}?action=book`} className="py-3 rounded-xl bg-primary hover:bg-primary text-primary-foreground text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]">
                     <Calendar className="w-4 h-4" /> Đặt Lịch
                   </Link>
                 </div>

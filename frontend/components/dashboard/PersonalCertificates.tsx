@@ -110,7 +110,7 @@ export function PersonalCertificates() {
                 </p>
 
                 <div className="mt-4 space-y-1.5 border-t border-border pt-3">
-                  <p className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/50">
+                  <p className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/65">
                     <Hash className="h-3 w-3" /> {cert.verify_code}
                   </p>
                   <p className="text-[10px] text-muted-foreground/60">
@@ -140,7 +140,7 @@ export function PersonalCertificates() {
         <div className="rounded-lg border border-dashed border-border py-10 text-center">
           <Award className="mx-auto mb-3 h-10 w-10 text-muted-foreground/20" />
           <p className="text-sm text-muted-foreground/60">Bạn chưa có chứng chỉ nào.</p>
-          <p className="mt-1 text-xs text-muted-foreground/40">
+          <p className="mt-1 text-xs text-muted-foreground/60">
             Hoàn thành khóa học hoặc dự án để nhận chứng chỉ.
           </p>
         </div>

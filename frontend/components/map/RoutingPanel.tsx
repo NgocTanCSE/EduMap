@@ -180,7 +180,7 @@ export default function RoutingPanel({
         </h3>
         <button
           onClick={onClearRoute}
-          className="text-muted-foreground/50 hover:text-muted-foreground p-1 rounded-lg hover:bg-muted/30 transition-colors"
+          className="text-muted-foreground/65 hover:text-muted-foreground p-1 rounded-lg hover:bg-muted/30 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -225,7 +225,7 @@ export default function RoutingPanel({
         <button
           onClick={onSwap}
           disabled={!origin && !destination}
-          className="mx-auto flex items-center justify-center text-muted-foreground/50 hover:text-foreground disabled:opacity-50"
+          className="mx-auto flex items-center justify-center text-muted-foreground/65 hover:text-foreground disabled:opacity-50"
         >
           <ArrowRightLeft className="w-5 h-5" />
         </button>
@@ -495,7 +495,7 @@ export default function RoutingPanel({
                       <span>•</span>
                       <span>{formatDuration(route.duration)}</span>
                       {route.estimated && (
-                        <span className="text-xs text-muted-foreground/50 italic">
+                        <span className="text-xs text-muted-foreground/65 italic">
                           (ước tính)
                         </span>
                       )}
@@ -562,7 +562,7 @@ export default function RoutingPanel({
                       <div className="text-xs text-muted-foreground/70 truncate">
                         {r.origin.lat.toFixed(4)}, {r.origin.lng.toFixed(4)} → {r.destination.lat.toFixed(4)}, {r.destination.lng.toFixed(4)}
                       </div>
-                      <div className="text-[10px] text-muted-foreground/50 mt-0.5">
+                      <div className="text-[10px] text-muted-foreground/65 mt-0.5">
                         {formatDuration(r.info.duration)} • {formatDistance(r.info.distance)}
                         {' • ' + new Date(r.saved_at).toLocaleDateString('vi-VN')}
                       </div>

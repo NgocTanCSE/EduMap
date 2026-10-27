@@ -195,7 +195,7 @@ export default function ScholarshipPage() {
           <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">
             <button
               onClick={() => setShowApplyModal(false)}
-              className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground"
+              className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground"
             >
               <X className="w-5 h-5" />
             </button>
@@ -229,7 +229,7 @@ export default function ScholarshipPage() {
                     placeholder="https://drive.google.com/... (dán link CV nếu có)"
                     className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
                   />
-                  <div className="text-xs text-muted-foreground/40">Hoặc tải CV lên máy chủ (PDF, DOC, DOCX - tối đa 10MB):</div>
+                  <div className="text-xs text-muted-foreground/60">Hoặc tải CV lên máy chủ (PDF, DOC, DOCX - tối đa 10MB):</div>
                   <FileUpload
                     accept=".pdf,.doc,.docx"
                     label="Tải lên CV của bạn"
@@ -245,12 +245,12 @@ export default function ScholarshipPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2"
+                className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2"
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                 {submitting ? 'ĐANG GỬI HỒ SƠ...' : 'XÁC NHẬN NỘP ĐƠN'}
               </button>
-              <p className="text-[10px] text-center text-muted-foreground/40 mt-2">
+              <p className="text-[10px] text-center text-muted-foreground/60 mt-2">
                 EduMap sẽ đính kèm thêm dữ liệu thành tích và hoạt động ngoại khóa của bạn từ hệ thống.
               </p>
             </form>
@@ -292,7 +292,7 @@ export default function ScholarshipPage() {
             </div>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground/40 mt-2">Hỗ trợ PDF bảng điểm máy tính (text-based). File scan/OCR sẽ được cập nhật trong phiên bản sau.</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-2">Hỗ trợ PDF bảng điểm máy tính (text-based). File scan/OCR sẽ được cập nhật trong phiên bản sau.</p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -308,7 +308,7 @@ export default function ScholarshipPage() {
               onClick={() => setActiveFilter(tab)}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
                 activeFilter === tab
-                  ? 'bg-primary border-primary text-foreground'
+                  ? 'bg-primary border-primary text-primary-foreground'
                   : 'bg-card border-border text-foreground/60 hover:bg-foreground/5'
               }`}
             >
@@ -333,7 +333,7 @@ export default function ScholarshipPage() {
               key={item.id}
               className="p-5 flex flex-col md:flex-row gap-5 border-border hover:border-primary/30 transition-colors"
             >
-              <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-xl font-bold text-foreground shrink-0">
+              <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-xl font-bold text-primary-foreground shrink-0">
                 {item.provider?.charAt(0) || 'S'}
               </div>
 
@@ -398,7 +398,7 @@ export default function ScholarshipPage() {
                 </Button>
                 <Button
                   onClick={() => openApplyModal(item)}
-                  className="w-full py-3 rounded-lg bg-primary text-foreground text-[11px] font-bold"
+                  className="w-full py-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold"
                 >
                   Nộp đơn ngay
                 </Button>

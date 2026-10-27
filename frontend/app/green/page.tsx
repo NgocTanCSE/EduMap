@@ -1,23 +1,56 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { ILLUSTRATIONS, onImageError } from '@/src/lib/illustrations';
-import { Leaf, Clock, Camera, CheckCircle, Info, ArrowRight, ShieldCheck, MapPin, Loader2, UploadCloud } from 'lucide-react';
+import {
+  ArrowRight,
+  Camera,
+  CheckCircle,
+  Clock,
+  Info,
+  Leaf,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  UploadCloud,
+  X,
+} from 'lucide-react';
 import { greenService, GreenChallenge } from '@/src/services/green.service';
 import { gamificationService, UserProgress } from '@/reporting/services/gamification.service';
 import { authService } from '@/src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import SectionHeader from '@/components/ui/SectionHeader';
+import EmptyState from '@/components/ui/EmptyState';
 import { toast } from 'sonner';
+
+/**
+ * Green challenges + proof submission.
+ *
+ * UI sync notes (design-system pass):
+ *  - Emoji were used as icons (in <option> labels and empty states). The
+ *    select is now plain Vietnamese text and every visual marker is a lucide
+ *    vector icon.
+ *  - Challenge covers fall back to a vector `Leaf` tile instead of an
+ *    `ILLUSTRATIONS.community` raster file.
+ *  - Cards are `card-equal` with the CTA pinned via `card-footer`, so the
+ *    buttons line up across a row; stat tiles share one surface + icon tile.
+ */
+
+const ACTIVITY_OPTIONS = [
+  { value: 'RECYCLE', label: 'Phân loại & tái chế rác' },
+  { value: 'TREE_PLANTING', label: 'Trồng cây xanh' },
+  { value: 'PUBLIC_TRANSPORT', label: 'Sử dụng phương tiện công cộng' },
+  { value: 'ENERGY_SAVING', label: 'Tiết kiệm năng lượng' },
+];
 
 export default function GreenPage() {
   const [challenges, setChallenges] = useState<GreenChallenge[]>([]);
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Form states
   const [activityType, setActivityType] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [mockProofUrl, setMockProofUrl] = useState(''); // To simulate uploaded image
+  const [mockProofUrl, setMockProofUrl] = useState(''); // demo proof image
 
   useEffect(() => {
     fetchInitialData();
@@ -28,7 +61,7 @@ export default function GreenPage() {
       setLoading(true);
       const [challengesData, progressData] = await Promise.all([
         greenService.getChallenges(),
-        authService.isLoggedIn() ? gamificationService.getMyProgress() : Promise.resolve(null)
+        authService.isLoggedIn() ? gamificationService.getMyProgress() : Promise.resolve(null),
       ]);
       setChallenges(challengesData);
       setProgress(progressData);
@@ -40,8 +73,8 @@ export default function GreenPage() {
   };
 
   const handleMockUpload = () => {
-    setMockProofUrl('/images/default-content.svg');  // placeholder branded, local static asset (served by HF /public)
-    toast.success('Đã tải ảnh lên thành công (Mock)');
+    setMockProofUrl('/images/default-content.svg'); // placeholder asset served by HF /public
+    toast.success('Đã đính kèm ảnh minh chứng mẫu (bản demo)');
   };
 
   const handleSubmitProof = async () => {
@@ -68,177 +101,252 @@ export default function GreenPage() {
     }
   };
 
+  const stats = [
+    {
+      icon: Leaf,
+      value: `${((progress as any)?.carbon_saved || 0).toFixed(1)}kg`,
+      label: 'CO₂ đã tiết kiệm',
+    },
+    {
+      icon: Clock,
+      value: `${((progress as any)?.volunteer_hours || 0).toFixed(1)}h`,
+      label: 'Tình nguyện cộng đồng',
+    },
+    {
+      icon: ShieldCheck,
+      value: String(progress?.points || 0),
+      label: 'Điểm tích luỹ xanh',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
-      <div className="w-full mx-auto space-y-12">
-        
-        {/* Header Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-8 rounded-xl bg-primary/10 border border-accent/20">
-            <Leaf className="w-8 h-8 text-primary mb-4" />
-            <h3 className="text-3xl font-bold">{((progress as any)?.carbon_saved || 0).toFixed(1)}kg</h3>
-            <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">CO2 đã tiết kiệm</p>
+    <main className="page-shell">
+      <SectionHeader
+        icon={Leaf}
+        title="Thử thách xanh"
+        subtitle="Tham gia hoạt động bảo vệ môi trường, nộp minh chứng và nhận điểm thưởng."
+      />
+
+      {/* Stats — same surface, same icon tile, same text alignment */}
+      <div className="card-grid">
+        {stats.map(({ icon: Icon, value, label }) => (
+          <div key={label} className="card-surface flex items-start gap-3 p-5">
+            <span className="icon-tile h-10 w-10">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold leading-tight text-foreground">{value}</p>
+              <p className="mt-0.5 text-xs font-medium text-foreground/60">{label}</p>
+            </div>
           </div>
-          <div className="p-8 rounded-xl bg-primary/10 border border-primary/20">
-            <Clock className="w-8 h-8 text-primary mb-4" />
-            <h3 className="text-3xl font-bold">{((progress as any)?.volunteer_hours || 0).toFixed(1)}h</h3>
-            <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">Tình nguyện cộng đồng</p>
-          </div>
-          <div className="p-8 rounded-xl bg-primary/10 border border-primary/20">
-            <ShieldCheck className="w-8 h-8 text-primary/80 mb-4" />
-            <h3 className="text-3xl font-bold">{progress?.points || 0}</h3>
-            <p className="text-sm text-primary/60 font-medium uppercase tracking-wider">Điểm tích lũy xanh</p>
-          </div>
+        ))}
+      </div>
+
+      {/* Green challenges */}
+      <section aria-labelledby="green-challenges" className="space-y-3">
+        <div className="border-b border-border pb-2.5">
+          <h2 id="green-challenges" className="text-sm font-semibold text-foreground">
+            Thử thách đang mở
+          </h2>
+          <p className="mt-0.5 text-xs text-foreground/55">
+            Hoàn thành thử thách để nhận điểm XP và đóng góp vào bảng xếp hạng.
+          </p>
         </div>
 
-        {/* Green Challenges Grid */}
-        <div>
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Thử thách Xanh</h2>
-              <p className="text-muted-foreground/40 text-sm">Tham gia bảo vệ môi trường và nhận điểm thưởng.</p>
-            </div>
-            <button className="text-primary text-sm font-bold flex items-center gap-2 hover:gap-3 transition-all">
-              Xem tất cả <ArrowRight className="w-4 h-4" />
-            </button>
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-          
-          {loading ? (
-             <div className="flex justify-center py-10">
-                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
-             </div>
-          ) : challenges.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {challenges.map(item => (
-                <div key={item.id} className="group relative rounded-xl overflow-hidden border border-border bg-card hover:border-accent/30 transition-all">
-                  <div className="aspect-[21/9] relative">
-                    <img src={item.image_url || ILLUSTRATIONS.community} alt={item.title} onError={onImageError(ILLUSTRATIONS.community)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <BookmarkButton targetType="green" targetId={item.id} size="sm" className="absolute top-3 right-3 z-10" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+        ) : challenges.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {challenges.map(item => (
+              <article
+                key={item.id}
+                className="card-surface card-equal group overflow-hidden transition-colors hover:border-primary/40"
+              >
+                <div className="relative aspect-[21/9] shrink-0 overflow-hidden bg-primary/10">
+                  {item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    // Vector placeholder — no raster illustration, no emoji
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Leaf aria-hidden="true" className="h-10 w-10 text-primary/25" />
+                    </div>
+                  )}
+                  <BookmarkButton targetType="green" targetId={item.id} size="sm" className="absolute right-3 top-3 z-10" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent" />
+                </div>
+
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
+                      {item.title}
+                    </h3>
+                    <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      +{item.points} XP
+                    </span>
                   </div>
-                  <div className="p-6 relative">
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold">{item.title}</h3>
-                      <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold">+{item.points} XP</span>
-                    </div>
-                    <div className="flex gap-4 mb-6">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
-                        <Leaf className="w-3 h-3 text-primary" /> {(item.carbon_saved_kg || 0).toFixed(1)}kg CO2
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground/50">
-                        <CheckCircle className="w-3 h-3 text-primary" /> {item.participants_count || 0} tham gia
-                      </div>
-                    </div>
-                    <button className="w-full py-3 rounded-lg bg-card text-foreground font-bold text-sm hover:bg-primary/80 transition-colors">
+
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground/55">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Leaf className="h-3.5 w-3.5 text-primary" />
+                      {(item.carbon_saved_kg || 0).toFixed(1)}kg CO₂
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle className="h-3.5 w-3.5 text-accent" />
+                      {item.participants_count || 0} người tham gia
+                    </span>
+                  </div>
+
+                  <div className="card-footer">
+                    <span className="text-xs text-foreground/45">Thử thách xanh</span>
+                    <button className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
                       Tham gia ngay
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-10 bg-card border border-border rounded-xl text-muted-foreground/40">
-                Chưa có thử thách nào đang diễn ra.
-            </div>
-          )}
-        </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="card-surface border-dashed">
+            <EmptyState
+              icon={<Leaf className="h-7 w-7 text-foreground/30" />}
+              title="Chưa có thử thách nào đang diễn ra"
+              description="Các chiến dịch mới sẽ xuất hiện tại đây khi được ban tổ chức công bố."
+            />
+          </div>
+        )}
+      </section>
 
-        {/* Volunteer Log Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <div className="p-8 rounded-xl bg-card border border-border">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <Camera className="w-5 h-5 text-primary" />
-              Nộp minh chứng Sống Xanh
-            </h2>
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs text-muted-foreground/40 mb-2 uppercase font-bold">Loại hoạt động</label>
-                <select 
-                  className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none transition-colors"
-                  value={activityType}
-                  onChange={(e) => setActivityType(e.target.value)}
-                >
-                    <option value="">Chọn loại hoạt động...</option>
-                    <option value="RECYCLE">♻️ Phân loại & Tái chế rác</option>
-                    <option value="TREE_PLANTING">🌳 Trồng cây xanh</option>
-                    <option value="PUBLIC_TRANSPORT">🚌 Sử dụng phương tiện công cộng</option>
-                    <option value="ENERGY_SAVING">💡 Tiết kiệm năng lượng</option>
-                </select>
-              </div>
-              
-              <div>
-                  <label className="block text-xs text-muted-foreground/40 mb-2 uppercase font-bold">Mô tả thêm (Tùy chọn)</label>
-                  <textarea 
-                    rows={2} 
-                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-accent outline-none transition-colors resize-none" 
-                    placeholder="VD: Tôi đã phân loại 2kg rác nhựa hôm nay..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-              </div>
+      {/* Proof submission + guidance */}
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section className="card-surface p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+            <Camera className="h-4 w-4 text-primary" />
+            Nộp minh chứng sống xanh
+          </h2>
 
-              <div>
-                <label className="block text-xs text-muted-foreground/40 mb-2 uppercase font-bold">Minh chứng (Hình ảnh)</label>
-                {!mockProofUrl ? (
-                    <div 
-                        onClick={handleMockUpload}
-                        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-accent/50 hover:bg-primary/5 cursor-pointer transition-all group"
-                    >
-                    <UploadCloud className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2 group-hover:text-primary transition-colors" />
-                    <p className="text-xs text-muted-foreground/40 group-hover:text-muted-foreground/60">Nhấn để tải ảnh minh chứng lên</p>
-                    </div>
-                ) : (
-                    <div className="relative rounded-lg overflow-hidden border border-border aspect-video">
-                        <img src={mockProofUrl} alt="Proof" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setMockProofUrl('')}>
-                            <p className="text-sm font-bold text-destructive">Xóa ảnh</p>
-                        </div>
-                    </div>
-                )}
-              </div>
-              
-              <button 
-                onClick={handleSubmitProof}
-                disabled={submitting || !activityType || !mockProofUrl}
-                className="w-full py-4 rounded-lg bg-accent hover:bg-primary disabled:bg-card disabled:shadow-none text-foreground font-bold text-sm transition-all shadow-lg shadow-accent/20 flex justify-center items-center gap-2"
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="activity-type" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground/55">
+                Loại hoạt động
+              </label>
+              <select
+                id="activity-type"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value)}
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {submitting ? 'ĐANG XỬ LÝ...' : 'GỬI CHO AI KIỂM DUYỆT'}
-              </button>
+                <option value="">Chọn loại hoạt động…</option>
+                {ACTIVITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
 
-          <div className="space-y-6">
-            <div className="p-6 rounded-xl bg-primary/5 border border-accent/10">
-              <div className="flex gap-4 items-start">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <ShieldCheck className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h4 className="font-bold mb-2 text-sm">Quy trình duyệt tự động bởi AI</h4>
-                  <p className="text-xs text-muted-foreground/40 leading-relaxed">
-                    Ảnh minh chứng sẽ được AI tự động kiểm duyệt. Các trường hợp chưa rõ sẽ do Moderator xem xét thủ công.
-                  </p>
-                </div>
-              </div>
+            <div>
+              <label htmlFor="activity-note" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground/55">
+                Mô tả thêm (tuỳ chọn)
+              </label>
+              <textarea
+                id="activity-note"
+                rows={2}
+                className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="VD: Tôi đã phân loại 2kg rác nhựa hôm nay…"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
-            <div className="p-6 rounded-xl bg-primary/5 border border-accent/10">
-              <div className="flex gap-4 items-start">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <MapPin className="w-6 h-6 text-primary" />
+
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground/55">
+                Minh chứng (hình ảnh)
+              </span>
+              {!mockProofUrl ? (
+                <button
+                  type="button"
+                  onClick={handleMockUpload}
+                  className="flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <UploadCloud className="mb-2 h-7 w-7 text-foreground/30" />
+                  <span className="text-xs text-foreground/55">Nhấn để tải ảnh minh chứng lên</span>
+                </button>
+              ) : (
+                <div className="relative overflow-hidden rounded-lg border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={mockProofUrl} alt="Ảnh minh chứng" className="aspect-video w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setMockProofUrl('')}
+                    aria-label="Xoá ảnh minh chứng"
+                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background/80 text-foreground transition-colors hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div>
-                  <h4 className="font-bold mb-2 text-sm">Hoạt động gần bạn</h4>
-                  <p className="text-xs text-muted-foreground/40 leading-relaxed">
-                    Có 5 điểm thu gom pin cũ đang diễn ra trong bán kính 2km từ vị trí của bạn.
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
+
+            <button
+              onClick={handleSubmitProof}
+              disabled={submitting || !activityType || !mockProofUrl}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-foreground/40"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {submitting ? 'Đang xử lý…' : 'Gửi cho AI kiểm duyệt'}
+            </button>
           </div>
+        </section>
+
+        <div className="space-y-4">
+          <section className="card-surface p-5">
+            <div className="flex items-start gap-3">
+              <span className="icon-tile h-10 w-10">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Quy trình duyệt tự động</h3>
+                <p className="mt-1 text-xs leading-relaxed text-foreground/60">
+                  Ảnh minh chứng được AI kiểm duyệt trước. Trường hợp chưa rõ sẽ chuyển
+                  cho moderator xem xét thủ công.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="card-surface p-5">
+            <div className="flex items-start gap-3">
+              <span className="icon-tile h-10 w-10">
+                <MapPin className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Điểm thu gom gần bạn</h3>
+                <p className="mt-1 text-xs leading-relaxed text-foreground/60">
+                  Mở <span className="font-medium text-foreground/80">Bản đồ</span> và lọc theo
+                  nhóm “Môi trường” để xem các điểm thu gom đã được kiểm chứng.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="card-surface flex items-start gap-3 border-dashed p-5">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-foreground/40" />
+            <p className="text-xs leading-relaxed text-foreground/55">
+              Ảnh minh chứng chỉ dùng để xét duyệt và lưu tạm trên máy chủ HF Spaces;
+              nội dung sẽ bị xoá khi Space khởi động lại.
+            </p>
+          </section>
         </div>
-
       </div>
-    </div>
+    </main>
   );
 }

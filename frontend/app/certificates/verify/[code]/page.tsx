@@ -32,7 +32,7 @@ export default function VerifyCertificatePage() {
     window.print();
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Verifying on Blockchain...</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/65">Verifying on Blockchain...</div>;
 
   if (!data?.isValid) {
       return (
@@ -42,7 +42,7 @@ export default function VerifyCertificatePage() {
                       <XCircle size={40} className="text-destructive" />
                   </div>
                   <h1 className="text-2xl font-semibold text-destructive">Invalid Certificate</h1>
-                  <p className="text-muted-foreground/40 text-sm leading-relaxed">{data?.message || 'The verification code provided is invalid or the certificate has been revoked.'}</p>
+                  <p className="text-muted-foreground/60 text-sm leading-relaxed">{data?.message || 'The verification code provided is invalid or the certificate has been revoked.'}</p>
               </div>
           </div>
       );
@@ -71,10 +71,10 @@ export default function VerifyCertificatePage() {
             <div className="absolute bottom-0 right-0 w-24 h-24 border-b-8 border-r-8 border-primary m-8 opacity-20" />
             
             <div className="text-center z-10 w-full px-20">
-                <h2 className="text-2xl font-bold tracking-[0.5em] text-muted-foreground/40 uppercase mb-8">Certificate of Completion</h2>
+                <h2 className="text-2xl font-bold tracking-[0.5em] text-muted-foreground/60 uppercase mb-8">Certificate of Completion</h2>
                 
                 <div className="mb-12">
-                    <p className="text-sm font-bold text-muted-foreground/50 uppercase tracking-widest mb-4">This is to certify that</p>
+                    <p className="text-sm font-bold text-muted-foreground/65 uppercase tracking-widest mb-4">This is to certify that</p>
                     <h1 className="text-6xl md:text-7xl font-semibold text-foreground font-serif" style={{ fontFamily: 'Georgia, serif' }}>
                         {details.recipient?.name || 'Student Name'}
                     </h1>
@@ -90,7 +90,7 @@ export default function VerifyCertificatePage() {
                 <div className="flex justify-between items-end w-full w-full mx-auto border-t-2 border-border pt-8 mt-16">
                     <div className="text-left">
                         <p className="font-bold text-lg text-foreground/90">{details.issuer}</p>
-                        <p className="text-sm text-muted-foreground/50 uppercase tracking-widest">Issuing Organization</p>
+                        <p className="text-sm text-muted-foreground/65 uppercase tracking-widest">Issuing Organization</p>
                     </div>
 
                     <div className="text-center">
@@ -98,18 +98,18 @@ export default function VerifyCertificatePage() {
                             {/* In a real app, render actual QR code image here */}
                             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://edumap.app/certificates/verify/${details.verify_code}`} alt="QR Code" className="w-full h-full opacity-80 mix-blend-multiply" />
                         </div>
-                        <p className="text-[10px] text-muted-foreground/40 mt-2 font-mono">{details.verify_code}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-2 font-mono">{details.verify_code}</p>
                     </div>
 
                     <div className="text-right">
                         <p className="font-bold text-lg text-foreground/90">{new Date(details.issued_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                        <p className="text-sm text-muted-foreground/50 uppercase tracking-widest">Date Issued</p>
+                        <p className="text-sm text-muted-foreground/65 uppercase tracking-widest">Date Issued</p>
                     </div>
                 </div>
 
                 {/* Blockchain Badge */}
                 {details.blockchain && (
-                    <div className="absolute bottom-8 left-8 text-left text-[8px] text-muted-foreground/40 font-mono max-w-xs">
+                    <div className="absolute bottom-8 left-8 text-left text-[8px] text-muted-foreground/60 font-mono max-w-xs">
                         <p>Secured on {details.blockchain.network}</p>
                         <p>Block: {details.blockchain.block_height}</p>
                         <p>Tx: {details.blockchain.tx_hash}</p>

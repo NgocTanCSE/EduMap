@@ -77,12 +77,12 @@ function getTypeIcon(type: string) {
 function ConfidenceBadge({ confidence, level }: { confidence: number; level: string }) {
   const pct = Math.round(confidence * 100);
   if (level === 'high') {
-    return <Badge className="bg-green-100 text-green-800 border-green-200">Cao ({pct}%)</Badge>;
+    return <Badge className="bg-accent/15 text-accent border-accent/30">Cao ({pct}%)</Badge>;
   }
   if (level === 'medium') {
-    return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Trung bình ({pct}%)</Badge>;
+    return <Badge className="bg-primary/15 text-primary border-primary/30">Trung bình ({pct}%)</Badge>;
   }
-  return <Badge variant="secondary" className="bg-gray-100 text-gray-700">Thấp ({pct}%)</Badge>;
+  return <Badge variant="secondary" className="bg-muted text-foreground/70 border-border">Thấp ({pct}%)</Badge>;
 }
 
 /* ── Deadline pill ───────────────────────────────────────────────── */
@@ -102,9 +102,9 @@ function DeadlinePill({ deadline }: { deadline: string | null }) {
 /* ── Score bar ──────────────────────────────────────────────────── */
 
 function ScoreBar({ score }: { score: number }) {
-  let color = 'bg-red-500';
-  if (score >= 75) color = 'bg-green-500';
-  else if (score >= 50) color = 'bg-amber-500';
+  let color = 'bg-destructive';
+  if (score >= 75) color = 'bg-accent';
+  else if (score >= 50) color = 'bg-primary';
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs mb-1">
@@ -138,11 +138,11 @@ function OpportunityCard({ item }: { item: MatchItem }) {
           <ConfidenceBadge confidence={item.confidence} level={item.confidence_level} />
           <DeadlinePill deadline={item.deadline} />
           {eligible ? (
-            <Badge className="bg-green-100 text-green-800 border-green-200">
+            <Badge className="bg-accent/15 text-accent border-accent/30">
               <CheckCircle2 className="w-3 h-3 mr-1" /> Đạt điều kiện
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-xs text-orange-700">
+            <Badge variant="outline" className="text-xs text-primary">
               <AlertCircle className="w-3 h-3 mr-1" /> Cần xem xét
             </Badge>
           )}
@@ -176,7 +176,7 @@ function OpportunityCard({ item }: { item: MatchItem }) {
             <ul className="flex flex-wrap gap-1.5">
               {item.checklist.map((c, i) => (
                 <li key={i} className="flex items-center gap-1 text-xs bg-muted/40 px-2 py-1 rounded">
-                  <CheckCircle2 className="w-3 h-3 text-green-600" /> {c}
+                  <CheckCircle2 className="w-3 h-3 text-accent" /> {c}
                 </li>
               ))}
             </ul>
@@ -311,7 +311,7 @@ export default function OpportunityRadarPage() {
 
       {/* Degraded banner */}
       {degraded && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2">
+        <div className="mb-4 rounded-lg border border-primary/40 bg-primary/10 p-3 text-sm text-primary flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
             <strong>Chế độ ngoại tuyến:</strong>

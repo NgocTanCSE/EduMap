@@ -11,16 +11,16 @@ import {
 export const dynamic = 'force-dynamic';
 
 const QUALITY_COLORS: Record<string, string> = {
-  success: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  partial: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  failed: 'bg-red-500/20 text-red-400 border-red-500/30',
-  unknown: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  success: 'bg-accent/20 text-accent border-accent/30',
+  partial: 'bg-primary/20 text-primary border-primary/30',
+  failed: 'bg-destructive/20 text-destructive border-destructive/30',
+  unknown: 'bg-muted/40 text-foreground/60 border-border',
 };
 
 const QUALITY_ICONS: Record<string, React.ReactNode> = {
-  success: <CheckCircle className="w-4 h-4 text-emerald-400" />,
-  partial: <HelpCircle className="w-4 h-4 text-amber-400" />,
-  failed: <XCircle className="w-4 h-4 text-red-400" />,
+  success: <CheckCircle className="w-4 h-4 text-accent" />,
+  partial: <HelpCircle className="w-4 h-4 text-primary" />,
+  failed: <XCircle className="w-4 h-4 text-destructive" />,
 };
 
 function QualityBadge({ status }: { status: string }) {
@@ -36,15 +36,15 @@ function QualityBadge({ status }: { status: string }) {
 
 function QualityBar({ score }: { score: number }) {
   const pct = Math.round(score * 100);
-  let color = 'bg-emerald-400';
-  if (score < 0.3) color = 'bg-red-400';
-  else if (score < 0.5) color = 'bg-amber-400';
+  let color = 'bg-accent';
+  if (score < 0.3) color = 'bg-destructive';
+  else if (score < 0.5) color = 'bg-primary';
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div className="w-16 h-2 bg-border rounded-full overflow-hidden">
         <div className={`h-full ${color} transition-all`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-muted-foreground/40 w-10">{pct}%</span>
+      <span className="text-xs text-muted-foreground/60 w-10">{pct}%</span>
     </div>
   );
 }
@@ -75,14 +75,14 @@ export default function AdminQuestionGapsPage() {
 
   if (loading) {
     return (
-      <div className="p-20 text-center text-muted-foreground/40">
+      <div className="p-20 text-center text-muted-foreground/60">
         Đang phân tích khoảng trống tri thức từ log truy vấn...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -106,7 +106,7 @@ export default function AdminQuestionGapsPage() {
 
         {!report && (
           <div className="p-8 rounded-lg bg-card/40 border border-border text-center">
-            <Database className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <Database className="w-12 h-12 text-muted-foreground/45 mx-auto mb-4" />
             <p className="text-muted-foreground/60">Chưa có dữ liệu truy vấn nào trong hệ thống.</p>
           </div>
         )}
@@ -115,8 +115,8 @@ export default function AdminQuestionGapsPage() {
           <>
             {/* Privacy notice */}
             {report.privacy && (
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-slate-900/20 border border-slate-600/30 text-sm text-muted-foreground/70">
-                <Info className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-background/60 border border-border text-sm text-muted-foreground/70">
+                <Info className="w-5 h-5 text-foreground/60 flex-shrink-0" />
                 <span>
                   Toàn bộ truy vấn được ẩn danh bằng SHA-256 (user_id_hash). Dữ liệu tự động xóa sau{' '}
                   <strong>{report.privacy.ttl_days} ngày</strong> theo chính sách bảo mật.
@@ -137,22 +137,22 @@ export default function AdminQuestionGapsPage() {
                 title="Câu hỏi có khoảng trống"
                 value={report.top_gaps?.length?.toLocaleString('vi-VN') || '0'}
                 icon={AlertTriangle}
-                color="text-red-400"
-                bg="bg-red-400/10"
+                color="text-destructive"
+                bg="bg-destructive/10"
               />
               <SummaryCard
                 title="Chủ đề (cụm)"
                 value={report.clusters?.length?.toLocaleString('vi-VN') || '0'}
                 icon={Tag}
-                color="text-blue-400"
-                bg="bg-blue-400/10"
+                color="text-accent"
+                bg="bg-accent/10"
               />
               <SummaryCard
                 title="Giới hạn phân tích"
                 value={report.limit_applied?.toLocaleString('vi-VN') || '10,000'}
                 icon={Database}
-                color="text-amber-400"
-                bg="bg-amber-400/10"
+                color="text-primary"
+                bg="bg-primary/10"
               />
             </div>
 
@@ -160,7 +160,7 @@ export default function AdminQuestionGapsPage() {
             <div className="p-6 rounded-lg bg-card/30 border border-border">
               <p className="text-sm text-muted-foreground/70 leading-relaxed">{report.summary}</p>
               {report.date_range && (report.date_range.start || report.date_range.end) && (
-                <p className="text-xs text-muted-foreground/50 mt-2">
+                <p className="text-xs text-muted-foreground/65 mt-2">
                   Phạm vi thời gian: {report.date_range.start || 'N/A'} → {report.date_range.end || 'N/A'}
                   {report.cached && <span className="ml-2 italic">(dữ liệu cache)</span>}
                 </p>
@@ -169,11 +169,11 @@ export default function AdminQuestionGapsPage() {
 
             {/* Degraded warning */}
             {report.degraded && (
-              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/30 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-red-300">Chế độ giảm tốc đã bật</p>
-                  <p className="text-sm text-red-300/80 mt-1">{report.reason}</p>
+                  <p className="font-semibold text-destructive">Chế độ giảm tốc đã bật</p>
+                  <p className="text-sm text-destructive/80 mt-1">{report.reason}</p>
                 </div>
               </div>
             )}
@@ -192,7 +192,7 @@ export default function AdminQuestionGapsPage() {
                 </div>
               ) : (
                 <div className="p-8 rounded-lg bg-card/40 border border-border text-center">
-                  <Tag className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <Tag className="w-12 h-12 text-muted-foreground/45 mx-auto mb-4" />
                   <p className="text-muted-foreground/60">
                     Chưa có cụm chủ đề nào — hãy chờ người dùng tạo truy vấn AI.
                   </p>
@@ -203,7 +203,7 @@ export default function AdminQuestionGapsPage() {
             {/* Top gap queries */}
             <div>
               <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Search className="w-5 h-5 text-red-400" />
+                <Search className="w-5 h-5 text-destructive" />
                 Truy vấn chưa trả lời tốt nhất
               </h2>
               {report.top_gaps && report.top_gaps.length > 0 ? (
@@ -214,7 +214,7 @@ export default function AdminQuestionGapsPage() {
                 </div>
               ) : (
                 <div className="p-6 rounded-lg bg-card/40 border border-border text-center">
-                  <CheckCircle className="w-8 h-8 text-emerald-400/30 mx-auto mb-3" />
+                  <CheckCircle className="w-8 h-8 text-accent/30 mx-auto mb-3" />
                   <p className="text-muted-foreground/60">Tất cả truy vấn đều đạt chất lượng tốt.</p>
                 </div>
               )}
@@ -243,7 +243,7 @@ function SummaryCard({ title, value, icon: Icon, color, bg }: SummaryCardProps) 
         <Icon className="w-6 h-6" />
       </div>
       <p className="text-3xl font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground/40 uppercase font-bold mt-1 tracking-widest">{title}</p>
+      <p className="text-xs text-muted-foreground/60 uppercase font-bold mt-1 tracking-widest">{title}</p>
     </div>
   );
 }
@@ -268,7 +268,7 @@ function ClusterCard({ cluster }: ClusterCardProps) {
         </div>
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-primary" />
-          <span className="text-xs text-muted-foreground/40">cụm #{cluster.cluster_id}</span>
+          <span className="text-xs text-muted-foreground/60">cụm #{cluster.cluster_id}</span>
         </div>
       </div>
 
@@ -276,7 +276,7 @@ function ClusterCard({ cluster }: ClusterCardProps) {
       {cluster.top_terms && cluster.top_terms.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {cluster.top_terms.map((term, i) => (
-            <span key={i} className="px-2 py-1 bg-slate-800/30 border border-slate-700 rounded text-xs text-slate-300">
+            <span key={i} className="px-2 py-1 bg-card/60 border border-border rounded text-xs text-foreground/70">
               {term}
             </span>
           ))}
@@ -285,8 +285,8 @@ function ClusterCard({ cluster }: ClusterCardProps) {
 
       {/* Representative query */}
       {cluster.representative_query && (
-        <div className="p-3 rounded-lg bg-slate-900/20 border border-slate-700/30">
-          <span className="text-xs text-muted-foreground/50">Truy vấn đại diện:</span>
+        <div className="p-3 rounded-lg bg-background/60 border border-border/60">
+          <span className="text-xs text-muted-foreground/65">Truy vấn đại diện:</span>
           <p className="text-sm mt-1">"{cluster.representative_query}"</p>
         </div>
       )}
@@ -294,7 +294,7 @@ function ClusterCard({ cluster }: ClusterCardProps) {
       {/* Recommended docs */}
       {cluster.recommended_docs && cluster.recommended_docs.length > 0 && (
         <div>
-          <span className="text-xs text-muted-foreground/50 uppercase font-bold">Đề xuất tài liệu:</span>
+          <span className="text-xs text-muted-foreground/65 uppercase font-bold">Đề xuất tài liệu:</span>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
             {cluster.recommended_docs.map((doc, i) => (
               <div key={i} className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2">
@@ -309,15 +309,15 @@ function ClusterCard({ cluster }: ClusterCardProps) {
       {/* Gap queries preview */}
       {cluster.gap_queries && cluster.gap_queries.length > 0 && (
         <div>
-          <span className="text-xs text-muted-foreground/50 uppercase font-bold">Câu hỏi chưa trả lời tốt:</span>
+          <span className="text-xs text-muted-foreground/65 uppercase font-bold">Câu hỏi chưa trả lời tốt:</span>
           <div className="space-y-1 mt-2">
             {cluster.gap_queries.slice(0, 5).map((q, i) => (
-              <div key={i} className="text-xs text-muted-foreground/70 p-2 bg-slate-900/20 rounded border-l-2 border-red-500/30">
+              <div key={i} className="text-xs text-muted-foreground/70 p-2 bg-background/60 rounded border-l-2 border-destructive/30">
                 {q}
               </div>
             ))}
             {cluster.gap_queries.length > 5 && (
-              <p className="text-xs text-muted-foreground/40">
+              <p className="text-xs text-muted-foreground/60">
                 +{cluster.gap_queries.length - 5} câu hỏi khác...
               </p>
             )}
@@ -336,19 +336,19 @@ interface GapRowProps {
 function GapRow({ gap, idx }: GapRowProps) {
   return (
     <div className="p-4 rounded-lg bg-card/50 border border-border flex items-start gap-4">
-      <span className="text-xs text-muted-foreground/40 font-mono flex-shrink-0 mt-0.5">#{idx + 1}</span>
+      <span className="text-xs text-muted-foreground/60 font-mono flex-shrink-0 mt-0.5">#{idx + 1}</span>
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-2">
           <QualityBadge status={gap.retrieval_status || 'unknown'} />
           <QualityBar score={gap.response_quality || 0} />
-          <span className="text-xs text-muted-foreground/50 flex items-center gap-1">
+          <span className="text-xs text-muted-foreground/65 flex items-center gap-1">
             <Database className="w-3 h-3" />
             {gap.retrieved_doc_count} tài liệu
           </span>
         </div>
         <p className="text-sm text-muted-foreground/80 line-clamp-2">{gap.query_text}</p>
         {gap.created_at && (
-          <p className="text-xs text-muted-foreground/40 mt-1 flex items-center gap-1">
+          <p className="text-xs text-muted-foreground/60 mt-1 flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {new Date(gap.created_at).toLocaleString('vi-VN')}
           </p>

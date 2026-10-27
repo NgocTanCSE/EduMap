@@ -318,9 +318,9 @@ export default function AIChatPage() {
               <div className={`flex flex-col gap-2 max-w-[85%] ${m.role === 'user' ? 'items-end' : ''}`}>
                 <div className={`p-5 rounded-lg text-sm leading-relaxed ${
                   m.role === 'user' 
-                    ? 'bg-card text-white rounded-tr-none' 
+                    ? 'bg-card text-foreground rounded-tr-none' 
                     : m.isError
-                      ? 'bg-red-950 border border-red-900 text-red-200 rounded-tl-none'
+                      ? 'bg-destructive/15 border border-destructive/30 text-destructive rounded-tl-none'
                       : 'bg-card border border-border text-muted-foreground/70 rounded-tl-none'
                 }`}>
                   {m.content === '' && m.isStreaming ? (
@@ -381,7 +381,7 @@ export default function AIChatPage() {
           variant="ghost"
           className={`rounded-lg shrink-0 h-12 w-12 border border-border ${
             isVoiceRecording
-              ? 'bg-red-500 hover:bg-red-600 text-white'
+              ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
               : 'text-muted-foreground/60 hover:bg-muted/50'
           }`}
           title="Nhập bằng giọng nói (Web Speech API / Whisper fallback)"
@@ -391,7 +391,7 @@ export default function AIChatPage() {
         <Button
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
-          className="rounded-lg shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-foreground shadow-lg"
+          className="rounded-lg shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
         >
           {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
         </Button>

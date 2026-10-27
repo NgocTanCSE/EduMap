@@ -69,7 +69,7 @@ export default function HSConnectionPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground p-8">
+        <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
             <div className="w-full mx-auto space-y-12">
                 
                 {/* Header */}
@@ -78,7 +78,7 @@ export default function HSConnectionPage() {
                         <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Kết nối & Học hỏi</h1>
-                    <p className="text-muted-foreground/40">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
+                    <p className="text-muted-foreground/60">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -105,14 +105,14 @@ export default function HSConnectionPage() {
                                                 />
                                                 <div>
                                                     <p className="font-bold">{req.full_name}</p>
-                                                    <p className="text-xs text-muted-foreground/40">Cấp độ {req.level}</p>
+                                                    <p className="text-xs text-muted-foreground/60">Cấp độ {req.level}</p>
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
                                                 <button 
                                                     disabled={actionLoading === req.connection_id}
                                                     onClick={() => handleRespond(req.connection_id!, true)}
-                                                    className="p-2 bg-primary hover:bg-primary text-foreground rounded-xl transition-colors disabled:opacity-50"
+                                                    className="p-2 bg-primary hover:bg-primary text-primary-foreground rounded-xl transition-colors disabled:opacity-50"
                                                 >
                                                     {actionLoading === req.connection_id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                                                 </button>
@@ -137,7 +137,7 @@ export default function HSConnectionPage() {
                                     <Users className="w-5 h-5 text-primary" /> Bạn bè ({network?.friends?.length || 0})
                                 </h2>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
                                     <input type="text" placeholder="Tìm bạn bè..." className="bg-card border border-border rounded-xl py-2 pl-9 pr-4 text-sm focus:border-primary outline-none" />
                                 </div>
                             </div>
@@ -157,13 +157,13 @@ export default function HSConnectionPage() {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="font-bold text-sm group-hover:text-primary transition-colors">{friend.full_name}</p>
-                                                <p className="text-xs text-muted-foreground/40">Level {friend.level} • {friend.points.toLocaleString()} XP</p>
+                                                <p className="text-xs text-muted-foreground/60">Level {friend.level} • {friend.points.toLocaleString()} XP</p>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-12 text-muted-foreground/40">
+                                <div className="text-center py-12 text-muted-foreground/60">
                                     <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                     <p>Bạn chưa có kết nối nào. Hãy gửi lời mời ở phần gợi ý!</p>
                                 </div>
@@ -190,7 +190,7 @@ export default function HSConnectionPage() {
                                                 />
                                                 <div>
                                                     <p className="font-bold text-sm">{suggest.full_name}</p>
-                                                    <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest mt-1">Level {suggest.level}</p>
+                                                    <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest mt-1">Level {suggest.level}</p>
                                                 </div>
                                                 <p className="text-xs text-muted-foreground/60 line-clamp-2 min-h-[32px] italic">
                                                     "{suggest.bio || 'Đang tích cực hoạt động trên EduMap'}"
@@ -207,7 +207,7 @@ export default function HSConnectionPage() {
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-center text-muted-foreground/40 text-sm py-8">Không có gợi ý nào lúc này.</p>
+                                    <p className="text-center text-muted-foreground/60 text-sm py-8">Không có gợi ý nào lúc này.</p>
                                 )}
                             </div>
                         </div>

@@ -164,7 +164,7 @@ export default function ServiceMarketplacePage() {
         {/* Search, category and sort */}
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground/50" />
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground/65" />
             <input
               type="search"
               value={query}
@@ -310,17 +310,17 @@ export default function ServiceMarketplacePage() {
 
                       <div className="mb-5 space-y-2">
                         <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
-                          <Tag className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/50" />
+                          <Tag className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/65" />
                           <span className="line-clamp-2">
                             {service.description?.trim() || 'Chưa có mô tả.'}
                           </span>
                         </p>
                         <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <Clock className="h-3 w-3 text-muted-foreground/50" />
+                          <Clock className="h-3 w-3 text-muted-foreground/65" />
                           {service.duration?.trim() || 'Thời lượng liên hệ'}
                         </p>
                         <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <MapPin className="h-3 w-3 text-muted-foreground/50" />
+                          <MapPin className="h-3 w-3 text-muted-foreground/65" />
                           {service.location?.trim() || 'Hình thức liên hệ'}
                         </p>
                       </div>

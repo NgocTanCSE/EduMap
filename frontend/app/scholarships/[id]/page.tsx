@@ -181,11 +181,11 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
 
   const deadline = new Date(scholarship.deadline);
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         <Link
           href="/scholarships"
-          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors text-sm font-bold w-fit"
+          className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI DANH SÁCH
         </Link>
@@ -260,7 +260,7 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
                 <div>
                   <h3 className="font-bold text-lg mb-2">Học bổng</h3>
                   <p className="text-sm text-muted-foreground/60">{scholarship.title}</p>
-                  <p className="text-xs text-muted-foreground/40 mt-1">{scholarship.provider || 'Đang cập nhật'}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">{scholarship.provider || 'Đang cập nhật'}</p>
                 </div>
 
                 <div className="space-y-3">
@@ -330,14 +330,14 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
                   </Button>
                   <Button
                     onClick={openApplyModal}
-                    className="w-full py-3 rounded-lg bg-primary text-foreground text-[11px] font-bold"
+                    className="w-full py-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold"
                   >
                     Nộp đơn ngay
                   </Button>
                 </div>
 
                 {!authService.isLoggedIn() && (
-                  <p className="text-[10px] text-center text-muted-foreground/40 mt-2">
+                  <p className="text-[10px] text-center text-muted-foreground/60 mt-2">
                     Vui lòng đăng nhập để nộp đơn ứng tuyển.
                   </p>
                 )}
@@ -349,7 +349,7 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
             <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">
               <button
                 onClick={() => setShowApplyModal(false)}
-                className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground"
+                className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -386,12 +386,12 @@ export default function ScholarshipDetailPage({ params }: { params: { id: string
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2"
+                  className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                   {submitting ? 'ĐANG GỬI HỒ SƠ...' : 'XÁC NHẬN NỘP ĐƠN'}
                 </button>
-                <p className="text-[10px] text-center text-muted-foreground/40 mt-2">
+                <p className="text-[10px] text-center text-muted-foreground/60 mt-2">
                   EduMap sẽ đính kèm thêm dữ liệu thành tích và hoạt động ngoại khóa của bạn từ hệ thống.
                 </p>
               </form>

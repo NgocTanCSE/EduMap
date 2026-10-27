@@ -85,10 +85,10 @@ export default function JobDetailPage() {
   if (!job) return <div className="text-foreground text-center mt-20">Opportunity not found.</div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         
-        <Link href="/career/jobs" className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors mb-4">
+        <Link href="/career/jobs" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors mb-4">
             <ArrowLeft size={16} /> Back to Search
         </Link>
 
@@ -101,7 +101,7 @@ export default function JobDetailPage() {
                         </span>
                     </div>
                     <h1 className="text-2xl font-semibold">{job.title}</h1>
-                    <div className="flex flex-wrap gap-6 text-muted-foreground/40">
+                    <div className="flex flex-wrap gap-6 text-muted-foreground/60">
                         <div className="flex items-center gap-2">
                             <Building2 size={20} className="text-primary" />
                             <span className="font-bold text-muted-foreground/70">{job.company_name}</span>
@@ -132,11 +132,11 @@ export default function JobDetailPage() {
             <div className="md:col-span-2 space-y-8">
                 <section className="bg-card/50 border border-border p-8 rounded-xl space-y-4">
                     <h2 className="text-xl font-bold border-b border-border pb-2">Description</h2>
-                    <p className="text-muted-foreground/40 leading-relaxed whitespace-pre-wrap">{job.description}</p>
+                    <p className="text-muted-foreground/60 leading-relaxed whitespace-pre-wrap">{job.description}</p>
                 </section>
 
                 <section className="bg-card/50 border border-border p-8 rounded-xl space-y-4">
-                    <h2 className="text-xl font-bold border-b border-border pb-2">Required Skills</h2>
+                    <h2 className="text-xl font-bold border-b border-border pb-2">Kỹ năng yêu cầu</h2>
                     <div className="flex flex-wrap gap-3">
                         {job.required_skills?.map((skill: string) => (
                             <span key={skill} className="bg-card text-foreground px-4 py-2 rounded-xl border border-border font-medium">
@@ -173,7 +173,7 @@ export default function JobDetailPage() {
                                     />
                                     <div className="bg-card/40 border border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 group-hover:border-primary/50 transition-all">
                                         <FileUp className="text-muted-foreground group-hover:text-primary" />
-                                        <span className="text-xs text-muted-foreground/40">
+                                        <span className="text-xs text-muted-foreground/60">
                                             {cvFile ? cvFile.name : "Select your CV file"}
                                         </span>
                                     </div>
@@ -195,7 +195,7 @@ export default function JobDetailPage() {
                             <CheckCircle2 size={32} className="text-foreground" />
                         </div>
                         <h2 className="text-2xl font-semibold text-primary">Applied Successfully!</h2>
-                        <p className="text-muted-foreground/40 text-sm">Your application has been sent to {job.company_name}. You can track its status in your dashboard.</p>
+                        <p className="text-muted-foreground/60 text-sm">Your application has been sent to {job.company_name}. You can track its status in your dashboard.</p>
                         <Link href="/career/jobs" className="block w-full bg-card py-3 rounded-xl font-bold mt-4">
                             Back to Search
                         </Link>
@@ -203,8 +203,8 @@ export default function JobDetailPage() {
                 )}
                 
                 <div className="bg-card/30 border border-border p-6 rounded-lg space-y-2">
-                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">About this role</h4>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground/40">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Mô tả công việc</h4>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground/60">
                         <Calendar size={16} />
                         <span>Posted on {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'N/A'}</span>
                     </div>

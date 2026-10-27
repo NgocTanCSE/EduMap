@@ -25,7 +25,7 @@ function formatSize(sizeKb: number): string {
 function getFileIcon(mimeType: string) {
   if (mimeType?.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-primary" />;
   if (mimeType === 'application/pdf') return <FileText className="h-5 w-5 text-destructive" />;
-  return <File className="h-5 w-5 text-muted-foreground/50" />;
+  return <File className="h-5 w-5 text-muted-foreground/65" />;
 }
 
 export function PersonalStorage() {
@@ -107,13 +107,13 @@ export function PersonalStorage() {
         <div className="flex gap-3">
           <div className="rounded-lg border border-border bg-background/40 px-4 py-2 text-center">
             <p className="text-xl font-semibold text-primary">{files.length}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/65">
               Tập tin
             </p>
           </div>
           <div className="rounded-lg border border-border bg-background/40 px-4 py-2 text-center">
             <p className="text-xl font-semibold text-primary/70">{formatSize(totalSizeKb)}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/65">
               Đã dùng
             </p>
           </div>
@@ -122,7 +122,7 @@ export function PersonalStorage() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="relative md:col-span-2">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <input
             type="text"
             value={searchTerm}
@@ -203,7 +203,7 @@ export function PersonalStorage() {
                   {file.original_name}
                 </h5>
 
-                <div className="mt-auto flex items-center justify-between pt-3 text-[10px] text-muted-foreground/50">
+                <div className="mt-auto flex items-center justify-between pt-3 text-[10px] text-muted-foreground/65">
                   <span>{formatSize(file.size_kb)}</span>
                   <span>{new Date(file.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
@@ -222,7 +222,7 @@ export function PersonalStorage() {
           <div className="rounded-lg border border-dashed border-border py-10 text-center">
             <Cloud className="mx-auto mb-3 h-10 w-10 text-muted-foreground/20" />
             <p className="text-sm text-muted-foreground/60">Kho lưu trữ trống</p>
-            <p className="mt-1 text-xs text-muted-foreground/40">
+            <p className="mt-1 text-xs text-muted-foreground/60">
               Hãy tải lên tài liệu học tập đầu tiên của bạn.
             </p>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import {
-  Briefcase, MapPin, DollarSign, ArrowLeft, Clock, Send, CheckCircle2, Loader2
+  Briefcase, Building2, MapPin, DollarSign, ArrowLeft, Clock, Send, CheckCircle2, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { internshipService, Internship } from '@/src/services/internship.service';
@@ -9,7 +9,6 @@ import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-import { internshipIllustration, onImageError } from '@/src/lib/illustrations';
 
 export default function InternshipDetailPage({ params }: { params: { id: string } }) {
     const internshipId = params.id;
@@ -93,7 +92,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
       <div className="w-full mx-auto space-y-8">
         <Link
           href="/internships"
-          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors group text-sm font-bold w-fit"
+          className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors group text-sm font-bold w-fit"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI DANH SÁCH
         </Link>
@@ -102,13 +101,17 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
         <Card className="relative p-6 md:p-8">
           <BookmarkButton targetType="internships" targetId={internship.id} size="sm" className="absolute top-4 right-4 z-20" />
           <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="w-20 h-20 rounded-xl bg-primary flex items-center justify-center text-3xl font-bold text-foreground overflow-hidden border border-border shrink-0">
-              <img
-                src={internship.company?.avatar_url || internshipIllustration(internship.field, internship.title)}
-                onError={onImageError(internshipIllustration(internship.field, internship.title))}
-                alt=""
-                className="w-full h-full object-cover"
-              />
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background/60">
+              {internship.company?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={internship.company.avatar_url}
+                  alt={internship.company?.full_name || ''}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Building2 className="h-8 w-8 text-primary" aria-hidden="true" />
+              )}
             </div>
 
             <div className="flex-1">
@@ -188,7 +191,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
             ) : !isOpen ? (
               <Card className="p-8 text-center">
                 <h3 className="text-xl font-bold mb-2">Đã hết hạn</h3>
-                <p className="text-sm text-muted-foreground/50">
+                <p className="text-sm text-muted-foreground/65">
                   Vị trí thực tập này không còn nhận thêm hồ sơ ứng tuyển.
                 </p>
               </Card>
@@ -201,7 +204,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
                   <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
                     <Briefcase className="text-primary/80 w-5 h-5" /> Nộp hồ sơ ứng tuyển
                   </h3>
-                  <p className="text-xs text-muted-foreground/40">
+                  <p className="text-xs text-muted-foreground/60">
                     Gửi kèm Cover Letter để nhà tuyển dụng hiểu rõ hơn về bạn.
                   </p>
                 </div>
@@ -225,12 +228,12 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
                   GỬI HỒ SƠ ỨNG TUYỂN
                 </button>
-                <p className="text-[10px] text-center text-muted-foreground/40">
+                <p className="text-[10px] text-center text-muted-foreground/60">
                   Hồ sơ cá nhân của bạn trên EduMap sẽ tự động được đính kèm vào đơn ứng tuyển này.
                 </p>
               </form>

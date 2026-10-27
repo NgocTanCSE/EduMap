@@ -3,45 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Map,
-  Search,
-  BookOpen,
-  Users,
-  BrainCircuit,
-  GraduationCap,
-  Wifi,
-  Atom,
-  Leaf,
-  Calendar,
-  Trophy,
-  Rocket,
-  Sun,
-  MapPin,
-  LogOut,
-  User,
-  ChevronRight,
-  Compass,
-  Building2,
-  TrendingUp,
-  Plane,
-  Network,
-  MessagesSquare,
-  Store,
-  HandHeart,
-  Medal,
-  X,
-  CloudRain,
-  CloudOff,
-  Target,
-  Languages,
-  Package,
-  Mic,
-} from "lucide-react";
+import { ChevronRight, LogOut, User, X } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { EduMapLogo } from "@/components/ui/Logo";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
+import {
+  SIDEBAR_GROUPS,
+  type Feature,
+  type FeatureGroup,
+} from "@/src/lib/feature-catalog";
 
 /**
  * Sidebar — left-hand navigation rail that lives on every "app" page.
@@ -54,90 +24,14 @@ import { avatarFallback, onImageError } from "@/src/lib/illustrations";
  * The companion `AppLayout` wrapper decides whether to render this sidebar at
  * all (full-screen experiences like `/map`, `/auth/*`, `/admin/*` and
  * `/mentor/call` opt out and paint their own chrome).
+ *
+ * The link list is NOT defined here any more: `src/lib/feature-catalog.ts`
+ * is the single source of truth (sidebar + `/features` hub render from it),
+ * so a new page can never ship as an orphan again.
  */
 
-type NavItem = {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-type NavGroup = { label: string; items: NavItem[] };
-
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Tổng quan",
-    items: [
-      { name: "Bản đồ", href: "/map", icon: Map },
-      { name: "Bảng điều khiển", href: "/dashboard", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "Học tập",
-    items: [
-      { name: "Thư viện", href: "/library", icon: BookOpen },
-      { name: "Trợ lý AI", href: "/ai-chat", icon: BrainCircuit },
-      { name: "Đồ thị tri thức AI", href: "/knowledge-graph", icon: Network },
-      { name: "Talk2Map", href: "/talk2map", icon: Search },
-      { name: "Tìm bằng giọng nói", href: "/voice-search", icon: Mic },
-      { name: "Language Bridge AI", href: "/language-bridge", icon: Languages },
-      { name: "Trợ lý ngoại tuyến", href: "/offline-tutor", icon: CloudOff },
-      { name: "Học bổng", href: "/scholarships", icon: GraduationCap },
-      { name: "Du học & Trao đổi", href: "/intl", icon: Plane },
-    ],
-  },
-  {
-    label: "Hướng nghiệp",
-    items: [
-      { name: "Nghề nghiệp", href: "/career", icon: Compass },
-      { name: "Lộ trình nghề", href: "/career/roadmap", icon: MapPin },
-      { name: "Thực tập", href: "/internships", icon: Building2 },
-      { name: "Cơ hội", href: "/opportunities", icon: Rocket },
-      { name: "Opportunity Radar", href: "/opportunities/radar", icon: Target },
-      { name: "Xu hướng thị trường", href: "/analytics", icon: TrendingUp },
-    ],
-  },
-  {
-    label: "Cộng đồng",
-    items: [
-      { name: "Cố vấn", href: "/mentor", icon: Users },
-      { name: "Cộng đồng", href: "/community", icon: MessagesSquare },
-      { name: "Kết nối THPT", href: "/hs-connection", icon: Network },
-      { name: "Sự kiện", href: "/events", icon: Calendar },
-      { name: "Hackathon", href: "/hackathon", icon: Trophy },
-      { name: "Bảng xếp hạng", href: "/leaderboard", icon: Medal },
-    ],
-  },
-  {
-    label: "Trải nghiệm & Tiện ích",
-    items: [
-      { name: "STEM Labs", href: "/stem", icon: Atom },
-      { name: "Thử thách xanh", href: "/green", icon: Leaf },
-      { name: "Mùa hè xanh", href: "/summer", icon: Sun },
-      { name: "Trạm Wifi", href: "/wifi", icon: Wifi },
-    ],
-  },
-  {
-    label: "AI an toàn",
-    items: [
-      { name: "AI Bảo Vệ Khí Hậu", href: "/climate-guardian", icon: CloudRain },
-      { name: "Kế hoạch khảo sát", href: "/map/survey-planner", icon: Target },
-    ],
-  },
-  {
-    label: "Chợ & Đóng góp",
-    items: [
-      { name: "Chợ trao đổi", href: "/marketplace", icon: Store },
-      { name: "Quyên góp", href: "/donate", icon: HandHeart },
-      { name: "ImpactMatch", href: "/impact-match", icon: Target },
-      { name: "Đo lường Tác động AI", href: "/dashboard/impact", icon: TrendingUp },
-      {
-        name: "Resource Exchange AI",
-        href: "/resource-exchange",
-        icon: Package,
-      },
-    ],
-  },
-];
+type NavItem = Feature;
+type NavGroup = FeatureGroup & { items: Feature[] };
 
 function NavGroup({
   group,
@@ -150,7 +44,7 @@ function NavGroup({
 }) {
   return (
     <div className="mb-5">
-      <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/50">
+      <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/65">
         {group.label}
       </p>
       <nav className="space-y-0.5">
@@ -170,7 +64,7 @@ function NavGroup({
                   ? "text-primary bg-primary/10 font-semibold"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
-              title={item.name}
+              title={item.label}
             >
               <Icon
                 className={`w-4 h-4 shrink-0 ${
@@ -179,7 +73,7 @@ function NavGroup({
                     : "text-muted-foreground/70 group-hover:text-primary"
                 }`}
               />
-              <span className="truncate">{item.name}</span>
+              <span className="truncate">{item.label}</span>
               {active && (
                 <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />
               )}
@@ -304,7 +198,7 @@ export default function Sidebar({
   // Pick the longest matching href so nested pages (e.g. /career/roadmap)
   // highlight only their own item, not every ancestor item.
   const activeHref =
-    NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href))
+    SIDEBAR_GROUPS.flatMap((group) => group.items.map((item) => item.href))
       .filter((href) => pathname === href || pathname.startsWith(href + "/"))
       .sort((a, b) => b.length - a.length)[0] || "";
 
@@ -352,7 +246,7 @@ export default function Sidebar({
 
         {/* Nav — scrollable, keeps the brand/account block pinned */}
         <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
-          {NAV_GROUPS.map((group) => (
+          {SIDEBAR_GROUPS.map((group) => (
             <NavGroup
               key={group.label}
               group={group}

@@ -41,7 +41,7 @@ export default function AdminHeatmapPage() {
          </div>
          <div className="flex gap-4">
             <div className="flex items-center bg-card/40 rounded-xl px-4 border border-border">
-               <span className="text-[10px] font-bold text-muted-foreground/40 uppercase mr-3">Dữ liệu hiển thị:</span>
+               <span className="text-[10px] font-bold text-muted-foreground/60 uppercase mr-3">Dữ liệu hiển thị:</span>
                <select className="bg-card border-none text-xs font-bold outline-none cursor-pointer text-primary">
                   <option>Mật độ Sinh viên</option>
                   <option>Lượt quyên góp</option>
@@ -87,11 +87,11 @@ export default function AdminHeatmapPage() {
                <h3 className="text-sm font-bold mb-2">Chỉ số giáo dục (AI)</h3>
                <div className="space-y-2">
                   <div className="flex justify-between text-[11px]">
-                     <span className="text-muted-foreground/40">Tỷ lệ nhập học:</span>
+                     <span className="text-muted-foreground/60">Tỷ lệ nhập học:</span>
                      <span className="text-primary font-bold">{stats?.education_metrics?.enrollment_rate || '96.4%'}</span>
                   </div>
                   <div className="flex justify-between text-[11px]">
-                     <span className="text-muted-foreground/40">Tỉ lệ SV/GV:</span>
+                     <span className="text-muted-foreground/60">Tỉ lệ SV/GV:</span>
                      <span className="text-primary font-bold">{stats?.education_metrics?.student_teacher_ratio || '18.5'}</span>
                   </div>
                </div>
@@ -100,7 +100,7 @@ export default function AdminHeatmapPage() {
             <div className="p-6 rounded-xl bg-card border border-border">
                <h3 className="text-sm font-bold mb-2">Chú giải Heatmap</h3>
                <div className="h-2 w-full bg-primary transition-all rounded-full mb-4" />
-               <div className="flex justify-between text-[10px] text-muted-foreground/40 uppercase font-bold">
+               <div className="flex justify-between text-[10px] text-muted-foreground/60 uppercase font-bold">
                   <span>Thấp</span>
                   <span>Trung bình</span>
                   <span>Cao</span>
@@ -124,7 +124,7 @@ export default function AdminHeatmapPage() {
             </div>
             {/* Map Overlay Badge */}
             <div className="absolute top-6 right-6 p-4 rounded-lg bg-card border border-border z-10">
-               <p className="text-[10px] text-muted-foreground/40 font-bold uppercase mb-1">Cập nhật lúc</p>
+               <p className="text-[10px] text-muted-foreground/60 font-bold uppercase mb-1">Cập nhật lúc</p>
                <p className="text-xs font-mono font-bold text-primary">{lastUpdated}</p>
             </div>
          </div>

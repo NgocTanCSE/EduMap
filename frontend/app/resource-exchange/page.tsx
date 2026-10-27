@@ -53,10 +53,10 @@ const URGENCY_LABELS: Record<string, string> = {
   low: "Thấp",
 };
 const URGENCY_COLORS: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400 border-red-500/30",
-  high: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  low: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  critical: "bg-destructive/20 text-destructive border-destructive/30",
+  high: "bg-primary/20 text-primary border-primary/30",
+  medium: "bg-primary/10 text-primary/80 border-primary/20",
+  low: "bg-muted/40 text-foreground/60 border-border",
 };
 
 const CONDITION_LABELS: Record<number, string> = {
@@ -287,7 +287,7 @@ export default function ResourceExchangePage() {
               {CONDITION_LABELS[resource.condition] || resource.condition}/5
             </span>
           </div>
-          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded text-xs">
+          <span className="px-2 py-0.5 bg-accent/10 text-accent border border-accent/30 rounded text-xs">
             {resource.is_verified ? "Đã xác minh" : "Chưa xác minh"}
           </span>
         </div>
@@ -434,7 +434,7 @@ export default function ResourceExchangePage() {
                     key={i}
                     className="flex items-start gap-2 text-sm text-foreground/70"
                   >
-                    <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-accent mt-0.5 shrink-0" />
                     <span>{r}</span>
                   </li>
                 ))}
@@ -650,7 +650,7 @@ export default function ResourceExchangePage() {
             <Button
               onClick={handleRank}
               disabled={loadingRank}
-              className="bg-primary hover:bg-primary/90 text-foreground px-6 py-3 gap-2"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"
             >
               {loadingRank ? (
                 <>
@@ -668,9 +668,9 @@ export default function ResourceExchangePage() {
           </div>
 
           {rankResponse?.degraded && (
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 mb-4">
-              <AlertCircle className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm text-yellow-300">
+            <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center gap-3 mb-4">
+              <AlertCircle className="w-5 h-5 text-primary" />
+              <span className="text-sm text-primary">
                 {rankResponse.reason ||
                   "AI đang ngoại tuyến — đang sử dụng kết quả dự phòng dựa trên tiêu chí điểm số."}
               </span>

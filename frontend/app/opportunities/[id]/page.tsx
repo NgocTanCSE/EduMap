@@ -82,10 +82,10 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         
-        <Link href="/opportunities" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors text-sm font-bold w-fit">
+        <Link href="/opportunities" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
@@ -151,8 +151,8 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
                             disabled={toggling}
                             className={`w-full py-4 rounded-xl font-bold text-sm transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 ${
                                 opportunity.is_team_finding_open 
-                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
-                                    : 'bg-primary hover:bg-primary text-white '
+                                    ? 'bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25' 
+                                    : 'bg-primary text-primary-foreground hover:bg-primary/90 '
                             }`}
                         >
                             {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -163,7 +163,7 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
 
                 {opportunity.tags && opportunity.tags.length > 0 && (
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><Tag className="w-4 h-4 text-muted-foreground/40"/> Thẻ phân loại</h3>
+                        <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><Tag className="w-4 h-4 text-muted-foreground/60"/> Thẻ phân loại</h3>
                         <div className="flex flex-wrap gap-2">
                             {opportunity.tags.map((tag, i) => (
                                 <span key={i} className="px-3 py-1 bg-card border border-border rounded-lg text-xs text-muted-foreground/60">#{tag}</span>

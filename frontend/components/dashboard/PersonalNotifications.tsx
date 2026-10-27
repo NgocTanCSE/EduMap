@@ -120,7 +120,7 @@ export function PersonalNotifications() {
                 {n.body && n.title && (
                   <p className="mt-1 text-sm text-muted-foreground/70">{n.body}</p>
                 )}
-                <p className="mt-1.5 text-xs text-muted-foreground/50">
+                <p className="mt-1.5 text-xs text-muted-foreground/65">
                   {new Date(n.sent_at || n.read_at || Date.now()).toLocaleString('vi-VN')}
                 </p>
               </div>

@@ -194,7 +194,7 @@ export default function GeoVisionPage() {
         <button
           onClick={runDetection}
           disabled={loading || !bbox}
-          className="h-10 w-full text-sm font-semibold text-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+          className="h-10 w-full text-sm font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/80 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
             <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@ export default function GeoVisionPage() {
 
           <div className="p-3 space-y-3 max-h-[60vh] overflow-y-auto">
             {!result && !error && !loading && (
-              <div className="text-center py-6 text-muted-foreground/50">
+              <div className="text-center py-6 text-muted-foreground/65">
                 <Target className="w-6 h-6 mx-auto mb-2 opacity-30" />
                 <p className="text-xs">Nhấn "Chạy GeoVision" để bắt đầu phân tích</p>
               </div>
@@ -323,7 +323,7 @@ export default function GeoVisionPage() {
                 )}
 
                 {detections.length === 0 && !result.degraded && (
-                  <div className="text-center py-4 text-muted-foreground/50 text-xs">
+                  <div className="text-center py-4 text-muted-foreground/65 text-xs">
                     Không phát hiện công trình mới trong vùng này.
                   </div>
                 )}

@@ -143,7 +143,7 @@ export default function CreateEventPage() {
     <ContentShell className="max-w-5xl mx-auto">
       <Link
         href="/events"
-        className="flex w-fit items-center gap-2 text-sm font-bold text-muted-foreground/50 transition-colors hover:text-foreground"
+        className="flex w-fit items-center gap-2 text-sm font-bold text-muted-foreground/65 transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> QUAY LẠI DANH SÁCH
       </Link>
@@ -221,7 +221,7 @@ export default function CreateEventPage() {
                 Địa điểm
               </label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
                 <input
                   value={form.address}
                   onChange={(e) => update('address', e.target.value)}
@@ -313,7 +313,7 @@ export default function CreateEventPage() {
               maxSizeMB={5}
               onUploadSuccess={setBannerUrl}
             />
-            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/50">
+            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/65">
               Nếu chưa tải ảnh, EduMap dùng ảnh minh họa theo loại sự kiện. Ảnh đã tải sẽ được lưu vào
               trường <code>banner_url</code> và hiển thị ở danh sách + trang chi tiết.
             </p>
@@ -328,7 +328,7 @@ export default function CreateEventPage() {
             {submitting ? 'ĐANG TẠO...' : 'TẠO SỰ KIỆN'}
           </button>
 
-          <p className="text-center text-[11px] text-muted-foreground/40">
+          <p className="text-center text-[11px] text-muted-foreground/60">
             Bạn cần đăng nhập bằng tài khoản EduMap để tạo sự kiện.
           </p>
         </div>

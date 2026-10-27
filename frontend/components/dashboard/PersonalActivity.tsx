@@ -191,7 +191,7 @@ export function PersonalActivity({ activeTab, onTabChange }: Props) {
                       {HISTORY_LABEL[h.type] || h.type} · trạng thái: {h.status}
                     </p>
                   </div>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground/50" />
+                  <CalendarDays className="h-4 w-4 text-muted-foreground/65" />
                   <span className="text-xs text-muted-foreground/60">
                     {new Date(h.created_at).toLocaleDateString('vi-VN')}
                   </span>

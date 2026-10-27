@@ -83,10 +83,10 @@ export default function TakeSurveyPage({ params }: { params: { id: string } }) {
   const questions = survey.questions_json || [];
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-3xl mx-auto space-y-8">
         
-        <Link href="/surveys" className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors text-sm font-bold w-fit">
+        <Link href="/surveys" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
           <ArrowLeft className="w-4 h-4" /> QUAY LẠI
         </Link>
 
@@ -100,7 +100,7 @@ export default function TakeSurveyPage({ params }: { params: { id: string } }) {
                     Cảm ơn bạn đã dành thời gian đóng góp ý kiến. Thông tin của bạn sẽ giúp chúng tôi cải thiện hệ thống tốt hơn.
                 </p>
                 <div className="pt-8">
-                    <Link href="/surveys" className="px-8 py-4 rounded-xl bg-accent hover:bg-accent text-foreground font-bold transition-all inline-block">
+                    <Link href="/surveys" className="px-8 py-4 rounded-xl bg-accent hover:bg-accent text-accent-foreground font-bold transition-all inline-block">
                         QUAY LẠI DANH SÁCH
                     </Link>
                 </div>
@@ -157,11 +157,11 @@ export default function TakeSurveyPage({ params }: { params: { id: string } }) {
                     ))}
 
                     <div className="bg-card border border-border rounded-xl p-8 text-center space-y-4">
-                        <p className="text-xs text-muted-foreground/40 mb-4">Bằng việc nộp khảo sát, bạn đồng ý cung cấp các thông tin trên cho EduMap phục vụ mục đích phân tích.</p>
+                        <p className="text-xs text-muted-foreground/60 mb-4">Bằng việc nộp khảo sát, bạn đồng ý cung cấp các thông tin trên cho EduMap phục vụ mục đích phân tích.</p>
                         <button 
                             type="submit"
                             disabled={submitting}
-                            className="w-full md:w-auto px-12 py-4 rounded-xl bg-accent hover:bg-accent text-foreground font-bold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2 mx-auto"
+                            className="w-full md:w-auto px-12 py-4 rounded-xl bg-accent hover:bg-accent text-accent-foreground font-bold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2 mx-auto"
                         >
                             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                             GỬI CÂU TRẢ LỜI

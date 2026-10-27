@@ -36,7 +36,7 @@ export default function OpportunitiesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
@@ -57,7 +57,7 @@ export default function OpportunitiesPage() {
                     <button 
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
-                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-primary text-foreground' : 'bg-card text-muted-foreground/40 hover:text-foreground hover:bg-muted border border-border'}`}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground/60 hover:text-foreground hover:bg-muted border border-border'}`}
                     >
                         {cat || 'Tất cả'}
                     </button>
@@ -65,7 +65,7 @@ export default function OpportunitiesPage() {
             </div>
             
             <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
                 <input 
                     type="text" 
                     value={searchTerm}
@@ -111,11 +111,11 @@ export default function OpportunitiesPage() {
                         </p>
                         
                         <div className="space-y-3 pt-4 border-t border-border mb-6">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                                 <MapPin className="w-4 h-4 text-muted-foreground/20" />
                                 <span className="truncate">{opp.address || 'Trực tuyến'}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                                 <Calendar className="w-4 h-4 text-muted-foreground/20" />
                                 {opp.deadline ? `Hạn chót: ${new Date(opp.deadline).toLocaleDateString('vi-VN')}` : 'Không có hạn chót'}
                             </div>
@@ -136,7 +136,7 @@ export default function OpportunitiesPage() {
         ) : (
             <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <Target className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                <p className="text-muted-foreground/40">Không tìm thấy cơ hội nào phù hợp.</p>
+                <p className="text-muted-foreground/60">Không tìm thấy cơ hội nào phù hợp.</p>
             </div>
         )}
 

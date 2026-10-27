@@ -57,7 +57,7 @@ export default function HackathonListPage() {
               Tổng giải thưởng lên đến 100,000,000 VNĐ.
             </p>
             <div className="flex gap-3 pt-2">
-              <button className="px-5 py-2 rounded-lg bg-primary text-foreground font-medium">
+              <button className="px-5 py-2 rounded-lg bg-primary text-primary-foreground font-medium">
                 Đăng ký ngay
               </button>
               <button className="px-5 py-2 rounded-lg border border-border font-medium">
@@ -113,7 +113,7 @@ export default function HackathonListPage() {
                           ? 'SẮP MỞ ĐĂNG KÝ'
                           : 'ĐÃ KẾT THÚC'}
                       </span>
-                      <CardTitle className="text-base mt-2 line-clamp-2 group-hover:text-primary transition-colors">
+                      <CardTitle className="mt-2 min-h-[2.75rem] text-base line-clamp-2 group-hover:text-primary transition-colors">
                         {hackathon.title}
                       </CardTitle>
                     </CardHeader>
@@ -128,7 +128,7 @@ export default function HackathonListPage() {
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-primary" /> Đăng ký theo đội (3-5 người)
                       </div>
-                      <div className="flex items-center justify-between pt-2 text-xs font-medium text-primary">
+                      <div className="mt-auto flex items-center justify-between pt-2 text-xs font-medium text-primary">
                         XEM CHI TIẾT <ArrowRight className="w-3 h-3" />
                       </div>
                     </CardContent>

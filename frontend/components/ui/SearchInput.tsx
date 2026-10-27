@@ -39,7 +39,7 @@ export default function SearchInput({
 
   return (
     <div className={`relative ${className}`}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
       <input
         type="text"
         value={localValue}
@@ -50,7 +50,7 @@ export default function SearchInput({
       {localValue && (
         <button
           onClick={handleClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-muted-foreground/40 hover:text-foreground hover:bg-muted/20 transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/20 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>

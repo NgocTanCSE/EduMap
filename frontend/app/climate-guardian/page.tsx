@@ -165,7 +165,7 @@ export default function ClimateGuardianPage() {
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <CloudRain className="w-6 h-6 text-sky-500" />
+          <CloudRain className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold text-foreground">AI Bảo Vệ Khí Hậu</h1>
         </div>
 
@@ -224,7 +224,7 @@ export default function ClimateGuardianPage() {
           <button
             onClick={fetchRisk}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-sky-600 text-white font-medium transition-colors hover:bg-sky-700 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium transition-colors hover:bg-sky-700 disabled:opacity-60"
           >
             {loading ? (
               <>
@@ -263,10 +263,14 @@ export default function ClimateGuardianPage() {
                 Tháng: {meta.month} ({meta.season}) · Các vùng ngập: {meta.flood_zones_loaded || 0}
               </div>
               {meta.has_weather && (
-                <div className="pt-1 text-green-400">✓ Weather API (OpenWeatherMap) đang hoạt động</div>
+                <div className="flex items-center gap-1 pt-1 text-accent">
+                  <CheckCircle2 className="h-3 w-3" /> Weather API (OpenWeatherMap) đang hoạt động
+                </div>
               )}
               {!meta.has_weather && (
-                <div className="pt-1 text-amber-400">⚠ Dùng bản đồ ngập tĩnh (thiếu OWM_API_KEY)</div>
+                <div className="flex items-center gap-1 pt-1 text-primary">
+                  <AlertCircle className="h-3 w-3" /> Dùng bản đồ ngập tĩnh (thiếu OWM_API_KEY)
+                </div>
               )}
             </div>
           </div>
@@ -279,7 +283,7 @@ export default function ClimateGuardianPage() {
             <span>Bảng xếp hạng khu vực nguy cơ</span>
           </div>
           {riskRanking.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground/50">Chưa có dữ liệu.</p>
+            <p className="text-[10px] text-muted-foreground/65">Chưa có dữ liệu.</p>
           ) : (
             <div className="space-y-1">
               {riskRanking.slice(0, 10).map((r: any, i: number) => (
@@ -339,7 +343,7 @@ export default function ClimateGuardianPage() {
           <button
             onClick={fetchAlternatives}
             disabled={altLoading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-green-600 text-white font-medium transition-colors hover:bg-green-700 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-accent text-accent-foreground font-medium transition-colors hover:bg-green-700 disabled:opacity-60"
           >
             {altLoading ? (
               <>
@@ -377,7 +381,7 @@ export default function ClimateGuardianPage() {
               })}
             </div>
           ) : (
-            <p className="text-[10px] text-muted-foreground/50">
+            <p className="text-[10px] text-muted-foreground/65">
               {altResult ? 'Không tìm thấy nơi nào an toàn trong bán kính.' : 'Nhấn "Tìm nơi học an toàn" để bắt đầu.'}
             </p>
           )}

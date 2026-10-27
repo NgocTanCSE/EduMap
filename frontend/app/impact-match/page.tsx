@@ -23,10 +23,10 @@ const URGENCY_LABELS: Record<string, string> = {
   low: 'Thấp',
 };
 const URGENCY_COLORS: Record<string, string> = {
-  critical: 'bg-red-500/20 text-red-400 border-red-500/30',
-  high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  critical: 'bg-destructive/20 text-destructive border-destructive/30',
+  high: 'bg-primary/20 text-primary border-primary/30',
+  medium: 'bg-primary/10 text-primary/80 border-primary/20',
+  low: 'bg-muted/40 text-foreground/60 border-border',
 };
 
 export default function ImpactMatchPage() {
@@ -224,7 +224,7 @@ export default function ImpactMatchPage() {
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg line-clamp-1">{sponsor.name}</CardTitle>
           {sponsor.is_verified && (
-            <CheckCircle className="w-5 h-5 text-blue-400 shrink-0" />
+            <CheckCircle className="w-5 h-5 text-accent shrink-0" />
           )}
         </div>
       </CardHeader>
@@ -311,7 +311,7 @@ export default function ImpactMatchPage() {
               <ul className="space-y-1">
                 {match.match_reasons.map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-foreground/70">
-                    <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-accent mt-0.5 shrink-0" />
                     <span>{r}</span>
                   </li>
                 ))}
@@ -398,7 +398,7 @@ export default function ImpactMatchPage() {
         <Button
           onClick={handleRank}
           disabled={loadingRanking}
-          className="bg-primary hover:bg-primary/90 text-foreground px-6 py-3 gap-2"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"
         >
           {loadingRanking ? (
             <>
@@ -416,9 +416,9 @@ export default function ImpactMatchPage() {
 
       {/* Degraded banner */}
       {rankResponse?.degraded && (
-        <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-400" />
-          <span className="text-sm text-yellow-300">
+        <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-primary" />
+          <span className="text-sm text-primary">
             {rankResponse.reason || 'AI đang ngoại tuyến — đang sử dụng kết quả dự phòng dựa trên tiêu chí chi phí.'}
           </span>
         </div>
@@ -558,7 +558,7 @@ export default function ImpactMatchPage() {
               <button onClick={() => setShowNeedModal(false)} className="flex-1 px-4 py-2 bg-card/50 border border-border rounded-lg text-sm font-medium hover:bg-card transition-colors">
                 Hủy
               </button>
-              <button onClick={handleCreateNeed} className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-foreground rounded-lg text-sm font-semibold transition-colors">
+              <button onClick={handleCreateNeed} className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-semibold transition-colors">
                 Tạo nhu cầu
               </button>
             </div>
@@ -610,7 +610,7 @@ export default function ImpactMatchPage() {
               <button onClick={() => setShowSponsorModal(false)} className="flex-1 px-4 py-2 bg-card/50 border border-border rounded-lg text-sm font-medium hover:bg-card transition-colors">
                 Hủy
               </button>
-              <button onClick={handleCreateSponsor} className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-foreground rounded-lg text-sm font-semibold transition-colors">
+              <button onClick={handleCreateSponsor} className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-semibold transition-colors">
                 Tạo hồ sơ
               </button>
             </div>

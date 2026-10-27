@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
     fetchAllStats();
   }, []);
 
-  if (loading) return <div className="p-20 text-center text-muted-foreground/40">Đang tải dữ liệu thực tế từ Database & Redis...</div>;
+  if (loading) return <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu thực tế từ Database & Redis...</div>;
 
   const cards = [
     { title: 'Tổng người dùng', value: stats?.total_users || 0, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-white p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
                    <Icon className="w-6 h-6" />
                 </div>
                 <p className="text-3xl font-bold">{card.value}</p>
-                <p className="text-xs text-muted-foreground/40 uppercase font-bold mt-1 tracking-widest">{card.title}</p>
+                <p className="text-xs text-muted-foreground/60 uppercase font-bold mt-1 tracking-widest">{card.title}</p>
               </div>
             );
           })}
@@ -80,9 +80,9 @@ export default function AdminDashboardPage() {
            </h3>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
-                 <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Tổng lượt dự đoán</p>
+                 <p className="text-xs text-muted-foreground/60 uppercase font-bold tracking-widest mb-2">Tổng lượt dự đoán</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-2xl font-semibold text-white">{aiStats?.total_predictions || 0}</p>
+                    <p className="text-2xl font-semibold text-foreground">{aiStats?.total_predictions || 0}</p>
                     <span className="text-sm text-primary mb-1">+12%</span>
                  </div>
                  {/* Visual Bar representation */}
@@ -92,9 +92,9 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
-                 <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Độ chính xác (Accuracy)</p>
+                 <p className="text-xs text-muted-foreground/60 uppercase font-bold tracking-widest mb-2">Độ chính xác (Accuracy)</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-2xl font-semibold text-white">{(aiStats?.accuracy_rate * 100) || 0}%</p>
+                    <p className="text-2xl font-semibold text-foreground">{(aiStats?.accuracy_rate * 100) || 0}%</p>
                     <span className="text-sm text-primary mb-1">Tối ưu</span>
                  </div>
                  <div className="w-full h-2 bg-card/20 rounded-full mt-4 overflow-hidden">
@@ -103,9 +103,9 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="bg-black/30 p-6 rounded-xl border border-primary/20">
-                 <p className="text-xs text-muted-foreground/40 uppercase font-bold tracking-widest mb-2">Mô hình AI Active</p>
+                 <p className="text-xs text-muted-foreground/60 uppercase font-bold tracking-widest mb-2">Mô hình AI Active</p>
                  <div className="flex items-end gap-2">
-                    <p className="text-2xl font-semibold text-white">{aiStats?.active_models || 0}</p>
+                    <p className="text-2xl font-semibold text-foreground">{aiStats?.active_models || 0}</p>
                  </div>
                  <div className="flex gap-2 mt-4">
                     <div className="w-1/3 h-2 bg-primary rounded-full animate-pulse"></div>

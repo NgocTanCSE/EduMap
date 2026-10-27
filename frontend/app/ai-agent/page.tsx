@@ -14,9 +14,20 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import type { ComponentType } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
 // Use a lightweight inline check if the auth hook is unavailable
 import { getBackendUrl } from '@/src/lib/api-config';
+import {
+  BarChart3,
+  BookOpen,
+  Bot,
+  Database,
+  Loader2,
+  Map as MapIcon,
+  MapPin,
+  Wrench,
+} from 'lucide-react';
 
 // Lightweight token accessor — mirrors the pattern in app/ai-chat/page.tsx
 function getAccessToken(): string | null {
@@ -271,29 +282,30 @@ export default function AIAgentPage() {
   // ── Render helpers ────────────────────────────────────────────────────
 
   const renderToolCall = (tc: ToolCall) => {
-    const iconMap: Record<string, string> = {
-      query_sqlite: '🔍',
-      geo_recommend: '📍',
-      geo_density: '📊',
-      rag_search: '📚',
+    const iconMap: Record<string, ComponentType<{ className?: string }>> = {
+      query_sqlite: Database,
+      geo_recommend: MapPin,
+      geo_density: BarChart3,
+      rag_search: BookOpen,
     };
+    const ToolIcon = iconMap[tc.tool] || Wrench;
     return (
       <div
         key={tc._key}
-        className="mb-2 rounded-md border border-blue-100 bg-blue-50/50 p-3 text-sm"
+        className="mb-2 rounded-md border border-primary/25 bg-primary/10 p-3 text-sm"
       >
-        <div className="flex items-center gap-2 font-semibold text-blue-800">
-          <span>{iconMap[tc.tool] || '🔧'}</span>
+        <div className="flex items-center gap-2 font-semibold text-primary">
+          <ToolIcon className="h-3.5 w-3.5" />
           <span>{tc.tool}</span>
         </div>
-        {tc.error && <div className="mt-1 text-red-600">Lỗi: {tc.error}</div>}
+        {tc.error && <div className="mt-1 text-destructive">Lỗi: {tc.error}</div>}
         {tc.arguments && !tc.error && (
-          <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs text-blue-900/80">
+          <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs text-foreground/70">
             {JSON.stringify(tc.arguments, null, 2)}
           </pre>
         )}
         {tc.result_preview && (
-          <div className="mt-1 max-h-24 overflow-y-auto text-xs text-green-800/80">
+          <div className="mt-1 max-h-24 overflow-y-auto text-xs text-accent">
             {tc.result_preview}
           </div>
         )}
@@ -308,14 +320,14 @@ export default function AIAgentPage() {
         {sources.map((s, i) => (
           <div
             key={s.doc_id || i}
-            className="rounded-md border border-gray-200 bg-gray-50 p-2 text-xs"
+            className="rounded-md border border-border bg-background/60 p-2 text-xs"
           >
             <div className="font-medium">{s.title || 'Nguồn dữ liệu'}</div>
-            <div className="mt-1 max-h-20 overflow-y-auto text-gray-600">
+            <div className="mt-1 max-h-20 overflow-y-auto text-foreground/70">
               {s.snippet || 'Không có mô tả'}
             </div>
             {s.type && (
-              <span className="inline-block px-1.5 py-0.5 text-[10px] uppercase text-gray-500">
+              <span className="inline-block px-1.5 py-0.5 text-[10px] uppercase text-foreground/55">
                 {s.type}
               </span>
             )}
@@ -328,12 +340,12 @@ export default function AIAgentPage() {
   // ── Main render ───────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-dvh">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div className="border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="mx-auto max-w-4xl">
-          <h1 className="text-xl font-bold text-gray-800">Edumap AI Agent</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-foreground">Edumap AI Agent</h1>
+          <p className="text-sm text-foreground/55">
             Đặt câu hỏi bằng ngôn ngữ tự nhiên → AI chuyển thành truy vấn GIS
           </p>
         </div>
@@ -344,11 +356,13 @@ export default function AIAgentPage() {
         <div className="mx-auto max-w-4xl space-y-4">
           {messages.length === 0 ? (
             <div className="py-12 text-center">
-              <div className="mb-6 text-4xl">🗺️</div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-700">
+              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card">
+                <MapIcon aria-hidden="true" className="h-7 w-7 text-primary" />
+              </div>
+              <h2 className="mb-2 text-lg font-semibold text-foreground/80">
                 Chào mừng bạn đến với Edumap AI Agent
               </h2>
-              <p className="mb-6 text-gray-500">
+              <p className="mb-6 text-foreground/55">
                 Hãy hỏi về địa điểm giáo dục, học bổng, lộ trình học tập,
                 hay bất kỳ câu hỏi nào liên quan đến bản đồ giáo dục!
               </p>
@@ -357,7 +371,7 @@ export default function AIAgentPage() {
                   <button
                     key={q}
                     onClick={() => setInputValue(q)}
-                    className="max-w-xs rounded-full border border-gray-300 bg-white px-4 py-2 text-left text-sm text-gray-700 shadow-sm hover:bg-gray-100"
+                    className="max-w-xs rounded-full border border-input bg-card px-4 py-2 text-left text-sm text-foreground/80 shadow-sm hover:bg-muted"
                   >
                     {q}
                   </button>
@@ -370,7 +384,7 @@ export default function AIAgentPage() {
                 {/* User message */}
                 {msg.role === 'user' && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-lg bg-blue-600 px-4 py-2 text-white shadow">
+                    <div className="max-w-[80%] rounded-lg bg-primary px-4 py-2 text-primary-foreground shadow">
                       {msg.content}
                     </div>
                   </div>
@@ -379,24 +393,24 @@ export default function AIAgentPage() {
                 {/* Assistant message */}
                 {msg.role === 'assistant' && (
                   <div className="flex gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                      🤖
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                      <Bot className="h-4 w-4" />
                     </div>
                     <div className="flex-1 space-y-2">
                       <div
-                        className={`prose max-w-none text-gray-800 ${msg.degraded ? 'opacity-60' : ''}`}
+                        className={`prose max-w-none text-foreground ${msg.degraded ? 'opacity-60' : ''}`}
                       >
                         {msg.content ? (
                           <div className="whitespace-pre-wrap">{msg.content}</div>
                         ) : (
-                          <span className="text-gray-400">Đang suy nghĩ...</span>
+                          <span className="text-foreground/40">Đang suy nghĩ...</span>
                         )}
                       </div>
 
                       {/* Tool-call visualization */}
                       {msg.toolsUsed && msg.toolsUsed.length > 0 && showTools && (
                         <div className="mt-2 space-y-1">
-                          <div className="text-xs font-semibold text-gray-500">
+                          <div className="text-xs font-semibold text-foreground/55">
                             Công cụ đã sử dụng:
                           </div>
                           {msg.toolsUsed.map(renderToolCall)}
@@ -405,7 +419,7 @@ export default function AIAgentPage() {
                       {msg.toolsUsed && msg.toolsUsed.length > 0 && !showTools && (
                         <button
                           onClick={() => setShowTools(true)}
-                          className="text-xs text-blue-600 hover:underline"
+                          className="text-xs text-primary hover:underline"
                         >
                           Hiện {msg.toolsUsed.length} công cụ đã dùng
                         </button>
@@ -417,14 +431,14 @@ export default function AIAgentPage() {
                           {!showSources && (
                             <button
                               onClick={() => setShowSources(true)}
-                              className="text-xs text-blue-600 hover:underline"
+                              className="text-xs text-primary hover:underline"
                             >
                               Hiện {msg.sources.length} nguồn tham khảo
                             </button>
                           )}
                           {showSources && (
                             <>
-                              <div className="mb-1 text-xs font-semibold text-gray-500">
+                              <div className="mb-1 text-xs font-semibold text-foreground/55">
                                 Nguồn tham khảo:
                               </div>
                               {renderSources(msg.sources)}
@@ -443,7 +457,7 @@ export default function AIAgentPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 bg-white px-4 py-4">
+      <div className="border-t border-border bg-card px-4 py-4">
         <div className="mx-auto max-w-4xl">
           <div className="relative">
             <input
@@ -458,12 +472,12 @@ export default function AIAgentPage() {
               }}
               placeholder="Ví dụ: Tìm trường học cách thư viện 5km..."
               disabled={isStreaming}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded-lg border border-input px-4 py-3 text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
             />
             <button
               onClick={() => void sendMessage()}
               disabled={isStreaming || !inputValue.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {isStreaming ? '...' : 'Gửi'}
             </button>
@@ -471,8 +485,8 @@ export default function AIAgentPage() {
 
           {/* Status bar */}
           {isStreaming && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-              <div className="animate-pulse">●</div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-foreground/55">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
               <span>AI đang phân tích và thu thập dữ liệu GIS...</span>
             </div>
           )}
@@ -481,7 +495,7 @@ export default function AIAgentPage() {
           {isStreaming && (
             <button
               onClick={() => streamControllerRef.current?.abort()}
-              className="mt-1 text-xs text-gray-500 hover:text-red-600"
+              className="mt-1 text-xs text-foreground/55 hover:text-destructive"
             >
               Dừng trả lời
             </button>

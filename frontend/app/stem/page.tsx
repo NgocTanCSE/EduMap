@@ -1,10 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Microscope, MapPin, CheckCircle2, MonitorSmartphone, Calendar, Clock, Loader2, Search, ArrowRight, ShieldCheck, Cpu } from 'lucide-react';
+import { Atom, Microscope, MapPin, CheckCircle2, MonitorSmartphone, Calendar, Clock, Loader2, Search, ArrowRight, ShieldCheck, Cpu } from 'lucide-react';
 import { stemService, StemLab } from '@/src/services/stem.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
-import { stemIllustration } from '@/src/lib/illustrations';
 
 export default function StemLabsPage() {
   const [labs, setLabs] = useState<StemLab[]>([]);
@@ -88,20 +87,20 @@ export default function StemLabsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8 relative">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8 relative">
       
       {/* Booking Modal */}
       {showBookingModal && selectedLab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
-                <button onClick={() => setShowBookingModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <button onClick={() => setShowBookingModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Cpu className="text-accent w-6 h-6"/> Đặt thiết bị STEM</h3>
                 <p className="text-sm text-accent font-bold mb-6">{selectedLab.name}</p>
                 
                 <div className="p-4 bg-card border border-border rounded-xl mb-6 flex items-center gap-3">
-                    <MonitorSmartphone className="w-5 h-5 text-muted-foreground/40" />
+                    <MonitorSmartphone className="w-5 h-5 text-muted-foreground/60" />
                     <div>
-                        <p className="text-xs text-muted-foreground/40 uppercase tracking-widest font-bold">Thiết bị chọn</p>
+                        <p className="text-xs text-muted-foreground/60 uppercase tracking-widest font-bold">Thiết bị chọn</p>
                         <p className="font-bold">{selectedEquipment}</p>
                     </div>
                 </div>
@@ -145,11 +144,11 @@ export default function StemLabsPage() {
                     <button 
                         type="submit" 
                         disabled={bookingInProgress}
-                        className="w-full py-4 mt-4 rounded-xl bg-accent hover:bg-accent text-foreground font-semibold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="w-full py-4 mt-4 rounded-xl bg-accent hover:bg-accent text-accent-foreground font-semibold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                         {bookingInProgress ? <Loader2 className="w-5 h-5 animate-spin" /> : null} XÁC NHẬN ĐẶT LỊCH
                     </button>
-                    <p className="text-[10px] text-center text-muted-foreground/40 flex items-center justify-center gap-1"><ShieldCheck className="w-3 h-3"/> Xác thực bằng AI chống trùng lịch</p>
+                    <p className="text-[10px] text-center text-muted-foreground/60 flex items-center justify-center gap-1"><ShieldCheck className="w-3 h-3"/> Xác thực bằng AI chống trùng lịch</p>
                 </form>
             </div>
         </div>
@@ -167,7 +166,7 @@ export default function StemLabsPage() {
           </div>
           <div className="relative z-10">
              <div className="relative w-full md:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/45" />
                 <input 
                   type="text" 
                   placeholder="Tìm phòng lab, địa chỉ..." 
@@ -189,12 +188,11 @@ export default function StemLabsPage() {
           <div className="space-y-6">
             {filteredLabs.map(lab => (
               <div key={lab.id} className="p-8 rounded-xl bg-card border border-border flex flex-col md:flex-row gap-8 hover:border-accent/30 transition-colors group">
-                <div className="w-24 h-24 md:w-32 md:h-32 shrink-0 rounded-lg bg-card border border-border overflow-hidden">
-                    <img
-                      src={stemIllustration(lab.name)}
-                      alt={lab.name}
-                      className="w-full h-full object-cover"
-                    />
+                <div
+                  className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 md:h-32 md:w-32"
+                  aria-hidden="true"
+                >
+                  <Atom className="h-9 w-9 text-primary/60" />
                 </div>
 
                 <div className="flex-1 space-y-4">
@@ -213,7 +211,7 @@ export default function StemLabsPage() {
                     </p>
 
                     <div className="pt-4 border-t border-border">
-                        <h4 className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest mb-3">Thiết bị khả dụng</h4>
+                        <h4 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-3">Thiết bị khả dụng</h4>
                         <div className="flex flex-wrap gap-3">
                             {lab.equipment && lab.equipment.length > 0 ? lab.equipment.map((eq, i) => (
                                 <button 
@@ -221,12 +219,12 @@ export default function StemLabsPage() {
                                     onClick={() => openBookingModal(lab, eq)}
                                     className="flex items-center gap-2 px-4 py-2 bg-card border border-border hover:border-accent hover:bg-accent/5 rounded-xl text-sm transition-all"
                                 >
-                                    <MonitorSmartphone className="w-4 h-4 text-muted-foreground/40" />
+                                    <MonitorSmartphone className="w-4 h-4 text-muted-foreground/60" />
                                     <span>{eq}</span>
                                     <ArrowRight className="w-3 h-3 text-accent opacity-0 -ml-2 transition-all" />
                                 </button>
                             )) : (
-                                <span className="text-sm text-muted-foreground/40 italic">Chưa có thiết bị nào được liệt kê</span>
+                                <span className="text-sm text-muted-foreground/60 italic">Chưa có thiết bị nào được liệt kê</span>
                             )}
                         </div>
                     </div>
@@ -237,7 +235,7 @@ export default function StemLabsPage() {
         ) : (
             <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                 <Microscope className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                <p className="text-muted-foreground/40">Không tìm thấy phòng Lab STEM nào.</p>
+                <p className="text-muted-foreground/60">Không tìm thấy phòng Lab STEM nào.</p>
             </div>
         )}
 

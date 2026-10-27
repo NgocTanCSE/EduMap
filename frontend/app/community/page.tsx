@@ -160,7 +160,7 @@ export default function CommunityPage() {
           <header className="flex justify-between items-center bg-card/60 p-6 rounded-xl border border-border">
             <div>
               <h1 className="text-2xl font-semibold mb-1">Cộng đồng EduMap</h1>
-              <p className="text-muted-foreground/40 text-sm">
+              <p className="text-muted-foreground/60 text-sm">
                 {selectedGroupId
                   ? `Đang xem: ${groups.find(g => g.id === selectedGroupId)?.name || '...'}`
                   : 'Hỏi đáp, chia sẻ và kết nối'
@@ -174,14 +174,14 @@ export default function CommunityPage() {
                     setSelectedGroupId(null);
                     setPage(1);
                   }}
-                  className="text-muted-foreground/40 hover:text-foreground text-sm px-3 py-1 rounded-lg bg-card hover:bg-card/50 transition-colors"
+                  className="text-muted-foreground/60 hover:text-foreground text-sm px-3 py-1 rounded-lg bg-card hover:bg-card/50 transition-colors"
                 >
                   Xóa bộ lọc
                 </button>
               )}
               <button 
                   onClick={() => setIsCreating(true)}
-                  className="bg-primary hover:bg-primary/90 text-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 flex items-center gap-2"
               >
                   <FileText size={18} /> Đăng bài
               </button>
@@ -218,7 +218,7 @@ export default function CommunityPage() {
                               <button 
                                   type="submit" 
                                   disabled={isSubmitting}
-                                  className="bg-primary hover:bg-primary/90 text-foreground font-semibold py-3 px-8 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-8 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                   {isSubmitting ? 'Đang kiểm duyệt & Đăng...' : 'Đăng bài'}
                               </button>
@@ -261,7 +261,7 @@ export default function CommunityPage() {
                         <Link href={`/community/post/${post.id}`}>
                             <div className="space-y-2 cursor-pointer group">
                                 <h3 className="text-xl font-bold text-foreground group-hover:text-primary/70 transition-colors">{post.title}</h3>
-                                <p className="text-muted-foreground/40 text-sm leading-relaxed line-clamp-3">
+                                <p className="text-muted-foreground/60 text-sm leading-relaxed line-clamp-3">
                                     {post.content}
                                 </p>
                             </div>
@@ -344,7 +344,7 @@ export default function CommunityPage() {
                                 <button
                                     type="button"
                                     onClick={() => handleTagClick(tag)}
-                                    className="text-sm text-muted-foreground/40 hover:text-primary/70 transition-colors font-medium text-left"
+                                    className="text-sm text-muted-foreground/60 hover:text-primary/70 transition-colors font-medium text-left"
                                 >
                                     {tag}
                                 </button>
@@ -368,7 +368,7 @@ export default function CommunityPage() {
                                 <div className={`w-8 h-8 rounded-lg bg-card flex items-center justify-center text-xs font-semibold text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-all ${selectedGroupId === group.id ? 'bg-primary/20 text-primary' : ''}`}>
                                     {(group.name || 'G')[0]}
                                 </div>
-                                <span className={`text-sm text-muted-foreground/40 group-hover:text-foreground font-medium transition-colors ${selectedGroupId === group.id ? 'text-foreground font-bold' : ''}`}>{group.name}</span>
+                                <span className={`text-sm text-muted-foreground/60 group-hover:text-foreground font-medium transition-colors ${selectedGroupId === group.id ? 'text-foreground font-bold' : ''}`}>{group.name}</span>
                             </button>
                         )) : (
                             <div className="text-sm text-muted-foreground italic">Chưa có nhóm nào</div>

@@ -331,7 +331,7 @@ export default function LanguageBridgePage() {
         {/* ── Translate ── */}
         <div className="space-y-3 pt-2 border-t border-border">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-green-500" />
+            <Globe className="w-4 h-4 text-accent" />
             <h3 className="text-sm font-semibold text-foreground">Dịch</h3>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -370,7 +370,7 @@ export default function LanguageBridgePage() {
           <button
             onClick={handleTranslate}
             disabled={translateLoading || !text.trim()}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-green-600 text-white font-medium transition-colors hover:bg-green-700 disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-accent text-accent-foreground font-medium transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {translateLoading ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -384,7 +384,7 @@ export default function LanguageBridgePage() {
         {/* ── TTS ── */}
         <div className="space-y-3 pt-2 border-t border-border">
           <div className="flex items-center gap-2">
-            <Volume2 className="w-4 h-4 text-sky-500" />
+            <Volume2 className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Chuyển thành giọng nói</h3>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -435,7 +435,7 @@ export default function LanguageBridgePage() {
             <button
               onClick={handleTTS}
               disabled={ttsLoading}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-sky-600 text-white font-medium transition-colors hover:bg-sky-700 disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium transition-colors hover:bg-sky-700 disabled:opacity-60"
             >
               {ttsLoading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -486,7 +486,7 @@ export default function LanguageBridgePage() {
 
         {/* Degraded banner */}
         {(simplifyResult?.degraded || translateResult?.degraded || ttsResult?.degraded) && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               {simplifyResult?.degraded && simplifyResult.reason && <div>{simplifyResult.reason}</div>}
@@ -566,7 +566,9 @@ export default function LanguageBridgePage() {
                     </div>
                   )}
                   {simplifyResult.degraded && (
-                    <p className="text-xs text-amber-400 mt-2">⚠ {simplifyResult.reason}</p>
+                    <p className="mt-2 flex items-start gap-1 text-xs text-primary">
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> {simplifyResult.reason}
+                    </p>
                   )}
                 </>
               ) : (
@@ -587,7 +589,9 @@ export default function LanguageBridgePage() {
                 <>
                   <p className="text-foreground whitespace-pre-wrap leading-relaxed">{translateResult.translated || 'Chưa có bản dịch.'}</p>
                   {translateResult.degraded && (
-                    <p className="text-xs text-amber-400 mt-2">⚠ {translateResult.reason}</p>
+                    <p className="mt-2 flex items-start gap-1 text-xs text-primary">
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> {translateResult.reason}
+                    </p>
                   )}
                 </>
               ) : (
@@ -619,12 +623,12 @@ export default function LanguageBridgePage() {
                     <div className="text-xs text-muted-foreground">
                       <div>Provider: <span className="font-medium text-foreground">{ttsResult.provider || 'N/A'}</span></div>
                       <div>Thời lượng: <span className="font-medium">{Math.round(ttsResult.duration_ms / 1000)}s</span></div>
-                      {ttsResult.cached && <div className="text-amber-400">Đã cache (24h)</div>}
+                      {ttsResult.cached && <div className="text-primary">Đã cache (24h)</div>}
                     </div>
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <Volume2 className="w-12 h-12 text-muted-foreground/50 mx-auto" />
+                    <Volume2 className="w-12 h-12 text-muted-foreground/65 mx-auto" />
                     <p className="text-sm text-muted-foreground">
                       AI TTS không khả dụng. Đang sử dụng trình duyệt (Web Speech API).
                     </p>
@@ -632,7 +636,7 @@ export default function LanguageBridgePage() {
                 )
               ) : (
                 <div className="space-y-4">
-                  <Volume2 className="w-16 h-16 text-muted-foreground/30 mx-auto" />
+                  <Volume2 className="w-16 h-16 text-muted-foreground/45 mx-auto" />
                   <p className="text-muted-foreground">Chọn "Tạo giọng nói" để nghe bản đọc.</p>
                 </div>
               )}

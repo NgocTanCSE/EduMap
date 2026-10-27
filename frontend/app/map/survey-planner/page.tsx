@@ -253,7 +253,7 @@ export default function SurveyPlannerPage() {
             <span>Danh sách ưu tiên ({features.length})</span>
           </div>
           {features.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground/50">
+            <p className="text-[10px] text-muted-foreground/65">
               {meta.degraded ? 'Chưa có gợi ý — mở rộng vùng hoặc di chuyển vị trí.' : 'Đang tải…'}
             </p>
           ) : (
@@ -277,7 +277,7 @@ export default function SurveyPlannerPage() {
                       {p.reason || 'Ứng cử viên khảo sát'}
                     </span>
                     <span className={`font-bold ${badge}`}>{p.priority_score.toFixed(3)}</span>
-                    <MapPin className="w-3 h-3 text-muted-foreground/40" />
+                    <MapPin className="w-3 h-3 text-muted-foreground/60" />
                   </button>
                 );
               })}

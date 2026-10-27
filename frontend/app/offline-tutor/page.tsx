@@ -17,7 +17,16 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { CloudOff } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  CloudOff,
+  Loader2,
+  PencilLine,
+  Target,
+  Timer,
+} from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -196,7 +205,7 @@ export default function OfflineTutorPage() {
         assistantMsg.estimatedTime = result?.estimated_time || '';
         assistantMsg.content = result?.next_step
           ? `**Bước tiếp theo**: ${result.next_step}\n` +
-            (result.estimated_time ? `⏱️ ${result.estimated_time}\n` : '') +
+            (result.estimated_time ? `Thời gian ước tính: ${result.estimated_time}\n` : '') +
             (result.resources && result.resources.length > 0
               ? `\n**Tài nguyên**: ${result.resources.map((r: any) => r.title || r).join(', ')}\n`
               : '')
@@ -233,7 +242,9 @@ export default function OfflineTutorPage() {
 
   const renderDegradedBadge = (msg: ChatMessage) => {
     if (!msg.degraded) return null;
-    const bg = msg.source === 'model' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+    const bg = msg.source === 'model'
+      ? 'border border-accent/30 bg-accent/10 text-accent'
+      : 'border border-primary/30 bg-primary/10 text-primary';
     const label = msg.source === 'model'
       ? 'Mô hình AI đang chạy'
       : 'Đang dùng bản sao chép mẫu (offline mode)';
@@ -245,17 +256,17 @@ export default function OfflineTutorPage() {
   };
 
   const renderQuestionCard = (q: { question: string; answer: string; difficulty: string }, idx: number) => (
-    <div key={idx} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-      <div className="mb-1 font-medium text-gray-800">
+    <div key={idx} className="rounded-lg border border-border bg-background p-3 text-sm">
+      <div className="mb-1 font-medium text-foreground">
         Câu {idx + 1} — <span className={`text-xs uppercase ${
-          q.difficulty === 'easy' ? 'text-green-600' :
-          q.difficulty === 'hard' ? 'text-red-600' : 'text-orange-600'
+          q.difficulty === 'easy' ? 'text-accent' :
+          q.difficulty === 'hard' ? 'text-destructive' : 'text-primary'
         }`}>{q.difficulty}</span>
       </div>
-      <div className="mb-2 text-gray-700">{q.question}</div>
-      <details className="text-xs text-gray-600">
-        <summary className="cursor-pointer font-medium text-blue-600">Xem đáp án</summary>
-        <div className="mt-1 text-gray-600">{q.answer || 'Chưa có lời giải'}</div>
+      <div className="mb-2 text-foreground/80">{q.question}</div>
+      <details className="text-xs text-foreground/70">
+        <summary className="cursor-pointer font-medium text-primary">Xem đáp án</summary>
+        <div className="mt-1 text-foreground/70">{q.answer || 'Chưa có lời giải'}</div>
       </details>
     </div>
   );
@@ -266,28 +277,34 @@ export default function OfflineTutorPage() {
   const isModelFailed = modelStatus?.model_failed === true;
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-dvh">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div className="border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="mx-auto max-w-4xl">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <CloudOff className="h-5 w-5 text-indigo-600" />
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <CloudOff className="h-5 w-5 text-primary" />
                 Trợ lý ngoại tuyến
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-foreground/55">
                 Gia sư AI cục bộ — không cần internet (TinyLlama 1.1B Chat)
               </p>
             </div>
             {modelStatus && (
-              <div className="text-right text-xs text-gray-500">
+              <div className="text-right text-xs text-foreground/55">
                 {isModelReady ? (
-                  <span className="text-green-600">✅ Mô hình đã sẵn sàng</span>
+                  <span className="inline-flex items-center gap-1.5 text-accent">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Mô hình đã sẵn sàng
+                  </span>
                 ) : isModelFailed ? (
-                  <span className="text-amber-600">⚠️ Đang dùng bản sao chép mẫu</span>
+                  <span className="inline-flex items-center gap-1.5 text-primary">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Đang dùng bản sao chép mẫu
+                  </span>
                 ) : (
-                  <span className="text-gray-400">⏳ Đang tải mô hình...</span>
+                  <span className="inline-flex items-center gap-1.5 text-foreground/40">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải mô hình…
+                  </span>
                 )}
               </div>
             )}
@@ -300,11 +317,13 @@ export default function OfflineTutorPage() {
         <div className="mx-auto max-w-4xl space-y-4">
           {messages.length === 0 ? (
             <div className="py-12 text-center">
-              <div className="mb-6 text-5xl">📚</div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-700">
+              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card">
+                <BookOpen aria-hidden="true" className="h-7 w-7 text-primary" />
+              </div>
+              <h2 className="mb-2 text-lg font-semibold text-foreground/80">
                 Trợ lý ngoại tuyến — Trợ lý AI cục bộ
               </h2>
-              <p className="mb-6 max-w-md text-sm text-gray-500">
+              <p className="mb-6 max-w-md text-sm text-foreground/55">
                 Hỏi về bất kỳ chủ đề học tập nào — mô hình AI chạy trực tiếp
                 trên thiết bị, không cần kết nối internet. Hoạt động với
                 bản sao chép mẫu ngay cả khi mô hình chưa tải xong.
@@ -315,7 +334,7 @@ export default function OfflineTutorPage() {
                   <button
                     key={topic}
                     onClick={() => setInputTopic(topic)}
-                    className="rounded-full border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 shadow-sm hover:bg-gray-100"
+                    className="rounded-full border border-input bg-card px-3 py-1 text-sm text-foreground/80 shadow-sm hover:bg-muted"
                   >
                     {topic}
                   </button>
@@ -328,7 +347,7 @@ export default function OfflineTutorPage() {
                 {/* User message */}
                 {msg.role === 'user' && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-lg bg-indigo-600 px-4 py-2 text-white shadow">
+                    <div className="max-w-[80%] rounded-lg bg-primary px-4 py-2 text-primary-foreground shadow">
                       {msg.content}
                     </div>
                   </div>
@@ -337,11 +356,11 @@ export default function OfflineTutorPage() {
                 {/* Assistant message */}
                 {msg.role === 'assistant' && (
                   <div className="flex gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                      📚
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                      <BookOpen className="h-4 w-4" />
                     </div>
                     <div className="flex-1 space-y-2">
-                      <div className={`prose max-w-none text-gray-800 ${msg.degraded ? 'opacity-75' : ''}`}>
+                      <div className={`prose max-w-none text-foreground ${msg.degraded ? 'opacity-75' : ''}`}>
                         {msg.questions && msg.questions.length > 0 ? (
                           <div className="space-y-2">
                             {msg.questions.map((q, i) => renderQuestionCard(q, i))}
@@ -353,7 +372,7 @@ export default function OfflineTutorPage() {
                         ) : msg.content ? (
                           <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content }} />
                         ) : (
-                          <span className="text-gray-400">Đang xử lý...</span>
+                          <span className="text-foreground/40">Đang xử lý...</span>
                         )}
                       </div>
 
@@ -361,7 +380,9 @@ export default function OfflineTutorPage() {
                       <div className="flex items-center gap-2">
                         {renderDegradedBadge(msg)}
                         {msg.estimatedTime && (
-                          <span className="text-xs text-gray-500">⏱️ {msg.estimatedTime}</span>
+                          <span className="inline-flex items-center gap-1 text-xs text-foreground/55">
+                            <Timer className="h-3.5 w-3.5" /> {msg.estimatedTime}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -375,39 +396,39 @@ export default function OfflineTutorPage() {
       </div>
 
       {/* Input area */}
-      <div className="border-t border-gray-200 bg-white px-4 py-4">
+      <div className="border-t border-border bg-card px-4 py-4">
         <div className="mx-auto max-w-4xl">
           {/* Action selector */}
           <div className="mb-3 flex gap-2">
             <button
               onClick={() => setSelectedAction('explain')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 selectedAction === 'explain'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-foreground/80 hover:bg-muted/80'
               }`}
             >
-              📖 Giải thích
+              <BookOpen className="h-4 w-4" /> Giải thích
             </button>
             <button
               onClick={() => setSelectedAction('practice')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 selectedAction === 'practice'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-foreground/80 hover:bg-muted/80'
               }`}
             >
-              ✏️ Luyện tập
+              <PencilLine className="h-4 w-4" /> Luyện tập
             </button>
             <button
               onClick={() => setSelectedAction('suggest')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 selectedAction === 'suggest'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-foreground/80 hover:bg-muted/80'
               }`}
             >
-              🎯 Đề xuất
+              <Target className="h-4 w-4" /> Đề xuất
             </button>
           </div>
 
@@ -432,12 +453,12 @@ export default function OfflineTutorPage() {
                     : 'Nhập chương đã học và điểm yếu...'
                 }
                 disabled={isLoading}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-lg border border-input px-4 py-3 text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
               <button
                 onClick={() => void sendMessage()}
                 disabled={isLoading || !inputTopic.trim()}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
                 {isLoading ? '...' : 'Gửi'}
               </button>
@@ -451,7 +472,7 @@ export default function OfflineTutorPage() {
                 onChange={(e) => setInputContext(e.target.value)}
                 placeholder="Tài liệu tham khảo (tùy chọn)..."
                 disabled={isLoading}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
             )}
 
@@ -461,7 +482,7 @@ export default function OfflineTutorPage() {
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as any)}
                   disabled={isLoading}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:outline-none"
+                  className="rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
                 >
                   <option value="easy">Dễ</option>
                   <option value="medium">Trung bình</option>
@@ -474,7 +495,7 @@ export default function OfflineTutorPage() {
                   value={numQuestions}
                   onChange={(e) => setNumQuestions(Math.max(1, Math.min(5, parseInt(e.target.value) || 3)))}
                   disabled={isLoading}
-                  className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:outline-none"
+                  className="w-20 rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
                 />
               </div>
             )}
@@ -486,15 +507,15 @@ export default function OfflineTutorPage() {
                 onChange={(e) => setInputContext(e.target.value)}
                 placeholder="Mục tiêu học tập (ví dụ: 'Chuẩn bị thi THPT QG')..."
                 disabled={isLoading}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
             )}
           </div>
 
           {/* Status bar */}
           {isLoading && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-              <div className="animate-pulse">●</div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-foreground/55">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
               <span>
                 {isModelReady ? 'AI đang suy ngẫn...' : 'Đang sử dụng bản sao mẫu...'}
               </span>

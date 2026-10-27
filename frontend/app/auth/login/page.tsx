@@ -427,7 +427,7 @@ function GoogleLoginContent() {
                   type="button"
                   onClick={handleDevLogin}
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary-foreground dark:text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

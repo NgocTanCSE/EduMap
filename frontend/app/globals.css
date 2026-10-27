@@ -98,6 +98,61 @@
   .radius-2xl { border-radius: 1.5rem; }
 }
 
+/* ── Layout & alignment primitives ─────────────────────────────────────
+   These exist so every feature page shares ONE page frame, ONE card
+   surface and ONE card grid. Before them, pages mixed `p-8`, `p-6`,
+   `max-w-7xl` and `max-w-6xl`, which is why nothing lined up between
+   routes. Apply these classes instead of writing the same 6 utilities
+   again (and again, with slightly different values).
+   Defined in @layer components so page-level utility classes can still
+   override them (e.g. `page-shell max-w-4xl`). */
+@layer components {
+  /* Page frame: same padding + vertical rhythm on mobile and desktop. */
+  .page-shell {
+    @apply mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
+  }
+
+  /* Narrow variant for form/detail pages. */
+  .page-shell-narrow {
+    @apply mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
+  }
+
+  /* Standard surface for cards, panels and list rows. */
+  .card-surface {
+    @apply rounded-xl border border-border bg-card;
+  }
+
+  /* Equal-height card grid: every row's cards stretch to the tallest card. */
+  .card-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .card-grid-4 {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Card body that keeps title/description/footer aligned across a row. */
+  .card-equal {
+    @apply flex h-full flex-col;
+  }
+
+  /* Push a card's footer (meta row / CTA) to the bottom edge. */
+  .card-footer {
+    @apply mt-auto flex items-center justify-between gap-2 border-t border-border pt-3;
+  }
+
+  /* Uniform vector-icon tile — replaces emoji tiles and <img> icon art. */
+  .icon-tile {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary;
+  }
+
+  /* Secondary text that still passes contrast on the dark background.
+     Use instead of `text-muted-foreground/40|50`, which was unreadable. */
+  .text-soft {
+    @apply text-foreground/60;
+  }
+}
+
 /* Leaflet Dark Mode Tile Filter (Watermark-free, 100% Free OpenStreetMap) */
 .leaflet-dark-tiles .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);

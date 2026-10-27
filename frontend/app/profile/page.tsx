@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal, Calendar, Briefcase } from 'lucide-react';
+import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal, Calendar, Briefcase, Check } from 'lucide-react';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { gamificationService, UserProgress, LeaderboardUser } from '@/reporting/services/gamification.service';
 import { storageService } from '@/src/services/storage.service';
@@ -199,7 +199,7 @@ export default function ProfilePage() {
               <p className="text-muted-foreground/60 max-w-lg leading-relaxed text-sm">{user.email}</p>
               
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground/50 bg-card/40 px-3 py-1.5 rounded-full border border-border">
+                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground/65 bg-card/40 px-3 py-1.5 rounded-full border border-border">
                   <Shield className="w-4 h-4 text-primary/70" /> {user.role.toUpperCase()}
                 </div>
               </div>
@@ -210,11 +210,11 @@ export default function ProfilePage() {
               <div className="flex md:flex-col gap-4 w-full md:w-auto relative z-10 shrink-0">
                 <div className="flex-1 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center min-w-[100px]">
                   <div className="text-2xl font-semibold text-primary">{progress.level}</div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">Level</div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">Level</div>
                 </div>
                 <div className="flex-1 bg-primary/10 border border-primary/20 rounded-lg p-4 text-center min-w-[100px]">
                   <div className="text-2xl font-semibold text-primary/70">{progress.points.toLocaleString()}</div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/40">XP</div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/60">XP</div>
                 </div>
               </div>
             )}
@@ -229,7 +229,7 @@ export default function ProfilePage() {
               {activeTab === 'overview' && (
                 <section className="bg-card border border-border rounded-xl p-8 space-y-6">
                     <h2 className="text-xl font-bold flex items-center gap-2"><Activity className="text-primary" /> Hoạt động gần đây</h2>
-                    <p className="text-sm text-muted-foreground/40">Tính năng lịch sử hoạt động đang được cập nhật.</p>
+                    <p className="text-sm text-muted-foreground/60">Tính năng lịch sử hoạt động đang được cập nhật.</p>
                 </section>
               )}
 
@@ -245,7 +245,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-bold text-primary">{progress.points.toLocaleString()}</span>
-                        <span className="text-xs text-muted-foreground/40 ml-1">/ {progress.next_level_points.toLocaleString()} XP</span>
+                        <span className="text-xs text-muted-foreground/60 ml-1">/ {progress.next_level_points.toLocaleString()} XP</span>
                       </div>
                     </div>
                     
@@ -255,7 +255,7 @@ export default function ProfilePage() {
                         style={{ width: `${progress.progress_percent}%` }} 
                       />
                     </div>
-                    <p className="text-[10px] text-muted-foreground/40 mt-3 text-center">Hoàn thành thêm nhiệm vụ để nhận {progress.points_needed.toLocaleString()} XP và thăng cấp!</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-3 text-center">Hoàn thành thêm nhiệm vụ để nhận {progress.points_needed.toLocaleString()} XP và thăng cấp!</p>
                   </div>
 
                   {/* Badges Collection */}
@@ -279,7 +279,7 @@ export default function ProfilePage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="col-span-full text-center py-8 text-muted-foreground/40 text-sm">Bạn chưa có huy hiệu nào. Hãy tích cực tham gia các hoạt động để mở khóa!</div>
+                            <div className="col-span-full text-center py-8 text-muted-foreground/60 text-sm">Bạn chưa có huy hiệu nào. Hãy tích cực tham gia các hoạt động để mở khóa!</div>
                         )}
                       </div>
                   </div>
@@ -362,9 +362,11 @@ export default function ProfilePage() {
 
                       <div className="space-y-2">
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-2"><Camera className="w-4 h-4 text-primary" /> Ảnh đại diện (Upload ảnh)</label>
-                        <div className="text-sm text-muted-foreground/40 mb-2">
+                        <div className="text-sm text-muted-foreground/60 mb-2">
                           {profileForm.avatar_url ? (
-                            <span className="text-primary">✓ Đã chọn ảnh (nhấn Lưu để cập nhật)</span>
+                            <span className="inline-flex items-center gap-1 text-primary">
+                              <Check className="h-3.5 w-3.5" /> Đã chọn ảnh (nhấn Lưu để cập nhật)
+                            </span>
                           ) : (
                             <span>Chọn ảnh jpg/png từ máy (tối đa 5MB)</span>
                           )}
@@ -376,7 +378,7 @@ export default function ProfilePage() {
                           onUploadSuccess={(url) => setProfileForm({...profileForm, avatar_url: url})}
                         />
                         {!profileForm.avatar_url && (
-                          <p className="text-xs text-muted-foreground/30 mt-1">Nếu không tải lên, hệ thống sẽ tạo ảnh mặc định từ tên của bạn.</p>
+                          <p className="text-xs text-muted-foreground/45 mt-1">Nếu không tải lên, hệ thống sẽ tạo ảnh mặc định từ tên của bạn.</p>
                         )}
                       </div>
 
@@ -394,7 +396,7 @@ export default function ProfilePage() {
                       <button
                         type="submit"
                         disabled={savingProfile}
-                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-card text-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:bg-card text-primary-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -490,7 +492,7 @@ export default function ProfilePage() {
                         <div key={pref.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-border">
                           <div>
                             <p className="font-bold text-sm">{pref.label}</p>
-                            <p className="text-xs text-muted-foreground/40">{pref.desc}</p>
+                            <p className="text-xs text-muted-foreground/60">{pref.desc}</p>
                           </div>
                           <button
                             type="button"
@@ -518,7 +520,7 @@ export default function ProfilePage() {
                         }
                       }}
                       disabled={savingPrefs}
-                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-card text-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="mt-6 px-6 py-3 bg-primary hover:bg-primary disabled:bg-card text-primary-foreground font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
                     >
                       {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       {savingPrefs ? 'Đang lưu...' : 'Lưu cài đặt thông báo'}
@@ -536,22 +538,22 @@ export default function ProfilePage() {
               <div className="bg-card border border-border rounded-xl p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold flex items-center gap-2"><Trophy className="w-4 h-4 text-primary" /> Bảng xếp hạng</h3>
-                  <Link href="/leaderboard" className="text-[10px] uppercase font-bold text-muted-foreground/40 hover:text-foreground transition-colors">Xem tất cả</Link>
+                  <Link href="/leaderboard" className="text-[10px] uppercase font-bold text-muted-foreground/60 hover:text-foreground transition-colors">Xem tất cả</Link>
                 </div>
                 
                 <div className="space-y-3">
                   {leaderboard.map((u, index) => (
                     <div key={u.id} className={`flex items-center gap-3 p-3 rounded-lg transition-colors border ${u.id === user.id ? 'bg-primary/10 border-primary/20' : 'bg-card/40 border-border hover:border-border'}`}>
-                      <span className={`text-sm font-semibold w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-muted-foreground/60' : index === 2 ? 'text-primary-foreground' : 'text-muted-foreground/20'}`}>
+                      <span className={`text-sm font-semibold w-6 text-center ${index === 0 ? 'text-primary' : index === 1 ? 'text-muted-foreground/60' : index === 2 ? 'text-foreground' : 'text-muted-foreground/20'}`}>
                         #{index + 1}
                       </span>
                       <div className="flex-1">
                         <p className={`text-sm font-bold truncate ${u.id === user.id ? 'text-primary' : ''}`}>{u.full_name}</p>
-                        <p className="text-[10px] text-muted-foreground/40 uppercase tracking-wider">Level {u.level}</p>
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">Level {u.level}</p>
                       </div>
                       <div className="text-right">
                         <span className="text-xs font-mono font-bold">{u.points.toLocaleString()}</span>
-                        <span className="text-[8px] text-muted-foreground/40 ml-1">XP</span>
+                        <span className="text-[8px] text-muted-foreground/60 ml-1">XP</span>
                       </div>
                     </div>
                   ))}

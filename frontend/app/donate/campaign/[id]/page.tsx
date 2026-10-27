@@ -112,7 +112,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
             <div className="absolute bottom-6 left-6 right-6">
               <span
                 className={`px-3 py-1 rounded-full text-[10px] font-bold mb-3 inline-block ${
-                  campaign.status === 'active' ? 'bg-accent text-foreground' : 'bg-destructive text-foreground'
+                  campaign.status === 'active' ? 'bg-accent text-accent-foreground' : 'bg-destructive text-foreground'
                 }`}
               >
                 {campaign.status === 'active' ? 'ĐANG DIỄN RA' : 'ĐÃ KẾT THÚC'}
@@ -153,7 +153,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                       </div>
                       <div>
                         <p className="text-sm font-medium">{donation.donor?.fullName || 'Nhà hảo tâm ẩn danh'}</p>
-                        <p className="text-[10px] text-muted-foreground/40">
+                        <p className="text-[10px] text-muted-foreground/60">
                           {formatTimeAgo(donation.created_at)}
                         </p>
                       </div>
@@ -164,7 +164,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                   </div>
                 ))
               ) : (
-                <p className="text-center text-muted-foreground/40 py-4 text-sm">
+                <p className="text-center text-muted-foreground/60 py-4 text-sm">
                   Chưa có lượt đóng góp nào. Hãy là người đầu tiên!
                 </p>
               )}
@@ -181,7 +181,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                   <span className="text-3xl font-bold">
                     {(campaign.current_amount / 1000000).toFixed(1)}tr
                   </span>
-                  <span className="text-sm text-muted-foreground/40">
+                  <span className="text-sm text-muted-foreground/60">
                     Mục tiêu: {(campaign.target_amount / 1000000).toFixed(1)}tr
                   </span>
                 </div>
@@ -195,7 +195,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                   <span className="text-[10px] text-primary/70 font-bold uppercase tracking-wider">
                     {progress}% hoàn thành
                   </span>
-                  <span className="text-[10px] text-muted-foreground/40">
+                  <span className="text-[10px] text-muted-foreground/60">
                     {donors.length} lượt đóng góp
                   </span>
                 </div>
@@ -229,7 +229,7 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
                     onChange={e => setIsAnonymous(e.target.checked)}
                     className="w-4 h-4 rounded border-border bg-card focus:ring-primary"
                   />
-                  <span className="text-[10px] text-muted-foreground/50">
+                  <span className="text-[10px] text-muted-foreground/65">
                     Quyên góp ẩn danh
                   </span>
                 </label>
@@ -238,13 +238,13 @@ export default function DonationDetailPage({ params }: { params: { id: string } 
               <button
                 onClick={() => handleDonation()}
                 disabled={submitting || campaign.status !== 'active'}
-                className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-foreground font-bold transition-colors disabled:bg-card disabled:text-muted-foreground/40 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors disabled:bg-card disabled:text-muted-foreground/60 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {campaign.status === 'active' ? 'QUYÊN GÓP NGAY' : 'CHIẾN DỊCH ĐÃ ĐÓNG'}
               </button>
 
-              <div className="flex items-center gap-2 justify-center text-[10px] text-muted-foreground/40 pt-2 border-t border-border">
+              <div className="flex items-center gap-2 justify-center text-[10px] text-muted-foreground/60 pt-2 border-t border-border">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Giao dịch bảo mật bởi EduMap Secure</span>
               </div>

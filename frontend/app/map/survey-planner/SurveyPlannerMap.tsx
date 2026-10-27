@@ -5,6 +5,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Target } from 'lucide-react';
 
 /** Tiny SVG tear-drop pin base (matches EduMap MapComponent style). */
 const PIN_SVG = `<svg viewBox="0 0 24 24" class="absolute inset-0 w-5 h-5"><path fill="currentColor" d="M12 2.5C8.17 2.5 5 5.67 5 9.5 5 14.85 11.25 20.15 11.53 20.46a1 1 0 001.46-.01C12.75 20.15 19 14.85 19 9.5 19 5.67 15.83 2.5 12 2.5zm0 13.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>`;
@@ -169,7 +170,9 @@ export default function SurveyPlannerMap({
           >
             <Popup>
               <div className="font-sans text-xs text-foreground">
-                <strong className="block text-amber-300">★ Điểm khảo sát tiếp theo</strong>
+                <strong className="flex items-center gap-1 text-primary">
+                  <Target className="h-3 w-3" /> Điểm khảo sát tiếp theo
+                </strong>
                 <span className="block opacity-80 mt-0.5">
                   #{nextFeature.properties.rank} — điểm số {nextFeature.properties.priority_score?.toFixed(3)}
                 </span>

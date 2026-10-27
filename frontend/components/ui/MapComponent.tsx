@@ -863,7 +863,7 @@ export default function InteractiveMap({
 
                         {p.id === selectedPoint?.id && nearbyPoints.length > 0 && (
                           <div className="pt-2 border-t border-border">
-                            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1">
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">
                               Tiện ích xung quanh (≤1km)
                             </p>
                             <ul className="space-y-1 max-h-40 overflow-y-auto">
@@ -948,7 +948,7 @@ export default function InteractiveMap({
                             Ghim {p.category}
                           </span>
                           <button
-                            className="bg-primary text-foreground text-[9px] font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
+                            className="bg-primary text-primary-foreground text-[9px] font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
                             onClick={() => {
                               window.location.href = p.featureLink;
                             }}

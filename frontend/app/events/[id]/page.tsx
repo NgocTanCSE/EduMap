@@ -114,7 +114,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
       <div className="w-full mx-auto space-y-8">
         <Link
           href="/events"
-          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors group text-sm font-bold w-fit"
+          className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors group text-sm font-bold w-fit"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI DANH SÁCH
         </Link>
@@ -137,7 +137,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                 <div className="space-y-4 flex-1 text-center md:text-left">
                   <div>
                     <h3 className="text-lg font-semibold mb-1">{ticket.event_title}</h3>
-                    <p className="text-muted-foreground/50 text-sm flex items-center justify-center md:justify-start gap-2">
+                    <p className="text-muted-foreground/65 text-sm flex items-center justify-center md:justify-start gap-2">
                       <Calendar className="w-4 h-4" /> {new Date(ticket.start_date).toLocaleString('vi-VN')}
                     </p>
                   </div>
@@ -164,7 +164,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                 </div>
               </div>
             </div>
-            <p className="text-center mt-6 text-muted-foreground/40 text-xs px-6">
+            <p className="text-center mt-6 text-muted-foreground/60 text-xs px-6">
               * Vui lòng xuất trình mã QR này tại quầy check-in để được vào cổng.
               Hãy tải vé hoặc chụp màn hình để sử dụng khi cần.
             </p>
@@ -192,19 +192,19 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <Calendar className="text-primary w-5 h-5" />
-                  <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Thời gian</p>
+                  <p className="text-[10px] text-muted-foreground/60 font-bold uppercase">Thời gian</p>
                   <p className="text-sm font-medium">{startDate.toLocaleDateString('vi-VN')}</p>
                 </div>
                 <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <Clock className="text-primary w-5 h-5" />
-                  <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Bắt đầu</p>
+                  <p className="text-[10px] text-muted-foreground/60 font-bold uppercase">Bắt đầu</p>
                   <p className="text-sm font-medium">
                     {startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <div className="p-5 rounded-xl bg-card border border-border space-y-2">
                   <MapPin className="text-primary w-5 h-5" />
-                  <p className="text-[10px] text-muted-foreground/40 font-bold uppercase">Địa điểm</p>
+                  <p className="text-[10px] text-muted-foreground/60 font-bold uppercase">Địa điểm</p>
                   <p className="text-sm font-medium truncate">{event.location}</p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
                         Tình trạng chỗ
                       </span>
                       <span className="text-xs font-bold text-primary">
@@ -245,7 +245,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                     <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
                     <div>
                       <p className="text-xs font-bold">EduMap Verified</p>
-                      <p className="text-[10px] text-muted-foreground/40">
+                      <p className="text-[10px] text-muted-foreground/60">
                         Sự kiện đã được kiểm duyệt nội dung bởi đội ngũ EduMap.
                       </p>
                     </div>
@@ -254,7 +254,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                   <button
                     onClick={handleRegister}
                     disabled={submitting || isFull || event.status !== 'active'}
-                    className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-foreground font-bold transition-all disabled:bg-card disabled:shadow-none disabled:text-muted-foreground/40 flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-all disabled:bg-card disabled:shadow-none disabled:text-muted-foreground/60 flex items-center justify-center gap-2"
                   >
                     {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Ticket className="w-5 h-5" />}
                     {isFull ? 'HẾT CHỖ' : event.status !== 'active' ? 'ĐÃ KẾT THÚC' : 'ĐĂNG KÝ THAM GIA'}

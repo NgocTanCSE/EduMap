@@ -127,7 +127,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
       <div className="w-full mx-auto space-y-8">
         <Link
           href="/hackathon"
-          className="flex items-center gap-2 text-muted-foreground/40 hover:text-foreground transition-colors group text-sm font-bold w-fit"
+          className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors group text-sm font-bold w-fit"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> QUAY LẠI
         </Link>
@@ -141,7 +141,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                 isOngoing
                   ? 'bg-primary/20 text-primary border-accent/30'
                   : isCompleted
-                  ? 'bg-foreground/5 text-muted-foreground/50 border-border'
+                  ? 'bg-foreground/5 text-muted-foreground/65 border-border'
                   : 'bg-primary/20 text-primary/70 border-primary/30'
               }`}
             >
@@ -243,7 +243,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                       <button
                         type="submit"
                         disabled={submittingProject || !repoUrl.trim()}
-                        className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                        className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                       >
                         {submittingProject ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCode2 className="w-4 h-4" />}
                         NỘP SẢN PHẨM
@@ -256,7 +256,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
               <Card className="p-8 text-center">
                 <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Cuộc thi đã kết thúc</h3>
-                <p className="text-sm text-muted-foreground/50">
+                <p className="text-sm text-muted-foreground/65">
                   Cảm ơn các đội thi đã tham gia. Kết quả sẽ được công bố trên trang chủ.
                 </p>
               </Card>
@@ -266,7 +266,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                   <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
                     <Code className="text-primary/80 w-5 h-5" /> Đăng ký Đội thi
                   </h3>
-                  <p className="text-xs text-muted-foreground/40">
+                  <p className="text-xs text-muted-foreground/60">
                     Chỉ trưởng nhóm cần thực hiện thao tác này.
                   </p>
                 </div>
@@ -297,7 +297,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                       placeholder="Phân cách bằng dấu phẩy (VD: a@gmail.com, b@gmail.com)"
                       className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none transition-all resize-none"
                     />
-                    <p className="text-[10px] text-muted-foreground/40 mt-1">
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">
                       Không bao gồm email của bạn (trưởng nhóm).
                     </p>
                   </div>
@@ -306,7 +306,7 @@ export default function HackathonDetailPage({ params }: { params: { id: string }
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                   XÁC NHẬN ĐĂNG KÝ

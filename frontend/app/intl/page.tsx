@@ -113,15 +113,15 @@ export default function IntlPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8 relative">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8 relative">
       
       {/* Join Modal */}
       {showJoinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
             <div className="bg-background border border-border rounded-xl p-8 max-w-md w-full relative">
-                <button onClick={() => setShowJoinModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-white">X</button>
+                <button onClick={() => setShowJoinModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2">Tham gia Mạng lưới</h3>
-                <p className="text-sm text-muted-foreground/40 mb-6">Kết nối với cộng đồng du học sinh EduMap trên toàn cầu.</p>
+                <p className="text-sm text-muted-foreground/60 mb-6">Kết nối với cộng đồng du học sinh EduMap trên toàn cầu.</p>
                 
                 <form onSubmit={handleJoinAlumni} className="space-y-4">
                     <div>
@@ -153,7 +153,7 @@ export default function IntlPage() {
                         <label className="block text-xs font-bold text-muted-foreground/60 uppercase mb-2 mt-4">Email Liên hệ *</label>
                         <input type="email" required value={joinForm.contact_email} onChange={e => setJoinForm({...joinForm, contact_email: e.target.value})} className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none" placeholder="Để các bạn khác có thể liên hệ" />
                     </div>
-                    <button type="submit" disabled={joining} className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary text-white font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2">
+                    <button type="submit" disabled={joining} className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary text-primary-foreground font-bold transition-all disabled:opacity-50 flex justify-center items-center gap-2">
                         {joining ? <Loader2 className="w-5 h-5 animate-spin" /> : null} ĐĂNG KÝ VÀO BẢN ĐỒ
                     </button>
                 </form>
@@ -176,13 +176,13 @@ export default function IntlPage() {
             <div className="flex justify-center gap-4 pt-4">
                 <button 
                     onClick={() => setActiveTab('programs')}
-                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'programs' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
+                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'programs' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-foreground hover:bg-card/20'}`}
                 >
                     <PlaneTakeoff className="w-4 h-4" /> CHƯƠNG TRÌNH QUỐC TẾ
                 </button>
                 <button 
                     onClick={() => setActiveTab('alumni')}
-                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'alumni' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-white hover:bg-card/20'}`}
+                    className={`px-8 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${activeTab === 'alumni' ? 'bg-primary shadow-lg ' : 'bg-card border border-border text-muted-foreground/60 hover:text-foreground hover:bg-card/20'}`}
                 >
                     <Users className="w-4 h-4" /> MẠNG LƯỚI LƯU HỌC SINH
                 </button>
@@ -195,7 +195,7 @@ export default function IntlPage() {
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold flex items-center gap-2"><GraduationCap className="text-primary w-6 h-6"/> Học bổng & Trao đổi</h2>
                     <div className="relative w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
                         <input type="text" placeholder="Tìm chương trình..." className="w-full bg-card border border-border rounded-xl py-2 pl-9 pr-4 text-sm focus:border-primary outline-none" />
                     </div>
                 </div>
@@ -210,20 +210,20 @@ export default function IntlPage() {
                                     <span className="px-3 py-1 bg-card/20 rounded-full text-[10px] font-bold uppercase tracking-widest text-primary border border-border">
                                         {program.type || 'Chương trình'}
                                     </span>
-                                    <span className="text-xs text-muted-foreground/40">Hạn chót: {new Date(program.application_deadline).toLocaleDateString('vi-VN')}</span>
+                                    <span className="text-xs text-muted-foreground/60">Hạn chót: {new Date(program.application_deadline).toLocaleDateString('vi-VN')}</span>
                                 </div>
                                 <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{program.title}</h3>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground/60 mb-4">
                                     <MapPin className="w-4 h-4" /> {program.host_country} • {program.organization}
                                 </div>
-                                <p className="text-sm text-muted-foreground/40 line-clamp-2 mb-6">
+                                <p className="text-sm text-muted-foreground/60 line-clamp-2 mb-6">
                                     {program.description}
                                 </p>
                                 <div className="flex gap-2 mb-6 flex-wrap">
                                     {program.benefits?.slice(0, 3).map((b, i) => (
-                                        <span key={i} className="px-2 py-1 bg-primary/10 text-primary text-[10px] rounded border border-green-500/20">{b}</span>
+                                        <span key={i} className="px-2 py-1 bg-primary/10 text-primary text-[10px] rounded border border-primary/25">{b}</span>
                                     ))}
-                                    {program.benefits?.length > 3 && <span className="px-2 py-1 bg-card/20 text-muted-foreground/40 text-[10px] rounded border border-border">+{program.benefits.length - 3}</span>}
+                                    {program.benefits?.length > 3 && <span className="px-2 py-1 bg-card/20 text-muted-foreground/60 text-[10px] rounded border border-border">+{program.benefits.length - 3}</span>}
                                 </div>
                                 {program.apply_url && (
                                     <a href={program.apply_url} target="_blank" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80">
@@ -236,7 +236,7 @@ export default function IntlPage() {
                 ) : (
                     <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                         <PlaneTakeoff className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                        <p className="text-muted-foreground/40">Chưa có chương trình quốc tế nào được công bố.</p>
+                        <p className="text-muted-foreground/60">Chưa có chương trình quốc tế nào được công bố.</p>
                     </div>
                 )}
             </div>
@@ -281,7 +281,7 @@ export default function IntlPage() {
                 ) : (
                     <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                         <Users className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                        <p className="text-muted-foreground/40">Bản đồ lưu học sinh đang trống. Hãy là người tiên phong!</p>
+                        <p className="text-muted-foreground/60">Bản đồ lưu học sinh đang trống. Hãy là người tiên phong!</p>
                     </div>
                 )}
             </div>

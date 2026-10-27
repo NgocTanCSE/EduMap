@@ -173,7 +173,7 @@ export default function VideoCallPage() {
                   <Users className="w-10 h-10 text-primary/70" />
                 </div>
                 <p className="text-xl font-bold text-foreground/80">Mentor: Nguyễn Văn A</p>
-                <p className="text-sm text-muted-foreground/40 mt-1">Đang chờ kết nối...</p>
+                <p className="text-sm text-muted-foreground/60 mt-1">Đang chờ kết nối...</p>
               </div>
             </div>
           )}
@@ -220,7 +220,7 @@ export default function VideoCallPage() {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`flex flex-col ${msg.sender === 'Bạn' ? 'items-end' : 'items-start'}`}>
-                  <span className="text-[10px] text-muted-foreground/40 mb-1">{msg.sender}</span>
+                  <span className="text-[10px] text-muted-foreground/60 mb-1">{msg.sender}</span>
                   <div className={`p-2 rounded-xl max-w-[80%] ${msg.sender === 'Bạn' ? 'bg-primary/20 text-primary' : 'bg-card/20 text-foreground/80'}`}>
                     <p className="text-xs">{msg.message}</p>
                   </div>
@@ -254,7 +254,7 @@ export default function VideoCallPage() {
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-lg bg-card border border-border">
             <p className="text-xs font-bold text-foreground/80">Session: AI Career Roadmaps</p>
-            <p className="text-[10px] text-muted-foreground/40">Mentor-to-Student Call</p>
+            <p className="text-[10px] text-muted-foreground/60">Mentor-to-Student Call</p>
           </div>
         </div>
 

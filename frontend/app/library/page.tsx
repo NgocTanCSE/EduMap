@@ -1,19 +1,47 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { ILLUSTRATIONS, onImageError } from '@/src/lib/illustrations';
 import {
-  Search, Filter, Book, Video, FileText,
-  Download, ExternalLink, Bookmark, Sparkles,
-  ArrowRight, Star, Loader2
+  ArrowRight,
+  BookMarked,
+  Bookmark,
+  Database,
+  Download,
+  ExternalLink,
+  FileText,
+  Info,
+  Library,
+  Loader2,
+  Search,
+  Video,
 } from 'lucide-react';
 import Link from 'next/link';
 import { libraryService } from '@/src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
+import SectionHeader from '@/components/ui/SectionHeader';
+import EmptyState from '@/components/ui/EmptyState';
+
+/**
+ * Library — search + grid of learning materials.
+ *
+ * UI sync notes (design-system pass):
+ *  - Page frame is `page-shell` (same padding/rhythm as every other feature).
+ *  - Cover art for materials without an image is a **vector** icon tile, not
+ *    an `<img>` pointing at a placeholder SVG, and no emoji is used as icon.
+ *  - Every card is `card-equal` (h-full flex-col) with a clamped title and a
+ *    `card-footer` pinned to the bottom, so rows align even when titles wrap.
+ */
+
+const TYPE_LABEL: Record<string, string> = {
+  video: 'Video',
+  pdf: 'PDF',
+  book: 'Sách',
+  article: 'Bài viết',
+};
 
 export default function LibraryPage() {
   const [resources, setResources] = useState<any[]>([]);
-  const [categories, setCategories] = useState<string[]>(["Tất cả", "Programming", "Soft Skills", "Science", "Design"]);
+  const [categories] = useState<string[]>(["Tất cả", "Programming", "Soft Skills", "Science", "Design"]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState("Tất cả");
@@ -28,22 +56,8 @@ export default function LibraryPage() {
   const [totalResults, setTotalResults] = useState(0);
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  useEffect(() => {
     fetchResources(1);
   }, [activeTab]);
-
-  const fetchInitialData = async () => {
-    try {
-      // In a real scenario, we might fetch dynamic categories from an API
-      // const dynamicCategories = await libraryService.getCategories();
-      // setCategories(["Tất cả", ...dynamicCategories]);
-    } catch (error) {
-      console.error("Lỗi fetch categories:", error);
-    }
-  };
 
   const fetchResources = async (pageNum: number) => {
     try {
@@ -74,7 +88,7 @@ export default function LibraryPage() {
       setPage(pageNum);
     } catch (error: any) {
       console.error("Lỗi fetch library:", error);
-      toast.error(error.message || 'Failed to load library resources');
+      toast.error(error.message || 'Không tải được học liệu');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -92,117 +106,142 @@ export default function LibraryPage() {
     fetchResources(1);
   };
 
+  const resetFilters = () => {
+    setSearchQuery("");
+    setActiveTab("Tất cả");
+    fetchResources(1);
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-8 relative">
-      <div className="w-full">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Thư viện học liệu</h1>
-            <p className="text-muted-foreground font-medium">Khám phá hàng ngàn tài liệu chất lượng cao</p>
-          </div>
-          <div className="flex gap-3">
-            {/* "Đã lưu" → mở tab Đã lưu trong mục Hoạt động của tôi ở dashboard */}
-            <Link
-              href="/dashboard#da-luu"
-              className="bg-card border border-border px-4 py-2 rounded-xl flex items-center gap-2 text-sm hover:bg-card transition-all"
-            >
-              <Bookmark className="w-4 h-4" /> Đã lưu
-            </Link>
-          </div>
+    <main className="page-shell">
+      <SectionHeader
+        icon={Library}
+        title="Thư viện học liệu"
+        subtitle="Sách, video và tài liệu mở cho học sinh, sinh viên Biên Hoà."
+        right={
+          <Link
+            href="/dashboard#da-luu"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
+          >
+            <Bookmark className="h-4 w-4" /> Đã lưu
+          </Link>
+        }
+      />
+
+      {/* Search bar — flat surface, no glow/blur so it matches every other form */}
+      <form onSubmit={handleSearch} className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40"
+          />
+          <input
+            type="text"
+            placeholder="Bạn muốn tìm tài liệu gì?"
+            aria-label="Tìm tài liệu"
+            className="w-full rounded-lg border border-input bg-card py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Tìm kiếm <ArrowRight className="h-4 w-4" />
+        </button>
+      </form>
 
-        {/* AI Search Bar */}
-        <form onSubmit={handleSearch} className="relative mb-12 group">
-          <div className="absolute -inset-1 bg-primary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
-          <div className="relative bg-card/80 border border-border rounded-lg p-2 flex items-center gap-2">
-            <div className="pl-4 pr-2"><Sparkles className="w-6 h-6 text-primary" /></div>
-            <input
-              type="text"
-              placeholder="Bạn muốn tìm tài liệu gì?..."
-              className="flex-1 bg-transparent py-4 text-lg focus:outline-none placeholder:text-gray-600 text-primary"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button type="submit" className="bg-primary text-white px-8 py-4 rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center gap-2">
-              Tìm kiếm AI <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        </form>
+      {/* Filter tabs — one chip style shared with /features */}
+      <div className="flex flex-wrap items-center gap-2">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveTab(cat)}
+            aria-pressed={activeTab === cat}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              activeTab === cat
+                ? 'border-primary/50 bg-primary/15 text-primary'
+                : 'border-border bg-card text-foreground/60 hover:text-foreground'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-3 mb-8">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveTab(cat)}
-              className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all border ${
-                activeTab === cat
-                ? 'bg-primary border-primary text-white shadow-lg'
-                : 'bg-card border-border text-muted-foreground/40 hover:border-border'
-              }`}
-            >
-              {cat}
-            </button>
+      {/* Result count + fallback notice */}
+      {!loading && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground/60">
+          <p>
+            Hiển thị <strong className="text-foreground">{resources.length}</strong> /{' '}
+            <strong className="text-foreground">{totalResults}</strong> kết quả
+            {searchQuery && <span>, tìm kiếm: “<strong className="text-foreground">{searchQuery}</strong>”</span>}
+            {activeTab !== 'Tất cả' && <span>, danh mục: <strong className="text-foreground">{activeTab}</strong></span>}
+          </p>
+          {isFallback && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Info className="h-3.5 w-3.5" />
+              Đang dùng dữ liệu cục bộ (OpenLibrary không khả dụng)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Resources grid */}
+      {loading ? (
+        <div className="card-grid-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <CardSkeleton key={i} />
           ))}
         </div>
-
-        {/* Result count + fallback notice */}
-        {!loading && !loadingMore && (
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-muted-foreground">
-              Hiển thị <strong>{resources.length}</strong> / <strong>{totalResults}</strong> kết quả
-              {searchQuery && <span>, tìm kiếm: "<strong>{searchQuery}</strong>"</span>}
-              {activeTab !== 'Tất cả' && <span>, danh mục: <strong>{activeTab}</strong></span>}
-            </p>
-            {isFallback && (
-              <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1 rounded-full border border-amber-500/20">
-                ⚠️ Đang dùng dữ liệu cục bộ (OpenLibrary không khả dụng)
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Resources Grid — mỗi thẻ có sẵn 2 nút: Tải xuống + Xem chi tiết (mở link gốc đọc sách).
-            Không còn popup modal "bảng General" / tóm tắt AI (AI đang lỗi 503 trên HF). */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        ) : resources.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {resources.map(res => (
+      ) : resources.length > 0 ? (
+        <div className="card-grid-4">
+          {resources.map(res => {
+            const TypeIcon = res.type === 'video' ? Video : res.type === 'pdf' ? FileText : BookMarked;
+            return (
               <div
                 key={res.id}
-                className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all group flex flex-col h-full"
+                className="card-surface card-equal group overflow-hidden transition-colors hover:border-primary/50"
               >
-                <div className={`h-48 bg-background flex items-center justify-center relative overflow-hidden shrink-0`}>
+                <div className="relative flex aspect-[16/10] shrink-0 items-center justify-center overflow-hidden bg-background">
                   {res.cover_image_url ? (
-                    <img src={res.cover_image_url} alt={res.title} onError={onImageError(ILLUSTRATIONS.learning)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={res.cover_image_url}
+                      alt={res.title}
+                      className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                    />
                   ) : (
-                    <>
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/70 to-transparent opacity-60"></div>
-                      {res.type === "video" ? <Video className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" /> : <Book className="w-16 h-16 text-muted-foreground/10 group-hover:scale-110 transition-transform duration-500" />}
-                    </>
+                    <TypeIcon
+                      aria-hidden="true"
+                      className="h-12 w-12 text-foreground/15"
+                    />
                   )}
-                  <div className="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/20">{res.type}</div>
-                  {/* Source badge: OpenLibrary vs Local SQLite */}
-                  <div className="absolute top-4 right-4 bg-black/40 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider text-muted-foreground border border-muted/20">
-                    {res.source === 'open-library' ? '📚 OpenLib' : '💾 Local'}
-                  </div>
+                  <span className="absolute left-3 top-3 rounded-full border border-primary/25 bg-background/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                    {TYPE_LABEL[res.type] || res.type || 'Tài liệu'}
+                  </span>
+                  <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-border bg-background/80 px-2 py-0.5 text-[10px] font-semibold text-foreground/60">
+                    {res.source === 'open-library' ? (
+                      <><Library className="h-3 w-3" /> OpenLibrary</>
+                    ) : (
+                      <><Database className="h-3 w-3" /> Cục bộ</>
+                    )}
+                  </span>
                 </div>
-                <div className="p-6 flex flex-col flex-1">
-                  <div className="flex items-center gap-1 text-amber-500 text-[10px] font-semibold mb-3 bg-amber-500/10 px-2 py-0.5 rounded-full w-max border border-amber-500/20 uppercase tracking-widest">
-                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> POPULAR
-                  </div>
-                  <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors line-clamp-2">{res.title}</h3>
-                  <p className="text-muted-foreground text-sm mb-4 line-clamp-1">{res.author || 'EduMap Library'}</p>
 
-                  {/* Hai nút: Tải xuống + Xem chi tiết (mở link gốc để đọc) */}
-                  <div className="mt-auto pt-4 border-t border-border flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-muted-foreground">{res.view_count} views</span>
+                <div className="flex flex-1 flex-col p-4">
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
+                    {res.title}
+                  </h3>
+                  <p className="mt-1 line-clamp-1 text-xs text-foreground/55">
+                    {res.author || 'EduMap Library'}
+                  </p>
+
+                  <div className="card-footer">
+                    <span className="text-xs text-foreground/50">
+                      {res.view_count ?? 0} lượt xem
+                    </span>
                     <div className="flex items-center gap-1">
                       {res.file_url ? (
                         <>
@@ -210,48 +249,55 @@ export default function LibraryPage() {
                             href={res.file_url}
                             download
                             title="Tải xuống"
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            aria-label={`Tải xuống ${res.title}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background/60 text-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                           >
-                            <Download className="w-3.5 h-3.5" />
+                            <Download className="h-3.5 w-3.5" />
                           </a>
                           <a
                             href={res.file_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Xem chi tiết — mở tại nguồn"
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            title="Mở tại nguồn"
+                            aria-label={`Mở ${res.title} tại nguồn`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background/60 text-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         </>
                       ) : (
-                        <span className="text-xs text-muted-foreground/50">Chưa có link</span>
+                        <span className="text-xs text-foreground/40">Chưa có liên kết</span>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-              Không tìm thấy tài liệu phù hợp.
-          </div>
-        )}
+            );
+          })}
+        </div>
+      ) : (
+        <div className="card-surface border-dashed">
+          <EmptyState
+            icon={<BookMarked className="h-7 w-7 text-foreground/30" />}
+            title="Không tìm thấy tài liệu phù hợp"
+            description="Thử từ khoá ngắn hơn hoặc chọn danh mục khác."
+            action={{ label: 'Xoá bộ lọc', onClick: resetFilters }}
+          />
+        </div>
+      )}
 
-        {hasMore && resources.length > 0 && !loading && (
-          <div className="flex justify-center mt-12">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="px-8 py-3 rounded-full border border-border text-foreground hover:bg-card/20 text-sm font-bold flex items-center gap-2 transition-all disabled:opacity-50"
-            >
-              {loadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {loadingMore ? 'Đang tải...' : 'Tải thêm tài liệu'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      {hasMore && resources.length > 0 && !loading && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 disabled:opacity-50"
+          >
+            {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loadingMore ? 'Đang tải…' : 'Tải thêm tài liệu'}
+          </button>
+        </div>
+      )}
+    </main>
   );
 }

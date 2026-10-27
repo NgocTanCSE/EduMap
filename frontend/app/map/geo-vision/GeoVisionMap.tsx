@@ -166,7 +166,9 @@ export default function GeoVisionMap({
         >
           <Popup>
             <div className="text-xs">
-              <strong className="text-green-400">✓ Đã biết</strong>
+              <strong className="inline-flex items-center gap-1 text-accent">
+                <CheckCircle className="h-3 w-3" /> Đã biết
+              </strong>
               <div className="font-medium">{poi.name}</div>
               <div className="text-muted-foreground">{poi.type}</div>
             </div>

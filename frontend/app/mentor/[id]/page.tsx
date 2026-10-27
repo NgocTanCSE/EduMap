@@ -80,14 +80,14 @@ export default function MentorDetailPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Loading profile...</div>;
-  if (!mentor) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/50">Mentor not found.</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/65">Loading profile...</div>;
+  if (!mentor) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground/65">Mentor not found.</div>;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
         
-        <Link href="/mentor" className="flex items-center gap-2 text-muted-foreground/40 hover:text-white transition-colors mb-4 w-max">
+        <Link href="/mentor" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors mb-4 w-max">
             <ArrowLeft size={16} /> Quay lại danh sách
         </Link>
 
@@ -106,7 +106,7 @@ export default function MentorDetailPage() {
                         <div className="flex-1 space-y-4">
                             <div>
                                 <h1 className="text-3xl font-semibold mb-2">{mentor.user?.full_name}</h1>
-                                <div className="flex items-center gap-4 text-sm font-bold text-muted-foreground/40">
+                                <div className="flex items-center gap-4 text-sm font-bold text-muted-foreground/60">
                                     <span className="flex items-center gap-1.5"><Briefcase size={16} className="text-primary/70"/> {mentor.experience_years} năm kinh nghiệm</span>
                                     <span className="flex items-center gap-1.5"><Star size={16} className="text-primary fill-current"/> {mentor.rating_avg} Rating</span>
                                 </div>
@@ -122,7 +122,7 @@ export default function MentorDetailPage() {
 
                 <div className="bg-card/50 border border-border p-8 rounded-xl space-y-4">
                     <h2 className="text-xl font-bold border-b border-border pb-2">Giới thiệu bản thân</h2>
-                    <p className="text-muted-foreground/40 leading-relaxed whitespace-pre-wrap">{mentor.bio || "Mentor này chưa cập nhật phần giới thiệu chi tiết."}</p>
+                    <p className="text-muted-foreground/60 leading-relaxed whitespace-pre-wrap">{mentor.bio || "Mentor này chưa cập nhật phần giới thiệu chi tiết."}</p>
                 </div>
             </div>
 
@@ -136,7 +136,7 @@ export default function MentorDetailPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-muted-foreground/40 uppercase tracking-widest flex items-center gap-2"><Clock size={16}/> Khung giờ trống hôm nay</h3>
+                            <h3 className="text-sm font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-2"><Clock size={16}/> Khung giờ trống hôm nay</h3>
                             {slots.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {slots.map((slot, idx) => (
@@ -146,10 +146,10 @@ export default function MentorDetailPage() {
                                             onClick={() => setSelectedSlot(slot)}
                                             className={`py-3 rounded-xl border text-sm font-bold transition-all ${
                                                 slot.is_booked 
-                                                    ? 'bg-card border-transparent text-gray-600 cursor-not-allowed line-through'
+                                                    ? 'bg-card border-transparent text-foreground/60 cursor-not-allowed line-through'
                                                     : selectedSlot?.start === slot.start
-                                                        ? 'bg-primary border-primary text-foreground shadow-lg '
-                                                        : 'bg-black border-border text-white hover:border-primary/50'
+                                                        ? 'bg-primary border-primary text-primary-foreground shadow-lg '
+                                                        : 'bg-black border-border text-foreground hover:border-primary/50'
                                             }`}
                                         >
                                             {slot.start} - {slot.end}
@@ -173,12 +173,12 @@ export default function MentorDetailPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-8 rounded-xl space-y-6 text-center sticky top-8">
-                        <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <div className="bg-accent/10 border border-accent/30 p-8 rounded-xl space-y-6 text-center sticky top-8">
+                        <div className="w-20 h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-2">
                             <CheckCircle2 size={40} className="text-foreground" />
                         </div>
-                        <h2 className="text-2xl font-semibold text-emerald-400">Yêu cầu đã gửi!</h2>
-                        <p className="text-muted-foreground/40 text-sm leading-relaxed">
+                        <h2 className="text-2xl font-semibold text-accent">Yêu cầu đã gửi!</h2>
+                        <p className="text-muted-foreground/60 text-sm leading-relaxed">
                             Thông báo đã được gửi đến Mentor <strong>{mentor.user?.full_name}</strong>. 
                             Bạn sẽ nhận được phản hồi sớm nhất qua hệ thống.
                         </p>

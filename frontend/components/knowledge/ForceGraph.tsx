@@ -245,7 +245,7 @@ export default function ForceGraph({ nodes, edges, onNodeClick, width, height }:
         ref={svgRef}
         width={w}
         height={h}
-        className="w-full h-full bg-gray-50/50 rounded-lg"
+        className="w-full h-full bg-background/40 rounded-lg"
       />
     </div>
   );

@@ -27,9 +27,9 @@ const DEFAULT_CENTER = [10.957, 106.843] as [number, number]; // Viễn Đông, 
 function QuietnessBadge({ q }: { q: number | null | undefined }) {
   const label = q ? `${q}/5` : '—';
   const color =
-    q && q >= 4 ? 'text-green-400'
-    : q && q >= 3 ? 'text-amber-400'
-    : 'text-red-400';
+    q && q >= 4 ? 'text-accent'
+    : q && q >= 3 ? 'text-primary'
+    : 'text-destructive';
   return (
     <div className={`flex items-center gap-1 text-xs ${color}`}>
       <Wind className="w-3 h-3" />
@@ -40,7 +40,7 @@ function QuietnessBadge({ q }: { q: number | null | undefined }) {
 
 function RatingBadge({ r }: { r: number }) {
   return (
-    <div className="flex items-center gap-1 text-xs text-amber-400">
+    <div className="flex items-center gap-1 text-xs text-primary">
       <Star className="w-3 h-3 fill-current" />
       <span>{r.toFixed(1)}</span>
     </div>
@@ -58,7 +58,7 @@ function ExplainBadge({ spot }: { spot: ScoredSpot }) {
       </div>
     );
   }
-  return <Info className="w-4 h-4 text-muted-foreground/40" />;
+  return <Info className="w-4 h-4 text-muted-foreground/60" />;
 }
 
 function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: ScoredSpot) => void }) {
@@ -75,7 +75,7 @@ function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: Sco
             <QuietnessBadge q={s.quietness} />
           </div>
           {s.address && <p className="text-xs text-muted-foreground/60 mt-1">{s.address}</p>}
-          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground/50">
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground/65">
             <span className="flex items-center gap-1">
               <Navigation className="w-3 h-3" /> {distance_km.toFixed(2)} km
             </span>
@@ -107,7 +107,7 @@ function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: Sco
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div className="text-right">
             <div className="text-xl font-bold text-accent">{Math.round(score)}</div>
-            <div className="text-[10px] text-muted-foreground/50">điểm</div>
+            <div className="text-[10px] text-muted-foreground/65">điểm</div>
           </div>
           <button
             onClick={() => onExplain(spot)}
@@ -117,7 +117,7 @@ function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: Sco
             <Info className="w-3 h-3" />
           </button>
           {!open_now && (
-            <span className="text-[9px] text-red-400 font-medium">Đóng cửa</span>
+            <span className="text-[9px] text-destructive font-medium">Đóng cửa</span>
           )}
         </div>
       </div>
@@ -132,7 +132,7 @@ function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: Sco
                 style={{ width: `${Math.round(v * 100)}%` }}
               />
             </div>
-            <span className="text-[8px] text-muted-foreground/50 capitalize mt-0.5">{k.slice(0, 3)}</span>
+            <span className="text-[8px] text-muted-foreground/65 capitalize mt-0.5">{k.slice(0, 3)}</span>
           </div>
         ))}
       </div>
@@ -254,7 +254,7 @@ export default function LearningSpacesPage() {
           </div>
           <button
             onClick={handleGetMyLocation}
-            className="px-4 py-2 bg-accent text-foreground rounded-xl font-bold flex items-center gap-2 hover:bg-accent/80 transition-colors shadow-lg shadow-accent/20"
+            className="px-4 py-2 bg-accent text-accent-foreground rounded-xl font-bold flex items-center gap-2 hover:bg-accent/80 transition-colors shadow-lg shadow-accent/20"
           >
             <Navigation className="w-4 h-4" />
             Vị trí của tôi
@@ -263,7 +263,7 @@ export default function LearningSpacesPage() {
 
         {/* Degraded banner */}
         {degraded && (
-          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-400 flex items-center gap-2">
+          <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-xl text-xs text-primary flex items-center gap-2">
             <Info className="w-4 h-4" />
             Một số giải thích từ AI không khả dụng — hiển thị dữ liệu gốc.
           </div>
@@ -291,7 +291,7 @@ export default function LearningSpacesPage() {
                     onChange={(e) => setFilters({ ...filters, radius: Number(e.target.value) })}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-[10px] text-muted-foreground/50">
+                  <div className="flex justify-between text-[10px] text-muted-foreground/65">
                     <span>500m</span>
                     <span>{filters.radius! / 1000}km</span>
                     <span>20km</span>
@@ -323,7 +323,7 @@ export default function LearningSpacesPage() {
                     onChange={(e) => setFilters({ ...filters, min_rating: Number(e.target.value) })}
                     className="w-full"
                   />
-                  <div className="text-xs text-muted-foreground/50 mt-0.5">
+                  <div className="text-xs text-muted-foreground/65 mt-0.5">
                     ≥ {filters.min_rating}/5
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export default function LearningSpacesPage() {
                     onChange={(e) => setFilters({ ...filters, quietness_min: Number(e.target.value) })}
                     className="w-full"
                   />
-                  <div className="text-xs text-muted-foreground/50 mt-0.5">
+                  <div className="text-xs text-muted-foreground/65 mt-0.5">
                     ≥ {filters.quietness_min}/5
                   </div>
                 </div>
@@ -383,7 +383,7 @@ export default function LearningSpacesPage() {
               </button>
             </div>
 
-            <div className="text-xs text-muted-foreground/50 bg-card border border-border rounded-xl p-3">
+            <div className="text-xs text-muted-foreground/65 bg-card border border-border rounded-xl p-3">
               <Info className="w-3 h-3 inline mb-1" />
               Kết quả được sắp xếp theo điểm số tổng hợp (0–100) từ AI.
               Giải thích từng đề xuất được cache trong 24h.
@@ -393,12 +393,12 @@ export default function LearningSpacesPage() {
           {/* Results List */}
           <div className="lg:col-span-1 space-y-3 max-h-[calc(100vh-180px)] overflow-y-auto">
             {loading && spots.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground/50">
+              <div className="text-center py-12 text-muted-foreground/65">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                 Đang tìm kiếm địa điểm...
               </div>
             ) : spots.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground/50">
+              <div className="text-center py-12 text-muted-foreground/65">
                 <MapPin className="w-6 h-6 mx-auto mb-2 opacity-30" />
                 Không tìm thấy địa điểm nào. Điều chỉnh bộ lọc và thử lại.
               </div>

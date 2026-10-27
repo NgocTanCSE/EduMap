@@ -82,13 +82,13 @@ export default function SummerCampaignsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       
       {/* Report Modal */}
       {showReportModal && selectedCampaign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/40 hover:text-foreground">X</button>
+                <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Activity className="w-6 h-6 text-primary" /> Báo cáo Hoạt động</h3>
                 <p className="text-sm text-primary font-bold mb-6">{selectedCampaign.name}</p>
                 
@@ -108,11 +108,11 @@ export default function SummerCampaignsPage() {
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 bg-card border border-border rounded-lg">
-                                <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mb-1">Tình nguyện viên</p>
+                                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-bold mb-1">Tình nguyện viên</p>
                                 <p className="text-2xl font-semibold text-primary">{reportData.total_volunteers_active}</p>
                             </div>
                             <div className="p-4 bg-card border border-border rounded-lg">
-                                <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold mb-1">Tiến độ chung</p>
+                                <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-bold mb-1">Tiến độ chung</p>
                                 <p className="text-2xl font-semibold text-primary">{reportData.completed_percentage}</p>
                             </div>
                         </div>
@@ -124,7 +124,7 @@ export default function SummerCampaignsPage() {
                                     <div key={idx} className="p-4 bg-card/40 rounded-xl border border-border flex justify-between items-center">
                                         <div>
                                             <p className="font-bold text-sm mb-1">{act.type}</p>
-                                            <p className="text-xs text-muted-foreground/40 flex items-center gap-3">
+                                            <p className="text-xs text-muted-foreground/60 flex items-center gap-3">
                                                 <span>{act.hours} Giờ</span>
                                                 <span className="flex items-center gap-1"><Users className="w-3 h-3"/> {act.volunteers} TNV</span>
                                             </p>
@@ -136,7 +136,7 @@ export default function SummerCampaignsPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="text-center py-10 text-muted-foreground/40">Không có dữ liệu báo cáo cho ngày này.</div>
+                    <div className="text-center py-10 text-muted-foreground/60">Không có dữ liệu báo cáo cho ngày này.</div>
                 )}
             </div>
         </div>
@@ -172,7 +172,7 @@ export default function SummerCampaignsPage() {
                             
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                                    camp.status === 'active' ? 'bg-primary/20 text-primary border-accent/30' : 'bg-card text-muted-foreground/40 border-border'
+                                    camp.status === 'active' ? 'bg-primary/20 text-primary border-accent/30' : 'bg-card text-muted-foreground/60 border-border'
                                 }`}>
                                     {camp.status === 'active' ? 'ĐANG TUYỂN QUÂN' : 'ĐÃ KẾT THÚC'}
                                 </span>
@@ -201,7 +201,7 @@ export default function SummerCampaignsPage() {
                                 <button 
                                     onClick={() => handleRegister(camp.id)}
                                     disabled={registeringId === camp.id || camp.status !== 'active'}
-                                    className="flex-1 py-3 rounded-xl bg-accent hover:bg-primary text-foreground text-xs font-bold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2"
+                                    className="flex-1 py-3 rounded-xl bg-accent hover:bg-primary text-accent-foreground text-xs font-bold transition-all shadow-lg shadow-accent/20 disabled:opacity-50 flex justify-center items-center gap-2"
                                 >
                                     {registeringId === camp.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <HeartHandshake className="w-4 h-4" />} 
                                     {camp.status === 'active' ? 'ĐĂNG KÝ THAM GIA' : 'ĐÃ ĐÓNG'}
@@ -213,7 +213,7 @@ export default function SummerCampaignsPage() {
             ) : (
                 <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
                     <Sun className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
-                    <p className="text-muted-foreground/40">Hiện tại chưa có chiến dịch Mùa hè xanh nào.</p>
+                    <p className="text-muted-foreground/60">Hiện tại chưa có chiến dịch Mùa hè xanh nào.</p>
                 </div>
             )}
         </div>

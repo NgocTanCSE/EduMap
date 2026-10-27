@@ -55,7 +55,7 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
+    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}
@@ -65,12 +65,12 @@ export default function AdminUsersPage() {
               <Users className="w-8 h-8" />
               Quản lý Người dùng
             </h1>
-            <p className="text-muted-foreground/40 text-sm mt-1">Quản trị toàn bộ tài khoản người dùng trong hệ thống.</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Quản trị toàn bộ tài khoản người dùng trong hệ thống.</p>
           </div>
           <div className="flex gap-4">
              <div className="p-4 rounded-lg bg-card border border-border text-center">
                 <p className="text-xl font-bold">{meta.total}</p>
-                <p className="text-[10px] text-muted-foreground/40 uppercase font-bold">Tổng người dùng</p>
+                <p className="text-[10px] text-muted-foreground/60 uppercase font-bold">Tổng người dùng</p>
              </div>
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function AdminUsersPage() {
         {/* Search & Filters */}
         <div className="flex flex-wrap gap-4 items-center p-4 rounded-xl bg-card/50 border border-border">
           <form onSubmit={handleSearch} className="flex-1 min-w-[300px] relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/30" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/45" />
             <input 
               type="text" 
               placeholder="Tìm kiếm theo tên hoặc email..." 
@@ -89,7 +89,7 @@ export default function AdminUsersPage() {
           </form>
           
           <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
-            <Filter className="w-4 h-4 text-muted-foreground/30" />
+            <Filter className="w-4 h-4 text-muted-foreground/45" />
             <select 
               className="bg-transparent text-sm outline-none"
               value={statusFilter}
@@ -113,17 +113,17 @@ export default function AdminUsersPage() {
         {/* Users Table */}
         <div className="rounded-xl overflow-hidden border border-border bg-card/30">
           {loading ? (
-            <div className="p-20 text-center text-muted-foreground/40">Đang tải dữ liệu...</div>
+            <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>
           ) : (
             <>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-card/50">
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Người dùng</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Vai trò</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Trạng thái</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase">Ngày gia nhập</th>
-                    <th className="p-6 text-xs font-bold text-muted-foreground/40 uppercase text-right">Thao tác</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Người dùng</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Vai trò</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Trạng thái</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase">Ngày gia nhập</th>
+                    <th className="p-6 text-xs font-bold text-muted-foreground/60 uppercase text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
                           </div>
                           <div>
                             <p className="text-sm font-bold">{user.full_name || 'N/A'}</p>
-                            <p className="text-[10px] text-muted-foreground/40">{user.email}</p>
+                            <p className="text-[10px] text-muted-foreground/60">{user.email}</p>
                           </div>
                         </div>
                       </td>
@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
                           {user.status}
                         </span>
                       </td>
-                      <td className="p-6 text-xs text-muted-foreground/40">
+                      <td className="p-6 text-xs text-muted-foreground/60">
                         {new Date(user.created_at).toLocaleDateString('vi-VN')}
                       </td>
                       <td className="p-6 text-right">
@@ -172,7 +172,7 @@ export default function AdminUsersPage() {
                             </button>
                           )}
                           <button className="p-2 rounded-lg hover:bg-card/20 transition-colors">
-                            <MoreVertical className="w-4 h-4 text-muted-foreground/30" />
+                            <MoreVertical className="w-4 h-4 text-muted-foreground/45" />
                           </button>
                         </div>
                       </td>
@@ -183,7 +183,7 @@ export default function AdminUsersPage() {
 
               {/* Pagination */}
               <div className="p-6 border-t border-border flex justify-between items-center">
-                <p className="text-xs text-muted-foreground/40">
+                <p className="text-xs text-muted-foreground/60">
                   Hiển thị {users.length} trên {meta.total} người dùng
                 </p>
                 <div className="flex gap-2">
