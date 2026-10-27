@@ -23,6 +23,7 @@ Idempotent: safe to run repeatedly.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sqlite3
@@ -170,11 +171,19 @@ def main() -> int:
     print("\n🌱 Inserting verified Vietnamese data")
 
     # ---------------------------------------------------------------- scholarships
+    # The TypeORM entity (scholarship.entity.ts) types `location` as `json`
+    # and `eligibility_criteria` as `json[]` on SQLite.  TypeORM's hydration
+    # layer calls JSON.parse on these columns when reading, so plain strings
+    # like "Australia" or comma-separated text cause a SyntaxError at runtime.
+    # Store proper JSON here to match the entity contract.
+    import json as _json
     rows = []
     for (key, title, desc, provider, location, value, deadline, eligibility, url) in D.SCHOLARSHIPS:
+        location_json = _json.dumps({"country": location})
+        eligibility_json = _json.dumps([c.strip() for c in eligibility.split(",")])
         rows.append((
-            D.uid(key), title, D.with_source(desc, url), provider, location,
-            value, deadline, eligibility, url, "active", NOW, NOW,
+            D.uid(key), title, D.with_source(desc, url), provider, location_json,
+            value, deadline, eligibility_json, url, "active", NOW, NOW,
         ))
     n = insert(con, "scholarships", [
         "id", "title", "description", "provider", "location", "value_amount",

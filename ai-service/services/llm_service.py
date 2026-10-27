@@ -1,4 +1,5 @@
 import os
+import time
 import asyncio
 import json
 import ssl
@@ -1422,6 +1423,10 @@ class LLMService:
         # bubble empty. A later meta chunk overwrites sources with the real list.
         yield f"data: {json.dumps({'sources': [], 'meta': True, 'heartbeat': True})}\n\n"
 
+        # Track total elapsed time from heartbeat so the non-streaming fallback
+        # cascade can bail out before the NestJS 10s proxy deadline.
+        _stream_start = time.monotonic()
+
         try:
             _rag_timeout = float(os.getenv("RAG_TIMEOUT_SECONDS", "8"))
             search_results = await asyncio.wait_for(
@@ -1510,6 +1515,28 @@ class LLMService:
                 print(f"XKIRO streaming failed, falling back to non-stream: {e}")
 
         # ---- 5. Fallback: non-streaming (yield word-by-word for typing effect) ----
+        # If no LLM providers are configured, or all configured providers are
+        # circuit-broken (5-min cooldown), skip the generation cascade entirely
+        # and use the template fallback. This prevents the slow per-provider
+        # curl timeouts from exceeding the NestJS proxy's 10s deadline, which
+        # would surface as a 503 with an empty chat bubble.
+        if not self.is_ready:
+            print("[stream] No LLM providers configured — using template fallback directly")
+            reply_text = self._chat_fallback_reply(message, sources, context)
+            async for chunk in self._stream_word_by_word(reply_text, sources=sources, is_final=True):
+                yield chunk
+            cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
+            return
+
+        # Time budget: NestJS proxy kills the request at ~10s. Leave 2s of
+        # headroom so the word-by-word streaming + SSE framing finishes before
+        # the proxy closes the connection. If we've already spent >8s on RAG +
+        # prompt building, skip generation and go to template fallback.
+        _elapsed = time.monotonic() - _stream_start
+        _remaining_budget = max(2.0, 10.0 - _elapsed - 2.0)  # at least 2s, or 10-elapsed-2
+        _gen_budget = float(os.getenv("GEN_TIMEOUT_SECONDS", "5"))
+        _gen_budget = min(_gen_budget, _remaining_budget)
+
         reply_text = None
         last_err = None
         for gen_fn in [
@@ -1520,11 +1547,25 @@ class LLMService:
         ]:
             if gen_fn is None:
                 continue
+            # Skip if not enough time left — prevents the 10s NestJS proxy
+            # from killing the request mid-generation (503 + empty chat bubble).
+            _gen_elapsed = time.monotonic() - _stream_start
+            if _gen_elapsed > _gen_budget:
+                last_err = f"Timeout budget ({_gen_budget}s) exhausted after {_gen_elapsed:.1f}s"
+                print(f"[stream] Generation budget exhausted — falling back to template: {last_err}")
+                break
             try:
-                response = await asyncio.to_thread(gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8)
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8),
+                    timeout=_gen_budget - _gen_elapsed,
+                )
                 if response:
                     reply_text = response.strip()
                     break
+            except asyncio.TimeoutError:
+                last_err = f"Provider timeout after {_gen_budget - _gen_elapsed:.1f}s"
+                print(f"[stream] Provider timeout — falling back: {last_err}")
+                continue
             except Exception as e:
                 last_err = str(e)
                 continue

@@ -819,6 +819,11 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
             " Chuẩn mực 'trước' dùng dân số × 0.7 vì chưa có dữ liệu thực."
             if payload["synthetic_baseline"] else ""
         )
+        growth_rate = payload.get("growth_rate_pct")
+        if growth_rate:
+            growth_clause = f" với tốc độ tăng trưởng {growth_rate:.1f}%/tháng"
+        else:
+            growth_clause = ""
         return (
             f"Sau triển khai, tỉ lệ tiếp cận tăng từ {b['access_rate']:.1%} lên "
             f"{a['access_rate']:.1%} (+{payload['coverage_improvement_pct']:.1f}%), "
@@ -826,8 +831,7 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
             f"(từ {b['user_count']} → {a['user_count']}). "
             f"Số cơ sở giáo dục phục vụ tăng {a['facility_count'] - b['facility_count']:+d} "
             f"(từ {b['facility_count']} → {a['facility_count']})."
-            f" Điểm tác động AI đo đạt {payload['impact_score']}/100"
-            f"{f' với tốc độ tăng trưởng {payload['growth_rate_pct']:.1f}%/tháng' if payload['growth_rate_pct'] else ''}."
+            f" Điểm tác động AI đo đạt {payload['impact_score']}/100{growth_clause}."
             f"{base_note} "
             "Lưu ý: causal inference có hạn — nên triển khai RCT để khẳng định nguyên nhân."
         )
