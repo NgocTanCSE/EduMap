@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { of, throwError } from 'rxjs';
-import { MapService } from './map.service';
+import { MapService, PointOfInterest } from './map.service';
 import { MapPoint } from './entities/map-point.entity';
 import { Location } from './entities/location.entity';
 import { CloudflareAIService } from '../../services/cloudflare-ai.service';
@@ -187,5 +187,169 @@ describe('MapService — getResourceOptimization (MCLP proxy + cache)', () => {
     expect(callArgs.region_radius_km).toBe(15);
     expect(callArgs.demand_points).toHaveLength(mockPoIs.length);
     expect(callArgs.candidate_locations).toHaveLength(mockPoIs.length);
+  });
+});
+
+describe('MapService — nLSearch (Talk2Map Idea #4)', () => {
+  let service: MapService;
+  let httpService: jest.Mocked<HttpService>;
+
+  const mockPoIs: PointOfInterest[] = [
+    { id: '1', name: 'Thư viện ABC', category: 'library', lat: 10.95, lng: 106.84,
+      address: 'Đường 1', description: 'Thư viện công cộng, có wifi, miễn phí', rating_avg: 4.5 },
+    { id: '2', name: 'Trường XYZ', category: 'school', lat: 10.92, lng: 106.82,
+      address: 'Đường 2', description: 'Trường THCS', rating_avg: 4.0 },
+    { id: '3', name: 'Wifi Zone C', category: 'wifi', lat: 10.98, lng: 106.88,
+      address: 'Đường 3', description: 'Điểm wifi công cộng', rating_avg: 3.5 },
+    { id: '4', name: 'Cà phê D', category: 'cafe', lat: 10.91, lng: 106.80,
+      address: 'Đường 4', description: 'Cà phê có wifi, bàn ghế', rating_avg: 4.2 },
+  ];
+
+  const mockParsedResponse = {
+    data: {
+      status: 'success',
+      degraded: false,
+      parsed_query: {
+        location: 'Biên Hòa',
+        radius_km: 5.0,
+        facility_types: ['library'],
+        conditions: ['wifi'],
+        reference_location: null,
+        confidence: 0.8,
+        method: 'llm',
+        suggestions: [],
+        raw_text: 'Tìm thư viện có wifi',
+      },
+      explanation: 'Bạn muốn tìm thư viện gần đây có wifi.',
+    },
+  };
+
+  beforeEach(async () => {
+    const mockMapPointRepo = { query: jest.fn(), find: jest.fn(), createQueryBuilder: jest.fn() };
+    const mockLocationRepo = { query: jest.fn(), find: jest.fn(), createQueryBuilder: jest.fn() };
+    const mockHttpService = { post: jest.fn(), get: jest.fn(), axiosRef: { post: jest.fn(), get: jest.fn() } };
+    const mockConfigService = { get: jest.fn().mockReturnValue('http://127.0.0.1:8000') };
+    const mockCloudflare = { analyzeGeoDensity: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        MapService,
+        { provide: getRepositoryToken(MapPoint), useValue: mockMapPointRepo },
+        { provide: getRepositoryToken(Location), useValue: mockLocationRepo },
+        { provide: HttpService, useValue: mockHttpService },
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: CloudflareAIService, useValue: mockCloudflare },
+      ],
+    }).compile();
+
+    service = module.get<MapService>(MapService);
+    httpService = module.get(HttpService);
+    jest.spyOn(service as any, 'findAllPois').mockResolvedValue([...mockPoIs]);
+    jest.spyOn(service as any, 'findPoisByCategory').mockImplementation(
+      async (category: string) => mockPoIs.filter(p => p.category === category)
+    );
+    jest.spyOn(service as any, 'deduplicatePois').mockImplementation((pois: any[]) => pois);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should call ai-service and return parsed query + filtered results', async () => {
+    httpService.post.mockReturnValue(of(mockParsedResponse as any));
+
+    const result = await service.nLSearch('Tìm thư viện có wifi', 20);
+
+    // ai-service called with correct endpoint + payload
+    expect(httpService.post).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/ai/map/query',
+      { text: 'Tìm thư viện có wifi' },
+      { timeout: 15000 }
+    );
+
+    // Results returned
+    expect(result.query).toBe('Tìm thư viện có wifi');
+    expect(result.parsed_query.facility_types).toEqual(['library']);
+    expect(result.parsed_query.conditions).toEqual(['wifi']);
+    expect(result.explanation).toBe('Bạn muốn tìm thư viện gần đây có wifi.');
+    expect(result.degraded).toBe(false);
+    expect(result.results).toBeDefined();
+    expect(result.total).toBe(result.results.length);
+  });
+
+  it('should filter POIs by facility_types', async () => {
+    httpService.post.mockReturnValue(of(mockParsedResponse as any));
+
+    const result = await service.nLSearch('Tìm thư viện', 20);
+    const categories = result.results.map(r => r.category);
+    // Only library POIs should be in results (facility_types=["library"])
+    expect(categories.every(c => c === 'library' || c === 'wifi')).toBe(true);
+  });
+
+  it('should filter POIs by conditions (wifi)', async () => {
+    httpService.post.mockReturnValue(of(mockParsedResponse as any));
+
+    const result = await service.nLSearch('Tìm thư viện có wifi', 20);
+    // All results should have wifi in description or be wifi category
+    for (const poi of result.results) {
+      const desc = (poi.description || '').toLowerCase();
+      expect(poi.category === 'wifi' || desc.includes('wifi') || desc.includes('internet')).toBe(true);
+    }
+  });
+
+  it('should degrade gracefully when ai-service is down (regex fallback)', async () => {
+    httpService.post.mockReturnValue(
+      throwError(() => ({
+        response: { status: 503, data: { detail: 'AI service unavailable' } },
+        message: 'Service Unavailable',
+      }))
+    );
+
+    const result = await service.nLSearch('Tìm thư viện có wifi', 20);
+
+    expect(result.degraded).toBe(true);
+    expect(result.parsed_query.method).toBe('regex');
+    expect(result.parsed_query.facility_types).toContain('library');
+    expect(result.parsed_query.facility_types).toContain('wifi');
+    expect(result.explanation).toContain('Tìm kiếm');
+    expect(result.results).toBeDefined();
+  });
+
+  it('should return empty results with valid structure on DB error', async () => {
+    httpService.post.mockReturnValue(of(mockParsedResponse as any));
+    jest.spyOn(service as any, 'findAllPois').mockRejectedValue(new Error('DB down'));
+    jest.spyOn(service as any, 'findPoisByCategory').mockRejectedValue(new Error('DB down'));
+
+    const result = await service.nLSearch('Tìm thư viện', 20);
+
+    expect(result.results).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.parsed_query).toBeDefined();
+    expect(result.explanation).toBeDefined();
+  });
+
+  it('should return all POIs when no facility_types detected', async () => {
+    const noFacilityResponse = {
+      data: {
+        status: 'success',
+        degraded: false,
+        parsed_query: {
+          facility_types: [],
+          conditions: [],
+          radius_km: 5.0,
+          location: null,
+          reference_location: 'trường',
+          confidence: 0.5,
+          method: 'regex',
+          suggestions: [],
+          raw_text: 'Tìm địa điểm gần trường',
+        },
+        explanation: 'Tìm địa điểm gần trường.',
+      },
+    };
+    httpService.post.mockReturnValue(of(noFacilityResponse as any));
+
+    const result = await service.nLSearch('Tìm địa điểm gần trường', 20);
+    expect(result.results.length).toBe(mockPoIs.length);
   });
 });

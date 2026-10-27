@@ -12,6 +12,7 @@ without a PostgreSQL connection.
 import os
 import sys
 import sqlite3
+import pytest
 
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
@@ -69,6 +70,39 @@ _ensure_seed_data()
 
 from services.predictive_service import predictive_service  # noqa: E402
 from routers.analytics import _holt_linear_forecast  # noqa: E402
+
+
+# ── Env guard ────────────────────────────────────────────────────────────────
+#
+# Other test modules in this suite (notably test_data_quality.py and
+# test_map_agent.py) mutate the *global* `os.environ` DB_SQLITE_PATH / DB_TYPE
+# during their own execution and do not always restore them (e.g.
+# test_data_quality leaves DB_SQLITE_PATH pointing at /tmp/test_edumap_dq.db,
+# a throw-away DB that only has a `map_points` table and no education_stats
+# rows). Because analytics._sqlite_path() reads these env vars at *call time*
+# (no import-time caching), those stray mutations make predict_educational_gaps
+# silently read an empty/wrong database when the full suite runs together.
+#
+# predictive_service does not cache stats/pois, so we just need to (re)point
+# the env vars at the real local seed DB before every test in this module.
+@pytest.fixture(autouse=True)
+def _force_sqlite_env():
+    _prev = {
+        "DB_TYPE": os.environ.get("DB_TYPE"),
+        "DB_SQLITE_PATH": os.environ.get("DB_SQLITE_PATH"),
+        "AI_PREFLIGHT": os.environ.get("AI_PREFLIGHT"),
+    }
+    os.environ["DB_TYPE"] = "sqlite"
+    os.environ["DB_SQLITE_PATH"] = _DB_PATH
+    os.environ["AI_PREFLIGHT"] = "false"
+    try:
+        yield
+    finally:
+        for _k, _v in _prev.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
 
 
 # ──────────────────────────── get_market_trends ────────────────────────────

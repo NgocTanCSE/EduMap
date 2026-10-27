@@ -1151,4 +1151,185 @@ export class MapService {
 
     return result;
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Talk2Map (Idea #4): NL → GIS query
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * POST/GET /api/map/nl-search?q=<vietnamese query>
+   *
+   * 1. Calls the ai-service POST /api/ai/map/query to parse the Vietnamese
+   *    natural-language query into structured entities (facility types,
+   *    conditions, radius, location reference).
+   * 2. Queries SQLite for matching POIs.
+   * 3. Filters by detected conditions (wifi, free, parking, etc.).
+   * 4. Returns `{ query, parsed_query, explanation, degraded, results, total }`.
+   *
+   * On ai-service failure: falls back to a regex keyword parse + basic
+   * category filter so Talk2Map keeps working on HF Spaces when LLM
+   * providers are unreachable.
+   */
+  async nLSearch(query: string, limit: number = 20): Promise<any> {
+    // ── 1. Parse the Vietnamese query via ai-service ───────────────────
+    let parsedQuery: any = null;
+    let explanation = '';
+    let degraded = false;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.aiServiceUrl}/api/ai/map/query`,
+          { text: query },
+          { timeout: 15000 }
+        )
+      );
+      const payload = response.data || {};
+      parsedQuery = payload.parsed_query || payload;
+      explanation = payload.explanation || '';
+      degraded = payload.degraded || false;
+    } catch (aiError: any) {
+      this.logger.warn(
+        `AI service unavailable for nl-search, using keyword fallback: ${aiError.message}`
+      );
+      parsedQuery = this._fallbackParse(query);
+      explanation = `Tìm kiếm: "${query}"`;
+      degraded = true;
+    }
+
+    // ── 2. Query SQLite for matching POIs ───────────────────────────────
+    let pois: PointOfInterest[] = [];
+    try {
+      const facilityTypes: string[] = parsedQuery?.facility_types || [];
+      const allPois =
+        facilityTypes.length > 0
+          ? await this._findPoisByCategories(facilityTypes)
+          : await this.findAllPois();
+
+      // ── 3. Apply condition filters ────────────────────────────────
+      const conditions: string[] = parsedQuery?.conditions || [];
+      pois = this._filterByConditions(allPois, conditions);
+
+      // ── 4. Deduplicate + sort by rating ────────────────────────────
+      pois = this.deduplicatePois(pois);
+      pois.sort((a, b) => (b.rating_avg || 0) - (a.rating_avg || 0));
+      pois = pois.slice(0, limit);
+    } catch (dbError: any) {
+      this.logger.error(`Error querying POIs for nl-search: ${dbError.message}`);
+    }
+
+    // ── 5. Return combined result ─────────────────────────────────────
+    return {
+      query,
+      parsed_query: parsedQuery,
+      explanation,
+      degraded,
+      results: pois,
+      total: pois.length,
+    };
+  }
+
+  /**
+   * Regex-only fallback parser used when the ai-service is unreachable.
+   * Mirrors the keyword dictionaries in ai-service/services/nl_query_parser.py
+   * but in TypeScript so the backend can self-serve on HF Spaces.
+   */
+  private _fallbackParse(query: string): Record<string, any> {
+    const text = query.toLowerCase().trim();
+    const facilities: string[] = [];
+    const conditions: string[] = [];
+
+    if (/\b(trường|truồng|trường học|thpt|thcs)\b/.test(text)) facilities.push('school');
+    if (/\bđại học|\bđh\b/.test(text)) facilities.push('university');
+    if (/\b(thư viện|thư viên)\b/.test(text)) facilities.push('library');
+    if (/\b(cà phê|càphê|cafe)\b/.test(text)) facilities.push('cafe');
+    if (/\b(chợ|thị trường|siêu thị)\b/.test(text)) facilities.push('market');
+    if (/\b(nhà hàng|quán ăn|đồ ăn)\b/.test(text)) facilities.push('restaurant');
+    if (/\b(công viên|khu xanh|vườn)\b/.test(text)) facilities.push('green');
+    if (/\b(wifi|internet)\b/.test(text)) facilities.push('wifi');
+
+    if (/\b(miễn phí|free)\b/.test(text)) conditions.push('free');
+    if (/\b(wifi|internet)\b/.test(text)) conditions.push('wifi');
+    if (/\b(tối|đêm|24\/7|24h)\b/.test(text)) conditions.push('open_evening');
+    if (/\b(đậu xe|parking|chỗ đỗ)\b/.test(text)) conditions.push('parking');
+    if (/\b(yên tĩch)\b/.test(text)) conditions.push('quiet');
+    if (/\b(bàn ghế)\b/.test(text)) conditions.push('bench');
+
+    let location: string | null = null;
+    if (/\bbiên hòa/.test(text)) location = 'Biên Hòa';
+    else if (/\b(hồ chí minh|tphcm)\b/.test(text)) location = 'TP. Hồ Chí Minh';
+    else if (/\bhà nội\b/.test(text)) location = 'Hà Nội';
+    else if (/\bđà nẵng\b/.test(text)) location = 'Đà Nẵng';
+    if (/\bmiền nam\b/.test(text)) location = 'Miền Nam';
+    else if (/\bmiền bắc\b/.test(text)) location = 'Miền Bắc';
+    else if (/\bmiền trung\b/.test(text)) location = 'Miền Trung';
+    if (/\bđông nam bộ\b/.test(text)) location = 'Đông Nam Bộ';
+
+    return {
+      location,
+      radius_km: /\bgần\b/.test(text) ? 3.0 : /\b(rộng|toàn)\b/.test(text) ? 10.0 : 5.0,
+      facility_types: facilities,
+      conditions,
+      reference_location: null,
+      confidence: 0.3,
+      method: 'regex',
+      suggestions: [],
+      raw_text: query,
+    };
+  }
+
+  /** Fetch POIs for multiple categories (union), then deduplicate. */
+  private async _findPoisByCategories(categories: string[]): Promise<PointOfInterest[]> {
+    const seen = new Set<string>();
+    const all: PointOfInterest[] = [];
+    for (const cat of categories) {
+      const pois = await this.findPoisByCategory(cat);
+      for (const p of pois) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          all.push(p);
+        }
+      }
+    }
+    return all;
+  }
+
+  /**
+   * Filter POIs by detected conditions (regex-level heuristics).
+   * Conditions that cannot be reliably checked (open_evening, open_now)
+   * are pass-through so they don't over-filter results.
+   */
+  private _filterByConditions(pois: PointOfInterest[], conditions: string[]): PointOfInterest[] {
+    if (!conditions || conditions.length === 0) return pois;
+
+    return pois.filter((poi) => {
+      const desc = (poi.description || '').toLowerCase();
+      const name = (poi.name || '').toLowerCase();
+      const cat = (poi.category || '').toLowerCase();
+      const address = (poi.address || '').toLowerCase();
+      const combined = `${desc} ${name} ${address}`;
+
+      for (const cond of conditions) {
+        if (cond === 'wifi') {
+          if (cat !== 'wifi' && !combined.includes('wifi') && !combined.includes('internet')) return false;
+        } else if (cond === 'free') {
+          // Free categories (library, green, park) OR explicit "miễn phí" in description
+          if (!['library', 'green', 'park'].includes(cat) && !combined.includes('miễn phí') && !combined.includes('free')) return false;
+        } else if (cond === 'parking') {
+          if (!combined.includes('đậu xe') && !combined.includes('parking') && !combined.includes('chỗ đỗ')) return false;
+        } else if (cond === 'quiet') {
+          if (!combined.includes('yên tĩch') && !combined.includes('thích hợp học')) return false;
+        } else if (cond === 'cafe') {
+          if (cat !== 'cafe' && !combined.includes('cà phê') && !combined.includes('cafe')) return false;
+        } else if (cond === 'bench') {
+          if (!combined.includes('bàn ghế') && !combined.includes('ghế')) return false;
+        } else if (cond === 'aircon') {
+          if (!combined.includes('điều hòa') && !combined.includes('máy lạnh')) return false;
+        }
+        // open_evening, open_now: pass-through (no reliable opening-hours data)
+      }
+
+      return true;
+    });
+  }
 }

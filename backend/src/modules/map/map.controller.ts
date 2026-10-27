@@ -343,4 +343,38 @@ export class MapController {
       throw new InternalServerErrorException('Failed to optimize resource allocation');
     }
   }
+
+  /**
+   * GET /api/map/nl-search?q=<vietnamese query>
+   *
+   * Talk2Map (Idea #4): Tìm kiếm bản đồ bằng câu hỏi tiếng Việt.
+   *
+   * Flow:
+   *   1. Backend → ai-service POST /api/ai/map/query (parse Vietnamese NL)
+   *   2. Backend → SQLite findAllPois/findPoisByCategory (filter by parsed criteria)
+   *   3. Return structured results to frontend BFF.
+   *
+   * Public endpoint (no auth required) — thích giống với /api/map/pois.
+   */
+  @Get('nl-search')
+  @SkipThrottle()
+  async nLSearch(
+    @Query('q') query: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query || !query.trim()) {
+      throw new BadRequestException('Query parameter "q" is required');
+    }
+
+    try {
+      const result = await this.mapService.nLSearch(
+        query,
+        limit ? parseInt(limit, 10) : 20
+      );
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error(`Error during NL search: ${error.message}`);
+      throw new InternalServerErrorException('An error occurred while processing the search request');
+    }
+  }
 }

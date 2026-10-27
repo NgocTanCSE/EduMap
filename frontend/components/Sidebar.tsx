@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Map,
+  Search,
   BookOpen,
   Users,
   BrainCircuit,
@@ -65,6 +66,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Thư viện', href: '/library', icon: BookOpen },
       { name: 'Trợ lý AI', href: '/ai-chat', icon: BrainCircuit },
+      { name: 'Talk2Map', href: '/talk2map', icon: Search },
       { name: 'Học bổng', href: '/scholarships', icon: GraduationCap },
       { name: 'Du học & Trao đổi', href: '/intl', icon: Plane },
     ],
