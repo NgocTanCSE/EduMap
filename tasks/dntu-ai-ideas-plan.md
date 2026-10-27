@@ -397,27 +397,30 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: Tạo `ai-service/services/nl_query_parser.py` (mới)
+- [x] **Task 1**: Tạo `ai-service/services/nl_query_parser.py` (mới)
   - Prompt template: trích xuất `location`, `radius_km`, `category`, `open_evening`, `is_free`
   - Vietnamese entity extraction: địa danh (tỉnh/thành/phường), loại cơ sở (trường, thư viện, wifi)
   - Fallback keyword extraction nếu LLM fail (regex-based)
-  - **Verify**: test với 10 câu tiếng Việt mẫu
+  - **Verify**: test với 10 câu tiếng Việt mẫu — 30 unit tests pass, 10 integration sentences pass
 
-- [ ] **Task 2**: Tạo router `routers/talk2map.py`
+- [x] **Task 2**: Tạo router `routers/talk2map.py`
   - `POST /api/ai/map/query` — nhận `question` (tiếng Việt), trả về structured query + results GeoJSON
   - Validate: kiểm tra location tồn tại trong `map_points`, radius hợp lệ
-  - **Verify**: curl test
+  - **Verify**: curl test — 200 + structured JSON
 
-- [ ] **Task 3**: Backend proxy + SQLite pre-filter
+- [x] **Task 3**: Backend proxy + SQLite pre-filter
   - `GET /api/map/nl-search?q=...` — BFF proxy, thử SQLite trước
-  - **Verify**: tsc
+  - **Verify**: tsc + 11 Jest tests pass
 
-- [ ] **Task 4**: Frontend — `app/talk2map/page.tsx` (mới)
-  - Input box nhập câu hỏi tiếng Việt
+- [x] **Task 4**: Frontend — `app/talk2map/page.tsx` (mới)
+  - Input box nhập câu hỏa tiếng Việt
   - Hiển thị structured query (debug mode) + kết quả trên bản đồ
-  - **Verify**: visual check, Vietnamese text OK
+  - **Verify**: visual check, Vietnamese text OK — page renders, next build OK
 
-- [ ] **Task 5**: Test + smoke test #15
+- [x] **Task 5**: Test + smoke test #15
+  - 30 Python unit tests pass
+  - 10 Vietnamese sentence integration tests pass
+  - `scripts/smoke_test_talk2map.sh` created
 
 #### Risks
 
