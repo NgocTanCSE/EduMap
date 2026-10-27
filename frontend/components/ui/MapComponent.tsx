@@ -5,7 +5,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, type LucideIcon } from 'lucide-react';
+import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, Star, Heart, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
@@ -31,7 +31,34 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   lab: Atom, stem: Atom, green: Leaf, park: Leaf, wifi: Wifi, cafe: Coffee,
   restaurant: Globe, market: ShoppingCart, convenience: Store,
 };
-const _divIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
+/** A featured "ghim" pin that links to a feature page. */
+export interface FeaturedPin {
+  id: string;
+  name: string;
+  category: string;
+  lat: number;
+  lng: number;
+  description?: string;
+  address?: string;
+  featureLink: string;
+}
+
+const FEATURED_ICON_COLOR: Record<string, string> = {
+  stem: 'text-destructive',
+  green: 'text-green-600',
+  summer: 'text-orange-500',
+  wifi: 'text-amber-400',
+  market: 'text-primary',
+  donate: 'text-red-500',
+};
+const FEATURED_ICON: Record<string, LucideIcon> = {
+  stem: Atom,
+  green: Leaf,
+  summer: GraduationCap,
+  wifi: Wifi,
+  market: ShoppingCart,
+  donate: Heart,
+};
 
 // Tear-drop pin glyph; fill="currentColor" inherits the category color.
 const PIN_GLYPH = `<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2.5C8.17 2.5 5 5.67 5 9.5 5 14.85 11.25 20.15 11.53 20.46a1 1 0 001.46-.01C12.75 20.15 19 14.85 19 9.5 19 5.67 15.83 2.5 12 2.5zm0 13.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>`;
@@ -46,6 +73,7 @@ const renderIconToHtml = (Component: any, className: string = 'w-3 h-3'): string
   }
 };
 
+const _divIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
 const getIconForCategory = (categoryName: string) => {
   const cat = (categoryName || '').toLowerCase();
   const key = cat || '_default';
@@ -64,7 +92,32 @@ const getIconForCategory = (categoryName: string) => {
   });
   _divIconCache.set(key, icon);
   return icon;
-};
+}
+
+/** Star-shaped featured-pin icon (distinct from regular tear-drop POI pins). */
+const _featuredIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
+const getFeaturedIconForCategory = (categoryName: string) => {
+  const cat = (categoryName || '').toLowerCase();
+  const key = `featured-${cat || '_default'}`;
+  const cached = _featuredIconCache.get(key);
+  if (cached) return cached;
+
+  const RawIcon = FEATURED_ICON[cat] || Star;
+  const color = FEATURED_ICON_COLOR[cat] || 'text-accent';
+  const iconSvg = renderIconToHtml(RawIcon, 'w-3 h-3');
+  // Star glyph (filled, gold-ish outline) with the category icon centered.
+  const starSvg = '<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.94L12 17.77l-6.18 3.31 1.18-6.94-5-4.97L8.91 8.26z"/></svg>';
+  const html = `<div class="${color} relative flex items-center justify-center" style="width:28px;height:28px">${starSvg}<span class="relative text-white flex items-center justify-center w-3 h-3">${iconSvg}</span></div>`;
+  const icon = L.divIcon({
+    className: 'edumap-featured-marker shadow-lg',
+    html,
+    iconSize: [28, 28],
+    iconAnchor: [14, 29],
+    popupAnchor: [0, -36],
+  });
+  _featuredIconCache.set(key, icon);
+  return icon;
+};;
 
 // Mini-icons used inside the popup to label a POI's nearby facilities.
 const facilityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -278,6 +331,8 @@ interface InteractiveMapProps {
    *  boundary polygons produced by DBSCAN clustering. Rendered as polygon
    *  overlays on the map. May be null (no analysis yet). */
   geoJsonData?: any;
+  /** Featured "ghim" pins that link to feature pages (/stem, /green, etc.) */
+  featuredPins?: FeaturedPin[];
 }
 
 export default function InteractiveMap({ 
@@ -290,6 +345,7 @@ export default function InteractiveMap({
   apiBaseUrl = '/api',
   nearbyPoints = [],
   geoJsonData = null,
+  featuredPins = [],
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -700,6 +756,63 @@ export default function InteractiveMap({
                             onClick={() => routeToPoi(p)}
                           >
                             Dẫn đường
+                          </button>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+          </MarkerClusterGroup>
+        )}
+
+        {/* Featured "ghim" pins (separate cluster) — star icons with feature-page links */}
+        {!showHeatmap && featuredPins.length > 0 && (
+          <MarkerClusterGroup chunkedLoading>
+            {featuredPins
+              .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
+              .map((p: any) => {
+                const lat = Number(p.lat);
+                const lng = Number(p.lng);
+
+                return (
+                  <Marker
+                    key={p.id}
+                    position={[lat, lng]}
+                    icon={getFeaturedIconForCategory(p.category)}
+                    eventHandlers={{
+                      click: () => {
+                        // Navigate directly to the feature page
+                        window.location.href = p.featureLink;
+                      },
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -30]} opacity={1}>
+                      <span className="font-bold text-xs">{p.name}</span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="p-2 text-foreground font-sans max-w-[240px] bg-card border border-border rounded-lg shadow-lg">
+                        <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
+                        {p.address && (
+                          <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
+                        )}
+                        {p.description && (
+                          <p className="text-[10px] text-muted-foreground/80 mt-1 leading-snug line-clamp-2">
+                            {p.description}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-primary">
+                            Ghim {p.category}
+                          </span>
+                          <button
+                            className="bg-primary text-foreground text-[9px] font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
+                            onClick={() => {
+                              window.location.href = p.featureLink;
+                            }}
+                          >
+                            <Star className="w-3 h-3 fill-current" />
+                            Đến
                           </button>
                         </div>
                       </div>

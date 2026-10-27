@@ -18,6 +18,15 @@ export class SharedItem {
   @Column({ default: 'available' })
   status: string; // available/borrowed
 
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  lat: number;
+
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  lng: number;
+
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'owner_id' })
   owner: User;

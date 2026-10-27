@@ -42,7 +42,7 @@ export class GreenService {
   async getChallenges() {
     try {
       const challenges = await this.challengeRepo.find({
-        select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at'],
+        select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at', 'lat', 'lng', 'address'],
         where: { status: 'active' },
         order: { created_at: 'DESC' },
       });
@@ -60,6 +60,9 @@ export class GreenService {
             participants_count: participantsCount,
             image_url: null,
             status: c.status,
+            lat: c.lat,
+            lng: c.lng,
+            address: c.address,
           };
         })
       );

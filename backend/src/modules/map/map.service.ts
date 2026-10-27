@@ -22,6 +22,33 @@ export interface PointOfInterest {
   verified?: boolean;
 }
 
+/**
+ * A "ghim" (featured pin) displayed on the interactive map that links
+ * directly to one of the Trải nghiệm & Tiện íu / Chợ & Đóng góp feature pages.
+ * Each pin's position is sourced from the SAME backend table the feature page
+ * reads from, so the pin and the feature detail stay in sync automatically
+ * (the same sync model used by WiFi: locations table → /wifi page + /map page).
+ */
+export interface FeaturedPin {
+  id: string;
+  name: string;
+  category: string;   // 'stem' | 'green' | 'summer' | 'wifi' | 'market' | 'donate'
+  lat: number;
+  lng: number;
+  description?: string;
+  address?: string;
+  featureLink: string; // e.g. '/stem', '/green', '/summer', '/wifi', '/marketplace', '/donate'
+}
+
+const FEATURE_LINK_MAP: Record<string, string> = {
+  stem: '/stem',
+  green: '/green',
+  summer: '/summer',
+  wifi: '/wifi',
+  market: '/marketplace',
+  donate: '/donate',
+};
+
 @Injectable()
 export class MapService {
   private readonly logger = new Logger(MapService.name);
@@ -655,5 +682,255 @@ export class MapService {
       poi,
       nearby: nearby.filter((p) => p.id !== poi!.id).slice(0, 12),
     };
+  }
+
+  /**
+   * Aggregates "ghim" (featured pins) from ALL feature tables so they appear
+   * on the interactive map with direct links to their feature pages.
+   *
+   * This mirrors the WiFi pattern: the WiFi page reads from `locations` (LIKE
+   * '%wifi%') and the map reads the same table — the pin and the feature page
+   * always show the same coordinates. Here we extend that to every feature:
+   *   - STEM Labs  → stem_labs.location_point  (GeoJSON, already has coords)
+   *   - Green      → green_challenges.lat/lng  (new columns, backfilled)
+   *   - Summer     → summer_campaigns.lat/lng (new columns, backfilled)
+   *   - Wifi       → locations.coordinates      (existing, LIKE '%wifi%')
+   *   - Marketplace→ shared_items.lat/lng       (new columns, backfilled)
+   *   - Donate     → donation_campaigns.location_point (existing column,
+   *                   backfilled for the 4 NULL rows)
+   *
+   * Returns pins with a `featureLink` field so the frontend popup can
+   * render a "Đến" button that navigates directly to the feature page.
+   */
+  async getFeaturedPins(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<FeaturedPin[]> {
+    try {
+      const pins: FeaturedPin[] = [];
+
+      if (this.isSqlite) {
+        // --- STEM Labs ---
+        const stemRaw = await this.mapPointRepo.query(
+          'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
+        );
+        for (const r of stemRaw) {
+          const coords = this.parseCoords(r.location_point);
+          if (!coords) continue;
+          const pin: FeaturedPin = {
+            id: `stem-${r.id}`,
+            name: r.name,
+            category: 'stem',
+            lat: coords[1],
+            lng: coords[0],
+            description: r.description || '',
+            address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.stem,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // --- Green Challenges ---
+        const greenRaw = await this.mapPointRepo.query(
+          'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
+        );
+        for (const r of greenRaw) {
+          const lat = Number(r.lat);
+          const lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          const pin: FeaturedPin = {
+            id: `green-${r.id}`,
+            name: r.name,
+            category: 'green',
+            lat,
+            lng,
+            description: r.description || '',
+            address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.green,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // --- Summer Campaigns ---
+        const summerRaw = await this.mapPointRepo.query(
+          'SELECT id, name, description, location as address, lat, lng, status FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
+        );
+        for (const r of summerRaw) {
+          const lat = Number(r.lat);
+          const lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          const pin: FeaturedPin = {
+            id: `summer-${r.id}`,
+            name: r.name,
+            category: 'summer',
+            lat,
+            lng,
+            description: r.description || '',
+            address: r.address || r.name,
+            featureLink: FEATURE_LINK_MAP.summer,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // --- Wifi (from locations table, same source as /wifi page) ---
+        const wifiRaw = await this.locationRepo.query(
+          'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
+        );
+        for (const r of wifiRaw) {
+          const coords = this.parseCoords(r.coordinates);
+          if (!coords) continue;
+          const pin: FeaturedPin = {
+            id: `wifi-${r.id}`,
+            name: r.name,
+            category: 'wifi',
+            lat: coords[1],
+            lng: coords[0],
+            description: r.description || '',
+            address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.wifi,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // --- Donation Campaigns (Quyên góp) ---
+        const donateRaw = await this.mapPointRepo.query(
+          'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
+        );
+        for (const r of donateRaw) {
+          const coords = this.parseCoords(r.location_point);
+          if (!coords) continue;
+          const pin: FeaturedPin = {
+            id: `donate-${r.id}`,
+            name: r.name,
+            category: 'donate',
+            lat: coords[1],
+            lng: coords[0],
+            description: r.description || '',
+            address: '',
+            featureLink: FEATURE_LINK_MAP.donate,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // --- Marketplace (Shared Items / Chợ trao đổi) ---
+        const marketRaw = await this.mapPointRepo.query(
+          'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
+        );
+        for (const r of marketRaw) {
+          const lat = Number(r.lat);
+          const lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
+          const pin: FeaturedPin = {
+            id: `market-${r.id}`,
+            name: r.name,
+            category: 'market',
+            lat,
+            lng,
+            description: desc,
+            address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.market,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+      } else {
+        // --- Postgres mode ---
+        // Stem labs
+        const stemLabs = await this.mapPointRepo.query(
+          'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
+        );
+        for (const r of stemLabs) {
+          const coords = this.parseCoords(r.location_point);
+          if (!coords) continue;
+          const pin: FeaturedPin = {
+            id: `stem-${r.id}`, name: r.name, category: 'stem',
+            lat: coords[1], lng: coords[0],
+            description: r.description || '', address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.stem,
+          };
+          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
+        }
+
+        // Green challenges
+        const greenLabs = await this.mapPointRepo.query(
+          'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
+        );
+        for (const r of greenLabs) {
+          const lat = Number(r.lat), lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          pins.push({
+            id: `green-${r.id}`, name: r.name, category: 'green',
+            lat, lng, description: r.description || '', address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.green,
+          });
+        }
+
+        // Summer campaigns
+        const summerLabs = await this.mapPointRepo.query(
+          'SELECT id, name, description, location as address, lat, lng FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
+        );
+        for (const r of summerLabs) {
+          const lat = Number(r.lat), lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          pins.push({
+            id: `summer-${r.id}`, name: r.name, category: 'summer',
+            lat, lng, description: r.description || '', address: r.address || r.name,
+            featureLink: FEATURE_LINK_MAP.summer,
+          });
+        }
+
+        // Wifi
+        const wifiLabs = await this.locationRepo.query(
+          'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
+        );
+        for (const r of wifiLabs) {
+          const coords = this.parseCoords(r.coordinates);
+          if (!coords) continue;
+          pins.push({
+            id: `wifi-${r.id}`, name: r.name, category: 'wifi',
+            lat: coords[1], lng: coords[0],
+            description: r.description || '', address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.wifi,
+          });
+        }
+
+        // Donation campaigns
+        const donateLabs = await this.mapPointRepo.query(
+          'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
+        );
+        for (const r of donateLabs) {
+          const coords = this.parseCoords(r.location_point);
+          if (!coords) continue;
+          pins.push({
+            id: `donate-${r.id}`, name: r.name, category: 'donate',
+            lat: coords[1], lng: coords[0],
+            description: r.description || '', address: '',
+            featureLink: FEATURE_LINK_MAP.donate,
+          });
+        }
+
+        // Marketplace (shared items)
+        const marketLabs = await this.mapPointRepo.query(
+          'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
+        );
+        for (const r of marketLabs) {
+          const lat = Number(r.lat), lng = Number(r.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
+          pins.push({
+            id: `market-${r.id}`, name: r.name, category: 'market',
+            lat, lng, description: desc, address: r.address || '',
+            featureLink: FEATURE_LINK_MAP.market,
+          });
+        }
+      }
+
+      return pins;
+    } catch (error: any) {
+      this.logger.error(`Error getting featured pins: ${error.message}`);
+      return [];
+    }
+  }
+
+  /** Simple bounds check used by getFeaturedPins to avoid creating POI objects for out-of-viewport pins. */
+  private isInBounds(lat: number, lng: number, bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }): boolean {
+    return lat >= bounds.minLat && lat <= bounds.maxLat && lng >= bounds.minLng && lng <= bounds.maxLng;
   }
 }

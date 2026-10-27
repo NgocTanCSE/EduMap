@@ -11,6 +11,9 @@ export interface GreenChallenge {
   image_url: string;
   status: string;
   participants_count: number;
+  lat?: number;
+  lng?: number;
+  address?: string;
 }
 
 export interface GreenActivityLog {

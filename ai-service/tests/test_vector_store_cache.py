@@ -42,6 +42,8 @@ def _fresh_service():
     svc._embed_cache_max = 128
     svc._embed_cache_ttl = 1800.0
     svc._openrouter_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 4.0
     return svc
 
 
@@ -149,10 +151,93 @@ def test_store_embed_cache_respects_max():
     print("✓ test_store_embed_cache_respects_max")
 
 
+def test_openrouter_unprefixed_model_is_normalized():
+    """Legacy HF secret 'text-embedding-3-small' must be sent as
+    'openai/text-embedding-3-small' (OpenRouter requires provider prefix)."""
+    import json as _json
+    import subprocess as _subprocess
+
+    svc = _fresh_service()
+    svc.openrouter_base = "https://openrouter.ai/api/v1"
+    svc.openrouter_key = "test-key"
+    svc.openrouter_embed_model = "text-embedding-3-small"
+    svc.openrouter_timeout = 8.0
+    svc._embed_dim = 768
+
+    captured = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = _json.dumps({"data": [{"embedding": [0.1] * 768}]})
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _Proc()
+
+    orig_run = _subprocess.run
+    _subprocess.run = fake_run
+    try:
+        vec = svc._openrouter_get_embedding("hello", timeout_override=4)
+    finally:
+        _subprocess.run = orig_run
+
+    assert len(vec) == 768
+    # The payload is the argument following "-d".
+    payload = _json.loads(captured["cmd"][captured["cmd"].index("-d") + 1])
+    assert payload["model"] == "openai/text-embedding-3-small"
+    # Dimension is pinned to the collection so we do not truncate 1536 -> 768.
+    assert payload["dimensions"] == 768
+
+    print("✓ test_openrouter_unprefixed_model_is_normalized")
+
+
+def test_slow_openrouter_still_reaches_hf_fallback():
+    """A timing-out OpenRouter must not consume the whole budget: the HF
+    fallback must still be attempted and its vector returned."""
+    svc = _fresh_service()
+    svc.has_gemini_api = False
+    svc.has_cf_api = False
+    svc.has_hf_api = True
+    svc.has_nvidia_api = False
+    svc.has_kimi_api = False
+    svc._gemini_embed_down_until = 0.0
+    svc._cf_embed_down_until = 0.0
+    svc._hf_embed_down_until = 0.0
+    svc._nvidia_embed_down_until = 0.0
+    svc._kimi_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 3.0
+
+    or_timeouts = []
+    hf_timeouts = []
+
+    def slow_openrouter(text, timeout_override=None):
+        or_timeouts.append(timeout_override)
+        raise RuntimeError("curl: (28) Operation timed out")
+
+    def hf_ok(text, timeout_override=None):
+        hf_timeouts.append(timeout_override)
+        return [0.2] * 768
+
+    svc._openrouter_get_embedding = slow_openrouter
+    svc._hf_get_embedding = hf_ok
+
+    vec = svc.get_embedding("xin chào")
+    assert vec == [0.2] * 768
+    assert or_timeouts and or_timeouts[0] <= 3.0
+    assert hf_timeouts, "HF fallback must still run after OpenRouter fails"
+    assert hf_timeouts[0] <= 3.0
+
+    print("✓ test_slow_openrouter_still_reaches_hf_fallback")
+
+
 if __name__ == "__main__":
     test_embedding_cache_returns_stored_vector()
     test_embedding_cache_evicts_oldest()
     test_embedding_cache_does_not_store_empty()
     test_get_embedding_raises_without_api()
     test_store_embed_cache_respects_max()
+    test_openrouter_unprefixed_model_is_normalized()
+    test_slow_openrouter_still_reaches_hf_fallback()
     print("\n✅ All vector store cache tests passed!")

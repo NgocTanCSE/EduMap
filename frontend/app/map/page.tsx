@@ -6,7 +6,7 @@ import {
   Search, MapPin, X, List, ChevronLeft, ChevronRight, ChevronDown, BrainCircuit,
   ThermometerSun, Layers, Save, Info, Flame, LogOut,
   Maximize, Minimize, GraduationCap, Heart, BookOpen, Users, Wifi, Atom,
-  Briefcase, Globe, Leaf, Coffee,
+  Briefcase, Globe, Leaf, Coffee, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -54,6 +54,25 @@ interface Location {
   category: string;
   lat: number;
   lng: number;
+}
+
+/**
+ * A "ghim" (featured pin) shown on the map as a special star marker. Each pin
+ * links directly to its feature page (Trải nghiệm & Tiện ích / Chợ & Đóng góp).
+ * Position data is sourced from the SAME backend table the feature page reads
+ * from — e.g. WiFi pins come from `locations` (LIKE '%wifi%'), STEM labs from
+ * `stem_labs.location_point`, etc. — so the pin and the feature page never
+ * drift apart.
+ */
+interface FeaturedPin {
+  id: string;
+  name: string;
+  category: string;
+  lat: number;
+  lng: number;
+  description?: string;
+  address?: string;
+  featureLink: string;
 }
 
 // ---------- Sub-components ----------
@@ -216,6 +235,11 @@ export default function MapPage() {
 
   const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
 
+  // Featured "ghim" pins (STEM, Green, Summer, Wifi, Marketplace, Donate)
+  const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
+  const [showFeaturedPins, setShowFeaturedPins] = useState(true);
+  const [showFeaturedLegend, setShowFeaturedLegend] = useState(false);
+
   const [fs, setFs] = useState(false);
 
   // Nearby facilities of the selected POI (wifi / thư viện / trung tâm …).
@@ -298,6 +322,20 @@ export default function MapPage() {
       setFixedLocations(list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))));
     } catch (error) {
       logger.error('Error fetching fixed locations', error);
+    }
+  }, []);
+
+  // --- Fetch: featured pins (ghim) — STEM Labs, Green, Summer, Wifi, Marketplace, Donate ---
+  const fetchFeaturedPins = useCallback(async () => {
+    try {
+      const res = await fetchWithRetry('/api/map/featured-pins');
+      const json = await res.json();
+      const data = unwrapApiResponse<any[]>(json);
+      const list = Array.isArray(data) ? data : [];
+      const valid = list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+      setFeaturedPins(valid);
+    } catch (error) {
+      logger.error('Error fetching featured pins', error);
     }
   }, []);
 
@@ -412,9 +450,10 @@ export default function MapPage() {
     fetchStats();
     fetchCategoriesOnce();
     fetchFixedLocations();
+    fetchFeaturedPins();
     // Initial viewport fetch is now driven by MapEvents.onReady (real bounds),
     // NOT fetchMapData('all') over DEFAULT_BBOX (whole province) which was slow.
-  }, [fetchStats, fetchCategoriesOnce, fetchMapData]);
+  }, [fetchStats, fetchCategoriesOnce, fetchMapData, fetchFeaturedPins]);
 
   // Category change → refetch (bounds empty like initial)
   const handleCategoryChange = (c: string) => {
@@ -537,7 +576,7 @@ export default function MapPage() {
 
       {/* --- Map (main surface, full-bleed) --- */}
       <main className="absolute inset-0">
-        <InteractiveMap
+          <InteractiveMap
           points={filteredLocations}
           selectedPoint={selectedLocation}
           onSelectPoint={handleSelectLocation}
@@ -547,6 +586,7 @@ export default function MapPage() {
           apiBaseUrl="/api"
           nearbyPoints={nearbyPois}
           geoJsonData={geoJsonData}
+          featuredPins={showFeaturedPins ? featuredPins : []}
         />
       </main>
 
@@ -573,6 +613,13 @@ export default function MapPage() {
             className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors"
           >
             <Layers className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setShowFeaturedPins(!showFeaturedPins)}
+            title={showFeaturedPins ? 'Ẩn ghim đặc trưng' : 'Hiện ghim đặc trưng'}
+            className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+          >
+            <Star className="w-4 h-4" />
           </button>
           <button
             onClick={toggleFullscreen}

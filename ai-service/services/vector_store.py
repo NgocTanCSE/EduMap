@@ -90,8 +90,14 @@ class VectorStoreService:
         # --- OpenRouter embedding (tuỳ chọn, thay thế Cloudflare/Gemini nếu cần) ---
         self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
         self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
-        self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
-        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "15"))
+        # OpenRouter model slugs are provider-prefixed. The old default
+        # "text-embedding-3-small" is NOT a valid slug (must be
+        # "openai/text-embedding-3-small"). _openrouter_get_embedding() also
+        # normalises unprefixed values coming from older HF Space secrets.
+        self.openrouter_embed_model = os.getenv(
+            "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
+        ).strip()
+        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "8"))
         self.has_openrouter_api = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
 
         # --- NVIDIA NIM embedding (OpenAI-compatible, build.nvidia.com) ---
@@ -110,6 +116,20 @@ class VectorStoreService:
         self.kimi_timeout = float(os.getenv("KIMI_TIMEOUT_SECONDS", "30"))
         self.has_kimi_api = bool(self.kimi_key) and bool(self.kimi_embed_model)
         self._kimi_embed_down_until = 0.0
+
+        # --- Embedding time budget (critical for HF Spaces) -------------------
+        # The whole provider chain runs synchronously inside a worker thread
+        # triggered by a chat request. On HF Spaces a slow/hanging provider
+        # (OpenRouter often times out after 15s with 0 bytes) used to consume
+        # the entire budget, so Cloudflare/HF/Kimi fallbacks were always
+        # skipped and RAG failed. Now:
+        #   * EMBED_GLOBAL_TIMEOUT_SECONDS caps the entire chain (default 6s,
+        #     safely below the NestJS 10s stream timeout and RAG_TIMEOUT_SECONDS).
+        #   * EMBED_PROVIDER_TIMEOUT_SECONDS caps each individual attempt
+        #     (default 4s) so the first provider cannot starve the fallbacks.
+        # Both are env-tunable without a code change.
+        self.embed_global_timeout = max(2.0, float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6")))
+        self.embed_provider_timeout = max(1.5, float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4")))
 
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
         self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_openrouter_api or self.has_nvidia_api or self.has_kimi_api
@@ -140,6 +160,11 @@ class VectorStoreService:
             print(f"INFO: HuggingFace Inference API fallback enabled with model={self.hf_embedding_model}")
         if self.has_kimi_api:
             print(f"INFO: Shanghai AI Laboratory (01.ai / Kimi) embeddings enabled with model={self.kimi_embed_model}")
+        print(
+            f"INFO: Embedding budget: global={self.embed_global_timeout}s, "
+            f"per-provider={self.embed_provider_timeout}s "
+            f"(EMBED_GLOBAL_TIMEOUT_SECONDS / EMBED_PROVIDER_TIMEOUT_SECONDS)"
+        )
 
         # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
@@ -196,6 +221,16 @@ class VectorStoreService:
             or any(r in low for r in self._EMBED_MODEL_NOT_FOUND_REASONS)
         )
 
+    def _embed_remaining(self, started: float) -> float:
+        """Seconds left in the global embedding budget."""
+        return getattr(self, "embed_global_timeout", 6.0) - (time.monotonic() - started)
+
+    def _embed_attempt_timeout(self, started: float) -> float:
+        """Per-provider timeout capped by both the provider cap and the
+        remaining global budget. Ensures one slow provider cannot starve the
+        fallback chain (the original OpenRouter timeout bug)."""
+        return max(1.5, min(getattr(self, "embed_provider_timeout", 4.0), self._embed_remaining(started)))
+
     def _openrouter_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
         """Get an embedding from OpenRouter (OpenAI-compatible /v1/embeddings).
 
@@ -212,10 +247,23 @@ class VectorStoreService:
             raise RuntimeError("OpenRouter embeddings temporarily disabled after a network failure.")
 
         url = f"{self.openrouter_base}/embeddings"
-        payload = json.dumps({"model": self.openrouter_embed_model, "input": text}).encode("utf-8")
+        # Normalise legacy/unprefixed slugs: OpenRouter requires the provider
+        # prefix ("openai/text-embedding-3-small"). Bypass with an explicit
+        # prefix or a slash in the configured value.
+        _model = (self.openrouter_embed_model or "").strip()
+        if _model and "/" not in _model:
+            _model = f"openai/{_model}"
+        _payload_obj = {"model": _model, "input": text}
+        # OpenAI text-embedding-3-* supports a `dimensions` parameter. Pin it
+        # to the existing Chroma collection dimension so we get a high-quality
+        # vector instead of truncating/padding a 1536-dim vector to 768.
+        if self._embed_dim and _model.startswith(("openai/text-embedding-3", "text-embedding-3")):
+            _payload_obj["dimensions"] = int(self._embed_dim)
+        payload = json.dumps(_payload_obj).encode("utf-8")
         # Cap the per-call timeout so one provider cannot starve the remaining
         # budget (default 20s is way longer than the 15s global embedding budget).
         _call_timeout = timeout_override or self.openrouter_timeout
+        _connect_timeout = max(1.0, min(3.0, _call_timeout))
 
         try:
             proc = subprocess.run(
@@ -224,7 +272,7 @@ class VectorStoreService:
                     "-H", f"Authorization: Bearer {self.openrouter_key}",
                     "-H", "Content-Type: application/json",
                     "-d", payload,
-                    "--connect-timeout", "4",
+                    "--connect-timeout", str(_connect_timeout),
                     "--max-time", str(_call_timeout),
                     url,
                 ],
@@ -485,11 +533,15 @@ class VectorStoreService:
             if isinstance(data, dict):
                 # HF Inference API feature-extraction returns: {"embeddings": [...]} or {"error": "..."}
                 if "error" in data and not data.get("embeddings"):
-                    # Model loading — retry
+                    # Model loading — only wait when another attempt remains.
+                    # With max_retries=1 the old unconditional 3s sleep just
+                    # pushed the whole embedding chain past its budget.
                     if "loading" in data.get("error", "").lower():
-                        print(f"HF embed model loading, retry {attempt}/{max_retries}...")
-                        time.sleep(3 * attempt)
-                        continue
+                        if attempt < max_retries:
+                            print(f"HF embed model loading, retry {attempt}/{max_retries}...")
+                            time.sleep(min(2.0 * attempt, 3.0))
+                            continue
+                        raise RuntimeError("HF embed model is loading (try again later)")
                     _err_msg = str(data.get("error", ""))
                     _low = _err_msg.lower()
                     if "401" in str(data) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
@@ -743,19 +795,25 @@ class VectorStoreService:
 
         import time
         _embed_start = time.monotonic()
-        _EMBED_GLOBAL_TIMEOUT = 15  # cap total embedding time so LLM can still respond within 60s backend timeout
+        # Budget for the whole embedding chain. Configurable via env so it can
+        # be tuned on HF Spaces without a rebuild. Keep this comfortably below
+        # the downstream RAG/HTTP timeouts so chat degrades instead of hanging.
+        _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
         gemini_last_err = None
         cf_last_err = None
         or_last_err = None
+        hf_last_err = None
+        nvidia_last_err = None
+        kimi_last_err = None
 
         # --- Phan 0: OpenRouter embeddings (primary — reachable from HF Spaces) ---
+        _or_remaining = self._embed_remaining(_embed_start)
         if self.has_openrouter_api and time.monotonic() >= getattr(self, "_openrouter_embed_down_until", 0.0):
-            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+            if _or_remaining <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping OpenRouter embed")
             else:
                 try:
-                    _remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
-                    vec = self._openrouter_get_embedding(text, timeout_override=max(3, _remaining))
+                    vec = self._openrouter_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     if self._embed_dim and len(vec) != self._embed_dim:
                         print(f"OpenRouter embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
@@ -773,23 +831,25 @@ class VectorStoreService:
 
         # --- Phan 1: Gemini embeddings (reachable from HF Spaces) ---
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
-            try:
-                _remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
-                vec = self._gemini_get_embedding(text, timeout_override=max(3, _remaining))
-                vec = [float(x) for x in vec]
-                if self._embed_dim and len(vec) != self._embed_dim:
-                    print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                    if len(vec) > self._embed_dim:
-                        vec = vec[:self._embed_dim]
-                    else:
-                        vec = vec + [0.0] * (self._embed_dim - len(vec))
-                self._embed_dim = len(vec)
-                print(f"  -> Gemini embedding OK (dim={len(vec)})")
-                self._store_embed_cache(_cache_key, vec)
-                return vec
-            except Exception as e:
-                gemini_last_err = str(e)
-                print(f"Gemini embedding failed: {e}")
+            if self._embed_remaining(_embed_start) <= 0.5:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
+            else:
+                try:
+                    vec = self._gemini_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
+                    vec = [float(x) for x in vec]
+                    if self._embed_dim and len(vec) != self._embed_dim:
+                        print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        if len(vec) > self._embed_dim:
+                            vec = vec[:self._embed_dim]
+                        else:
+                            vec = vec + [0.0] * (self._embed_dim - len(vec))
+                    self._embed_dim = len(vec)
+                    print(f"  -> Gemini embedding OK (dim={len(vec)})")
+                    self._store_embed_cache(_cache_key, vec)
+                    return vec
+                except Exception as e:
+                    gemini_last_err = str(e)
+                    print(f"Gemini embedding failed: {e}")
 
         # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
         if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
@@ -801,14 +861,15 @@ class VectorStoreService:
             else:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
             per_model_retries = 0  # no retry — connection errors on HF Spaces are consistent, retrying wastes time
-            # Embedding calls are small/fast; use a short connect-timeout + max-time
+            # Embedding calls are small/fast; use the shared per-provider budget
             # so each model attempt fails within the global budget, leaving room
             # for Gemini/HF/NVIDIA fallback. Mirrors llm_service._cloudflare_generate.
-            _cf_embed_timeout = 8
+            _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
 
             for model in self.embed_models:
-                if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+                if self._embed_remaining(_embed_start) <= 0.5:
                     print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, stopping Cloudflare embed attempts"); break
+                _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
                 # URL-encode @ prefix but PRESERVE / so Cloudflare sees the full
                 # model path (@cf/baai/bge-base-en-v1.5). Encoding / as %2F
                 # flattens the path → Cloudflare returns "No route for that URI" (code 7000).
@@ -949,12 +1010,11 @@ class VectorStoreService:
 
         # --- Phan 2: fallback ve HuggingFace Inference API (khi Cloudflare fail) ---
         if self.has_hf_api:
-            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+            if self._embed_remaining(_embed_start) <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping HF fallback")
             else:
                 try:
-                    _hf_remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
-                    vec = self._hf_get_embedding(text, timeout_override=max(3, _hf_remaining))
+                    vec = self._hf_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     # Dimension guard: neu collection da co dim (tu Cloudflare seed),
                     # can chinh lenh ve khop. Nhung multilingual-e5-base = 768 dim,
@@ -970,16 +1030,16 @@ class VectorStoreService:
                     self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
+                    hf_last_err = str(e)
                     print(f"HF Inference API embedding ALSO failed: {e}")
 
         # --- Phan 3: fallback ve NVIDIA NIM embedding ---
         if self.has_nvidia_api:
-            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+            if self._embed_remaining(_embed_start) <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping NVIDIA fallback")
             else:
                 try:
-                    _nv_remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
-                    vec = self._nvidia_get_embedding(text, timeout_override=max(3, _nv_remaining))
+                    vec = self._nvidia_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     if self._embed_dim and len(vec) != self._embed_dim:
                         print(f"NVIDIA embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
@@ -992,16 +1052,16 @@ class VectorStoreService:
                     self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
+                    nvidia_last_err = str(e)
                     print(f"NVIDIA NIM embedding ALSO failed: {e}")
 
         # --- Phan 4: fallback ve 01.ai (Shanghai AI Laboratory) embedding ---
-        if self.has_kimi_api:
-            if time.monotonic() - _embed_start > _EMBED_GLOBAL_TIMEOUT:
+        if getattr(self, "has_kimi_api", False):
+            if self._embed_remaining(_embed_start) <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping 01.ai fallback")
             else:
                 try:
-                    _ki_remaining = _EMBED_GLOBAL_TIMEOUT - (time.monotonic() - _embed_start)
-                    vec = self._kimi_get_embedding(text, timeout_override=max(3, _ki_remaining))
+                    vec = self._kimi_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     if self._embed_dim and len(vec) != self._embed_dim:
                         print(f"01.ai embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
@@ -1014,16 +1074,17 @@ class VectorStoreService:
                     self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
+                    kimi_last_err = str(e)
                     print(f"01.ai (Kimi) embedding ALSO failed: {e}")
 
         raise RuntimeError(
-            "Khong the lay embedding. "
+            f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
             f"OpenRouter: {or_last_err or ('khong cau hinh' if not self.has_openrouter_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
             f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
-            f"HF: {'khong cau hinh' if not self.has_hf_api else 'that bai'}, "
-            f"NVIDIA: {'khong cau hinh' if not self.has_nvidia_api else 'that bai'}, "
-            f"01.ai: {'khong cau hinh' if not self.has_kimi_api else 'that bai'}"
+            f"HF: {hf_last_err or ('khong cau hinh' if not self.has_hf_api else 'khong kha dung')}, "
+            f"NVIDIA: {nvidia_last_err or ('khong cau hinh' if not self.has_nvidia_api else 'khong kha dung')}, "
+            f"01.ai: {kimi_last_err or ('khong cau hinh' if not getattr(self, 'has_kimi_api', False) else 'khong kha dung')}"
         )
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):

@@ -7,6 +7,8 @@ export interface SummerCampaign {
   name: string;
   year: number;
   location: string;
+  lat?: number;
+  lng?: number;
   status: string;
   description: string;
   created_at: string;

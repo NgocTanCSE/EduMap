@@ -11,6 +11,8 @@ export interface DonationCampaign {
   end_date: string;
   status: string;
   created_at: string;
+  location_point?: string;
+  address?: string;
 }
 
 export interface DonationResponse {

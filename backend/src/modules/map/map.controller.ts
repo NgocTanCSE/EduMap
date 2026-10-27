@@ -238,25 +238,41 @@ export class MapController {
 
 
   @Get('fixed-locations')
-
   @SkipThrottle()
-
   async getFixedLocations() {
-
     try {
-
       const fixed = await this.mapService.getFixedLocations();
-
       return { success: true, data: fixed };
-
     } catch (error: any) {
-
       console.error(`Error getting fixed locations: ${error.message}`);
-
       throw new InternalServerErrorException('Failed to retrieve fixed locations');
-
     }
+  }
 
+  @Get('featured-pins')
+  @SkipThrottle()
+  async getFeaturedPins(
+    @Query('minLat') minLat?: string,
+    @Query('maxLat') maxLat?: string,
+    @Query('minLng') minLng?: string,
+    @Query('maxLng') maxLng?: string
+  ) {
+    try {
+      let bounds = undefined;
+      if (minLat && maxLat && minLng && maxLng) {
+        bounds = {
+          minLat: parseFloat(minLat),
+          maxLat: parseFloat(maxLat),
+          minLng: parseFloat(minLng),
+          maxLng: parseFloat(maxLng),
+        };
+      }
+      const pins = await this.mapService.getFeaturedPins(bounds);
+      return { success: true, data: pins };
+    } catch (error: any) {
+      console.error(`Error getting featured pins: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve featured pins');
+    }
   }
 
 

@@ -156,6 +156,12 @@ function close(db: any): Promise<void> {
   return new Promise((resolve) => db.close(() => resolve()));
 }
 
+/** Quick check: does `table` currently have a column named `column`? */
+async function hasColumn(db: any, table: string, column: string): Promise<boolean> {
+  const cols: any[] = await all(db, `PRAGMA table_info(${table})`);
+  return cols.some((c) => String(c.name) === column);
+}
+
 export async function ensureSqliteSchema(): Promise<void> {
   if (process.env.DB_TYPE === 'postgres') return;
 
@@ -330,6 +336,103 @@ export async function ensureSqliteSchema(): Promise<void> {
         )`,
       );
       changes.push('created chat_histories');
+    }
+
+    // 7. Featured-pins geo columns: add lat/lng (and address where missing) to
+    //    the feature tables that feed the interactive-map "ghim" layer. Each
+    //    feature page (/stem, /green, /summer, /wifi, /marketplace, /donate)
+    //    reads from its own table; the map aggregates ALL of them via
+    //    MapService.getFeaturedPins(). Without these columns the aggregation
+    //    query returns nothing for green/summer/marketplace/donate on HF Spaces.
+    const FEATURE_TABLE_COLUMNS: Array<[string, string, string]> = [
+      // [table, column, sql_type]
+      ['summer_campaigns', 'lat', 'REAL'],
+      ['summer_campaigns', 'lng', 'REAL'],
+      ['green_challenges', 'lat', 'REAL'],
+      ['green_challenges', 'lng', 'REAL'],
+      ['green_challenges', 'address', 'TEXT'],
+      ['donation_campaigns', 'location_point', 'TEXT'],
+      ['shared_items', 'lat', 'REAL'],
+      ['shared_items', 'lng', 'REAL'],
+      ['shared_items', 'address', 'TEXT'],
+      ['business_profiles', 'address', 'TEXT'],
+      ['business_profiles', 'lat', 'REAL'],
+      ['business_profiles', 'lng', 'REAL'],
+    ];
+    for (const [table, column, sqlType] of FEATURE_TABLE_COLUMNS) {
+      const tableRows: any[] = await all(db, `SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      if (tableRows.length === 0) continue;
+      const cols: any[] = await all(db, `PRAGMA table_info(${table})`);
+      const colNames = new Set<string>(cols.map((c) => String(c.name)));
+      if (!colNames.has(column)) {
+        await exec(db, `ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`);
+        changes.push(`added ${table}.${column}`);
+      }
+    }
+
+    // 8. Backfill coordinates for existing feature records that were seeded
+    //    without geo data. Only fills rows where lat/lng/location_point is NULL
+    //    so manual edits are never overwritten.
+    const backfills: Array<[string, string, number, number]> = [
+      // [table, id, lat, lng]
+      // Summer campaigns
+      ['summer_campaigns', '6b826baa-d46f-4699-9170-2a2959595190', 10.9835, 106.8597],
+      ['summer_campaigns', '01ab0344-46a7-4bf5-9184-e06a30f1c22f', 10.7727, 106.6548],
+      ['summer_campaigns', '800b033b-5ab3-4f4c-95ba-04eb352c90ca', 10.9570, 106.8430],
+      // Green challenges
+      ['green_challenges', 'efe3440b-ceb9-41ed-a822-0dcc4121f642', 10.9482, 106.8624],
+      ['green_challenges', 'b8060056-94c1-45f0-8877-fa1ddddf329d', 10.9525, 106.8778],
+      ['green_challenges', '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 10.9495, 106.8208],
+      // Shared items (marketplace)
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 10.9570, 106.8430],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 10.9570, 106.8430],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 10.9570, 106.8430],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000004', 10.9570, 106.8430],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000005', 10.9570, 106.8430],
+    ];
+
+    // Add address text for green_challenges + shared_items
+    const addressBackfills: Array<[string, string, string]> = [
+      ['green_challenges', 'efe3440b-ceb9-41ed-a822-0dcc4121f642', 'Đại học Lạc Hồng, Biên Hòa, Đồng Nai'],
+      ['green_challenges', 'b8060056-94c1-45f0-8877-fa1ddddf329d', 'Khu vực sông Đồng Nai, Biên Hòa, Đồng Nai'],
+      ['green_challenges', '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 'THPT Trấn Biên, Biên Hòa, Đồng Nai'],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 'Biên Hòa, Đồng Nai'],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 'Biên Hòa, Đồng Nai'],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 'Biên Hòa, Đồng Nai'],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000004', 'Biên Hòa, Đồng Nai'],
+      ['shared_items', 'sh20260001-0001-4000-8000-000000000005', 'Biên Hòa, Đồng Nai'],
+    ];
+
+    for (const [table, id, lat, lng] of backfills) {
+      if (await hasColumn(db, table, 'lat')) {
+        const res = await run(db, `UPDATE ${table} SET lat = ${lat}, lng = ${lng} WHERE id = '${id}' AND (lat IS NULL OR lng IS NULL)`);
+        if (res.changes > 0) changes.push(`backfilled ${table}.lat/lng for ${id} → ${lat}, ${lng}`);
+      }
+      if (await hasColumn(db, table, 'location_point')) {
+        const res = await run(db, `UPDATE ${table} SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`);
+        if (res.changes > 0) changes.push(`backfilled ${table}.location_point for ${id}`);
+      }
+    }
+
+    for (const [table, id, address] of addressBackfills) {
+      const col = await hasColumn(db, table, 'address') ? 'address' : await hasColumn(db, table, 'location_point_text') ? 'location_point_text' : null;
+      if (col && address) {
+        // For donation_campaigns, use location_point JSON instead
+        const res = await run(db, `UPDATE ${table} SET ${col} = '${address.replace(/'/g, "''")}' WHERE id = '${id}' AND (${col} IS NULL OR ${col} = '')`);
+        if (res.changes > 0) changes.push(`backfilled ${table}.${col} for ${id}`);
+      }
+    }
+
+    // Backfill donation_campaigns.location_point for the 4 NULL campaigns
+    const donationBackfills: Array<[string, number, number]> = [
+      ['8d2b5de5-f529-4e36-8bfc-8e0497717be5', 11.0136, 107.2345], // Định Quán, Đồng Nai
+      ['904e4b6f-1b33-4241-9aa1-220036f73c7e', 10.3036, 106.2892], // Tân Phú, TP.HCM
+      ['2f3baa54-6389-4834-9d3e-c00b8f755b49', 10.9570, 106.8430], // Trấn Biên, Biên Hòa
+      ['9e5d63a5-03f1-4706-8a42-ccba67ec7007', 11.0096, 106.9208], // Xuân Lộc, Đồng Nai
+    ];
+    for (const [id, lat, lng] of donationBackfills) {
+      const res = await run(db, `UPDATE donation_campaigns SET location_point = '{"type":"Point","coordinates":[${lng},${lat}]}' WHERE id = '${id}' AND (location_point IS NULL OR location_point = '')`);
+      if (res.changes > 0) changes.push(`backfilled donation_campaigns.location_point for ${id} → [${lng},${lat}]`);
     }
 
     if (changes.length > 0) {

@@ -415,6 +415,7 @@ CREATE TABLE donation_campaigns (
     current_amount DECIMAL(15,2) DEFAULT 0,
     organizer_id UUID REFERENCES users(id),
     location_point GEOGRAPHY(POINT),
+    address TEXT,
     status VARCHAR(50) DEFAULT 'active',
     start_date TIMESTAMP WITH TIME ZONE,
     end_date TIMESTAMP WITH TIME ZONE,
@@ -519,6 +520,9 @@ CREATE TABLE green_challenges (
     end_date DATE,
     points_reward INTEGER,
     participant_count INTEGER DEFAULT 0,
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
+    address TEXT,
     created_by UUID REFERENCES users(id),
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -712,6 +716,9 @@ CREATE TABLE shared_items (
     description TEXT,
     status VARCHAR(50) DEFAULT 'available', -- available/taken/exchanged
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
+    address TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -858,6 +865,8 @@ CREATE TABLE business_profiles (
     website VARCHAR(255),
     logo_url TEXT,
     address TEXT,
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
     is_verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -1062,6 +1071,8 @@ CREATE TABLE IF NOT EXISTS summer_campaigns (
     name VARCHAR(255) NOT NULL,
     year INTEGER NOT NULL,
     location VARCHAR(255) NOT NULL,
+    lat DECIMAL(10,8),
+    lng DECIMAL(11,8),
     status VARCHAR(50) NOT NULL DEFAULT 'active',
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

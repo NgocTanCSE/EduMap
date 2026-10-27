@@ -1182,12 +1182,16 @@ class LLMService:
 # 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
         from services.vector_store import vector_store
         try:
-            # ChromaDB + Gemini embeddings are synchronous (subprocess/urllib),
-            # so run them off the event loop. Otherwise a slow embedding call
-            # blocks every other endpoint (analytics, history, ...) and the
-            # NestJS 10s client times out even though this request is healthy.
-            search_results = await asyncio.to_thread(
-                vector_store.query, message, n_results=None, hybrid=True
+            # ChromaDB + embeddings are synchronous (subprocess/urllib), so run
+            # them off the event loop. RAG_TIMEOUT_SECONDS is a hard ceiling:
+            # a dead embedding provider must never delay the first token past
+            # the NestJS 10s stream timeout. On timeout we answer LLM-only.
+            _rag_timeout = float(os.getenv("RAG_TIMEOUT_SECONDS", "8"))
+            search_results = await asyncio.wait_for(
+                asyncio.to_thread(
+                    vector_store.query, message, n_results=None, hybrid=True
+                ),
+                timeout=_rag_timeout,
             )
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])
@@ -1322,9 +1326,20 @@ class LLMService:
         sources = []
         docs_str = ""
 
+        # Immediate heartbeat (empty source list) so the HTTP response starts
+        # flowing before the embedding/RAG step. On HF Spaces the provider
+        # chain can take several seconds; without this, a proxy/client timeout
+        # could close the stream before the first token and leave the chat
+        # bubble empty. A later meta chunk overwrites sources with the real list.
+        yield f"data: {json.dumps({'sources': [], 'meta': True, 'heartbeat': True})}\n\n"
+
         try:
-            search_results = await asyncio.to_thread(
-                vector_store.query, message, n_results=None, hybrid=True
+            _rag_timeout = float(os.getenv("RAG_TIMEOUT_SECONDS", "8"))
+            search_results = await asyncio.wait_for(
+                asyncio.to_thread(
+                    vector_store.query, message, n_results=None, hybrid=True
+                ),
+                timeout=_rag_timeout,
             )
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])

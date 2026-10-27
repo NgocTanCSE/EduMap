@@ -154,10 +154,17 @@ ENV ANONYMIZED_TELEMETRY=False
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
 # OpenRouter embedding model + timeout (embeddings via curl --ipv4 --insecure).
-# Default model works with OpenRouter's /v1/embeddings endpoint (OpenAI-compatible).
+# OpenRouter model slugs are provider-prefixed: the old "text-embedding-3-small"
+# was rejected/never resolved. Keep the full slug here.
 # Override via HF Spaces secrets if a different model is preferred.
-ENV OPENROUTER_EMBEDDING_MODEL=text-embedding-3-small
-ENV OPENROUTER_TIMEOUT_SECONDS=15
+ENV OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small
+ENV OPENROUTER_TIMEOUT_SECONDS=8
+# Embedding time budget: total chain + per-provider cap. Together these keep
+# RAG well below the NestJS 10s stream timeout and stop the first provider
+# (OpenRouter) from starving Cloudflare/HF/Kimi fallbacks.
+ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
+ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
+ENV RAG_TIMEOUT_SECONDS=8
 # --- Shanghai AI Laboratory (01.ai / Kimi) — secondary LLM + embedding provider ---
 # Set KIMI_API_KEY as an HF Spaces Secret to enable Kimi as a fallback provider.
 # kore-gpt-9b is the standard Kimi chat model; kimi-embedding-0812 is the

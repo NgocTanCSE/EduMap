@@ -38,10 +38,12 @@ Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web 
 
 ## 🐳 Chạy local
 
-> **📌 Lưu ý quan trọng:** Dự án chỉ **chạy sản phẩm trên Hugging Face Spaces**. Môi trường local chỉ dùng để **phát triển code**, debug, và test unit. Để chạy thử local, dùng Docker build/run như bên dưới — tuy nhiên một số tính năng cần external services (PostgreSQL, Redis) sẽ không khả dụng trong single-container SQLite mode của HF Spaces.
+> **📌 Chính sách triển khai (bắt buộc):** Dự án **chỉ chạy production trên Hugging Face Spaces**. Môi trường local **chỉ dùng để code, đọc code và chạy unit test** — không phải môi trường tham chiếu cho hành vi runtime. Mọi fix phải được kiểm chứng trên HF Space sau khi deploy. Secrets production nằm ở **HF Spaces → Settings → Secrets**, không nằm trong `.env` local. Xem thêm `AGENTS.md`.
+
+> Một số tính năng cần external services (PostgreSQL, Redis) sẽ không khả dụng trong single-container SQLite mode của HF Spaces.
 
 ```bash
-# Build
+# Build (chỉ để kiểm tra image)
 docker build -t edumap .
 
 # Run (3 services + crawler)
@@ -49,6 +51,22 @@ docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
 
 # Truy cập: http://localhost:7680
 ```
+
+### Embedding / RAG trên HF Spaces
+
+Chuỗi embedding: `OpenRouter → Gemini → Cloudflare → HF → NVIDIA → 01.ai`.
+Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm hỏng chat):
+
+| Biến | Mặc định | Ý nghĩa |
+|------|----------|---------|
+| `EMBED_GLOBAL_TIMEOUT_SECONDS` | `6` | Tổng thời gian cho cả chuỗi embedding |
+| `EMBED_PROVIDER_TIMEOUT_SECONDS` | `4` | Thời gian tối đa cho 1 provider |
+| `RAG_TIMEOUT_SECONDS` | `8` | Giới hạn cứng cho bước RAG trong chat |
+| `OPENROUTER_EMBEDDING_MODEL` | `openai/text-embedding-3-small` | Slug phải có prefix `openai/` |
+
+> Giữ các giá trị này **dưới 10s** (timeout stream của NestJS). Nếu RAG quá hạn,
+> chatbot vẫn trả lời bằng kiến thức LLM thay vì treo/để bong bóng chat rỗng.
+
 
 ## ⚙️ Environment Variables (HF Spaces Secrets)
 

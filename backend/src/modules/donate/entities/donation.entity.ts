@@ -18,6 +18,12 @@ export class DonationCampaign {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   current_amount: number;
 
+  // GeoJSON Point { type:'Point', coordinates:[lng,lat] } stored as text on
+  // SQLite; geography(Point,4326) on Postgres. Used by the map featured-pins
+  // aggregation so donation campaigns appear as pins on the interactive map.
+  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'geography' as any : 'text', nullable: true })
+  location_point: any;
+
   @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime', nullable: true })
   end_date: Date;
 

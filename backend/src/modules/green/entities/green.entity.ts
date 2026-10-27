@@ -12,6 +12,15 @@ export class GreenChallenge {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  lat: number;
+
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  lng: number;
+
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
   @Column({ default: 0 })
   points_reward: number;
 
