@@ -12,6 +12,7 @@ import { shareLink } from '@/src/lib/share';
 import { toast } from 'sonner';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { Input } from '@/components/ui/input';
 
 export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -203,14 +204,14 @@ export default function CommunityPage() {
                               type="text" 
                               placeholder="Tiêu đề bài viết..." 
                               maxLength={255}
-                              className="w-full bg-card/40 border border-border rounded-xl p-4 font-bold text-lg outline-none focus:border-primary transition-colors"
+                              className="form-input text-base font-semibold"
                               value={newTitle}
                               onChange={e => setNewTitle(e.target.value)}
                           />
                           <textarea 
                               placeholder="Nội dung chi tiết..." 
                               rows={6}
-                              className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm outline-none focus:border-primary transition-colors resize-none"
+                              className="form-textarea resize-none"
                               value={newContent}
                               onChange={e => setNewContent(e.target.value)}
                           />
@@ -325,14 +326,14 @@ export default function CommunityPage() {
         <aside className="w-full lg:w-80 space-y-6">
             <div className="bg-card border border-border rounded-xl p-6 space-y-4 sticky top-6">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input 
+                    <Input
                         type="search"
                         placeholder="Tìm kiếm nội dung..." 
                         aria-label="Tìm kiếm bài viết cộng đồng"
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
-                        className="w-full bg-card/40 border border-border rounded-xl py-3 pl-10 pr-4 outline-none focus:border-primary text-sm"
+                        icon={Search}
+                        className="form-input input-with-icon"
                     />
                 </div>
 

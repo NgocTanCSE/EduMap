@@ -252,7 +252,7 @@ export function SurveyPlannerPanel({
 
       {/* Priorities list */}
       {features.length > 0 && (
-        <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+        <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-hide">
           <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
             <List className="w-3.5 h-3.5" />
             <span>Danh sách ưu tiên ({features.length})</span>

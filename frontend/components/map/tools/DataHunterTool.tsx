@@ -191,7 +191,7 @@ export function DataHunterPanel({
             <BarChartHorizontal className="w-3.5 h-3.5" />
             <span>Thuộc tính cần bổ sung</span>
           </div>
-          <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+          <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
             {attrGapEntries.map((entry: any) => (
               <div key={entry.attr} className="flex items-center gap-2 text-xs">
                 <span className="w-24 text-muted-foreground truncate">{entry.attr}</span>
@@ -214,7 +214,7 @@ export function DataHunterPanel({
         {topGaps.length === 0 ? (
           <p className="text-[10px] text-muted-foreground/65">Chưa có dữ liệu. Nhấn "Phân tích lại".</p>
         ) : (
-          <div className="space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
+          <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-hide">
             {topGaps.map((f: any, i: number) => {
               const props = f.properties || {};
               const b = priorityBadge(props.priority || "low");

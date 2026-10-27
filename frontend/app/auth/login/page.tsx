@@ -316,7 +316,7 @@ function GoogleLoginContent() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto pr-1 scrollbar-hide">
               {ROLES.map((role) => {
                 const isSelected = selectedRole === role.id;
                 const IconComponent = role.icon;

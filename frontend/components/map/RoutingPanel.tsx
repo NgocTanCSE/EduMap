@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Search, MapPin, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
+import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,9 @@ interface RoutingPanelProps {
   }>;
   onLoadRoute?: (route: any) => void;
   onDeleteRoute?: (id: string) => void;
+  /** When the floating SafeRoute button triggered this panel, pre-check the boxes. */
+  defaultAvoidFlood?: boolean;
+  defaultAvoidTraffic?: boolean;
 }
 
 export default function RoutingPanel({
@@ -82,14 +85,17 @@ export default function RoutingPanel({
   savedRoutes = [],
   onLoadRoute,
   onDeleteRoute,
+  defaultAvoidFlood = false,
+  defaultAvoidTraffic = false,
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
-  // Default OFF in dev: EduMap's internal OSRM + flood/traffic datasets are heavy
-  // and are NOT available against the public OSRM demo fallback. Toggle on to
-  // opt into flood/traffic-aware routing when the full backend infra is running.
-  const [avoidFlood, setAvoidFlood] = useState(false);
-  const [avoidTraffic, setAvoidTraffic] = useState(false);
+  // Avoidance options are shared by the single route button — when either
+  // is enabled the SafeRoute AI backend is used (flood/traffic-aware).
+  // This eliminates the redundancy between "Tránh khu vực ngập" / "Tránh kẹt xe"
+  // checkboxes and a separate SafeRoute AI button (AGENTS.md feedback Image 2).
+  const [avoidFlood, setAvoidFlood] = useState(defaultAvoidFlood);
+  const [avoidTraffic, setAvoidTraffic] = useState(defaultAvoidTraffic);
   const [showDetails, setShowDetails] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -135,6 +141,12 @@ export default function RoutingPanel({
     if (destination) setDestInput(`${destination.lat.toFixed(6)}, ${destination.lng.toFixed(6)}`);
   }, [destination]);
 
+  // Sync safeRouteMode from parent (e.g. floating Shield button pressed).
+  useEffect(() => {
+    if (defaultAvoidFlood) setAvoidFlood(true);
+    if (defaultAvoidTraffic) setAvoidTraffic(true);
+  }, [defaultAvoidFlood, defaultAvoidTraffic]);
+
   const applyCoordinate = (type: 'origin' | 'destination') => {
     const value = type === 'origin' ? originInput : destInput;
     const coords = parseCoordinate(value);
@@ -174,8 +186,23 @@ export default function RoutingPanel({
     );
   };
 
+  // Image 2: Single consolidated route button. When avoidFlood or avoidTraffic
+  // is enabled, the route is computed with SafeRoute AI (flood/traffic-aware).
+  // When neither is enabled, a standard route is computed. This eliminates the
+  // redundancy between the checkboxes and the separate SafeRoute AI button.
+  const handleGetRoute = () => {
+    if (!origin || !destination) return;
+    if (avoidFlood || avoidTraffic) {
+      if (onGetSafeRoute) {
+        onGetSafeRoute(origin, destination, { avoidFlood, avoidTraffic, safetyWeight: 0.3 });
+      }
+    } else {
+      onGetRoute(origin, destination, { avoidFlood, avoidTraffic });
+    }
+  };
+
   return (
-    <div className="fixed top-4 right-4 bottom-4 z-[50] w-80 max-w-[95vw] bg-card border border-border rounded-xl shadow-xl overflow-y-auto custom-scrollbar p-4 pb-20">
+    <div className="fixed top-4 right-4 bottom-4 z-[50] w-80 max-w-[95vw] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-20">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
           <Navigation className="w-5 h-5 text-primary" /> Chỉ đường
@@ -203,7 +230,7 @@ export default function RoutingPanel({
               }}
               placeholder='Nhập "vĩ độ, kinh độ" hoặc click bản đồ'
               aria-label="Tọa độ điểm xuất phát"
-              className="form-input flex-1"
+              className="form-input flex-1 focus:border-primary focus:ring-primary/20"
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -218,7 +245,7 @@ export default function RoutingPanel({
               onClick={() => applyCoordinate('origin')}
               className="text-xs px-2 py-1 bg-muted/30 text-muted-foreground rounded hover:bg-muted/50 transition-colors"
             >
-              <Search className="w-3 h-3 inline" /> Dùng tọa độ
+              <Search className="w-3 h-3 flex-shrink-0 mr-1" /> Dùng tọa độ
             </button>
           </div>
         </div>
@@ -261,7 +288,7 @@ export default function RoutingPanel({
               onClick={() => applyCoordinate('destination')}
               className="text-xs px-2 py-1 bg-muted/30 text-muted-foreground rounded hover:bg-muted/50 transition-colors"
             >
-              <Search className="w-3 h-3 inline" /> Dùng tọa độ
+              <Search className="w-3 h-3 flex-shrink-0 mr-1" /> Dùng tọa độ
             </button>
           </div>
         </div>
@@ -296,46 +323,34 @@ export default function RoutingPanel({
           </div>
         </div>
 
-        {/* Get Route Button */}
-        <Button
-          onClick={() => origin && destination && onGetRoute(origin, destination, { avoidFlood, avoidTraffic })}
-          disabled={!origin || !destination || isLoading}
-          loading={isLoading}
-          icon={<Navigation className="w-5 h-5" />}
-          loadingText="ĐANG TÍNH LỘ TRÌNH..."
-          className="w-full py-2 bg-primary text-primary-foreground font-medium"
-        >
-          Tính lộ trình
-        </Button>
-
-        {/* SafeRoute AI Button (Idea #12) */}
-        {onGetSafeRoute && (
+        {/* Image 2: Single consolidated route button (replaces separate "Tính lộ trình" + "SafeRoute AI") */}
+        <div className="flex gap-2">
           <Button
-            onClick={() => origin && destination && onGetSafeRoute(origin, destination, { avoidFlood, avoidTraffic, safetyWeight: 0.3 })}
-            disabled={!origin || !destination || isSafeRouteLoading}
-            loading={isSafeRouteLoading}
-            icon={<Shield className="w-4 h-4" />}
+            onClick={handleGetRoute}
+            disabled={!origin || !destination}
+            loading={isLoading || isSafeRouteLoading}
+            icon={<Shield className="w-5 h-5" />}
             loadingText="ĐANG TÍNH..."
-            className="w-full py-2 bg-accent text-accent-foreground font-medium"
+            className="flex-1 py-2 bg-primary text-primary-foreground font-medium"
           >
-            SafeRoute AI
+            {avoidFlood || avoidTraffic ? 'Tính lộ trình an toàn' : 'Tính lộ trình'}
           </Button>
-        )}
 
-        {/* Save Route Button (visible when a route is active but not yet explicitly saved) */}
-        {routeInfo && origin && destination && (
-          <Button
-            onClick={() => {
-              if (onSaveRoute) onSaveRoute();
-              toast.success('Đã lưu lộ trình vào phiên');
-            }}
-            variant="outline"
-            className="w-full py-2 bg-accent/10 text-accent font-medium border-accent/30 hover:bg-accent/20"
-            icon={<Save className="w-4 h-4" />}
-          >
-            Lưu lộ trình này
-          </Button>
-        )}
+          {/* Image 6/7: Save button placed inline next to route button, not as separate full-width button */}
+          {routeInfo && origin && destination && onSaveRoute && (
+            <Button
+              onClick={() => {
+                onSaveRoute();
+                toast.success('Đã lưu lộ trình vào phiên');
+              }}
+              variant="outline"
+              size="sm"
+              className="px-2 py-1 bg-accent/10 text-accent border-accent/30 hover:bg-accent/20"
+              icon={<Save className="w-3.5 h-3.5" />}
+              title="Lưu lộ trình"
+            />
+          )}
+        </div>
 
         {/* Route Info */}
         {routeInfo && (

@@ -8,6 +8,7 @@ import Thumb from '@/components/ui/Thumb';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { opportunityIllustration } from '@/src/lib/illustrations';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -51,7 +52,7 @@ export default function OpportunitiesPage() {
 
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card border border-border p-4 rounded-xl">
-          <div className="flex overflow-x-auto w-full md:w-auto gap-2 pb-2 md:pb-0 custom-scrollbar">
+          <div className="flex overflow-x-auto w-full md:w-auto gap-2 pb-2 md:pb-0 scrollbar-hide">
               {['', 'Cuộc thi', 'Khóa học', 'Hoạt động'].map(cat => (
                   <button
                       key={cat}
@@ -81,7 +82,8 @@ export default function OpportunitiesPage() {
       ) : filteredData.length > 0 ? (
           <div className="card-grid">
               {filteredData.map(opp => (
-                  <div key={opp.id} className="card-surface card-equal group flex flex-col">
+                  <div key={opp.id} className="card-surface card-equal group flex flex-col relative">
+                      <BookmarkButton targetType="opportunity" targetId={opp.id} size="sm" className="absolute top-3 right-3 z-10" />
                       <div className="-mx-6 -mt-6 mb-5 overflow-hidden rounded-t-xl border-b border-border">
                           <Thumb
                               src={opportunityIllustration(opp.category, opp.title)}

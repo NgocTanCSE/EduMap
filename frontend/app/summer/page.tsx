@@ -89,7 +89,7 @@ export default function SummerCampaignsPage() {
       {/* Report Modal */}
       {showReportModal && selectedCampaign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto scrollbar-hide">
             <button onClick={() => setShowReportModal(false)} className="absolute top-4 right-4 rounded-lg p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors">
               <Calendar className="w-4 h-4 rotate-90" />
             </button>

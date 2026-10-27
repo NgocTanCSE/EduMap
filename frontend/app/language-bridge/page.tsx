@@ -260,7 +260,7 @@ export default function LanguageBridgePage() {
   return (
     <div className="h-[calc(100dvh-3.5rem)] w-full bg-background flex flex-col lg:flex-row overflow-hidden">
       {/* ── Left panel: input + controls ── */}
-      <div className="w-full lg:w-96 flex flex-col gap-4 p-4 lg:p-6 overflow-y-auto custom-scrollbar border-r border-border bg-card">
+      <div className="w-full lg:w-96 flex flex-col gap-4 p-4 lg:p-6 overflow-y-auto scrollbar-hide border-r border-border bg-card">
         <div className="flex items-center gap-3 mb-2">
           <button
             onClick={() => window.history.back()}
@@ -285,7 +285,7 @@ export default function LanguageBridgePage() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhập nội dung cần đơn giản hóa, dịch hoặc chuyển thành giọng nói..."
-            className="w-full h-32 px-3 py-2 text-sm text-foreground rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none custom-scrollbar"
+            className="w-full h-32 px-3 py-2 text-sm text-foreground rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none scrollbar-hide"
           />
           <div className="text-[10px] text-muted-foreground text-right">
             {text.length} ký tự {text.length > 16000 && '(giới hạn 16.000)'}
@@ -551,7 +551,7 @@ export default function LanguageBridgePage() {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
           {/* ── Simplify tab ── */}
           {activeTab === 'simplify' && (
             <div className="prose prose-sm dark:prose-invert max-w-none">

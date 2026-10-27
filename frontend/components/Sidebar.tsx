@@ -245,7 +245,7 @@ export default function Sidebar({
         </div>
 
         {/* Nav — scrollable, keeps the brand/account block pinned */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
           {SIDEBAR_GROUPS.map((group) => (
             <NavGroup
               key={group.label}

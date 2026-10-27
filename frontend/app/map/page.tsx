@@ -125,7 +125,7 @@ function SearchResults({
 }: { results: Location[]; onSelect: (loc: Location) => void }) {
   if (results.length === 0) return null;
   return (
-    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg custom-scrollbar">
+    <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-64 overflow-y-auto bg-popover border border-border rounded-lg shadow-lg scrollbar-hide">
       {results.map((loc) => (
         <button
           key={loc.id}
@@ -187,7 +187,7 @@ function AiPanel({ open, onClose, analysis, loading }: {
           <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
         {loading ? (
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="h-4 bg-muted rounded animate-pulse" />
@@ -527,8 +527,9 @@ export default function MapPage() {
   const startVoiceSearch = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
+      // Image 13: Show the popup inline instead of redirecting to /voice-search
       toast.error("Trình duyệt không hỗ trợ nhận dạng giọng nói. Vui lòng dùng Chrome.");
-      window.location.href = "/voice-search";
+      setShowVoicePopup(true);
       return;
     }
     const recognition = new SpeechRecognition();
@@ -780,7 +781,7 @@ export default function MapPage() {
         </div>
 
         {/* Panel content — scrollable */}
-        <div ref={sidebarRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+        <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
           {showHomeControls ? (
             // ─── Home tool: existing map controls ───
             <>

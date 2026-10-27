@@ -246,7 +246,7 @@ export default function ShareMarketplacePage() {
               className="w-full bg-card border border-border rounded-lg py-4 pl-12 pr-4 outline-none focus:border-primary transition-colors" 
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 sm:pb-0">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 sm:pb-0">
             {[
                 { id: '', label: 'Tất cả' },
                 { id: 'book', label: 'Sách & Giáo trình' },

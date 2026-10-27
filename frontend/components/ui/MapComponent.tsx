@@ -382,6 +382,9 @@ export default function InteractiveMap({
   const [safeRoutes, setSafeRoutes] = useState<any[] | null>(null);
   const [routeExplanation, setRouteExplanation] = useState<string | null>(null);
   const [isSafeRouteLoading, setIsSafeRouteLoading] = useState(false);
+  // When the floating Shield button is pressed, we auto-enable avoidance
+  // so the consolidated route button uses the SafeRoute AI backend.
+  const [safeRouteMode, setSafeRouteMode] = useState(false);
 
   // --- Session persistence: lưu route vào localStorage để quay lại ---
   const ROUTE_STORAGE_KEY = 'edumap_saved_routes';
@@ -723,11 +726,12 @@ export default function InteractiveMap({
 
   // ── SafeRoute AI (Idea #12): listen for the floating control button ──
   // The page-level button dispatches a 'toggleSafeRoute' event; we respond
-  // by entering the routing flow so the user can pick origin/destination,
-  // then click "SafeRoute AI" in the RoutingPanel.
+  // by entering the routing flow with safeRouteMode=true so the consolidated
+  // route button in RoutingPanel auto-uses the SafeRoute AI backend.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handler = () => {
+      setSafeRouteMode(true);
       if (!origin || !destination) {
         setRoutingMode('setting_origin');
       }
@@ -767,7 +771,7 @@ export default function InteractiveMap({
         <RoutingPanel
           onGetRoute={fetchRoute}
           onGetSafeRoute={fetchSafeRoute}
-          onClearRoute={clearRoute}
+          onClearRoute={() => { clearRoute(); setSafeRouteMode(false); }}
           routeInfo={routeInfo}
           safeRoutes={safeRoutes}
           routeExplanation={routeExplanation}
@@ -782,6 +786,8 @@ export default function InteractiveMap({
           savedRoutes={savedRoutes}
           onLoadRoute={loadRoute}
           onDeleteRoute={deleteSavedRoute}
+          defaultAvoidFlood={safeRouteMode}
+          defaultAvoidTraffic={safeRouteMode}
         />
       ) : (
         <button

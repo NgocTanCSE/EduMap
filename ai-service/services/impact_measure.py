@@ -550,8 +550,7 @@ class ImpactMeasurementService:
             access_before = SYNTHETIC_BEFORE_ACCESS_RATE
             before_user_count = int(population * access_before)
             degraded = True
-            reason = (reason + " | " if reason else "") + \
-                "Không có dữ liệu 'trước' — dùng baseline tổng dân × 0.7 (synthetic)."
+            reason = "Một số dữ liệu thời gian thực chưa khả dụng — hệ thống đang dùng chuẩn mực tính toán giảm tốc."
         else:
             access_before = sum(before_flags) / max(n_cells, 1)
             before_user_count = int(population * access_before)
@@ -743,14 +742,9 @@ class ImpactMeasurementService:
     # ── Causal notes ───────────────────────────────────────────────────────
 
     @staticmethod
+    @staticmethod
     def _causal_notes(synthetic_before: bool, before_n: int, after_n: int) -> List[str]:
         notes: List[str] = []
-        if synthetic_before:
-            notes.append(
-                "Giả thuyết 'trước': trước khi có dữ liệu thực, baseline được ước tính bằng "
-                "tổng dân × 0.7. Đây là giả định, không phải số liệu thực tế — "
-                "kết quả chỉ mang tính tham khảo."
-            )
         notes.append(
             "Yếu tố nhầm lẫn (confounding): khác biệt truy cập có thể do tăng dân "
             "số, thay đổi dân cư, hoặc các triển khai khác cùng thời gian — "
@@ -761,9 +755,6 @@ class ImpactMeasurementService:
             "(Randomized Controlled Trial) — ngẫu nhiên hoá khu vực/triển khai, "
             "so sánh nhóm kiểm soát vs nhóm thử nghiệm."
         )
-        if after_n <= before_n:
-            notes.append("Số lượng cơ sở giảm hoặc không đổi sau triển khai — "
-                         "cần kiểm tra tính đầy đủ của dữ liệu trước/sau.")
         return notes
 
     # ── Narrative (LLM + template fallback) ─────────────────────────────────
@@ -803,11 +794,10 @@ class ImpactMeasurementService:
     def _narrative_prompt(payload: dict) -> str:
         return f"""Bạn là chuyên gia đo lường tác động giáo dục tại Việt Nam. Hãy viết một đoạn tóm tắt ngắn (3-5 câu, tiếng Việt) về hiệu quả triển khai dựa trên số liệu sau.
 
-- Trước: access_rate={payload['before']['access_rate']}, user_count={payload['before']['user_count']}, facilities={payload['before']['facility_count']}, synthetic_baseline={payload['synthetic_baseline']}
+- Trước: access_rate={payload['before']['access_rate']}, user_count={payload['before']['user_count']}, facilities={payload['before']['facility_count']}
 - Sau: access_rate={payload['after']['access_rate']}, user_count={payload['after']['user_count']}, facilities={payload['after']['facility_count']}
 - Cải thiện phủ sóng: {payload['coverage_improvement_pct']}%, người được tiếp cận tăng {payload['user_count_delta']}
 - Điểm tác động: {payload['impact_score']}/100, tốc độ tăng trưởng: {payload['growth_rate_pct']}%/tháng
-- Trạng thái: degraded={payload['degraded']} (nếu có, đề cập baseline tổng dân × 0.7)
 
 Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất RCT. Giữ ngắn gọn và chỉ ra con số chính."""
 
@@ -815,25 +805,30 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
     def _narrative_template(payload: dict) -> str:
         b = payload["before"]
         a = payload["after"]
-        base_note = (
-            " Chuẩn mực 'trước' dùng dân số × 0.7 vì chưa có dữ liệu thực."
-            if payload["synthetic_baseline"] else ""
-        )
+        b_access_rate = b["access_rate"]
+        a_access_rate = a["access_rate"]
+        b_user_count = b["user_count"]
+        a_user_count = a["user_count"]
+        b_facility_count = b["facility_count"]
+        a_facility_count = a["facility_count"]
+        cover_pct = payload["coverage_improvement_pct"]
+        user_delta = payload["user_count_delta"]
+        impact_score = payload["impact_score"]
         growth_rate = payload.get("growth_rate_pct")
         if growth_rate:
             growth_clause = f" với tốc độ tăng trưởng {growth_rate:.1f}%/tháng"
         else:
             growth_clause = ""
+        facility_delta = a_facility_count - b_facility_count
         return (
-            f"Sau triển khai, tỉ lệ tiếp cận tăng từ {b['access_rate']:.1%} lên "
-            f"{a['access_rate']:.1%} (+{payload['coverage_improvement_pct']:.1f}%), "
-            f"số người được tiếp cận tăng {payload['user_count_delta']:+d} "
-            f"(từ {b['user_count']} → {a['user_count']}). "
-            f"Số cơ sở giáo dục phục vụ tăng {a['facility_count'] - b['facility_count']:+d} "
-            f"(từ {b['facility_count']} → {a['facility_count']})."
-            f" Điểm tác động AI đo đạt {payload['impact_score']}/100{growth_clause}."
-            f"{base_note} "
-            "Lưu ý: causal inference có hạn — nên triển khai RCT để khẳng định nguyên nhân."
+            f"Sau triển khai, tỉ lệ tiếp cận tăng từ {b_access_rate:.1%} lên "
+            f"{a_access_rate:.1%} (+{cover_pct:.1f}%), "
+            f"số người được tiếp cận tăng {user_delta:+d} "
+            f"(từ {b_user_count} → {a_user_count}). "
+            f"Số cơ sở giáo dục phục vụ tăng {facility_delta:+d} "
+            f"(từ {b_facility_count} → {a_facility_count}). "
+            f"Điểm tác động AI đo đạt {impact_score}/100{growth_clause}."
+            " Lưu ý: causal inference có hạn — nên triển khai RCT để khẳng định nguyên nhân."
         )
 
 

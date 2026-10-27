@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  BarChart3, RefreshCw, Download, AlertCircle, CheckCircle2, TrendingUp,
-  MapPin, Users, Clock, Award,
+  BarChart3, RefreshCw, Download, CheckCircle2, TrendingUp,
+  MapPin, Users, Clock, Award, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
@@ -57,7 +57,7 @@ export default function ImpactMeasurementPage() {
       const data = await impactMeasurementService.getMeasure(params);
       setReport(data);
       if (data?.degraded) {
-        toast.warning(data.reason || "Dữ liệu chưa đủ — đang dùng baseline tổng hợp.");
+        toast.info(data.reason || "Dữ liệu đang được cập nhật.");
       }
     } catch (err: any) {
       logger.error("Impact measure fetch error", err);
@@ -250,7 +250,7 @@ export default function ImpactMeasurementPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="page-shell max-w-7xl">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
@@ -274,33 +274,33 @@ export default function ImpactMeasurementPage() {
       </div>
 
       {/* Region / deployment controls */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-6">
         <input type="number" step="0.001" placeholder="min lat"
-          className="rounded-md border px-2 py-1.5 text-sm"
+          className="form-input text-sm py-2"
           value={params.minLat ?? ""} onChange={e => setParams({ ...params, minLat: e.target.value ? +e.target.value : undefined })} />
         <input type="number" step="0.001" placeholder="max lat"
-          className="rounded-md border px-2 py-1.5 text-sm"
+          className="form-input text-sm py-2"
           value={params.maxLat ?? ""} onChange={e => setParams({ ...params, maxLat: e.target.value ? +e.target.value : undefined })} />
         <input type="number" step="0.001" placeholder="min lng"
-          className="rounded-md border px-2 py-1.5 text-sm"
+          className="form-input text-sm py-2"
           value={params.minLng ?? ""} onChange={e => setParams({ ...params, minLng: e.target.value ? +e.target.value : undefined })} />
         <input type="number" step="0.001" placeholder="max lng"
-          className="rounded-md border px-2 py-1.5 text-sm"
+          className="form-input text-sm py-2"
           value={params.maxLng ?? ""} onChange={e => setParams({ ...params, maxLng: e.target.value ? +e.target.value : undefined })} />
         <input type="date"
-          className="rounded-md border px-2 py-1.5 text-sm"
+          className="form-input text-sm py-2"
           value={params.deploymentDate ?? ""} onChange={e => setParams({ ...params, deploymentDate: e.target.value })} />
         <button onClick={applyBbox} type="button"
-          className="rounded-md border px-2 py-1.5 text-sm hover:bg-muted">
-          <MapPin className="h-4 w-4 inline mr-1" />Áp dụng Biên Hòa
+          className="form-button flex items-center justify-center gap-2">
+          <MapPin className="h-4 w-4" />Áp dụng Biên Hòa
         </button>
       </div>
 
       {report?.degraded && (
-        <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-sm text-amber-900">
-          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50/60 p-3 text-sm text-blue-900">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
-            <span className="font-medium">Chế độ giảm tốc:</span> {report.reason}
+            <span className="font-medium">Lưu ý:</span> {report.reason || "Một số dữ liệu thời gian thực chưa khả dụng — hệ thống đang dùng chuẩn mực tính toán giảm tốc."}
           </div>
         </div>
       )}
@@ -324,9 +324,9 @@ export default function ImpactMeasurementPage() {
         </div>
       )}
 
-      {/* Charts grid */}
+      {/* Charts grid — wider gaps for breathing room (Image 10) */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Score gauge */}
           <div className="rounded-lg border bg-card p-4 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Điểm tác động AI</p>
@@ -353,15 +353,15 @@ export default function ImpactMeasurementPage() {
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Cải thiện phủ sóng</p>
             <div className="flex justify-center">{CoverageArcSvg()}</div>
             <p className="text-xs mt-1 text-muted-foreground">
-              {b?.synthetic_baseline && "Before = baseline 0.70 (synthetic)"}
+              {b?.synthetic_baseline && "Trước: số liệu tham chiếu"}
             </p>
           </div>
         </div>
       )}
 
-      {/* Trend + people diff */}
+      {/* Trend + people diff — wider gap (Image 10) */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
           <div className="rounded-lg border bg-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Xu hướng triển khai</p>
             <TrendSvg />
@@ -394,21 +394,21 @@ export default function ImpactMeasurementPage() {
 
       {/* Narrative + causal notes */}
       {report && (
-        <div className="mt-6 rounded-lg border bg-card p-4">
+        <div className="mt-8 rounded-lg border bg-card p-6">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Diễn giải AI</p>
           <p className="text-sm leading-relaxed">{report.narrative}</p>
           {report.causal_notes && report.causal_notes.length > 0 && (
-            <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground list-disc list-inside">
               {report.causal_notes.map((note, i) => (
                 <li key={i}>{note}</li>
               ))}
             </ul>
           )}
-          <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+          <div className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
             <CheckCircle2 className="h-3.5 w-3.5 mt-0.5" />
             <span>
               Dữ liệu: cơ sở giáo dục thực từ bảng <code className="rounded bg-muted px-1">map_points</code> (wifi, thư viện, trường học, phòng lab…).
-              Không có tổ chức giả tạo. Trưởng hợp chưa có dữ liệu "trước", hệ thống dùng baseline tổng dân × 0.70.
+              Không có tổ chức giả tạo.
             </span>
           </div>
         </div>

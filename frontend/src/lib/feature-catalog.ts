@@ -77,7 +77,6 @@ export type FeatureGroupId =
   | "learn"
   | "career"
   | "community"
-  | "experience"
   | "market";
 
 export type IconComponent = ComponentType<{ className?: string }>;
@@ -132,14 +131,8 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     id: "community",
     label: "Cộng đồng",
-    description: "Cố vấn, sự kiện, khảo sát, tình nguyện và bảng xếp hạng.",
+    description: "Cố vấn, kết nối THPT, sự kiện, hackathon, bảng xếp hạng, thử thách xanh, mùa hè xanh và trạm Wifi.",
     icon: Users,
-  },
-  {
-    id: "experience",
-    label: "Trải nghiệm & Tiện ích",
-    description: "Thử thách xanh, chiến dịch mùa hè và các trạm Wifi công cộng.",
-    icon: Leaf,
   },
   /* ── Chợ & Đóng góp ───────────────────────────────────────────────── */
   {
@@ -448,15 +441,14 @@ export const FEATURES: Feature[] = [
     sidebar: true,
     keywords: ["xếp hạng", "leaderboard", "điểm"],
   },
-
-  /* ── Trải nghiệm & Tiện ích ────────────────────────────────────────── */
   {
     id: "green",
     label: "Thử thách xanh",
     href: "/map?tool=green",
     icon: Leaf,
     description: "Hoạt động sống xanh, minh chứng và điểm thưởng.",
-    group: "experience",
+    group: "community",
+    sidebar: true,
     keywords: ["xanh", "môi trường", "green", "carbon"],
   },
   {
@@ -465,7 +457,7 @@ export const FEATURES: Feature[] = [
     href: "/summer",
     icon: Sun,
     description: "Chiến dịch hè, hoạt động tình nguyện theo mùa.",
-    group: "experience",
+    group: "community",
     sidebar: true,
     keywords: ["mùa hè", "summer", "chiến dịch"],
   },
@@ -475,7 +467,8 @@ export const FEATURES: Feature[] = [
     href: "/map?tool=wifi",
     icon: Wifi,
     description: "Bản đồ điểm Wifi miễn phí và đo tốc độ thực tế.",
-    group: "experience",
+    group: "community",
+    sidebar: true,
     keywords: ["wifi", "internet", "tốc độ"],
   },
 
