@@ -119,7 +119,7 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models /app/uploa
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261027_talk2map-vietnamese-nl-gis+admin-ssr-fix+edge-ai-tutor
+ARG CACHEBUST=20261027_geovision-ai-satellite-detection
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
@@ -163,6 +163,14 @@ ENV ANONYMIZED_TELEMETRY=False
 # --- HuggingFace Inference API fallback (used when Cloudflare tokens absent) ---
 ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
 ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
+# ── GeoVision AI (Idea #10: satellite imagery facility detection) ────────────
+# huggingface.co/models/{GEO_VISION_MODEL} — zero-shot object detection.
+# Runs on HF's Inference API (router.huggingface.co), NOT bundled in Docker.
+# curl uses --ipv4 --insecure for HF Spaces IPv6/TLS compatibility.
+ENV GEO_VISION_MODEL=facebook/owlv2-base-c
+ENV GEO_VISION_TIMEOUT_SECONDS=25
+# Bing Maps tiles (optional aerial source). Empty = OSM tiles used.
+ENV BING_MAPS_API_KEY=""
 # OpenRouter embedding model + timeout (embeddings via curl --ipv4 --insecure).
 # OpenRouter model slugs are provider-prefixed: the old "text-embedding-3-small"
 # was rejected/never resolved. Keep the full slug here.

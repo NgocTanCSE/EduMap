@@ -1,9 +1,122 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from models.geo_models import GeoDensityAnalysisRequest
+import os
+import json
+import time
+import subprocess
+
+from models.geo_models import GeoDensityAnalysisRequest, VisionDetectRequest
 
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
+
+# ── GeoVision AI (Idea #10) — HF Inference API config ──────────────────────
+GEO_VISION_MODEL = os.getenv("GEO_VISION_MODEL", "facebook/owlv2-base-c")
+HF_TOKEN = (os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or "").strip().strip('"').strip("'")
+HF_ROUTER_URL = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
+# Circuit breaker: skip HF vision inference for 5 min after auth/network failure
+_geo_vision_down_until = 0.0
+GEO_VISION_TIMEOUT = float(os.getenv("GEO_VISION_TIMEOUT_SECONDS", "25"))
+GEO_VISION_DEFAULT_LABELS = [
+    "school", "university", "educational institution", "college",
+    "building", "campus", "library",
+]
+
+
+def _strip_data_uri(b64: str) -> str:
+    """Remove the 'data:image/png;base64,' prefix if present."""
+    if not b64:
+        return ""
+    if "," in b64 and b64.startswith("data:"):
+        return b64.split(",", 1)[1]
+    return b64
+
+
+def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
+    """Call HF Inference API (facebook/owlv2) via curl — IPv4 + --insecure
+    for HF Spaces compatibility (same pattern as vector_store.py embeddings).
+
+    Returns: [{score, label, box:{xmin,ymin,xmax,ymax}}, ...]
+    Raises RuntimeError on auth error or persistent failure.
+    """
+    global _geo_vision_down_until
+
+    # Circuit breaker
+    if time.monotonic() < _geo_vision_down_until:
+        raise RuntimeError("HF vision inference temporarily disabled (circuit breaker — 5 min cooldown)")
+
+    if not HF_TOKEN:
+        raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API for vision detection")
+
+    url = f"{HF_ROUTER_URL}/models/{GEO_VISION_MODEL}"
+    payload = json.dumps({
+        "image": image_b64,
+        "candidate_labels": labels,
+        "options": {"wait_for_model": True},
+    }).encode("utf-8")
+
+    try:
+        proc = subprocess.run(
+            ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+             "-H", f"Authorization: Bearer {HF_TOKEN}",
+             "-H", "Content-Type: application/json",
+             "-d", payload.decode("utf-8"),
+             "--connect-timeout", "5",
+             "--max-time", str(int(GEO_VISION_TIMEOUT)),
+             url],
+            capture_output=True, text=True, timeout=GEO_VISION_TIMEOUT + 5,
+        )
+    except subprocess.TimeoutExpired:
+        _geo_vision_down_until = time.monotonic() + 300
+        raise RuntimeError(f"HF vision curl timed out after {GEO_VISION_TIMEOUT}s")
+    except Exception as e:
+        raise RuntimeError(f"HF vision connection failed: {type(e).__name__}: {e}")
+
+    if proc.returncode != 0:
+        body = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+        stdout = (proc.stdout or "").strip()
+        if stdout:
+            try:
+                partial = json.loads(stdout)
+                if isinstance(partial, dict) and "error" in partial:
+                    err = partial["error"]
+                    err_str = str(err) if not isinstance(err, dict) else str(err.get("message", err))
+                    low = err_str.lower()
+                    if "401" in str(partial) or "api key" in low or "invalid" in low or "unauthorized" in low or "unauthenticated" in low:
+                        _geo_vision_down_until = time.monotonic() + 300
+                        print("[GeoVision] HF vision circuit breaker set (auth error) — 5 min cooldown")
+                        raise RuntimeError(f"HF vision auth error: {err_str[:200]}")
+                    body = f"{body} | body: {err_str[:120]}"
+            except json.JSONDecodeError:
+                pass
+        _geo_vision_down_until = time.monotonic() + 300
+        raise RuntimeError(f"HF Inference API connection failed: {body}")
+
+    try:
+        data = json.loads(proc.stdout or "{}")
+    except Exception:
+        raise RuntimeError(f"HF Inference API invalid JSON: {(proc.stdout or '')[:200]}")
+
+    # Handle error response
+    if isinstance(data, dict) and "error" in data and not data.get("detections"):
+        err_str = str(data.get("error", ""))
+        low = err_str.lower()
+        if "loading" in low and "wait" in low:
+            raise RuntimeError("HF vision model is loading — please retry in a few seconds")
+        if "401" in str(data) or "api key" in low or "invalid" in low or "unauthorized" in low or "unauthenticated" in low:
+            _geo_vision_down_until = time.monotonic() + 300
+            print("[GeoVision] HF vision circuit breaker set (HTTP 401) — 5 min cooldown")
+            raise RuntimeError(f"HF vision auth error: {err_str[:200]}")
+        raise RuntimeError(f"HF Inference API error: {data.get('error')}")
+
+    # Normal success: list of {score, label, box}
+    if isinstance(data, list):
+        return data
+    # Sometimes the API wraps results in {"detections": [...]}
+    if isinstance(data, dict) and "detections" in data:
+        return data["detections"]
+    return []
+
 
 # Lazy load services
 _services_loaded = False
@@ -159,3 +272,70 @@ async def recommend_nearby_opportunities(data: GeoRecommendRequest):
     except Exception as e:
         print(f"Error in recommend_nearby_opportunities: {e}")
         raise HTTPException(status_code=503, detail="Không gợi đề xuất được địa điểm gần bạn.")
+
+
+@router.post("/vision-detect")
+async def vision_detect(request: VisionDetectRequest):
+    """
+    GeoVision AI (Idea #10) — POST /api/ai/geo/vision-detect
+
+    Sends a base64-encoded satellite/map image to the HF Inference API
+    (facebook/owlv2 — zero-shot object detection) and returns detection
+    results: [{score, label, box:{xmin,ymin,xmax,ymax}}].
+
+    Uses curl --ipv4 --insecure for HF Spaces IPv6/TLS compatibility
+    (same pattern as vector_store.py embeddings).
+
+    Degrades gracefully: on HF API failure, returns an empty detections
+    list with degraded=True — the backend orchestrator will surface this
+    to the frontend as "AI unavailable, 0 detections found".
+    """
+    labels = request.labels or GEO_VISION_DEFAULT_LABELS
+    image_b64 = _strip_data_uri(request.image_base64)
+
+    if not image_b64:
+        return {
+            "detections": [],
+            "model": GEO_VISION_MODEL,
+            "degraded": True,
+            "error": "image_base64 is required and non-empty",
+        }
+
+    try:
+        detections = _hf_vision_detect(image_b64, labels)
+        # Normalise box field names to camelCase for consistency
+        normalised = []
+        for d in detections:
+            box = d.get("box", {})
+            normalised.append({
+                "score": float(d.get("score", 0.0)),
+                "label": str(d.get("label", "unknown")),
+                "box": {
+                    "xmin": int(box.get("xmin", 0)),
+                    "ymin": int(box.get("ymin", 0)),
+                    "xmax": int(box.get("xmax", 0)),
+                    "ymax": int(box.get("ymax", 0)),
+                },
+            })
+        print(f"[GeoVision] {GEO_VISION_MODEL}: {len(normalised)} detections from {len(image_b64)} base64 chars")
+        return {
+            "detections": normalised,
+            "model": GEO_VISION_MODEL,
+            "degraded": False,
+        }
+    except RuntimeError as e:
+        print(f"[GeoVision] HF vision detection degraded: {e}")
+        return {
+            "detections": [],
+            "model": GEO_VISION_MODEL,
+            "degraded": True,
+            "error": str(e)[:300],
+        }
+    except Exception as e:
+        print(f"[GeoVision] Unexpected error: {e}")
+        return {
+            "detections": [],
+            "model": GEO_VISION_MODEL,
+            "degraded": True,
+            "error": str(e)[:300],
+        }

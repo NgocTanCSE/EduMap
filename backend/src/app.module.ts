@@ -18,6 +18,7 @@ import { RequestLoggingMiddleware } from './common/middleware/request-logging.mi
 import { HealthController } from './modules/health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { AIModule } from './modules/ai/ai.module';
+import { OfflineTutorModule } from './modules/offline-tutor/offline-tutor.module';
 import { MapModule } from './modules/map/map.module';
 import { LibraryModule } from './modules/library/library.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -58,6 +59,8 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { PinModule } from './modules/pin/pin.module';
 import { BlockchainModule } from './modules/blockchain/blockchain.module';
 import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
+import { ImpactMatchModule } from './modules/impact-match/impact-match.module';
+import { GeoModule } from './modules/geo/geo.module';
 
 @Module({
   imports: [
@@ -140,6 +143,7 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
     }),
     AuthModule,
     AIModule,
+    OfflineTutorModule,
     MapModule,
     LibraryModule,
     StorageModule,
@@ -179,6 +183,8 @@ import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
     PinModule,
     BlockchainModule,
     BookmarksModule,
+    ImpactMatchModule,
+    GeoModule,
   ],
   controllers: [
     // Liveness probe used by the healthcheck (GET /api/health).

@@ -55,6 +55,32 @@ Text generation (`ai-service/services/llm_service.py`):
 Embeddings (`ai-service/services/vector_store.py`):
 `OpenRouter → Gemini → Cloudflare → HF → NVIDIA → 01.ai/Kimi`.
 
+GeoVision AI — satellite imagery facility detection (Idea #10):
+`ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
+`curl --ipv4 --insecure` → HF Inference Router
+(`https://router.huggingface.co/models/{GEO_VISION_MODEL}`).
+
+**GeoVision AI (Idea #10 — unlisted school/educational-facility detection):**
+
+- `GEO_VISION_MODEL` (default `facebook/owlv2-base-c`): zero-shot object detection
+  model on HF Inference API. NOT bundled in Docker — runs on HF's servers.
+- Tile sources for the stitched image:
+  - `osm` (default) — OSM standard tiles via `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+    (no key; shows building footprints useful for school detection).
+  - `esri` — Esri World Imagery (aerial; no key, rate-limited).
+  - `bing` — Bing Maps aerial tiles via quadkey URL (optional `BING_MAPS_API_KEY`).
+- Tile grid is capped at **8×8 = 64 tiles** (max 2048×2048 px at z=18) to stay
+  under HF's 5 MB inference input limit.
+- Stitched tiles are cached 24 h in an in-memory LRU cache
+  (`GeoVisionService.tileCache`) to protect against HF Inference quota limits.
+- Detection boxes (pixel coords) are converted back to lat/lng via Web Mercator
+  inverse, then cross-checked against existing `map_points` within the bbox.
+  Detections within 80 m of a known POI are tagged `known`; others are `new`.
+- RAG/vision failure degrades gracefully: returns `degraded: true` with empty
+  detections — the frontend shows a warning, never a crash.
+- `ai-service/start.sh` recovers `GEO_VISION_MODEL`, `GEO_VISION_TIMEOUT_SECONDS`,
+  and `BING_MAPS_API_KEY` from PID 1 environ (HF Spaces secret propagation fix).
+
 Rules that must be preserved:
 
 - Every embedding provider is called through `curl --ipv4 --insecure` because
