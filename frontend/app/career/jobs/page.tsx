@@ -141,7 +141,7 @@ export default function JobsPage() {
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                No opportunities found matching your criteria.
+                Chưa có cơ hội nào phù hợp. Dữ liệu việc làm được cập nhật tự động mỗi ngày.
             </div>
           )}
         </div>

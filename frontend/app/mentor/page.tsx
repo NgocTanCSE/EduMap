@@ -55,12 +55,12 @@ export default function MentorPage() {
         
         if (response && response.top_matches) {
             setAiMatches(response.top_matches);
-            toast.success('Found your perfect mentor matches!');
+            toast.success('Đã tìm thấy cố vấn phù hợp!');
         } else {
-            toast.error('No suitable matches found at this time.');
+            toast.error('Chưa tìm thấy cố vấn phù hợp lúc này.');
         }
     } catch (error) {
-        toast.error('AI Matchmaking failed');
+        toast.error('Ghép cặp AI thất bại');
     } finally {
         setIsAiMatching(false);
     }
@@ -220,7 +220,8 @@ export default function MentorPage() {
             ))}
             {filteredMentors.length === 0 && (
                 <div className="col-span-1 md:col-span-2 text-center py-12 border border-dashed border-border rounded-xl text-muted-foreground">
-                    No mentors found matching your criteria.
+                    Chưa có cố vấn nào phù hợp. Hồ sơ cố vấn do người dùng thật tạo —
+                    hãy quay lại sau hoặc đăng ký trở thành cố vấn.
                 </div>
             )}
           </div>
