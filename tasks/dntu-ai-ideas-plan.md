@@ -83,7 +83,7 @@ GitHub (main branch)
 | #1 | AI Education Resource Optimizer (MCLP) | ❌ Chưa có |
 | #2 | EduMap AI Agent (NL → GIS) | 🟡 Có chat RAG + session memory, chưa là agent tự động |
 | #3 | AI Educational Gap Predictor | 🟡 Có `predictive.py` (Holt's), chưa spatial forecasting |
-| #4 | Talk2Map (NL → GIS queries) | ❌ Chưa có |
+| #4 | Talk2Map (NL → GIS queries, Vietnamese) | ✅ Hoàn thành |
 | #5 | AI Data Trust & Anomaly Detector | ❌ Chưa có |
 | #6 | Missing Data Hunter | ❌ Chưa có |
 | #7 | Edge AI Tutor (offline) | ❌ Chưa có |
