@@ -115,7 +115,7 @@ const nextConfig = {
       {
         // `config` is excluded so `/api/config` always hits the Next route
         // handler (runtime Google client ID) instead of the backend.
-        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|config$).*)',
+        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|config$).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

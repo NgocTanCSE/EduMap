@@ -68,6 +68,21 @@ export class MapService {
     this.logger.log(`MapService initialized. isSqlite=${this.isSqlite}, DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 
+  // ─── In-process TTL cache for resource-optimization (HF Spaces safe) ──────
+  /** TTL for cached resource-optimization results: 3600 seconds. */
+  private static readonly RESOURCE_OPT_CACHE_TTL_MS = 3600 * 1000;
+  /** Max entries before LRU-style eviction. */
+  private static readonly RESOURCE_OPT_CACHE_MAX = 120;
+  private readonly _resourceOptCache = new Map<string, { data: any; expires: number }>();
+
+  // ─── Educational Gap Forecast: 24 h in-process cache (HF Spaces: no Redis) ─
+  // Per AGENTS.md, Redis is replaced by an in-process cache on HF Spaces. The
+  // predictive pipeline (Holt + DBSCAN) is CPU-bound, so caching the GeoJSON
+  // result for 24 h prevents re-running it on every map view.
+  private static readonly GAP_FORECAST_CACHE_TTL_MS = 24 * 3600 * 1000;
+  private static readonly GAP_FORECAST_CACHE_MAX = 60;
+  private readonly _gapForecastCache = new Map<string, { data: any; expires: number }>();
+
   /**
    * Parse a geography value that may arrive in one of several formats:
    *  - PostGIS (TypeORM): GeoJSON { type:'Point', coordinates:[lng,lat] }
@@ -655,6 +670,76 @@ export class MapService {
     }
   }
 
+  /**
+   * AI Educational Gap Forecast (Idea #3).
+   *
+   * GET /api/map/gap-forecast?region=...&steps=... → proxies the request to the
+   * ai-service POST /api/ai/forecast/gaps and caches the GeoJSON result for
+   * 24 h in an in-process TTL cache (HF Spaces has no Redis).
+   *
+   * On ai-service failure the call degrades gracefully — it returns a valid but
+   * empty/degraded GeoJSON FeatureCollection instead of throwing, so the
+   * frontend map never hard-fails (matching the project's "degrade, never
+   * crash" policy from AGENTS.md).
+   */
+  async getGapForecast(region: string | undefined, stepsAhead: number): Promise<any> {
+    const key = `gap:${(region || 'all').trim().toLowerCase()}:${stepsAhead}`;
+    const now = Date.now();
+
+    const cached = this._gapForecastCache.get(key);
+    if (cached && cached.expires > now) {
+      this.logger.log(`gap-forecast cache hit: ${key}`);
+      return { ...cached.data, cached: true };
+    }
+    if (cached) this._gapForecastCache.delete(key);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/forecast/gaps`, {
+          region: region || null,
+          steps_ahead: stepsAhead,
+        }, { timeout: 60000 })
+      );
+      const result = response.data || {};
+
+      // Lazy LRU-style eviction.
+      if (this._gapForecastCache.size >= MapService.GAP_FORECAST_CACHE_MAX) {
+        const oldestKey = this._gapForecastCache.keys().next().value;
+        if (oldestKey) this._gapForecastCache.delete(oldestKey);
+      }
+      this._gapForecastCache.set(key, {
+        data: result,
+        expires: now + MapService.GAP_FORECAST_CACHE_TTL_MS,
+      });
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`AI gap-forecast unavailable: ${error.message}`);
+      // Degraded fallback so the UI shows a friendly warning instead of a 500.
+      return {
+        type: 'FeatureCollection',
+        features: [],
+        heat_points: [],
+        risk_ranking: [],
+        trends: [],
+        metadata: {
+          region: region || 'toàn quốc',
+          method: 'holt_linear_exponential_smoothing + dbscan',
+          degraded: true,
+          reason: 'Dịch vụ AI dự báo khoảng trống giáo dục tạm thời không khả dụng.',
+          data_points: 0,
+          pois_loaded: 0,
+          clusters: 0,
+          steps_ahead: stepsAhead,
+          last_updated: new Date().toISOString().slice(0, 10),
+          forecast_horizon_years: [],
+          holt_alpha: 0.3,
+          holt_beta: 0.1,
+        },
+      };
+    }
+  }
+
   async getFixedLocations(): Promise<PointOfInterest[]> {
     try {
       const points = await this.mapPointRepo.find({ where: { is_fixed: true } });
@@ -932,5 +1017,138 @@ export class MapService {
   /** Simple bounds check used by getFeaturedPins to avoid creating POI objects for out-of-viewport pins. */
   private isInBounds(lat: number, lng: number, bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }): boolean {
     return lat >= bounds.minLat && lat <= bounds.maxLat && lng >= bounds.minLng && lng <= bounds.maxLng;
+  }
+
+  // ─── Resource Optimization (MCLP) proxy + cache ──────────────────────────
+  /**
+   * GET /api/map/resource-optimization  →  proxy + cache (TTL 3600 s).
+   *
+   * Accepts query params (budget, coverage_radius_km, center_lat, center_lng,
+   * region_radius_km) and returns a cached (TTL 3600 s) GeoJSON
+   * FeatureCollection of A/B/C facility-placement plans + gap areas.
+   * The heavy lifting (scipy MCLP) is delegated to the ai-service via
+   * MapService.getResourceOptimization().
+   */
+
+  /**
+   * GET /api/map/resource-optimization  →  proxy + cache (TTL 3600 s).
+   *
+   * Fetches live POI data from the DB, builds demand-points + candidate
+   * locations, and POSTs them to the ai-service's
+   * POST /api/ai/resource/optimize (MCLP solver).  Results are cached per
+   * parameter-set so repeated slider values on the frontend are served from
+   * cache instead of re-running scipy on a 1-vCPU HF Spaces container.
+   *
+   * The cache key is derived from (budget, radius, center, region) so each
+   * distinct plan combination is cached independently.
+   */
+  async getResourceOptimization(params: {
+    budget?: number;
+    coverage_radius_km?: number;
+    center_lat?: number;
+    center_lng?: number;
+    region_radius_km?: number;
+  }): Promise<any> {
+    const budget = Number(params.budget) || 30_000_000;
+    const radius = params.coverage_radius_km ? Number(params.coverage_radius_km) : undefined;
+    const centerLat = params.center_lat ? Number(params.center_lat) : 10.9567;
+    const centerLng = params.center_lng ? Number(params.center_lng) : 107.1825;
+    const regionRadius = params.region_radius_km ? Number(params.region_radius_km) : 10;
+
+    // Build a deterministic cache key from the input parameters.
+    const cacheKey = `resource-opt:${budget}:${radius ?? 'auto'}:${centerLat}:${centerLng}:${regionRadius}`;
+
+    // Check in-process TTL cache — return immediately on hit (no DB/ai-service round-trip).
+    const now = Date.now();
+    const cached = this._resourceOptCache.get(cacheKey);
+    if (cached && now < cached.expires) {
+      this.logger.debug(`Resource optimization cache hit: ${cacheKey}`);
+      return cached.data;
+    }
+
+    // ── On cache miss: fetch POI data from the DB ──────────────────────
+    let pois: PointOfInterest[] = [];
+    try {
+      pois = await this.findAllPois();
+    } catch (dbErr: any) {
+      this.logger.warn(`DB fetch for resource optimization failed: ${dbErr.message}`);
+    }
+
+    // Build demand_points (weighted by rating as a proxy for importance)
+    const demandPoints = pois.map((p) => ({
+      lat: p.lat,
+      lng: p.lng,
+      name: p.name,
+      address: p.address || '',
+      weight: Math.max(10, (p.rating_avg || 3) * 20),
+    }));
+
+    // Candidate locations come from existing POIs — expanding/adding facilities
+    // at sites that already have educational infrastructure is realistic.
+    const candidateLocations = pois.map((p) => {
+      const ftype = p.category === 'wifi' ? 'wifi'
+        : p.category === 'lab' || p.category === 'stem' ? 'computer'
+        : p.category === 'library' ? 'library'
+        : 'study_space';
+      return {
+        lat: p.lat,
+        lng: p.lng,
+        name: p.name,
+        facility_type: ftype,
+        address: p.address || '',
+        description: p.description || '',
+      };
+    });
+
+    // ── Proxy POST to ai-service MCLP solver ───────────────────────────
+    const requestBody: any = {
+      budget,
+      center: { lat: centerLat, lng: centerLng },
+      region_radius_km: regionRadius,
+      demand_points: demandPoints,
+      candidate_locations: candidateLocations,
+    };
+    if (radius) requestBody.coverage_radius_km = radius;
+
+    let result: any;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/resource/optimize`, requestBody, { timeout: 30000 })
+      );
+      result = response.data || {};
+    } catch (aiError: any) {
+      const detail = aiError?.response?.data?.detail || aiError.message || 'AI service unavailable';
+      this.logger.error(`AI resource optimize failed: ${detail}`);
+
+      // Graceful degradation: return a minimal valid GeoJSON so the frontend
+      // map doesn't crash — it can show a "no data" state instead of erroring.
+      result = {
+        type: 'FeatureCollection',
+        features: [],
+        plans: {
+          A: { selected: 0, total_cost: 0, total_served: 0, total_demand: pois.length, coverage_pct: 0, budget_used_pct: 0, budget, solver: 'none' },
+          B: { selected: 0, total_cost: 0, total_served: 0, total_demand: pois.length, coverage_pct: 0, budget_used_pct: 0, budget: budget * 0.7, solver: 'none' },
+          C: { selected: 0, total_cost: 0, total_served: 0, total_demand: pois.length, coverage_pct: 0, budget_used_pct: 0, budget: budget * 1.0, solver: 'none' },
+        },
+        gaps: { type: 'FeatureCollection', features: [] },
+        summary: {
+          budget, candidate_count: candidateLocations.length,
+          demand_count: demandPoints.length, pre_filtered: false,
+          elapsed_ms: 0, best_plan: 'C', note: `Fallback: ${detail}`,
+        },
+        status: 'degraded',
+      };
+    }
+
+    // Cache the result for subsequent identical requests (TTL 3600 s).
+    this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
+
+    // Simple LRU-style eviction: drop oldest entry when over capacity.
+    if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
+      const oldestKey = this._resourceOptCache.keys().next().value;
+      if (oldestKey) this._resourceOptCache.delete(oldestKey);
+    }
+
+    return result;
   }
 }

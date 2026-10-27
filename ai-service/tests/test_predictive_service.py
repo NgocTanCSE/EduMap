@@ -220,6 +220,92 @@ def test_holt_forecast_negative_clamped():
     print("✓ Holt forecast clamps negatives to 0")
 
 
+# ──────────────── predict_educational_gaps (Idea #3) ────────────────────────
+
+def test_gap_forecast_returns_geojson_featurecollection():
+    """Output must be a valid GeoJSON FeatureCollection with the expected
+    envelope keys the frontend relies on (heat_points, risk_ranking, trends,
+    metadata)."""
+    result = predictive_service.predict_educational_gaps("Đồng Nai", 3)
+    assert isinstance(result, dict)
+    assert result["type"] == "FeatureCollection"
+    assert isinstance(result["features"], list)
+    # heat_points is [lat, lng, weight]
+    assert isinstance(result["heat_points"], list)
+    assert isinstance(result["risk_ranking"], list)
+    assert isinstance(result["trends"], list)
+    assert isinstance(result["metadata"], dict)
+    print(f"✓ predict_educational_gaps returns FeatureCollection ({len(result['features'])} features)")
+
+
+def test_gap_forecast_heat_points_format_and_bounds():
+    """Each heat_point is [lat, lng, weight] with weight ∈ [0, 1]."""
+    result = predictive_service.predict_educational_gaps("Đồng Nai", 3)
+    for p in result["heat_points"]:
+        assert len(p) == 3, f"heat_point must be [lat,lng,weight], got {p}"
+        lat, lng, weight = p
+        # Vietnam lat/lng bounds sanity check
+        assert -90 <= lat <= 90
+        assert -180 <= lng <= 180
+        assert 0.0 <= weight <= 1.0, f"weight out of [0,1]: {weight}"
+    print(f"✓ heat_points well-formed ({len(result['heat_points'])} pts, all weights in [0,1])")
+
+
+def test_gap_forecast_risk_ranking_sorted_desc():
+    """risk_ranking must be descending by risk_score and each score ∈ [0,1]."""
+    result = predictive_service.predict_educational_gaps("Đồng Nai", 3)
+    scores = [r["risk_score"] for r in result["risk_ranking"]]
+    assert all(0.0 <= s <= 1.0 for s in scores), "risk_score must be ∈ [0,1]"
+    assert scores == sorted(scores, reverse=True), f"risk_ranking not sorted desc: {scores}"
+    print(f"✓ risk_ranking sorted desc ({len(result['risk_ranking'])} entries)")
+
+
+def test_gap_forecast_holt_parameters_present():
+    """metadata must surface Holt's alpha=0.3 and beta=0.1 for transparency."""
+    result = predictive_service.predict_educational_gaps("Đồng Nai", 3)
+    meta = result["metadata"]
+    assert meta.get("holt_alpha") == 0.3
+    assert meta.get("holt_beta") == 0.1
+    assert meta.get("method") == "holt_linear_exponential_smoothing + dbscan"
+    assert meta.get("steps_ahead") == 3
+    assert not meta.get("degraded")
+    print("✓ Holt params (alpha=0.3, beta=0.1) surfaced in metadata")
+
+
+def test_gap_forecast_respects_steps_ahead():
+    """steps_ahead must propagate into metadata and trend forecast lengths."""
+    result = predictive_service.predict_educational_gaps("Đồng Nai", 5)
+    assert result["metadata"]["steps_ahead"] == 5
+    print("✓ steps_ahead=5 propagated")
+
+
+def test_gap_forecast_dbscan_prefilter_capped():
+    """Whole-country call (lots of POIs) must pre-filter DBSCAN to ≤2000 pts."""
+    result = predictive_service.predict_educational_gaps(None, 3)
+    meta = result["metadata"]
+    # pois_loaded is the raw count (≈3,200+); pois_clustered is the post-filter
+    # cap that DBSCAN actually sees.
+    assert meta.get("pois_loaded") > 0
+    assert meta.get("pois_clustered") <= 2000, f"DBSCAN pre-filter exceeded 2000: {meta.get('pois_clustered')}"
+    assert meta.get("pois_clustered") <= meta.get("pois_loaded")
+    print(f"✓ DBSCAN pre-filter ≤2000 (loaded={meta['pois_loaded']}, clustered={meta['pois_clustered']})")
+
+
+def test_gap_forecast_degraded_when_sparse():
+    """A region with no matching schools/POIs/data must degrade gracefully:
+    metadata.degraded=True + a reason string, and still return a valid
+    (empty) FeatureCollection rather than crashing."""
+    result = predictive_service.predict_educational_gaps("Nonexistent Province XYZ", 3)
+    assert result["type"] == "FeatureCollection"
+    meta = result["metadata"]
+    assert meta.get("degraded") is True
+    assert isinstance(meta.get("reason"), str) and len(meta["reason"]) > 0
+    # Even when degraded, the structure the frontend expects must exist.
+    assert isinstance(result["heat_points"], list)
+    assert isinstance(result["risk_ranking"], list)
+    print(f"✓ degraded gracefully for sparse region: {meta['reason']}")
+
+
 if __name__ == "__main__":
     test_get_market_trends_returns_structured_data_not_empty()
     test_get_market_trends_uses_holt_method()
@@ -233,4 +319,11 @@ if __name__ == "__main__":
     test_holt_forecast_consistency_with_analytics()
     test_holt_forecast_single_data_point()
     test_holt_forecast_negative_clamped()
+    test_gap_forecast_returns_geojson_featurecollection()
+    test_gap_forecast_heat_points_format_and_bounds()
+    test_gap_forecast_risk_ranking_sorted_desc()
+    test_gap_forecast_holt_parameters_present()
+    test_gap_forecast_respects_steps_ahead()
+    test_gap_forecast_dbscan_prefilter_capped()
+    test_gap_forecast_degraded_when_sparse()
     print("\n✅ All predictive service tests passed!")

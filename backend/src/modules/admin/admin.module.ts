@@ -5,6 +5,7 @@ import { AdminController } from './admin.controller';
 import { BackupService } from './backup.service';
 import { User } from '../auth/entities/user.entity';
 import { CrawlerModule } from '../crawler/crawler.module';
+import { AIModule } from '../ai/ai.module';
 import { DonationCampaign } from '../donate/entities/donation.entity';
 import { Scholarship } from '../scholar/entities/scholarship.entity';
 import { Event } from '../events/entities/event.entity';
@@ -13,6 +14,7 @@ import { Event } from '../events/entities/event.entity';
   imports: [
     TypeOrmModule.forFeature([User, DonationCampaign, Scholarship, Event]),
     CrawlerModule,
+    AIModule,
   ],
   providers: [AdminService, BackupService],
   controllers: [AdminController],

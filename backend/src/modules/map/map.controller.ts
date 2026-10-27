@@ -237,6 +237,23 @@ export class MapController {
   }
 
 
+  @Get('gap-forecast')
+  @SkipThrottle()
+  async getGapForecast(
+    @Query('region') region?: string,
+    @Query('steps') steps?: string,
+  ) {
+    try {
+      const stepsAhead = steps ? Math.max(1, Math.min(10, parseInt(steps, 10))) : 3;
+      const result = await this.mapService.getGapForecast(region, stepsAhead);
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error(`Error getting gap forecast: ${error.message}`);
+      throw new InternalServerErrorException('Failed to retrieve gap forecast');
+    }
+  }
+
+
   @Get('fixed-locations')
   @SkipThrottle()
   async getFixedLocations() {
@@ -289,6 +306,41 @@ export class MapController {
       if (error instanceof NotFoundException) throw error;
       console.error(`Error getting POI details: ${error.message}`);
       throw new InternalServerErrorException('Failed to retrieve point of interest');
+    }
+  }
+
+  /**
+   * GET /api/map/resource-optimization
+   * Idea #1: AI Education Resource Optimizer (MCLP).
+   *
+   * Accepts query params (budget, coverage_radius_km, center_lat, center_lng,
+   * region_radius_km) and returns a cached (TTL 3600 s) GeoJSON
+   * FeatureCollection of A/B/C facility-placement plans + gap areas.
+   * The heavy lifting (scipy MCLP) is delegated to the ai-service via
+   * MapService.getResourceOptimization().
+   */
+  @Get('resource-optimization')
+  @SkipThrottle()
+  async getResourceOptimization(
+    @Query('budget') budget?: string,
+    @Query('coverage_radius_km') coverageRadiusKm?: string,
+    @Query('center_lat') centerLat?: string,
+    @Query('center_lng') centerLng?: string,
+    @Query('region_radius_km') regionRadiusKm?: string,
+  ) {
+    try {
+      const params = {
+        budget: budget ? parseFloat(budget) : undefined,
+        coverage_radius_km: coverageRadiusKm ? parseFloat(coverageRadiusKm) : undefined,
+        center_lat: centerLat ? parseFloat(centerLat) : undefined,
+        center_lng: centerLng ? parseFloat(centerLng) : undefined,
+        region_radius_km: regionRadiusKm ? parseFloat(regionRadiusKm) : undefined,
+      };
+      const result = await this.mapService.getResourceOptimization(params);
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error(`Error during resource optimization: ${error.message}`);
+      throw new InternalServerErrorException('Failed to optimize resource allocation');
     }
   }
 }

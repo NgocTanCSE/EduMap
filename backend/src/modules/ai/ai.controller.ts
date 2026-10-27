@@ -50,6 +50,47 @@ export class AIController {
     await this.aiService.chatStream(msg, history || [], ctx, req.user.id, res, sessionId);
   }
 
+  @Post('agent/chat-stream')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'F-05c: AI Map Agent streaming (NL → GIS, SSE)' })
+  async agentChatStream(
+    @Request() req: any,
+    @Body('message') msg: string,
+    @Body('history') history: any[],
+    @Body('context') ctx: any,
+    @Res() res: any,
+    @Body('session_id') sessionId?: string,
+  ) {
+    if (!msg || msg.trim().length === 0) {
+      res.status(400).json({ message: 'Tin nhắn không được để trống.' });
+      return;
+    }
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    await this.aiService.agentChatStream(msg, history || [], ctx, req.user.id, res, sessionId);
+  }
+
+  @Post('agent/chat')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'F-05c: AI Map Agent (NL → GIS)' })
+  async agentChat(
+    @Request() req: any,
+    @Body('message') msg: string,
+    @Body('history') history: any[],
+    @Body('context') ctx: any,
+    @Body('session_id') sessionId?: string,
+  ) {
+    if (!msg || msg.trim().length === 0) {
+      return { message: 'Tin nhắn không được để trống.' };
+    }
+    return this.aiService.agentChat(msg, history || [], ctx, req.user.id, sessionId);
+  }
+
   @Get('history')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

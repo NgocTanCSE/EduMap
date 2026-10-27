@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/entities/user.entity';
 import { CrawlerService } from '../crawler/crawler.service';
 import { AdminService } from './admin.service';
+import { AIService } from '../ai/ai.service';
 import { UserQueryDto } from './dto/user-query.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
@@ -18,6 +19,7 @@ export class AdminController {
   constructor(
     private readonly crawlerService: CrawlerService,
     private readonly adminService: AdminService,
+    private readonly aiService: AIService,
   ) {}
 
   @Post('crawl-map')
@@ -73,5 +75,14 @@ export class AdminController {
   @ApiOperation({ summary: 'Danh sách nội dung chờ duyệt' })
   async getPendingContent(@Query('type') type: string) {
     return this.adminService.getPendingContent(type);
+  }
+
+  @Post('data-quality/report')
+  @ApiOperation({ summary: 'Báo cáo chất lượng dữ liệu POI (AI Anomaly Detector)' })
+  @ApiResponse({ status: 200, description: 'Báo cáo chất lượng dữ liệu' })
+  async getDataQualityReport(
+    @Body() body: { category?: string; limit?: number; include_clean?: boolean },
+  ) {
+    return this.aiService.dataQualityReport(body);
   }
 }

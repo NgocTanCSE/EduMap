@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   Users, Shield, Activity, LayoutDashboard, 
-  Settings, LogOut, ChevronRight, Globe, Lock
+  Settings, LogOut, ChevronRight, Globe, Lock, Database
 } from 'lucide-react';
 import { authService } from '@/src/services/auth.service';
 
@@ -13,6 +13,7 @@ const menuItems = [
   { name: 'Người dùng', href: '/admin/users', icon: Users },
   { name: 'Vai trò & Quyền', href: '/admin/roles', icon: Shield },
   { name: 'Nhật ký hệ thống', href: '/admin/reports', icon: Activity },
+  { name: 'Chất lượng Dữ liệu', href: '/admin/data-quality', icon: Database },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

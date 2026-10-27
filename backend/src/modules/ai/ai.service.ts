@@ -431,6 +431,207 @@ export class AIService {
   }
 
   /**
+   * AI Map Agent — non-streaming proxy.
+   * Forwards the natural-language question to the ai-service agent loop
+   * (/api/ai/agent/chat) which calls query_sqlite / geo_recommend /
+   * geo_density / rag_search tools and returns a summary with evidence.
+   */
+  async agentChat(message: string, history: any[], ctx: any, userId?: string, sessionId?: string) {
+    const sid = sessionId || (userId ? `sess_${userId}` : undefined);
+    let systemContext = { ...(ctx || {}), session_id: sid };
+
+    try {
+      systemContext = await this._buildSystemContext(message, systemContext);
+    } catch (ctxError: any) {
+      this.logger.warn(`Error building system context for agentChat: ${ctxError.message}`);
+    }
+
+    const payload: any = {
+      message,
+      history,
+      context: systemContext,
+      session_id: sid,
+    };
+    if (userId) payload.user_id = userId;
+
+    let lastError: any;
+    const maxRetries = 5;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await firstValueFrom(
+          this.httpService.post(`${this.aiServiceUrl}/api/ai/agent/chat`, payload, { timeout: 30000 })
+        );
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        const isConnRefused =
+          error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
+          || (error.message && error.message.includes('ECONNREFUSED'));
+        const isServiceUnavailable = error.response && error.response.status === 503;
+        const isRetryable = isConnRefused || isServiceUnavailable;
+
+        if (attempt < maxRetries && isRetryable) {
+          this.logger.warn(`AI agent service not ready (attempt ${attempt}/${maxRetries}), retrying in 3s...`);
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
+        const detail =
+          error?.response?.data?.detail ||
+          error?.response?.data?.message ||
+          error?.message ||
+          'AI agent service is currently unavailable.';
+        throw new HttpException(detail, status);
+      }
+    }
+    throw new HttpException(
+      lastError?.response?.data?.detail || 'AI agent service unavailable.',
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  /**
+   * AI Map Agent — SSE streaming proxy (mirrors chatStream).
+   * Pipes the ai-service /api/ai/agent/chat-stream SSE stream to the client.
+   */
+  async agentChatStream(message: string, history: any[], ctx: any, userId: string, res: any, sessionId?: string) {
+    const sid = sessionId || (userId ? `sess_${userId}` : undefined);
+    let systemContext = { ...(ctx || {}), session_id: sid };
+
+    if (userId) {
+      try {
+        const session = this.sessionMemory.getOrCreateSession(userId, sid);
+        if (!history || history.length === 0) {
+          history = this.sessionMemory.getRecentHistory(session.id, 6);
+        }
+        systemContext = { ...systemContext, session_id: session.id };
+      } catch (e) {
+        this.logger.warn(`Session memory error in agentChatStream: ${(e as any).message}`);
+      }
+    }
+
+    try {
+      systemContext = await this._buildSystemContext(message, systemContext);
+    } catch (ctxError: any) {
+      this.logger.warn(`Error building system context for agentChatStream: ${ctxError.message}`);
+    }
+
+    const payload: any = {
+      message,
+      history,
+      context: systemContext,
+      session_id: sid,
+    };
+    if (userId) payload.user_id = userId;
+
+    let response: any;
+    let lastError: any;
+    const maxRetries = 7;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        response = await this.httpService.axiosRef.post(
+          `${this.aiServiceUrl}/api/ai/agent/chat-stream`,
+          payload,
+          { responseType: 'stream', timeout: 10000 },
+        );
+        break;
+      } catch (error: any) {
+        lastError = error;
+        const isConnRefused =
+          error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
+          || (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+        const isServiceUnavailable = error.response && error.response.status === 503;
+        const isRetryable = isConnRefused || isServiceUnavailable;
+
+        if (attempt < maxRetries && isRetryable) {
+          this.logger.warn(`AI agent streaming not ready (attempt ${attempt}/${maxRetries}), retrying in 3s...`);
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        if (!res.headersSent) {
+          const detail =
+            lastError.response?.data?.detail
+            || lastError.response?.data?.message
+            || lastError.message
+            || 'AI agent streaming service is currently unavailable.';
+          res.status(503).json({
+            message: 'AI agent streaming service is unavailable.',
+            detail,
+          });
+        }
+        return;
+      }
+    }
+
+    const sourceStream = response.data;
+    let buffer = '';
+    let fullReply = '';
+    let sources: any[] = [];
+
+    const saveToHistory = () => {
+      if (!userId || !fullReply) return;
+      this.historyRepo
+        .save(
+          this.historyRepo.create({
+            userId: userId,
+            message: message,
+            response: fullReply,
+            context: { ...systemContext, sources, session_id: sid },
+          }),
+        )
+        .catch((saveError: any) =>
+          this.logger.error(`Error saving streaming agent chat history: ${saveError.message}`),
+        );
+      if (userId && sid) {
+        this.sessionMemory.addTurn(sid, message, fullReply);
+      }
+    };
+
+    const safeEnd = () => {
+      try { res.end(); } catch { /* already closed */ }
+    };
+
+    // Destroy upstream if client disconnects mid-stream
+    res.on('close', () => {
+      if (sourceStream && !sourceStream.destroyed) {
+        sourceStream.destroy();
+      }
+    });
+
+    sourceStream.on('data', (chunk: Buffer | string) => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
+      res.write(text);
+
+      buffer += text;
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const event of events) {
+        const line = event.trim();
+        if (!line.startsWith('data: ')) continue;
+        const dataStr = line.slice(6).trim();
+        if (!dataStr || dataStr === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (Array.isArray(parsed.sources)) sources = parsed.sources;
+          if (typeof parsed.token === 'string') fullReply += parsed.token;
+        } catch {
+          // non-fatal — client still receives raw bytes
+        }
+      }
+    });
+
+    sourceStream.on('end', () => {
+      safeEnd();
+      saveToHistory();
+    });
+
+    sourceStream.on('error', (err: any) => {
+      this.logger.warn(`SSE stream error from ai-agent service: ${err.message}`);
+      safeEnd();
+    });
+  }
+
+  /**
    * Phân tích xu hướng thị trường lao động
    */
   async getMarketTrends() {
@@ -443,6 +644,33 @@ export class AIService {
       this.logger.error(`Error calling AI Trends API: ${error.message}`);
       throw new HttpException(
         'AI Market trends service is currently unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  /**
+   * AI DATA QUALITY: Generate anomaly report for POI data integrity.
+   * Proxies to ai-service POST /api/ai/data/quality/report.
+   */
+  async dataQualityReport(params?: { category?: string; limit?: number; include_clean?: boolean }) {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.aiServiceUrl}/api/ai/data/quality/report`,
+          params || {},
+          { timeout: 30000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.detail ||
+        error?.message ||
+        'AI Data Quality service is currently unavailable.';
+      this.logger.error(`Error calling AI Data Quality API: ${detail}`);
+      throw new HttpException(
+        'Dịch vụ phân tích chất lượng dữ liệu AI đang tạm thời gián đoạn.',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }

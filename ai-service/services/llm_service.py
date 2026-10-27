@@ -794,6 +794,95 @@ class LLMService:
         finally:
             proc.kill()
 
+    def _openrouter_chat_with_tools(
+        self,
+        messages: list,
+        tools: list,
+        tool_choice: str = "auto",
+        temperature: float = 0.3,
+        max_tokens: int = 2048,
+    ) -> dict:
+        """Single OpenRouter chat-completion call with tool-calling support.
+
+        Mirrors ``_openrouter_generate`` (curl --ipv4 --insecure) but sends a
+        ``messages`` array + ``tools`` definition so the model can emit
+        ``tool_calls``. Returns the **full** response dict (not just the text)
+        because the caller needs ``tool_calls`` to drive an agent loop.
+
+        Used by ``agents/map_agent.py``. A Gemini fallback is attempted inside
+        the agent via the non-tool-calling ``_generate_text_with_fallback``
+        when OpenRouter is not configured.
+        """
+        if not self.has_openrouter:
+            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter tool calling.")
+        import time as _time
+        if _time.monotonic() < self._openrouter_down_until:
+            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
+
+        url = f"{self.openrouter_base}/chat/completions"
+        payload = {
+            "model": self.openrouter_model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": tool_choice,
+            "max_tokens": int(max_tokens),
+            "temperature": float(temperature),
+            "stream": False,
+        }
+        body_json = json.dumps(payload).encode("utf-8")
+
+        try:
+            proc = subprocess.run(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
+                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", "Content-Type: application/json",
+                    "-H", "Accept: application/json",
+                    "-H", "HTTP-Referer: https://edumap.ai",
+                    "-H", "X-Title: EduMap",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.openrouter_timeout),
+                    url,
+                ],
+                capture_output=True, text=True, timeout=self.openrouter_timeout + 2,
+            )
+        except Exception as e:
+            self._openrouter_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"OpenRouter tool-call connection failed: {type(e).__name__}: {e}")
+
+        if proc.returncode != 0:
+            err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
+            self._openrouter_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"OpenRouter tool-call curl failed: {err}")
+
+        if not (proc.stdout or "").strip():
+            self._openrouter_down_until = _time.monotonic() + 300
+            raise RuntimeError("OpenRouter tool-call returned empty response")
+
+        try:
+            data = json.loads(proc.stdout)
+        except Exception:
+            raise RuntimeError(f"OpenRouter tool-call returned invalid JSON: {(proc.stdout or '')[:200]}")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error") or {}
+            if isinstance(err, dict):
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+            else:
+                code = 0
+                message = str(err)
+            low = message.lower()
+            if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
+                self._openrouter_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"OpenRouter tool-call auth error (HTTP {code}): {message[:200]}")
+            if code == 429:
+                raise RuntimeError(f"OpenRouter tool-call rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"OpenRouter tool-call API error (HTTP {code}): {message[:200]}")
+
+        return data
+
     def _nvidia_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Gọi NVIDIA NIM (OpenAI-compatible chat completions).
 

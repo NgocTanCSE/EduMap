@@ -75,5 +75,51 @@ export const adminService = {
     });
     if (!response.ok) throw new Error('Failed to create role');
     return response.json();
+  },
+
+  getDataQualityReport: async (params?: { category?: string; limit?: number; include_clean?: boolean }) => {
+    const response = await fetch(`${API_URL}/admin/data-quality/report`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(params || {}),
+    });
+    if (!response.ok) throw new Error('Failed to fetch data quality report');
+    return response.json() as Promise<DataQualityReport>;
   }
 };
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export interface Anomaly {
+  id: string;
+  name: string | null;
+  category: string;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  source: string;
+  updated_at: string | null;
+  created_at: string | null;
+  anomaly_types: string[];
+  reasons: string[];
+  confidence: number;
+  priority: 'high' | 'medium' | 'low';
+  iforest_score: number | null;
+}
+
+export interface QualitySummary {
+  total_checked: number;
+  total_anomalies: number;
+  anomaly_rate: number;
+  by_category: Record<string, number>;
+  priority_breakdown: { high: number; medium: number; low: number };
+  degraded: boolean;
+}
+
+export interface DataQualityReport {
+  summary: QualitySummary;
+  anomalies: Anomaly[];
+  source_counts: Record<string, number>;
+}
