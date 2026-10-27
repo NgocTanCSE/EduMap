@@ -4,14 +4,14 @@ Voice-to-Geo AI — Speech-to-Text router (Idea #16, Task 2).
 ``POST /api/ai/speech/to-text`` is the server-side Whisper fallback. The
 frontend prefers the client-side Web Speech API (T1) for privacy, but when
 Chrome's Vietnamese recognition is unreliable the browser uploads the
-recorded audio here and we transcribe it with OpenRouter Whisper.
+recorded audio here and we transcribe it with XKIRO Whisper.
 
-OpenRouter STT API (OpenAI-compatible):
-  POST https://openrouter.ai/api/v1/audio/transcriptions
-  Authorization: Bearer <OPENROUTER_API_KEY>
+XKIRO STT API (OpenAI-compatible):
+  POST https://api.xkiro.com/v1/audio/transcriptions
+  Authorization: Bearer <XKIRO_API_KEY>
   Body: {"model", "input_audio": {"data": "<base64>", "format": "..."}, "language": "vi"}
 
-Source: https://openrouter.ai/docs/api/api-reference/stt/create-transcription.md
+Source: https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
 
 HF Spaces egress quirk: the SpeechService uses ``curl --ipv4 --insecure``
 (see services/speech.py) for the same IPv6/TLS workaround as vector_store.py
@@ -51,7 +51,7 @@ def _get_speech_service():
 
 @router.post("/to-text", response_model=SpeechToTextResponse)
 async def speech_to_text(request: SpeechToTextRequest):
-    """Server-side Speech-to-Text fallback (Whisper via OpenRouter).
+    """Server-side Speech-to-Text fallback (Whisper via XKIRO).
 
     **Always returns 200.** When Whisper is unavailable (``degraded=True``)
     the ``text`` field is empty and ``error`` explains why — the frontend

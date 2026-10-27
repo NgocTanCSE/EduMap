@@ -42,14 +42,14 @@ HF Spaces Docker Container (port 7680 = PUBLIC PORT)
 
 ```
 Text Generation:
-  1. OpenRouter  (curl --ipv4 --insecure) ← PRIMARY
+  1. XKIRO  (curl --ipv4 --insecure) ← PRIMARY
   2. NVIDIA NIM  (curl --ipv4 --insecure)
   3. Cloudflare Workers AI (curl)
   4. HF Inference API (requests)
   5. Template fallback (degraded content)
 
 Embeddings (vector_store.py):
-  1. OpenRouter  (/v1/embeddings, curl)
+  1. XKIRO  (/v1/embeddings, curl)
   2. Gemini      (embedContent, curl)  ← giữ nguyên cho embeddings
   3. Cloudflare  (Workers AI, urllib)
   4. HF Inference API (requests)
@@ -61,7 +61,7 @@ Embeddings (vector_store.py):
 | Loại | Nguồn | Ghi chú |
 |---|---|---|
 | Dockerfile ENV | Non-sensitive defaults | Model names, DB paths, URLs — committed to repo |
-| HF Spaces Secrets | UI → Settings → Secrets | `JWT_SECRET`, `OPENROUTER_API_KEY`, `GOOGLE_CLIENT_ID`, etc. — **KHÔNG** commit |
+| HF Spaces Secrets | UI → Settings → Secrets | `JWT_SECRET`, `XKIRO_API_KEY`, `GOOGLE_CLIENT_ID`, etc. — **KHÔNG** commit |
 | `start.sh` | Recover từ `/proc/1/environ` | HF Spaces secrets không tự động lan truyền qua supervisord → `environment=` directive; `start.sh` recovery từ PID 1 |
 
 ### 0.5 CI/CD flow
@@ -118,8 +118,8 @@ GitHub (main branch)
 |---|---|---|
 | `JWT_SECRET` | HF Spaces → Settings → Secrets | Bắt buộc |
 | `GOOGLE_CLIENT_ID` | HF Spaces → Settings → Secrets | Bắt buộc cho OAuth |
-| `OPENROUTER_API_KEY` | HF Spaces → Settings → Secrets | Primary LLM provider |
-| `OPENROUTER_MODEL` | HF Spaces Secret (tùy chọn) | Default: `deepseek/deepseek-chat` |
+| `XKIRO_API_KEY` | HF Spaces → Settings → Secrets | Primary LLM provider |
+| `XKIRO_MODEL` | HF Spaces Secret (tùy chọn) | Default: `google/gemini-3.8-flash` |
 | `GEMINI_API_KEY` | HF Spaces → Settings → Secrets | Embeddings + fallback |
 | `ORS_API_KEY` | HF Spaces → Settings → Secrets | Routing (primary) |
 | `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` | HF Spaces → Settings → Secrets | Job market trends |
@@ -139,7 +139,7 @@ source .env
 docker build -t edumap-hf:latest .
 docker run -d --name edumap-test -p 7680:7680 -p 3000:3000 -p 8000:8000 \
   -e JWT_SECRET="$JWT_SECRET" \
-  -e OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+  -e XKIRO_API_KEY="$XKIRO_API_KEY" \
   -e GEMINI_API_KEY="$GEMINI_API_KEY" \
   -e CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
   -e CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" \
@@ -159,7 +159,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | Single container, supervisord | Không chạy service riêng | In-memory cache, SQLite, ORS API |
 | CPU: cpu-basic (1 vCPU) | Slow inference | Lightweight models, caching |
 | IPv6 blackhole | urllib/requests timeout | `curl --ipv4 --insecure` |
-| Cloudflare TLS blocked | Workers AI không dùng được | Fallback chain OpenRouter → NVIDIA → HF |
+| Cloudflare TLS blocked | Workers AI không dùng được | Fallback chain XKIRO → NVIDIA → HF |
 | ChromaDB ephemeral | Vector DB bị xóa khi restart | Seed tại startup (`seed_vector_db.py`) |
 | Filesystem read-only ngoài `/tmp`, `/app/uploads` | Không persist data mới | SQLite write OK tại `/app/frontend/public/edumap.db` |
 | Docker layers cached | Rebuild chậm với requirements.txt | Chỉ sửa requirements.txt khi thật sự cần thiết |
@@ -291,7 +291,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 #### Kiến trúc HF Spaces
 - AI service: endpoint `POST /api/ai/agent` — LLM agent với tool calling
 - Tools: `query_sqlite`, `geo_recommend`, `geo_density`, `chat_rag`
-- LLM: OpenRouter (deepseek/deepseek-chat — hỗ trợ tool calling) làm primary
+- LLM: XKIRO (google/gemini-3.8-flash — hỗ trợ tool calling) làm primary
 - Session memory: dùng `SessionMemoryService` (NestJS) để lưu trữ hộp thoại
 
 #### Tasks chi tiết
@@ -332,7 +332,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 |---|---|---|
 | LLM gọi tool sai / SQL injection | Security | Chỉ cho phép SELECT trên bảng allowlist; parameterize queries |
 | Tool calling chậm trên cpu-basic | Latency | Timeout 10s/tool call, max 3 tool calls per query |
-| OpenRouter không hỗ trợ tool calling | Fallback | Gemini 3.5-flash (có tool calling) làm secondary |
+| XKIRO không hỗ trợ tool calling | Fallback | Gemini 3.5-flash (có tool calling) làm secondary |
 | Session memory không persist | UX | SessionMemoryService TTL 30 phút + fallback localStorage |
 
 ---
@@ -549,7 +549,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 - **Constraint**: HF Spaces không hỗ trợ offline model serving tính năng này một cách trực tiếp. Model nhỏ cần được bundle trong Docker image (tăng kích thước).
 - **Chiến lược**: Offline tutor dành cho **mobile app** (React Native) + PWA offline capability trên web
 - Model: TinyLLaMA 1.1B (4-bit quantized, ~1GB) hoặc GPT-NEO 125M (~500MB)
-- Embeddings: dùng Gemini/OpenRouter embeddings cache (được lưu trong ChromaDB hoặc SQLite)
+- Embeddings: dùng Gemini/XKIRO embeddings cache (được lưu trong ChromaDB hoặc SQLite)
 
 #### Tasks chi tiết
 
@@ -609,7 +609,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Kiến trúc HF Spaces
 - Tận dụng ChromaDB vector store (đã có) + SQLite entities
-- NLP entity extraction: dùng LLM (OpenRouter) để trích xuất thực thể từ văn bản
+- NLP entity extraction: dùng LLM (XKIRO) để trích xuất thực thể từ văn bản
 - Knowledge graph: Neo4j không khả dụng trên HF Spaces → dùng SQLite graph representation (adjacency list) hoặc NetworkX in-memory
 
 #### Tasks chi tiết
@@ -683,7 +683,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 - [ ] **Task 3**: AI service — `POST /api/ai/impactmatch/rank`
   - Nhận danh sách needs + sponsor profile, trả về ranking + explanation
-  - Dùng OpenRouter để generate explanation
+  - Dùng XKIRO để generate explanation
   - Cache kết quả (TTL 300s)
   - **Verify**: curl test + caching test
 
@@ -1026,7 +1026,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
   - **Verify**: browser test (Chrome) — `tsc --noEmit` passes; runtime verified via TestClient
 
 - [x] **Task 2**: Backend fallback STT — `POST /api/ai/speech/to-text`
-  - Dùng OpenRouter Whisper API (`openai/whisper-large-v3`)
+  - Dùng XKIRO STT endpoint (``XKIRO_STT_MODEL` — XKIRO chưa hỗ trợ STT nên service degrade về client-side Web Speech API)
   - Vietnamese language support (`language: "vi"`)
   - Graceful degradation: returns 200 + `degraded=True` when key absent/network fails
   - **Verify**: curl test — `scripts/smoke_test_voice_geo.sh` + 3 router tests + 7 service tests

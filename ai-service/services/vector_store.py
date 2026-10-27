@@ -87,18 +87,20 @@ class VectorStoreService:
         # Circuit breaker: skip HF embeddings for 5 min after a 401/invalid token.
         self._hf_embed_down_until = 0.0
 
-        # --- OpenRouter embedding (tuỳ chọn, thay thế Cloudflare/Gemini nếu cần) ---
-        self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
-        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
-        # OpenRouter model slugs are provider-prefixed. The old default
-        # "text-embedding-3-small" is NOT a valid slug (must be
-        # "openai/text-embedding-3-small"). _openrouter_get_embedding() also
-        # normalises unprefixed values coming from older HF Space secrets.
-        self.openrouter_embed_model = os.getenv(
-            "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
+        # --- XKIRO embedding (tuỳ chọn — XKIRO chưa hỗ trợ /v1/embeddings,
+        #     nên has_xkiro_api luôn False khi XKIRO_EMBEDDING_MODEL rỗng;
+        #     khối này chỉ chạy nếu người dùng tự cấu hình) ---
+        self.xkiro_base = os.getenv("XKIRO_BASE_URL", "https://api.xkiro.com/v1").rstrip("/")
+        self.xkiro_key = (os.getenv("XKIRO_API_KEY") or "").strip().strip('"').strip("'")
+        # XKIRO model slugs are provider-prefixed. The old default
+        # was "openai/text-embedding-3-small" — kept empty since
+        # XKIRO does not expose an embeddings endpoint.
+        # _xkiro_get_embedding() also normalises unprefixed values.
+        self.xkiro_embed_model = os.getenv(
+            "XKIRO_EMBEDDING_MODEL", ""
         ).strip()
-        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "8"))
-        self.has_openrouter_api = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
+        self.xkiro_timeout = float(os.getenv("XKIRO_TIMEOUT_SECONDS", "8"))
+        self.has_xkiro_api = bool(self.xkiro_key) and bool(self.xkiro_embed_model)
 
         # --- NVIDIA NIM embedding (OpenAI-compatible, build.nvidia.com) ---
         self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
@@ -120,7 +122,7 @@ class VectorStoreService:
         # --- Embedding time budget (critical for HF Spaces) -------------------
         # The whole provider chain runs synchronously inside a worker thread
         # triggered by a chat request. On HF Spaces a slow/hanging provider
-        # (OpenRouter often times out after 15s with 0 bytes) used to consume
+        # (XKIRO often times out after 15s with 0 bytes) used to consume
         # the entire budget, so Cloudflare/HF/Kimi fallbacks were always
         # skipped and RAG failed. Now:
         #   * EMBED_GLOBAL_TIMEOUT_SECONDS caps the entire chain (default 6s,
@@ -132,7 +134,7 @@ class VectorStoreService:
         self.embed_provider_timeout = max(1.5, float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4")))
 
         # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
-        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_openrouter_api or self.has_nvidia_api or self.has_kimi_api
+        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_xkiro_api or self.has_nvidia_api or self.has_kimi_api
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
@@ -149,9 +151,9 @@ class VectorStoreService:
         # eviction (FIFO by insertion order) remains as the secondary guard.
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
         if not self.has_api:
-            print("WARNING: Vector store without embeddings. Set OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN (HuggingFace), or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search.")
-        if self.has_openrouter_api:
-            print(f"INFO: OpenRouter embeddings enabled (primary) with model={self.openrouter_embed_model}")
+            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN, or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search. (XKIRO chưa hỗ trợ embeddings — bỏ qua.)")
+        if self.has_xkiro_api:
+            print(f"INFO: XKIRO embedding endpoint configured (note: XKIRO does not support /v1/embeddings — will attempt then fall through to Gemini/HF/NVIDIA)")
         if self.has_gemini_api:
             print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
@@ -228,11 +230,13 @@ class VectorStoreService:
     def _embed_attempt_timeout(self, started: float) -> float:
         """Per-provider timeout capped by both the provider cap and the
         remaining global budget. Ensures one slow provider cannot starve the
-        fallback chain (the original OpenRouter timeout bug)."""
+        fallback chain (the original XKIRO timeout bug)."""
         return max(1.5, min(getattr(self, "embed_provider_timeout", 4.0), self._embed_remaining(started)))
 
-    def _openrouter_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Get an embedding from OpenRouter (OpenAI-compatible /v1/embeddings).
+    def _xkiro_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
+        """Attempt embedding from XKIRO (/v1/embeddings). NOTE: XKIRO chưa hỗ trợ
+        embeddings — endpoint này sẽ trả về 404 và graceful-degrade sang Gemini.
+        Kept for forward-compatibility if XKIRO adds embeddings later.
 
         Uses curl for HF Spaces compatibility (IPv4 + skip TLS verification).
 
@@ -241,16 +245,16 @@ class VectorStoreService:
         slow/timing-out provider does not consume the entire embedding budget,
         leaving room for fallback providers (Gemini, HF, NVIDIA).
         """
-        if not self.has_openrouter_api:
-            raise RuntimeError("OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL not set.")
-        if time.monotonic() < getattr(self, "_openrouter_embed_down_until", 0.0):
-            raise RuntimeError("OpenRouter embeddings temporarily disabled after a network failure.")
+        if not self.has_xkiro_api:
+            raise RuntimeError("XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL not set.")
+        if time.monotonic() < getattr(self, "_xkiro_embed_down_until", 0.0):
+            raise RuntimeError("XKIRO embeddings temporarily disabled after a network failure.")
 
-        url = f"{self.openrouter_base}/embeddings"
-        # Normalise legacy/unprefixed slugs: OpenRouter requires the provider
-        # prefix ("openai/text-embedding-3-small"). Bypass with an explicit
+        url = f"{self.xkiro_base}/embeddings"
+        # Normalise legacy/unprefixed slugs: XKIRO requires the provider
+        # prefix (""). Bypass with an explicit
         # prefix or a slash in the configured value.
-        _model = (self.openrouter_embed_model or "").strip()
+        _model = (self.xkiro_embed_model or "").strip()
         if _model and "/" not in _model:
             _model = f"openai/{_model}"
         _payload_obj = {"model": _model, "input": text}
@@ -262,14 +266,14 @@ class VectorStoreService:
         payload = json.dumps(_payload_obj).encode("utf-8")
         # Cap the per-call timeout so one provider cannot starve the remaining
         # budget (default 20s is way longer than the 15s global embedding budget).
-        _call_timeout = timeout_override or self.openrouter_timeout
+        _call_timeout = timeout_override or self.xkiro_timeout
         _connect_timeout = max(1.0, min(3.0, _call_timeout))
 
         try:
             proc = subprocess.run(
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", f"Authorization: Bearer {self.xkiro_key}",
                     "-H", "Content-Type: application/json",
                     "-d", payload,
                     "--connect-timeout", str(_connect_timeout),
@@ -281,8 +285,8 @@ class VectorStoreService:
                 timeout=_call_timeout + 2,
             )
         except Exception as e:
-            self._openrouter_embed_down_until = time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter embedding connection failed: {type(e).__name__}: {e}")
+            self._xkiro_embed_down_until = time.monotonic() + 300
+            raise RuntimeError(f"XKIRO embedding connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
@@ -304,20 +308,20 @@ class VectorStoreService:
                                 _code = 0
                             low = _msg.lower()
                             if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
-                                self._openrouter_embed_down_until = time.monotonic() + 300
-                                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {_code}): {_msg[:200]}")
+                                self._xkiro_embed_down_until = time.monotonic() + 300
+                                raise RuntimeError(f"XKIRO embedding auth error (HTTP {_code}): {_msg[:200]}")
                             err = f"{err} | body: {_msg[:120]}"
                 except json.JSONDecodeError:
                     pass
             # Set circuit breaker so subsequent calls fail fast instead of
             # re-entering the 20s timeout on every request.
-            self._openrouter_embed_down_until = time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter embedding connection failed: {err}")
+            self._xkiro_embed_down_until = time.monotonic() + 300
+            raise RuntimeError(f"XKIRO embedding connection failed: {err}")
 
         try:
             data = json.loads(proc.stdout or "{}")
         except Exception:
-            raise RuntimeError("OpenRouter embedding: invalid JSON response")
+            raise RuntimeError("XKIRO embedding: invalid JSON response")
 
         if isinstance(data, dict) and data.get("error"):
             err = data.get("error") or {}
@@ -325,12 +329,12 @@ class VectorStoreService:
             message = str(err.get("message", "")) if isinstance(err, dict) else str(err)
             low = message.lower()
             if code in (401, 403) or "api key" in low:
-                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {code}): {message[:200]}")
+                raise RuntimeError(f"XKIRO embedding auth error (HTTP {code}): {message[:200]}")
             if code == 429:
-                raise RuntimeError(f"OpenRouter embedding rate-limited (429): {message[:100]}")
+                raise RuntimeError(f"XKIRO embedding rate-limited (429): {message[:100]}")
             if self._is_embed_model_not_found(code, message):
-                raise RuntimeError(f"OpenRouter embedding model not found: {message[:200]}")
-            raise RuntimeError(f"OpenRouter embedding HTTP {code}: {message[:200]}")
+                raise RuntimeError(f"XKIRO embedding model not found: {message[:200]}")
+            raise RuntimeError(f"XKIRO embedding HTTP {code}: {message[:200]}")
 
         vec = None
         if isinstance(data, dict):
@@ -345,7 +349,7 @@ class VectorStoreService:
         if vec and isinstance(vec, list) and len(vec) > 0:
             return [float(x) for x in vec]
 
-        raise RuntimeError(f"OpenRouter embedding returned empty vector: {str(data)[:200]}")
+        raise RuntimeError(f"XKIRO embedding returned empty vector: {str(data)[:200]}")
 
     def _gemini_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
         """Get an embedding from Google Gemini (primary on HF Spaces)."""
@@ -771,7 +775,7 @@ class VectorStoreService:
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL, hoặc NVIDIA_API_KEY + NVIDIA_EMBED_MODEL để dùng semantic search.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL, hoặc NVIDIA_API_KEY + NVIDIA_EMBED_MODEL để dùng semantic search.")
         if not text:
             return []
 
@@ -801,33 +805,34 @@ class VectorStoreService:
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
         gemini_last_err = None
         cf_last_err = None
-        or_last_err = None
+        xkiro_last_err = None
         hf_last_err = None
         nvidia_last_err = None
         kimi_last_err = None
 
-        # --- Phan 0: OpenRouter embeddings (primary — reachable from HF Spaces) ---
-        _or_remaining = self._embed_remaining(_embed_start)
-        if self.has_openrouter_api and time.monotonic() >= getattr(self, "_openrouter_embed_down_until", 0.0):
-            if _or_remaining <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping OpenRouter embed")
+        # --- Phan 0: XKIRO embeddings (chỉ chạy nếu XKIRO_EMBEDDING_MODEL được cấu hình;
+        #     XKIRO chưa hỗ trợ /v1/embeddings nên block này thường bị skip → fall through) ---
+        _xkiro_remaining = self._embed_remaining(_embed_start)
+        if self.has_xkiro_api and time.monotonic() >= getattr(self, "_xkiro_embed_down_until", 0.0):
+            if _xkiro_remaining <= 0.5:
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping XKIRO embed")
             else:
                 try:
-                    vec = self._openrouter_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
+                    vec = self._xkiro_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"OpenRouter embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        print(f"XKIRO embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
                         if len(vec) > self._embed_dim:
                             vec = vec[:self._embed_dim]
                         else:
                             vec = vec + [0.0] * (self._embed_dim - len(vec))
                     self._embed_dim = len(vec)
-                    print(f"  -> OpenRouter embedding OK (dim={len(vec)})")
+                    print(f"  -> XKIRO embedding OK (dim={len(vec)})")
                     self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
-                    or_last_err = str(e)
-                    print(f"OpenRouter embedding failed: {e}")
+                    xkiro_last_err = str(e)
+                    print(f"XKIRO embedding failed: {e}")
 
         # --- Phan 1: Gemini embeddings (reachable from HF Spaces) ---
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
@@ -1079,7 +1084,7 @@ class VectorStoreService:
 
         raise RuntimeError(
             f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
-            f"OpenRouter: {or_last_err or ('khong cau hinh' if not self.has_openrouter_api else 'khong kha dung')}, "
+            f"XKIRO: {xkiro_last_err or ('khong cau hinh' if not self.has_xkiro_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
             f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
             f"HF: {hf_last_err or ('khong cau hinh' if not self.has_hf_api else 'khong kha dung')}, "

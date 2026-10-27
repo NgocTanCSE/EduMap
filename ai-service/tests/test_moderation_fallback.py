@@ -22,7 +22,7 @@ if _AI_DIR not in sys.path:
 # by default — does NOT clobber them with the .env file values.
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "OPENROUTER_API_KEY",
+    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
     "NVIDIA_API_KEY", "NIM_API_KEY",
 ]:
     os.environ[_v] = ""
@@ -139,49 +139,49 @@ def test_generate_text_with_fallback_error_message():
 
     assert err is not None
     assert "Không thể sinh nội dung" in err
-    assert "OpenRouter: không cấu hình" in err
+    assert "XKIRO: không cấu hình" in err
     assert "NVIDIA: không cấu hình" in err
     assert "Cloudflare/HF:" in err
     print("✓ test_generate_text_with_fallback_error_message")
 
 
-def test_openrouter_circuit_breaker_blocks_repeated_failure():
-    """After OpenRouter network/curl failure, the circuit breaker should activate
-    and skip subsequent OpenRouter calls for 5 minutes — preventing the 20s
+def test_xkiro_circuit_breaker_blocks_repeated_failure():
+    """After XKIRO network/curl failure, the circuit breaker should activate
+    and skip subsequent XKIRO calls for 5 minutes — preventing the 20s
     timeout from burning the backend's request budget on every call."""
     svc = _fresh_service()
-    svc.has_openrouter = True
-    svc.openrouter_key = "fake-key"
-    svc.openrouter_base = "https://openrouter.ai/api/v1"
-    svc.openrouter_model = "deepseek/deepseek-chat"
-    svc.openrouter_timeout = 5
+    svc.has_xkiro = True
+    svc.xkiro_key = "fake-key"
+    svc.xkiro_base = "https://api.xkiro.com/v1"
+    svc.xkiro_model = "google/gemini-3.8-flash"
+    svc.xkiro_timeout = 5
     svc.is_ready = True
 
     # Force the circuit breaker window open.
-    svc._openrouter_down_until = time.monotonic() + 60
+    svc._xkiro_down_until = time.monotonic() + 60
 
     raised = False
     try:
-        svc._openrouter_generate("test prompt")
+        svc._xkiro_generate("test prompt")
     except RuntimeError as e:
         raised = True
         assert "temporarily disabled" in str(e).lower(), f"Expected circuit-breaker message, got: {e}"
 
-    assert raised, "Expected _openrouter_generate to raise when circuit breaker is active"
-    print("✓ test_openrouter_circuit_breaker_blocks_repeated_failure")
+    assert raised, "Expected _xkiro_generate to raise when circuit breaker is active"
+    print("✓ test_xkiro_circuit_breaker_blocks_repeated_failure")
 
 
-def test_openrouter_401_sets_circuit_breaker():
-    """When OpenRouter returns 401 (invalid key), the circuit breaker should
+def test_xkiro_401_sets_circuit_breaker():
+    """When XKIRO returns 401 (invalid key), the circuit breaker should
     be set for 5 minutes and the error should mention auth, not 'empty response'."""
     svc = _fresh_service()
-    svc.has_openrouter = True
-    svc.openrouter_key = "fake-key"
-    svc.openrouter_base = "https://openrouter.ai/api/v1"
-    svc.openrouter_model = "deepseek/deepseek-chat"
-    svc.openrouter_timeout = 5
+    svc.has_xkiro = True
+    svc.xkiro_key = "fake-key"
+    svc.xkiro_base = "https://api.xkiro.com/v1"
+    svc.xkiro_model = "google/gemini-3.8-flash"
+    svc.xkiro_timeout = 5
     svc.is_ready = True
-    assert svc._openrouter_down_until == 0.0
+    assert svc._xkiro_down_until == 0.0
 
     # Mock subprocess.run to return a 401 error JSON (not empty stdout)
     mock_proc = MagicMock()
@@ -192,27 +192,27 @@ def test_openrouter_401_sets_circuit_breaker():
     with patch("subprocess.run", return_value=mock_proc):
         raised = False
         try:
-            svc._openrouter_generate("test prompt")
+            svc._xkiro_generate("test prompt")
         except RuntimeError as e:
             raised = True
             assert "auth error" in str(e).lower(), f"Expected auth error, got: {e}"
             assert "empty response" not in str(e).lower(), f"Should NOT say 'empty response': {e}"
 
     assert raised, "Expected RuntimeError for 401 error response"
-    assert svc._openrouter_down_until > time.monotonic(), "Circuit breaker should be set after 401"
-    print("✓ test_openrouter_401_sets_circuit_breaker")
+    assert svc._xkiro_down_until > time.monotonic(), "Circuit breaker should be set after 401"
+    print("✓ test_xkiro_401_sets_circuit_breaker")
 
 
-def test_openrouter_429_not_confused_with_empty():
-    """When OpenRouter returns 429 (rate limit), _openrouter_generate should
+def test_xkiro_429_not_confused_with_empty():
+    """When XKIRO returns 429 (rate limit), _xkiro_generate should
     raise a 'rate-limited' error — NOT a misleading 'empty response' that
     triggers the slow Cloudflare/HF fallback cascade."""
     svc = _fresh_service()
-    svc.has_openrouter = True
-    svc.openrouter_key = "fake-key"
-    svc.openrouter_base = "https://openrouter.ai/api/v1"
-    svc.openrouter_model = "deepseek/deepseek-chat"
-    svc.openrouter_timeout = 5
+    svc.has_xkiro = True
+    svc.xkiro_key = "fake-key"
+    svc.xkiro_base = "https://api.xkiro.com/v1"
+    svc.xkiro_model = "google/gemini-3.8-flash"
+    svc.xkiro_timeout = 5
     svc.is_ready = True
 
     mock_proc = MagicMock()
@@ -223,14 +223,14 @@ def test_openrouter_429_not_confused_with_empty():
     with patch("subprocess.run", return_value=mock_proc):
         raised = False
         try:
-            svc._openrouter_generate("test prompt")
+            svc._xkiro_generate("test prompt")
         except RuntimeError as e:
             raised = True
             assert "rate-limit" in str(e).lower() or "429" in str(e), f"Expected rate-limit/429 error, got: {e}"
             assert "empty response" not in str(e).lower(), f"Should NOT say 'empty response': {e}"
 
     assert raised, "Expected RuntimeError for 429 error response"
-    print("✓ test_openrouter_429_not_confused_with_empty")
+    print("✓ test_xkiro_429_not_confused_with_empty")
 
 
 def test_nvidia_generate_exists_and_callable():
@@ -267,11 +267,11 @@ def test_nvidia_circuit_breaker_blocks_repeated_failure():
 
 def test_generate_text_with_fallback_calls_nvidia_generate():
     """Verify _generate_text_with_fallback correctly calls _nvidia_generate
-    (not a misnamed duplicate method) when OpenRouter is unavailable."""
+    (not a misnamed duplicate method) when XKIRO is unavailable."""
     svc = _fresh_service()
-    # Only NVIDIA configured (no OpenRouter)
+    # Only NVIDIA configured (no XKIRO)
     svc.has_nvidia = True
-    svc.has_openrouter = False
+    svc.has_xkiro = False
     svc.nvidia_key = "fake-key"
     svc.nvidia_base = "https://integrate.api.nvidia.com/v1"
     svc.nvidia_chat_model = "meta/llama-3.1-8b-instruct"
@@ -298,9 +298,9 @@ if __name__ == "__main__":
     test_hf_circuit_breaker_blocks_repeated_401()
     test_cf_circuit_breaker_message_not_misleading()
     test_generate_text_with_fallback_error_message()
-    test_openrouter_circuit_breaker_blocks_repeated_failure()
-    test_openrouter_401_sets_circuit_breaker()
-    test_openrouter_429_not_confused_with_empty()
+    test_xkiro_circuit_breaker_blocks_repeated_failure()
+    test_xkiro_401_sets_circuit_breaker()
+    test_xkiro_429_not_confused_with_empty()
     test_nvidia_generate_exists_and_callable()
     test_nvidia_circuit_breaker_blocks_repeated_failure()
     test_generate_text_with_fallback_calls_nvidia_generate()

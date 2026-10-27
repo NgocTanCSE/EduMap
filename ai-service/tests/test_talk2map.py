@@ -19,7 +19,7 @@ import pytest
 # Match the pattern from test_ai_fallbacks.py: blank out every provider env
 # var so LLMService.is_ready is False.
 _PROVIDER_ENV_VARS = [
-    "OPENROUTER_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_BASE_URL",
+    "XKIRO_API_KEY", "XKIRO_MODEL", "XKIRO_BASE_URL",
     "NVIDIA_API_KEY", "NVIDIA_BASE_URL", "KIMI_API_KEY", "KIMI_BASE_URL",
     "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GEMINI_API_KEY",
     "HF_TOKEN", "HF_API_TOKEN", "HUGGING_FACE_HUB_TOKEN",
@@ -33,7 +33,7 @@ for _v in _PROVIDER_ENV_VARS:
 def _restore_env():
     """Restore provider env vars after this module's tests so they don't
     leak into other test modules (e.g. test_speech.py which checks that
-    OPENROUTER_API_KEY is set)."""
+    XKIRO_API_KEY is set)."""
     yield
     for _v, _val in _original_env.items():
         if _val is not None:

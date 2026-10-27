@@ -9,7 +9,7 @@
 #   BASE_URL defaults to the public HF Space URL.
 #
 # The STT endpoint degrades gracefully (returns 200 with degraded=True) when
-# OPENROUTER_API_KEY is not configured as an HF Spaces Secret. The intent
+# XKIRO_API_KEY is not configured as an HF Spaces Secret. The intent
 # classification always runs via regex baseline (no LLM needed).
 #
 # Exit codes: 0 = all checks passed, 1 = at least one check failed.

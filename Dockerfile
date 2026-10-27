@@ -171,21 +171,21 @@ ENV GEO_VISION_MODEL=facebook/owlv2-base-c
 ENV GEO_VISION_TIMEOUT_SECONDS=25
 # Bing Maps tiles (optional aerial source). Empty = OSM tiles used.
 ENV BING_MAPS_API_KEY=""
-# OpenRouter embedding model + timeout (embeddings via curl --ipv4 --insecure).
-# OpenRouter model slugs are provider-prefixed: the old "text-embedding-3-small"
-# was rejected/never resolved. Keep the full slug here.
-# Override via HF Spaces secrets if a different model is preferred.
-ENV OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small
-ENV OPENROUTER_TIMEOUT_SECONDS=8
+# XKIRO does NOT support embeddings (/v1/embeddings returns 404).
+# XKIRO_EMBEDDING_MODEL left empty — embedding chain falls through to
+# Gemini/HF/NVIDIA/Kimi. Kept as ENV for forward compatibility.
+ENV XKIRO_EMBEDDING_MODEL=
+ENV XKIRO_TIMEOUT_SECONDS=8
 # Embedding time budget: total chain + per-provider cap. Together these keep
 # RAG well below the NestJS 10s stream timeout and stop the first provider
-# (OpenRouter) from starving Cloudflare/HF/Kimi fallbacks.
+# (XKIRO) from starving Cloudflare/HF/Kimi fallbacks.
 ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
 ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
 ENV RAG_TIMEOUT_SECONDS=8
-# Voice-to-Geo (Idea #16): OpenRouter Speech-to-Text (Whisper) fallback.
-ENV OPENROUTER_STT_MODEL=openai/whisper-large-v3
-ENV OPENROUTER_STT_TIMEOUT_SECONDS=25
+# Voice-to-Geo (Idea #16): XKIRO does NOT support STT. XKIRO_STT_MODEL left
+# empty — speech service degrades to client-side Web Speech API.
+ENV XKIRO_STT_MODEL=
+ENV XKIRO_STT_TIMEOUT_SECONDS=25
 # --- Shanghai AI Laboratory (01.ai / Kimi) — secondary LLM + embedding provider ---
 # Set KIMI_API_KEY as an HF Spaces Secret to enable Kimi as a fallback provider.
 # kore-gpt-9b is the standard Kimi chat model; kimi-embedding-0812 is the

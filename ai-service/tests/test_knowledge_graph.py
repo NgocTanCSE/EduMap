@@ -20,7 +20,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-os.environ.setdefault("OPENROUTER_API_KEY", "")
+os.environ.setdefault("XKIRO_API_KEY", "")
 os.environ.setdefault("HF_TOKEN", "")
 os.environ.setdefault("DB_TYPE", "sqlite")
 os.environ.setdefault("DB_SQLITE_PATH", os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db"))

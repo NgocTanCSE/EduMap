@@ -18,7 +18,7 @@ if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
 # Import the FastAPI app from main.py (routers auto-included via try/except)
-os.environ.setdefault("OPENROUTER_API_KEY", "")
+os.environ.setdefault("XKIRO_API_KEY", "")
 os.environ.setdefault("HF_TOKEN", "")
 from main import app
 from fastapi.testclient import TestClient

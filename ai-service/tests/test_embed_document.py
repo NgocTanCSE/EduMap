@@ -18,7 +18,7 @@ if _AI_DIR not in sys.path:
 # Ensure no real API providers are configured
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "OPENROUTER_API_KEY",
+    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
     "NVIDIA_API_KEY", "NIM_API_KEY",
 ]:
     os.environ[_v] = ""
@@ -101,7 +101,7 @@ def _fresh_service(collection=None):
     from services.vector_store import VectorStoreService
     svc = object.__new__(VectorStoreService)
     svc.has_api = True
-    svc.has_openrouter_api = False
+    svc.has_xkiro_api = False
     svc.has_gemini_api = False
     svc.has_cf_api = False
     svc.has_hf_api = False
@@ -112,7 +112,7 @@ def _fresh_service(collection=None):
     svc._embed_cache_max = 128
     svc._embed_cache_ttl = 1800.0
     svc._gemini_embed_down_until = 0.0
-    svc._openrouter_embed_down_until = 0.0
+    svc._xkiro_embed_down_until = 0.0
     svc._cf_embed_down_until = 0.0
     svc.collection = collection
     # Mock get_embedding to return a fixed 768-dim vector
@@ -196,20 +196,20 @@ def test_embed_document_caches_embedding():
     # the internal _embed_cache + provider-chain logic is exercised.
     del svc.get_embedding  # remove lambda override, fall back to class method
 
-    # Enable OpenRouter provider and mock the provider-level call
-    svc.has_openrouter_api = True
+    # Enable XKIRO provider and mock the provider-level call
+    svc.has_xkiro_api = True
     svc.has_gemini_api = False
     svc.has_cf_api = False
     svc.has_hf_api = False
     svc.has_nvidia_api = False
     call_count = [0]
 
-    def mock_openrouter_embed(text, **kwargs):
+    def mock_xkiro_embed(text, **kwargs):
         call_count[0] += 1
         return [0.1] * 768
 
-    svc._openrouter_get_embedding = mock_openrouter_embed
-    svc._openrouter_embed_down_until = 0.0
+    svc._xkiro_get_embedding = mock_xkiro_embed
+    svc._xkiro_embed_down_until = 0.0
 
     # Embed the same text twice
     svc.embed_document("cached doc", {"category": "library"}, "cache_001")

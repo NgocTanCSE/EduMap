@@ -27,7 +27,7 @@ sys.path.insert(0, _AI_DIR)
 
 # Disable pre-flight checks and clear provider env so tests don't hit the network
 os.environ["AI_PREFLIGHT"] = "false"
-os.environ["OPENROUTER_API_KEY"] = ""
+os.environ["XKIRO_API_KEY"] = ""
 os.environ["NVIDIA_API_KEY"] = ""
 os.environ["HF_TOKEN"] = ""
 os.environ["GEMINI_API_KEY"] = ""
@@ -268,7 +268,7 @@ class TestExtractSources:
 
 
 class TestToolDefinitions:
-    """Verify the TOOLS list is well-formed for OpenRouter function calling."""
+    """Verify the TOOLS list is well-formed for XKIRO function calling."""
 
     def test_tools_have_names(self, map_agent):
         for t in map_agent.TOOLS:

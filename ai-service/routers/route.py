@@ -2,7 +2,7 @@
 SafeRoute AI explain router — POST /api/ai/route/explain
 
 Receives the scored route alternatives from the backend and uses the LLM
-cascade (OpenRouter → NVIDIA → Kimi → Cloudflare → HF) to generate a
+cascade (XKIRO → NVIDIA → Kimi → Cloudflare → HF) to generate a
 Vietnamese explanation of why each route was ranked as it was.
 
 Graceful degradation: when every LLM provider is unavailable, a template
@@ -155,7 +155,7 @@ Trả về JSON với cấu trúc sau (không thêm văn bản khác):
     try:
         svc = _get_llm_service()
         if svc is None or not getattr(svc, "is_ready", False):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, hoặc KIMI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY, NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, hoặc KIMI_API_KEY.")
 
         response = await asyncio.to_thread(
             svc._generate_text_with_fallback,

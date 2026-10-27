@@ -283,18 +283,18 @@ export class AIController {
   /**
    * POST /ai/speech/to-text
    *
-   * Server-side Speech-to-Text fallback (Whisper via OpenRouter). The frontend
+   * Server-side Speech-to-Text fallback (Whisper via XKIRO). The frontend
    * prefers the client-side Web Speech API (privacy); this endpoint is called
    * when the browser cannot transcribe Vietnamese reliably.
    *
-   * Requires: OPENROUTER_API_KEY (HF Spaces secret).
+   * Requires: XKIRO_API_KEY (HF Spaces secret).
    * Degrades gracefully: returns 200 with degraded=True when Whisper is
    * unavailable, so the frontend falls back to the client-side transcript.
    *
-   * Source: https://openrouter.ai/docs/api/api-reference/stt/create-transcription.md
+   * Source: https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
    */
   @Post('speech/to-text')
-  @ApiOperation({ summary: 'F-16: Server-side STT fallback (Whisper via OpenRouter)' })
+  @ApiOperation({ summary: 'F-16: Server-side STT fallback (Whisper via XKIRO)' })
   async speechToText(
     @Body('audio_base64') audioBase64: string,
     @Body('audio_format') audioFormat?: string,

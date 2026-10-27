@@ -10,7 +10,7 @@ Tuân thủ AGENTS.md:
   - Production chỉ chạy trên HF Spaces (single Docker container).
   - Mọi HTTP call dùng curl --ipv4 --insecure (đã có trong LLMService).
   - SQL injection → chỉ cho phép SELECT trên allowlist tables.
-  - OpenRouter tool calling → Gemini fallback (prompt-based plan & execute).
+  - XKIRO tool calling → Gemini fallback (prompt-based plan & execute).
   - RAG failure → LLM-only answer, never crash.
 """
 
@@ -162,16 +162,16 @@ class MapAgent:
     - ``rag_search``    — semantic search over the seeded ChromaDB knowledge base
 
     Tool call sequence:
-      1. Plan  — the LLM decides which tools to call (OpenRouter function calling).
+      1. Plan  — the LLM decides which tools to call (XKIRO function calling).
       2. Act   — each tool is executed and its result is fed back to the LLM.
       3. Repeat until the LLM returns a natural-language summary (no more tool_calls).
 
-    If OpenRouter tool calling is unavailable, a **plan-then-execute** fallback
+    If XKIRO tool calling is unavailable, a **plan-then-execute** fallback
     is used: the LLM emits a JSON plan (tool names + arguments) which the agent
     parses and executes, then summarises.
     """
 
-    # ── Tool definitions (OpenAI / OpenRouter function-calling schema) ────────
+    # ── Tool definitions (OpenAI / XKIRO function-calling schema) ────────
     TOOLS: List[Dict[str, Any]] = [
         {
             "type": "function",
@@ -609,7 +609,7 @@ class MapAgent:
         if not llm_service or not llm_service.is_ready:
             return {
                 "reply": "Xin chào! Hiện tại dịch vụ AI chưa sẵn sàng. "
-                         "Vui lòng cấu hình OPENROUTER_API_KEY (primary) hoặc "
+                         "Vui lòng cấu hình XKIRO_API_KEY (primary) hoặc "
                          "NVIDIA_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN, HF_TOKEN.",
                 "tools_used": [],
                 "sources": [],
@@ -634,7 +634,7 @@ class MapAgent:
         for _round in range(self.MAX_TOOL_ROUNDS):
             # ── Step 1: ask LLM (with tools) ────────────────────────────────
             try:
-                resp = llm_service._openrouter_chat_with_tools(
+                resp = llm_service._xkiro_chat_with_tools(
                     messages=messages,
                     tools=tools,
                     tool_choice="auto",
@@ -741,7 +741,7 @@ class MapAgent:
         history: Optional[List[Dict[str, str]]],
         tools_used: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """When OpenRouter tool calling is unavailable, use plan-then-execute.
+        """When XKIRO tool calling is unavailable, use plan-then-execute.
 
         The LLM (via _generate_text_with_fallback) is prompted to output a JSON
         plan of tool calls. We parse it, execute the tools, then prompt the LLM

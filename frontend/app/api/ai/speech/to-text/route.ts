@@ -10,9 +10,9 @@ import { getBackendUrl } from '@/src/lib/api-config';
  * leaves the browser). When Chrome's Vietnamese recognition is unreliable,
  * the voice-search page base64-encodes the recorded audio and posts it here.
  * The BFF proxies to the NestJS backend, which forwards to the ai-service
- * (OpenRouter Whisper via curl).
+ * (XKIRO Whisper via curl).
  *
- * Source: https://openrouter.ai/docs/api/api-reference/stt/create-transcription.md
+ * Source: https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
  *
  * Always returns 200 (degraded when Whisper is unavailable) so the frontend
  * can fall back to the client-side transcript.

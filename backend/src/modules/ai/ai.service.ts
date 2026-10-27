@@ -948,7 +948,7 @@ export class AIService {
    * Voice-to-Geo AI (Idea #16, Task 2) — server-side Speech-to-Text fallback.
    *
    * Proxies POST /ai/speech/to-text → ai-service POST /api/ai/speech/to-text
-   * (OpenRouter Whisper via curl). The ai-service already returns 200 with
+   * (XKIRO Whisper via curl). The ai-service already returns 200 with
    * degraded=True on failure; here we additionally degrade when the
    * ai-service itself is unreachable so the frontend keeps the client-side
    * Web Speech transcript instead of erroring.

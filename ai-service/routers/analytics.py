@@ -436,7 +436,7 @@ def _holt_linear_forecast(years: List[int], values: List[float],
 async def get_daily_insight(request_data: DashboardInsightRequest):
     from services.llm_service import llm_service
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
     try:
         insight = await llm_service.generate_daily_insight(request_data.dashboard_data or {})
         return insight

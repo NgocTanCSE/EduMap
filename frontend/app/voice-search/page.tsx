@@ -158,7 +158,7 @@ export default function VoiceSearchPage() {
     }
   }, [finalText]);
 
-  // ── STT: server-side Whisper via OpenRouter (fallback) ──────────────────
+  // ── STT: server-side Whisper via XKIRO (fallback) ──────────────────
   const startWhisperFallback = useCallback(async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       toast.error('Trình duyệt không hỗ trợ ghi âm — dùng bàn phím nhập tin nhắn.');
@@ -199,7 +199,7 @@ export default function VoiceSearchPage() {
 
           setTranscript(data.text || '');
           setFinalText(data.text || '');
-          setSttMethod(data.method || 'Whisper (OpenRouter)');
+          setSttMethod(data.method || 'Whisper (XKIRO)');
           setSttDegraded(data.degraded || false);
           if (data.error && data.degraded) {
             toast(data.error);

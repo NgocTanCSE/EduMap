@@ -71,8 +71,8 @@ class LLMService:
     def __init__(self):
         # ── Google Gemini (embeddings + fallback text generation) ────────────
         # Gemini key is still loaded for embeddings (vector_store.py) and may
-        # be used as a last-resort fallback. OpenRouter is the primary text
-        # generation provider (configured via OPENROUTER_API_KEY).
+        # be used as a last-resort fallback. XKIRO is the primary text
+        # generation provider (configured via XKIRO_API_KEY).
         # HF Spaces cannot complete a TLS handshake with api.cloudflare.com
         # (confirmed network-level issue, July 2026), so Cloudflare Workers AI
         # is unusable there. Gemini is reachable and also provides embeddings.
@@ -157,18 +157,18 @@ class LLMService:
         # backend's 60s HTTP timeout (3 models x retries used to take >60s).
         self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
         self.has_hf = bool(self.hf_token)
-        # --- OpenRouter / xkiro (OpenAI-compatible, thay thế Cloudflare/Gemini nếu cần) ---
-        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or "").strip().strip('"').strip("'")
-        self.openrouter_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
-        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat")
-        self.openrouter_timeout = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "15"))
-        self.has_openrouter = bool(self.openrouter_key)
-        # OpenRouter embedding model (tuỳ chọn, dùng cho vector store)
-        self.openrouter_embed_model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "")
-        self.has_openrouter_embed = bool(self.openrouter_key) and bool(self.openrouter_embed_model)
-        # Circuit breaker: after a network/TLS failure or 401 from OpenRouter,
+        # --- XKIRO (OpenAI-compatible, primary LLM provider) ---
+        self.xkiro_key = (os.getenv("XKIRO_API_KEY") or "").strip().strip('"').strip("'")
+        self.xkiro_base = os.getenv("XKIRO_BASE_URL", "https://api.xkiro.com/v1").rstrip("/")
+        self.xkiro_model = os.getenv("XKIRO_MODEL", "google/gemini-3.8-flash")
+        self.xkiro_timeout = float(os.getenv("XKIRO_TIMEOUT_SECONDS", "15"))
+        self.has_xkiro = bool(self.xkiro_key)
+        # XKIRO embedding model (tuỳ chọn, dùng cho vector store)
+        self.xkiro_embed_model = os.getenv("XKIRO_EMBEDDING_MODEL", "")
+        self.has_xkiro_embed = bool(self.xkiro_key) and bool(self.xkiro_embed_model)
+        # Circuit breaker: after a network/TLS failure or 401 from XKIRO,
         # skip it for 5 minutes instead of burning the curl timeout on every retry.
-        self._openrouter_down_until = 0.0
+        self._xkiro_down_until = 0.0
         # --- NVIDIA NIM (OpenAI-compatible) — model chat/embed trên build.nvidia.com ---
         self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
         self.nvidia_base = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
@@ -190,15 +190,15 @@ class LLMService:
         self.has_kimi_embed = bool(self.kimi_key) and bool(self.kimi_embed_model)
         self._kimi_down_until = 0.0
         self._kimi_embed_down_until = 0.0
-        # is_ready = True neu co bat ky nhanh LLM nao (OpenRouter / Gemini / Cloudflare / HF / NVIDIA / Kimi)
-        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_openrouter or self.has_nvidia or self.has_kimi
-        if self.has_openrouter:
-            print(f"INFO: OpenRouter la provider CHINH (primary). Model={self.openrouter_model}")
+        # is_ready = True neu co bat ky nhanh LLM nao (XKIRO / Gemini / Cloudflare / HF / NVIDIA / Kimi)
+        self.is_ready = self.has_gemini or self.has_cf or self.has_hf or self.has_xkiro or self.has_nvidia or self.has_kimi
+        if self.has_xkiro:
+            print(f"INFO: XKIRO la provider CHINH (primary). Model={self.xkiro_model}")
         elif self.has_gemini:
             print(f"INFO: Google Gemini la provider CHINH (fallback). Model={self.gemini_model_name}")
         if not self.is_ready:
-            print("ERROR: Khong co OPENROUTER_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac HF_TOKEN. Cau hinh de dung AI chat.")
-        elif not self.has_openrouter and not self.has_gemini and not self.has_cf and self.has_hf:
+            print("ERROR: Khong co XKIRO_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac HF_TOKEN. Cau hinh de dung AI chat.")
+        elif not self.has_xkiro and not self.has_gemini and not self.has_cf and self.has_hf:
             print(f"INFO: Chi co HuggingFace Inference API. Model={self.hf_model}")
         if self.has_hf:
             # Never print the token itself; length + prefix is enough to spot
@@ -227,8 +227,8 @@ class LLMService:
             try:
                 from services.net import probe_tls
                 targets = []
-                if self.has_openrouter:
-                    targets.append("openrouter.ai")
+                if self.has_xkiro:
+                    targets.append("api.xkiro.com")
                 if self.has_gemini:
                     targets.append("generativelanguage.googleapis.com")
                 if self.has_cf:
@@ -261,9 +261,9 @@ class LLMService:
         """Call Google Gemini generateContent.
 
         Gemini is no longer the primary provider for text generation on HF
-        Spaces — OpenRouter holds that role now. This method is retained as a
+        Spaces — XKIRO holds that role now. This method is retained as a
         last-resort fallback (invoked only inside _cloudflare_generate's
-        three-provider cascade after OpenRouter and NVIDIA have failed). Requests
+        three-provider cascade after XKIRO and NVIDIA have failed). Requests
         use curl so they follow the same IPv4/TLS workaround as the other
         providers.
         """
@@ -389,7 +389,7 @@ class LLMService:
         """
         import time as _time
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         request_started = _time.monotonic()
         cf_last_err = None
@@ -606,20 +606,20 @@ class LLMService:
             raise RuntimeError(f"HF router returned empty response: {str(data)[:200]}")
         return text
 
-    def _openrouter_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Gọi OpenRouter / xkiro (OpenAI-compatible chat completions).
+    def _xkiro_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Gọi XKIRO (OpenAI-compatible chat completions).
 
-        Endpoint: https://openrouter.ai/api/v1/chat/completions
-        Header: Authorization: Bearer <OPENROUTER_API_KEY>
+        Endpoint: https://api.xkiro.com/v1/chat/completions
+        Header: Authorization: Bearer <XKIRO_API_KEY>
         """
-        if not self.has_openrouter:
-            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter.")
+        if not self.has_xkiro:
+            raise RuntimeError("XKIRO_API_KEY not set — cannot use XKIRO.")
         import time as _time
-        if _time.monotonic() < self._openrouter_down_until:
-            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
-        url = f"{self.openrouter_base}/chat/completions"
+        if _time.monotonic() < self._xkiro_down_until:
+            raise RuntimeError("XKIRO temporarily disabled after a network failure.")
+        url = f"{self.xkiro_base}/chat/completions"
         payload = {
-            "model": self.openrouter_model,
+            "model": self.xkiro_model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": int(max_tokens or 1024),
             "temperature": float(temperature),
@@ -634,21 +634,21 @@ class LLMService:
             proc = subprocess.run(
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", f"Authorization: Bearer {self.xkiro_key}",
                     "-H", "Content-Type: application/json",
                     "-H", "Accept: application/json",
                     "-H", "HTTP-Referer: https://edumap.ai",
                     "-H", "X-Title: EduMap",
                     "-d", body_json,
                     "--connect-timeout", "6",
-                    "--max-time", str(self.openrouter_timeout),
+                    "--max-time", str(self.xkiro_timeout),
                     url,
                 ],
-                capture_output=True, text=True, timeout=self.openrouter_timeout + 2,
+                capture_output=True, text=True, timeout=self.xkiro_timeout + 2,
             )
         except Exception as e:
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter connection failed: {type(e).__name__}: {e}")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"XKIRO connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
@@ -669,25 +669,25 @@ class LLMService:
                             _msg = str(_eno.get("message", _stdout[:200]))
                             _low = _msg.lower()
                             if _code in (401, 403) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
-                                self._openrouter_down_until = _time.monotonic() + 300
-                                raise RuntimeError(f"OpenRouter auth error (HTTP {_code}): {_msg[:200]}")
+                                self._xkiro_down_until = _time.monotonic() + 300
+                                raise RuntimeError(f"XKIRO auth error (HTTP {_code}): {_msg[:200]}")
                             if _code == 429:
-                                self._openrouter_down_until = _time.monotonic() + 300
-                                raise RuntimeError(f"OpenRouter rate-limited (429): {_msg[:150]}")
+                                self._xkiro_down_until = _time.monotonic() + 300
+                                raise RuntimeError(f"XKIRO rate-limited (429): {_msg[:150]}")
                             err = f"{err} | body: {_msg[:120]}"
                 except json.JSONDecodeError:
                     pass
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter curl failed: {err}")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"XKIRO curl failed: {err}")
 
         if not (proc.stdout or "").strip():
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter returned empty response (curl stdout empty)")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"XKIRO returned empty response (curl stdout empty)")
 
         try:
             data = json.loads(proc.stdout)
         except Exception:
-            raise RuntimeError(f"OpenRouter returned invalid JSON: {(proc.stdout or '')[:200]}")
+            raise RuntimeError(f"XKIRO returned invalid JSON: {(proc.stdout or '')[:200]}")
 
         # Check for API error responses (429 rate-limit, 401 invalid key, 404 model
         # not found) WITHOUT confusing them with genuinely empty content. This
@@ -703,13 +703,13 @@ class LLMService:
                 message = str(err)
             low = message.lower()
             if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
-                self._openrouter_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"OpenRouter auth error (HTTP {code}): {message[:200]}")
+                self._xkiro_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"XKIRO auth error (HTTP {code}): {message[:200]}")
             if code == 429:
-                raise RuntimeError(f"OpenRouter rate-limited (429): {message[:150]}")
+                raise RuntimeError(f"XKIRO rate-limited (429): {message[:150]}")
             if self._is_model_not_found(code, message):
-                raise RuntimeError(f"OpenRouter model unavailable (HTTP {code}): {message[:150]}")
-            raise RuntimeError(f"OpenRouter API error (HTTP {code}): {message[:200]}")
+                raise RuntimeError(f"XKIRO model unavailable (HTTP {code}): {message[:150]}")
+            raise RuntimeError(f"XKIRO API error (HTTP {code}): {message[:200]}")
 
         text = ""
         try:
@@ -719,11 +719,11 @@ class LLMService:
                 text = data.get("generated_text") or ""
         text = str(text).strip()
         if not text:
-            raise RuntimeError(f"OpenRouter returned empty response: {str(data)[:200]}")
+            raise RuntimeError(f"XKIRO returned empty response: {str(data)[:200]}")
         return text
 
-    def _openrouter_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
-        """True token-by-token streaming via OpenRouter SSE (curl --ipv4 --insecure).
+    def _xkiro_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
+        """True token-by-token streaming via XKIRO SSE (curl --ipv4 --insecure).
 
         Uses subprocess.Popen + stdout PIPE so curl's streaming output is read
         incrementally without buffering the entire response.  This replaces the
@@ -731,14 +731,14 @@ class LLMService:
 
         Yields individual token strings (content deltas).
         """
-        if not self.has_openrouter:
-            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter streaming.")
+        if not self.has_xkiro:
+            raise RuntimeError("XKIRO_API_KEY not set — cannot use XKIRO streaming.")
         import time as _time
-        if _time.monotonic() < self._openrouter_down_until:
-            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
-        url = f"{self.openrouter_base}/chat/completions"
+        if _time.monotonic() < self._xkiro_down_until:
+            raise RuntimeError("XKIRO temporarily disabled after a network failure.")
+        url = f"{self.xkiro_base}/chat/completions"
         payload = {
-            "model": self.openrouter_model,
+            "model": self.xkiro_model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": int(max_tokens or 1024),
             "temperature": float(temperature),
@@ -753,14 +753,14 @@ class LLMService:
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-N",
                     "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", f"Authorization: Bearer {self.xkiro_key}",
                     "-H", "Content-Type: application/json",
                     "-H", "Accept: text/event-stream",
                     "-H", "HTTP-Referer: https://edumap.ai",
                     "-H", "X-Title: EduMap",
                     "-d", body_json,
                     "--connect-timeout", "6",
-                    "--max-time", str(self.openrouter_timeout),
+                    "--max-time", str(self.xkiro_timeout),
                     url,
                 ],
                 stdout=subprocess.PIPE,
@@ -769,7 +769,7 @@ class LLMService:
                 bufsize=1,
             )
         except Exception as e:
-            raise RuntimeError(f"OpenRouter stream connection failed: {type(e).__name__}: {e}")
+            raise RuntimeError(f"XKIRO stream connection failed: {type(e).__name__}: {e}")
 
         try:
             for line in proc.stdout:
@@ -790,11 +790,11 @@ class LLMService:
                     if content:
                         yield content
         except Exception as e:
-            print(f"OpenRouter stream read error: {e}")
+            print(f"XKIRO stream read error: {e}")
         finally:
             proc.kill()
 
-    def _openrouter_chat_with_tools(
+    def _xkiro_chat_with_tools(
         self,
         messages: list,
         tools: list,
@@ -802,26 +802,26 @@ class LLMService:
         temperature: float = 0.3,
         max_tokens: int = 2048,
     ) -> dict:
-        """Single OpenRouter chat-completion call with tool-calling support.
+        """Single XKIRO chat-completion call with tool-calling support.
 
-        Mirrors ``_openrouter_generate`` (curl --ipv4 --insecure) but sends a
+        Mirrors ``_xkiro_generate`` (curl --ipv4 --insecure) but sends a
         ``messages`` array + ``tools`` definition so the model can emit
         ``tool_calls``. Returns the **full** response dict (not just the text)
         because the caller needs ``tool_calls`` to drive an agent loop.
 
         Used by ``agents/map_agent.py``. A Gemini fallback is attempted inside
         the agent via the non-tool-calling ``_generate_text_with_fallback``
-        when OpenRouter is not configured.
+        when XKIRO is not configured.
         """
-        if not self.has_openrouter:
-            raise RuntimeError("OPENROUTER_API_KEY not set — cannot use OpenRouter tool calling.")
+        if not self.has_xkiro:
+            raise RuntimeError("XKIRO_API_KEY not set — cannot use XKIRO tool calling.")
         import time as _time
-        if _time.monotonic() < self._openrouter_down_until:
-            raise RuntimeError("OpenRouter temporarily disabled after a network failure.")
+        if _time.monotonic() < self._xkiro_down_until:
+            raise RuntimeError("XKIRO temporarily disabled after a network failure.")
 
-        url = f"{self.openrouter_base}/chat/completions"
+        url = f"{self.xkiro_base}/chat/completions"
         payload = {
-            "model": self.openrouter_model,
+            "model": self.xkiro_model,
             "messages": messages,
             "tools": tools,
             "tool_choice": tool_choice,
@@ -835,35 +835,35 @@ class LLMService:
             proc = subprocess.run(
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", f"Authorization: Bearer {self.xkiro_key}",
                     "-H", "Content-Type: application/json",
                     "-H", "Accept: application/json",
                     "-H", "HTTP-Referer: https://edumap.ai",
                     "-H", "X-Title: EduMap",
                     "-d", body_json,
                     "--connect-timeout", "6",
-                    "--max-time", str(self.openrouter_timeout),
+                    "--max-time", str(self.xkiro_timeout),
                     url,
                 ],
-                capture_output=True, text=True, timeout=self.openrouter_timeout + 2,
+                capture_output=True, text=True, timeout=self.xkiro_timeout + 2,
             )
         except Exception as e:
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter tool-call connection failed: {type(e).__name__}: {e}")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"XKIRO tool-call connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"OpenRouter tool-call curl failed: {err}")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"XKIRO tool-call curl failed: {err}")
 
         if not (proc.stdout or "").strip():
-            self._openrouter_down_until = _time.monotonic() + 300
-            raise RuntimeError("OpenRouter tool-call returned empty response")
+            self._xkiro_down_until = _time.monotonic() + 300
+            raise RuntimeError("XKIRO tool-call returned empty response")
 
         try:
             data = json.loads(proc.stdout)
         except Exception:
-            raise RuntimeError(f"OpenRouter tool-call returned invalid JSON: {(proc.stdout or '')[:200]}")
+            raise RuntimeError(f"XKIRO tool-call returned invalid JSON: {(proc.stdout or '')[:200]}")
 
         if isinstance(data, dict) and data.get("error"):
             err = data.get("error") or {}
@@ -875,11 +875,11 @@ class LLMService:
                 message = str(err)
             low = message.lower()
             if code in (401, 403) or ("api key" in low and ("invalid" in low or "not valid" in low or "unauthorized" in low)):
-                self._openrouter_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"OpenRouter tool-call auth error (HTTP {code}): {message[:200]}")
+                self._xkiro_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"XKIRO tool-call auth error (HTTP {code}): {message[:200]}")
             if code == 429:
-                raise RuntimeError(f"OpenRouter tool-call rate-limited (429): {message[:150]}")
-            raise RuntimeError(f"OpenRouter tool-call API error (HTTP {code}): {message[:200]}")
+                raise RuntimeError(f"XKIRO tool-call rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"XKIRO tool-call API error (HTTP {code}): {message[:200]}")
 
         return data
 
@@ -936,7 +936,7 @@ class LLMService:
         except Exception:
             raise RuntimeError(f"NVIDIA NIM returned invalid JSON: {(proc.stdout or '')[:200]}")
 
-        # Check for API error responses (same pattern as OpenRouter).
+        # Check for API error responses (same pattern as XKIRO).
         if isinstance(data, dict) and data.get("error"):
             err = data.get("error") or {}
             if isinstance(err, dict):
@@ -1070,9 +1070,9 @@ class LLMService:
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Try all configured LLM providers in priority order.
 
-        Order: OpenRouter → NVIDIA NIM → Shanghai AI Lab (Kimi) → Cloudflare/HF.
+        Order: XKIRO → NVIDIA NIM → Shanghai AI Lab (Kimi) → Cloudflare/HF.
 
-        OpenRouter is the primary provider (uses curl --ipv4 --insecure for
+        XKIRO is the primary provider (uses curl --ipv4 --insecure for
         HF Spaces compatibility). NVIDIA and Kimi follow, then the three-provider
         Cloudflare/HF cascade.
 
@@ -1083,18 +1083,18 @@ class LLMService:
         import time as _time
         errors: dict = {}
 
-        # 1. OpenRouter (OpenAI-compatible, external provider — primary)
-        if self.has_openrouter:
+        # 1. XKIRO (OpenAI-compatible, external provider — primary)
+        if self.has_xkiro:
             try:
-                result = self._openrouter_generate(
+                result = self._xkiro_generate(
                     prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
                 )
                 if result:
-                    print("  -> OpenRouter generate OK")
+                    print("  -> XKIRO generate OK")
                     return result
             except Exception as e:
-                errors["OpenRouter"] = str(e)
-                print(f"OpenRouter generate failed: {e}")
+                errors["XKIRO"] = str(e)
+                print(f"XKIRO generate failed: {e}")
 
         # 2. NVIDIA NIM (OpenAI-compatible, external provider)
         if self.has_nvidia:
@@ -1135,10 +1135,10 @@ class LLMService:
 
         # Build a detailed, per-provider error message.
         parts = []
-        if not self.has_openrouter:
-            parts.append("OpenRouter: không cấu hình")
-        elif errors.get("OpenRouter"):
-            parts.append(f"OpenRouter: {errors['OpenRouter'][:150]}")
+        if not self.has_xkiro:
+            parts.append("XKIRO: không cấu hình")
+        elif errors.get("XKIRO"):
+            parts.append(f"XKIRO: {errors['XKIRO'][:150]}")
         if not self.has_nvidia:
             parts.append("NVIDIA: không cấu hình")
         elif errors.get("NVIDIA"):
@@ -1154,33 +1154,33 @@ class LLMService:
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
     def generate_embedding(self, text: str, timeout_override: float = None) -> list:
-        """Sinh embedding vector qua OpenRouter embedding endpoint.
+        """Sinh embedding vector qua XKIRO embedding endpoint.
 
-        Yêu cầu: OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL được cấu hình.
+        Yêu cầu: XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL được cấu hình.
         Trả về list[float]. Nếu không cấu hình hoặc gọi thất bại, ném RuntimeError
         để caller dùng fallback khác (Gemini/HF embedding).
 
         Uses curl (OpenSSL TLS) for HF Spaces compatibility — same pattern as
-        _openrouter_generate and the embedding providers in vector_store.py.
+        _xkiro_generate and the embedding providers in vector_store.py.
         """
-        if not self.has_openrouter_embed:
-            raise RuntimeError("OPENROUTER_API_KEY + OPENROUTER_EMBEDDING_MODEL not set — cannot use OpenRouter embedding.")
+        if not self.has_xkiro_embed:
+            raise RuntimeError("XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL not set — cannot use XKIRO embedding.")
         import time as _time_ext
-        if _time_ext.monotonic() < self._openrouter_down_until:
-            raise RuntimeError("OpenRouter embeddings temporarily disabled after a network failure (circuit breaker).")
+        if _time_ext.monotonic() < self._xkiro_down_until:
+            raise RuntimeError("XKIRO embeddings temporarily disabled after a network failure (circuit breaker).")
 
-        url = f"{self.openrouter_base}/embeddings"
+        url = f"{self.xkiro_base}/embeddings"
         payload = json.dumps({
-            "model": self.openrouter_embed_model,
+            "model": self.xkiro_embed_model,
             "input": text,
         }).encode("utf-8")
-        _emb_timeout = timeout_override or self.openrouter_timeout
+        _emb_timeout = timeout_override or self.xkiro_timeout
 
         try:
             proc = subprocess.run(
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.openrouter_key}",
+                    "-H", f"Authorization: Bearer {self.xkiro_key}",
                     "-H", "Content-Type: application/json",
                     "-H", "Accept: application/json",
                     "-H", "HTTP-Referer: https://edumap.ai",
@@ -1193,8 +1193,8 @@ class LLMService:
                 capture_output=True, text=True, timeout=_emb_timeout + 2,
             )
         except Exception as e:
-            self._openrouter_down_until = _time_ext.monotonic() + 300
-            raise RuntimeError(f"OpenRouter embedding connection failed: {type(e).__name__}: {e}")
+            self._xkiro_down_until = _time_ext.monotonic() + 300
+            raise RuntimeError(f"XKIRO embedding connection failed: {type(e).__name__}: {e}")
 
         if proc.returncode != 0:
             err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
@@ -1212,18 +1212,18 @@ class LLMService:
                             _msg = str(_eno.get("message", _stdout[:120]))
                             low = _msg.lower()
                             if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
-                                self._openrouter_down_until = _time_ext.monotonic() + 300
-                                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {_code}): {_msg[:200]}")
+                                self._xkiro_down_until = _time_ext.monotonic() + 300
+                                raise RuntimeError(f"XKIRO embedding auth error (HTTP {_code}): {_msg[:200]}")
                             err = f"{err} | body: {_msg[:120]}"
                 except json.JSONDecodeError:
                     pass
-            self._openrouter_down_until = _time_ext.monotonic() + 300
-            raise RuntimeError(f"OpenRouter embedding connection failed: {err}")
+            self._xkiro_down_until = _time_ext.monotonic() + 300
+            raise RuntimeError(f"XKIRO embedding connection failed: {err}")
 
         try:
             data = json.loads(proc.stdout or "{}")
         except Exception:
-            raise RuntimeError(f"OpenRouter embedding invalid JSON: {(proc.stdout or '')[:200]}")
+            raise RuntimeError(f"XKIRO embedding invalid JSON: {(proc.stdout or '')[:200]}")
 
         if isinstance(data, dict) and data.get("error"):
             err = data.get("error") or {}
@@ -1235,18 +1235,18 @@ class LLMService:
                 message = str(err)
             low = message.lower()
             if code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
-                self._openrouter_down_until = _time_ext.monotonic() + 300
-                raise RuntimeError(f"OpenRouter embedding auth error (HTTP {code}): {message[:200]}")
+                self._xkiro_down_until = _time_ext.monotonic() + 300
+                raise RuntimeError(f"XKIRO embedding auth error (HTTP {code}): {message[:200]}")
             if code == 429:
-                raise RuntimeError(f"OpenRouter embedding rate-limited (429): {message[:150]}")
-            raise RuntimeError(f"OpenRouter embedding HTTP {code}: {message[:200]}")
+                raise RuntimeError(f"XKIRO embedding rate-limited (429): {message[:150]}")
+            raise RuntimeError(f"XKIRO embedding HTTP {code}: {message[:200]}")
 
         try:
             embedding = data["data"][0]["embedding"]
         except (KeyError, IndexError, TypeError):
-            raise RuntimeError(f"OpenRouter embedding returned unexpected format: {str(data)[:200]}")
+            raise RuntimeError(f"XKIRO embedding returned unexpected format: {str(data)[:200]}")
         if not isinstance(embedding, list) or not embedding:
-            raise RuntimeError(f"OpenRouter embedding returned empty vector: {str(data)[:200]}")
+            raise RuntimeError(f"XKIRO embedding returned empty vector: {str(data)[:200]}")
         return [float(x) for x in embedding]
 
     # --- Methods from Legacy LLMService ---
@@ -1257,7 +1257,7 @@ class LLMService:
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
         if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
@@ -1348,12 +1348,12 @@ class LLMService:
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
 
-        # Ưu tiên OpenRouter (provider chính), sau đó NVIDIA / Cloudflare / HF.
+        # Ưu tiên XKIRO (provider chính), sau đó NVIDIA / Cloudflare / HF.
         # Gemini đã được loại bỏ vì API key không còn hoạt động trên HF Spaces.
         reply_text = None
         last_err = None
         for gen_fn in [
-            self._openrouter_generate if self.has_openrouter else None,
+            self._xkiro_generate if self.has_xkiro else None,
             self._nvidia_generate if self.has_nvidia else None,
             self._cloudflare_generate if self.has_cf else None,
             self._hf_generate if self.has_hf else None,
@@ -1387,8 +1387,8 @@ class LLMService:
 
         1. Lấy sources từ ChromaDB (giống chat_with_rag).
         2. Build prompt the same way.
-        3. Gọi _openrouter_generate_stream để nhận từng token real-time.
-        4. Nếu OpenRouter không khả dụng, fallback sang non-streaming và
+        3. Gọi _xkiro_generate_stream để nhận từng token real-time.
+        4. Nếu XKIRO không khả dụng, fallback sang non-streaming và
            yield toàn bộ response dưới dạng một chunk.
 
         Yield format: SSE data lines (``data: {json}\\n\\n``)
@@ -1484,18 +1484,18 @@ class LLMService:
         # ---- 3. Send metadata (sources) first ----
         yield f"data: {json.dumps({'sources': sources, 'meta': True})}\n\n"
 
-        # ---- 4. Try true streaming via OpenRouter ----
-        if self.has_openrouter:
+        # ---- 4. Try true streaming via XKIRO ----
+        if self.has_xkiro:
             try:
                 full_reply = ""
-                for token in self._openrouter_generate_stream(
+                for token in self._xkiro_generate_stream(
                     prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 ):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
                 # Only return if streaming produced actual content. If the
                 # generator yielded zero tokens (e.g. curl returned 200 with an
-                # empty body, or OpenRouter returned no choices), fall through
+                # empty body, or XKIRO returned no choices), fall through
                 # to the non-streaming fallback so the user still gets a reply
                 # instead of an empty/null response.
                 if full_reply:
@@ -1505,15 +1505,15 @@ class LLMService:
                     cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
                     return
                 else:
-                    print("OpenRouter streaming returned empty reply, falling back to non-streaming")
+                    print("XKIRO streaming returned empty reply, falling back to non-streaming")
             except Exception as e:
-                print(f"OpenRouter streaming failed, falling back to non-stream: {e}")
+                print(f"XKIRO streaming failed, falling back to non-stream: {e}")
 
         # ---- 5. Fallback: non-streaming (yield word-by-word for typing effect) ----
         reply_text = None
         last_err = None
         for gen_fn in [
-            self._openrouter_generate if self.has_openrouter else None,
+            self._xkiro_generate if self.has_xkiro else None,
             self._nvidia_generate if self.has_nvidia else None,
             self._cloudflare_generate if self.has_cf else None,
             self._hf_generate if self.has_hf else None,
@@ -1533,7 +1533,7 @@ class LLMService:
             reply_text = self._chat_fallback_reply(message, sources, context)
 
         # Stream word-by-word so the UI shows a typing effect even when
-        # real SSE streaming from OpenRouter is unavailable.
+        # real SSE streaming from XKIRO is unavailable.
         async for chunk in self._stream_word_by_word(reply_text, sources=sources, is_final=True):
             yield chunk
         cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
@@ -1542,7 +1542,7 @@ class LLMService:
                                    is_final: bool = False, delay: float = 0.03):
         """Yield a pre-computed reply as individual SSE chunks with a typing delay.
 
-        Used when true streaming (OpenRouter SSE) is unavailable — the entire
+        Used when true streaming (XKIRO SSE) is unavailable — the entire
         reply is already in-memory, but we break it into word-level chunks so
         the frontend still shows a *typing effect* (chữ chạy) instead of dumping
         the whole answer at once.
@@ -1577,7 +1577,7 @@ class LLMService:
             yield f"data: {json.dumps({'done': True})}\n\n"
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-        """Fallback trả lời khi tất cả LLM provider đều thất bại (OpenRouter/Gemini/CF/HF unreachable từ HF Spaces).
+        """Fallback trả lời khi tất cả LLM provider đều thất bại (XKIRO/Gemini/CF/HF unreachable từ HF Spaces).
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
         available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
@@ -1620,7 +1620,7 @@ class LLMService:
             return response
         except Exception as e:
             print(f"Error in generate_career_advice: {e}")
-            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình OPENROUTER_API_KEY (primary), "                    f"NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
+            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. "                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình XKIRO_API_KEY (primary), "                    f"NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc HF_TOKEN. "                    f"Lỗi: {str(e)[:140]}"
 
     async def analyze_market_trends(self, market_data: list):
         """Phân tích xu hướng thị trường việc làm — LUÔN trả về kết quả thành công.
@@ -1659,7 +1659,7 @@ class LLMService:
 
         Uses curl with --ipv4 --insecure to bypass the Python ssl/urllib IPv6
         blackhole that causes hangs/timeouts on HF Spaces — the exact same
-        pattern used by the OpenRouter, Cloudflare, HF and NVIDIA providers.
+        pattern used by the XKIRO, Cloudflare, HF and NVIDIA providers.
         Returns list of dicts or None on failure (falls back to local SQLite).
         """
         try:
@@ -1800,14 +1800,14 @@ class LLMService:
         
         dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
-        # Ưu tiên OpenRouter (provider chính), sau đó NVIDIA NIM / Cloudflare / HF.
+        # Ưu tiên XKIRO (provider chính), sau đó NVIDIA NIM / Cloudflare / HF.
         # Gemini đã bị loại bỏ khỏi chain text generation (chỉ còn dùng cho embeddings).
-        if self.has_openrouter:
+        if self.has_xkiro:
             try:
-                response = await asyncio.to_thread(self._openrouter_generate, prompt)
+                response = await asyncio.to_thread(self._xkiro_generate, prompt)
                 return {"insight": response}
             except Exception as e:
-                print(f"OpenRouter daily_insight failed: {e}")
+                print(f"XKIRO daily_insight failed: {e}")
         if self.has_nvidia:
             try:
                 response = await asyncio.to_thread(self._nvidia_generate, prompt)
@@ -2302,7 +2302,7 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, "
+                    "AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY, "
                     "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
                 )
 
@@ -2434,7 +2434,7 @@ Trả về **mảng JSON** sau:
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY, "
+                    "AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY, "
                     "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
                 )
 
@@ -2757,7 +2757,7 @@ Trả về **mảng JSON** sau:
     async def moderate_text(self, text: str) -> dict:
         """Moderate user-generated content.
 
-        Uses the full provider cascade (OpenRouter -> NVIDIA -> Cloudflare ->
+        Uses the full provider cascade (XKIRO -> NVIDIA -> Cloudflare ->
         HF). When EVERY provider is unavailable at runtime, returns a
         conservative safe result (rather than raising) so the community
         router can keep operating. Content reaching this method has already
@@ -2778,7 +2778,7 @@ Trả về **mảng JSON** sau:
         """
         try:
             if not self.is_ready:
-                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,
                 temperature=0.3, max_tokens=512, top_p=0.8,
@@ -2848,7 +2848,7 @@ Trả về **mảng JSON** sau:
 
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình OPENROUTER_API_KEY (primary), "
+                    "AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), "
                     "NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN, GEMINI_API_KEY hoặc HF_TOKEN."
                 )
 

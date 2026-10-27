@@ -11,7 +11,7 @@ User → Frontend (Next.js :7680)
   → BFF /api/opportunities/match  (Next.js proxy)
     → Backend NestJS /opportunities/match   [T1: SQLite pre-filter]
       → AI Service (FastAPI :8000) /api/ai/opportunity/match   [T2: NLP criteria extraction]
-        → OpenRouter → NVIDIA → Cloudflare → HF (graceful fallback)
+        → XKIRO → NVIDIA → Cloudflare → HF (graceful fallback)
   ← match_score + checklist ← AI ← candidates ← SQLite pre-filter ← backend
 ```
 

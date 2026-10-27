@@ -176,7 +176,7 @@ recommended.
 **Acceptance criteria:**
 Method signature: `explain_learning_space_recommendation(spot: dict,
       preferences: dict) -> dict`
-Uses `_generate_text_with_fallback()` (provider chain: OpenRouter →
+Uses `_generate_text_with_fallback()` (provider chain: XKIRO →
       NVIDIA → Cloudflare → HF) with a concise prompt
 `_explain_learning_space_fallback()` returns a static template
       explanation when AI provider unavailable

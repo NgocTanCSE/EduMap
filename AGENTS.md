@@ -25,7 +25,7 @@
 >   - Cold start takes tens of seconds → frontends/proxies need retries and
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
->     (OpenRouter → NVIDIA → Cloudflare → HF) with template fallbacks.
+>     (XKIRO → NVIDIA → Cloudflare → HF) with template fallbacks.
 >   - Only one container, one public port (7680) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
@@ -220,10 +220,12 @@ HF Spaces Docker container (public port 7680)
 ## 3. AI provider chain
 
 Text generation (`ai-service/services/llm_service.py`):
-`OpenRouter → NVIDIA → Cloudflare → HF` (with template fallback).
+`XKIRO → NVIDIA → Cloudflare → HF` (with template fallback).
 
 Embeddings (`ai-service/services/vector_store.py`):
-`OpenRouter → Gemini → Cloudflare → HF → NVIDIA → 01.ai/Kimi`.
+`Gemini → Cloudflare → HF → NVIDIA → 01.ai/Kimi`.
+(XKIRO is attempted first only if `XKIRO_EMBEDDING_MODEL` is explicitly set,
+but XKIRO does NOT support `/v1/embeddings` → 404 → immediate fallback to Gemini.)
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
@@ -276,7 +278,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
   `POST /api/ai/language/tts`).
   - Simplify/translate use `_generate_text_with_fallback` cascade
-    (OpenRouter → NVIDIA → Kimi → Cloudflare → HF) with `temperature=0.3`,
+    (XKIRO → NVIDIA → Kimi → Cloudflare → HF) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
     never 502s when all providers are down (HF Spaces free plan).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
@@ -305,17 +307,17 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   (`POST /api/ai/speech/to-text`).
   - Client-side STT: Web Speech API (`SpeechRecognition`, `lang='vi-VN'`)
     on the frontend — privacy-first, audio never leaves the browser.
-  - Server-side STT fallback: OpenRouter Whisper (`openai/whisper-large-v3`)
-    via `curl --ipv4 --insecure` — used when Chrome's Vietnamese recognition
-    is unreliable. `OPENROUTER_API_KEY` (existing HF Spaces secret) is reused;
-    `OPENROUTER_STT_MODEL` and `OPENROUTER_STT_TIMEOUT_SECONDS=25` are set as
-    Dockerfile ENV defaults.
+  - Server-side STT fallback: XKIRO STT endpoint. NOTE: XKIRO does NOT
+    natively support speech-to-text (`/audio/transcriptions` returns 404).
+    The service degrades gracefully to client-side Web Speech API.
+    `XKIRO_API_KEY` is set as an HF Spaces Secret; `XKIRO_STT_MODEL` is left
+    empty (Dockerfile ENV default) so the service degrades immediately.
   - Per-provider circuit breaker (5 min / 300 s) after auth or network failure,
     matching `llm_service.py`.
   - **Never 503/502**: returns 200 with `degraded=True` + empty `text` +
     human-readable `error` when Whisper is unavailable (no key, circuit open,
     network failure). The frontend falls back to the client-side transcript.
-  - STT key is read **dynamically** via `SpeechService._get_openrouter_key()`
+  - STT key is read **dynamically** via `SpeechService._get_xkiro_key()`
     (not at module import) so test fixtures and HF Spaces secret propagation
     are always respected.
   - Intent classification: `NLQueryParser.extract_intent()` — regex baseline
@@ -357,9 +359,11 @@ Rules that must be preserved:
   - `RAG_TIMEOUT_SECONDS` (default 8) — `chat_with_rag*` hard limit.
   - Keep these below the NestJS stream timeout (10s). A slow provider must
     never starve the fallbacks or leave the chat bubble empty.
-- OpenRouter model slugs are provider-prefixed:
-  `openai/text-embedding-3-small` (the unprefixed `text-embedding-3-small`
-  is wrong; `vector_store.py` normalises legacy values).
+- XKIRO text-generation model slugs are provider-prefixed:
+  `google/gemini-3.8-flash` (the unprefixed `gemini-3.8-flash` is wrong).
+  XKIRO does NOT support embeddings (`/v1/embeddings` → 404) — the embedding
+  chain starts at `XKIRO_EMBEDDING_MODEL=` (empty) which skips to Gemini;
+  `vector_store.py` normalises legacy unprefixed values.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
 ## 4. Useful local commands
@@ -384,10 +388,11 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 ## 5. Environment notes
 
-- `OPENROUTER_API_KEY`, `HF_TOKEN`, `KIMI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
+- `XKIRO_API_KEY`, `HF_TOKEN`, `KIMI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
   `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`, `NVIDIA_API_KEY` are HF Secrets.
-- `OPENROUTER_MODEL=deepseek/deepseek-chat` (text generation).
-- `OPENROUTER_EMBEDDING_MODEL=openai/text-embedding-3-small`.
+- `XKIRO_MODEL=google/gemini-3.8-flash` (text generation).
+- `XKIRO_EMBEDDING_MODEL=` (empty — XKIRO does NOT support embeddings; chain
+  falls through to Gemini/HF/NVIDIA/Kimi).
 - `HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base` (768-dim).
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
@@ -403,9 +408,12 @@ HF_TOKEN=<token> ./deploy-hf.sh
   (browser Web Speech API). The Language Bridge LLM endpoints (simplify,
   translate) do NOT require this key — they use the same `_generate_text_with_fallback`
   cascade as all other AI features.
-- `OPENROUTER_STT_MODEL=openai/whisper-large-v3` — Whisper model slug for
-  server-side STT fallback (Voice-to-Geo, Idea #16). `OPENROUTER_API_KEY`
-  is reused (same OpenRouter inference API). `OPENROUTER_STT_TIMEOUT_SECONDS=25`.
+
+- `XKIRO_STT_MODEL=` — STT endpoint slug (Voice-to-Geo, Idea #16).
+  NOTE: XKIRO does NOT natively support speech-to-text (`/audio/transcriptions`
+  returns 404). The service degrades to client-side Web Speech API when the
+  model is empty or the endpoint fails. `XKIRO_API_KEY` is reused (same key,
+  same base URL). `XKIRO_STT_TIMEOUT_SECONDS=25`.
   These are Dockerfile ENV defaults; override via HF Spaces secrets if needed.
   The STT key is read dynamically at call time (not import time) to support
   HF Spaces secret propagation.
@@ -468,3 +476,45 @@ fabricated. The following rules now apply to every feature:
 - The websocket/SSE chat path is only reachable through
   `POST /api/ai/chat-stream` (JWT required) → NestJS proxy
   `['/api/ai/chat/stream', '/chat/stream']` → ai-service `POST /api/ai/chat/stream`.
+
+## 8. Frontend UI conventions (added 2026-10-27)
+
+The UI was fragmented: each page invented its own padding, radius, icon
+style and copy language (some pages were fully English inside a Vietnamese
+app). These rules are now enforced by shared code — use them instead of
+inventing new values.
+
+- **Feature registry is the single source of truth.**
+  `frontend/src/lib/feature-catalog.ts` declares every feature (id, label,
+  href, lucide icon, Vietnamese description, group, `sidebar?`).
+  - The sidebar (`components/Sidebar.tsx`) renders `SIDEBAR_GROUPS`.
+  - `/features` (`app/features/page.tsx`) renders the whole catalog with
+    search + group filters.
+  - **Adding a page = add one catalog entry.** Never hand-edit a nav list.
+  - Pages that used to be unreachable (`/ai-agent`, `/learning-spaces`,
+    `/surveys`, `/volunteer`, `/career/jobs`, `/career/predictive`,
+    `/map/geo-vision`, `/map/data-hunter`, `/map/gap-predictor`,
+    `/map/resource-optimizer`) are now in the hub.
+- **Icons are vectors only.** Use `lucide-react` (or the local `EduMapLogo`).
+  No emoji-as-icon, no raster/SVG illustration used as an icon.
+  `<img>` is allowed only for real user/content images (avatars, event
+  covers, QR codes, uploaded proof photos).
+- **One page frame.** Use `.page-shell` (or `.page-shell-narrow`) from
+  `app/globals.css`; it sets `max-w-6xl`, `px-4 py-6 sm:px-6 sm:py-8` and
+  `space-y-6`. Pages that must stay full-width use
+  `px-4 py-6 sm:px-6 sm:py-8` instead of `p-8`.
+- **One card system.** `.card-surface` + `.card-equal` (`h-full flex-col`)
+  + `.card-footer` (`mt-auto` + top border) keeps titles/descriptions/CTAs
+  aligned across a row. Clamp long text with `line-clamp-1/2`.
+  Grids: `.card-grid` (3-col) / `.card-grid-4` (4-col).
+- **Colour tokens only.** Desert Dusk semantic tokens; no raw
+  `gray-*/blue-*/indigo-*` palettes in page chrome. Text on terracotta or
+  sage must be `text-primary-foreground` / `text-accent-foreground`
+  (`text-foreground` on `bg-primary` is unreadable).
+- **Secondary text is readable.** Use `text-foreground/55–60` or
+  `.text-soft`; avoid `text-muted-foreground/40`-style values (raised to
+  `/60` project-wide in this pass).
+- **Copy is Vietnamese** (headings, labels, placeholders, toasts, empty
+  states). Product names (EduMap, Talk2Map, Language Bridge AI,
+  ImpactMatch, Resource Exchange AI, GeoVision AI) stay as-is.
+- **Verify** with `cd frontend && npx tsc --noEmit && npm run build`.

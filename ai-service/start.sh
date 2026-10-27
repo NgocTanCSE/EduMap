@@ -31,8 +31,8 @@ HF_LLM_MODEL HF_EMBEDDING_MODEL OPENAI_API_KEY ADZUNA_APP_ID \
 ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
 GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
 CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED \
-OPENROUTER_API_KEY OPENROUTER_MODEL OPENROUTER_BASE_URL OPENROUTER_EMBEDDING_MODEL OPENROUTER_TIMEOUT_SECONDS \
-OPENROUTER_STT_MODEL OPENROUTER_STT_TIMEOUT_SECONDS \
+XKIRO_API_KEY XKIRO_MODEL XKIRO_BASE_URL XKIRO_EMBEDDING_MODEL XKIRO_TIMEOUT_SECONDS \
+XKIRO_STT_MODEL XKIRO_STT_TIMEOUT_SECONDS \
 NVIDIA_API_KEY NIM_API_KEY NVIDIA_BASE_URL NVIDIA_CHAT_MODEL NVIDIA_EMBED_MODEL NVIDIA_TIMEOUT_SECONDS \
 KIMI_API_KEY KIMI_BASE_URL KIMI_MODEL KIMI_EMBEDDING_MODEL KIMI_TIMEOUT_SECONDS \
 GEO_VISION_MODEL GEO_VISION_TIMEOUT_SECONDS BING_MAPS_API_KEY \
@@ -62,7 +62,7 @@ fi
 
 # ── Debug: print which AI sources are available (without revealing secrets) ─
 echo "AI service env check:"
-[ -n "$OPENROUTER_API_KEY" ] && echo "  OPENROUTER_API_KEY: ✓ set (primary LLM provider)" || echo "  OPENROUTER_API_KEY: ✗ NOT set"
+[ -n "$XKIRO_API_KEY" ] && echo "  XKIRO_API_KEY: ✓ set (primary LLM provider)" || echo "  XKIRO_API_KEY: ✗ NOT set"
 [ -n "$GEMINI_API_KEY" ] && echo "  GEMINI_API_KEY: ✓ set (embeddings + fallback)" || echo "  GEMINI_API_KEY: ✗ NOT set"
 [ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
 [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo "  CLOUDFLARE_ACCOUNT_ID: ✓ set" || echo "  CLOUDFLARE_ACCOUNT_ID: ✗ NOT set"
@@ -73,7 +73,7 @@ echo "AI service env check:"
 [ -n "$KIMI_API_KEY" ] && echo "  KIMI_API_KEY: ✓ set (Shanghai AI Laboratory / 01.ai, secondary provider)" || echo "  KIMI_API_KEY: ✗ NOT set"
 [ -n "$OWM_API_KEY" ] && echo "  OWM_API_KEY: ✓ set (OpenWeatherMap for Climate Guardian)" || echo "  OWM_API_KEY: ✗ NOT set"
 [ -n "$GOOGLE_TTS_API_KEY" ] && echo "  GOOGLE_TTS_API_KEY: ✓ set (Google Cloud TTS for Language Bridge)" || echo "  GOOGLE_TTS_API_KEY: ✗ NOT set (will use edge-tts / gTTS fallback)"
-[ -n "$OPENROUTER_STT_MODEL" ] && echo "  OPENROUTER_STT_MODEL: ✓ set ($OPENROUTER_STT_MODEL)" || echo "  OPENROUTER_STT_MODEL: ✗ NOT set (will use default)"
+[ -n "$XKIRO_STT_MODEL" ] && echo "  XKIRO_STT_MODEL: ✓ set ($XKIRO_STT_MODEL)" || echo "  XKIRO_STT_MODEL: ✗ NOT set (will use default)"
 
 # ── Launch AI service ───────────────────────────────────────────────────────
 exec $PY -m uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5

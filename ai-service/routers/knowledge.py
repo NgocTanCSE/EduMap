@@ -155,7 +155,7 @@ async def extract_entities(data: ExtractRequest):
     trợ, kỹ năng, khu vực ...) từ văn bản và liên kết tới các node trong graph.
 
     Flow:
-      1. Thử LLM (OpenRouter/NVIDIA/Coldflare/HF) — có circuit breaker.
+      1. Thử LLM (XKIRO/NVIDIA/Coldflare/HF) — có circuit breaker.
       2. Nếu LLM thất bại → rule-based extraction (keyword matching).
       3. Kết quả có confidence thấp hoặc degraded → lưu vào hàng đợi
          kg_extraction_review để human review (theo rule AGENTS.md).

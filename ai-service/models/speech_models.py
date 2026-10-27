@@ -5,11 +5,11 @@ These models describe the request/response shape for the server-side
 Speech-to-Text fallback (``POST /api/ai/speech/to-text``).
 
 Client-side STT via the Web Speech API (T1) is preferred for privacy; this
-endpoint is the Whisper-via-OpenRouter fallback used when the browser cannot
+endpoint is the Whisper-via-XKIRO fallback used when the browser cannot
 recognise Vietnamese reliably.
 
-OpenRouter STT API reference:
-https://openrouter.ai/docs/api/api-reference/stt/create-transcription.md
+XKIRO STT API reference:
+https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
 """
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -34,7 +34,7 @@ class SpeechToTextRequest(BaseModel):
 class SpeechToTextResponse(BaseModel):
     """Structured transcription result.
 
-    ``method`` indicates the source: ``"whisper"`` when OpenRouter Whisper
+    ``method`` indicates the source: ``"whisper"`` when XKIRO Whisper
     was used, ``"fallback"`` when no provider key was available and a
     placeholder was returned.
 

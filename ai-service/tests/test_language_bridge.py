@@ -22,7 +22,7 @@ if _AI_DIR not in sys.path:
 # test_impact_match.py / test_ai_fallbacks.py.
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "OPENROUTER_API_KEY",
+    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
     "NVIDIA_API_KEY", "NIM_API_KEY", "KIMI_API_KEY",
 ]:
     os.environ[_v] = ""
