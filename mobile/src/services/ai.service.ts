@@ -169,6 +169,23 @@ export const aiService = {
   async trends(subject?: string) {
     return apiService.get('/ai/trends', subject ? { subject } : undefined);
   },
+
+  // ===================== OFFLINE TUTOR (Idea #7) =====================
+  /**
+   * Edge AI Tutor — local LLM (TinyLlama 1.1B 4-bit) running in ai-service.
+   * No external API calls required. Falls back to template-based responses
+   * when the model isn't loaded.
+   */
+  offlineTutor: (payload: {
+    action: 'explain' | 'practice' | 'suggest';
+    topic: string;
+    material_context?: string;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    num_questions?: number;
+    progression?: Record<string, any>;
+  }) => apiService.post('/offline/tutor', payload),
+
+  offlineTutorStatus: () => apiService.get('/offline/status'),
 };
 
 export default aiService;

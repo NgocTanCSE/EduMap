@@ -37,7 +37,7 @@ export class SponsorNeed {
   @Column({ length: 100 })
   category: string; // education_equipment, scholarship, infrastructure, environment, social_welfare
 
-  @Column({ ...enumColumn(), default: NeedUrgency.MEDIUM })
+  @Column({ ...enumColumn(), enum: NeedUrgency, default: NeedUrgency.MEDIUM })
   urgency: NeedUrgency;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
@@ -46,7 +46,7 @@ export class SponsorNeed {
   @Column({ length: 255, nullable: true })
   location: string; // Tỉnh/thành hoặc khu vực
 
-  @Column({ ...enumColumn(), default: NeedStatus.OPEN })
+  @Column({ ...enumColumn(), enum: NeedStatus, default: NeedStatus.OPEN })
   status: NeedStatus;
 
   @Column(textArrayColumn())

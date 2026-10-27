@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { FloodRoutingService } from './flood-routing.service';
+import { TrafficRoutingService, TrafficAwareRoute } from './traffic-routing.service';
 
 export interface RouteRequest {
   lng1: number;
@@ -68,6 +70,52 @@ export interface Waypoint {
   hint: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// SafeRoute AI (Idea #12) — interfaces
+// ─────────────────────────────────────────────────────────────────────
+
+export type Coord = [number, number]; // [lng, lat]
+
+export interface SafeRoutePreferences {
+  avoidFlood: boolean;
+  avoidTraffic: boolean;
+  preferPaved?: boolean;
+  maxDistanceKm?: number;
+  /** 0–1.  Higher = prioritise safety over speed. Default 0.3. */
+  safetyWeight?: number;
+}
+
+export interface SafetyFactors {
+  distanceScore: number;  // 0–100, higher = shorter
+  durationScore: number;  // 0–100, higher = faster
+  floodRisk: number;      // 0–100, 0 = safe, 100 = fully in flood zone
+  trafficRisk: number;    // 0–100, 0 = free-flow, 100 = gridlock
+}
+
+export interface SafeRouteWithScore extends Route {
+  safetyScore: number;
+  safetyFactors: SafetyFactors;
+  explanation: string;
+  isPrimary: boolean;
+  trafficAnalysis?: {
+    totalDelay: number;
+    congestionSummary: TrafficAwareRoute['congestionSummary'];
+  };
+  floodWarnings: { id: string; name: string; riskLevel: string }[];
+}
+
+export interface SafeRouteResult {
+  routes: SafeRouteWithScore[];
+  bestRouteIndex: number;
+  origin: Coord;
+  destination: Coord;
+  preferences: SafeRoutePreferences;
+  /** true when safety factors used uniform/heuristic weights
+   *  (i.e. flood+traffic data was sparse or routing degraded to Haversine). */
+  estimated: boolean;
+  provider: string;
+}
+
 /**
  * Map OpenRouteService step types to OSRM-style maneuver types.
  */
@@ -113,6 +161,8 @@ export class RoutingService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly floodRoutingService: FloodRoutingService,
+    private readonly trafficRoutingService: TrafficRoutingService,
   ) {
     this.orsUrl = this.configService.get<string>('ORS_URL') || 'https://api.openrouteservice.org';
     this.orsApiKey = this.configService.get<string>('ORS_API_KEY');
@@ -279,7 +329,7 @@ export class RoutingService {
     const duration = distance / 13.9; // assume 50 km/h average speed
 
     return {
-      code: 'Ok',
+      code: 'haversine_fallback',
       routes: [{
         geometry: JSON.stringify({ type: 'LineString', coordinates: [[lng1, lat1], [lng2, lat2]] }),
         legs: [{
@@ -376,5 +426,195 @@ export class RoutingService {
         durations: Array(n).fill(0).map(() => Array(m).fill(0)),
       };
     }
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // SafeRoute AI (Idea #12)
+  // ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Weighted multi-criteria routing that scores every returned alternative
+   * across distance, duration, flood risk and traffic congestion.
+   *
+   * Scoring (0–100, higher = safer/faster):
+   *   safety_component = 100 − (0.5·floodRisk + 0.5·trafficRisk)
+   *   speed_component   = 0.5·distanceScore + 0.5·durationScore
+   *   safetyScore       = w·safety_component + (1−w)·speed_component
+   *
+   * When all ORS/OSRM alternatives are unavailable, the Haversine
+   * straight-line fallback is used and `estimated` is set to true,
+   * signalling to the frontend that weights are uniform.
+   */
+  async safeRoute(
+    origin: Coord,
+    destination: Coord,
+    preferences: SafeRoutePreferences,
+  ): Promise<SafeRouteResult> {
+    const w = preferences.safetyWeight ?? 0.3;
+
+    // 1. Fetch base routes with alternatives from the existing chain
+    const baseResult = await this.getRoute({
+      lng1: origin[0], lat1: origin[1],
+      lng2: destination[0], lat2: destination[1],
+      alternatives: true,
+      steps: true,
+      overview: 'full',
+    });
+
+    const routes = baseResult.routes || [];
+    const provider = baseResult.code === 'haversine_fallback' ? 'haversine' : 'ors_or_osrm';
+    const estimated = provider === 'haversine';
+
+    // 2. Score each route
+    const scored: SafeRouteWithScore[] = await Promise.all(
+      routes.map(async (route, idx) => {
+        const geometry = this.parseRouteGeometry(route.geometry);
+
+        // Flood risk
+        let floodRisk = 0;
+        let floodWarnings: SafeRouteWithScore['floodWarnings'] = [];
+        if (preferences.avoidFlood && geometry) {
+          try {
+            const flood = await this.floodRoutingService.checkRouteForFloods(geometry);
+            const zoneCount = flood?.floodZones?.length || 0;
+            // Each flood zone intersecting the route contributes 25 points (max 100)
+            floodRisk = Math.min(100, zoneCount * 25);
+            floodWarnings = (flood?.floodZones || []).map(z => ({
+              id: z.id, name: z.name, riskLevel: z.riskLevel,
+            }));
+          } catch (e) {
+            this.logger.warn(`Flood check failed for route ${idx}: ${(e as Error).message}`);
+          }
+        }
+
+        // Traffic risk
+        let trafficRisk = 0;
+        let trafficAnalysis: SafeRouteWithScore['trafficAnalysis'];
+        if (preferences.avoidTraffic && geometry) {
+          try {
+            const traffic: TrafficAwareRoute = await this.trafficRoutingService.analyzeRouteTraffic(geometry);
+            if (traffic && traffic.congestionSummary) {
+              const { free, light, moderate, heavy } = traffic.congestionSummary;
+              const total = free + light + moderate + heavy || 1;
+              trafficRisk = Math.min(100,
+                (heavy * 30 + moderate * 15 + light * 5) / total * 100 / 100);
+              trafficRisk = Math.round(trafficRisk);
+              trafficAnalysis = {
+                totalDelay: traffic.totalDelay,
+                congestionSummary: traffic.congestionSummary,
+              };
+            }
+          } catch (e) {
+            this.logger.warn(`Traffic analysis failed for route ${idx}: ${(e as Error).message}`);
+          }
+        }
+
+        return {
+          ...route,
+          geometry: typeof route.geometry === 'string' ? route.geometry : JSON.stringify(route.geometry),
+          safetyScore: 0, // set after normalization
+          safetyFactors: {
+            distanceScore: 0,  // set after normalization
+            durationScore: 0,  // set after normalization
+            floodRisk,
+            trafficRisk,
+          },
+          explanation: this.buildRouteExplanation(route, floodRisk, trafficRisk),
+          isPrimary: false,
+          trafficAnalysis,
+          floodWarnings,
+        };
+      }),
+    );
+
+    // 3. Normalize distance & duration scores across alternatives
+    const maxDist = Math.max(...scored.map(r => r.distance || 1));
+    const maxDur = Math.max(...scored.map(r => r.duration || 1));
+
+    for (const r of scored) {
+      r.safetyFactors.distanceScore = maxDist > 0
+        ? Math.round((1 - (r.distance || 0) / maxDist) * 100) : 100;
+      r.safetyFactors.durationScore = maxDur > 0
+        ? Math.round((1 - (r.duration || 0) / maxDur) * 100) : 100;
+    }
+
+    // 4. Compute final weighted safety score
+    const wFlood = 0.5;
+    const wTraffic = 0.5;
+    for (const r of scored) {
+      const safetyComponent = 100 - (wFlood * r.safetyFactors.floodRisk + wTraffic * r.safetyFactors.trafficRisk);
+      const speedComponent = (0.5 * r.safetyFactors.distanceScore + 0.5 * r.safetyFactors.durationScore);
+      r.safetyScore = Math.round(w * safetyComponent + (1 - w) * speedComponent);
+    }
+
+    // 5. Filter by maxDistanceKm (always keep at least the shortest route)
+    if (preferences.maxDistanceKm && scored.length > 1) {
+      const maxDistM = preferences.maxDistanceKm * 1000;
+      const withinLimit = scored.filter(r => (r.distance || 0) <= maxDistM);
+      if (withinLimit.length > 0) {
+        scored.length = 0;
+        scored.push(...withinLimit);
+      } else {
+        // None within limit — keep only the shortest route
+        scored.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        const shortest = scored[0];
+        scored.length = 0;
+        scored.push(shortest);
+      }
+    }
+
+    // 6. Sort descending by safetyScore and mark primary
+    scored.sort((a, b) => b.safetyScore - a.safetyScore);
+    if (scored.length > 0) scored[0].isPrimary = true;
+
+    return {
+      routes: scored,
+      bestRouteIndex: 0,
+      origin,
+      destination,
+      preferences,
+      estimated,
+      provider,
+    };
+  }
+
+  /** Parse a route geometry that might be a JSON string, object, or LineString coords array. */
+  private parseRouteGeometry(geom: string | any): any {
+    if (!geom) return null;
+    if (typeof geom === 'string') {
+      try {
+        return JSON.parse(geom);
+      } catch {
+        return null;
+      }
+    }
+    if (typeof geom === 'object') {
+      if (geom.type) return geom; // already a GeoJSON geometry
+      if (Array.isArray(geom) && geom[0]?.length === 2) {
+        return { type: 'LineString', coordinates: geom };
+      }
+    }
+    return null;
+  }
+
+  /** Build a Vietnamese human-readable explanation for a single route. */
+  private buildRouteExplanation(
+    route: Route,
+    floodRisk: number,
+    trafficRisk: number,
+  ): string {
+    const distKm = (route.distance / 1000).toFixed(1);
+    const durMin = Math.round(route.duration / 60);
+    let parts: string[] = [];
+
+    if (floodRisk > 0) {
+      parts.push(`ngập lũ (${floodRisk}% rủi ro)`);
+    }
+    if (trafficRisk > 0) {
+      parts.push(`tắc nghẽn (${trafficRisk}% rủi ro)`);
+    }
+
+    const riskPart = parts.length > 0 ? ` — rủi ro: ${parts.join(', ')}` : '';
+    return `Quãng đường ${distKm} km, khoảng ${durMin} phút${riskPart}.`;
   }
 }

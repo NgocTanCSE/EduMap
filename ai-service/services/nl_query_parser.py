@@ -36,6 +36,31 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
+# ── Intent classification (Idea #16: Voice-to-Geo) ───────────────────────────
+# Maps a transcribed (or typed) Vietnamese query to one of three intents.
+# ``geo_recommend``  — user wants to FIND a place to learn/study/etc.
+# ``report_form``    — user wants to REPORT an issue (broken wifi, flooding…).
+# ``geo_query``      — pure information request about a location ("where is …").
+# The classification reuses the Talk2Map regex baseline so it works even when
+# the LLM is down (zero-dependency, always-on path on HF Spaces free plan).
+INTENT_REPORT_KEYWORDS: List[str] = [
+    "hỏng", "đứt", "lỗi", "ngập", "hỏng", "gửi báo cáo", "báo cáo",
+    "đóng góp", "báo cáo sự cố", "báo lỗi", "báo wifi", "mạng yếu",
+    "không hoạt động", "không kết nối", "đóng góp thông tin", "signal",
+    "yếu", "down", "outage", "broken",
+]
+INTENT_FIND_KEYWORDS: List[str] = [
+    "tìm", "tìm kiếm", "tìm nơi", "tìm đường",
+]
+INTENT_QUERY_KEYWORDS: List[str] = [
+    "ở đâu", "là gì", "thế nào", "bao nhiêu", "giờ mở cửa",
+    "giờ đóng cửa", "thông tin", "liên hệ", "số điện thoại",
+]
+
+# Default intent when nothing clearly matches.
+_DEFAULT_INTENT = "geo_recommend"
+
+
 # ── Vietnamese category keywords → backend POI category ─────────────────────
 # Sorted longest-first at match-time so multi-word phrases (e.g. "trường học")
 # are matched before bare "trường". Covers miền Bắc / Trung / Nam variants.
@@ -194,6 +219,96 @@ class NLQueryParser:
         blocking LLM subprocess (``_generate_text_with_fallback``) doesn't
         freeze the event loop."""
         return await asyncio.to_thread(self.parse, text)
+
+    # ------------------------------------------------------------------
+    # Intent classification (Idea #16: Voice-to-Geo, Task 3)
+    # ------------------------------------------------------------------
+    def extract_intent(self, parsed: dict) -> dict:
+        """Classify a parsed query into a Voice-to-Geo intent.
+
+        Reuses the Talk2Map regex baseline (facility_types / conditions /
+        location already extracted by :meth:`parse`) so intent detection works
+        on HF Spaces even when the LLM is down.
+
+        Returns::
+
+            {
+              "intent": "geo_recommend" | "report_form" | "geo_query",
+              "confidence": 0.0–1.0,
+              "detail": "human-readable reason for the classification",
+            }
+
+        Intent rules (Vietnamese, 3-miền aware):
+
+        * ``report_form`` — the transcript contains a report/issue keyword
+          (hỏng, đứt, lỗi, ngập, "gửi báo cáo", mạng yếu…). Maps to the
+          "send a map report" output (pin an issue at a location).
+        * ``geo_recommend`` — the transcript contains a "find" verb
+          (tìm, tìm kiếm, tìm nơi…) or conditions that imply searching for
+          a study spot (wifi, free, open_evening). This is the default when
+          facility_types or search conditions are detected.
+        * ``geo_query`` — the transcript asks for information about a place
+          (ở đâu, là gì, giờ mở cửa…) rather than searching for one.
+        """
+        raw = (parsed.get("raw_text") or "").lower().strip()
+        facilities = parsed.get("facility_types") or []
+        conditions = parsed.get("conditions") or []
+        has_location = bool(parsed.get("location") or parsed.get("reference_location"))
+
+        # ── report_form: issue / broken / flooding keywords ─────────────
+        # Takes priority: "Báo wifi hỏng" is a report even if "tìm" appears.
+        report_hits = [kw for kw in INTENT_REPORT_KEYWORDS if kw in raw]
+        if report_hits:
+            return {
+                "intent": "report_form",
+                "confidence": min(0.4 + 0.15 * len(report_hits), 0.95),
+                "detail": f"Nhận diện báo cáo sự cố: {', '.join(report_hits[:3])}",
+            }
+
+        # ── geo_recommend: explicit "find" verbs (tìm / tìm kiếm / tìm nơi) ─
+        # These are unambiguous search intents — the user wants results on a map.
+        find_hits = [kw for kw in INTENT_FIND_KEYWORDS if re.search(kw, raw)]
+
+        # ── geo_query: information questions (ở đâu / là gì / bao nhiêu…) ────
+        # Only trigger when there is NO explicit "tìm" find-verb — a query like
+        # "Trường DNTU ở đâu?" asks WHERE, it doesn't search FOR a place.
+        # Facility keywords (trường, thư viện…) appear in both find and info
+        # queries, so the verb — not the facility presence — decides.
+        query_hits = [kw for kw in INTENT_QUERY_KEYWORDS if re.search(kw, raw)]
+        if query_hits and not find_hits:
+            return {
+                "intent": "geo_query",
+                "confidence": min(0.4 + 0.1 * len(query_hits), 0.85),
+                "detail": f"Nhận diện câu hỏi thông tin: {', '.join(query_hits[:3])}",
+            }
+
+        # ── geo_recommend: the default / "find a place" intent ──────────
+        find_hits = [kw for kw in INTENT_FIND_KEYWORDS if re.search(kw, raw)]
+        confidence = 0.5
+        if facilities:
+            confidence += 0.2
+        if conditions:
+            confidence += 0.15
+        if find_hits:
+            confidence += 0.15
+        if has_location:
+            confidence += 0.1
+        confidence = min(round(confidence, 2), 0.95)
+
+        detail_parts = []
+        if facilities:
+            detail_parts.append(f"loại địa điểm: {', '.join(facilities)}")
+        if conditions:
+            detail_parts.append(f"điều kiện: {', '.join(conditions)}")
+        if has_location:
+            detail_parts.append(f"địa điểm: {parsed.get('location') or parsed.get('reference_location')}")
+        detail = " | ".join(detail_parts) if detail_parts else "Tìm địa điểm học tập gần đây"
+
+        return {
+            "intent": "geo_recommend",
+            "confidence": confidence,
+            "detail": detail,
+        }
 
     def generate_explanation(self, parsed: dict) -> str:
         """Produce a human-readable explanation of the parsed query.

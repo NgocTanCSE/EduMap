@@ -23,6 +23,7 @@ import ChatScreen from '../screens/ChatScreen';
 import ChatHistoryScreen from '../screens/ChatHistoryScreen';
 import AiSearchScreen from '../screens/AiSearchScreen';
 import LearningPathScreen from '../screens/LearningPathScreen';
+import OfflineTutorScreen from '../screens/OfflineTutorScreen';
 import ScholarshipListScreen from '../screens/ScholarshipListScreen';
 import ScholarshipDetailScreen from '../screens/ScholarshipDetailScreen';
 import CheckEligibilityScreen from '../screens/CheckEligibilityScreen';
@@ -106,6 +107,7 @@ function MoreStackScreen() {
       <MoreStack.Screen name="ChatHistory" component={ChatHistoryScreen} options={{ title: 'Lịch sử chat' }} />
       <MoreStack.Screen name="AiSearch" component={AiSearchScreen} options={{ title: 'Tìm AI' }} />
       <MoreStack.Screen name="LearningPath" component={LearningPathScreen} options={{ title: 'Lộ trình học' }} />
+      <MoreStack.Screen name="OfflineTutor" component={OfflineTutorScreen} options={{ title: 'Trợ lý ngoại tuyến' }} />
       <MoreStack.Screen name="ScholarshipList" component={ScholarshipListScreen} options={{ title: 'Học bổng' }} />
       <MoreStack.Screen name="ScholarshipDetail" component={ScholarshipDetailScreen} options={{ title: 'Chi tiết học bổng' }} />
       <MoreStack.Screen name="CheckEligibility" component={CheckEligibilityScreen} options={{ title: 'Kiểm tra' }} />

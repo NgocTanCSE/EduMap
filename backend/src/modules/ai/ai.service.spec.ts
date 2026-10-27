@@ -43,6 +43,7 @@ describe('AIService', () => {
         { provide: 'LearningMaterialRepository', useValue: {} },
         { provide: 'LocationRepository', useValue: {} },
         { provide: 'ChatHistoryRepository', useValue: {} },
+        { provide: 'QueryLogRepository', useValue: {} },
       ],
     }).compile();
 
@@ -351,6 +352,165 @@ describe('AIService', () => {
       await flush();
 
       expect(mockRes.end).toHaveBeenCalled();
+    });
+  });
+
+  describe('Question Gap Report (Idea #17)', () => {
+    const mockQueryLogsRepo = {
+      create: jest.fn().mockReturnValue({}),
+      save: jest.fn().mockResolvedValue({}),
+      count: jest.fn().mockResolvedValue(0),
+    };
+
+    beforeEach(() => {
+      (service as any).queryLogsRepo = mockQueryLogsRepo;
+    });
+
+    describe('privacy & anonymisation', () => {
+      it('should SHA-256 hash the user_id before logging (never stores raw id)', () => {
+        const hash = (service as any)._hashUserId('user-abc-123');
+        expect(typeof hash).toBe('string');
+        expect(hash.length).toBe(64); // SHA-256 hex = 64 chars
+        expect(hash).not.toBe('user-abc-123');
+        // Deterministic — same input always produces the same hash.
+        expect((service as any)._hashUserId('user-abc-123')).toBe(hash);
+        // Different inputs → different hashes.
+        expect((service as any)._hashUserId('user-xyz-456')).not.toBe(hash);
+      });
+    });
+
+    describe('_computeQuality', () => {
+      it('should score high when many sources and a substantive reply', () => {
+        const quality = (service as any)._computeQuality(
+          [{ doc_id: '1' }, { doc_id: '2' }, { doc_id: '3' }, { doc_id: '4' }, { doc_id: '5' }],
+          'A'.repeat(600),
+        );
+        expect(quality).toBeGreaterThanOrEqual(0.9);
+        expect(quality).toBeLessThanOrEqual(1.0);
+      });
+
+      it('should score low when no sources and a short reply', () => {
+        const quality = (service as any)._computeQuality([], 'Tôi không biết');
+        expect(quality).toBeLessThan(0.3);
+      });
+
+      it('should cap quality at 1.0', () => {
+        const quality = (service as any)._computeQuality(
+          Array.from({ length: 20 }),
+          'A'.repeat(2000),
+        );
+        expect(quality).toBeLessThanOrEqual(1.0);
+      });
+    });
+
+    describe('_retrievalStatus', () => {
+      it('should return success when 3+ sources retrieved', () => {
+        expect((service as any)._retrievalStatus([1, 2, 3])).toBe('success');
+      });
+
+      it('should return partial when 1-2 sources retrieved', () => {
+        expect((service as any)._retrievalStatus([1, 2])).toBe('partial');
+        expect((service as any)._retrievalStatus([1])).toBe('partial');
+      });
+
+      it('should return failed when no sources retrieved', () => {
+        expect((service as any)._retrievalStatus([])).toBe('failed');
+      });
+    });
+
+    describe('_logQuery', () => {
+      it('should fire-and-forget save a hashed query log row', () => {
+        jest.clearAllMocks();
+        (service as any)._logQuery(
+          'user-123',
+          'hỏi về học bổng',
+          [{ doc_id: '1' }],
+          'Đây là câu trả lời chi tiết về học bổng.',
+        );
+        expect(mockQueryLogsRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userIdHash: expect.any(String),
+            queryText: 'hỏi về học bổng',
+            retrievedDocCount: 1,
+            retrievalStatus: 'partial',
+            responseQuality: expect.any(Number),
+          }),
+        );
+        expect(mockQueryLogsRepo.save).toHaveBeenCalledWith(expect.any(Object));
+      });
+
+      it('should NOT log when userId is empty (privacy guard)', () => {
+        jest.clearAllMocks();
+        (service as any)._logQuery('', 'câu hỏi', [], '');
+        expect(mockQueryLogsRepo.create).not.toHaveBeenCalled();
+      });
+
+      it('should set retrievalStatus to failed when zero sources', () => {
+        jest.clearAllMocks();
+        (service as any)._logQuery('user-1', 'hỏi không có đáp', [], 'Không rõ');
+        expect(mockQueryLogsRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            retrievedDocCount: 0,
+            retrievalStatus: 'failed',
+          }),
+        );
+      });
+    });
+
+    describe('getQuestionGaps', () => {
+      it('should proxy to the ai-service and return the report', async () => {
+        const mockReport = {
+          status: 'success',
+          total_queries: 88,
+          clusters: [{ cluster_id: 0, topic: 'học bổng', gap_rate: 0.3, total_queries: 20, gap_count: 6, recommended_docs: ['Tài liệu...'], top_terms: ['học'], representative_query: '...', gap_queries: [] }],
+          top_gaps: [],
+          summary: 'Báo cáo...',
+          privacy: { user_id_hashed: true, hash_algorithm: 'sha256', ttl_days: 30 },
+          degraded: false,
+          limit_applied: 10000,
+          date_range: { start: '2025-01-01', end: '2025-06-01' },
+        };
+        httpService.get.mockReturnValue(
+          of({ data: mockReport } as any),
+        );
+
+        const result = await service.getQuestionGaps(5000);
+        expect(result).toEqual(mockReport);
+        expect(httpService.get).toHaveBeenCalledWith(
+          expect.stringContaining('/api/ai/analytics/question-gaps?limit=5000'),
+          expect.objectContaining({ timeout: 30000 }),
+        );
+      });
+
+      it('should return degraded payload when the ai-service is unreachable', async () => {
+        httpService.get.mockReturnValue(
+          throwError(() => new Error('connect ECONNREFUSED 127.0.0.1:8000')),
+        );
+
+        const result = await service.getQuestionGaps();
+        expect(result.degraded).toBe(true);
+        expect(result.status).toBe('error');
+        expect(result.clusters).toEqual([]);
+        expect(result.top_gaps).toEqual([]);
+        expect(result.summary).toContain('tạm thời không khả dụng');
+      });
+
+      it('should cache results for 30 minutes and return cached on repeat calls', async () => {
+        const mockReport = { status: 'success', total_queries: 10, clusters: [], top_gaps: [], summary: 'test', degraded: false, privacy: { user_id_hashed: true, hash_algorithm: 'sha256', ttl_days: 30 }, limit_applied: 10000, date_range: { start: null, end: null } };
+        httpService.get.mockReturnValue(
+          of({ data: mockReport } as any),
+        );
+
+        // First call — hits the ai-service.
+        const first = await service.getQuestionGaps(100);
+        expect(first.cached).toBeFalsy();
+        expect(httpService.get).toHaveBeenCalledTimes(1);
+
+        // Second call — should return from cache (no new HTTP call).
+        const second = await service.getQuestionGaps(100);
+        expect(second.cached).toBe(true);
+        expect(httpService.get).toHaveBeenCalledTimes(1); // still 1, not 2
+      });
     });
   });
 });

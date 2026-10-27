@@ -366,6 +366,11 @@ export default function InteractiveMap({
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [routingMode, setRoutingMode] = useState<'idle' | 'setting_origin' | 'setting_destination'>('idle');
 
+  // SafeRoute AI (Idea #12) — multi-route state
+  const [safeRoutes, setSafeRoutes] = useState<any[] | null>(null);
+  const [routeExplanation, setRouteExplanation] = useState<string | null>(null);
+  const [isSafeRouteLoading, setIsSafeRouteLoading] = useState(false);
+
   // --- Session persistence: lưu route vào localStorage để quay lại ---
   const ROUTE_STORAGE_KEY = 'edumap_saved_routes';
   const [savedRoutes, setSavedRoutes] = useState<Array<{
@@ -502,11 +507,119 @@ export default function InteractiveMap({
     }
   }, [apiBaseUrl]);
 
+  // ── SafeRoute AI (Idea #12) ───────────────────────────────────────
+  const fetchSafeRoute = useCallback(async (
+    originPoint: { lat: number; lng: number },
+    destPoint: { lat: number; lng: number },
+    options?: { avoidFlood?: boolean; avoidTraffic?: boolean; safetyWeight?: number },
+  ) => {
+    setIsSafeRouteLoading(true);
+    setRouteGeometry(null);
+    setRouteInfo(null);
+    setSafeRoutes(null);
+    setRouteExplanation(null);
+    try {
+      const params = new URLSearchParams({
+        lng1: originPoint.lng.toString(),
+        lat1: originPoint.lat.toString(),
+        lng2: destPoint.lng.toString(),
+        lat2: destPoint.lat.toString(),
+        avoidFlood: (options?.avoidFlood ?? true).toString(),
+        avoidTraffic: (options?.avoidTraffic ?? true).toString(),
+        safetyWeight: String(options?.safetyWeight ?? 0.3),
+      });
+
+      const response = await fetch(`${apiBaseUrl}/map/safe-route?${params}`);
+      const data = await response.json();
+      const payload = (data?.data ?? data) as any;
+
+      if (payload.routes?.length > 0) {
+        setSafeRoutes(payload.routes);
+
+        // Request LLM explanation from ai-service
+        try {
+          const explainRes = await fetch(`${apiBaseUrl}/ai/route/explain`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              routes: payload.routes.map((r: any) => ({
+                safetyScore: r.safetyScore,
+                safetyFactors: r.safetyFactors,
+                distance: r.distance,
+                duration: r.duration,
+                explanation: r.explanation || '',
+                isPrimary: r.isPrimary,
+                estimated: payload.estimated,
+                floodWarnings: r.floodWarnings || [],
+                trafficAnalysis: r.trafficAnalysis || null,
+              })),
+              preferences: {
+                avoidFlood: options?.avoidFlood ?? true,
+                avoidTraffic: options?.avoidTraffic ?? true,
+                safetyWeight: options?.safetyWeight ?? 0.3,
+              },
+              origin: { lng: originPoint.lng, lat: originPoint.lat },
+              destination: { lng: destPoint.lng, lat: destPoint.lat },
+              provider: payload.provider,
+            }),
+          });
+
+          if (explainRes.ok) {
+            const explainData = await explainRes.json();
+            const explainPayload = (explainData?.data ?? explainData) as any;
+            setRouteExplanation(
+              explainPayload.explanation ||
+              explainPayload.reason ||
+              'Không có giải thích chi tiết.'
+            );
+          }
+        } catch (e) {
+          console.error('Route explain API error:', e);
+          setRouteExplanation('AI đang không khả dụng. Vui lòng thử lại sau.');
+        }
+
+        // Set the primary route geometry for the map
+        const primaryRoute = payload.routes[0];
+        if (primaryRoute?.geometry) {
+          setRouteGeometry(primaryRoute.geometry);
+          setRouteInfo({
+            duration: primaryRoute.duration || 0,
+            distance: primaryRoute.distance || 0,
+            segments: [],
+            floodWarnings: (primaryRoute.floodWarnings || []).map((fw: any) => ({ name: fw.name, riskLevel: fw.riskLevel })),
+            avoidedFloodZones: [],
+            trafficAnalysis: primaryRoute.trafficAnalysis
+              ? {
+                  totalDelay: primaryRoute.trafficAnalysis.totalDelay,
+                  congestionSummary: primaryRoute.trafficAnalysis.congestionSummary,
+                  segments: [],
+                }
+              : undefined,
+          });
+        }
+      } else {
+        throw new Error(data.message || 'Không tìm thấy lộ trình an toàn');
+      }
+    } catch (error) {
+      console.error('SafeRoute error:', error);
+      toast.error(
+        'Không thể tính lộ trình an toàn: ' +
+          (error instanceof Error ? error.message : 'Lỗi không xác định'),
+      );
+      setSafeRoutes(null);
+      setRouteExplanation(null);
+    } finally {
+      setIsSafeRouteLoading(false);
+    }
+  }, [apiBaseUrl]);
+
   const clearRoute = useCallback(() => {
     setOrigin(null);
     setDestination(null);
     setRouteGeometry(null);
     setRouteInfo(null);
+    setSafeRoutes(null);
+    setRouteExplanation(null);
     setRoutingMode('idle');
   }, []);
 
@@ -596,6 +709,21 @@ export default function InteractiveMap({
     setRoutingMode(mode);
   }, []);
 
+  // ── SafeRoute AI (Idea #12): listen for the floating control button ──
+  // The page-level button dispatches a 'toggleSafeRoute' event; we respond
+  // by entering the routing flow so the user can pick origin/destination,
+  // then click "SafeRoute AI" in the RoutingPanel.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      if (!origin || !destination) {
+        setRoutingMode('setting_origin');
+      }
+    };
+    window.addEventListener('toggleSafeRoute', handler);
+    return () => window.removeEventListener('toggleSafeRoute', handler);
+  }, [origin, destination]);
+
   // Navigate to a POI using EduMap's INTERNAL OSRM routing (NOT Google Maps).
   // Origin = device geolocation; if unavailable/blocked, falls back to the map's default center.
   const routeToPoi = useCallback((p: any) => {
@@ -626,9 +754,13 @@ export default function InteractiveMap({
       {routingMode !== 'idle' || origin || destination || routeGeometry ? (
         <RoutingPanel
           onGetRoute={fetchRoute}
+          onGetSafeRoute={fetchSafeRoute}
           onClearRoute={clearRoute}
           routeInfo={routeInfo}
+          safeRoutes={safeRoutes}
+          routeExplanation={routeExplanation}
           isLoading={isLoadingRoute}
+          isSafeRouteLoading={isSafeRouteLoading}
           origin={origin}
           destination={destination}
           onSetOrigin={setOriginPoint}
@@ -665,8 +797,18 @@ export default function InteractiveMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        {/* Route Polyline */}
-        {routeGeometry && <RoutePolyline geometry={routeGeometry} />}
+        {/* Route Polyline(s) — single or multi-route (SafeRoute AI) */}
+        {routeGeometry && safeRoutes && safeRoutes.length > 1
+          ? safeRoutes.map((route, idx) => {
+              const isPrimary = route.isPrimary;
+              const geom = typeof route.geometry === 'string' ? JSON.parse(route.geometry) : route.geometry;
+              const colors: string[] = ['#3b82f6', '#ef4444', '#eab308', '#22c55e', '#a855f7'];
+              const color = isPrimary ? colors[0] : colors[(idx + 1) % (colors.length - 1)] || colors[1];
+              const weight = isPrimary ? 6 : 3;
+              const opacity = isPrimary ? 0.9 : 0.5;
+              return <RoutePolyline key={`saferoute-${idx}`} geometry={geom} color={color} weight={weight} opacity={opacity} />;
+            })
+          : routeGeometry && <RoutePolyline geometry={routeGeometry} />}
         
         {/* Issue #7 (GeoAI → GeoJSON): draw education-hub boundary polygons */}
         {geoJsonData && <HubGeoJsonLayer data={geoJsonData} />}

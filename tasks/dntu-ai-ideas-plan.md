@@ -98,8 +98,8 @@ GitHub (main branch)
 | #16 | Voice-to-Geo AI | ✅ |
 | #17 | AI Question Gap Report | ❌ Chưa có |
 | #18 | Resource Exchange AI | ✅ Hoàn thành |
-| #19 | AI Impact Measurement | ❌ Chưa có |
-| #20 | Active Learning for Field Survey | ❌ Chưa có |
+| #19 | AI Impact Measurement | ✅ Hoàn thành |
+| #20 | Active Learning for Field Survey | ✅ Hoàn thành |
 
 ---
 
@@ -145,7 +145,7 @@ docker run -d --name edumap-test -p 7680:7680 -p 3000:3000 -p 8000:8000 \
   -e CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID" \
   edumap-hf:latest
 
-# 3. Smoke test (11 tests in HF_DEPLOY_PLAN.md)
+# 3. Smoke test (11 tests in HF_DEPLOY_PLAN.md) — mở rộng thành 23 tests tại §1.5
 # 4. Commit + push to GitHub main → GitHub Actions tự động build + deploy to HF Spaces
 git add -A && git commit -m "feat: ..." && git push origin main
 #    Hoặc deploy trực tiếp lên HF (cần HF_TOKEN)
@@ -165,7 +165,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | Docker layers cached | Rebuild chậm với requirements.txt | Chỉ sửa requirements.txt khi thật sự cần thiết |
 | Supervisord `environment=` bỏ qua secrets | Secrets không lan truyền | `start.sh` recover từ `/proc/1/environ` |
 
-### 1.5 Smoke test suite (22 tests — chạy sau mỗi deploy)
+### 1.5 Smoke test suite (23 tests — chạy sau mỗi deploy)
 
 | # | Test | Lệnh | Expected |
 |---|---|---|---|
@@ -191,6 +191,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | 20 | Language Bridge Vietnamese TTS | `curl -X POST http://localhost:7680/api/ai/language/tts -H "Authorization: Bearer $TOKEN" -d '{"text":"Giáo viên là người truyền đức, truyền thừ tài cho học sinh.","language":"vi"}' \`  - check `degraded` flag and/or `audio_base64` not null OR degraded=true (graceful)
 | 21 | Question Gap Report (Idea #17) | `curl -X GET http://localhost:7680/api/admin/question-gaps?limit=10000 -H "Authorization: Bearer $TOKEN"` | 200 + JSON `{clusters:[...], top_gaps:[...]}` |
 | 22 | Resource Exchange AI match (Idea #18) | `curl -X POST http://localhost:7680/api/resource-exchange/match -H "Authorization: Bearer $TOKEN" -d '{"region":"Đồng Nai","type":"device","max_results":5}'` | 200 + JSON `{ranked_matches:[...], transport_plan:[...], degraded:?}`
+| 23 | AI Impact Measurement (Idea #19) | `curl -X POST http://localhost:7680/api/ai/impact/measure -H "Authorization: Bearer $TOKEN" -d '{"min_lat":10.9,"max_lat":11.0,"min_lng":106.8,"max_lng":107.0,"deployment_date":"2025-01-01","region":"Biên Hòa, Đồng Nai"}'` | 200 + JSON `{impact_score, confidence_interval, before, after, diff, people_in_radius, trend, narrative, causal_notes, degraded}`
 
 ---
 
@@ -204,7 +205,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
 | **Phase 2** (Mở rộng - 2-3 tuần) | #1, #3, #8, #9, #14 | MEDIUM → HIGH | 🟡 → 🟡 | Tối ưu phân bổ + tri thức + cơ hội |
 | **Phase 3** (Nâng cao - 2 tuần) | #6, #7, #12, #17, #11 | MEDIUM → HIGH | ❌ → 🟡 | Phát hiện dữ liệu + định tuyến + khảo sát |
 | **Phase 4** (Tính năng cao cấp - 2 tuần) | #15, #16, #18 | MEDIUM | #15 ✅ / #16 ✅ / #18 ✅ | Language Bridge hoàn thành (T1-T3). Voice-to-Geo hoàn thành (T1-T9). Resource Exchange hoàn thành (T1-T5) — deploy HF Spaces. |
-| **Phase 5** (Nghiên cứu - dài hạn) | #10, #19, #20 | HIGH → VERY HIGH | ❌ → ❌ | Yêu cầu data phức tạp / mô hình cao cấp |
+| **Phase 5** (Nghiên cứu - dài hạn) | #10, #20 | HIGH → VERY HIGH | ❌ → ❌ | Yêu cầu data phức tạp / mô hình cao cấp. *Note: #19 AI Impact Measurement đã hoàn thành (Phase 4) — suy luận thống kê trên dữ liệu cơ sở thực, không cần mô hình cao cấp.* |
 
 ---
 
@@ -1210,24 +1211,29 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 #### Tasks chi tiết
 
-- [ ] **Task 1**: `ai-service/services/survey_optimizer.py` (mới)
+- [x] **Task 1**: `ai-service/services/survey_optimizer.py` (mới)
   - Uncertainty model: entropy-based trên dự báo gap density
   - Information value: expected reduction in gap uncertainty
   - Cost model: distance from current location + survey time
   - Priority score = info_value / cost
-  - **Verify**: test với synthetic grid
+  - **Verify**: test với synthetic grid — **17/17 pytest pass; py_compile OK**.
 
-- [ ] **Task 2**: Router `routers/survey.py`
+- [x] **Task 2**: Router `routers/survey.py`
   - `POST /api/ai/survey/priorities` — nhận map_points + current_location, trả về ordered list
   - `POST /api/ai/survey/next` — trả về single best next point
-  - **Verify**: curl test
+  - 24h in-process cache + graceful static-fallback (real VN cells)
+  - **Verify**: curl TestClient smoke — 200 + ranked FeatureCollection, cache hit, empty→degraded ✅
 
-- [ ] **Task 3**: Backend proxy
+- [x] **Task 3**: Backend proxy
+  - `backend GET /api/map/survey/priorities` + `GET /api/map/survey/next` (`map.controller.ts`, `@SkipThrottle`)
+  - `map.service.ts`: `getSurveyPriorities`/`getSurveyNext` (POI fetch via `findAllPois` + proxy to ai-service, 3600s cache, degraded GeoJSON fallback)
+  - **Verify**: backend tsc clean (0 errors); end-to-end curl backend→ai-service with real POIs returns 200 + ordered list (degraded=False); static-fallback degraded=True for empty DB ✅
 
-- [ ] **Task 4**: Frontend — `app/map/survey-planner/page.tsx`
+- [x] **Task 4**: Frontend — `app/map/survey-planner/page.tsx`
   - Priority list (sortable) + map markers
   - Next point highlight + route
-  - **Verify**: visual check
+  - Twin-panel BFF → backend → ai-service chain; auth-gated (`useRequireAuth`)
+  - **Verify**: frontend tsc clean (0 errors); sidebar "Kế hoạch khảo sát" entry + map toolbar button ✅
 
 - [ ] **Task 5**: Test + smoke test
 

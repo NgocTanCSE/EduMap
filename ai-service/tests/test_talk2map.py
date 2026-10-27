@@ -29,6 +29,19 @@ for _v in _PROVIDER_ENV_VARS:
     os.environ.pop(_v, None)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _restore_env():
+    """Restore provider env vars after this module's tests so they don't
+    leak into other test modules (e.g. test_speech.py which checks that
+    OPENROUTER_API_KEY is set)."""
+    yield
+    for _v, _val in _original_env.items():
+        if _val is not None:
+            os.environ[_v] = _val
+        else:
+            os.environ.pop(_v, None)
+
+
 @pytest.fixture(scope="module")
 def parser():
     """NLQueryParser with no LLM service (regex-only mode)."""

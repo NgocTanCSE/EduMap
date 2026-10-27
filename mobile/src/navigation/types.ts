@@ -30,6 +30,7 @@ export type RootParamList = {
   ChatHistory: undefined;
   AiSearch: undefined;
   LearningPath: undefined;
+  OfflineTutor: undefined;
 
   // Career
   CareerJobs: undefined;

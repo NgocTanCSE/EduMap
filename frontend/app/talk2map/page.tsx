@@ -52,6 +52,8 @@ interface NlsResponse {
   degraded: boolean;
   results: PoiResult[];
   total: number;
+  // Voice-to-Geo (Idea #16): intent classification for voice queries.
+  intent?: { intent: string; confidence: number; detail?: string };
 }
 
 // ── Category labels & icons ───────────────────────────────────────────────

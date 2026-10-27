@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
   Users, Shield, Activity, LayoutDashboard, 
-  Settings, LogOut, ChevronRight, Globe, Lock, Database
+  Settings, LogOut, ChevronRight, Globe, Lock, Database, BrainCircuit
 } from 'lucide-react';
 import { authService } from '@/src/services/auth.service';
 
@@ -14,6 +14,7 @@ const menuItems = [
   { name: 'Vai trò & Quyền', href: '/admin/roles', icon: Shield },
   { name: 'Nhật ký hệ thống', href: '/admin/reports', icon: Activity },
   { name: 'Chất lượng Dữ liệu', href: '/admin/data-quality', icon: Database },
+  { name: 'Khoảng trống Tri thức AI', href: '/admin/question-gaps', icon: BrainCircuit },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

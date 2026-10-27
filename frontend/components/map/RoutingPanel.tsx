@@ -16,6 +16,7 @@ function parseCoordinate(value: string): { lat: number; lng: number } | null {
 
 interface RoutingPanelProps {
   onGetRoute: (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, options: { avoidFlood: boolean; avoidTraffic: boolean; date?: string }) => void;
+  onGetSafeRoute?: (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, options: { avoidFlood: boolean; avoidTraffic: boolean; safetyWeight?: number }) => void;
   onClearRoute: () => void;
   routeInfo?: {
     duration: number;
@@ -29,7 +30,20 @@ interface RoutingPanelProps {
       segments: Array<{ roadName: string; roadType: string; congestionLevel: number; congestionLabel: string; congestionColor: string; estimatedSpeed: number; freeFlowSpeed: number }>;
     };
   } | null;
+  /** SafeRoute AI: array of scored routes with safety factors. */
+  safeRoutes?: Array<{
+    safetyScore: number;
+    safetyFactors: { distanceScore: number; durationScore: number; floodRisk: number; trafficRisk: number };
+    distance: number;
+    duration: number;
+    explanation: string;
+    isPrimary: boolean;
+    estimated: boolean;
+  }> | null;
+  /** SafeRoute AI: LLM-generated explanation text. */
+  routeExplanation?: string | null;
   isLoading?: boolean;
+  isSafeRouteLoading?: boolean;
   origin?: { lat: number; lng: number } | null;
   destination?: { lat: number; lng: number } | null;
   onSetOrigin: (lat: number, lng: number) => void;
@@ -50,9 +64,13 @@ interface RoutingPanelProps {
 
 export default function RoutingPanel({
   onGetRoute,
+  onGetSafeRoute,
   onClearRoute,
   routeInfo,
+  safeRoutes,
+  routeExplanation,
   isLoading,
+  isSafeRouteLoading,
   origin,
   destination,
   onSetOrigin,
@@ -290,6 +308,27 @@ export default function RoutingPanel({
           )}
         </button>
 
+        {/* SafeRoute AI Button (Idea #12) */}
+        {onGetSafeRoute && (
+          <button
+            onClick={() => origin && destination && onGetSafeRoute(origin, destination, { avoidFlood, avoidTraffic, safetyWeight: 0.3 })}
+            disabled={!origin || !destination || isSafeRouteLoading}
+            className="w-full py-2 bg-accent text-accent-foreground font-medium rounded-lg hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSafeRouteLoading ? (
+              <>
+                <RotateCcw className="w-5 h-5 animate-spin" />
+                Đang tính lộ trình an toàn...
+              </>
+            ) : (
+              <>
+                <Shield className="w-4 h-4" />
+                SafeRoute AI
+              </>
+            )}
+          </button>
+        )}
+
         {/* Save Route Button (visible when a route is active but not yet explicitly saved) */}
         {routeInfo && origin && destination && (
           <button
@@ -406,6 +445,99 @@ export default function RoutingPanel({
                 </ul>
               </details>
             )}
+          </div>
+        )}
+
+        {/* SafeRoute AI — Multi-Route Display */}
+        {safeRoutes && safeRoutes.length > 0 && (
+          <div className="border-t border-border pt-3 space-y-2">
+            <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+              <Shield className="w-4 h-4 text-accent" />
+              Lộ trình an toàn (SafeRoute AI)
+            </h4>
+
+            {/* Route list */}
+            <div className="space-y-2">
+              {safeRoutes.map((route, idx) => {
+                const isBest = route.isPrimary;
+                const scoreColor = route.safetyScore >= 80
+                  ? 'bg-green-500/10 text-green-600'
+                  : route.safetyScore >= 50
+                  ? 'bg-yellow-500/10 text-yellow-600'
+                  : 'bg-red-500/10 text-red-600';
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border transition-all ${
+                      isBest
+                        ? 'border-accent bg-accent/5 shadow-md'
+                        : 'border-border bg-muted/10 opacity-80'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-xs text-muted-foreground">
+                          #{idx + 1}
+                        </span>
+                        {isBest && (
+                          <span className="text-xs font-bold text-accent bg-accent/10 px-1.5 py-0.25 rounded">
+                            Đề xuất
+                          </span>
+                        )}
+                      </div>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${scoreColor}`}>
+                        {route.safetyScore}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground/80 mb-1">
+                      <span>{formatDistance(route.distance)}</span>
+                      <span>•</span>
+                      <span>{formatDuration(route.duration)}</span>
+                      {route.estimated && (
+                        <span className="text-xs text-muted-foreground/50 italic">
+                          (ước tính)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Safety factors row */}
+                    <div className="flex items-center gap-1 text-xs">
+                      <span className={`px-1 py-0.25 rounded ${
+                        route.safetyFactors.floodRisk === 0 ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'
+                      }`}>
+                        Ngập: {route.safetyFactors.floodRisk}%
+                      </span>
+                      <span className={`px-1 py-0.25 rounded ${
+                        route.safetyFactors.trafficRisk <= 20 ? 'bg-green-500/10 text-green-600' : route.safetyFactors.trafficRisk <= 50 ? 'bg-yellow-500/10 text-yellow-600' : 'bg-red-500/10 text-red-600'
+                      }`}>
+                        Tắc: {route.safetyFactors.trafficRisk}%
+                      </span>
+                    </div>
+
+                    {/* Per-route explanation */}
+                    {route.explanation && (
+                      <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">
+                        {route.explanation}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* SafeRoute AI — LLM Explanation Panel */}
+        {routeExplanation && (
+          <div className="border-t border-border pt-3">
+            <h4 className="font-semibold text-sm text-foreground flex items-center gap-2 mb-2">
+              <Info className="w-4 h-4 text-accent" />
+              Lý do lựa chọn (AI)
+            </h4>
+            <div className="text-xs text-muted-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 max-h-48 overflow-y-auto">
+              {routeExplanation}
+            </div>
           </div>
         )}
 

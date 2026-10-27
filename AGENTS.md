@@ -56,6 +56,23 @@ HF Spaces Docker container (public port 7680)
   `_generate_text_with_fallback` cascade with `temperature=0.3`,
   `max_tokens=2048`, `top_p=0.8` — budget stays under the NestJS stream timeout;
   graceful-degradation `_impact_match_fallback` returns template-based scores.
+- **AI Impact Measurement (Idea #19)** — before/after access impact of a deployment
+  (wifi/library/school/lab): `backend/src/modules/impact-measurement/*`
+  (`ImpactMeasurementService` computes the pure before/after diff T1 from
+  `map_points`; `GET /api/impact-measurement/metrics` + `GET /api/impact-measurement/measure`,
+  the latter merging with the ai-service via `AIService.measureImpact`).
+  `ai-service` endpoint `POST /api/ai/impact/measure` (`services/impact_measure.py`
+  singleton `impact_measure`, `routers/impact_measure.py`,
+  `models/impact_measure_models.py`) — people-in-5-km-radius diff, trend analysis,
+  Wilson-score confidence interval (+ widened when the "before" cohort is a
+  synthetic baseline), 0–100 weighted impact score, causal-inference notes, and an
+  LLM narrative with refusal detection + template fallback (never 502s).
+  24h in-process TTL cache. Frontend dashboard at `app/dashboard/impact/page.tsx`
+  (dependency-free SVG charts — no chart.js dep added) + BFF `app/api/dashboard/impact/route.ts`.
+  Nav entry "Đo lường Tác động AI" under "Chợ & Đóng góp". **Risk mitigation**:
+  when real "before" data is missing, the synthetic baseline is `population × 0.70`
+  and the response is flagged `degraded=true` with provenance in `causal_notes`.
+  Smoke test #23.
 
 - **Resource Exchange AI (Idea #18)** — need↔supply matching for books,
   devices & volunteer hours: `backend/src/modules/resource-exchange/*`
@@ -105,6 +122,41 @@ HF Spaces Docker container (public port 7680)
 - **Tests:** `ai-service/tests/test_question_gaps.py` (17 tests), backend
   `ai.service.spec.ts` (13 new tests).
 - **Smoke test:** `curl -X GET .../api/admin/question-gaps?limit=10000 -H "Authorization: Bearer $TOKEN"` → 200 + JSON report.
+
+## 2.4 Active Learning for Field Survey (Idea #20)
+
+- **Goal:** help field-teams pick the next verification point that maximises
+  information gain per unit survey cost. Pure server-side (no LLM), sub-second on 1 vCPU.
+- **ai-service** `services/survey_optimizer.py` (`SurveyOptimizerService` singleton
+  `survey_optimizer`): `_haversine_km` (R=6371, from `climate_guardian.py`);
+  `_binary_entropy` (1.0 at p=0.5); **Uncertainty** = entropy of gap-density `p_exist`
+  per grid cell, **Information value** = entropy reduction,
+  **Cost** = `distance_km / surveyor_speed_kmh + survey_time_hours` (missing cost ->
+  distance + fixed overhead). `priority_score = info_value / cost`. Tunables:
+  `SURVEY_GRID_SIZE_KM`=1.0, `SURVEY_TOP_N`=15, `SURVEY_TIME_HOURS`=1.0,
+  `SURVEYOR_SPEED_KMH`=30.0, `INFLUENCE_RADIUS_KM`=2.0, `SPATIAL_WEIGHT`=0.25;
+  caps `MAX_POIS`=800, `MAX_GRID_CELLS`=900, `MAX_RESULTS_CEIL`=50.
+  **Degradation:** empty POIs -> `degraded=true` + 7 real Biên Hòa/Đồng Nai
+  cells (`STATIC_SURVEY_CANDIDATES`, source
+  `Bản đồ giáo dục EduMap — Biên Hòa, Đồng Nai`, verification_date `2026-10-27`).
+  No new DB tables (grid computed in-memory); `ensureSqliteSchema()` untouched.
+- **ai-service** `routers/survey.py` (`prefix="/api/ai/survey"`):
+  `POST /priorities` + `POST /next`; sha256-payload 24 h in-process cache;
+  registered `'survey'` in `main.py` `router_names`.
+- **Backend** `map.service.ts`: `getSurveyPriorities`/`getSurveyNext`
+  (POIs via `findAllPois` ≤5000, capped to `MAX_POIS=800`; proxy 30 s timeout;
+  reuse `_resourceOptCache` 3600 s TTL; degraded fallback). Public
+  `GET /api/map/survey/priorities` + `GET /api/map/survey/next` (`@SkipThrottle`).
+- **Frontend:** BFF `app/api/map/survey/{priorities,next}/route.ts`; page
+  `app/map/survey-planner/page.tsx` + `SurveyPlannerMap.tsx` (Leaflet twin-panel,
+  OSM, priority colour labels, gold next pin, auth-gated); toolbar button on
+  `app/map/page.tsx`; nav "Kế hoạch khảo sát" under "AI an toàn" in `Sidebar.tsx`.
+- **Verify (DONE):** pytest 17/17; `py_compile` OK; backend `tsc` 0 errors;
+  frontend `tsc` 0 errors. Full-stack curl: `GET /api/map/survey/priorities?...grid_size_km=0.7&top_n=3`
+  -> 200 + ordered FeatureCollection (`priority_score = info_value / cost`,
+  descending, real POIs `degraded=false`; empty DB `degraded=true`); cache miss ->
+  `metadata.cached=null`, repeat -> `metadata.cached=true`.
+  **Runtime truth = HF Spaces free tier** (`https://tancse2005-edumap.hf.space`).
 
 ## 2.1 AI Knowledge Graph (Idea #8)
 

@@ -85,6 +85,13 @@ export const adminService = {
     });
     if (!response.ok) throw new Error('Failed to fetch data quality report');
     return response.json() as Promise<DataQualityReport>;
+  },
+
+  getQuestionGaps: async (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    const response = await fetch(`${API_URL}/admin/question-gaps${query}`, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch question gaps report');
+    return response.json() as Promise<QuestionGapReport>;
   }
 };
 
@@ -122,4 +129,47 @@ export interface DataQualityReport {
   summary: QualitySummary;
   anomalies: Anomaly[];
   source_counts: Record<string, number>;
+}
+
+// ── AI Question Gap Report (Idea #17) ───────────────────────────────────────
+
+export interface QuestionGapCluster {
+  cluster_id: number;
+  topic: string;
+  total_queries: number;
+  gap_count: number;
+  gap_rate: number;
+  top_terms: string[];
+  representative_query: string;
+  gap_queries: string[];
+  recommended_docs: string[];
+}
+
+export interface QuestionGapItem {
+  query_text: string;
+  retrieved_doc_count: number;
+  retrieval_status: string;
+  response_quality: number;
+  created_at: string | null;
+}
+
+export interface QuestionGapPrivacy {
+  user_id_hashed: boolean;
+  hash_algorithm: string;
+  ttl_days: number;
+}
+
+export interface QuestionGapReport {
+  status: string;
+  degraded: boolean;
+  reason?: string;
+  generated_at: string;
+  total_queries: number;
+  date_range: { start: string | null; end: string | null };
+  limit_applied: number;
+  privacy: QuestionGapPrivacy;
+  clusters: QuestionGapCluster[];
+  top_gaps: QuestionGapItem[];
+  summary: string;
+  cached?: boolean;
 }

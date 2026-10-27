@@ -740,6 +740,141 @@ export class MapService {
     }
   }
 
+  // ─── AI Climate Learning Guardian: 24 h in-process cache (Idea #11) ─────────
+  private static readonly CLIMATE_RISK_CACHE_TTL_MS = 24 * 3600 * 1000;
+  private static readonly CLIMATE_RISK_CACHE_MAX = 60;
+  private readonly _climateRiskCache = new Map<string, { data: any; expires: number }>();
+
+  /**
+   * GET /api/map/climate-risk → proxy to ai-service POST /api/ai/climate/risk.
+   * Caches the GeoJSON result for 24 h. On failure, returns a degraded but
+   * valid FeatureCollection so the frontend map never hard-fails.
+   */
+  async getClimateRisk(params: {
+    minLat?: number; maxLat?: number; minLng?: number; maxLng?: number;
+    lat?: number; lng?: number; radiusKm?: number; date?: string;
+  }): Promise<any> {
+    // Build cache key from resolved bbox.
+    let key: string;
+    if (params.minLat !== undefined && params.maxLat !== undefined &&
+        params.minLng !== undefined && params.maxLng !== undefined) {
+      key = `climate:${params.minLat}:${params.maxLat}:${params.minLng}:${params.maxLng}:${params.date || ''}`;
+    } else {
+      key = `climate:${params.lat}:${params.lng}:${params.radiusKm}:${params.date || ''}`;
+    }
+    const now = Date.now();
+
+    const cached = this._climateRiskCache.get(key);
+    if (cached && cached.expires > now) {
+      this.logger.log(`climate-risk cache hit: ${key}`);
+      return { ...cached.data, cached: true };
+    }
+    if (cached) this._climateRiskCache.delete(key);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/climate/risk`, {
+          min_lat: params.minLat,
+          max_lat: params.maxLat,
+          min_lng: params.minLng,
+          max_lng: params.maxLng,
+          lat: params.lat,
+          lng: params.lng,
+          radius_km: params.radiusKm ?? 15,
+          date: params.date || null,
+        }, { timeout: 30000 })
+      );
+      const result = response.data || {};
+
+      if (this._climateRiskCache.size >= MapService.CLIMATE_RISK_CACHE_MAX) {
+        const oldestKey = this._climateRiskCache.keys().next().value;
+        if (oldestKey) this._climateRiskCache.delete(oldestKey);
+      }
+      this._climateRiskCache.set(key, { data: result, expires: now + MapService.CLIMATE_RISK_CACHE_TTL_MS });
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`AI climate-risk unavailable: ${error.message}`);
+      return {
+        type: 'FeatureCollection',
+        features: [],
+        heat_points: [],
+        risk_ranking: [],
+        risk_weights: { flood_risk: 0.35, weather_risk: 0.35, access_risk: 0.30 },
+        metadata: {
+          method: 'climate_guardian_v1',
+          degraded: true,
+          reason: 'Dịch vụ AI Bảo Vệ Khí Hậu tạm thời không khả dụng.',
+          data_source: 'none',
+          last_updated: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * POST /api/map/climate/alternatives → proxy to ai-service POST /api/ai/climate/alternatives.
+   * On failure, returns a degraded but valid GeoJSON with empty features.
+   */
+  async getClimateAlternatives(params: {
+    lat: number; lng: number;
+    minLat?: number; maxLat?: number; minLng?: number; maxLng?: number;
+    radiusKm?: number; category?: string;
+  }): Promise<any> {
+    const key = `climate-alt:${params.lat}:${params.lng}:${params.radiusKm || 10}:${params.category || ''}`;
+    const now = Date.now();
+
+    const cached = this._climateRiskCache.get(key);
+    if (cached && cached.expires > now) {
+      this.logger.log(`climate-alternatives cache hit: ${key}`);
+      return { ...cached.data, cached: true };
+    }
+    if (cached) this._climateRiskCache.delete(key);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/climate/alternatives`, {
+          lat: params.lat,
+          lng: params.lng,
+          min_lat: params.minLat,
+          max_lat: params.maxLat,
+          min_lng: params.minLng,
+          max_lng: params.maxLng,
+          radius_km: params.radiusKm ?? 10,
+          category: params.category || null,
+        }, { timeout: 30000 })
+      );
+      const result = response.data || {};
+
+      if (this._climateRiskCache.size >= MapService.CLIMATE_RISK_CACHE_MAX) {
+        const oldestKey = this._climateRiskCache.keys().next().value;
+        if (oldestKey) this._climateRiskCache.delete(oldestKey);
+      }
+      this._climateRiskCache.set(key, { data: result, expires: now + MapService.CLIMATE_RISK_CACHE_TTL_MS });
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`AI climate-alternatives unavailable: ${error.message}`);
+      return {
+        type: 'FeatureCollection',
+        features: [],
+        nearest_safe: null,
+        nearest_unsafe: null,
+        safe_count: 0,
+        unsafe_count: 0,
+        total_nearby: 0,
+        metadata: {
+          method: 'climate_guardian_alternatives_v1',
+          degraded: true,
+          reason: 'Dịch vụ AI Bảo Vệ Khí Hậu tạm thời không khả dụng.',
+          center_lat: params.lat,
+          center_lng: params.lng,
+          last_updated: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
   /**
    * GET /api/map/data-gaps → proxy + cache (TTL 3600 s).
    * Idea #6: Missing Data Hunter.
@@ -846,6 +981,164 @@ export class MapService {
       if (oldestKey) this._resourceOptCache.delete(oldestKey);
     }
 
+    return result;
+  }
+
+  // ─── AI Active Learning Survey Planner (Idea #20) ──────────────────────────
+  /**
+   * GET /api/map/survey/priorities → proxy + cache (TTL 3600 s).
+   *
+   * Fetches live POI data from SQLite, POSTs them (plus the current-location,
+   * bbox and tunables) to the ai-service POST /api/ai/survey/priorities, and
+   * caches the ranked GeoJSON result for 3600 s (reused resource-opt cache
+   * slot, HF Spaces has no Redis). The ai-service computation is pure
+   * server-side entropy + cost scoring (NO LLM), so the only latency is the
+   * grid solve — kept well under the 30 s proxy timeout.
+   *
+   * On failure: returns a valid-but-degraded GeoJSON so the frontend survey
+   * planner shows an empty-state + warning instead of a 502 (per AGENTS.md
+   * "degrade, never crash").
+   */
+  async getSurveyPriorities(params: {
+    current_lat?: number; current_lng?: number;
+    min_lat?: number; max_lat?: number; min_lng?: number; max_lng?: number;
+    grid_size_km?: number; top_n?: number;
+    survey_time_hours?: number; surveyor_speed_kmh?: number;
+    influence_radius_km?: number; spatial_weight?: number;
+  }): Promise<any> {
+    const centerLat = params.current_lat ? Number(params.current_lat) : 10.9567;
+    const centerLng = params.current_lng ? Number(params.current_lng) : 107.1825;
+    const gridSizeKm = params.grid_size_km ? Number(params.grid_size_km) : 1.0;
+    const topN = params.top_n ? Math.max(1, Math.min(50, parseInt(String(params.top_n), 10))) : 15;
+    const surveyTime = params.survey_time_hours ? Number(params.survey_time_hours) : 1.0;
+    const speedKmh = params.surveyor_speed_kmh ? Number(params.surveyor_speed_kmh) : 30.0;
+    const influenceKm = params.influence_radius_km ? Number(params.influence_radius_km) : 2.0;
+    const spatialW = params.spatial_weight !== undefined ? Number(params.spatial_weight) : 0.25;
+
+    // Resolve a bounding box (default 11 km box around current location).
+    let minLat: number, maxLat: number, minLng: number, maxLng: number;
+    if (params.min_lat != null && params.max_lat != null && params.min_lng != null && params.max_lng != null) {
+      minLat = Number(params.min_lat); maxLat = Number(params.max_lat);
+      minLng = Number(params.min_lng); maxLng = Number(params.max_lng);
+    } else {
+      const span = 0.05; // ~5.5 km half-width
+      minLat = centerLat - span; maxLat = centerLat + span;
+      minLng = centerLng - span; maxLng = centerLng + span;
+    }
+
+    // Deterministic cache key from the resolved parameters.
+    const cacheKey = `survey:prior:${minLat.toFixed(5)}:${maxLat.toFixed(5)}:${minLng.toFixed(5)}:${maxLng.toFixed(5)}:${centerLat.toFixed(5)}:${centerLng.toFixed(5)}:${gridSizeKm}:${topN}:${surveyTime}:${speedKmh}:${influenceKm}:${spatialW}`;
+    const now = Date.now();
+    const cached = this._resourceOptCache.get(cacheKey);
+    if (cached && now < cached.expires) {
+      this.logger.debug(`Survey priorities cache hit: ${cacheKey}`);
+      const cachedValue = cached.data;
+      return {
+        ...cachedValue,
+        metadata: { ...((cachedValue && cachedValue.metadata) || {}), cached: true },
+      };
+    }
+
+    // ── Fetch POI data from the DB (bounded to the resolved bbox) ──────
+    let pois: PointOfInterest[] = [];
+    try {
+      pois = await this.findAllPois({ minLat, maxLat, minLng, maxLng });
+    } catch (dbErr: any) {
+      this.logger.warn(`DB fetch for survey priorities failed: ${dbErr.message}`);
+    }
+
+    const points = pois.map((p) => ({
+      lat: p.lat, lng: p.lng, name: p.name,
+      category: p.category, address: p.address || '',
+      description: p.description || '',
+    }));
+
+    // ── Proxy POST to ai-service (pure entropy+cost, no LLM) ───────────
+    let result: any;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${this.aiServiceUrl}/api/ai/survey/priorities`, {
+          points,
+          current_location: { lat: centerLat, lng: centerLng },
+          bbox: { min_lat: minLat, max_lat: maxLat, min_lng: minLng, max_lng: maxLng },
+          grid_size_km: gridSizeKm,
+          top_n: topN,
+          survey_time_hours: surveyTime,
+          surveyor_speed_kmh: speedKmh,
+          influence_radius_km: influenceKm,
+          spatial_weight: spatialW,
+        }, { timeout: 30000 })
+      );
+      result = response.data || {};
+    } catch (aiError: any) {
+      const detail = aiError?.response?.data?.detail || aiError.message || 'AI service unavailable';
+      this.logger.error(`AI survey priorities failed: ${detail}`);
+      result = {
+        type: 'FeatureCollection',
+        features: [],
+        next_point: null,
+        summary: {
+          total_cells: 0, evaluated_cells: 0, considered: 0,
+          grid_size_km: gridSizeKm, poi_count: points.length, points_used: points.length,
+          current_location: { lat: centerLat, lng: centerLng },
+          bbox: { min_lat: minLat, max_lat: maxLat, min_lng: minLng, max_lng: maxLng },
+          top_n: topN, max_results: topN,
+        },
+        metadata: {
+          method: 'entropy_infovalue_cost_v1',
+          degraded: true,
+          reason: `Dịch vụ AI lên kế hoạch khảo sát tạm thời không khả dụng: ${detail}`,
+        },
+      };
+    }
+
+    this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
+    if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
+      const oldestKey = this._resourceOptCache.keys().next().value;
+      if (oldestKey) this._resourceOptCache.delete(oldestKey);
+    }
+    return result;
+  }
+
+  /**
+   * GET /api/map/survey/next → proxy to ai-service POST /api/ai/survey/next.
+   * Returns the single best next survey point (top-1 of the priority ranking).
+   * Caches for 3600 s; degrades to a valid empty result on failure.
+   */
+  async getSurveyNext(params: {
+    current_lat?: number; current_lng?: number;
+    min_lat?: number; max_lat?: number; min_lng?: number; max_lng?: number;
+    grid_size_km?: number; top_n?: number;
+    survey_time_hours?: number; surveyor_speed_kmh?: number;
+    influence_radius_km?: number; spatial_weight?: number;
+  }): Promise<any> {
+    const centerLat = params.current_lat ? Number(params.current_lat) : 10.9567;
+    const centerLng = params.current_lng ? Number(params.current_lng) : 107.1825;
+    const gridSizeKm = params.grid_size_km ? Number(params.grid_size_km) : 1.0;
+    const topN = params.top_n ? Math.max(1, Math.min(50, parseInt(String(params.top_n), 10))) : 15;
+    const cacheKey = `survey:next:${centerLat.toFixed(5)}:${centerLng.toFixed(5)}:${gridSizeKm}:${topN}:${params.survey_time_hours}:${params.surveyor_speed_kmh}:${params.influence_radius_km}:${params.spatial_weight}`;
+    const now = Date.now();
+    const cached = this._resourceOptCache.get(cacheKey);
+    if (cached && now < cached.expires) {
+      this.logger.debug(`Survey next cache hit: ${cacheKey}`);
+      const cachedValue = cached.data;
+      return {
+        ...cachedValue,
+        metadata: { ...((cachedValue && cachedValue.metadata) || {}), cached: true },
+      };
+    }
+
+    // Reuse getSurveyPriorities so POIs/bbox/caching logic is shared.
+    const priorities = await this.getSurveyPriorities(params);
+    const nextPoint = priorities.next_point || null;
+    const feature = priorities.features?.[0] || null;
+    const result = { feature, next_point: nextPoint, metadata: priorities.metadata };
+
+    this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
+    if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
+      const oldestKey = this._resourceOptCache.keys().next().value;
+      if (oldestKey) this._resourceOptCache.delete(oldestKey);
+    }
     return result;
   }
 
@@ -1284,6 +1577,9 @@ export class MapService {
     let parsedQuery: any = null;
     let explanation = '';
     let degraded = false;
+    // Voice-to-Geo (Idea #16): intent classification from the ai-service
+    // parser. Falls back to geo_recommend when the ai-service path fails.
+    let intentResult: any = { intent: 'geo_recommend', confidence: 0 };
 
     try {
       const response = await firstValueFrom(
@@ -1297,6 +1593,10 @@ export class MapService {
       parsedQuery = payload.parsed_query || payload;
       explanation = payload.explanation || '';
       degraded = payload.degraded || false;
+      // ai-service returns intent as a top-level field (Voice-to-Geo #16).
+      if (payload.intent && payload.intent.intent) {
+        intentResult = payload.intent;
+      }
     } catch (aiError: any) {
       this.logger.warn(
         `AI service unavailable for nl-search, using keyword fallback: ${aiError.message}`
@@ -1304,6 +1604,9 @@ export class MapService {
       parsedQuery = this._fallbackParse(query);
       explanation = `Tìm kiếm: "${query}"`;
       degraded = true;
+      // Fallback: classify intent from the fallback-parsed query so the
+      // frontend still knows whether to show search results or a report form.
+      intentResult = this._classifyIntentFallback(parsedQuery, query);
     }
 
     // ── 2. Query SQLite for matching POIs ───────────────────────────────
@@ -1335,6 +1638,9 @@ export class MapService {
       degraded,
       results: pois,
       total: pois.length,
+      // Voice-to-Geo (Idea #16): intent classification from the ai-service
+      // parser. Falls back to geo_recommend when the ai-service path fails.
+      intent: intentResult,
     };
   }
 
@@ -1385,6 +1691,39 @@ export class MapService {
       suggestions: [],
       raw_text: query,
     };
+  }
+
+  /**
+   * Voice-to-Geo (Idea #16): lightweight TypeScript intent classifier
+   * mirroring ai-service/services/nl_query_parser.py:extract_intent().
+   * Used when the ai-service is unreachable so the frontend still knows
+   * whether to show search results or a report form.
+   */
+  private _classifyIntentFallback(parsed: Record<string, any>, text: string): Record<string, any> {
+    const raw = text.toLowerCase().trim();
+
+    // Priority 1: report keywords
+    const reportKw = ['hỏng', 'đứt', 'lỗi', 'ngập', 'gửi báo cáo', 'báo cáo',
+      'báo cáo sự cố', 'báo lỗi', 'báo wifi', 'mạng yếu', 'không hoạt động',
+      'không kết nối', 'đóng góp thông tin'];
+    if (reportKw.some((kw) => raw.includes(kw))) {
+      return { intent: 'report_form', confidence: 0.8, detail: 'Có từ khóa báo cáo' };
+    }
+
+    // Priority 2: explicit find verbs → geo_recommend
+    const findVerbs = ['tìm', 'tìm kiếm', 'tìm nơi', 'tìm đường'];
+    if (findVerbs.some((v) => raw.includes(v))) {
+      return { intent: 'geo_recommend', confidence: 0.7, detail: 'Có động từ tìm' };
+    }
+
+    // Priority 3: question words without a find verb → geo_query
+    const questionWords = ['ở đâu', 'là gì', 'thế nào', 'bao nhiêu', 'giờ mở cửa', 'giờ đóng cửa'];
+    if (questionWords.some((qw) => raw.includes(qw))) {
+      return { intent: 'geo_query', confidence: 0.7, detail: 'Câu hỏi thông tin địa lý' };
+    }
+
+    // Default
+    return { intent: 'geo_recommend', confidence: 0.3, detail: 'Mặc định tìm gợi ý' };
   }
 
   /** Fetch POIs for multiple categories (union), then deduplicate. */

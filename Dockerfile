@@ -183,6 +183,9 @@ ENV OPENROUTER_TIMEOUT_SECONDS=8
 ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
 ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
 ENV RAG_TIMEOUT_SECONDS=8
+# Voice-to-Geo (Idea #16): OpenRouter Speech-to-Text (Whisper) fallback.
+ENV OPENROUTER_STT_MODEL=openai/whisper-large-v3
+ENV OPENROUTER_STT_TIMEOUT_SECONDS=25
 # --- Shanghai AI Laboratory (01.ai / Kimi) — secondary LLM + embedding provider ---
 # Set KIMI_API_KEY as an HF Spaces Secret to enable Kimi as a fallback provider.
 # kore-gpt-9b is the standard Kimi chat model; kimi-embedding-0812 is the

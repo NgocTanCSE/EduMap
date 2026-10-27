@@ -6,7 +6,7 @@ import {
   Search, MapPin, X, List, ChevronLeft, ChevronRight, ChevronDown, BrainCircuit,
   ThermometerSun, Layers, Save, Info, Flame, LogOut,
   Maximize, Minimize, GraduationCap, Heart, BookOpen, Users, Wifi, Atom,
-  Briefcase, Globe, Leaf, Coffee, Star,
+  Briefcase, Globe, Leaf, Coffee, Star, Target, Shield, Mic, MicOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
@@ -242,6 +242,14 @@ export default function MapPage() {
 
   const [fs, setFs] = useState(false);
 
+  // Voice search (Idea #16)
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceResults, setVoiceResults] = useState<any[]>([]);
+  const [voiceIntent, setVoiceIntent] = useState<string | null>(null);
+  const [showVoiceResults, setShowVoiceResults] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+
   // Nearby facilities of the selected POI (wifi / thư viện / trung tâm …).
   // Computed client-side from the already-loaded `locations` — instant, no extra fetch.
   const NEARBY_LIMIT_M = 1000; // ~1 km radius around the selected pin
@@ -309,6 +317,101 @@ export default function MapPage() {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data: categoriesList, timestamp: Date.now() }));
     } catch (error) {
       logger.error('Error fetching categories', error);
+    }
+  }, []);
+
+  // --- Voice search (Idea #16) ---
+  const startVoiceSearch = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Trình duyệt không hỗ trợ nhận dạng giọng nói. Vui lòng dùng Chrome.');
+      // Fallback: open the dedicated voice-search page which handles
+      // server-side Whisper STT.
+      window.location.href = '/voice-search';
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (event: any) => {
+      let final = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) {
+          final += res[0].transcript;
+        }
+      }
+      if (final) {
+        setVoiceTranscript(final.trim());
+        void sendVoiceQuery(final.trim());
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    try {
+      recognition.start();
+      setIsRecording(true);
+      recognitionRef.current = recognition;
+    } catch {
+      // SpeechRecognition constructor/start failed → fall back to server page.
+      window.location.href = '/voice-search';
+    }
+  }, []);
+
+  const stopVoiceSearch = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  }, []);
+
+  const sendVoiceQuery = useCallback(async (text: string) => {
+    setIsRecording(false);
+    setShowVoiceResults(true);
+    setVoiceResults([]);
+    setVoiceIntent(null);
+    try {
+      const res = await fetchWithRetry(
+        `/api/map/nl-search?q=${encodeURIComponent(text)}`,
+      );
+      const json = await res.json();
+      const data = unwrapApiResponse<any>(json);
+      setVoiceResults(data.results || []);
+      setVoiceIntent(data.intent?.intent || null);
+      if (data.results?.length > 0) {
+        const first = data.results[0];
+        setSelectedLocation({
+          id: first.id,
+          name: first.name,
+          category: first.category,
+          lat: Number(first.lat),
+          lng: Number(first.lng),
+          description: first.description,
+          address: first.address,
+          rating_avg: first.rating_avg,
+        } as any);
+      }
+      if (data.intent?.intent === 'report_form') {
+        toast('Báo cáo sự cố đã phát hiện — mở form báo cáo.');
+      } else if ((data.results?.length || 0) === 0) {
+        toast.info('Không tìm thấy địa điểm nào — thử từ khóa khác.');
+      }
+    } catch (err) {
+      toast.error('Lỗi tìm kiếm bằng giọng nói — vui lòng thử lại.');
     }
   }, []);
 
@@ -594,6 +697,13 @@ export default function MapPage() {
       <div className="fixed bottom-6 right-6 z-30 flex flex-col items-center gap-2">
         <div className="flex flex-col gap-2 rounded-xl bg-card border border-border shadow-lg p-1.5">
           <button
+            onClick={isRecording ? stopVoiceSearch : startVoiceSearch}
+            title="Tìm bằng giọng nói (Voice-to-Geo)"
+            className={`p-2 rounded-lg transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
+          >
+            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </button>
+          <button
             onClick={() => setShowHeatmap(!showHeatmap)}
             title="Bật/tắt lớp nhiệt độ"
             className={`p-2 rounded-lg transition-colors ${showHeatmap ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
@@ -601,11 +711,37 @@ export default function MapPage() {
             <Flame className="w-4 h-4" />
           </button>
           <button
+            onClick={() => {
+              // SafeRoute AI (Idea #12): trigger via the RoutingPanel button
+              // The InteractiveMap component handles the full flow internally.
+              const event = new CustomEvent('toggleSafeRoute');
+              window.dispatchEvent(event);
+            }}
+            title="Chỉ đường an toàn AI (SafeRoute)"
+            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-accent transition-colors"
+          >
+            <Shield className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => { setShowAiPanel(true); runAiAnalysis(); }}
             title="Phân tích AI khu vực"
             className={`p-2 rounded-lg transition-colors ${showAiPanel ? 'bg-primary text-foreground' : 'text-muted-foreground/60 hover:bg-muted/50'}`}
           >
             <BrainCircuit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => { window.location.href = '/map/data-hunter'; }}
+            title="Truy đuổi dữ liệu thiếu (Missing Data Hunter)"
+            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground transition-colors"
+          >
+            <Target className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => { window.location.href = '/map/survey-planner'; }}
+            title="Kế hoạch khảo sát AI (Active Learning)"
+            className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground transition-colors"
+          >
+            <MapPin className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowHeatmap(true)}
@@ -630,6 +766,55 @@ export default function MapPage() {
           </button>
         </div>
       </div>
+
+      {/* Voice search results overlay (Idea #16) */}
+      {showVoiceResults && voiceResults.length > 0 && (
+        <div className="fixed bottom-24 right-6 z-40 w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
+          <div className="p-3 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                Kết quả giọng nói{voiceTranscript && `: "${voiceTranscript}"`}
+              </span>
+            </div>
+            {voiceIntent && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-muted/30 text-muted-foreground">
+                {voiceIntent}
+              </span>
+            )}
+          </div>
+          <div className="p-2 space-y-2">
+            {voiceResults.map((poi: any) => (
+              <button
+                key={poi.id}
+                onClick={() => {
+                  setSelectedLocation({
+                    id: poi.id, name: poi.name, category: poi.category,
+                    lat: Number(poi.lat), lng: Number(poi.lng),
+                    description: poi.description, address: poi.address,
+                    rating_avg: poi.rating_avg,
+                  } as any);
+                  setShowVoiceResults(false);
+                }}
+                className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="font-medium text-foreground">{poi.name}</span>
+                </div>
+                {poi.address && (
+                  <p className="text-xs text-muted-foreground mt-1">{poi.address}</p>
+                )}
+                {poi.distance_m !== undefined && (
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    Cách {poi.distance_m} m
+                  </p>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AI Analysis side panel */}
       <AiPanel open={showAiPanel} onClose={() => setShowAiPanel(false)} analysis={aiAnalysis} loading={analyzing} />

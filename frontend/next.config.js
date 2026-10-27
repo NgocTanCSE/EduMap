@@ -43,6 +43,17 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
+        // PWA: cache offline tutor responses so the tutor page works
+        // even when the network is intermittent/unavailable.
+        urlPattern: /\/api\/offline\/tutor\//i,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'offline-tutor-cache',
+          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 }, // 1 hour
+          networkTimeoutSeconds: 10,
+        },
+      },
+      {
         urlPattern: /\.(?:png|jpg|jpeg|svg|webp|gif|ico)$/i,
         handler: 'CacheFirst',
         options: {
@@ -115,7 +126,7 @@ const nextConfig = {
       {
         // `config` is excluded so `/api/config` always hits the Next route
         // handler (runtime Google client ID) instead of the backend.
-        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|config$).*)',
+        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|offline/tutor|offline/status|config$).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

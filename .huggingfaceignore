@@ -73,5 +73,14 @@ docs/
 # AI service crashes on startup. Exclude entirely; let it create fresh.
 ai-service/chroma_db/
 
+# ── Edge AI Tutor — model weights downloaded at runtime, never bundled ──
+# *.bin / *.safetensors / *.gguf already excluded above, but add the
+# offline-models/ download directory explicitly (in case HF Hub writes
+# metadata files that slip through).
+ai-service/offline-models/
+ai-service/models/*.bin
+ai-service/models/*.safetensors
+ai-service/models/*.gguf
+
 # ── Keep everything else (Dockerfile, supervisord.conf, spacers.yaml, scripts, README.md, edumap.db) ──
 # Scripts are REQUIRED for Docker build on HF Spaces — do NOT exclude scripts/

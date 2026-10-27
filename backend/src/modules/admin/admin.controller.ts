@@ -85,4 +85,11 @@ export class AdminController {
   ) {
     return this.aiService.dataQualityReport(body);
   }
+
+  @Get('question-gaps')
+  @ApiOperation({ summary: 'Báo cáo khoảng trống tri thức AI (Idea #17) — cluster truy vấn, xác định gaps' })
+  @ApiResponse({ status: 200, description: 'Báo cáo khoảng trống tri thức đã được phân cụm' })
+  async getQuestionGaps(@Query('limit') limit?: string) {
+    return this.aiService.getQuestionGaps(limit ? parseInt(limit, 10) : undefined);
+  }
 }

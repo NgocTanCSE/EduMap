@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, BookOpen } from "lucide-react";
+import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
 
@@ -20,6 +20,9 @@ export default function AIChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
+  // Voice-to-Geo (Idea #16): voice input button on chat page
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
   // Session ID for chat session memory (bộ nhớ phiên chat).
   // Generated once on mount and reused across messages within this tab.
   // On HF Spaces this ties to the in-memory SessionMemoryService.
@@ -63,6 +66,66 @@ export default function AIChatPage() {
 
     fetchHistory();
   }, []);
+
+  // Voice-to-Geo (Idea #16): record voice → STT → fill chat input
+  const toggleVoiceRecording = useCallback(() => {
+    if (isVoiceRecording) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+      setIsVoiceRecording(false);
+      return;
+    }
+
+    // Privacy-first: prefer client-side Web Speech API.
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      // Fallback: navigate to the dedicated voice-search page which
+      // handles server-side Whisper STT.
+      window.location.href = '/voice-search';
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (event: any) => {
+      let final = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) {
+          final += res[0].transcript;
+        }
+      }
+      if (final.trim()) {
+        setInput((prev) => prev + ' ' + final.trim());
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsVoiceRecording(false);
+      recognitionRef.current = null;
+      toast.error('Không thể nhận dạng giọng nói — vui lòng nhập tay hoặc dùng trang Tìm bằng giọng nói.');
+    };
+
+    recognition.onend = () => {
+      setIsVoiceRecording(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsVoiceRecording(true);
+      toast.success('Đang nghe…');
+    } catch {
+      toast.error('Trình duyệt không hỗ trợ nhận dạng giọng nói.');
+    }
+  }, [isVoiceRecording]);
 
   const handleSend = async () => {
     const trimmedInput = input.trim();
@@ -311,7 +374,21 @@ export default function AIChatPage() {
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           className="border-none bg-transparent focus-visible:ring-0 px-6 text-primary text-sm placeholder:text-muted-foreground/10"
         />
-        <Button 
+        {/* Voice input button (Idea #16) */}
+        <Button
+          onClick={toggleVoiceRecording}
+          disabled={isLoading}
+          variant="ghost"
+          className={`rounded-lg shrink-0 h-12 w-12 border border-border ${
+            isVoiceRecording
+              ? 'bg-red-500 hover:bg-red-600 text-white'
+              : 'text-muted-foreground/60 hover:bg-muted/50'
+          }`}
+          title="Nhập bằng giọng nói (Web Speech API / Whisper fallback)"
+        >
+          {isVoiceRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </Button>
+        <Button
           onClick={handleSend} 
           disabled={isLoading || !input.trim()}
           className="rounded-lg shrink-0 h-12 w-12 bg-primary/80 hover:bg-primary/80 text-foreground shadow-lg"

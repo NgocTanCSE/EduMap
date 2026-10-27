@@ -89,12 +89,17 @@ async def parse_map_query(request: Talk2MapQueryRequest):
         parser = _get_parser()
         parsed = await parser.parse_async(text)
         explanation = parser.generate_explanation(parsed)
+        # Voice-to-Geo (Idea #16, Task 3): classify the parsed query into an
+        # intent (geo_recommend / report_form / geo_query) using the same
+        # regex baseline so it works on HF Spaces without an LLM key.
+        intent = parser.extract_intent(parsed)
 
         return {
             "status": "success",
             "degraded": parsed.get("method") == "regex",
             "parsed_query": parsed,
             "explanation": explanation,
+            "intent": intent,
         }
     except HTTPException:
         raise

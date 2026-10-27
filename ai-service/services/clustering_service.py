@@ -227,8 +227,8 @@ class ClusteringService:
                 "attribute_gaps": {},
                 "metadata": {
                     "method": "grid_based_coverage_analysis",
-                    "degraded": False,
-                    "reason": None,
+                    "degraded": True,
+                    "reason": "Không có POI nào để phân tích.",
                 },
             }
 

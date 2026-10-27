@@ -46,7 +46,7 @@ export class SponsorProfile {
   @Column({ nullable: true })
   contact_email: string;
 
-  @Column({ ...enumColumn(), default: SponsorStatus.ACTIVE })
+  @Column({ ...enumColumn(), enum: SponsorStatus, default: SponsorStatus.ACTIVE })
   status: SponsorStatus;
 
   @Column({ default: false })

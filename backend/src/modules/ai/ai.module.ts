@@ -8,6 +8,7 @@ import { LearningMaterial } from '../library/entities/learning-material.entity';
 import { Location } from '../map/entities/location.entity';
 
 import { ChatHistory } from './entities/chat-history.entity';
+import { QueryLog } from './entities/query-log.entity';
 import { SessionMemoryService } from './session-memory.service';
 
 @Module({
@@ -17,7 +18,7 @@ import { SessionMemoryService } from './session-memory.service';
       maxRedirects: 5,
     }),
     ConfigModule,
-    TypeOrmModule.forFeature([LearningMaterial, Location, ChatHistory]),
+    TypeOrmModule.forFeature([LearningMaterial, Location, ChatHistory, QueryLog]),
   ],
   providers: [AIService, SessionMemoryService],
   controllers: [AIController],

@@ -109,6 +109,7 @@ Sử dụng JWT Bearer Token để xác thực. Lấy token từ endpoint \`\\\$
     .addTag('Green', 'Môi trường - Thử thách xanh, hoạt động bảo vệ môi trường')
     .addTag('Gamification', 'Trò chơi hóa - Điểm, huy hiệu, bảng xếp hạng')
     .addTag('Donations', 'Quyên góp - Chiến dịch và lịch sử quyên góp')
+    .addTag('ImpactMatch', 'Ghép nối nhu cầu ↔ nhà tài trợ - AI matching')
     .addTag('Certificates', 'Chứng chỉ - Cấp và xác minh chứng chỉ số')
     .addTag('Surveys', 'Khảo sát - Tạo và trả lời khảo sát')
     .addTag('Notifications', 'Thông báo - Quản lý thông báo')
