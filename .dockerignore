@@ -70,5 +70,11 @@ Thumbs.db
 .env.local
 .env.production
 .env.development
+
+# Edge AI Tutor — model weights are downloaded at runtime, never bundled
+ai-service/offline-models/
+ai-service/models/*.bin
+ai-service/models/*.safetensors
+ai-service/models/*.gguf
 .env.test
 .env*
