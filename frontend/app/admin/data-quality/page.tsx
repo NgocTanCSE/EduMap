@@ -1,5 +1,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
+
+// Prevent Next.js from prerendering this page (react-leaflet requires `window`).
+export const dynamic = 'force-dynamic';
 import { MapPin, AlertTriangle, RefreshCw, Filter, Database, BarChart3, Search, Download } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
