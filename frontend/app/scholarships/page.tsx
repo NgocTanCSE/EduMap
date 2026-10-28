@@ -486,7 +486,7 @@ export default function ScholarshipPage() {
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  Truy cập trang chính thức <ExternalLink className="w-3 h-3" />
+                  Nguồn chính thức ↗ <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             )}

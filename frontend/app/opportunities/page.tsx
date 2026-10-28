@@ -189,6 +189,18 @@ export default function OpportunitiesPage() {
                   ))}
                 </div>
               )}
+              {selectedOpp.url && (
+                <div className="pt-2 border-t border-border">
+                  <a
+                    href={selectedOpp.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline inline-flex items-center gap-1 text-xs font-medium"
+                  >
+                    Nguồn chính thức ↗
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </DetailPopup>

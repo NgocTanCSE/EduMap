@@ -7,6 +7,7 @@ export interface Opportunity {
   title: string;
   category: string;
   description: string;
+  url?: string | null;
   location: {
     lat?: number;
     lng?: number;

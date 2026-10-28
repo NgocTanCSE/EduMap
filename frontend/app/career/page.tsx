@@ -9,9 +9,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target,
-  TrendingUp, BrainCircuit, Compass, BarChart3,
+  TrendingUp, BrainCircuit, Compass, BarChart3, LogIn,
 } from 'lucide-react';
 import { careerService } from '@/src/services/career.service';
+import { authService } from '@/src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
 
 interface TabDef {
@@ -43,7 +44,12 @@ function CareerDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
+    // Nếu chưa đăng nhập, không gọi API cần auth — tránh hiện 0 gâu ý như "chưa có dữ liệu"
+    if (!authService.isLoggedIn()) {
+      setLoading(false);
+    } else {
+      fetchDashboardData();
+    }
   }, []);
 
   const fetchDashboardData = async () => {
@@ -73,7 +79,35 @@ function CareerDashboard() {
 
   return (
     <div className="w-full mx-auto space-y-12">
-      {/* Hero Section */}
+      {/* Login Gate */}
+      {!loading && !authService.isLoggedIn() && (
+        <section className="bg-card border border-border rounded-xl p-8 text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+            <UserCircle size={32} className="text-primary" />
+          </div>
+          <h2 className="text-xl font-semibold">Kết nối để xem tiến trình sự nghiệp</h2>
+          <p className="text-sm text-muted-foreground/60 max-w-md mx-auto">
+            Đăng nhập để theo dõi kỹ năng, lộ trình học tập, đơn ứng tuyển và nhận gợi ý công việc từ AI.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login?callbackUrl=/career';
+              }
+            }}
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm"
+          >
+            <LogIn size={16} />
+            Đăng nhập ngay
+          </button>
+          <div className="pt-4">
+            <a href="/career/jobs" className="text-sm font-semibold text-primary hover:underline">
+              Khám phá tất cả việc làm (không cần đăng nhập)
+            </a>
+          </div>
+        </section>
+      )}
       <section className="bg-card p-6 rounded-lg border border-border">
         <div className="space-y-5">
           <h1 className="text-2xl font-semibold tracking-tight">

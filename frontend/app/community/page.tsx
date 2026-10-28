@@ -308,13 +308,14 @@ export default function CommunityPage() {
                 )}
                 </>
             ) : (
-                <div className="text-center py-12 bg-card/30 border border-dashed border-border rounded-xl">
-                    <p className="text-muted-foreground">
+                <div className="text-center py-16 bg-card/30 border border-dashed border-border rounded-xl">
+                    <Users size={48} className="mx-auto mb-4 text-muted-foreground/30" />
+                    <h3 className="text-lg font-semibold mb-2">
                       {searchTerm
                         ? 'Không tìm thấy bài viết phù hợp với từ khóa.'
                         : 'Chưa có bài viết nào.'}
-                    </p>
-                    {searchTerm && (
+                    </h3>
+                    {searchTerm ? (
                       <button
                         type="button"
                         onClick={() => setSearchInput('')}
@@ -322,6 +323,34 @@ export default function CommunityPage() {
                       >
                         Xóa tìm kiếm
                       </button>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground/60 mb-6 max-w-sm mx-auto">
+                          Cộng đồng EduMap đang được xây dựng. Hãy là người đầu tiên chia sẻ kinh nghiệm, đặt câu hỏi về học tập, học bổng hoặc du học với cộng đồng giáo dục Biên Hòa!
+                        </p>
+                        {!authService.isLoggedIn() ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const loginUrl = '/login?callbackUrl=/community';
+                              if (typeof window !== 'undefined') window.location.href = loginUrl;
+                            }}
+                            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm"
+                          >
+                            <MessageSquare size={18} />
+                            Đăng nhập để đăng bài
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setIsCreating(true)}
+                            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm"
+                          >
+                            <FileText size={18} />
+                            Đăng bài đầu tiên
+                          </button>
+                        )}
+                      </>
                     )}
                 </div>
             )}
@@ -357,7 +386,9 @@ export default function CommunityPage() {
                                 </button>
                             </li>
                         )) : (
-                            <li className="text-sm text-muted-foreground italic">Chưa có xu hướng.</li>
+                            <li className="text-sm text-muted-foreground italic">
+                              Chưa có nhóm nào. Hãy đăng nhập và tạo nhóm để kết nối với cộng đồng!
+                            </li>
                         )}
                     </ul>
                 </div>
@@ -378,7 +409,9 @@ export default function CommunityPage() {
                                 <span className={`text-sm text-muted-foreground/60 group-hover:text-foreground font-medium transition-colors ${selectedGroupId === group.id ? 'text-foreground font-bold' : ''}`}>{group.name}</span>
                             </button>
                         )) : (
-                            <div className="text-sm text-muted-foreground italic">Chưa có nhóm nào</div>
+                            <div className="text-sm text-muted-foreground italic">
+                              Chưa có nhóm nào. Hãy đăng nhập để tạo và tham gia các nhóm cộng đồng!
+                            </div>
                         )}
                     </div>
                 </div>
