@@ -9,6 +9,11 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { EduMapLogo } from "@/components/ui/Logo";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 import {
+  SIDEBAR_EXPANDED_WIDTH,
+  SIDEBAR_COLLAPSED_WIDTH,
+  setSidebarWidthVar,
+} from "@/src/lib/layout-constants";
+import {
   SIDEBAR_GROUPS,
   type Feature,
   type FeatureGroup,
@@ -192,10 +197,18 @@ export default function Sidebar({
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const { size: sidebarSize, onResizeMouseDown: onSidebarResizeMouseDown } = useResizable({
-    initialSize: { width: 240, height: 400 },
-    minWidth: 160,
+    initialSize: { width: SIDEBAR_EXPANDED_WIDTH, height: 400 },
+    minWidth: SIDEBAR_COLLAPSED_WIDTH,
     maxWidth: 400,
   });
+
+  // Sync sidebar width to a CSS custom property so other fixed-position
+  // components (e.g. Map Hub's "Mở bảng bản đồ" button) can reference it
+  // without prop-drilling through AppLayout → page tree.
+  const currentWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarSize.width;
+  React.useEffect(() => {
+    setSidebarWidthVar(currentWidth);
+  }, [currentWidth]);
 
   // Move focus into the drawer when it opens so keyboard users are not left
   // tabbing through the page behind the backdrop.
@@ -275,6 +288,21 @@ export default function Sidebar({
 
         {/* Account (avatar / profile / logout) */}
         <AccountSection onNavigate={onClose} />
+
+        {/* Resize handle — vertical divider on the right edge.
+            Only visible on desktop (lg) when sidebar is expanded and not on
+            mobile (where the sidebar is a full-width drawer). */}
+        {!sidebarCollapsed && (
+          <div
+            onMouseDown={onSidebarResizeMouseDown}
+            className="hidden lg:block absolute top-0 right-0 w-1.5 h-full cursor-col-resize select-none group"
+            title="Kéo để thay đổi độ rộng sidebar"
+          >
+            <div className="absolute top-1/2 right-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-0.5 h-10 bg-muted-foreground/40 rounded" />
+            </div>
+          </div>
+        )}
       </aside>
     </>
   );

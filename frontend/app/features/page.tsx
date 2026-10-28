@@ -55,7 +55,7 @@ export default function FeaturesHubPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <SectionHeader
         icon={Layers}
         title="Tất cả tính năng"

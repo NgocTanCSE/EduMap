@@ -3,18 +3,19 @@ import React, { useEffect, useState } from 'react';
 import { Target, Search, MapPin, Calendar, Users, ArrowRight, Loader2, Compass } from 'lucide-react';
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
 import { toast } from 'sonner';
-import Link from 'next/link';
 import Thumb from '@/components/ui/Thumb';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { opportunityIllustration } from '@/src/lib/illustrations';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { DetailPopup } from '@/components/ui/DetailPopup';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('');
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
 
   useEffect(() => {
     fetchOpportunities();
@@ -128,9 +129,12 @@ export default function OpportunitiesPage() {
                           ))}
                       </div>
 
-                      <Link href={`/opportunities/${opp.id}`} className="card-footer group-hover:bg-primary group-hover:border-transparent group-hover:text-foreground transition-all text-sm font-bold">
-                          <span className="flex items-center gap-2">ZEM CHI TIẾT <ArrowRight className="w-4 h-4" /></span>
-                      </Link>
+                      <button
+                        onClick={() => setSelectedOpp(opp)}
+                        className="card-footer group-hover:bg-primary group-hover:border-transparent group-hover:text-foreground transition-all text-sm font-bold w-full text-left cursor-pointer"
+                      >
+                          <span className="flex items-center gap-2">XEM CHI TIẾT <ArrowRight className="w-4 h-4" /></span>
+                      </button>
                   </div>
               ))}
           </div>
@@ -139,6 +143,55 @@ export default function OpportunitiesPage() {
               <Target className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
               <p className="text-muted-foreground/60">Không tìm thấy cơ hội nào phù hợp.</p>
           </div>
+      )}
+
+      {/* Opportunity Detail Popup */}
+      {selectedOpp && (
+        <DetailPopup
+          open={!!selectedOpp}
+          onClose={() => setSelectedOpp(null)}
+          title={selectedOpp.title}
+          subtitle={selectedOpp.category}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 text-sm">
+            <p className="text-foreground/80 leading-relaxed">
+              {selectedOpp.description}
+            </p>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="font-medium">Địa chỉ:</span>
+                <span>{selectedOpp.address || "Trực tuyến"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-accent" />
+                <span className="font-medium">Hạn chót:</span>
+                <span>
+                  {selectedOpp.deadline
+                    ? new Date(selectedOpp.deadline).toLocaleDateString("vi-VN")
+                    : "Không có hạn chót"}
+                </span>
+              </div>
+              {selectedOpp.is_team_finding_open && (
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span className="font-medium">Tìm đồng đội:</span>
+                  <span className="text-primary font-bold">Đang mở</span>
+                </div>
+              )}
+              {selectedOpp.tags && selectedOpp.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedOpp.tags.map((tag, i) => (
+                    <span key={i} className="text-[10px] bg-card/20 text-muted-foreground/60 px-2 py-1 rounded border border-border">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DetailPopup>
       )}
 
     </div>

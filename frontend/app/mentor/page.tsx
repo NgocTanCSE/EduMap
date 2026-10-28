@@ -6,10 +6,10 @@ import { mentorService } from '@/src/services/mentor.service';
 import { authService } from '@/src/services/auth.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
-import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { DetailPopup } from '@/components/ui/DetailPopup';
 
 export default function MentorPage() {
   const [mentors, setMentors] = useState<any[]>([]);
@@ -19,6 +19,7 @@ export default function MentorPage() {
 
   const [isAiMatching, setIsAiMatching] = useState(false);
   const [aiMatches, setAiMatches] = useState<any[]>([]);
+  const [selectedMentor, setSelectedMentor] = useState<any>(null);
 
   useEffect(() => {
     fetchMentors(activeCategory === 'Tất cả' ? undefined : activeCategory);
@@ -145,12 +146,12 @@ export default function MentorPage() {
                       ))}
                     </ul>
                   </div>
-                  <Link
-                    href={`/mentor/${match.mentor_id}`}
+                  <button
+                    onClick={() => setSelectedMentor({ ...match, ...mentorData, _isAiMatch: true })}
                     className="mt-auto block w-full bg-primary/20 hover:bg-primary/40 text-primary/70 border border-primary/30 py-3 rounded-xl font-bold text-center text-sm transition-all"
                   >
                     Xem Hồ Sơ & Đặt Lịch
-                  </Link>
+                  </button>
                 </div>
               );
             })}
@@ -212,12 +213,18 @@ export default function MentorPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-auto">
-                <Link href={`/mentor/${mentor.user_id}`} className="py-3 rounded-xl bg-card/40 border border-border text-xs font-bold hover:bg-muted/50 transition-colors flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setSelectedMentor(mentor)}
+                  className="py-3 rounded-xl bg-card/40 border border-border text-xs font-bold hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
+                >
                   <UserCheck className="w-4 h-4" /> Xem Hồ Sơ
-                </Link>
-                <Link href={`/mentor/${mentor.user_id}?action=book`} className="py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]">
+                </button>
+                <a
+                  href={`/mentor/${mentor.user_id}?action=book`}
+                  className="py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
+                >
                   <Calendar className="w-4 h-4" /> Đặt Lịch
-                </Link>
+                </a>
               </div>
             </div>
           ))}
@@ -230,6 +237,87 @@ export default function MentorPage() {
         </div>
       )}
 
+      {/* Mentor Detail Popup */}
+      {selectedMentor && (
+        <DetailPopup
+          open={!!selectedMentor}
+          onClose={() => setSelectedMentor(null)}
+          title={selectedMentor.user?.full_name || selectedMentor.name || "Cố vấn"}
+          subtitle={selectedMentor.specialties?.[0] || selectedMentor.bio || ""}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 text-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full border-2 border-primary/50 flex-shrink-0 overflow-hidden">
+                <img
+                  src={selectedMentor.user?.avatar_url || avatarFallback(selectedMentor.user?.full_name || selectedMentor.name)}
+                  onError={onImageError(avatarFallback(selectedMentor.user?.full_name || selectedMentor.name))}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Star className="w-4 h-4 fill-current text-primary" />
+                  <span className="font-medium">{selectedMentor.rating_avg || "5.0"}</span>
+                </div>
+                {selectedMentor.is_verified && (
+                  <span className="text-xs text-accent">✓ Đã xác minh</span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-foreground/80 leading-relaxed">
+              {selectedMentor.bio || selectedMentor.user?.bio || "Chưa có mô tả chi tiết."}
+            </p>
+
+            {selectedMentor.specialties && selectedMentor.specialties.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground/60 uppercase mb-2">
+                  Chuyên môn
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMentor.specialties.map((s: string) => (
+                    <span
+                      key={s}
+                      className="px-2 py-1 rounded bg-card/40 border border-border text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedMentor._isAiMatch && selectedMentor.match_score !== undefined && (
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                <p className="text-xs font-bold text-primary uppercase mb-1">
+                  Điểm phù hợp AI: {selectedMentor.match_score}%
+                </p>
+                {selectedMentor.match_reasons && (
+                  <ul className="text-xs text-muted-foreground/70 space-y-1">
+                    {selectedMentor.match_reasons.map((r: string, i: number) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <span className="text-primary/70 mt-0.5">•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-border">
+              <a
+                href={`/mentor/${selectedMentor.user_id || selectedMentor.mentor_id}?action=book`}
+                className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-lg"
+              >
+                <Calendar className="w-4 h-4" /> Đặt lịch ngay
+              </a>
+            </div>
+          </div>
+        </DetailPopup>
+      )}
     </div>
   );
 }

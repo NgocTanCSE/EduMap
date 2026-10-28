@@ -23,7 +23,7 @@ export function FeaturedPinPopup({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-in slide-in-from-top fade-in duration-300">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 mx-4 animate-in slide-in-from-top fade-in duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5 text-accent" />

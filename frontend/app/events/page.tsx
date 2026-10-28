@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Calendar, MapPin, Users, ArrowRight, Plus } from 'lucide-react';
-import Link from 'next/link';
+import { Calendar, MapPin, Users, ArrowRight, Plus, ExternalLink } from 'lucide-react';
 import { eventsService, Event } from '@/src/services/events.service';
 import { toast } from 'sonner';
 import ContentShell from '@/components/ui/ContentShell';
@@ -12,12 +11,14 @@ import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import { DetailPopup } from '@/components/ui/DetailPopup';
 import { eventIllustration } from '@/src/lib/illustrations';
 
 export default function EventsListPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     fetchEvents();
@@ -48,12 +49,12 @@ export default function EventsListPage() {
         subtitle="Nâng cao kiến thức và kết nối cùng cộng đồng EduMap."
         icon={Calendar}
         right={
-          <Link
+          <a
             href="/events/create"
             className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/85"
           >
             <Plus className="h-4 w-4" /> Tạo sự kiện
-          </Link>
+          </a>
         }
       />
 
@@ -79,7 +80,11 @@ export default function EventsListPage() {
             const startDate = new Date(event.start_date);
             const badge = event.status === 'active' ? 'SẮP DIỄN RA' : 'ĐÃ KẾT THÚC';
             return (
-              <Link href={`/events/${event.id}`} key={event.id} className="group">
+              <button
+                key={event.id}
+                onClick={() => setSelectedEvent(event)}
+                className="group text-left w-full"
+              >
                 <Card className="flex flex-col h-full">
                   <div className="relative">
                     <Thumb
@@ -131,7 +136,7 @@ export default function EventsListPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </button>
             );
           })}
         </div>
@@ -140,6 +145,72 @@ export default function EventsListPage() {
           title="Không tìm thấy sự kiện nào"
           description="Thử điều chỉnh từ khóa tìm kiếm của bạn."
         />
+      )}
+
+      {/* Event Detail Popup */}
+      {selectedEvent && (
+        <DetailPopup
+          open={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          title={selectedEvent.title}
+          subtitle={selectedEvent.location}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 text-sm">
+            <Thumb
+              src={selectedEvent.image_url}
+              fallbackSrc={eventIllustration(selectedEvent.type, selectedEvent.title)}
+              alt={selectedEvent.title}
+              aspect="16/10"
+              className="rounded-lg"
+            />
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span className="font-medium">Thời gian:</span>
+                <span>
+                  {new Date(selectedEvent.start_date).toLocaleDateString("vi-VN")}{" "}
+                  (
+                  {new Date(selectedEvent.start_date).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  )
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-accent" />
+                <span className="font-medium">Địa chỉ:</span>
+                <span>{selectedEvent.location || "Chưa cập nhật"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="font-medium">Sức chứa:</span>
+                <span>
+                  {(Number(selectedEvent.registered_count) || 0)}/
+                  {Math.max(1, Number(selectedEvent.capacity) || 100)} người
+                </span>
+              </div>
+            </div>
+            {selectedEvent.description && (
+              <p className="text-foreground/80 leading-relaxed">
+                {selectedEvent.description}
+              </p>
+            )}
+            {(selectedEvent as any).apply_url && (
+              <div className="pt-2 border-t border-border">
+                <a
+                  href={(selectedEvent as any).apply_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1 text-xs font-medium"
+                >
+                  Đăng ký sự kiện <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+          </div>
+        </DetailPopup>
       )}
     </ContentShell>
   );

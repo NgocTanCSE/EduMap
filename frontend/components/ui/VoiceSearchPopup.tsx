@@ -91,7 +91,7 @@ export function VoiceSearchPopup({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-in slide-in-from-top fade-in duration-300">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 mx-4 animate-in slide-in-from-top fade-in duration-300">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Mic className="w-5 h-5 text-primary" />
@@ -112,9 +112,9 @@ export function VoiceSearchPopup({
           }`}>
             <button
               onClick={isRecording ? stop : () => {}}
-              className="absolute w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
+              className={`absolute w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
                 isRecording ? 'bg-destructive text-destructive-foreground animate-pulse' : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }"
+              }`}
               aria-label={isRecording ? 'Dừng ghi âm' : 'Bắt đầu ghi âm'}
             >
               {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
+import { MapPopupContent, type NearbyFacility } from '@/components/ui/MapPopupContent';
 
 // EduMap POI markers are themeable CSS divIcons — no external PNG/CDN.
 // Each category maps to a Tailwind color token + a Lucide glyph, rendered to
@@ -907,71 +908,30 @@ export default function InteractiveMap({
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-foreground font-sans max-w-[720px] bg-card border border-border rounded-lg shadow-lg">
-                        <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
-                        <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
-
-                        {/* This POI's OWN amenities (wifi, parking, ...) — compact icon+label row */}
-                        {p.amenities?.length > 0 && (
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            {p.amenities.map((a: any) => {
-                              const Ai = amenityIconFor(a.icon);
-                              return (
-                                <span key={a.icon} className="flex items-center gap-1 text-[9px] text-muted-foreground/80">
-                                  <Ai className="w-3.5 h-3.5 opacity-70" />
-                                  <span>{a.label}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {p.description && (
-                          <p className="text-[10px] text-muted-foreground/80 mt-1 leading-snug">
-                            {p.description}
-                          </p>
-                        )}
-
-                        {p.id === selectedPoint?.id && nearbyPoints.length > 0 && (
-                          <div className="pt-2 border-t border-border">
-                            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1">
-                              Tiện ích xung quanh (≤1km)
-                            </p>
-                            <ul className="space-y-1 max-h-40 overflow-y-auto">
-                              {nearbyPoints.map((f: any) => {
-                                const Fi = facilityIconFor(f.category);
-                                return (
-                                  <li key={f.id} className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground/70">
-                                    <span className="flex items-center gap-1 truncate">
-                                      <Fi className="w-3 h-3 text-accent" />
-                                      <span>{f.name}</span>
-                                    </span>
-                                    <button
-                                      onClick={() => routeToPoi(f)}
-                                      className="underline text-[9px] font-bold text-accent"
-                                    >
-                                      Đến
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-                          <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
-                            <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-                            <span className="text-accent">Verified</span>
-                          </div>
-                          <button
-                            className="bg-card text-foreground text-[9px] font-bold px-2 py-1 rounded hover:bg-primary/20"
-                            onClick={() => routeToPoi(p)}
-                          >
-                            Dẫn đường
-                          </button>
-                        </div>
-                      </div>
+                      <MapPopupContent
+                        title={p.name}
+                        address={p.address}
+                        description={p.description}
+                        amenities={p.amenities}
+                        showNearby={p.id === selectedPoint?.id}
+                        nearbyPoints={(nearbyPoints || []).map((f: any) => ({
+                          id: f.id,
+                          name: f.name,
+                          category: f.category,
+                          lat: Number(f.lat),
+                          lng: Number(f.lng),
+                          icon: facilityIconFor(f.category),
+                        })) as NearbyFacility[]}
+                        facilityIcons={facilityIcons}
+                        onRouteNearby={(f) => {
+                          const lat = f.lat;
+                          const lng = f.lng;
+                          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+                          routeToPoi({ lat, lng, name: f.name });
+                        }}
+                        onRouteHere={() => routeToPoi(p)}
+                        showVerified={true}
+                      />
                     </Popup>
                   </Marker>
                 );
@@ -1007,35 +967,13 @@ export default function InteractiveMap({
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-foreground font-sans max-w-[720px] bg-card border border-border rounded-lg shadow-lg">
-                        <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
-                        {p.address && (
-                          <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
-                        )}
-                        {p.description && (
-                          <p className="text-[10px] text-muted-foreground/80 mt-1 leading-snug line-clamp-2">
-                            {p.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-primary">
-                            Ghim {p.category}
-                          </span>
-                          <button
-                            className="bg-primary text-primary-foreground text-[9px] font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
-                            onClick={() => {
-                              if (onFeaturedPinClick) {
-                                onFeaturedPinClick(p);
-                              } else {
-                                window.location.href = p.featureLink;
-                              }
-                            }}
-                          >
-                            <Star className="w-3 h-3 fill-current" />
-                            Đến
-                          </button>
-                        </div>
-                      </div>
+                      <MapPopupContent
+                        title={p.name}
+                        address={p.address}
+                        description={p.description}
+                        categoryTag={p.category}
+                        featureLink={p.featureLink}
+                      />
                     </Popup>
                   </Marker>
                 );

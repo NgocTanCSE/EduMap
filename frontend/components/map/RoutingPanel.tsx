@@ -4,6 +4,7 @@ import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapP
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useResizable } from '@/src/hooks/useResizable';
 
 /** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
 function parseCoordinate(value: string): { lat: number; lng: number } | null {
@@ -118,6 +119,14 @@ export default function RoutingPanel({
   // Which SafeRoute AI proposal is currently selected (index into safeRoutes).
   const [selectedSafeRouteIdx, setSelectedSafeRouteIdx] = useState<number | null>(null);
 
+  // Resize state — user can drag the left edge to widen/narrow the panel.
+  // Width clamps to [280, 480] px so content never collapses or balloons.
+  const { size: panelSize, onResizeMouseDown: onResizeMouseDown } = useResizable({
+    initialSize: { width: 340, height: 400 },
+    minWidth: 280,
+    maxWidth: 480,
+  });
+
   const formatDuration = (seconds: number) => {
     const mins = Math.round(seconds / 60);
     if (mins < 60) return `${mins} phút`;
@@ -222,8 +231,17 @@ export default function RoutingPanel({
 
   return (
     <div
-      className="fixed top-[56px] right-4 z-[50] w-[340px] max-h-[calc(100dvh-120px)] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4"
+      className="fixed top-[56px] right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col"
+      style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}
     >
+      {/* Left-edge resize handle — vertical drag to widen/narrow the panel */}
+      <div
+        className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group"
+        onMouseDown={onResizeMouseDown}
+        title="Kéo để thay đổi độ rộng"
+      >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors" />
+      </div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
           <Navigation className="w-5 h-5 text-primary" /> Chỉ đường

@@ -7,6 +7,10 @@
    No AI-purple, no random gradients, no emoji logos. */
 @layer base {
   :root {
+    /* Sidebar width — shared bởi AppLayout Sidebar và Map Hub floating panels.
+       Updated via JS (setSidebarWidthVar) when sidebar collapses/resizes. */
+    --sidebar-width: 240px;
+    --sidebar-width-collapsed: 56px;
     /* ── Desert Dusk ──────────────────────────────────────────────
        A warm, earthy dark theme:
          bg    #1A1614  → near-black, warm charcoal (page background)
@@ -101,7 +105,7 @@
 /* ── Layout & alignment primitives ─────────────────────────────────────
    These exist so every feature page shares ONE page frame, ONE card
    surface and ONE card grid. Before them, pages mixed `p-8`, `p-6`,
-   `max-w-7xl` and `max-w-6xl`, which is why nothing lined up between
+   `max-w-7xl`, which is why nothing lined up between
    routes. Apply these classes instead of writing the same 6 utilities
    again (and again, with slightly different values).
    Defined in @layer components so page-level utility classes can still
@@ -109,12 +113,12 @@
 @layer components {
   /* Page frame: same padding + vertical rhythm on mobile and desktop. */
   .page-shell {
-    @apply mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
+    @apply mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
   }
 
   /* Narrow variant for form/detail pages. */
   .page-shell-narrow {
-    @apply mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
+    @apply mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
   }
 
   /* Standard surface for cards, panels and list rows. */
@@ -302,6 +306,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 .leaflet-tooltip-right:before {
   border-right-color: hsl(var(--card)) !important;
+}
+
+/* ─── MapPopupContent ──────────────────────────────────────────────
+   Consistent styling for POI + featured-pin popups. LeafPopup already
+   strips padding via `.leaflet-popup-content` (margin:0, padding:0);
+   the component adds its own `p-2` inner padding via POPUP_CONTENT_CLASS. */
+.map-popup {
+  line-height: 1.4;
+}
+.map-popup p,
+.map-popup li {
+  line-height: 1.4;
 }
 
 /* Custom scrollbar for overflow panels */

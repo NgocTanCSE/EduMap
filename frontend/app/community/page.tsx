@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Input } from '@/components/ui/input';
+import { DetailPopup } from '@/components/ui/DetailPopup';
 
 export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export default function CommunityPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPost, setSelectedPost] = useState<any>(null);
 
   // Create Post State
   const [isCreating, setIsCreating] = useState(false);
@@ -259,14 +261,15 @@ export default function CommunityPage() {
                             <BookmarkButton targetType="community_post" targetId={post.id} size="sm" />
                         </div>
 
-                        <Link href={`/community/post/${post.id}`}>
-                            <div className="space-y-2 cursor-pointer group">
-                                <h3 className="text-xl font-bold text-foreground group-hover:text-primary/70 transition-colors">{post.title}</h3>
-                                <p className="text-muted-foreground/60 text-sm leading-relaxed line-clamp-3">
-                                    {post.content}
-                                </p>
-                            </div>
-                        </Link>
+                        <button
+                            onClick={() => setSelectedPost(post)}
+                            className="space-y-2 cursor-pointer group text-left w-full"
+                        >
+                            <h3 className="text-xl font-bold text-foreground group-hover:text-primary/70 transition-colors">{post.title}</h3>
+                            <p className="text-muted-foreground/60 text-sm leading-relaxed line-clamp-3">
+                                {post.content}
+                            </p>
+                        </button>
 
                         <div className="mt-6 pt-4 border-t border-border flex items-center gap-6">
                             <button 
@@ -276,10 +279,13 @@ export default function CommunityPage() {
                                 <Heart size={18} className="group-active:scale-75 transition-transform" /> 
                                 {post.like_count}
                             </button>
-                            <Link href={`/community/post/${post.id}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold">
+                            <button
+                                onClick={() => setSelectedPost(post)}
+                                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-bold"
+                            >
                                 <MessageSquare size={18} /> 
                                 {post.comment_count}
-                            </Link>
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => handleSharePost(post)}
@@ -380,6 +386,45 @@ export default function CommunityPage() {
         </aside>
 
       </div>
+
+      {/* Post Detail Popup (replaces full-page redirect on card click) */}
+      {selectedPost && (
+        <DetailPopup
+          open={!!selectedPost}
+          onClose={() => setSelectedPost(null)}
+          title={selectedPost.title}
+          subtitle={selectedPost.author?.full_name}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 text-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <img
+                src={selectedPost.author?.avatar_url || avatarFallback(selectedPost.author?.full_name)}
+                onError={onImageError(avatarFallback(selectedPost.author?.full_name))}
+                alt=""
+                className="w-10 h-10 rounded-full bg-card"
+              />
+              <div>
+                <p className="font-medium text-foreground">{selectedPost.author?.full_name}</p>
+                <p className="text-xs text-muted-foreground/60">
+                  {new Date(selectedPost.created_at).toLocaleDateString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+            <p className="text-foreground/80 leading-relaxed whitespace-pre-line">
+              {selectedPost.content}
+            </p>
+            {selectedPost.group && (
+              <p className="text-xs text-muted-foreground/60">
+                trong <strong className="text-primary/70">{selectedPost.group.name}</strong>
+              </p>
+            )}
+          </div>
+        </DetailPopup>
+      )}
     </div>
   );
 }

@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   GraduationCap, MapPin, DollarSign, Clock,
-  CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X
+  CheckCircle2, AlertTriangle, Loader2, FileText, UploadCloud, X,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
@@ -17,6 +18,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import { DetailPopup } from '@/components/ui/DetailPopup';
 
 export default function ScholarshipPage() {
   const [scholarships, setScholarships] = useState<Scholarship[]>([]);
@@ -34,6 +36,7 @@ export default function ScholarshipPage() {
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedScholarship, setSelectedScholarship] = useState<Scholarship | null>(null);
+  const [selectedScholarshipDetail, setSelectedScholarshipDetail] = useState<Scholarship | null>(null);
   const [personalStatement, setPersonalStatement] = useState('');
   const [cvUrl, setCvUrl] = useState('');
   const [cvUploading, setCvUploading] = useState(false);
@@ -338,7 +341,7 @@ export default function ScholarshipPage() {
               </div>
 
               <div className="flex-1 space-y-2.5">
-                <div className="flex justify-between items-start gap-2 cursor-pointer group" onClick={() => router.push(`/scholarships/${item.id}`)}>
+                <div className="flex justify-between items-start gap-2 cursor-pointer group" onClick={() => setSelectedScholarshipDetail(item)}>
                   <div>
                     <h3 className="text-base font-semibold line-clamp-1 text-foreground group-hover:text-primary transition-colors">
                       {item.title}
@@ -425,6 +428,70 @@ export default function ScholarshipPage() {
           title="Không tìm thấy học bổng nào"
           description="Thử điều chỉnh từ khóa hoặc bộ lọc của bạn."
         />
+      )}
+
+      {/* Scholarship Detail Popup (replaces full-page redirect on card click) */}
+      {selectedScholarshipDetail && (
+        <DetailPopup
+          open={!!selectedScholarshipDetail}
+          onClose={() => setSelectedScholarshipDetail(null)}
+          title={selectedScholarshipDetail.title}
+          subtitle={selectedScholarshipDetail.provider || "Đang cập nhật"}
+          maxWidth="2xl"
+        >
+          <div className="space-y-4 text-sm">
+            <p className="text-foreground/80 leading-relaxed">
+              {selectedScholarshipDetail.description}
+            </p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-accent" />
+                <span className="font-medium">Giá trị:</span>
+                <span>{Number(selectedScholarshipDetail.value_amount).toLocaleString()} USD</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                <span className="font-medium">Hạn nộp:</span>
+                <span>
+                  {selectedScholarshipDetail.deadline &&
+                  new Date(selectedScholarshipDetail.deadline).getTime() > 0
+                    ? new Date(selectedScholarshipDetail.deadline).toLocaleDateString("vi-VN")
+                    : "Xem trang chính thức"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="font-medium">Phạm vi:</span>
+                <span>Toàn quốc</span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-border">
+              <Button
+                onClick={() => {
+                  setSelectedScholarshipDetail(null);
+                  openApplyModal(selectedScholarshipDetail);
+                }}
+                className="w-full py-3 rounded-lg bg-primary text-primary-foreground font-bold"
+              >
+                Nộp đơn ngay
+              </Button>
+            </div>
+
+            {selectedScholarshipDetail.apply_url && (
+              <div className="text-xs text-muted-foreground/60 pt-2 border-t border-border">
+                <a
+                  href={selectedScholarshipDetail.apply_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Truy cập trang chính thức <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
+          </div>
+        </DetailPopup>
       )}
     </ContentShell>
   );
