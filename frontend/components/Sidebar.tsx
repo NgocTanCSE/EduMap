@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
+import { useResizable } from "@/src/hooks/useResizable";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, LogOut, User, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, User, X } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { EduMapLogo } from "@/components/ui/Logo";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
@@ -188,6 +189,13 @@ export default function Sidebar({
 }) {
   const pathname = usePathname() || "";
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const { size: sidebarSize, onResizeMouseDown: onSidebarResizeMouseDown } = useResizable({
+    initialSize: { width: 240, height: 400 },
+    minWidth: 160,
+    maxWidth: 400,
+  });
 
   // Move focus into the drawer when it opens so keyboard users are not left
   // tabbing through the page behind the backdrop.
@@ -217,7 +225,8 @@ export default function Sidebar({
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen || undefined}
         aria-label="Điều hướng chính"
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-card border-r border-border shadow-lg transition-transform duration-200 ease-out lg:translate-x-0 ${
+        style={{ width: sidebarCollapsed ? 56 : sidebarSize.width }}
+        className={`fixed inset-y-0 left-0 z-40 relative flex flex-col bg-card border-r border-border shadow-lg transition-all duration-200 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full max-lg:invisible"
         }`}
       >
@@ -241,6 +250,14 @@ export default function Sidebar({
             className="lg:hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            className="hidden lg:block rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 

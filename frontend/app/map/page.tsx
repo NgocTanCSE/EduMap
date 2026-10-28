@@ -24,12 +24,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useDraggable } from "@/src/hooks/useDraggable";
+import { useResizable } from "@/src/hooks/useResizable";
 import {
   Search, MapPin, X, BrainCircuit,
   ThermometerSun, Layers, Save, Info, Flame,
   Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom,
   Globe, Leaf, Coffee, Star, Shield, Mic, MicOff,
   Home as HomeIcon, RefreshCw, AlertCircle,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
@@ -284,6 +286,7 @@ export default function MapPage() {
 
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
   const [showMapPanel, setShowMapPanel] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -304,6 +307,21 @@ export default function MapPage() {
       maxX: Math.max(SIDEBAR_WIDTH, windowSize.width - 320),
       maxY: Math.max(0, windowSize.height - 40),
     },
+  });
+
+  // Resize sidebar (bên trái) và panel bản đồ (trái)
+  const { size: sidebarSize, onResizeMouseDown: onSidebarResizeMouseDown } = useResizable({
+    initialSize: { width: 272, height: 400 },
+    minWidth: 160,
+    maxWidth: 500,
+  });
+
+  const { size: mapPanelSize, onResizeMouseDown: onMapPanelResizeMouseDown } = useResizable({
+    initialSize: { width: 320, height: 400 },
+    minWidth: 200,
+    minHeight: 300,
+    maxWidth: 500,
+    maxHeight: windowSize.height - 40,
   });
 
   // Read ?tool=<id> from URL on mount
@@ -803,7 +821,8 @@ export default function MapPage() {
           style={{
             top: mapPanelPos.y,
             left: mapPanelPos.x,
-            width: 320,
+            width: mapPanelSize.width,
+            height: mapPanelSize.height,
           }}
           className="fixed z-[50] max-h-[calc(100dvh-8rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
         >
@@ -980,13 +999,22 @@ export default function MapPage() {
             )
           ) : null}
         </div>
+        {/* Panel resize handle */}
+        <div
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-primary/20 hover:bg-primary/40 rounded-br-lg select-none"
+          onMouseDown={onMapPanelResizeMouseDown}
+        />
       </div>
       )}
 
       {!showMapPanel && (
         <button
+          style={{
+            left: (sidebarCollapsed ? 56 : sidebarSize.width) + 16,
+            top: 16,
+          }}
+          className="fixed z-[50] bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm font-medium hover:bg-primary/80 transition-colors select-none"
           onClick={() => setShowMapPanel(true)}
-          className="fixed z-[50] top-4 left-4 bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm font-medium hover:bg-primary/80 transition-colors select-none"
         >
           Mở bảng bản đồ
         </button>
