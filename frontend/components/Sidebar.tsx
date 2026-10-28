@@ -189,7 +189,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname() || "";
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   const { size: sidebarSize, onResizeMouseDown: onSidebarResizeMouseDown } = useResizable({
     initialSize: { width: 240, height: 400 },

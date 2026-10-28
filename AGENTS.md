@@ -551,3 +551,12 @@ inventing new values.
   - Các label icon+checkbox dùng `whitespace-nowrap` để không rớt dòng.
   - Layout dùng `flex-1` + `overflow-y-auto` để không bị rớt nội dung khi panel hẹp.
   - Hook dùng chung: `frontend/src/hooks/useDraggable.ts`.
+
+- **Sidebar `useState` build break (2026-10-28):** `components/Sidebar.tsx`
+  used the bare `useState()` call on line 192 while the rest of the file
+  references hooks via the `React.` prefix (`React.useRef`, `React.useEffect`).
+  The bare call compiled to `Cannot find name 'useState'` during
+  `npm run build` because `useState` was not in the named import. Fixed by
+  calling `React.useState` (consistent with the existing `React.useRef` /
+  `React.useEffect` pattern in the same file). Verify: `npx tsc --noEmit`
+  exits 0.
