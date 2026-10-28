@@ -1,9 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useDraggable } from '@/src/hooks/useDraggable';
 
 /** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
 function parseCoordinate(value: string): { lat: number; lng: number } | null {
@@ -104,6 +105,26 @@ export default function RoutingPanel({
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
+  const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    const onResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Kéo panel chỉ đường tự do (giống yêu cầu: 2 phần di chuyển tự do)
+  const { position: routePos, onMouseDown: onRouteMouseDown } = useDraggable({
+    initialPosition: { x: Math.max(20, windowSize.width - 320 - 16), y: 16 },
+    bounds: {
+      minX: 0,
+      minY: 0,
+      maxX: Math.max(0, windowSize.width - 320),
+      maxY: Math.max(0, windowSize.height - 40),
+    },
+  });
   // Avoidance options are shared by the single route button — when either
   // is enabled the SafeRoute AI backend is used (flood/traffic-aware).
   // This eliminates the redundancy between "Tránh khu vực ngập" / "Tránh kẹt xe"
@@ -218,7 +239,16 @@ export default function RoutingPanel({
   };
 
   return (
-    <div className="fixed top-4 right-4 bottom-4 z-[50] w-80 max-w-[95vw] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-20">
+    <div
+      style={{
+        top: routePos.y,
+        left: routePos.x,
+        width: 320,
+        maxHeight: Math.max(200, windowSize.height - 40),
+      }}
+      className="fixed z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-20"
+      onMouseDown={onRouteMouseDown}
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
           <Navigation className="w-5 h-5 text-primary" /> Chỉ đường
@@ -429,7 +459,7 @@ export default function RoutingPanel({
                   {showDetails ? 'Ẩn chi tiết' : 'Xem chi tiết từng đoạn'}
                 </button>
                 {showDetails && routeInfo.trafficAnalysis.segments && (
-                  <ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto">
+                  <ul className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
                     {routeInfo.trafficAnalysis.segments.map((seg, i) => (
                       <li key={i} className="flex items-center justify-between p-1 bg-muted/20 rounded">
                         <div className="flex items-center gap-2">
@@ -455,7 +485,7 @@ export default function RoutingPanel({
             {routeInfo.segments && routeInfo.segments.length > 0 && (
               <details className="text-xs text-muted-foreground/60">
                 <summary className="cursor-pointer font-medium text-muted-foreground/80">Chi tiết lộ trình</summary>
-                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto">
+                <ul className="mt-1 space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
                   {routeInfo.segments.map((seg, i) => (
                     <li key={i} className="flex items-center justify-between p-1 bg-muted/20 rounded">
                       <span className="text-muted-foreground/80">{seg.name || `Đoạn ${i + 1}`}</span>
@@ -603,7 +633,7 @@ export default function RoutingPanel({
               <Info className="w-4 h-4 text-accent" />
               Lý do lựa chọn (AI)
             </h4>
-            <div className="text-xs text-muted-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 max-h-48 overflow-y-auto">
+            <div className="text-xs text-muted-foreground/80 leading-relaxed bg-muted/20 rounded-lg p-3 max-h-48 overflow-y-auto scrollbar-hide">
               {routeExplanation}
             </div>
           </div>

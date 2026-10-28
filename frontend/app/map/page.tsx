@@ -23,6 +23,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
+import { useDraggable } from "@/src/hooks/useDraggable";
 import {
   Search, MapPin, X, BrainCircuit,
   ThermometerSun, Layers, Save, Info, Flame,
@@ -279,6 +280,29 @@ export default function MapPage() {
   const [toolLoading, setToolLoading] = useState<Record<string, boolean>>({});
   const [toolError, setToolError] = useState<Record<string, string | null>>({});
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
+
+  const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
+  const [showMapPanel, setShowMapPanel] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    const onResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Kéo panel bản đồ tự do (yêu cầu: 2 phần di chuyển tự do, bên bản đồ ẩn được như bên chỉ đường)
+  const { position: mapPanelPos, onMouseDown: onMapPanelMouseDown } = useDraggable({
+    initialPosition: { x: 16, y: 16 },
+    bounds: {
+      minX: 0,
+      minY: 0,
+      maxX: Math.max(0, windowSize.width - 320),
+      maxY: Math.max(0, windowSize.height - 40),
+    },
+  });
 
   // Read ?tool=<id> from URL on mount
   useEffect(() => {
@@ -751,11 +775,52 @@ export default function MapPage() {
   if (!user) return null;
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:h-screen">
-      {/* ─── Left sidebar: tool tabs + panel ─── */}
-      <aside className="w-80 lg:w-96 flex flex-col border-r border-border bg-card overflow-hidden">
-        {/* Tab bar */}
-        <div className="border-b border-border p-3 bg-card overflow-x-auto">
+    <div className="h-[calc(100dvh-3.5rem)] w-full bg-background relative lg:h-screen overflow-hidden">
+      {/* ─── Map fills entire surface (behind floating panels) ─── */}
+      <main className="absolute inset-0 z-0">
+        <InteractiveMap
+          points={hideBase ? [] : filteredLocations}
+          selectedPoint={selectedLocation}
+          onSelectPoint={setSelectedLocation}
+          onMapClick={handleMapClick}
+          showHeatmap={showHeatmap}
+          onBoundsChange={handleBoundsChange}
+          apiBaseUrl="/api"
+          nearbyPoints={nearbyPois}
+          geoJsonData={geoJsonData}
+          featuredPins={showFeaturedPins ? featuredPins : []}
+          onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin as any)}
+          overlay={overlayNode}
+        />
+      </main>
+
+      {/* ─── Floating map panel (left): kéo tự do, ẩn/hiện được như bên chỉ đường ─── */}
+      {showMapPanel && (
+        <div
+          ref={mapPanelRef}
+          style={{
+            top: mapPanelPos.y,
+            left: mapPanelPos.x,
+            width: 320,
+            maxHeight: Math.max(300, windowSize.height - 40),
+          }}
+          className="fixed z-[50] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
+          onMouseDown={onMapPanelMouseDown}
+        >
+          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none">
+            <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+              <HomeIcon className="w-4 h-4 text-primary" /> Bản đồ
+            </h3>
+            <button
+              onClick={() => setShowMapPanel(false)}
+              className="p-1 rounded hover:bg-muted/50 text-muted-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
+            {/* Tab bar */}
+            <div className="border-b border-border p-3 bg-card overflow-x-auto">
           <div className="flex flex-wrap gap-1.5">
             <ToolTab
               tool={{
@@ -781,7 +846,6 @@ export default function MapPage() {
         </div>
 
         {/* Panel content — scrollable */}
-        <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
           {showHomeControls ? (
             // ─── Home tool: existing map controls ───
             <>
@@ -841,7 +905,7 @@ export default function MapPage() {
                     <Users className="w-3.5 h-3.5" />
                     <span>Gần đây ({nearbyPois.length})</span>
                   </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
                     {nearbyPois.map((poi) => (
                       <button
                         key={poi.id}
@@ -913,25 +977,17 @@ export default function MapPage() {
             )
           ) : null}
         </div>
-      </aside>
+      </div>
+      )}
 
-      {/* ─── Map (main surface) ─── */}
-      <main className="flex-1 relative min-h-0">
-        <InteractiveMap
-          points={hideBase ? [] : filteredLocations}
-          selectedPoint={selectedLocation}
-          onSelectPoint={setSelectedLocation}
-          onMapClick={handleMapClick}
-          showHeatmap={showHeatmap}
-          onBoundsChange={handleBoundsChange}
-          apiBaseUrl="/api"
-          nearbyPoints={nearbyPois}
-          geoJsonData={geoJsonData}
-          featuredPins={showFeaturedPins ? featuredPins : []}
-          onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin as any)}
-          overlay={overlayNode}
-        />
-      </main>
+      {!showMapPanel && (
+        <button
+          onClick={() => setShowMapPanel(true)}
+          className="fixed z-[50] top-4 left-4 bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm font-medium hover:bg-primary/80 transition-colors select-none"
+        >
+          Mở bảng bản đồ
+        </button>
+      )}
 
       {/* ─── Floating toolbar (bottom-right) ─── */}
       <div className="fixed bottom-6 right-6 z-[70] flex flex-col items-center gap-2">

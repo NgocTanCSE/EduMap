@@ -854,6 +854,7 @@ export default function InteractiveMap({
       <MapContainer 
         center={defaultCenter} 
         zoom={13} 
+        zoomControl={false}
         style={{ height: '100%', width: '100%' }}
         className={`z-0 ${!process.env.NEXT_PUBLIC_CARTO_API_KEY ? 'leaflet-dark-tiles' : ''}`}
       >
@@ -905,7 +906,7 @@ export default function InteractiveMap({
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-foreground font-sans max-w-[240px] bg-card border border-border rounded-lg shadow-lg">
+                      <div className="p-2 text-foreground font-sans max-w-[720px] bg-card border border-border rounded-lg shadow-lg">
                         <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
                         <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
 
@@ -1005,7 +1006,7 @@ export default function InteractiveMap({
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <div className="p-2 text-foreground font-sans max-w-[240px] bg-card border border-border rounded-lg shadow-lg">
+                      <div className="p-2 text-foreground font-sans max-w-[720px] bg-card border border-border rounded-lg shadow-lg">
                         <h4 className="font-extrabold text-sm text-foreground leading-tight mb-1">{p.name}</h4>
                         {p.address && (
                           <p className="text-[11px] opacity-75 mb-2">{p.address}</p>
