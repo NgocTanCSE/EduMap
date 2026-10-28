@@ -366,14 +366,14 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="flex gap-2 p-2 bg-card/80 rounded-lg border border-border mb-4">
+      <div className="flex items-center gap-2 p-2 bg-card/80 rounded-lg border border-border mb-4">
         <Input 
           placeholder={isLoading ? "AI đang xử lý tri thức..." : "Hỏi mình về học bổng, mentor hoặc bản đồ..."}
           value={input}
           disabled={isLoading}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          className="flex-1 form-input"
+          className="flex-1 form-input h-10"
         />
         {/* Voice input button (Idea #16) */}
         <Button
@@ -381,7 +381,7 @@ export default function AIChatPage() {
           disabled={isLoading}
           variant="ghost"
           size="sm"
-          className={`shrink-0 ${
+          className={`shrink-0 h-10 px-3 ${
             isVoiceRecording
               ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
               : 'text-muted-foreground/60 hover:bg-muted/50'
@@ -396,7 +396,7 @@ export default function AIChatPage() {
           size="sm"
           loading={isLoading}
           icon={<Send className="w-5 h-5" />}
-          className="shrink-0 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
+          className="shrink-0 h-10 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
         >
           GỬI
         </Button>

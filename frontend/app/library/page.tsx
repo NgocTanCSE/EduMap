@@ -20,6 +20,7 @@ import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
 import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 /**
  * Library — search + grid of learning materials.
@@ -231,6 +232,9 @@ export default function LibraryPage() {
                 </div>
 
                 <div className="flex flex-1 flex-col p-4">
+                  <div className="absolute top-3 right-3 z-20">
+                    <BookmarkButton targetType="library" targetId={res.id} size="sm" />
+                  </div>
                   <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
                     {res.title}
                   </h3>

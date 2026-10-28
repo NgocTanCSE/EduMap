@@ -4,10 +4,11 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ChevronLeft, BookOpen, Globe, Volume2, Play, Pause, Square,
   Send, Sparkles, AlertCircle, RefreshCw, Download, ExternalLink,
-  Languages, FileText, Info, Check, X, Save,
+  Languages, FileText, Info, Check, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { useRequireAuth } from '@/src/lib/require-auth';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
@@ -482,18 +483,13 @@ export default function LanguageBridgePage() {
                 <Download className="w-3.5 h-3.5" />
                 Tải xuống MP3
               </button>
-              <button
-                onClick={() => {
-                  const content = simplifyResult?.simplified || translateResult?.translated || text;
-                  navigator.clipboard.writeText(content || '');
-                  toast.success('Đã sao chép nội dung.');
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-muted text-muted-foreground text-xs transition-colors hover:bg-muted/50"
-                title="Lưu / sao chép nội dung"
-              >
-                <Save className="w-3.5 h-3.5" />
-                Lưu
-              </button>
+              <BookmarkButton
+                targetType="language_bridge"
+                targetId={ttsLang}
+                size="sm"
+                showLabel
+                className="flex-1"
+              />
             </div>
           )}
         </div>

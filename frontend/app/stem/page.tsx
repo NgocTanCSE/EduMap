@@ -4,6 +4,7 @@ import { Atom, Microscope, MapPin, CheckCircle2, MonitorSmartphone, Calendar, Cl
 import { stemService, StemLab } from '@/src/services/stem.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import ContentShell from '@/components/ui/ContentShell';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -190,6 +191,9 @@ export default function StemLabsPage() {
           <div className="space-y-6">
             {filteredLabs.map(lab => (
               <div key={lab.id} className="p-6 sm:p-8 rounded-xl bg-card border border-border flex flex-col md:flex-row gap-6 sm:gap-8 hover:border-accent/30 transition-colors group">
+                <div className="absolute top-3 right-3 z-20">
+                  <BookmarkButton targetType="stem_lab" targetId={lab.id} size="sm" />
+                </div>
                 <div
                   className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-primary/10 md:h-32 md:w-32"
                   aria-hidden="true"

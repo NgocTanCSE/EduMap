@@ -6,6 +6,7 @@ import {
   Search, Loader2, SlidersHorizontal, Info, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import {
   learningSpaceService,
   RecommendParams,
@@ -67,6 +68,9 @@ function SpotCard({ spot, onExplain }: { spot: ScoredSpot; onExplain: (spot: Sco
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 hover:bg-card/80 transition-colors">
+      <div className="absolute top-2 right-2 z-20">
+        <BookmarkButton targetType="learning_space" targetId={s.id} size="sm" />
+      </div>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">

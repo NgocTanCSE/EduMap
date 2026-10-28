@@ -30,6 +30,7 @@ import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { toast } from "sonner";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import {
   resourceExchangeService,
   Resource,
@@ -272,9 +273,12 @@ export default function ResourceExchangePage() {
             <Package className="w-4 h-4 text-primary" />
             {resource.title}
           </CardTitle>
-          <span className="px-2 py-1 bg-card/40 border border-border rounded text-xs font-semibold">
-            {typeLabel(resource.type)}
-          </span>
+          <div className="flex items-end gap-1">
+            <BookmarkButton targetType="resource" targetId={resource.id} size="sm" />
+            <span className="px-2 py-1 bg-card/40 border border-border rounded text-xs font-semibold">
+              {typeLabel(resource.type)}
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">

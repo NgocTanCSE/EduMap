@@ -138,7 +138,7 @@ function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
           src={avatar}
           onError={onImageError(avatarFallback(user.fullName))}
           alt={user.fullName || "user"}
-          className="w-10 h-10 rounded-full border-2 border-border object-cover"
+          className="w-10 h-10 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground truncate">

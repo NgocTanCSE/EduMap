@@ -6,7 +6,6 @@ import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { avatarFallback, marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
-import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
 
 export default function ShareMarketplacePage() {
@@ -288,7 +287,6 @@ export default function ShareMarketplacePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map(item => (
               <div key={item.id} className="relative p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-primary/30 transition-colors group">
-                <BookmarkButton targetType="shared_item" targetId={item.id} size="sm" className="absolute top-3 right-3 z-20" />
                 <div className="-mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl border-b border-border">
                   <Thumb
                     src={marketplaceIllustration(item.category)}
@@ -298,7 +296,7 @@ export default function ShareMarketplacePage() {
                   />
                 </div>
                 <div className="flex items-center gap-3 mb-4">
-                    <img src={item.owner?.avatar_url || avatarFallback(item.owner?.full_name)} onError={onImageError(avatarFallback(item.owner?.full_name))} alt="" className="w-10 h-10 rounded-full border border-border"/>
+                    <img src={item.owner?.avatar_url || avatarFallback(item.owner?.full_name)} onError={onImageError(avatarFallback(item.owner?.full_name))} alt="" className="w-10 h-10 rounded-full border border-border object-cover"/>
                     <div>
                         <p className="text-sm font-bold text-muted-foreground/70">{item.owner?.full_name}</p>
                         <p className="text-[10px] text-muted-foreground/60">{new Date(item.created_at).toLocaleDateString('vi-VN')}</p>

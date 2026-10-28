@@ -14,6 +14,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { toast } from 'sonner';
 import { impactMatchService, SponsorNeed, SponsorProfile, MatchResult, RankMatchesResponse } from '@/src/services/impact-match.service';
 import { authService } from '@/src/services/auth.service';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 const NEED_CATEGORIES = ['Tất cả', 'education_equipment', 'scholarship', 'infrastructure', 'environment', 'social_welfare'];
 const URGENCY_LABELS: Record<string, string> = {
@@ -179,6 +180,9 @@ export default function ImpactMatchPage() {
     <Card className="border-border hover:border-primary/30 transition-colors">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
+          <div className="flex items-end gap-1">
+            <BookmarkButton targetType="impact_need" targetId={need.id} size="sm" />
+          </div>
           <CardTitle className="text-lg line-clamp-1">{need.title}</CardTitle>
           <UrgencyBadge urgency={need.urgency} />
         </div>
@@ -222,6 +226,9 @@ export default function ImpactMatchPage() {
     <Card className="border-border hover:border-primary/30 transition-colors">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
+          <div className="flex items-end gap-1">
+            <BookmarkButton targetType="impact_sponsor" targetId={sponsor.id} size="sm" />
+          </div>
           <CardTitle className="text-lg line-clamp-1">{sponsor.name}</CardTitle>
           {sponsor.is_verified && (
             <CheckCircle className="w-5 h-5 text-accent shrink-0" />

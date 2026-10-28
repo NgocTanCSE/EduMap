@@ -14,6 +14,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 /* ── Types ────────────────────────────────────────────────────────── */
 
@@ -131,7 +132,10 @@ function OpportunityCard({ item }: { item: MatchItem }) {
             {getTypeIcon(item.type)}
             <CardTitle className="text-lg">{item.title}</CardTitle>
           </div>
-          <ScoreBar score={item.match_score} />
+          <div className="flex items-end gap-1">
+            <BookmarkButton targetType="opportunity" targetId={item.id} size="sm" />
+            <ScoreBar score={item.match_score} />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 text-xs mt-1">
           <Badge variant="secondary">{item.type}</Badge>
