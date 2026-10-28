@@ -25,7 +25,7 @@
 >   - Cold start takes tens of seconds → frontends/proxies need retries and
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
->     (XKIRO → NVIDIA → Cloudflare → HF) with template fallbacks.
+>     (Cloudflare Workers AI → Gemini) with template fallbacks.
 >   - Only one container, one public port (7680) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
@@ -254,12 +254,13 @@ Multiple standalone pages that share a domain have been consolidated into
 ## 3. AI provider chain
 
 Text generation (`ai-service/services/llm_service.py`):
-`XKIRO → NVIDIA → Cloudflare → HF` (with template fallback).
+`Cloudflare Workers AI → Google Gemini` (with template fallback).
 
 Embeddings (`ai-service/services/vector_store.py`):
-`Gemini → Cloudflare → HF → NVIDIA → 01.ai/Kimi`.
-(XKIRO is attempted first only if `XKIRO_EMBEDDING_MODEL` is explicitly set,
-but XKIRO does NOT support `/v1/embeddings` → 404 → immediate fallback to Gemini.)
+`Cloudflare Workers AI → Google Gemini`.
+(XKIRO, NVIDIA, Kimi, and HF Inference API have been removed as
+text-generation and embedding providers. On HF Spaces, Cloudflare TLS is
+blackholed so Gemini is the effective primary.)
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
@@ -312,7 +313,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
   `POST /api/ai/language/tts`).
   - Simplify/translate use `_generate_text_with_fallback` cascade
-    (XKIRO → NVIDIA → Kimi → Cloudflare → HF) with `temperature=0.3`,
+    (Cloudflare Workers AI → Google Gemini) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
     never 502s when all providers are down (HF Spaces free plan).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
@@ -341,19 +342,12 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   (`POST /api/ai/speech/to-text`).
   - Client-side STT: Web Speech API (`SpeechRecognition`, `lang='vi-VN'`)
     on the frontend — privacy-first, audio never leaves the browser.
-  - Server-side STT fallback: XKIRO STT endpoint. NOTE: XKIRO does NOT
-    natively support speech-to-text (`/audio/transcriptions` returns 404).
-    The service degrades gracefully to client-side Web Speech API.
-    `XKIRO_API_KEY` is set as an HF Spaces Secret; `XKIRO_STT_MODEL` is left
-    empty (Dockerfile ENV default) so the service degrades immediately.
-  - Per-provider circuit breaker (5 min / 300 s) after auth or network failure,
-    matching `llm_service.py`.
+  - Server-side STT fallback: No server-side STT provider is configured
+    (XKIRO has been removed from the provider chain). The service always
+    returns `degraded=True` with empty text. The frontend falls back to the
+    client-side Web Speech API.
   - **Never 503/502**: returns 200 with `degraded=True` + empty `text` +
-    human-readable `error` when Whisper is unavailable (no key, circuit open,
-    network failure). The frontend falls back to the client-side transcript.
-  - STT key is read **dynamically** via `SpeechService._get_xkiro_key()`
-    (not at module import) so test fixtures and HF Spaces secret propagation
-    are always respected.
+    human-readable `error` when no STT provider is available.
   - Intent classification: `NLQueryParser.extract_intent()` — regex baseline
     (no LLM needed, works on HF Spaces free plan). Three intents:
     `geo_recommend` (find query: "Tìm thư viện gần đây"),
@@ -393,11 +387,12 @@ Rules that must be preserved:
   - `RAG_TIMEOUT_SECONDS` (default 8) — `chat_with_rag*` hard limit.
   - Keep these below the NestJS stream timeout (10s). A slow provider must
     never starve the fallbacks or leave the chat bubble empty.
-- XKIRO text-generation model slugs are provider-prefixed:
-  `google/gemini-3.8-flash` (the unprefixed `gemini-3.8-flash` is wrong).
-  XKIRO does NOT support embeddings (`/v1/embeddings` → 404) — the embedding
-  chain starts at `XKIRO_EMBEDDING_MODEL=` (empty) which skips to Gemini;
-  `vector_store.py` normalises legacy unprefixed values.
+- Provider model slugs and circuit breakers:
+  Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
+  Google Gemini (`gemini-3.8-flash`, etc.) are the only two text-generation
+  providers. Each has a 5-minute circuit breaker after auth (401/403) or
+  network failure. `curl --ipv4 --insecure` is used for all API calls (HF
+  Spaces IPv6/TLS quirk).
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
 ## 4. Useful local commands
@@ -422,12 +417,11 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 ## 5. Environment notes
 
-- `XKIRO_API_KEY`, `HF_TOKEN`, `KIMI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
-  `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`, `NVIDIA_API_KEY` are HF Secrets.
-- `XKIRO_MODEL=google/gemini-3.8-flash` (text generation).
-- `XKIRO_EMBEDDING_MODEL=` (empty — XKIRO does NOT support embeddings; chain
-  falls through to Gemini/HF/NVIDIA/Kimi).
-- `HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base` (768-dim).
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`,
+  `HF_TOKEN` (GeoVision vision detection only) are HF Secrets.
+- `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
+- `GEMINI_MODEL` — Google Gemini text generation model cascade.
+- `HF_EMBEDDING_MODEL` removed — embeddings use Cloudflare → Gemini cascade.
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
 - `OWM_API_KEY` — OpenWeatherMap API key (HF Space secret, optional). When set,
@@ -442,15 +436,6 @@ HF_TOKEN=<token> ./deploy-hf.sh
   (browser Web Speech API). The Language Bridge LLM endpoints (simplify,
   translate) do NOT require this key — they use the same `_generate_text_with_fallback`
   cascade as all other AI features.
-
-- `XKIRO_STT_MODEL=` — STT endpoint slug (Voice-to-Geo, Idea #16).
-  NOTE: XKIRO does NOT natively support speech-to-text (`/audio/transcriptions`
-  returns 404). The service degrades to client-side Web Speech API when the
-  model is empty or the endpoint fails. `XKIRO_API_KEY` is reused (same key,
-  same base URL). `XKIRO_STT_TIMEOUT_SECONDS=25`.
-  These are Dockerfile ENV defaults; override via HF Spaces secrets if needed.
-  The STT key is read dynamically at call time (not import time) to support
-  HF Spaces secret propagation.
 
 ## 6. Data policy (verified Vietnamese content only)
 

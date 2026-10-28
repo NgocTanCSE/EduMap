@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/ai/chat", tags=["1. AI RAG Chat"])
 async def chat_endpoint(request: ChatRequest):
     # Chỉ trả về trả lời THẬT từ AI — bỏ lời nhắn "bảo trì" mẫu
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình XKIRO_API_KEY (primary), NVIDIA_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc HF_TOKEN.")
+        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY.")
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 
@@ -81,7 +81,7 @@ async def get_chat_history(user_id: str, limit: int = 50):
 async def chat_stream_endpoint(request: ChatRequest):
     """Chat RAG với streaming (SSE) — trả về từng token thực sự real-time.
 
-    Sử dụng chat_with_rag_stream để nhận token từng ký tự từ XKIRO
+    Sử dụng chat_with_rag_stream để nhận token từng ký tự từ Cloudflare Workers AI
     (stream=True) qua curl --ipv4 --insecure, thay thế approach cũ
     (gửi toàn bộ response rồi split thành từng từ với delay 50ms).
     """

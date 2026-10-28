@@ -1,26 +1,19 @@
 """
 Voice-to-Geo AI — Speech-to-Text router (Idea #16, Task 2).
 
-``POST /api/ai/speech/to-text`` is the server-side Whisper fallback. The
+``POST /api/ai/speech/to-text`` is the server-side STT fallback. The
 frontend prefers the client-side Web Speech API (T1) for privacy, but when
 Chrome's Vietnamese recognition is unreliable the browser uploads the
-recorded audio here and we transcribe it with XKIRO Whisper.
+recorded audio here and we transcribe it server-side.
 
-XKIRO STT API (OpenAI-compatible):
-  POST https://api.xkiro.com/v1/audio/transcriptions
-  Authorization: Bearer <XKIRO_API_KEY>
-  Body: {"model", "input_audio": {"data": "<base64>", "format": "..."}, "language": "vi"}
+The SpeechService (services/speech.py) attempts a Whisper-style transcription
+via the configured STT provider. On HF Spaces free plan no server-side STT
+provider is configured, so the service degrades to client-side Web Speech API.
 
-Source: https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
-
-HF Spaces egress quirk: the SpeechService uses ``curl --ipv4 --insecure``
-(see services/speech.py) for the same IPv6/TLS workaround as vector_store.py
-and llm_service.py.
-
-Graceful degradation: this endpoint NEVER returns 503. When Whisper cannot
-run (no API key, circuit breaker open, network failure) it returns 200 with
-``degraded=True`` and an empty ``text`` — the frontend then falls back to the
-Web Speech API transcript it already captured.
+Graceful degradation: this endpoint NEVER returns 503. When STT cannot
+run (no provider configured, circuit breaker open, network failure) it returns
+200 with ``degraded=True`` and an empty ``text`` — the frontend then falls
+back to the Web Speech API transcript it already captured.
 """
 from fastapi import APIRouter
 from models.speech_models import SpeechToTextRequest, SpeechToTextResponse
@@ -51,9 +44,9 @@ def _get_speech_service():
 
 @router.post("/to-text", response_model=SpeechToTextResponse)
 async def speech_to_text(request: SpeechToTextRequest):
-    """Server-side Speech-to-Text fallback (Whisper via XKIRO).
+    """Server-side Speech-to-Text fallback.
 
-    **Always returns 200.** When Whisper is unavailable (``degraded=True``)
+    **Always returns 200.** When STT is unavailable (``degraded=True``)
     the ``text`` field is empty and ``error`` explains why — the frontend
     falls back to the client-side Web Speech API transcript.
 

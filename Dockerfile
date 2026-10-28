@@ -151,18 +151,15 @@ ENV OFFLINE_MODEL_CACHE=/app/uploads/offline-models
 ENV OSRM_URL=https://router.project-osrm.org
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
-# --- AI model configs (default Cloudflare Workers AI models; override via HF Spaces secrets) ---
+# --- AI model configs (Cloudflare Workers AI primary, Gemini fallback) ─────
 ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
 ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
-# Gemini (primary on HF Spaces). Override via HF Spaces secrets if needed.
+# Gemini (fallback for text gen + primary for embeddings on HF Spaces).
 # Old 1.5/2.0 models are shut down and return HTTP 404 from v1beta.
 ENV GEMINI_MODEL=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest
 ENV GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 # ChromaDB telemetry is incompatible with newer posthog and spams the logs.
 ENV ANONYMIZED_TELEMETRY=False
-# --- HuggingFace Inference API fallback (used when Cloudflare tokens absent) ---
-ENV HF_LLM_MODEL=mistralai/Mistral-7B-Instruct-v0.2
-ENV HF_EMBEDDING_MODEL=intfloat/multilingual-e5-base
 # ── GeoVision AI (Idea #10: satellite imagery facility detection) ────────────
 # huggingface.co/models/{GEO_VISION_MODEL} — zero-shot object detection.
 # Runs on HF's Inference API (router.huggingface.co), NOT bundled in Docker.
@@ -171,29 +168,12 @@ ENV GEO_VISION_MODEL=facebook/owlv2-base-c
 ENV GEO_VISION_TIMEOUT_SECONDS=25
 # Bing Maps tiles (optional aerial source). Empty = OSM tiles used.
 ENV BING_MAPS_API_KEY=""
-# XKIRO does NOT support embeddings (/v1/embeddings returns 404).
-# XKIRO_EMBEDDING_MODEL left empty — embedding chain falls through to
-# Gemini/HF/NVIDIA/Kimi. Kept as ENV for forward compatibility.
-ENV XKIRO_EMBEDDING_MODEL=
-ENV XKIRO_TIMEOUT_SECONDS=8
 # Embedding time budget: total chain + per-provider cap. Together these keep
-# RAG well below the NestJS 10s stream timeout and stop the first provider
-# (XKIRO) from starving Cloudflare/HF/Kimi fallbacks.
+# RAG well below the NestJS 10s stream timeout and stop Cloudflare from
+# starving the Gemini fallback.
 ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
 ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
 ENV RAG_TIMEOUT_SECONDS=8
-# Voice-to-Geo (Idea #16): XKIRO does NOT support STT. XKIRO_STT_MODEL left
-# empty — speech service degrades to client-side Web Speech API.
-ENV XKIRO_STT_MODEL=
-ENV XKIRO_STT_TIMEOUT_SECONDS=25
-# --- Shanghai AI Laboratory (01.ai / Kimi) — secondary LLM + embedding provider ---
-# Set KIMI_API_KEY as an HF Spaces Secret to enable Kimi as a fallback provider.
-# kore-gpt-9b is the standard Kimi chat model; kimi-embedding-0812 is the
-# OpenAI-compatible embedding model (768-dim, same as multilingual-e5-base).
-ENV KIMI_BASE_URL=https://api.01.ai/v1
-ENV KIMI_MODEL=kore-gpt-9b
-ENV KIMI_EMBEDDING_MODEL=kimi-embedding-0812
-ENV KIMI_TIMEOUT_SECONDS=30
 # Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous
 # Space revision (whose *.bin files may have been partially excluded by upload
 # ignore_patterns) can never block or crash the AI service at startup.

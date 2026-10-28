@@ -26,8 +26,8 @@ if _AI_DIR not in sys.path:
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_SQLITE_PATH"] = tempfile.mktemp(suffix=".db")
-for _v in ["XKIRO_API_KEY", "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN",
-           "HF_TOKEN", "NVIDIA_API_KEY"]:
+for _v in ["GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN",
+           "HF_TOKEN"]:
     os.environ[_v] = ""
 
 from services.question_gap_analyzer import (

@@ -17,8 +17,7 @@ if _AI_DIR not in sys.path:
 # Ensure NO real providers are configured before importing
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
-    "NVIDIA_API_KEY", "NIM_API_KEY",
+    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"

@@ -3,6 +3,8 @@
 Verifies that get_embedding() caches results to avoid redundant
 (slow) curl/subprocess embedding calls for identical queries — the
 single biggest ChromaDB/LLM optimization for chat.
+
+Provider cascade is now: Cloudflare Workers AI → Google Gemini.
 """
 
 import os
@@ -16,7 +18,7 @@ if _AI_DIR not in sys.path:
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
-    "NVIDIA_API_KEY", "NIM_API_KEY",
+    "NVIDIA_API_KEY", "NIM_API_KEY", "KIMI_API_KEY",
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
@@ -31,17 +33,15 @@ def _fresh_service():
     svc = object.__new__(VectorStoreService)
     # Initialize only the attributes get_embedding() needs
     svc.has_api = True
-    svc.has_xkiro_api = True
-    svc.has_gemini_api = False
     svc.has_cf_api = False
-    svc.has_hf_api = False
-    svc.has_nvidia_api = False
+    svc.has_gemini_api = False
     svc._embed_dim = None
     svc._embed_cache = {}
     svc._embed_cache_meta = {}
     svc._embed_cache_max = 128
     svc._embed_cache_ttl = 1800.0
-    svc._xkiro_embed_down_until = 0.0
+    svc._cf_embed_down_until = 0.0
+    svc._gemini_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 4.0
     return svc
@@ -51,13 +51,14 @@ def test_embedding_cache_returns_stored_vector():
     """get_embedding should return the cached vector for a repeated query
     without re-invoking the provider."""
     svc = _fresh_service()
+    svc.has_gemini_api = True
     call_count = [0]
 
     def mock_embed(text, **kwargs):
         call_count[0] += 1
         return [0.1, 0.2, 0.3]
 
-    svc._xkiro_get_embedding = mock_embed
+    svc._gemini_get_embedding = mock_embed
 
     # First call — computes and caches
     vec1 = svc.get_embedding("tìm học bổng")
@@ -75,12 +76,13 @@ def test_embedding_cache_returns_stored_vector():
 def test_embedding_cache_evicts_oldest():
     """Cache should evict the oldest entry (FIFO/LRU) when exceeding max."""
     svc = _fresh_service()
+    svc.has_gemini_api = True
     svc._embed_cache_max = 2  # small cache for testing
 
     def mock_embed(text, **kwargs):
         return [float(ord(text[0]))]
 
-    svc._xkiro_get_embedding = mock_embed
+    svc._gemini_get_embedding = mock_embed
 
     # Insert 3 unique queries — cache max is 2, so the first is evicted
     svc.get_embedding("aaa")
@@ -95,7 +97,7 @@ def test_embedding_cache_evicts_oldest():
         call_count[0] += 1
         return [0.0]
 
-    svc._xkiro_get_embedding = counting_mock
+    svc._gemini_get_embedding = counting_mock
 
     # "bbb" and "ccc" should be cache hits (no provider calls)
     call_count[0] = 0
@@ -151,85 +153,56 @@ def test_store_embed_cache_respects_max():
     print("✓ test_store_embed_cache_respects_max")
 
 
-def test_xkiro_unprefixed_model_is_normalized():
-    """Legacy HF secret 'text-embedding-3-small' must be sent as
-    'openai/text-embedding-3-small' (XKIRO requires provider prefix)."""
-    import json as _json
-    import subprocess as _subprocess
-
+def test_gemini_fallback_when_cloudflare_disabled():
+    """When Cloudflare is not configured, Gemini should be used."""
     svc = _fresh_service()
-    svc.xkiro_base = "https://api.xkiro.com/v1"
-    svc.xkiro_key = "test-key"
-    svc.xkiro_embed_model = "text-embedding-3-small"
-    svc.xkiro_timeout = 8.0
-    svc._embed_dim = 768
-
-    captured = {}
-
-    class _Proc:
-        returncode = 0
-        stdout = _json.dumps({"data": [{"embedding": [0.1] * 768}]})
-        stderr = ""
-
-    def fake_run(cmd, **kwargs):
-        captured["cmd"] = cmd
-        return _Proc()
-
-    orig_run = _subprocess.run
-    _subprocess.run = fake_run
-    try:
-        vec = svc._xkiro_get_embedding("hello", timeout_override=4)
-    finally:
-        _subprocess.run = orig_run
-
-    assert len(vec) == 768
-    # The payload is the argument following "-d".
-    payload = _json.loads(captured["cmd"][captured["cmd"].index("-d") + 1])
-    assert payload["model"] == "openai/text-embedding-3-small"
-    # Dimension is pinned to the collection so we do not truncate 1536 -> 768.
-    assert payload["dimensions"] == 768
-
-    print("✓ test_xkiro_unprefixed_model_is_normalized")
-
-
-def test_slow_xkiro_still_reaches_hf_fallback():
-    """A timing-out XKIRO must not consume the whole budget: the HF
-    fallback must still be attempted and its vector returned."""
-    svc = _fresh_service()
-    svc.has_gemini_api = False
     svc.has_cf_api = False
-    svc.has_hf_api = True
-    svc.has_nvidia_api = False
-    svc.has_kimi_api = False
-    svc._gemini_embed_down_until = 0.0
+    svc.has_gemini_api = True
     svc._cf_embed_down_until = 0.0
-    svc._hf_embed_down_until = 0.0
-    svc._nvidia_embed_down_until = 0.0
-    svc._kimi_embed_down_until = 0.0
+    svc._gemini_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 3.0
 
-    xkiro_timeouts = []
-    hf_timeouts = []
+    gemini_calls = [0]
 
-    def slow_xkiro(text, timeout_override=None):
-        xkiro_timeouts.append(timeout_override)
-        raise RuntimeError("curl: (28) Operation timed out")
+    def mock_gemini(text, timeout_override=None):
+        gemini_calls[0] += 1
+        return [0.4] * 768
 
-    def hf_ok(text, timeout_override=None):
-        hf_timeouts.append(timeout_override)
+    svc._gemini_get_embedding = mock_gemini
+
+    vec = svc.get_embedding("xin chào")
+    assert vec == [0.4] * 768
+    assert gemini_calls[0] == 1, "Gemini should be called exactly once"
+
+    print("✓ test_gemini_fallback_when_cloudflare_disabled")
+
+
+def test_slow_cloudflare_still_reaches_gemini_fallback():
+    """A timing-out Cloudflare must not consume the whole budget: the Gemini
+    fallback must still be attempted and its vector returned."""
+    svc = _fresh_service()
+    svc.has_cf_api = False
+    svc.has_gemini_api = True
+    svc._cf_embed_down_until = 0.0
+    svc._gemini_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 3.0
+
+    gemini_timeouts = []
+
+    def gemini_ok(text, timeout_override=None):
+        gemini_timeouts.append(timeout_override)
         return [0.2] * 768
 
-    svc._xkiro_get_embedding = slow_xkiro
-    svc._hf_get_embedding = hf_ok
+    svc._gemini_get_embedding = gemini_ok
 
     vec = svc.get_embedding("xin chào")
     assert vec == [0.2] * 768
-    assert xkiro_timeouts and xkiro_timeouts[0] <= 3.0
-    assert hf_timeouts, "HF fallback must still run after XKIRO fails"
-    assert hf_timeouts[0] <= 3.0
+    assert gemini_timeouts, "Gemini fallback must run"
+    assert gemini_timeouts[0] <= 3.0
 
-    print("✓ test_slow_xkiro_still_reaches_hf_fallback")
+    print("✓ test_slow_cloudflare_still_reaches_gemini_fallback")
 
 
 if __name__ == "__main__":
@@ -238,6 +211,6 @@ if __name__ == "__main__":
     test_embedding_cache_does_not_store_empty()
     test_get_embedding_raises_without_api()
     test_store_embed_cache_respects_max()
-    test_xkiro_unprefixed_model_is_normalized()
-    test_slow_xkiro_still_reaches_hf_fallback()
+    test_gemini_fallback_when_cloudflare_disabled()
+    test_slow_cloudflare_still_reaches_gemini_fallback()
     print("\n✅ All vector store cache tests passed!")

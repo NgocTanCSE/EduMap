@@ -948,11 +948,12 @@ export class AIService {
    * Voice-to-Geo AI (Idea #16, Task 2) — server-side Speech-to-Text fallback.
    *
    * Proxies POST /ai/speech/to-text → ai-service POST /api/ai/speech/to-text
-   * (XKIRO Whisper via curl). The ai-service already returns 200 with
-   * degraded=True on failure; here we additionally degrade when the
-   * ai-service itself is unreachable so the frontend keeps the client-side
-   * Web Speech transcript instead of erroring.
+   * (degraded fallback — no server-side STT provider is configured on the
+   * HF Spaces free tier). The ai-service returns 200 with degraded=True.
+   * here we additionally degrade if ai-service itself is unreachable so the
+   * frontend keeps its client-side Web Speech transcript instead of erroring.
    */
+
   async speechToText(payload: {
     audio_base64: string;
     audio_format?: string;

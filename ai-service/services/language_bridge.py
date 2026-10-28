@@ -7,7 +7,7 @@ optional glossary so domain-specific terms are preserved across languages.
 Architecture notes (HF Spaces Free plan):
   - Text generation (simplify / translate) uses the shared
     ``llm_service._generate_text_with_fallback`` cascade:
-    XKIRO → NVIDIA → Kimi → Cloudflare → HF.  Template-based fallback
+    Cloudflare Workers AI → Google Gemini.  Template-based fallback
     guarantees the endpoint returns valid content even when *every* provider
     is unreachable (the common case on HF Spaces where Cloudflare TLS is
     blocked and no key is set on the free plan).

@@ -40,12 +40,11 @@ except ImportError:
 
 
 class VectorStoreService:
-    """Semantic search. Chat (LLM) + EMBEDDING đều qua Google Gemini (một key).
+    """Semantic search. Cloudflare Workers AI + Google Gemini for embeddings.
 
-    - Embedding  -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
-    - Embedding  -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL
-    - EMBEDDING  -> HuggingFace Inference API (fallback) : HF_TOKEN / HF_EMBEDDING_MODEL
-      HF Spaces không hoàn tất được TLS tới api.cloudflare.com; Gemini là lựa chọn chính.
+    - Embedding -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL
+    - Embedding -> Google Gemini       : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
+    On HF Spaces Cloudflare is blackholed so Gemini is the primary path.
     """
 
     def __init__(self):
@@ -76,65 +75,15 @@ class VectorStoreService:
         self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
         self.has_gemini_api = bool(self.gemini_key)
         self._gemini_embed_down_until = 0.0
-        # --- HuggingFace Inference API config (fallback khi Cloudflare/Gemini ko hoat dong) ---
-        self.hf_token = (
-            os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or ""
-        ).strip().strip('"').strip("'")
-        self.hf_embedding_model = os.getenv("HF_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
-        # api-inference.huggingface.co was retired (NXDOMAIN). Router is current.
-        self.hf_router_url = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
-        self.has_hf_api = bool(self.hf_token)
-        # Circuit breaker: skip HF embeddings for 5 min after a 401/invalid token.
-        self._hf_embed_down_until = 0.0
-
-        # --- XKIRO embedding (tuỳ chọn — XKIRO chưa hỗ trợ /v1/embeddings,
-        #     nên has_xkiro_api luôn False khi XKIRO_EMBEDDING_MODEL rỗng;
-        #     khối này chỉ chạy nếu người dùng tự cấu hình) ---
-        self.xkiro_base = os.getenv("XKIRO_BASE_URL", "https://api.xkiro.com/v1").rstrip("/")
-        self.xkiro_key = (os.getenv("XKIRO_API_KEY") or "").strip().strip('"').strip("'")
-        # XKIRO model slugs are provider-prefixed. The old default
-        # was "openai/text-embedding-3-small" — kept empty since
-        # XKIRO does not expose an embeddings endpoint.
-        # _xkiro_get_embedding() also normalises unprefixed values.
-        self.xkiro_embed_model = os.getenv(
-            "XKIRO_EMBEDDING_MODEL", ""
-        ).strip()
-        self.xkiro_timeout = float(os.getenv("XKIRO_TIMEOUT_SECONDS", "8"))
-        self.has_xkiro_api = bool(self.xkiro_key) and bool(self.xkiro_embed_model)
-
-        # --- NVIDIA NIM embedding (OpenAI-compatible, build.nvidia.com) ---
-        self.nvidia_key = (os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY") or "").strip().strip('"').strip("'")
-        self.nvidia_base = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1").rstrip("/")
-        self.nvidia_embed_model = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/embed-qa-4")
-        self.nvidia_timeout = float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "30"))
-        self.has_nvidia_api = bool(self.nvidia_key) and bool(self.nvidia_embed_model)
-        # Circuit breaker for NVIDIA NIM embeddings: 5-min cooldown after a failure.
-        self._nvidia_embed_down_until = 0.0
-
-        # --- Shanghai AI Laboratory (01.ai / Kimi) embedding ---
-        self.kimi_key = (os.getenv("KIMI_API_KEY") or "").strip().strip('"').strip("'")
-        self.kimi_base = os.getenv("KIMI_BASE_URL", "https://api.01.ai/v1").rstrip("/")
-        self.kimi_embed_model = os.getenv("KIMI_EMBEDDING_MODEL", "kimi-embedding-0812")
-        self.kimi_timeout = float(os.getenv("KIMI_TIMEOUT_SECONDS", "30"))
-        self.has_kimi_api = bool(self.kimi_key) and bool(self.kimi_embed_model)
-        self._kimi_embed_down_until = 0.0
-
-        # --- Embedding time budget (critical for HF Spaces) -------------------
-        # The whole provider chain runs synchronously inside a worker thread
-        # triggered by a chat request. On HF Spaces a slow/hanging provider
-        # (XKIRO often times out after 15s with 0 bytes) used to consume
-        # the entire budget, so Cloudflare/HF/Kimi fallbacks were always
-        # skipped and RAG failed. Now:
-        #   * EMBED_GLOBAL_TIMEOUT_SECONDS caps the entire chain (default 6s,
-        #     safely below the NestJS 10s stream timeout and RAG_TIMEOUT_SECONDS).
-        #   * EMBED_PROVIDER_TIMEOUT_SECONDS caps each individual attempt
-        #     (default 4s) so the first provider cannot starve the fallbacks.
-        # Both are env-tunable without a code change.
-        self.embed_global_timeout = max(2.0, float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6")))
-        self.embed_provider_timeout = max(1.5, float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4")))
-
-        # has_api = True neu co bat ky nhanh embed nao hoat dong duoc
-        self.has_api = self.has_gemini_api or self.has_cf_api or self.has_hf_api or self.has_xkiro_api or self.has_nvidia_api or self.has_kimi_api
+        # --- Embedding timeouts (seconds) — must stay below NestJS 10s stream ---
+        self.embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
+        self.embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
+        # --- Embedding provider summary ---
+        # Cloudflare Workers AI and Google Gemini are the only two embedding
+        # providers. On HF Spaces Cloudflare is blackholed so Gemini is the
+        # primary path; locally both are available.
+        # has_api = True if at least one embedding provider is configured
+        self.has_api = self.has_gemini_api or self.has_cf_api
         # Pin the embedding dimension to the first model that successfully embeds.
         # Prevents silently falling back to a different-dim model, which would
         # crash the existing ChromaDB collection with a dimension mismatch.
@@ -151,17 +100,11 @@ class VectorStoreService:
         # eviction (FIFO by insertion order) remains as the secondary guard.
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
         if not self.has_api:
-            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (Cloudflare), HF_TOKEN, or NVIDIA_API_KEY + NVIDIA_EMBED_MODEL for semantic search. (XKIRO chưa hỗ trợ embeddings — bỏ qua.)")
-        if self.has_xkiro_api:
-            print(f"INFO: XKIRO embedding endpoint configured (note: XKIRO does not support /v1/embeddings — will attempt then fall through to Gemini/HF/NVIDIA)")
+            print("WARNING: Vector store without embeddings. Set GEMINI_API_KEY (primary) or CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID for semantic search.")
         if self.has_gemini_api:
             print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
             print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-base-en-v1.5")
-        if self.has_hf_api:
-            print(f"INFO: HuggingFace Inference API fallback enabled with model={self.hf_embedding_model}")
-        if self.has_kimi_api:
-            print(f"INFO: Shanghai AI Laboratory (01.ai / Kimi) embeddings enabled with model={self.kimi_embed_model}")
         print(
             f"INFO: Embedding budget: global={self.embed_global_timeout}s, "
             f"per-provider={self.embed_provider_timeout}s "
@@ -230,126 +173,9 @@ class VectorStoreService:
     def _embed_attempt_timeout(self, started: float) -> float:
         """Per-provider timeout capped by both the provider cap and the
         remaining global budget. Ensures one slow provider cannot starve the
-        fallback chain (the original XKIRO timeout bug)."""
+        fallback chain (the original long-timeout bug)."""
         return max(1.5, min(getattr(self, "embed_provider_timeout", 4.0), self._embed_remaining(started)))
 
-    def _xkiro_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Attempt embedding from XKIRO (/v1/embeddings). NOTE: XKIRO chưa hỗ trợ
-        embeddings — endpoint này sẽ trả về 404 và graceful-degrade sang Gemini.
-        Kept for forward-compatibility if XKIRO adds embeddings later.
-
-        Uses curl for HF Spaces compatibility (IPv4 + skip TLS verification).
-
-        When timeout_override is provided (set by get_embedding() based on the
-        remaining global embedding budget), it caps curl's --max-time so a
-        slow/timing-out provider does not consume the entire embedding budget,
-        leaving room for fallback providers (Gemini, HF, NVIDIA).
-        """
-        if not self.has_xkiro_api:
-            raise RuntimeError("XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL not set.")
-        if time.monotonic() < getattr(self, "_xkiro_embed_down_until", 0.0):
-            raise RuntimeError("XKIRO embeddings temporarily disabled after a network failure.")
-
-        url = f"{self.xkiro_base}/embeddings"
-        # Normalise legacy/unprefixed slugs: XKIRO requires the provider
-        # prefix (""). Bypass with an explicit
-        # prefix or a slash in the configured value.
-        _model = (self.xkiro_embed_model or "").strip()
-        if _model and "/" not in _model:
-            _model = f"openai/{_model}"
-        _payload_obj = {"model": _model, "input": text}
-        # OpenAI text-embedding-3-* supports a `dimensions` parameter. Pin it
-        # to the existing Chroma collection dimension so we get a high-quality
-        # vector instead of truncating/padding a 1536-dim vector to 768.
-        if self._embed_dim and _model.startswith(("openai/text-embedding-3", "text-embedding-3")):
-            _payload_obj["dimensions"] = int(self._embed_dim)
-        payload = json.dumps(_payload_obj).encode("utf-8")
-        # Cap the per-call timeout so one provider cannot starve the remaining
-        # budget (default 20s is way longer than the 15s global embedding budget).
-        _call_timeout = timeout_override or self.xkiro_timeout
-        _connect_timeout = max(1.0, min(3.0, _call_timeout))
-
-        try:
-            proc = subprocess.run(
-                [
-                    "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                    "-H", f"Authorization: Bearer {self.xkiro_key}",
-                    "-H", "Content-Type: application/json",
-                    "-d", payload,
-                    "--connect-timeout", str(_connect_timeout),
-                    "--max-time", str(_call_timeout),
-                    url,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=_call_timeout + 2,
-            )
-        except Exception as e:
-            self._xkiro_embed_down_until = time.monotonic() + 300
-            raise RuntimeError(f"XKIRO embedding connection failed: {type(e).__name__}: {e}")
-
-        if proc.returncode != 0:
-            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-            # curl can exit non-zero (e.g. timeout code 28) while still having
-            # received a partial response body — try to parse it so a 401/429
-            # auth error body is surfaced instead of a generic "curl exit 28".
-            _stdout = (proc.stdout or "").strip()
-            if _stdout:
-                try:
-                    _partial = json.loads(_stdout)
-                    if isinstance(_partial, dict):
-                        if "error" in _partial:
-                            _eno = _partial["error"]
-                            if isinstance(_eno, dict):
-                                _msg = str(_eno.get("message", _stdout[:120]))
-                                _code = int(_eno.get("code") or 0)
-                            else:
-                                _msg = str(_eno)
-                                _code = 0
-                            low = _msg.lower()
-                            if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
-                                self._xkiro_embed_down_until = time.monotonic() + 300
-                                raise RuntimeError(f"XKIRO embedding auth error (HTTP {_code}): {_msg[:200]}")
-                            err = f"{err} | body: {_msg[:120]}"
-                except json.JSONDecodeError:
-                    pass
-            # Set circuit breaker so subsequent calls fail fast instead of
-            # re-entering the 20s timeout on every request.
-            self._xkiro_embed_down_until = time.monotonic() + 300
-            raise RuntimeError(f"XKIRO embedding connection failed: {err}")
-
-        try:
-            data = json.loads(proc.stdout or "{}")
-        except Exception:
-            raise RuntimeError("XKIRO embedding: invalid JSON response")
-
-        if isinstance(data, dict) and data.get("error"):
-            err = data.get("error") or {}
-            code = int(getattr(err, "get", lambda k, d=0: d)("code", 0)) if isinstance(err, dict) else 0
-            message = str(err.get("message", "")) if isinstance(err, dict) else str(err)
-            low = message.lower()
-            if code in (401, 403) or "api key" in low:
-                raise RuntimeError(f"XKIRO embedding auth error (HTTP {code}): {message[:200]}")
-            if code == 429:
-                raise RuntimeError(f"XKIRO embedding rate-limited (429): {message[:100]}")
-            if self._is_embed_model_not_found(code, message):
-                raise RuntimeError(f"XKIRO embedding model not found: {message[:200]}")
-            raise RuntimeError(f"XKIRO embedding HTTP {code}: {message[:200]}")
-
-        vec = None
-        if isinstance(data, dict):
-            data_list = data.get("data")
-            if isinstance(data_list, list) and data_list:
-                item = data_list[0]
-                if isinstance(item, dict):
-                    vec = item.get("embedding")
-                elif isinstance(item, list):
-                    vec = item
-
-        if vec and isinstance(vec, list) and len(vec) > 0:
-            return [float(x) for x in vec]
-
-        raise RuntimeError(f"XKIRO embedding returned empty vector: {str(data)[:200]}")
 
     def _gemini_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
         """Get an embedding from Google Gemini (primary on HF Spaces)."""
@@ -468,280 +294,7 @@ class VectorStoreService:
 
         raise RuntimeError(f"Gemini embedding failed: {last_err or 'no model available'}")
 
-    def _hf_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Get embedding from HuggingFace Inference API (fallback when others fail).
 
-        HF router (router.huggingface.co) is reachable from HF Spaces.
-        Uses curl for consistent IPv4/TLS behavior with the other embedding
-        providers. A 401 (invalid/expired token) sets a 5-minute circuit
-        breaker so we don't waste the timeout on every subsequent request.
-        """
-        if not self.has_hf_api:
-            raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API for embeddings.")
-        if time.monotonic() < getattr(self, "_hf_embed_down_until", 0.0):
-            raise RuntimeError("HuggingFace embeddings temporarily disabled (circuit breaker — 401/invalid token, 5 min cooldown).")
-
-        url = f"{self.hf_router_url}/hf-inference/models/{self.hf_embedding_model}/pipeline/feature-extraction"
-        payload = json.dumps({"inputs": text, "options": {"wait_for_model": True}}).encode("utf-8")
-        _hf_timeout = timeout_override or 8
-        max_retries = 1  # reduced from 3 to 1 to fit within embedding global budget
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                proc = subprocess.run(
-                    ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                     "-H", f"Authorization: Bearer {self.hf_token}",
-                     "-H", "Content-Type: application/json",
-                     "-d", payload.decode("utf-8"),
-                     "--connect-timeout", "4",
-                     "--max-time", str(_hf_timeout), url],
-                    capture_output=True, text=True, timeout=_hf_timeout + 2,
-                )
-            except Exception as e:
-                raise RuntimeError(f"HF embedding connection failed: {type(e).__name__}: {e}")
-
-            if proc.returncode != 0:
-                _body = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
-                # Try parsing partial stdout for error details
-                _stdout = (proc.stdout or "").strip()
-                if _stdout:
-                    try:
-                        _partial = json.loads(_stdout)
-                        if isinstance(_partial, dict):
-                            if "error" in _partial:
-                                _eno = _partial["error"]
-                                if isinstance(_eno, dict):
-                                    _code = int(_eno.get("code") or 0)
-                                    _msg = str(_eno.get("message", _stdout[:120]))
-                                else:
-                                    _code = 0
-                                    _msg = str(_eno)
-                                low = _msg.lower()
-                                if _code in (401, 403) or "api key" in low or "invalid" in low or "unauthorized" in low:
-                                    self._hf_embed_down_until = time.monotonic() + 300
-                                    print("[LLM] HuggingFace embedding circuit breaker set (HTTP 401) — skipping HF for 5 minutes")
-                                    raise RuntimeError(f"HF embedding auth error (HTTP {_code}): {_msg[:200]}")
-                                _body = f"{_body} | body: {_msg[:120]}"
-                    except json.JSONDecodeError:
-                        pass
-                self._hf_embed_down_until = time.monotonic() + 300
-                raise RuntimeError(f"HF Inference API connection failed: {_body}")
-
-            try:
-                status_code = 200  # curl doesn't separate HTTP status from body
-                data = json.loads(proc.stdout or "{}")
-            except Exception:
-                raise RuntimeError(f"HF Inference API invalid JSON: {(proc.stdout or '')[:200]}")
-
-            vec = None
-            if isinstance(data, dict):
-                # HF Inference API feature-extraction returns: {"embeddings": [...]} or {"error": "..."}
-                if "error" in data and not data.get("embeddings"):
-                    # Model loading — only wait when another attempt remains.
-                    # With max_retries=1 the old unconditional 3s sleep just
-                    # pushed the whole embedding chain past its budget.
-                    if "loading" in data.get("error", "").lower():
-                        if attempt < max_retries:
-                            print(f"HF embed model loading, retry {attempt}/{max_retries}...")
-                            time.sleep(min(2.0 * attempt, 3.0))
-                            continue
-                        raise RuntimeError("HF embed model is loading (try again later)")
-                    _err_msg = str(data.get("error", ""))
-                    _low = _err_msg.lower()
-                    if "401" in str(data) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
-                        self._hf_embed_down_until = time.monotonic() + 300
-                        print("[LLM] HuggingFace embedding circuit breaker set (HTTP 401) — skipping HF for 5 minutes")
-                        raise RuntimeError(f"HF Inference API auth error: {_err_msg[:200]}")
-                    raise RuntimeError(f"HF Inference API error: {data.get('error')}")
-                vec = data.get("embeddings")
-            elif isinstance(data, list):
-                # feature-extraction returns either [[...]] (one pooled vector)
-                # or [[[..., ...], ...]] (token-level vectors) for one input.
-                if len(data) > 0:
-                    first = data[0]
-                    if isinstance(first, list):
-                        if len(first) > 0 and isinstance(first[0], list):
-                            # Mean-pool token embeddings into one sentence vector.
-                            vec = [sum(col) / len(col) for col in zip(*first)]
-                        else:
-                            vec = first
-                    else:
-                        vec = data
-            elif isinstance(data, dict) and "data" in data:
-                # OpenAI-style: {"data": [{"embedding": [...]}]}
-                data_list = data.get("data")
-                if isinstance(data_list, list) and len(data_list) > 0:
-                    item = data_list[0]
-                    if isinstance(item, dict):
-                        vec = item.get("embedding")
-                    elif isinstance(item, list):
-                        vec = item
-
-            if vec and isinstance(vec, list) and len(vec) > 0:
-                vec = [float(x) for x in vec]
-                return vec
-
-            raise RuntimeError(f"HF Inference API unexpected response format")
-
-        raise RuntimeError(f"HF Inference API embedding failed after {max_retries} retries")
-
-    def _nvidia_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Lấy embedding qua NVIDIA NIM (OpenAI-compatible /embeddings).
-
-        Uses curl (OpenSSL TLS) for HF Spaces compatibility — same approach as
-        text-generation in llm_service.py._nvidia_generate.
-        """
-        if not self.has_nvidia_api:
-            raise RuntimeError("NVIDIA_API_KEY + NVIDIA_EMBED_MODEL not set — cannot use NVIDIA embedding.")
-        import time as _nv_time
-        if _nv_time.monotonic() < getattr(self, "_nvidia_embed_down_until", 0.0):
-            raise RuntimeError("NVIDIA NIM embeddings temporarily disabled after a network failure.")
-
-        url = f"{self.nvidia_base}/embeddings"
-        payload = json.dumps({"model": self.nvidia_embed_model, "input": text}).encode("utf-8")
-        _nv_timeout = timeout_override or self.nvidia_timeout
-
-        try:
-            proc = subprocess.run(
-                ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                 "-H", f"Authorization: Bearer {self.nvidia_key}",
-                 "-H", "Content-Type: application/json",
-                 "-H", "Accept: application/json",
-                 "-d", payload.decode("utf-8"),
-                 "--connect-timeout", "4",
-                 "--max-time", str(_nv_timeout), url],
-                capture_output=True, text=True, timeout=_nv_timeout + 2,
-            )
-        except Exception as e:
-            self._nvidia_embed_down_until = _nv_time.monotonic() + 300
-            raise RuntimeError(f"NVIDIA embedding connection failed: {type(e).__name__}: {e}")
-
-        if proc.returncode != 0:
-            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-            # Try parsing partial stdout for auth/rate-limit error details.
-            _stdout = (proc.stdout or "").strip()
-            if _stdout:
-                try:
-                    _partial = json.loads(_stdout)
-                    if isinstance(_partial, dict) and _partial.get("error"):
-                        _eno = _partial["error"]
-                        if isinstance(_eno, dict):
-                            err = f"{err} | body: {str(_eno.get('message', _stdout[:120]))[:120]}"
-                except Exception:
-                    pass
-            self._nvidia_embed_down_until = _nv_time.monotonic() + 300
-            raise RuntimeError(f"NVIDIA embedding connection failed: {err}")
-
-        try:
-            data = json.loads(proc.stdout or "{}")
-        except Exception:
-            raise RuntimeError(f"NVIDIA embedding invalid JSON: {(proc.stdout or '')[:200]}")
-
-        if isinstance(data, dict) and data.get("error"):
-            err = data.get("error") or {}
-            if isinstance(err, dict):
-                code = int(err.get("code") or 0)
-                message = str(err.get("message") or "")
-            else:
-                code = 0
-                message = str(err)
-            if code in (401, 403) or "api key" in message.lower():
-                self._nvidia_embed_down_until = _nv_time.monotonic() + 300
-                raise RuntimeError(f"NVIDIA embedding auth error (HTTP {code}): {message[:200]}")
-            raise RuntimeError(f"NVIDIA embedding API error (HTTP {code}): {message[:200]}")
-
-        try:
-            vec = data["data"][0]["embedding"]
-        except (KeyError, IndexError, TypeError):
-            raise RuntimeError(f"NVIDIA embedding returned unexpected format: {str(data)[:200]}")
-        if not isinstance(vec, list) or not vec:
-            raise RuntimeError(f"NVIDIA embedding returned empty vector: {str(data)[:200]}")
-        return [float(x) for x in vec]
-
-    def _kimi_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Get embedding from Shanghai AI Lab (01.ai / Kimi) — OpenAI-compatible /embeddings.
-
-        Uses curl (OpenSSL TLS) for HF Spaces compatibility.
-        Circuit breaker: 5-min cooldown after 401 or network failure.
-        """
-        if not self.has_kimi_api:
-            raise RuntimeError("KIMI_API_KEY + KIMI_EMBEDDING_MODEL not set — cannot use 01.ai embedding.")
-        import time as _ki_time
-        if _ki_time.monotonic() < getattr(self, "_kimi_embed_down_until", 0.0):
-            raise RuntimeError("01.ai (Kimi) embeddings temporarily disabled (circuit breaker, 5 min cooldown).")
-
-        url = f"{self.kimi_base}/embeddings"
-        payload = json.dumps({"model": self.kimi_embed_model, "input": text}).encode("utf-8")
-        _ki_timeout = timeout_override or self.kimi_timeout
-
-        try:
-            proc = subprocess.run(
-                ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                 "-H", f"Authorization: Bearer {self.kimi_key}",
-                 "-H", "Content-Type: application/json",
-                 "-H", "Accept: application/json",
-                 "-d", payload.decode("utf-8"),
-                 "--connect-timeout", "4",
-                 "--max-time", str(_ki_timeout), url],
-                capture_output=True, text=True, timeout=_ki_timeout + 2,
-            )
-        except Exception as e:
-            self._kimi_embed_down_until = _ki_time.monotonic() + 300
-            raise RuntimeError(f"01.ai embedding connection failed: {type(e).__name__}: {e}")
-
-        if proc.returncode != 0:
-            err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-            _stdout = (proc.stdout or "").strip()
-            if _stdout:
-                try:
-                    _partial = json.loads(_stdout)
-                    if isinstance(_partial, dict):
-                        if "error" in _partial:
-                            _eno = _partial["error"]
-                            if isinstance(_eno, dict):
-                                _msg = str(_eno.get("message", _stdout[:120]))
-                                _code = int(_eno.get("code") or 0)
-                            else:
-                                _msg = str(_eno)
-                                _code = 0
-                            _low = _msg.lower()
-                            if _code in (401, 403) or "api key" in _low or "invalid" in _low or "unauthorized" in _low:
-                                self._kimi_embed_down_until = _ki_time.monotonic() + 300
-                                raise RuntimeError(f"01.ai embedding auth error (HTTP {_code}): {_msg[:200]}")
-                            err = f"{err} | body: {_msg[:120]}"
-                except json.JSONDecodeError:
-                    pass
-            self._kimi_embed_down_until = _ki_time.monotonic() + 300
-            raise RuntimeError(f"01.ai embedding connection failed: {err}")
-
-        try:
-            data = json.loads(proc.stdout or "{}")
-        except Exception:
-            raise RuntimeError(f"01.ai embedding invalid JSON: {(proc.stdout or '')[:200]}")
-
-        if isinstance(data, dict) and data.get("error"):
-            err = data.get("error") or {}
-            if isinstance(err, dict):
-                code = int(err.get("code") or 0)
-                message = str(err.get("message") or "")
-            else:
-                code = 0
-                message = str(err)
-            if code in (401, 403) or "api key" in message.lower() or "invalid" in message.lower():
-                self._kimi_embed_down_until = _ki_time.monotonic() + 300
-                raise RuntimeError(f"01.ai embedding auth error (HTTP {code}): {message[:200]}")
-            if code == 429:
-                self._kimi_embed_down_until = _ki_time.monotonic() + 300
-                raise RuntimeError(f"01.ai embedding rate-limited (429): {message[:150]}")
-            raise RuntimeError(f"01.ai embedding API error (HTTP {code}): {message[:200]}")
-
-        try:
-            vec = data["data"][0]["embedding"]
-        except (KeyError, IndexError, TypeError):
-            raise RuntimeError(f"01.ai embedding returned unexpected format: {str(data)[:200]}")
-        if not isinstance(vec, list) or not vec:
-            raise RuntimeError(f"01.ai embedding returned empty vector: {str(data)[:200]}")
-        return [float(x) for x in vec]
 
     def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
         """Cache a successfully computed embedding with TTL + FIFO-LRU eviction.
@@ -775,7 +328,7 @@ class VectorStoreService:
 
     def get_embedding(self, text: str) -> List[float]:
         if not self.has_api:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY, CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, HF_TOKEN, XKIRO_API_KEY + XKIRO_EMBEDDING_MODEL, hoặc NVIDIA_API_KEY + NVIDIA_EMBED_MODEL để dùng semantic search.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary) hoặc CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID để dùng semantic search.")
         if not text:
             return []
 
@@ -803,60 +356,10 @@ class VectorStoreService:
         # be tuned on HF Spaces without a rebuild. Keep this comfortably below
         # the downstream RAG/HTTP timeouts so chat degrades instead of hanging.
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
-        gemini_last_err = None
         cf_last_err = None
-        xkiro_last_err = None
-        hf_last_err = None
-        nvidia_last_err = None
-        kimi_last_err = None
+        gemini_last_err = None
 
-        # --- Phan 0: XKIRO embeddings (chỉ chạy nếu XKIRO_EMBEDDING_MODEL được cấu hình;
-        #     XKIRO chưa hỗ trợ /v1/embeddings nên block này thường bị skip → fall through) ---
-        _xkiro_remaining = self._embed_remaining(_embed_start)
-        if self.has_xkiro_api and time.monotonic() >= getattr(self, "_xkiro_embed_down_until", 0.0):
-            if _xkiro_remaining <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping XKIRO embed")
-            else:
-                try:
-                    vec = self._xkiro_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
-                    vec = [float(x) for x in vec]
-                    if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"XKIRO embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                        if len(vec) > self._embed_dim:
-                            vec = vec[:self._embed_dim]
-                        else:
-                            vec = vec + [0.0] * (self._embed_dim - len(vec))
-                    self._embed_dim = len(vec)
-                    print(f"  -> XKIRO embedding OK (dim={len(vec)})")
-                    self._store_embed_cache(_cache_key, vec)
-                    return vec
-                except Exception as e:
-                    xkiro_last_err = str(e)
-                    print(f"XKIRO embedding failed: {e}")
-
-        # --- Phan 1: Gemini embeddings (reachable from HF Spaces) ---
-        if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
-            if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
-            else:
-                try:
-                    vec = self._gemini_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
-                    vec = [float(x) for x in vec]
-                    if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                        if len(vec) > self._embed_dim:
-                            vec = vec[:self._embed_dim]
-                        else:
-                            vec = vec + [0.0] * (self._embed_dim - len(vec))
-                    self._embed_dim = len(vec)
-                    print(f"  -> Gemini embedding OK (dim={len(vec)})")
-                    self._store_embed_cache(_cache_key, vec)
-                    return vec
-                except Exception as e:
-                    gemini_last_err = str(e)
-                    print(f"Gemini embedding failed: {e}")
-
-        # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
+        # --- Cloudflare Workers AI embeddings (primary) ---
         if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
             cf_last_err = None
             cf_network_down = False
@@ -868,7 +371,7 @@ class VectorStoreService:
             per_model_retries = 0  # no retry — connection errors on HF Spaces are consistent, retrying wastes time
             # Embedding calls are small/fast; use the shared per-provider budget
             # so each model attempt fails within the global budget, leaving room
-            # for Gemini/HF/NVIDIA fallback. Mirrors llm_service._cloudflare_generate.
+            # for Gemini fallback. Mirrors llm_service._cloudflare_generate.
             _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
 
             for model in self.embed_models:
@@ -904,10 +407,6 @@ class VectorStoreService:
                             data = json.loads(_curl.stdout)
                         else:
                             _msg = (_curl.stderr or "").strip()[:200] or f"curl exit {_curl.returncode}"
-                            # curl can exit non-zero (e.g. timeout code 28) while
-                            # still having received a partial response body — try to
-                            # parse it so a 401/429/auth error body is surfaced
-                            # instead of a generic "curl exit 28".
                             _stdout = (_curl.stdout or "").strip()
                             if _stdout:
                                 try:
@@ -1013,83 +512,32 @@ class VectorStoreService:
                     break
             # end for model in embed_models
 
-        # --- Phan 2: fallback ve HuggingFace Inference API (khi Cloudflare fail) ---
-        if self.has_hf_api:
+        # --- Google Gemini embeddings (fallback — reachable from HF Spaces) ---
+        if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
             if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping HF fallback")
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
             else:
                 try:
-                    vec = self._hf_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
-                    vec = [float(x) for x in vec]
-                    # Dimension guard: neu collection da co dim (tu Cloudflare seed),
-                    # can chinh lenh ve khop. Nhung multilingual-e5-base = 768 dim,
-                    # tuong tu nhu bge-base-en-v1.5 = 768 dim.
-                    if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"HF embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                        if len(vec) > self._embed_dim:
-                            vec = vec[:self._embed_dim]  # truncate
-                        else:
-                            vec = vec + [0.0] * (self._embed_dim - len(vec))  # pad
-                    self._embed_dim = len(vec)
-                    print(f"  -> HF Inference API embedding OK (dim={len(vec)})")
-                    self._store_embed_cache(_cache_key, vec)
-                    return vec
-                except Exception as e:
-                    hf_last_err = str(e)
-                    print(f"HF Inference API embedding ALSO failed: {e}")
-
-        # --- Phan 3: fallback ve NVIDIA NIM embedding ---
-        if self.has_nvidia_api:
-            if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping NVIDIA fallback")
-            else:
-                try:
-                    vec = self._nvidia_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
+                    vec = self._gemini_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
                     vec = [float(x) for x in vec]
                     if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"NVIDIA embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
+                        print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
                         if len(vec) > self._embed_dim:
                             vec = vec[:self._embed_dim]
                         else:
                             vec = vec + [0.0] * (self._embed_dim - len(vec))
                     self._embed_dim = len(vec)
-                    print(f"  -> NVIDIA NIM embedding OK (dim={len(vec)})")
+                    print(f"  -> Gemini embedding OK (dim={len(vec)})")
                     self._store_embed_cache(_cache_key, vec)
                     return vec
                 except Exception as e:
-                    nvidia_last_err = str(e)
-                    print(f"NVIDIA NIM embedding ALSO failed: {e}")
-
-        # --- Phan 4: fallback ve 01.ai (Shanghai AI Laboratory) embedding ---
-        if getattr(self, "has_kimi_api", False):
-            if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping 01.ai fallback")
-            else:
-                try:
-                    vec = self._kimi_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
-                    vec = [float(x) for x in vec]
-                    if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"01.ai embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                        if len(vec) > self._embed_dim:
-                            vec = vec[:self._embed_dim]
-                        else:
-                            vec = vec + [0.0] * (self._embed_dim - len(vec))
-                    self._embed_dim = len(vec)
-                    print(f"  -> 01.ai (Kimi) embedding OK (dim={len(vec)})")
-                    self._store_embed_cache(_cache_key, vec)
-                    return vec
-                except Exception as e:
-                    kimi_last_err = str(e)
-                    print(f"01.ai (Kimi) embedding ALSO failed: {e}")
+                    gemini_last_err = str(e)
+                    print(f"Gemini embedding failed: {e}")
 
         raise RuntimeError(
             f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
-            f"XKIRO: {xkiro_last_err or ('khong cau hinh' if not self.has_xkiro_api else 'khong kha dung')}, "
-            f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}, "
-            f"Cloudflare: {cf_last_err or 'khong cau hinh'}, "
-            f"HF: {hf_last_err or ('khong cau hinh' if not self.has_hf_api else 'khong kha dung')}, "
-            f"NVIDIA: {nvidia_last_err or ('khong cau hinh' if not self.has_nvidia_api else 'khong kha dung')}, "
-            f"01.ai: {kimi_last_err or ('khong cau hinh' if not getattr(self, 'has_kimi_api', False) else 'khong kha dung')}"
+            f"Cloudflare: {cf_last_err or ('khong cau hinh' if not self.has_cf_api else 'khong kha dung')}, "
+            f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}"
         )
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
