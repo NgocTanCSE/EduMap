@@ -545,6 +545,7 @@ inventing new values.
   - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel, vẫn có thể pan/zoom bình thường khi panel chỉ đường mở (không bị khóa).
   - Nút zoom `+`/`-` trên bản đồ đã ẩn (`zoomControl={false}`); người dùng cuộn chuột để zoom.
   - Popup khi bấm ghim/pin được rộng ra 3× (`max-w-[240px]` → `max-w-[720px]`).
+  - Form "Ghim vị trí mới" được rộng ra gấp 3 lần (`max-w-md` → `max-w-[84rem]` ≈ 1344px).
   - `useDraggable` không bắt đầu kéo khi nhấn vào `input`/`textarea`/`select` → nhập liệu và cuộn chuột trong panel hoạt động bình thường.
   - Bảng chỉ đường có nút **"Chọn bản đồ"** bên cạnh mỗi ô tọa độ (điểm xuất phát / điểm đến). Nhấn nút rồi click vào bản đồ sẽ chọn vị trí đó làm điểm tương ứng.
   - Các label icon+checkbox dùng `whitespace-nowrap` để không rớt dòng.

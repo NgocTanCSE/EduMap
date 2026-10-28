@@ -1102,7 +1102,7 @@ export default function MapPage() {
       {/* ─── Pin modal ─── */}
       {pinningCoord && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-card/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md p-5">
+          <div className="bg-card border border-border rounded-xl w-full max-w-[84rem] p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="h3-card">Ghim vị trí mới</h3>
               <button
