@@ -839,6 +839,7 @@ export default function InteractiveMap({
           onDeleteRoute={deleteSavedRoute}
           defaultAvoidFlood={safeRouteMode}
           defaultAvoidTraffic={safeRouteMode}
+          onSelectOnMap={(mode) => setRoutingMode(mode)}
         />
       ) : (
         <button

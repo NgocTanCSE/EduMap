@@ -28,6 +28,17 @@ export function useDraggable({
     (e: React.MouseEvent) => {
       // Chỉ kéo khi nhấn chuột trái
       if (e.button !== 0) return;
+      // Không bắt đầu kéo khi nhấn vào các điều khiển nhập liệu
+      // (input, textarea, select) để người dùng vẫn nhập liệu và cuộn chuột bình thường.
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.closest('input, textarea, select')
+      ) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       isDraggingRef.current = true;

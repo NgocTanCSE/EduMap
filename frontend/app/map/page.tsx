@@ -294,12 +294,14 @@ export default function MapPage() {
   }, []);
 
   // Kéo panel bản đồ tự do (yêu cầu: 2 phần di chuyển tự do, bên bản đồ ẩn được như bên chỉ đường)
+  const SIDEBAR_WIDTH = windowSize.width >= 1024 ? 272 : 16;
+
   const { position: mapPanelPos, onMouseDown: onMapPanelMouseDown } = useDraggable({
-    initialPosition: { x: 16, y: 16 },
+    initialPosition: { x: SIDEBAR_WIDTH + 16, y: 16 },
     bounds: {
-      minX: 0,
+      minX: SIDEBAR_WIDTH,
       minY: 0,
-      maxX: Math.max(0, windowSize.width - 320),
+      maxX: Math.max(SIDEBAR_WIDTH, windowSize.width - 320),
       maxY: Math.max(0, windowSize.height - 40),
     },
   });
@@ -802,12 +804,13 @@ export default function MapPage() {
             top: mapPanelPos.y,
             left: mapPanelPos.x,
             width: 320,
-            maxHeight: Math.max(300, windowSize.height - 40),
           }}
-          className="fixed z-[50] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
-          onMouseDown={onMapPanelMouseDown}
+          className="fixed z-[50] max-h-[calc(100dvh-8rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
         >
-          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none">
+          <div
+            className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none"
+            onMouseDown={onMapPanelMouseDown}
+          >
             <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
               <HomeIcon className="w-4 h-4 text-primary" /> Bản đồ
             </h3>

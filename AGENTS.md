@@ -540,11 +540,12 @@ inventing new values.
 
 - **Map Hub floating panels (2026-10-28):**
   - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating) thay vì aside cố định:
-    - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable`, có nút Ẩn/Hiện ("Mở bảng bản đồ").
-    - **Bảng chỉ đường** (phải, `RoutingPanel`): đã có sẵn `fixed`, bây giờ cũng kéo được tự do.
+    - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable`, có nút Ẩn/Hiện ("Mở bảng bản đồ"). `onMouseDown` chỉ gắn vào header (drag handle) để cuộn chuột trong nội dung không bị chặn.
+    - **Bảng chỉ đường** (phải, `RoutingPanel`): `fixed`, kéo được tự do; `max-h-[calc(100dvh-8rem)]` + `overflow-y-auto scrollbar-hide` để nội dung không bị rớt/cắt khi kéo xuống dưới màn hình.
   - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel.
   - Nút zoom `+`/`-` trên bản đồ đã ẩn (`zoomControl={false}`); người dùng cuộn chuột để zoom.
   - Popup khi bấm ghim/pin được rộng ra 3× (`max-w-[240px]` → `max-w-[720px]`).
-  - Tất cả thanh cuộn trong panel được ẩn (`scrollbar-hide`) nhưng vẫn giữ chức năng cuộn.
+  - `useDraggable` không bắt đầu kéo khi nhấn vào `input`/`textarea`/`select` → nhập liệu và cuộn chuột trong panel hoạt động bình thường.
+  - Bảng chỉ đường có nút **"Chọn bản đồ"** bên cạnh mỗi ô tọa độ (điểm xuất phát / điểm đến). Nhấn nút rồi click vào bản đồ sẽ chọn vị trí đó làm điểm tương ứng (dùng `routingMode` `setting_origin`/`setting_destination`).
   - Layout dùng `flex-1` + `overflow-y-auto` để không bị rớt nội dung khi panel hẹp.
   - Hook dùng chung: `frontend/src/hooks/useDraggable.ts`.

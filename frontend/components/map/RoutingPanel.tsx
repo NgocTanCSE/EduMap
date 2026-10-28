@@ -65,6 +65,8 @@ interface RoutingPanelProps {
   onSetOrigin: (lat: number, lng: number) => void;
   onSetDestination: (lat: number, lng: number) => void;
   onSwap: () => void;
+  /** Bắt đầu chọn vị trí trên bản đồ (được gọi khi người dùng nhấn nút "Chọn trên bản đồ"). */
+  onSelectOnMap?: (mode: 'setting_origin' | 'setting_destination') => void;
   onSaveRoute?: () => void;
   savedRoutes?: Array<{
     id: string;
@@ -102,6 +104,7 @@ export default function RoutingPanel({
   onDeleteRoute,
   defaultAvoidFlood = false,
   defaultAvoidTraffic = false,
+  onSelectOnMap,
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
@@ -244,9 +247,8 @@ export default function RoutingPanel({
         top: routePos.y,
         left: routePos.x,
         width: 320,
-        maxHeight: Math.max(200, windowSize.height - 40),
       }}
-      className="fixed z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-20"
+      className="fixed z-[50] max-h-[calc(100dvh-8rem)] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4"
       onMouseDown={onRouteMouseDown}
     >
       <div className="flex items-center justify-between mb-4">
@@ -293,6 +295,14 @@ export default function RoutingPanel({
             >
               <Search className="w-3 h-3 flex-shrink-0 mr-1" /> Dùng tọa độ
             </button>
+            {onSelectOnMap && (
+              <button
+                onClick={() => onSelectOnMap('setting_origin')}
+                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
+              >
+                <MapPin className="w-3 h-3 flex-shrink-0 mr-1" /> Chọn bản đồ
+              </button>
+            )}
           </div>
         </div>
 
@@ -336,6 +346,14 @@ export default function RoutingPanel({
             >
               <Search className="w-3 h-3 flex-shrink-0 mr-1" /> Dùng tọa độ
             </button>
+            {onSelectOnMap && (
+              <button
+                onClick={() => onSelectOnMap('setting_destination')}
+                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
+              >
+                <MapPin className="w-3 h-3 flex-shrink-0 mr-1" /> Chọn bản đồ
+              </button>
+            )}
           </div>
         </div>
 
