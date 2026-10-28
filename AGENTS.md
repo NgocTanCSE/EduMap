@@ -539,13 +539,14 @@ inventing new values.
 - **Verify** with `cd frontend && npx tsc --noEmit && npm run build`.
 
 - **Map Hub floating panels (2026-10-28):**
-  - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating) thay vì aside cố định:
-    - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable`, có nút Ẩn/Hiện ("Mở bảng bản đồ"). `onMouseDown` chỉ gắn vào header (drag handle) để cuộn chuột trong nội dung không bị chặn.
-    - **Bảng chỉ đường** (phải, `RoutingPanel`): `fixed`, kéo được tự do; `max-h-[calc(100dvh-8rem)]` + `overflow-y-auto scrollbar-hide` để nội dung không bị rớt/cắt khi kéo xuống dưới màn hình.
-  - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel.
+  - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating):
+    - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable` (chỉ kéo ở header), có nút Ẩn/Hiện ("Mở bảng bản đồ"). `onMouseDown` chỉ gắn vào header để cuộn chuột trong nội dung không bị chặn.
+    - **Bảng chỉ đường** (phải, `RoutingPanel`): xuất hiện **sổ xuống từ nút "Chỉ đường" floating** (góc trên phải), `fixed` tại `top-[56px] right-4`, không kéo tự do nữa. `max-h-[calc(100dvh-120px)]` + `overflow-y-auto scrollbar-hide` để nội dung không bị rớt/cắt. `width: 340px` co dãn với màn hình.
+  - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel, vẫn có thể pan/zoom bình thường khi panel chỉ đường mở (không bị khóa).
   - Nút zoom `+`/`-` trên bản đồ đã ẩn (`zoomControl={false}`); người dùng cuộn chuột để zoom.
   - Popup khi bấm ghim/pin được rộng ra 3× (`max-w-[240px]` → `max-w-[720px]`).
   - `useDraggable` không bắt đầu kéo khi nhấn vào `input`/`textarea`/`select` → nhập liệu và cuộn chuột trong panel hoạt động bình thường.
-  - Bảng chỉ đường có nút **"Chọn bản đồ"** bên cạnh mỗi ô tọa độ (điểm xuất phát / điểm đến). Nhấn nút rồi click vào bản đồ sẽ chọn vị trí đó làm điểm tương ứng (dùng `routingMode` `setting_origin`/`setting_destination`).
+  - Bảng chỉ đường có nút **"Chọn bản đồ"** bên cạnh mỗi ô tọa độ (điểm xuất phát / điểm đến). Nhấn nút rồi click vào bản đồ sẽ chọn vị trí đó làm điểm tương ứng.
+  - Các label icon+checkbox dùng `whitespace-nowrap` để không rớt dòng.
   - Layout dùng `flex-1` + `overflow-y-auto` để không bị rớt nội dung khi panel hẹp.
   - Hook dùng chung: `frontend/src/hooks/useDraggable.ts`.

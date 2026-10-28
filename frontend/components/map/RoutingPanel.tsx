@@ -4,7 +4,6 @@ import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapP
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useDraggable } from '@/src/hooks/useDraggable';
 
 /** Parse the "lat, lng" format accepted by the manual coordinate inputs. */
 function parseCoordinate(value: string): { lat: number; lng: number } | null {
@@ -108,26 +107,6 @@ export default function RoutingPanel({
 }: RoutingPanelProps) {
   const [originInput, setOriginInput] = useState('');
   const [destInput, setDestInput] = useState('');
-  const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    const onResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  // Kéo panel chỉ đường tự do (giống yêu cầu: 2 phần di chuyển tự do)
-  const { position: routePos, onMouseDown: onRouteMouseDown } = useDraggable({
-    initialPosition: { x: Math.max(20, windowSize.width - 320 - 16), y: 16 },
-    bounds: {
-      minX: 0,
-      minY: 0,
-      maxX: Math.max(0, windowSize.width - 320),
-      maxY: Math.max(0, windowSize.height - 40),
-    },
-  });
   // Avoidance options are shared by the single route button — when either
   // is enabled the SafeRoute AI backend is used (flood/traffic-aware).
   // This eliminates the redundancy between "Tránh khu vực ngập" / "Tránh kẹt xe"
@@ -243,13 +222,7 @@ export default function RoutingPanel({
 
   return (
     <div
-      style={{
-        top: routePos.y,
-        left: routePos.x,
-        width: 320,
-      }}
-      className="fixed z-[50] max-h-[calc(100dvh-8rem)] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4"
-      onMouseDown={onRouteMouseDown}
+      className="fixed top-[56px] right-4 z-[50] w-[340px] max-h-[calc(100dvh-120px)] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
@@ -360,7 +333,7 @@ export default function RoutingPanel({
         {/* Options */}
         <div className="border-t border-border pt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex items-center gap-2 cursor-pointer group">
+            <label className="flex items-center gap-2 cursor-pointer group whitespace-nowrap">
               <input
                 type="checkbox"
                 checked={avoidFlood}
@@ -369,10 +342,12 @@ export default function RoutingPanel({
               />
               <div className="flex items-center gap-1 min-w-0">
                 <Shield className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-sm text-muted-foreground/80 truncate">Tránh khu vực ngập</span>
+                <span className="text-sm text-muted-foreground/80 truncate whitespace-nowrap">
+                  Tránh khu vực ngập
+                </span>
               </div>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer group">
+            <label className="flex items-center gap-2 cursor-pointer group whitespace-nowrap">
               <input
                 type="checkbox"
                 checked={avoidTraffic}
@@ -381,7 +356,9 @@ export default function RoutingPanel({
               />
               <div className="flex items-center gap-1 min-w-0">
                 <Car className="w-4 h-4 text-primary/90 shrink-0" />
-                <span className="text-sm text-muted-foreground/80 truncate">Tránh kẹt xe (giờ cao điểm)</span>
+                <span className="text-sm text-muted-foreground/80 truncate whitespace-nowrap">
+                  Tránh kẹt xe (giờ cao điểm)
+                </span>
               </div>
             </label>
           </div>
