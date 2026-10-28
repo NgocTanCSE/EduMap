@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   BarChart3, RefreshCw, Download, CheckCircle2, TrendingUp,
-  MapPin, Users, Clock, Award, Info,
+  MapPin, Users, Clock, Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { useRequireAuth } from "@/src/lib/require-auth";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import { impactMeasurementService, type ImpactReport, type RegionParams } from "@/reporting/services/impact-measurement.service";
 
 /*
@@ -263,14 +264,23 @@ export default function ImpactMeasurementPage() {
             truy cập giáo dục không — trước/sau, xu hướng, điểm số tác động + khoảng tin cậy.
           </p>
         </div>
-        <button
-          onClick={fetchReport}
-          disabled={loading || !user}
-          className="inline-flex items-center justify-center rounded-md border bg-primary px-3 py-2 text-sm font-medium shadow hover:bg-primary/90 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchReport}
+            disabled={loading || !user}
+            className="inline-flex items-center justify-center rounded-md border bg-primary px-3 py-2 text-sm font-medium shadow hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Làm mới
+          </button>
+          <BookmarkButton
+            targetType="impact_report"
+            targetId={report?.region || "bien-hoa"}
+            size="sm"
+            showLabel
+            className="inline-flex items-center justify-center rounded-md border bg-primary px-3 py-2 text-sm font-medium shadow hover:bg-primary/90 disabled:opacity-50"
+          />
+        </div>
       </div>
 
       {/* Region / deployment controls */}
@@ -296,15 +306,6 @@ export default function ImpactMeasurementPage() {
         </button>
       </div>
 
-      {report?.degraded && (
-        <div className="mb-4 flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50/60 p-3 text-sm text-blue-900">
-          <Info className="h-4 w-4 mt-0.5 shrink-0" />
-          <div>
-            <span className="font-medium">Lưu ý:</span> {report.reason || "Một số dữ liệu thời gian thực chưa khả dụng — hệ thống đang dùng chuẩn mực tính toán giảm tốc."}
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -326,7 +327,7 @@ export default function ImpactMeasurementPage() {
 
       {/* Charts grid — wider gaps for breathing room (Image 10) */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Score gauge */}
           <div className="rounded-lg border bg-card p-4 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Điểm tác động AI</p>
@@ -361,7 +362,7 @@ export default function ImpactMeasurementPage() {
 
       {/* Trend + people diff — wider gap (Image 10) */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mt-8">
           <div className="rounded-lg border bg-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Xu hướng triển khai</p>
             <TrendSvg />

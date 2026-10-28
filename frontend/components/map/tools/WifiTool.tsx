@@ -143,7 +143,7 @@ function WifiPanel({
       </div>
 
       {wifiLocations.length > 0 ? (
-        <div className="space-y-1 max-h-48 overflow-y-auto">
+        <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
           {wifiLocations.map((w: any) => (
             <div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="font-medium text-foreground">{w.name || w.ssid}</div>

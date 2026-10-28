@@ -161,25 +161,25 @@ export function ClimateGuardianPanel({
             <input
               type="number" step="0.001" value={bbox.minLat}
               onChange={(e) => setBbox({ ...bbox, minLat: parseFloat(e.target.value) || 0 })}
-              className="text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-xs"
               placeholder="minLat"
             />
             <input
               type="number" step="0.001" value={bbox.maxLat}
               onChange={(e) => setBbox({ ...bbox, maxLat: parseFloat(e.target.value) || 0 })}
-              className="text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-xs"
               placeholder="maxLat"
             />
             <input
               type="number" step="0.001" value={bbox.minLng}
               onChange={(e) => setBbox({ ...bbox, minLng: parseFloat(e.target.value) || 0 })}
-              className="text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-xs"
               placeholder="minLng"
             />
             <input
               type="number" step="0.001" value={bbox.maxLng}
               onChange={(e) => setBbox({ ...bbox, maxLng: parseFloat(e.target.value) || 0 })}
-              className="text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-xs"
               placeholder="maxLng"
             />
           </div>
@@ -189,7 +189,7 @@ export function ClimateGuardianPanel({
           <label className="text-sm font-medium text-foreground">Ngày (tùy chọn)</label>
           <input
             type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)}
-            className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select mt-1 text-sm"
           />
         </div>
 
@@ -286,25 +286,25 @@ export function ClimateGuardianPanel({
           <input
             type="number" step="0.001" value={altCenter.lat}
             onChange={(e) => setAltCenter({ ...altCenter, lat: parseFloat(e.target.value) || 0 })}
-            className="px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-input text-xs"
             placeholder="lat"
           />
           <input
             type="number" step="0.001" value={altCenter.lng}
             onChange={(e) => setAltCenter({ ...altCenter, lng: parseFloat(e.target.value) || 0 })}
-            className="px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-input text-xs"
             placeholder="lng"
           />
           <input
             type="number" step="1" value={altRadius}
             onChange={(e) => setAltRadius(Math.max(1, parseInt(e.target.value) || 10))}
-            className="px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-input text-xs"
             placeholder="km"
           />
           <select
             value={altCategory}
             onChange={(e) => setAltCategory(e.target.value)}
-            className="px-2 py-1.5 text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select text-sm"
           >
             {CATEGORY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>

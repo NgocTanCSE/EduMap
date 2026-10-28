@@ -106,7 +106,7 @@ export function GapPredictorPanel({
           <select
             value={region}
             onChange={(e) => setRegion(e.target.value)}
-            className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select mt-1 text-sm"
           >
             {REGIONS.map((r) => (
               <option key={r.value} value={r.value}>{r.label}</option>
@@ -119,7 +119,7 @@ export function GapPredictorPanel({
           <select
             value={stepsAhead}
             onChange={(e) => setStepsAhead(parseInt(e.target.value, 10))}
-            className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select mt-1 text-sm"
           >
             {STEPS_OPTIONS.map((s) => (
               <option key={s} value={s}>{s} năm</option>

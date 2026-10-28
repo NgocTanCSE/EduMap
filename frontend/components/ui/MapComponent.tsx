@@ -382,6 +382,15 @@ export default function InteractiveMap({
   const [safeRoutes, setSafeRoutes] = useState<any[] | null>(null);
   const [routeExplanation, setRouteExplanation] = useState<string | null>(null);
   const [isSafeRouteLoading, setIsSafeRouteLoading] = useState(false);
+  // Selected SafeRoute AI proposal geometry/info (applied when user clicks "Chọn lộ trình này").
+  const [selectedSafeRoute, setSelectedSafeRoute] = useState<{
+    geometry: any;
+    duration: number;
+    distance: number;
+    safetyScore: number;
+    floodWarnings?: Array<{ name: string; riskLevel: string }>;
+    trafficAnalysis?: any;
+  } | null>(null);
   // When the floating Shield button is pressed, we auto-enable avoidance
   // so the consolidated route button uses the SafeRoute AI backend.
   const [safeRouteMode, setSafeRouteMode] = useState(false);
@@ -628,6 +637,46 @@ export default function InteractiveMap({
     }
   }, [apiBaseUrl]);
 
+  // ── Select a SafeRoute AI proposal and apply it to the map ──
+  const handleSelectSafeRoute = useCallback((route: {
+    geometry: any;
+    safetyScore: number;
+    safetyFactors: { distanceScore: number; durationScore: number; floodRisk: number; trafficRisk: number };
+    distance: number;
+    duration: number;
+    explanation: string;
+    isPrimary: boolean;
+    estimated: boolean;
+    floodWarnings?: Array<{ name: string; riskLevel: string }>;
+    trafficAnalysis?: any;
+  }) => {
+    const geom = typeof route.geometry === 'string' ? JSON.parse(route.geometry) : route.geometry;
+    setSelectedSafeRoute({
+      geometry: geom,
+      duration: route.duration,
+      distance: route.distance,
+      safetyScore: route.safetyScore,
+      floodWarnings: route.floodWarnings,
+      trafficAnalysis: route.trafficAnalysis,
+    });
+    setRouteGeometry(geom);
+    setRouteInfo({
+      duration: route.duration,
+      distance: route.distance,
+      segments: [],
+      floodWarnings: (route.floodWarnings || []).map((fw: any) => ({ name: fw.name, riskLevel: fw.riskLevel })),
+      avoidedFloodZones: [],
+      trafficAnalysis: route.trafficAnalysis
+        ? {
+            totalDelay: route.trafficAnalysis.totalDelay,
+            congestionSummary: route.trafficAnalysis.congestionSummary,
+            segments: [],
+          }
+        : undefined,
+    });
+    toast.success('Đã áp dụng lộ trình an toàn lên bản đồ.');
+  }, []);
+
   const clearRoute = useCallback(() => {
     setOrigin(null);
     setDestination(null);
@@ -635,6 +684,7 @@ export default function InteractiveMap({
     setRouteInfo(null);
     setSafeRoutes(null);
     setRouteExplanation(null);
+    setSelectedSafeRoute(null);
     setRoutingMode('idle');
   }, []);
 
@@ -771,7 +821,8 @@ export default function InteractiveMap({
         <RoutingPanel
           onGetRoute={fetchRoute}
           onGetSafeRoute={fetchSafeRoute}
-          onClearRoute={() => { clearRoute(); setSafeRouteMode(false); }}
+          onSelectSafeRoute={handleSelectSafeRoute}
+          onClearRoute={() => { clearRoute(); setSafeRouteMode(false); setSelectedSafeRoute(null); }}
           routeInfo={routeInfo}
           safeRoutes={safeRoutes}
           routeExplanation={routeExplanation}

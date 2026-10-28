@@ -121,12 +121,12 @@ export function SurveyPlannerPanel({
             <input
               type="number" step={0.0001} value={currentLat}
               onChange={(e) => setCurrentLat(parseFloat(e.target.value))}
-              className="text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-sm"
             />
             <input
               type="number" step={0.0001} value={currentLng}
               onChange={(e) => setCurrentLng(parseFloat(e.target.value))}
-              className="text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-sm"
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -149,7 +149,7 @@ export function SurveyPlannerPanel({
           <select
             value={gridSizeKm}
             onChange={(e) => setGridSizeKm(parseFloat(e.target.value))}
-            className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select mt-1 text-sm"
           >
             {[0.5, 1.0, 2.0].map((s) => (
               <option key={s} value={s}>{s} km</option>
@@ -162,7 +162,7 @@ export function SurveyPlannerPanel({
           <select
             value={topN}
             onChange={(e) => setTopN(parseInt(e.target.value, 10))}
-            className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="form-select mt-1 text-sm"
           >
             {[5, 10, 15, 25, 50].map((n) => (
               <option key={n} value={n}>{n} điểm</option>
@@ -176,7 +176,7 @@ export function SurveyPlannerPanel({
             <input
               type="number" step={0.5} min={0.5} max={4} value={surveyTimeHours}
               onChange={(e) => setSurveyTimeHours(parseFloat(e.target.value))}
-              className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-sm"
             />
           </div>
           <div>
@@ -184,7 +184,7 @@ export function SurveyPlannerPanel({
             <input
               type="number" step={5} min={5} max={60} value={surveyorSpeedKmh}
               onChange={(e) => setSurveyorSpeedKmh(parseFloat(e.target.value))}
-              className="mt-1 w-full text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+              className="form-input text-sm"
             />
           </div>
         </div>

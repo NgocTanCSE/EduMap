@@ -1,11 +1,24 @@
 /**
  * Redirect: /wifi → /map?tool=wifi
  *
- * Wifi hotspot display is now a tool tab on the unified Map Hub (/map).
- * This redirect page preserves backward compatibility for existing links/bookmarks.
+ * Wifi hotspot display is now a tool tab on the unified Map Hub (/map). Instead of a
+ * hard redirect, we show a popup so the user stays on the current page (Image 13).
  */
-import { redirect } from "next/navigation";
+"use client";
+
+import { useState } from "react";
+import { MapToolRedirectPopup } from "@/components/ui/MapToolRedirectPopup";
 
 export default function WifiRedirect() {
-  redirect("/map?tool=wifi");
+  const [popupOpen, setPopupOpen] = useState(true);
+
+  return (
+    <MapToolRedirectPopup
+      open={popupOpen}
+      onClose={() => setPopupOpen(false)}
+      toolId="wifi"
+      toolLabel="Trạm Wifi"
+      description="Bản đồ điểm Wifi miễn phí và đo tốc độ thực tế. Tích hợp trên Bản đồ EduMap."
+    />
+  );
 }

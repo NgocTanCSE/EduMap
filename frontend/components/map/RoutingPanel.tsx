@@ -19,6 +19,19 @@ function parseCoordinate(value: string): { lat: number; lng: number } | null {
 interface RoutingPanelProps {
   onGetRoute: (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, options: { avoidFlood: boolean; avoidTraffic: boolean; date?: string }) => void;
   onGetSafeRoute?: (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, options: { avoidFlood: boolean; avoidTraffic: boolean; safetyWeight?: number }) => void;
+  /** Chọn một đề xuất lộ trình an toàn từ danh sách SafeRoute AI để áp dụng lên bản đồ. */
+  onSelectSafeRoute?: (route: {
+    geometry: any;
+    safetyScore: number;
+    safetyFactors: { distanceScore: number; durationScore: number; floodRisk: number; trafficRisk: number };
+    distance: number;
+    duration: number;
+    explanation: string;
+    isPrimary: boolean;
+    estimated: boolean;
+    floodWarnings?: Array<{ name: string; riskLevel: string }>;
+    trafficAnalysis?: any;
+  }) => void;
   onClearRoute: () => void;
   routeInfo?: {
     duration: number;
@@ -70,6 +83,7 @@ interface RoutingPanelProps {
 export default function RoutingPanel({
   onGetRoute,
   onGetSafeRoute,
+  onSelectSafeRoute,
   onClearRoute,
   routeInfo,
   safeRoutes,
@@ -98,6 +112,8 @@ export default function RoutingPanel({
   const [avoidTraffic, setAvoidTraffic] = useState(defaultAvoidTraffic);
   const [showDetails, setShowDetails] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // Which SafeRoute AI proposal is currently selected (index into safeRoutes).
+  const [selectedSafeRouteIdx, setSelectedSafeRouteIdx] = useState<number | null>(null);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.round(seconds / 60);
@@ -469,6 +485,7 @@ export default function RoutingPanel({
             <div className="space-y-2">
               {safeRoutes.map((route, idx) => {
                 const isBest = route.isPrimary;
+                const isSelected = selectedSafeRouteIdx === idx;
                 const scoreColor = route.safetyScore >= 80
                   ? 'bg-green-500/10 text-green-600'
                   : route.safetyScore >= 50
@@ -478,9 +495,11 @@ export default function RoutingPanel({
                   <div
                     key={idx}
                     className={`p-3 rounded-lg border transition-all ${
-                      isBest
-                        ? 'border-accent bg-accent/5 shadow-md'
-                        : 'border-border bg-muted/10 opacity-80'
+                      isSelected
+                        ? 'border-primary bg-primary/5 shadow-md ring-1 ring-primary'
+                        : isBest
+                          ? 'border-accent bg-accent/5 shadow-md'
+                          : 'border-border bg-muted/10 opacity-80'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -491,6 +510,11 @@ export default function RoutingPanel({
                         {isBest && (
                           <span className="text-xs font-bold text-accent bg-accent/10 px-1.5 py-0.25 rounded">
                             Đề xuất
+                          </span>
+                        )}
+                        {isSelected && (
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.25 rounded">
+                            Đã chọn
                           </span>
                         )}
                       </div>
@@ -530,6 +554,41 @@ export default function RoutingPanel({
                         {route.explanation}
                       </p>
                     )}
+
+                    {/* Chọn route để áp dụng lên bản đồ */}
+                    <button
+                      onClick={() => {
+                        setSelectedSafeRouteIdx(idx);
+                        onSelectSafeRoute?.({
+                          geometry: (route as any).geometry,
+                          safetyScore: route.safetyScore,
+                          safetyFactors: route.safetyFactors,
+                          distance: route.distance,
+                          duration: route.duration,
+                          explanation: route.explanation,
+                          isPrimary: route.isPrimary,
+                          estimated: route.estimated,
+                          floodWarnings: (route as any).floodWarnings,
+                          trafficAnalysis: (route as any).trafficAnalysis,
+                        });
+                      }}
+                      disabled={!onSelectSafeRoute}
+                      className={`w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/50 border border-border/50'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <>
+                          <MapPinIcon className="w-3.5 h-3.5" /> Áp dụng lên bản đồ
+                        </>
+                      ) : (
+                        <>
+                          <MapPinIcon className="w-3.5 h-3.5" /> Chọn lộ trình này
+                        </>
+                      )}
+                    </button>
                   </div>
                 );
               })}

@@ -286,7 +286,7 @@ export default function LanguageBridgePage() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhập nội dung cần đơn giản hóa, dịch hoặc chuyển thành giọng nói..."
-            className="w-full h-32 px-3 py-2 text-sm text-foreground rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none scrollbar-hide"
+            className="form-textarea h-32 resize-none scrollbar-hide"
           />
           <div className="text-[10px] text-muted-foreground text-right">
             {text.length} ký tự {text.length > 16000 && '(giới hạn 16.000)'}
@@ -341,7 +341,7 @@ export default function LanguageBridgePage() {
               <select
                 value={targetLang}
                 onChange={(e) => setTargetLang(e.target.value)}
-                className="mt-1 w-full text-xs rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="form-select mt-1 text-xs"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -355,7 +355,7 @@ export default function LanguageBridgePage() {
                 value={sourceLang}
                 onChange={(e) => setSourceLang(e.target.value)}
                 placeholder="ví dụ: vi, en"
-                className="mt-1 w-full text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="form-input mt-1 text-xs"
               />
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function LanguageBridgePage() {
               value={glossaryText}
               onChange={(e) => setGlossaryText(e.target.value)}
               placeholder="blockchain: blockchain&#10;AI: AI&#10;Đại học: University"
-              className="w-full h-16 text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+              className="form-textarea h-16 resize-none"
             />
           </div>
           <button
@@ -394,7 +394,7 @@ export default function LanguageBridgePage() {
               <select
                 value={ttsLang}
                 onChange={(e) => setTtsLang(e.target.value)}
-                className="mt-1 w-full text-xs rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="form-select mt-1 text-xs"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -408,7 +408,7 @@ export default function LanguageBridgePage() {
                 value={ttsVoice}
                 onChange={(e) => setTtsVoice(e.target.value)}
                 placeholder="ví dụ: vi-VN-HoaNeural"
-                className="mt-1 w-full text-xs px-2 py-1.5 rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="form-input mt-1 text-xs"
               />
             </div>
           </div>
@@ -423,7 +423,7 @@ export default function LanguageBridgePage() {
                   const voice = browserVoices.find(v => v.name === e.target.value);
                   setSelectedBrowserVoice(voice || null);
                 }}
-                className="mt-1 w-full text-xs rounded-lg bg-background border border-border focus:outline-none focus:ring-1 focus:ring-primary/30"
+                className="form-select mt-1 text-xs"
               >
                 {browserVoices.map((v) => (
                   <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
@@ -470,6 +470,15 @@ export default function LanguageBridgePage() {
                 >
                   <Square className="w-4 h-4" />
                 </button>
+                {ttsResult?.audio_base64 && (
+                  <BookmarkButton
+                    targetType="language_bridge"
+                    targetId={ttsLang}
+                    size="sm"
+                    showLabel
+                    className="flex-1"
+                  />
+                )}
               </>
             )}
           </div>
@@ -483,13 +492,6 @@ export default function LanguageBridgePage() {
                 <Download className="w-3.5 h-3.5" />
                 Tải xuống MP3
               </button>
-              <BookmarkButton
-                targetType="language_bridge"
-                targetId={ttsLang}
-                size="sm"
-                showLabel
-                className="flex-1"
-              />
             </div>
           )}
         </div>

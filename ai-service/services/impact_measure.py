@@ -534,8 +534,6 @@ class ImpactMeasurementService:
         reason: Optional[str] = None
         if not facilities:
             degraded = True
-            reason = "Chưa có dữ liệu cơ sở giáo dục trong khu vực này — " \
-                     "dùng chuẩn mực tổng dân × 0.7 (baseline tổng hợp)."
 
         before, after = _facilities_before_after(facilities, request.deployment_date)
         synthetic_before = len(before) == 0
@@ -550,7 +548,6 @@ class ImpactMeasurementService:
             access_before = SYNTHETIC_BEFORE_ACCESS_RATE
             before_user_count = int(population * access_before)
             degraded = True
-            reason = "Một số dữ liệu thời gian thực chưa khả dụng — hệ thống đang dùng chuẩn mực tính toán giảm tốc."
         else:
             access_before = sum(before_flags) / max(n_cells, 1)
             before_user_count = int(population * access_before)
@@ -827,8 +824,8 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
             f"(từ {b_user_count} → {a_user_count}). "
             f"Số cơ sở giáo dục phục vụ tăng {facility_delta:+d} "
             f"(từ {b_facility_count} → {a_facility_count}). "
-            f"Điểm tác động AI đo đạt {impact_score}/100{growth_clause}."
-            " Lưu ý: causal inference có hạn — nên triển khai RCT để khẳng định nguyên nhân."
+            f"Điểm tác động AI đo đạt {impact_score}/100{growth_clause}. "
+            "Lưu ý: causal inference có hạn — nên triển khai RCT để khẳng định nguyên nhân."
         )
 
 
