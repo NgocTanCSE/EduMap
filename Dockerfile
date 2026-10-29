@@ -304,16 +304,32 @@ COPY --from=osrm-builder /osrm-libs /tmp/osrm-libs
 # Ensures we have all needed .so files even if some aren't in Debian 12 apt.
 RUN mkdir -p /usr/local/osrm-lib && \
     cp /tmp/osrm-libs/* /usr/local/osrm-lib/ 2>/dev/null || true; \
-    # CRITICAL: Remove system-provided libc libraries to prevent GLIBC conflict.
-    # osrm/osrm-backend:v5.25.0 ships its own libc.so.6 (from its base image,
-    # possibly older glibc or musl). If copied to ld.so.conf.d, the dynamic
-    # linker loads /usr/local/osrm-lib/libc.so.6 instead of Debian 12's
-    # glibc 2.36 → "GLIBC_2.33 not found" → /bin/sh crashes → container exits.
-    # System glibc 2.36 satisfies all GLIBC_2.33/2.34 requirements.
+    # CRITICAL: Remove ALL system-provided C/C++ runtime libraries to prevent
+    # GLIBCXX/GLIBC version conflicts. osrm/osrm-backend:v5.25.0 is Alpine-based
+    # (38MB image) and ships OLDER glibc/libstdc++. The /etc/ld.so.conf.d/99-
+    # osrm-lib.conf dir has HIGHER priority than built-in /usr/lib paths, so
+    # the dynamic linker loads OLD libstdc++.so.6 from osrm-lib instead of
+    # Debian 12's GCC 12 libstdc++ (which has GLIBCXX_3.4.29, CXXABI_1.3.11).
+    # Result: ALL native modules crash (sqlite3, scipy, torch) → backend +
+    # AI service can't start → 0 features work.
+    #
+    # Fix: remove libc/libstdc++/libprotobuf/libtbb/libboost/libz etc. — ALL
+    # these are available via apt in the runtime stage (Debian 12, newer).
+    # System libs are backward-compatible with osrm-routed. Only OSRM-specific
+    # libs (libosrm.so, etc.) remain in /usr/local/osrm-lib.
     rm -f /usr/local/osrm-lib/libc.so.6 /usr/local/osrm-lib/libm.so.6 \
         /usr/local/osrm-lib/libpthread.so.0 /usr/local/osrm-lib/libdl.so.2 \
         /usr/local/osrm-lib/librt.so.1 /usr/local/osrm-lib/ld-linux-*.so* \
-        /usr/local/osrm-lib/libc-*.so 2>/dev/null; \
+        /usr/local/osrm-lib/libc-*.so \
+        /usr/local/osrm-lib/libstdc++.so.6 /usr/local/osrm-lib/libstdc++fs-*.so \
+        /usr/local/osrm-lib/libgcc_s.so.1 /usr/local/osrm-lib/libatomic.so.1 \
+        /usr/local/osrm-lib/libgomp.so.1 \
+        /usr/local/osrm-lib/libprotobuf.so* /usr/local/osrm-lib/libprotoc.so* \
+        /usr/local/osrm-lib/libtbb*.so* \
+        /usr/local/osrm-lib/libboost_*.so* \
+        /usr/local/osrm-lib/libz.so* /usr/local/osrm-lib/libzstd.so* \
+        /usr/local/osrm-lib/libbz2.so* \
+        2>/dev/null; \
     rm -rf /tmp/osrm-libs; \
     echo "/usr/local/osrm-lib" > /etc/ld.so.conf.d/99-osrm-lib.conf && \
     ldconfig
@@ -325,7 +341,7 @@ COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261027_geovision-ai-satellite-detection
+ARG CACHEBUST=20261030_runtime-libstdcpp-osrmfix
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
