@@ -244,9 +244,13 @@ export default function CareerPage() {
 
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
-      {/* Tab bar */}
-      <div className="border-b border-border bg-card overflow-x-auto">
-        <div className="flex flex-wrap gap-1.5 p-3">
+      {/* Tab bar — single scrollable row (matches Map Hub tool tabs).
+          `flex-nowrap` (not `flex-wrap`) keeps the bar to one row on narrow
+          screens; the outer `overflow-x-auto` scrolls when the 7 tabs exceed
+          the viewport width instead of wrapping and eating ~70px of vertical
+          space with a second row. */}
+      <div className="border-b border-border bg-card overflow-x-auto scrollbar-hide">
+        <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ minWidth: 'max-content' }}>
           {CAREER_TABS.map((tab) => (
             <button
               key={tab.id}

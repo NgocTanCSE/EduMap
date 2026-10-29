@@ -296,8 +296,8 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] w-full p-4 bg-background">
-      <div className="flex items-center justify-between mb-6 p-6 bg-card/50 rounded-lg border border-border">
+    <div className="flex flex-col h-full w-full p-4 bg-background">
+      <div className="flex items-center justify-between mb-4 p-4 bg-card/50 rounded-lg border border-border">
         <div className="flex items-center gap-4">
           <div className="bg-primary/80 p-2.5 rounded-lg shadow-lg">
             <Bot className="w-6 h-6 text-foreground" />
@@ -309,7 +309,7 @@ export default function AIChatPage() {
         {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
       </div>
 
-      <ScrollArea className="flex-1 pr-4 mb-4">
+      <ScrollArea className="flex-1 pr-4">
         <div className="space-y-8">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -366,7 +366,7 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="flex items-center gap-2 p-2 bg-card/80 rounded-lg border border-border mb-4">
+      <div className="flex items-center gap-2 p-2 bg-card/80 rounded-lg border border-border">
         <Input 
           placeholder={isLoading ? "AI đang xử lý tri thức..." : "Hỏi mình về học bổng, mentor hoặc bản đồ..."}
           value={input}

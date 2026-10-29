@@ -422,7 +422,7 @@ function SurveyPlannerOverlayMap({ result, points }: { result: any; points: any[
           position={[nextPoint.lat, nextPoint.lng]}
           icon={L.divIcon({
             className: "edumap-next-point shadow z-10",
-            html: `<div class="flex items-center justify-center" style="width:28px;height:28px"><Star className="w-5 h-5" fill="#f59e0b" /></div>`,
+            html: `<div class="flex items-center justify-center" style="width:28px;height:28px"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b"><polygon points="12 2 15.09 8.33 22 9.05 17 14.47 18.18 21.12 12 18.27 5.82 21.12 7 14.47 2 9.05 8.91 8.33 12 2"/></svg></div>`,
             iconSize: [28, 28],
             iconAnchor: [14, 30],
             popupAnchor: [0, -34],

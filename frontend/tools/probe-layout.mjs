@@ -4,6 +4,15 @@ import fs from 'fs';
 const out = '/tmp/fescreenshots';
 fs.mkdirSync(out, { recursive: true });
 
+const b64url = (s) => Buffer.from(s).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+const now = Math.floor(Date.now() / 1000);
+const payload = b64url(JSON.stringify({
+  sub: '1', email: 'dev@edumap.vn', role: 'admin',
+  exp: now + 86400, iat: now, fullName: 'Dev User',
+}));
+const fakeToken = `${header}.${payload}.devsignature-fake`;
+
 const viewports = {
   mobile: { width: 390, height: 844 },
   tablet: { width: 1024, height: 768 },
@@ -12,64 +21,44 @@ const viewports = {
 
 function probe(page) {
   return page.evaluate(() => {
-    const vp = {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    };
-    const get = (sel) => {
+    const w = window.innerWidth, h = window.innerHeight;
+    const rect = (sel) => {
       const el = document.querySelector(sel);
       if (!el) return null;
       const r = el.getBoundingClientRect();
-      return {
-        tag: el.tagName,
-        class: el.className.slice(0, 120),
-        top: Math.round(r.top),
-        bottom: Math.round(r.bottom),
-        left: Math.round(r.left),
-        right: Math.round(r.right),
-        width: Math.round(r.width),
-        height: Math.round(r.height),
-        overflow: getComputedStyle(el).overflow,
-      };
+      return { top: +r.top.toFixed(0), bottom: +r.bottom.toFixed(0), left: +r.left.toFixed(0), right: +r.right.toFixed(0), width: +r.width.toFixed(0), height: +r.height.toFixed(0) };
     };
-    const results = {
-      viewport: vp,
-      header: get('header'),
-      sidebar: get('nav'),
-      mapContainer: get('#map'),
-      mapPanel: get('[data-map-panel]'),
-      mapPanelResizer: get('[data-resizer]'),
-      routingPanel: get('[data-routing-panel], .routing-panel'),
-      routingBtn: get('[data-routing-btn]'),
-      routeBtn: get('[data-route-btn]'),
-    };
-    // find the floating tool panel by data attribute or class
-    const floating = document.querySelector('[data-float-panel], [class*="fixed"][class*="z-50"], [class*="z-50"][class*="fixed"]') ||
-      document.querySelector('.fixed.z-50');
-    results.floatingPanel = floating ? (() => {
-      const r = floating.getBoundingClientRect();
-      return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), height: Math.round(r.height) };
-    })() : null;
-    // career tab bar
-    results.careerTabBar = get('.border-b.border-border.bg-card');
-    // detect elements that overflow the viewport
     const all = Array.from(document.querySelectorAll('*'));
     const overflows = [];
     for (const el of all) {
       const r = el.getBoundingClientRect();
-      if (r.right > vp.width + 2) {
-        overflows.push({ tag: el.tagName, cls: el.className.slice(0,60), right: Math.round(r.right), width: Math.round(r.width) });
-      }
-      if (overflows.length > 20) break;
+      if (r.right > w + 2) overflows.push({ tag: el.tagName, cls: el.className.slice(0, 45), right: +r.right.toFixed(0) });
+      if (r.bottom > h + 2) overflows.push({ tag: el.tagName, cls: el.className.slice(0, 45), bottom: +r.bottom.toFixed(0) });
     }
-    results.overflowersRight = overflows.slice(0, 15);
-    return results;
+    return {
+      viewport: { width: w, height: h },
+      header: rect('header'),
+      sidebar: rect('nav'),
+      mapContainer: rect('#map'),
+      mapPanelBox: rect('[data-map-panel]'),
+      routeBtn: rect('[data-route-btn]'),
+      routingPanel: rect('[data-routing-panel]'),
+      floating: rect('.fixed.z-50'),
+      careerTabBar: rect('.border-b.border-border.bg-card'),
+      careerContent: rect('[data-career-content]'),
+      overflows: overflows.slice(0, 20),
+    };
   });
 }
 
 const routes = [
-  { path: '/map', name: 'map' },
+  { path: '/map?tool=data-hunter', name: 'map-dh' },
+  { path: '/map?tool=climate', name: 'map-climate' },
+  { path: '/map?tool=geo-vision', name: 'map-geo' },
   { path: '/career', name: 'career' },
+  { path: '/ai-chat', name: 'ai-chat' },
+  { path: '/dashboard', name: 'dashboard' },
+  { path: '/impact-match', name: 'impact-match' },
 ];
 
 (async () => {
@@ -79,12 +68,17 @@ const routes = [
     summary[name] = {};
     for (const [size, vp] of Object.entries(viewports)) {
       const page = await browser.newPage({ viewport: vp });
+      await page.addInitScript((token) => {
+        window.localStorage.setItem('edumap-access-token', token);
+        window.localStorage.setItem('edumap-refresh-token', token);
+        window.localStorage.setItem('edumap-user-info', JSON.stringify({ id: '1', email: 'dev@edumap.vn', fullName: 'Dev User', role: 'admin' }));
+      }, fakeToken);
       try {
         await page.goto(`http://localhost:3000${path}`, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
         await page.waitForTimeout(3500);
         const res = await probe(page);
-        summary[name][size] = res;
-        console.log(`${name}-${size}: viewport ${res.viewport.width}x${res.viewport.height}`);
+        summary[name][size] = { ...res };
+        console.log(`${name}-${size}: overflows=${res.overflows.length}`);
       } catch (e) {
         console.log(`FAILED ${name}-${size}: ${e.message}`);
       }
@@ -92,6 +86,6 @@ const routes = [
     }
   }
   await browser.close();
-  fs.writeFileSync('/tmp/fescreenshots/probe.json', JSON.stringify(summary, null, 1));
-  console.log('wrote probe.json');
+  fs.writeFileSync('/tmp/fescreenshots/probe2.json', JSON.stringify(summary, null, 1));
+  console.log('wrote probe2.json');
 })();

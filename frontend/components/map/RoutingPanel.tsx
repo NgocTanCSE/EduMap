@@ -231,7 +231,7 @@ export default function RoutingPanel({
 
   return (
     <div
-      className="fixed top-[56px] right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col"
+      className="fixed top-[56px] lg:top-4 right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col"
       style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}
     >
       {/* Left-edge resize handle — vertical drag to widen/narrow the panel */}

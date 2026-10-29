@@ -233,13 +233,19 @@ export default function Sidebar({
         />
       )}
 
+      {/* `position:fixed` is intentionally the only positioning utility here.
+          `fixed` already establishes a containing block for the absolute
+          resize handle (and for `translate-*`), so a `relative` class would be
+          redundant — and because Tailwind emits `relative` after `fixed`, it
+          would override `fixed` and pull the sidebar into the document flow,
+          stretching the whole page to the nav height (the "vùng trống" bug). */}
       <aside
         id="app-sidebar"
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen || undefined}
         aria-label="Điều hướng chính"
         style={{ width: sidebarCollapsed ? 56 : sidebarSize.width }}
-        className={`fixed inset-y-0 left-0 z-40 relative flex flex-col bg-card border-r border-border shadow-lg transition-all duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-card border-r border-border shadow-lg transition-all duration-200 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full max-lg:invisible"
         }`}
       >
