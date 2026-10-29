@@ -50,18 +50,21 @@ WORKDIR /app
 COPY ai-service/requirements.txt ./
 # Install torch from CPU-only index first (avoids pulling CUDA runtime wheels
 # which would add ~2GB to the image — wasteful on HF Spaces free tier).
-# 2GB swap handles pip install memory pressure (exit 137 / OOMKilled otherwise).
+# --no-deps reduces memory: skips dependency resolution (~500MB less RAM).
+# Torch deps (filelock, sympy, etc.) are installed by requirements.txt's
+# transformers dependency. Swap is non-fatal (Docker build can't swapon).
 # See: https://pytorch.org/get-started/locally/
+ENV PIP_NUM_THREADS=1  # Reduces pip memory by limiting parallel downloads
 RUN ( \
     (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
     chmod 600 /swapfile && \
     (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[ai-deps] swap unavailable — proceeding without") \
   ) || true ; \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir --no-deps torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt && \
     (swapoff /swapfile 2>/dev/null || true) && \
     rm -f /swapfile && \
-    echo "[ai-deps] torch + requirements installed"
+    echo "[ai-deps] torch (no-deps) + requirements installed"
 
 # === Stage 3c: Local elevation model (SRTM 30m for Vietnam — Climate Guardian #11) ===
 # (downloads SRTM, converts to .npy — see above for full comment)
@@ -82,37 +85,18 @@ RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/de
     echo "[elevation-builder] SRTM .npy created (or zero-padded placeholder)"
 
 # === Stage 3d: Pre-download local AI models (vision — GeoVision #10) ===
-# Pre-downloads the google/owlv2-base-patch16-ensemble vision model into HF cache directory so it
-# does NOT need to be re-downloaded from HF Hub on every cold start.
-# Uses the same python:3.11 image as ai-deps to reuse transformers/torch.
-#
-# CRITICAL FIX for OOMKilled (exit 137):
-#   from_pretrained() loads the full model into RAM (Gemma 2B = ~4GB → OOM).
-#   snapshot_download() only fetches files to HF cache (~200MB RAM).
-#   2GB swap covers pip install torch step (~800MB wheel).
+# Pre-downloads local AI model weights into HF cache for offline runtime use.
+# Only installs huggingface_hub (NOT torch/transformers) — torch is a ~3GB RAM
+# install step and was causing OOMKilled (exit 137) in the build environment.
+# huggingface_hub.snapshot_download() only downloads files to cache (~200MB RAM),
+# no model loading — prevents the OOM that from_pretrained() caused.
+# Runtime code (ai-service) loads models with transformers+lightning torch.
 FROM python:3.11-slim AS vision-model-dl
 WORKDIR /data
-# Install transformers + torch to cache model weights for ALL local models:
-#   - google/owlv2-base-patch16-ensemble (~440MB)  — GeoVision local vision fallback
-#   - Gemma 2B IT (~850MB) — general text generation (replacing Cloudflare/Gemini)
-#   - TinyLlama 1.1B (~630MB) — Edge AI Tutor (/offline-tutor)
-# Using 4-bit quantization at runtime; build stage downloads FP16 weights which
-# are then re-quantized on first lazy-load.
-RUN ( \
-    (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
-    chmod 600 /swapfile && \
-    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[vision-model-dl] swap unavailable — proceeding without") \
-  ) || true ; \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir transformers Pillow && \
-    (swapoff /swapfile 2>/dev/null || true) && \
-    rm -f /swapfile && \
-    echo "[vision-model-dl] torch + transformers installed"
+RUN pip install --no-cache-dir huggingface_hub
 # Download model weights WITHOUT loading into Python memory.
 # Uses external script file (scripts/cache_models.py) — Docker's parser
 # chokes on multi-line 'from' keyword inside RUN python3 -c "...".
-# snapshot_download only fetches files to ~/.cache/huggingface/ — no model
-# instantiation, so RAM usage stays at ~200MB instead of ~4GB.
 COPY scripts/cache_models.py /tmp/cache_models.py
 RUN python3 /tmp/cache_models.py \
     && echo "[vision-dl] all models cached successfully" \
