@@ -48,24 +48,40 @@ RUN npx nest build
 FROM python:3.11-slim AS ai-deps
 WORKDIR /app
 COPY ai-service/requirements.txt ./
-# Install torch from CPU-only index first (avoids pulling CUDA runtime wheels
-# which would add ~2GB to the image — wasteful on HF Spaces free tier).
-# --no-deps reduces memory: skips dependency resolution (~500MB less RAM).
-# Torch deps (filelock, sympy, etc.) are installed by requirements.txt's
-# transformers dependency. Swap is non-fatal (Docker build can't swapon).
-# See: https://pytorch.org/get-started/locally/
 # Reduces pip memory by limiting parallel downloads
 ENV PIP_NUM_THREADS=1
+
+# Step 1: torch (--no-deps, CPU-only — 800MB wheel, ~2.5GB peak RAM)
+# --no-deps skips dependency resolution to save ~500MB RAM.
 RUN ( \
     (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
     chmod 600 /swapfile && \
-    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[ai-deps] swap unavailable — proceeding without") \
+    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[ai-deps] swap unavailable") \
   ) || true ; \
     pip install --no-cache-dir --no-deps torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt && \
-    (swapoff /swapfile 2>/dev/null || true) && \
-    rm -f /swapfile && \
-    echo "[ai-deps] torch (no-deps) + requirements installed"
+    pip install --no-cache-dir filelock typing-extensions sympy networkx jinja2 fsspec mpmath MarkupSafe && \
+    (swapoff /swapfile 2>/dev/null || true) && rm -f /swapfile && \
+    echo "[ai-deps] torch deps installed"
+
+# Step 2: Core + ML packages (everything EXCEPT chromadb).
+# Split from chromadb to avoid OOM — pip's resolver loads the entire
+# dependency tree (kubernetes, onnxruntime, etc.) into memory at once,
+# causing exit 137 when combined with transformers + scikit-learn.
+RUN pip install --no-cache-dir \
+  fastapi uvicorn pydantic python-dotenv requests python-multipart \
+  psycopg2-binary pandas numpy posthog pypdf redis \
+  gTTS edge-tts Pillow httpx tqdm && \
+    pip install --no-cache-dir \
+  transformers huggingface_hub accelerate sentencepiece \
+  sentence-transformers scikit-learn scipy && \
+    echo "[ai-deps] core + ML packages installed"
+
+# Step 3: chromadb deps FIRST (kubernetes, onnxruntime — large graph),
+# then chromadb itself with --no-deps so pip doesn't re-resolve everything.
+# This isolates chromadb's huge dependency tree from the rest.
+RUN pip install --no-cache-dir kubernetes onnxruntime mmh3 click graphene grpcio pybase64 pypika schema && \
+    pip install --no-cache-dir --no-deps "chromadb>=0.4.0,<0.6.0" && \
+    echo "[ai-deps] chromadb + deps installed"
 
 # === Stage 3c: Local elevation model (SRTM 30m for Vietnam — Climate Guardian #11) ===
 # (downloads SRTM, converts to .npy — see above for full comment)

@@ -2538,7 +2538,7 @@ Trả về **mảng JSON** sau:
                 cur.execute(
                     "SELECT title, field, description, skills_required, "
                     "salary_range, demand_level FROM career_paths "
-                    "WHERE deleted_at IS NULL LIMIT 50"
+                    "LIMIT 50"
                 )
                 rows = [dict(r) for r in cur.fetchall()]
                 conn.close()
@@ -2664,7 +2664,7 @@ Trả về **mảng JSON** sau:
                 cur.execute(
                     "SELECT user_id, specialties, experience_years, rating_avg, "
                     "total_sessions, is_verified, location FROM mentors "
-                    "WHERE deleted_at IS NULL LIMIT 50"
+                    "LIMIT 50"
                 )
                 rows = [dict(r) for r in cur.fetchall()]
                 conn.close()

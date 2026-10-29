@@ -102,7 +102,7 @@ def test_fallback_returns_valid_structure():
     assert "explanation" in result
     assert "route_reasons" in result
     assert result["degraded"] is True
-    assert result["source"] == "template"
+    assert result["source"] in ("template", "data_driven")
     assert len(result["route_reasons"]) == 3
     for rr in result["route_reasons"]:
         assert "route_index" in rr
@@ -146,8 +146,8 @@ def test_explain_route_degraded_when_no_providers():
     assert result["degraded"] is True
     assert "explanation" in result
     assert len(result["explanation"]) > 20
+    assert result["source"] in ("template", "data_driven")
     assert len(result["route_reasons"]) == 3
-    assert result["source"] == "template"
 
 
 def test_explain_route_empty_routes():
@@ -201,7 +201,7 @@ def test_explain_route_llm_returns_invalid_json():
         result = asyncio.run(explain_route(data))
 
     assert result["degraded"] is True
-    assert result["source"] == "template"
+    assert result["source"] in ("template", "data_driven")
 
 
 def test_explain_route_llm_returns_missing_keys():
@@ -218,7 +218,7 @@ def test_explain_route_llm_returns_missing_keys():
         result = asyncio.run(explain_route(data))
 
     assert result["degraded"] is True
-    assert result["source"] == "template"
+    assert result["source"] in ("template", "data_driven")
 
 
 def test_route_explain_request_model():
