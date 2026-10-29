@@ -40,6 +40,11 @@ ARG CACHEBUST
 COPY backend/package*.json ./
 ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=1
+# Wait for frontend-builder to complete before proceeding with build/compile.
+# Next.js npm run build (~2GB) + NestJS npx nest build (~1.5GB) in parallel
+# exceed HF Spaces' 4GB limit → OOMKilled. npm ci can run in parallel;
+# this COPY sits between npm ci and nest build, so only the compile waits.
+COPY --from=frontend-builder /app/package.json /tmp/frontend-build-done
 COPY backend/ ./
 # Safety net: remove stale files that might persist from old HF Space uploads.
 # (hf upload doesn't sync deletions; .dockerignore also excludes these, but
@@ -151,10 +156,12 @@ RUN wget -O /data/vietnam.osm.pbf \
 FROM osrm/osrm-backend:v5.25.0 AS osrm-builder
 WORKDIR /data
 # Force sequential build: BuildKit runs independent stages in parallel.
-# osrm-extract (2–4GB RAM) + ai-deps pip install (~1–2GB RAM) running
-# simultaneously exceed HF Spaces' ~4GB Docker build RAM → OOMKilled 137.
-# This COPY creates a build-graph edge: osrm-builder waits for ai-deps.
+# Both of these pairs exceed HF Spaces' ~4GB Docker build RAM → OOMKilled 137:
+#   1. osrm-extract (2–4GB) + ai-deps pip install (~1–2GB)   → fixed by --from=ai-deps
+#   2. osrm-extract (2–4GB) + backend npx nest build (~1.5GB) → fixed by --from=backend-builder
+# COPY creates build-graph edges: osrm-builder waits for both stages to finish.
 COPY --from=ai-deps /app/requirements.txt /tmp/ai-deps-complete
+COPY --from=backend-builder /app/package.json /tmp/backend-build-complete
 # Copy pre-downloaded OSM data from the downloader stage (no wget in this image)
 COPY --from=osm-downloader /data/vietnam.osm.pbf /data/vietnam.osm.pbf
 # Profile: /opt/car.lua (confirmed from Docker Hub README usage examples)
