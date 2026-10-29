@@ -99,15 +99,17 @@ RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
     AutoModelForCausalLM.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0')" \
     && echo "[tutor-dl] TinyLlama 1.1B model cached successfully"
 # Copy cache to /data/models for runtime copy
-RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || echo "[vision-dl] cache copy failed — will use runtime cache"
+RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || mkdir -p /data/hf-cache
+# Ensure /data/hf-cache always exists (even if empty) so the runtime Stage 4
+# COPY --from=vision-model-dl always has a valid source directory.
 # Pre-processes Vietnam OSM data into an OSRM routing graph — see below.
-FROM ubuntu:22.04 AS osrm-builder
+# osrm-backend is available in Debian 12's main repository (no PPA needed).
+FROM node:20-slim AS osrm-builder
+WORKDIR /data
 ENV DEBIAN_FRONTEND=noninteractive
-# Install osrm-backend (provides osrm-extract, osrm-partition, osrm-customize,
-# osrm-routed) + dependencies for processing OSM data.
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
-      osrm-backend libosmpombo-dev wget ca-certificates \
+      osrm-backend wget ca-certificates \
       && rm -rf /var/lib/apt/lists/*
 # Download Vietnam extract from Geofabrik (~180 MB). CACHEBUST via ARG
 # forces re-download only when OSM data changes (every ~monthly).
@@ -115,7 +117,7 @@ ARG OSM_CACHEBUST=20261029
 RUN wget -O /data/vietnam.osm.pbf \
     https://download.geofabrik.de/asia/vietnam-latest.osm.pbf
 # Build routing profiles for car (matches the frontend "driving-car" profile).
-COPY backend/src/modules/map/osrm-profiles/libosmpub.lua /tmp/ 2>/dev/null || true
+# osrm-backend ships its car.lua profile at /usr/share/osrm/profiles/car.lua.
 ENV OSRM_PROFILE=car
 # Extract → Partition → Customize (Contraction Hierarchies — fastest queries)
 RUN osrm-extract -p /usr/share/osrm/profiles/car.lua /data/vietnam.osm.pbf
@@ -127,11 +129,13 @@ RUN osrm-customize /data/vietnam.osm.pbf
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# Install system dependencies: python3 (for AI svc), pip, supervisor (process manager)
-# + osrm-backend runtime binary (from osrm-builder stage, no compile tools needed)
-RUN apt-get update -qq && apt-get install -y -qq python3 python3-pip supervisor curl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-COPY --from=osrm-builder /usr/bin/osrm-* /usr/bin/osrm-* 2>/dev/null || true
+# Install system dependencies: python3 (for AI svc), pip, supervisor,
+# osrm-backend (provides osrm-routed + shared libs — no COPY needed since
+# both stages use Debian 12, so library ABIs are compatible).
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+      python3 python3-pip supervisor curl ca-certificates osrm-backend \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Frontend ---
 WORKDIR /app/frontend
@@ -199,7 +203,7 @@ COPY --from=osrm-builder /data/ /app/osrm-data/
 COPY --from=elevation-builder /data/srtm_vn.npy /app/ai-service/models/elevation/srtm_vn.npy
 # Copy pre-downloaded vision model cache (avoids HF Hub download on cold start)
 # transformers checks ~/.cache/huggingface/ by default.
-COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface 2>/dev/null || echo "[runtime] No vision cache — will lazy-load at runtime"
+COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
