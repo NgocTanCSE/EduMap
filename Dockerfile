@@ -101,15 +101,14 @@ RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M
     swapoff /swapfile && rm -f /swapfile && \
     echo "[vision-model-dl] torch + transformers installed"
 # Download model weights WITHOUT loading into Python memory.
+# Uses external script file (scripts/cache_models.py) — Docker's parser
+# chokes on multi-line 'from' keyword inside RUN python3 -c "...".
 # snapshot_download only fetches files to ~/.cache/huggingface/ — no model
 # instantiation, so RAM usage stays at ~200MB instead of ~4GB.
-RUN python3 -c "
-from huggingface_hub import snapshot_download
-for model_id in ['facebook/owlv2-tiny', 'google/gemma-2b-it', 'TinyLlama/TinyLlama-1.1B-Chat-v1.0']:
-    snapshot_download(model_id)
-    print(f'[vision-dl] {model_id} cached successfully')
-print('[vision-dl] All 3 local models cached')
-" && echo "[vision-dl] all models cached successfully"
+COPY scripts/cache_models.py /tmp/cache_models.py
+RUN python3 /tmp/cache_models.py \
+    && echo "[vision-dl] all models cached successfully" \
+    && rm -f /tmp/cache_models.py
 # Copy cache to /data/hf-cache for runtime COPY
 RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || mkdir -p /data/hf-cache
 # Ensure /data/hf-cache always exists (even if empty) so the runtime Stage 4
