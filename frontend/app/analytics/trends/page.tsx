@@ -818,7 +818,7 @@ export default function AITrendsPage() {
   /* ── Loading skeleton ── */
   if (loading) {
     return (
-      <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-6">
+      <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
         <div className="space-y-2">
           <Skeleton className="h-7 w-64" />
           <Skeleton className="h-4 w-full max-w-xl" />
@@ -838,7 +838,7 @@ export default function AITrendsPage() {
   }
 
   return (
-    <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-6">
+    <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
       <SectionHeader
         title="Xu hướng thị trường"
         subtitle="Diễn biến giáo dục 2022–2024 và nhu cầu kỹ năng từ các tin tuyển dụng đang hoạt động."

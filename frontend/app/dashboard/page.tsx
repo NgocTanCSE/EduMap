@@ -68,8 +68,8 @@ export default function DashboardPage() {
   // Not authenticated — show a real surface (login CTA) instead of a blank page.
   if (!isLoggedIn || !user) {
     return (
-      <main className="w-full min-h-full px-6 py-10 md:px-8">
-        <div className="mx-auto max-w-xl rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+      <main className="flex min-h-screen w-full items-center justify-center px-4 py-6 sm:px-6 sm:py-8">
+        <div className="w-full max-w-xl rounded-lg border border-border bg-card p-8 text-center shadow-sm">
           <User className="mx-auto h-10 w-10 text-muted-foreground/60" />
           <h1 className="mt-4 text-2xl font-semibold">Chào bạn!</h1>
           <p className="mt-2 text-sm text-muted-foreground/70">
@@ -101,7 +101,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <main className="w-full min-h-full px-6 py-8 md:px-8 space-y-6">
+    <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
       {/* ===== Account + quick stats ===== */}
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm xl:col-span-2">

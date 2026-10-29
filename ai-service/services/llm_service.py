@@ -1268,12 +1268,14 @@ class LLMService:
         dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
         # Provider chain: Cloudflare Workers AI (primary) → Google Gemini (fallback).
-        for gen_fn, label in [
-            (self._cloudflare_generate, "Cloudflare") if self.has_cf else None,
-            (self._gemini_generate, "Gemini") if self.has_gemini else None,
-        ]:
-            if gen_fn is None:
-                continue
+        # Build the list first so we never try to unpack `None` (which would
+        # raise "cannot unpack non-iterable NoneType") when a provider is absent.
+        providers = []
+        if self.has_cf:
+            providers.append((self._cloudflare_generate, "Cloudflare"))
+        if self.has_gemini:
+            providers.append((self._gemini_generate, "Gemini"))
+        for gen_fn, label in providers:
             try:
                 response = await asyncio.to_thread(gen_fn, prompt)
                 if response:
