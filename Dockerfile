@@ -52,12 +52,16 @@ COPY ai-service/requirements.txt ./
 # which would add ~2GB to the image — wasteful on HF Spaces free tier).
 # 2GB swap handles pip install memory pressure (exit 137 / OOMKilled otherwise).
 # See: https://pytorch.org/get-started/locally/
-RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048) && \
-    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+RUN ( \
+    (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
+    chmod 600 /swapfile && \
+    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[ai-deps] swap unavailable — proceeding without") \
+  ) || true ; \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt && \
-    swapoff /swapfile && rm -f /swapfile && \
-    echo "[ai-deps] torch + requirements installed with swap"
+    (swapoff /swapfile 2>/dev/null || true) && \
+    rm -f /swapfile && \
+    echo "[ai-deps] torch + requirements installed"
 
 # === Stage 3c: Local elevation model (SRTM 30m for Vietnam — Climate Guardian #11) ===
 # (downloads SRTM, converts to .npy — see above for full comment)
@@ -94,11 +98,15 @@ WORKDIR /data
 #   - TinyLlama 1.1B (~630MB) — Edge AI Tutor (/offline-tutor)
 # Using 4-bit quantization at runtime; build stage downloads FP16 weights which
 # are then re-quantized on first lazy-load.
-RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048) && \
-    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+RUN ( \
+    (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
+    chmod 600 /swapfile && \
+    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[vision-model-dl] swap unavailable — proceeding without") \
+  ) || true ; \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir transformers Pillow && \
-    swapoff /swapfile && rm -f /swapfile && \
+    (swapoff /swapfile 2>/dev/null || true) && \
+    rm -f /swapfile && \
     echo "[vision-model-dl] torch + transformers installed"
 # Download model weights WITHOUT loading into Python memory.
 # Uses external script file (scripts/cache_models.py) — Docker's parser
@@ -143,11 +151,17 @@ ENV OSRM_PROFILE=car
 RUN osrm-extract -p /opt/car.lua /data/vietnam.osm.pbf
 # 2GB swap for osrm-contract (CH hierarchy build can use 2-4GB RAM on HF
 # Spaces 2vCPU — without swap this can trigger OOMKilled exit 137).
-# Swap is created+deleted in the same layer so it doesn't bloat final image.
-RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
-    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+# Swap setup is NON-FATAL: osrm/osrm-backend:v5.25.0 is ultra-minimal (38MB)
+# and may not have mkswap/swapon. Falls back gracefully to physical RAM.
+# Swap file is created+deleted in the same layer (doesn't bloat final image).
+RUN ( \
+    (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
+    chmod 600 /swapfile && \
+    (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[osrm-builder] swap unavailable — proceeding without") \
+  ) || true ; \
     osrm-contract /data/vietnam.osm.pbf && \
-    swapoff /swapfile && rm -f /swapfile && \
+    (swapoff /swapfile 2>/dev/null || true) && \
+    rm -f /swapfile && \
     echo "[osrm-builder] CH contraction complete"
 # Copy osrm-routed binary (in PATH in the osrm/osrm-backend image)
 RUN mkdir -p /osrm-bin /osrm-libs && cp "$(command -v osrm-routed)" /osrm-bin/
