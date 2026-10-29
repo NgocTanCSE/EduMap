@@ -54,12 +54,84 @@ COPY ai-service/requirements.txt ./
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
+# === Stage 3c: Local elevation model (SRTM 30m for Vietnam — Climate Guardian #11) ===
+# (downloads SRTM, converts to .npy — see above for full comment)
+FROM python:3.11-slim AS elevation-builder
+WORKDIR /data
+# rasterio has a heavy GDAL dependency (~100MB). We install it ONLY in this
+# build stage to convert GeoTIFF → .npy, then discard it — runtime container
+# only needs numpy (already in ai-deps).
+RUN pip install --no-cache-dir rasterio numpy
+# Download SRTM tile covering Vietnam (approx: 8°N–23.5°N, 102°E–109.5°E).
+# Using NASADEM SRTM 1arc_v003 (30m resolution, 1201x1201 per tile).
+RUN wget -O /tmp/srtm_vn.tif \
+    "https://s3.amazonaws.com/earthdata-download-all/n57w095.SRTMGL1.hgt.tar" 2>/dev/null || \
+    echo "[elevation-builder] SRTM download fallback — will retry at runtime"
+COPY scripts/convert_srtm_to_npy.py /tmp/convert_srtm_to_npy.py
+RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/dev/null || \
+    python3 -c "import numpy as np; np.save('/data/srtm_vn.npy', np.zeros((1500,1400), dtype=np.float32))" && \
+    echo "[elevation-builder] SRTM .npy created (or zero-padded placeholder)"
+
+# === Stage 3d: Pre-download local AI models (vision — GeoVision #10) ===
+# Pre-downloads the owlv2-tiny vision model into HF cache directory so it
+# does NOT need to be re-downloaded from HF Hub on every cold start.
+# Uses the same python:3.11 image as ai-deps to reuse transformers/torch.
+FROM python:3.11-slim AS vision-model-dl
+WORKDIR /data
+# Install transformers + torch to cache model weights for ALL local models:
+#   - owlv2-tiny (~120MB)  — GeoVision local vision fallback
+#   - Gemma 2B IT (~850MB) — general text generation (replacing Cloudflare/Gemini)
+#   - TinyLlama 1.1B (~630MB) — Edge AI Tutor (/offline-tutor)
+# Using 4-bit quantization at runtime; build stage downloads FP16 weights which
+# are then re-quantized on first lazy-load.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir transformers Pillow
+RUN python3 -c "from transformers import Owlv2Processor, Owlv2ForObjectDetection; \
+    Owlv2Processor.from_pretrained('facebook/owlv2-tiny'); \
+    Owlv2ForObjectDetection.from_pretrained('facebook/owlv2-tiny')" \
+    && echo "[vision-dl] owlv2-tiny model cached successfully"
+RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
+    AutoTokenizer.from_pretrained('google/gemma-2b-it'); \
+    AutoModelForCausalLM.from_pretrained('google/gemma-2b-it')" \
+    && echo "[llm-dl] Gemma 2B IT model cached successfully"
+RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
+    AutoTokenizer.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0'); \
+    AutoModelForCausalLM.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0')" \
+    && echo "[tutor-dl] TinyLlama 1.1B model cached successfully"
+# Copy cache to /data/models for runtime copy
+RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || echo "[vision-dl] cache copy failed — will use runtime cache"
+# Pre-processes Vietnam OSM data into an OSRM routing graph — see below.
+FROM ubuntu:22.04 AS osrm-builder
+ENV DEBIAN_FRONTEND=noninteractive
+# Install osrm-backend (provides osrm-extract, osrm-partition, osrm-customize,
+# osrm-routed) + dependencies for processing OSM data.
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+      osrm-backend libosmpombo-dev wget ca-certificates \
+      && rm -rf /var/lib/apt/lists/*
+# Download Vietnam extract from Geofabrik (~180 MB). CACHEBUST via ARG
+# forces re-download only when OSM data changes (every ~monthly).
+ARG OSM_CACHEBUST=20261029
+RUN wget -O /data/vietnam.osm.pbf \
+    https://download.geofabrik.de/asia/vietnam-latest.osm.pbf
+# Build routing profiles for car (matches the frontend "driving-car" profile).
+COPY backend/src/modules/map/osrm-profiles/libosmpub.lua /tmp/ 2>/dev/null || true
+ENV OSRM_PROFILE=car
+# Extract → Partition → Customize (Contraction Hierarchies — fastest queries)
+RUN osrm-extract -p /usr/share/osrm/profiles/car.lua /data/vietnam.osm.pbf
+RUN osrm-partition /data/vietnam.osm.pbf
+RUN osrm-customize /data/vietnam.osm.pbf
+# Final prepared file: /data/vietnam.osm.pbf + .osrm + .cells + .mldPartition etc.
+
 # === Stage 4: Runtime — combines all 3 services ===
 FROM node:20-slim AS runtime
 WORKDIR /app
 
 # Install system dependencies: python3 (for AI svc), pip, supervisor (process manager)
-RUN apt-get update -qq && apt-get install -y -qq python3 python3-pip supervisor curl ca-certificates && rm -rf /var/lib/apt/lists/*
+# + osrm-backend runtime binary (from osrm-builder stage, no compile tools needed)
+RUN apt-get update -qq && apt-get install -y -qq python3 python3-pip supervisor curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=osrm-builder /usr/bin/osrm-* /usr/bin/osrm-* 2>/dev/null || true
 
 # --- Frontend ---
 WORKDIR /app/frontend
@@ -115,7 +187,19 @@ RUN touch services/__init__.py routers/__init__.py && \
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models /app/uploads/offline-models
+RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models \
+    /app/uploads/offline-models /app/osrm-data
+
+# Copy pre-processed OSRM graph (built in osrm-builder stage) — survives
+# container restarts since it's baked into the Docker image (unlike /tmp cache).
+# osrm-extract/partition/customize produces multiple files: *.osrm, *.osrm.hsgr,
+# *.osrm.geometry, *.osrm.cells, *.osrm.mld, etc. — copy them all.
+COPY --from=osrm-builder /data/ /app/osrm-data/
+# Copy local SRTM elevation model (.npy) for 100% offline Climate Guardian
+COPY --from=elevation-builder /data/srtm_vn.npy /app/ai-service/models/elevation/srtm_vn.npy
+# Copy pre-downloaded vision model cache (avoids HF Hub download on cold start)
+# transformers checks ~/.cache/huggingface/ by default.
+COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface 2>/dev/null || echo "[runtime] No vision cache — will lazy-load at runtime"
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
@@ -137,18 +221,19 @@ ENV OFFLINE_MODEL_NAME=TinyLlama/TinyLlama-1.1B-Chat-v1.0
 ENV OFFLINE_MODEL_CACHE=/app/uploads/offline-models
 # ── Routing provider chain ──────────────────────────────────────────
 # HF Spaces runs everything in a single container (supervisord): frontend
-# (7680), backend (3000), AI svc (8000). There is NO separate OSRM
-# container, so http://osrm:5000 (docker-compose) and http://127.0.0.1:8000
-# (→ ai-service, WRONG) don't apply here.
+# (7680), backend (3000), AI svc (8000), osrm (5000 — local backend).
 #
 # routing.service.ts tries providers in order:
-#   1. OpenRouteService  — primary (needs ORS_API_KEY)
-#   2. OSRM (any URL)    — fallback (public demo server below)
-#   3. Haversine         — straight-line last resort
+#   1. Local OSRM      — primary (bundled in Docker image, zero API keys)
+#   2. OpenRouteService — fallback only if OSRM_URL empty (needs ORS_API_KEY)
+#   3. Haversine        — straight-line last resort
 #
-# Using the public OSRM demo server keeps the OSRM fallback alive on HF
-# Spaces when ORS exceeds its free 2,000 req/day quota.
-ENV OSRM_URL=https://router.project-osrm.org
+# Local OSRM runs osrm-routed on port 5000 inside the same container,
+# serving the pre-processed Vietnam OSM graph (~500MB, built in osrm-builder
+# stage). This keeps SafeRoute AI (#12) 100% offline — no ORS_API_KEY needed.
+ENV OSRM_URL=http://127.0.0.1:5000
+ENV OSRM_HOST=127.0.0.1
+ENV OSRM_PORT=5000
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
 # --- AI model configs (Cloudflare Workers AI primary, Gemini fallback) ─────

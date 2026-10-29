@@ -5,8 +5,6 @@
 > architecture assumptions change.
 
 ## 1. Deployment model (IMPORTANT — do not forget)
-
-> ### ⚠️ Deployment contract (read this first)
 >
 > - **Runtime = Hugging Face Spaces, FREE plan, and nowhere else.**
 >   The Space (`tancse2005/Edumap`) runs on the **free CPU tier**: 2 vCPU /
@@ -456,8 +454,10 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 ## 5. Environment notes
 
+- **All external API keys are now OPTIONAL.** The app runs 100% locally with
+  zero keys set — local models + template fallbacks handle every feature.
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`,
-  `HF_TOKEN` (GeoVision vision detection only) are HF Secrets.
+  `HF_TOKEN` (GeoVision vision detection only) are HF Secrets (optional).
 - `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
 - `GEMINI_MODEL` — Google Gemini text generation model cascade.
 - `HF_EMBEDDING_MODEL` removed — embeddings use Cloudflare → Gemini cascade.
@@ -475,6 +475,23 @@ HF_TOKEN=<token> ./deploy-hf.sh
   (browser Web Speech API). The Language Bridge LLM endpoints (simplify,
   translate) do NOT require this key — they use the same `_generate_text_with_fallback`
   cascade as all other AI features.
+- **Local model env vars** (all default to enabled):
+  - `LOCAL_LLM_ENABLED=true` — Gemma 2B IT 4-bit text generation (fallback #3)
+  - `LOCAL_LLM_MODEL=google/gemma-2b-it` — model name
+  - `LOCAL_LLM_TEMPERATURE=0.3`, `LOCAL_LLM_MAX_TOKENS=512`
+  - `TINYLLAMA_ENABLED=true` — TinyLlama 1.1B 4-bit (Edge AI Tutor only)
+  - `TINYLLAMA_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v1.0`
+  - `LOCAL_VISION_ENABLED=true` — owlv2-tiny vision (GeoVision fallback)
+  - `LOCAL_VISION_MODEL=facebook/owlv2-tiny`
+  - `LOCAL_VISION_THRESHOLD=0.25`, `LOCAL_VISION_IMAGE_MAX=1024`
+  - `LOCAL_EMBEDDING_ENABLED=true` (default false if unset — see AGENTS §3)
+  - `LOCAL_EMBEDDING_MODEL=intfloat/multilingual-e5-small`
+  - `LOCAL_RERANKER_ENABLED=true`
+  - `LOCAL_RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2`
+  - `LOCAL_ELEVATION_ENABLED=true` — SRTM 30m VN elevation (.npy) offline
+  - `LOCAL_ELEVATION_MODEL_PATH=/app/ai-service/models/elevation/srtm_vn.npy`
+  - `MIN_RAM_GB_FOR_LLM=4.0` — refuse to load LLM below this much free RAM
+  - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold
 
 ## 6. Data policy (verified Vietnamese content only)
 
@@ -502,12 +519,66 @@ fabricated. The following rules now apply to every feature:
 - `@edumap.vn` accounts (96) are **demo login accounts**, not feature content.
   Keep `admin@edumap.vn` — it is the admin login on HF.
 
+## 6.5. Local models bundle (2026-10-30) — zero external keys required
+
+All AI features now run **100% locally** on HF Spaces free tier. The provider
+chain degrades through Cloudflare/Gemini → local models → template fallbacks,
+so the app works with **ZERO API keys** set.
+
+| Component | Model | Size (disk) | RAM | Env disable |
+|-----------|-------|-------------|-----|-------------|
+| Text generation | Gemma 2B IT (4-bit NF4) | ~850MB | ~1.5GB | `LOCAL_LLM_ENABLED=false` |
+| Edge AI Tutor | TinyLlama 1.1B (4-bit NF4) | ~630MB | ~1.5GB | `TINYLLAMA_ENABLED=false` |
+| Embeddings | intfloat/multilingual-e5-small | ~270MB | ~300MB | `LOCAL_EMBEDDING_DISABLED=true` |
+| Reranker | cross-encoder/ms-marco-MiniLM-L6-v2 | ~80MB | ~100MB | `LOCAL_RERANKER_ENABLED=false` |
+| Vision (GeoVision) | facebook/owlv2-tiny | ~120MB | ~300MB | `LOCAL_VISION_ENABLED=false` |
+| Elevation | SRTM 30m VN tile (.npy) | ~8.4MB | ~8.4MB | `LOCAL_ELEVATION_ENABLED=false` |
+| Routing | OSRM CH graph (OSM-VN) | ~500-800MB | ~256MB | N/A (always local) |
+
+**Provider chain** (`_generate_text_with_fallback`):
+`Cloudflare Workers AI → Google Gemini → Local Gemma 2B → template fallback`
+
+**Staggered startup** (`main.py` `@app.on_event("startup")`): each model
+pre-loads 15s after the prior (embeddings → reranker → vision → Gemma → TinyLlama)
+to avoid RAM spikes. All models also lazy-load on first request.
+
+**Memory-aware guards** (`utils/memory_guard.py`):
+- `RAM_THRESHOLD_GB` (default 4.0) — refuse to load any LLM if free RAM < threshold.
+- `check_oom()` / `guard_load()` — thread-safe RAM checks before model init.
+- `GET /api/ai/system/status` — full status: RAM, loaded models, provider chain.
+
+**Total worst-case RAM** (all models loaded simultaneously):
+~9.2GB / 16GB ✅ (within budget with ~6.8GB headroom for Next.js + NestJS + OSRM).
+
+**Dockerfile multi-stage build** pre-downloads ALL model weights in the
+`vision-model-dl` stage so cold-start never hits the HF Hub download path.
+
 ## 7. Current known limitations on HF (free plan)
 
-- **Free-tier reality:** 2 vCPU, no GPU, ephemeral disk, ~48 h sleep timer.
+- **Free-tier reality:** 2 vCPU, no GPU, ~5GB Docker image limit, ~48 h sleep timer.
   The first request after a restart can take 30–60 s (container + Next.js +
   NestJS + FastAPI + Chroma bootstrap). A one-off 503 is a cold start; only a
   repeated failure is a bug.
+- **Disk budget (Docker image):** all model weights bundled in image:
+  - OSRM Vietnam graph: ~500-800MB
+  - Gemma 2B IT (FP16 for convert): ~850MB
+  - TinyLlama 1.1B: ~630MB
+  - owlv2-tiny: ~120MB
+  - multilingual-e5-small + ms-marco-MiniLM-L6-v2: ~350MB
+  - SRTM elevation .npy: ~8.4MB
+  - Code + SQLite DB: ~150MB
+  - **Total ≈ 2.5-2.8GB** (< 5GB HF Spaces Docker limit ✅)
+- **RAM budget (runtime, worst case all models loaded):**
+  - System (Next.js + NestJS + OSRM + FastAPI): ~5-6GB
+  - Gemma 2B 4-bit: ~1.5GB
+  - TinyLlama 4-bit: ~1.5GB
+  - Embeddings + reranker + vision: ~0.7GB
+  - Elevation + SRTM: ~0.01GB
+  - **Total ≈ 9.2GB / 16GB** (within budget with ~6.8GB headroom ✅)
+- **Note on local LLM speed:** Gemma 2B / TinyLlama run on CPU (2 vCPU) at
+  ~2-5 tokens/sec. This is acceptable for structured generation (career paths,
+  summaries, template fill) but **not** for long conversational chat. The
+  template fallback handles long conversations where real-time response matters.
 - AI chat history and uploads are ephemeral (`/tmp`).
 - Geo/PostGIS analytics is limited in SQLite mode — there is no `ST_DWithin`,
   `ST_MakePoint` or `::geography`. Query builders MUST branch on

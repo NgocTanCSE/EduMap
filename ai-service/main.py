@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 # Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey']
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey', 'system']
 
 for name in router_names:
     try:
@@ -117,6 +117,65 @@ def _startup_seed_vector_db():
             print(f"Startup: seed_data() failed (non-fatal): {e}")
 
     threading.Thread(target=_seed, daemon=True).start()
+
+
+# ── Startup hook: staggered local model loading (OOM prevention) ─────────────
+# All local models use lazy loading (loaded on first request), but we also kick
+# off a staggered warmup here so the FIRST user request doesn't pay the full
+# cold-start penalty. Models are pre-loaded in sequence with delays to avoid
+# RAM spikes that could OOM the 16GB HF Spaces free container.
+# Order: embeddings → reranker → vision → LLM (each ~15s apart).
+@app.on_event("startup")
+def _startup_stagger_local_models():
+    """Staggered pre-load of local models to smooth the RAM curve on startup.
+
+    Each model loads 15 seconds after the previous — avoiding the scenario
+    where seed_vector_db (embeddings) + vision + LLM all load at once and
+    OOM-kill the container. Models still lazy-load on first request if the
+    warmup thread hasn't reached them yet.
+    """
+    import threading
+    import time
+
+    model_load_order = [
+        ("embeddings", "vector_store"),
+        ("reranker", "vector_store"),
+        ("vision", "geo"),
+        ("llm", "llm_service"),
+        ("tinyllama", "llm_service"),
+    ]
+
+    def _warmup():
+        for name, module_name in model_load_order:
+            # Stagger: wait between model loads to let RAM settle
+            time.sleep(15)  # 15s stagger between each model
+            try:
+                if name == "embeddings":
+                    from services.vector_store import vs_instance
+                    vs_instance._warmup_local_embedding()
+                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                elif name == "reranker":
+                    from services.vector_store import vs_instance
+                    vs_instance._warmup_local_reranker()
+                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                elif name == "vision":
+                    from routers.geo import _load_local_vision_model
+                    _load_local_vision_model()
+                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                elif name == "llm":
+                    from services.llm_service import _load_local_llm
+                    _load_local_llm()
+                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                elif name == "tinyllama":
+                    from services.llm_service import _load_tinyllama
+                    _load_tinyllama()
+                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+            except Exception as e:
+                # Non-fatal: lazy-load will retry on first request
+                print(f"[staggered-warmup] {name} pre-load failed (non-fatal): {type(e).__name__}: {e}")
+                # Continue to next model — one model's failure doesn't block others
+
+    threading.Thread(target=_warmup, daemon=True).start()
 
 
 # ── Startup hook: auto-seed Knowledge Graph ────────────────────────────────

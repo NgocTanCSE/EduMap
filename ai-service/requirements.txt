@@ -56,3 +56,10 @@ sentence-transformers>=2.7.0
 # above for Edge AI Tutor) + Pillow for image decoding.
 # Disabled via LOCAL_VISION_ENABLED=false to force HF API-only.
 Pillow>=10.0.0
+
+# ── Local Elevation Model (Climate Guardian — Idea #11) ─────────────────────
+# SRTM 30m resolution Vietnam tile converted to numpy .npy array during Docker
+# build (~8.4MB in RAM). Replaces Open-Meteo elevation API — 100% offline.
+# numpy is already a core dependency. rasterio would pull GDAL (~100MB) so we
+# convert GeoTIFF → .npy in the build stage instead (build-time dependency only).
+

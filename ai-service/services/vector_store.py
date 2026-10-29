@@ -739,6 +739,26 @@ class VectorStoreService:
             self._local_reranker_failed = True
             return None
 
+    def _warmup_local_embedding(self):
+        """Pre-load the local embedding model (no-op if disabled or already loaded)."""
+        if getattr(self, "local_embedding_disabled", False):
+            print("[warmup] Local embedding disabled — skipping warmup")
+            return
+        if getattr(self, "_local_embedder_loaded", False):
+            print("[warmup] Local embedding already loaded")
+            return
+        self._load_local_embedder()
+
+    def _warmup_local_reranker(self):
+        """Pre-load the local reranker (no-op if disabled or already loaded)."""
+        if getattr(self, "local_reranker_disabled", False):
+            print("[warmup] Local reranker disabled — skipping warmup")
+            return
+        if getattr(self, "_local_reranker_loaded", False):
+            print("[warmup] Local reranker already loaded")
+            return
+        self._load_local_reranker()
+
     def rerank_results(
         self, query: str, results: Dict[str, Any], top_k: int = 5
     ) -> Dict[str, Any]:

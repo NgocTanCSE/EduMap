@@ -166,6 +166,9 @@ export class RoutingService {
   ) {
     this.orsUrl = this.configService.get<string>('ORS_URL') || 'https://api.openrouteservice.org';
     this.orsApiKey = this.configService.get<string>('ORS_API_KEY');
+    // On HF Spaces, OSRM_URL defaults to http://127.0.0.1:5000 (local backend
+    // bundled in Docker image — see Dockerfile Stage 3b + supervisord.conf).
+    // This makes SafeRoute AI 100% offline: OSRM primary → ORS (if key) → Haversine.
     this.osrmUrl = this.configService.get<string>('OSRM_URL');
   }
 
@@ -242,15 +245,45 @@ export class RoutingService {
    *      DEPRECATED by ORS: newer API keys get a 2xx response whose body has
    *      no `routes`, which surfaced to users as the controller error
    *      "No route found" even though the request looked healthy (200, 500ms).
-   *   2. Any OSRM-compatible server via OSRM_URL (Docker Compose `osrm`
-   *      container locally; skipped on HF when the host is unreachable).
+   *   1. Local OSRM server (bundled in Docker image — see Dockerfile Stage 3b).
+   *      Primary on HF Spaces free plan (zero API keys, ~1GB RAM).
+   *   2. OpenRouteService — external fallback only when OSRM is unavailable
+   *      AND ORS_API_KEY is configured. Needs ORS_API_KEY.
    *   3. Straight-line fallback so the map still draws a route in degraded
    *      conditions instead of failing the whole feature.
    */
   async getRoute(params: RouteRequest): Promise<RouteResponse> {
     const { lng1, lat1, lng2, lat2, alternatives = true, steps = true, overview = 'full' } = params;
 
-    // ── 1. OpenRouteService (modern POST geojson API) ──
+    // ── 1. Local OSRM (primary on HF Spaces — zero API keys) ──
+    if (this.osrmUrl) {
+      try {
+        const url =
+          `${this.osrmUrl}/route/v1/driving/${lng1},${lat1};${lng2},${lat2}` +
+          `?overview=${overview === 'false' ? 'false' : overview}` +
+          `&steps=${steps}&alternatives=${alternatives}`;
+        const response = await firstValueFrom(
+          this.httpService.get(url, { timeout: 15000 })
+        );
+        const data = response.data;
+        if (data?.code === 'Ok' && data.routes?.length > 0) {
+          this.logger.log(`Local OSRM returned ${data.routes.length} route(s)`);
+          return {
+            code: data.code,
+            routes: data.routes.map((r: any) => ({
+              ...r,
+              geometry: typeof r.geometry === 'string' ? r.geometry : JSON.stringify(r.geometry),
+            })),
+            waypoints: data.waypoints || [],
+          };
+        }
+        this.logger.warn(`OSRM returned no routes (code=${data?.code}) — trying next provider`);
+      } catch (error: any) {
+        this.logger.error(`OSRM routing error: ${error.message}`);
+      }
+    }
+
+    // ── 2. OpenRouteService (external fallback — needs ORS_API_KEY) ──
     if (this.orsApiKey) {
       try {
         const body: Record<string, any> = {
@@ -283,34 +316,6 @@ export class RoutingService {
         this.logger.warn('OpenRouteService returned no routes — trying next provider');
       } catch (error: any) {
         this.logger.error(`OpenRouteService routing error: ${error.message}`);
-      }
-    }
-
-    // ── 2. OSRM-compatible server (local container in Docker Compose) ──
-    if (this.osrmUrl) {
-      try {
-        const url =
-          `${this.osrmUrl}/route/v1/driving/${lng1},${lat1};${lng2},${lat2}` +
-          `?overview=${overview === 'false' ? 'false' : overview}` +
-          `&steps=${steps}&alternatives=${alternatives}`;
-        const response = await firstValueFrom(
-          this.httpService.get(url, { timeout: 15000 })
-        );
-        const data = response.data;
-        if (data?.code === 'Ok' && data.routes?.length > 0) {
-          this.logger.log(`OSRM returned ${data.routes.length} route(s)`);
-          return {
-            code: data.code,
-            routes: data.routes.map((r: any) => ({
-              ...r,
-              geometry: typeof r.geometry === 'string' ? r.geometry : JSON.stringify(r.geometry),
-            })),
-            waypoints: data.waypoints || [],
-          };
-        }
-        this.logger.warn(`OSRM returned no routes (code=${data?.code}) — trying next provider`);
-      } catch (error: any) {
-        this.logger.error(`OSRM routing error: ${error.message}`);
       }
     }
 

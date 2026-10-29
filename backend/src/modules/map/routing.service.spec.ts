@@ -86,7 +86,7 @@ describe('RoutingService — safeRoute (SafeRoute AI)', () => {
     const mockConfig = { get: jest.fn().mockImplementation((key: string) => {
       if (key === 'ORS_URL') return 'https://api.openrouteservice.org';
       if (key === 'ORS_API_KEY') return 'test-key';
-      if (key === 'OSRM_URL') return 'https://router.project-osrm.org';
+      if (key === 'OSRM_URL') return 'http://127.0.0.1:5000';  // local OSRM primary
       return undefined;
     }) };
     const mockFlood = { checkRouteForFloods: jest.fn(), getActiveFloodZones: jest.fn(), getFloodAvoidancePolygons: jest.fn() };

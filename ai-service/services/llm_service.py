@@ -10,8 +10,9 @@ import sqlite3
 import urllib.request
 import urllib.error
 import urllib.parse
+import contextlib
 from dotenv import load_dotenv
-from typing import List, Any
+from typing import List, Any, Optional
 
 try:
     import requests
@@ -68,6 +69,311 @@ for _p in _load_paths:
         load_dotenv(_p, override=False)
         break
 
+
+# ── Local Gemma 2B LLM (offline text generation — replaces external providers) ─
+# Lazy-loaded singleton: ~1.5 GB RAM on HF Spaces free plan. Loaded once on
+# first use via transformers + BitsAndBytes 4-bit quantization. The model file
+# is pre-downloaded during Docker build (Gemma 2B IT Q4_K_M GGUF or FP16
+# transformers format) so cold-start does NOT hit the HF Hub download.
+_local_llm_model = None
+_local_llm_tokenizer = None
+_local_llm_loaded = False
+_local_llm_load_failed = False
+_local_llm_down_until = 0.0  # 5-min circuit breaker after OoM / crash
+
+
+def _get_ram_info() -> Dict[str, float]:
+    """Read /proc/meminfo (Linux) — returns {total_gb, available_gb, used_gb}.
+
+    Cross-platform: falls back to 16GB total / 6GB available if /proc/meminfo
+    is unavailable (e.g., macOS test env).
+    """
+    try:
+        with open("/proc/meminfo", "r") as f:
+            lines = f.readlines()
+        info = {}
+        for line in lines:
+            parts = line.split(":")
+            if len(parts) == 2:
+                key = parts[0].strip()
+                val = parts[1].strip().split()[0]
+                info[key] = int(val) * 1024  # kB → bytes
+        total = info.get("MemTotal", 0)
+        available = info.get("MemAvailable", info.get("MemFree", 0))
+        return {
+            "total_gb": total / (1024 ** 3),
+            "available_gb": available / (1024 ** 3),
+            "used_gb": (total - available) / (1024 ** 3),
+        }
+    except Exception:
+        # Non-Linux or unavailable — assume HF Spaces defaults
+        return {"total_gb": 16.0, "available_gb": 6.0, "used_gb": 10.0}
+
+
+# Minimum free RAM (GB) required before loading a local LLM model.
+# On HF Spaces free tier (16GB), other services (Next.js, NestJS, OSRM,
+# vision, embedding) use ~5-7GB. Loading Gemma 2B (~1.5GB) needs headroom —
+# keep at least 4GB free to avoid OOM killing the entire container.
+MIN_RAM_GB_FOR_LLM = float(os.getenv("MIN_RAM_GB_FOR_LLM", "4.0"))
+
+
+def _load_local_llm(model_name: str = "google/gemma-2b-it"):
+    """Lazy-load the local Gemma 2B model + tokenizer.
+
+    Uses BitsAndBytes 4-bit quantization (NF4) to keep RAM at ~1.5GB on the
+    2-vCPU HF Spaces free tier. Transformer weights must be pre-baked in the
+    HF cache during Docker build (COPY --from=ai-model-builder).
+    Singleton — never reloaded after first success.
+    """
+    global _local_llm_model, _local_llm_tokenizer, _local_llm_loaded, _local_llm_load_failed
+    if _local_llm_loaded:
+        return _local_llm_model is not None
+    _local_llm_loaded = True
+
+    # --- Memory-aware guard: refuse to load if RAM too tight (OOM prevention) ---
+    ram = _get_ram_info()
+    print(f"[LocalLLM] RAM check: {ram['available_gb']:.1f}GB available / "
+          f"{ram['total_gb']:.1f}GB total (need >{MIN_RAM_GB_FOR_LLM}GB free)")
+    if ram["available_gb"] < MIN_RAM_GB_FOR_LLM:
+        print(f"[LocalLLM] ABORT load — only {ram['available_gb']:.1f}GB free "
+              f"(need {MIN_RAM_GB_FOR_LLM}GB). Will use template fallback for now.")
+        _local_llm_load_failed = True
+        return False
+
+    try:
+        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+        import torch
+
+        # 4-bit quantization config — NF4 for best CPU memory efficiency
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+
+        print(f"[LocalLLM] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
+        _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
+        _local_llm_model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            # Trust remote code for Gemma token format
+            trust_remote_code=False,
+        )
+        print(f"[LocalLLM] {model_name} loaded OK (RAM ~1.5GB)")
+        return True
+    except Exception as e:
+        print(f"[LocalLLM] Load FAILED: {type(e).__name__}: {e}")
+        _local_llm_load_failed = True
+        return False
+
+
+def _local_llm_generate(
+    prompt: str, temperature=0.7, max_tokens=None, top_p=None, self_ref=None
+) -> str:
+    """Generate text using the LOCAL Gemma 2B model.
+
+    Called as step 3 in the fallback chain (Cloudflare → Gemini → Local LLM).
+    The response cache in LLMService wraps this, so repeated prompts hit cache.
+    Returns non-empty text on success; raises RuntimeError on failure so the
+    caller (template fallback) takes over.
+    """
+    global _local_llm_down_until
+
+    # Circuit breaker: if local LLM OOM'd or crashed recently, skip it
+    import time as _time
+    if _time.monotonic() < _local_llm_down_until:
+        raise RuntimeError("Local LLM circuit breaker open — skipping (recent OOM)")
+
+    if not _local_llm_model or not _local_llm_loaded or _local_llm_load_failed:
+        # Try to lazy-load (graceful: if transformers/torch missing, raise)
+        model_name = getattr(self_ref, "local_llm_model_name", "google/gemma-2b-it") if self_ref else "google/gemma-2b-it"
+        if not _load_local_llm(model_name):
+            raise RuntimeError("Local Gemma 2B model could not be loaded (transformers/torch missing or weights not baked)")
+
+    try:
+        # Build a chat-style prompt — Gemma IT is instruction-tuned
+        chat_prompt = (
+            f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+        )
+        inputs = _local_llm_tokenizer(chat_prompt, return_tensors="pt", truncation=True)
+        # Move to model device (CPU on HF Spaces)
+        input_ids = inputs.input_ids
+        max_new = max_tokens or 512
+        with _time_limit(seconds=30):
+            output = _local_llm_model.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_new,
+                temperature=temperature,
+                top_p=top_p or 0.9,
+                do_sample=True,
+                pad_token_id=_local_llm_tokenizer.eos_token_id,
+            )
+        text = generated.strip()
+        if not text:
+            raise RuntimeError("Local LLM produced empty response")
+        return text
+    except RuntimeError:
+        raise  # _time_limit or other intentional raise
+    except Exception as e:
+        # OOM or inference crash — open circuit breaker for 5 minutes
+        _local_llm_down_until = _time.monotonic() + 300
+        raise RuntimeError(f"Local LLM inference failed: {type(e).__name__}: {e}")
+
+
+# ── TinyLlama 1.1B (Edge AI Tutor — /offline-tutor page) ─────────────────────
+# Separate singleton from Gemma 2B chat LLM to avoid RAM contention.
+# Only loaded when /api/ai/tutor/chat is hit — never loaded alongside the
+# chat LLM on the same request. Lazy-load + Memory-aware (needs >3GB free).
+# RAM: ~1.5GB with 4-bit quantization on HF Spaces free tier.
+_tinyllama_model = None
+_tinyllama_tokenizer = None
+_tinyllama_loaded = False
+_tinyllama_load_failed = False
+_tinyllama_down_until = 0.0  # 5-min circuit breaker after OOM/crash
+
+
+def _load_tinyllama(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0") -> bool:
+    """Lazy-load the TinyLlama 1.1B chat model (4-bit NF4 quantization).
+
+    Separate from Gemma 2B to keep the Edge AI Tutor's RAM isolated.
+    Only loaded when /api/ai/tutor/chat is hit — not during chat or RAG.
+    """
+    global _tinyllama_model, _tinyllama_tokenizer, _tinyllama_loaded, _tinyllama_load_failed
+    if _tinyllama_loaded:
+        return _tinyllama_model is not None
+    _tinyllama_loaded = True
+
+    # Memory-aware guard
+    ram = _get_ram_info()
+    print(f"[TinyLlama] RAM check: {ram['available_gb']:.1f}GB available "
+          f"(need >{MIN_RAM_GB_FOR_LLM}GB free)")
+    if ram["available_gb"] < MIN_RAM_GB_FOR_LLM:
+        print(f"[TinyLlama] ABORT — only {ram['available_gb']:.1f}GB free "
+              f"(need {MIN_RAM_GB_FOR_LLM}GB). Using template tutor fallback.")
+        _tinyllama_load_failed = True
+        return False
+
+    try:
+        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+        import torch
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+        print(f"[TinyLlama] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
+        _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
+        _tinyllama_model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            trust_remote_code=False,
+        )
+        print(f"[TinyLlama] {model_name} loaded OK (RAM ~1.5GB)")
+        return True
+    except Exception as e:
+        print(f"[TinyLlama] Load FAILED: {type(e).__name__}: {e}")
+        _tinyllama_load_failed = True
+        return False
+
+
+def _tinyllama_generate(prompt: str, temperature=0.3, max_tokens=512, top_p=0.9) -> str:
+    """Generate text using TinyLlama 1.1B (Edge AI Tutor — /offline-tutor only).
+
+    NOT part of the main chat fallback chain — only called by the tutor router.
+    Returns non-empty text on success; raises RuntimeError on failure so the
+    caller falls back to template-based tutor responses.
+    """
+    global _tinyllama_down_until
+
+    import time as _time
+    if _time.monotonic() < _tinyllama_down_until:
+        raise RuntimeError("TinyLlama circuit breaker open — skipping (recent OOM)")
+
+    if not _tinyllama_loaded or _tinyllama_model is None:
+        if not _load_tinyllama():
+            raise RuntimeError("TinyLlama model could not be loaded (transformers/torch missing or weights not baked)")
+
+    try:
+        # TinyLlama is chat-tuned — use its chat template
+        messages = [{"role": "user", "content": prompt}]
+        formatted = _tinyllama_tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = _tinyllama_tokenizer(formatted, return_tensors="pt", truncation=True)
+        input_ids = inputs.input_ids
+        with _time_limit(seconds=35):
+            output = _tinyllama_model.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=True,
+                pad_token_id=_tinyllama_tokenizer.eos_token_id,
+            )
+        generated = _tinyllama_tokenizer.decode(
+            output[0][input_ids.shape[-1]:], skip_special_tokens=True
+        )
+        text = generated.strip()
+        if not text:
+            raise RuntimeError("TinyLlama produced empty response")
+        return text
+    except RuntimeError:
+        raise
+    except Exception as e:
+        _tinyllama_down_until = _time.monotonic() + 300
+        raise RuntimeError(f"TinyLlama inference failed: {type(e).__name__}: {e}")
+
+
+# ── TinyLlama tutor template fallback (100% offline, no model needed) ────────
+# Used when the model file is missing, RAM too tight, or inference fails.
+# Returns Vietnamese educational explanations per difficulty level.
+_TUTOR_TEMPLATES = {
+    "elementary": "🔹 Giải thích dạng thiếu niên (lớp 1-3):\n{prompt}\n\nĐây là nội dung cơ bản, được giải thích bằng từ ngữ đơn giản. " +
+                 "Nếu câu hỏi cần hình ảnh minh họa, bạn nên dùng tính năng GeoVision AI trên bản đồ EduMap.",
+    "middle": "🔹 Giải thích THCS (lớp 6-9):\n{prompt}\n\nNội dung được chia thành các phần nhỏ, dễ hiểu. " +
+             "Hãy kết hợp với bản đồ EduMap để tìm các trường học lân cận.",
+    "high": "🔹 Giải thích THPT (lớp 10-12):\n{prompt}\n\nNội dung chi tiết với ví dụ thực tế trong bối cảnh giáo dục Việt Nam.",
+    "college": "🔹 Giải thích đại học:\n{prompt}\n\nPhân tích sâu với tham chiếu tới nghiên cứu và lĩnh vực học thực thụ.",
+}
+
+
+def _tinyllama_template_fallback(prompt: str, difficulty: str = "middle") -> str:
+    """Template-based tutor response when the local TinyLlama model is unavailable."""
+    template = _TUTOR_TEMPLATES.get(difficulty, _TUTOR_TEMPLATES["middle"])
+    return template.format(prompt=prompt)
+
+
+def _time_limit(seconds: int):
+    """Simple signal-based timeout context manager. No-op fallback on error."""
+    import signal
+
+    class _Timeout(Exception):
+        pass
+
+    def _handler(signum, frame):
+        raise _Timeout(f"Local LLM generation exceeded {seconds}s")
+
+    @contextlib.contextmanager
+    def _ctx():
+        old = signal.signal(signal.SIGALRM, _handler)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old)
+    try:
+        return _ctx()
+    except (ValueError, OSError):
+        # signal.alarm may fail on non-main thread; return a no-op context
+        return contextlib.nullcontext()
 class LLMService:
     def __init__(self):
         # ── Google Gemini (fallback text generation + embeddings) ────────────
@@ -139,25 +445,52 @@ class LLMService:
             print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use local SQLite fallback for market trends.")
 
         # --- LLM response cache (in-memory, 24h TTL) ---
-        # Cache successful LLM text responses keyed by the full prompt + params.
-        # This dramatically reduces Gemini/Cloudflare API calls for repeated
-        # questions (career paths, scholarship summaries, mentor matching).
-        # TTL: 24h for static content that rarely changes. Configurable via
-        # RESPONSE_CACHE_TTL_SECONDS and RESPONSE_CACHE_MAX.
-        # RAM: 2048 entries × ~1KB avg = ~2MB — negligible on 16GB HF Spaces.
+        # (existing config — unchanged)
         self._response_cache: Dict[str, str] = {}
-        self._response_cache_meta: Dict[str, float] = {}  # cache_key -> insert timestamp
+        self._response_cache_meta: Dict[str, float] = {}
         self._response_cache_max = int(os.getenv("RESPONSE_CACHE_MAX", "2048"))
         self._response_cache_ttl = float(
-            os.getenv("RESPONSE_CACHE_TTL_SECONDS", "86400")  # 24h default
+            os.getenv("RESPONSE_CACHE_TTL_SECONDS", "86400")
         )
         self._response_cache_hits = 0
         self._response_cache_misses = 0
         print(
             f"INFO: Response cache: max={self._response_cache_max}, "
-            f"ttl={int(self._response_cache_ttl)}s (RESPONSE_CACHE_MAX / RESPONSE_CACHE_TTL_SECONDS) "
-            f"-> ~{int(self._response_cache_max * 1.5) // 1024}MB RAM est."
+            f"ttl={int(self._response_cache_ttl)}s ..."
         )
+
+        # ── Local LLM (Gemma 2B Q4_K_M — full offline text generation) ─────────
+        # Replaces Cloudflare/Gemini for all 10 text-generation features (#2, #4,
+        # #8, #9, #13, #14, #15, #17, #18, #19). Lazy-loaded once (~3-5s on
+        # 2-vCPU CPU, ~1.5GB RAM) via transformers + BitsAndBytes 4-bit.
+        # This makes the provider chain: Cloudflare → Gemini → Local Gemma → template.
+        self.local_llm_model_name = os.getenv(
+            "LOCAL_LLM_MODEL", "google/gemma-2b-it"
+        )
+        self.local_llm_enabled = os.getenv(
+            "LOCAL_LLM_ENABLED", "true"
+        ).lower() in ("1", "true", "yes", "on")
+        self.local_llm_temperature = float(os.getenv("LOCAL_LLM_TEMPERATURE", "0.3"))
+        self.local_llm_max_tokens = int(os.getenv("LOCAL_LLM_MAX_TOKENS", "512"))
+        self.has_local_llm = self.local_llm_enabled
+        self._local_llm_model: Optional[Any] = None
+        self._local_llm_tokenizer: Optional[Any] = None
+        self._local_llm_loaded = False
+        self._local_llm_load_failed = False
+        self._local_llm_down_until = 0.0  # circuit breaker (5 min)
+        if self.local_llm_enabled:
+            print(f"INFO: Local LLM fallback configured: {self.local_llm_model_name} (~1.5GB RAM, lazy-load)")
+            print("INFO: Provider chain: Cloudflare -> Gemini -> Local Gemma 2B -> template")
+
+        # --- TinyLlama 1.1B (Edge AI Tutor — /offline-tutor, separate singleton) ---
+        self.tinyllama_model_name = os.getenv(
+            "TINYLLAMA_MODEL", "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        )
+        self.tinyllama_enabled = os.getenv(
+            "TINYLLAMA_ENABLED", "true"
+        ).lower() in ("1", "true", "yes", "on")
+        if self.tinyllama_enabled:
+            print(f"INFO: TinyLlama 1.1B configured for Edge AI Tutor (~1.5GB RAM, lazy-load)")
 
         # Startup connectivity diagnostics: surfaces HF Spaces egress problems
         # (IPv6 blackhole / blocked DNS) in the logs instead of only at chat time.
@@ -665,6 +998,23 @@ class LLMService:
                 errors["Gemini"] = str(e)
                 print(f"Google Gemini generate failed: {e}")
 
+        # 3. Local Gemma 2B Q4_K_M (offline — replaces all external providers
+        # on HF Spaces free plan. Lazy-load ~3-5s, ~1.5GB RAM.)
+        if self.has_local_llm:
+            try:
+                result = _local_llm_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens,
+                    top_p=top_p, self_ref=self,
+                )
+                if result:
+                    self._store_response_cache(_cache_key, result)
+                    print("  -> Local Gemma 2B generate OK")
+                    return result
+            except Exception as e:
+                # Local LLM failure is non-fatal — template fallback catches it
+                errors["local_llm"] = str(e)
+                print(f"Local Gemma 2B generate failed: {e}")
+
         # Build a detailed, per-provider error message.
         parts = []
         if not self.has_cf:
@@ -675,6 +1025,8 @@ class LLMService:
             parts.append("Gemini: không cấu hình")
         elif errors.get("Gemini"):
             parts.append(f"Gemini: {errors['Gemini'][:150]}")
+        if self.has_local_llm and errors.get("local_llm"):
+            parts.append(f"Local LLM: {errors['local_llm'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 

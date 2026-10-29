@@ -20,6 +20,8 @@ for _v in [
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
+# Disable local LLM so tests don't require transformers/torch at import time
+os.environ["LOCAL_LLM_ENABLED"] = "false"
 
 from services.llm_service import LLMService
 from models.learning_models import LearningPathRequest

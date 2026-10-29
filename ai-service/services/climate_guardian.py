@@ -58,6 +58,30 @@ OWM_TIMEOUT = float(os.getenv("OWM_TIMEOUT_SECONDS", "6"))
 OM_ELEV_BASE = "https://api.open-meteo.com/v1/elevation"
 OM_WEATHER_BASE = "https://api.open-meteo.com/v1/forecast"
 
+# ── Local SRTM elevation model (100% offline, replaces Open-Meteo API) ───────
+# Vietnam SRTM 1-arc-second (30m) tile converted to a NumPy .npy array
+# during Docker build. Grid covers ~8°N–23°N, ~102°E–109.5°E (VN bounding box).
+# Array shape: (1500, 1400) ≈ 2.1M cells × 4 bytes = **~8.4MB RAM**.
+# Lazy-loaded once and cached as a module-level singleton.
+# Coverage: https://srtm.csi.cgiar.org/ (CGIAR-ERSI SRTM 1 Arc-Second Global)
+LOCAL_ELEVATION_ENABLED = os.getenv("LOCAL_ELEVATION_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+LOCAL_ELEVATION_MODEL_PATH = os.getenv(
+    "LOCAL_ELEVATION_MODEL_PATH",
+    "/app/ai-service/models/elevation/srtm_vn.npy",
+)
+# Bounding box for the VN SRTM tile
+VN_SOUTH, VN_NORTH = 8.0, 23.5
+VN_WEST, VN_EAST = 102.0, 109.5
+# Grid resolution (degrees per pixel) — matches 30m at equator: ~0.000278°
+_ELEV_NROWS = 1500  # VN_NORTH - VN_SOUTH ≈ 15.5° → 1500 rows at 30m
+_ELEV_NCOLS = 1400  # VN_EAST - VN_WEST  ≈ 7.5° → 1400 cols at 30m
+_ELEV_LAT_STEP = (VN_NORTH - VN_SOUTH) / _ELEV_NROWS  # ~0.0103° per pixel
+_ELEV_LON_STEP = (VN_EAST - VN_WEST) / _ELEV_NCOLS   # ~0.0054° per pixel
+
+_local_elev_array = None
+_local_elev_loaded = False
+_local_elev_load_failed = False
+
 # Circuit breaker: 5 min cooldown after a network failure (mirrors vector_store).
 _OWM_DOWN_UNTIL: float = 0.0
 
@@ -303,8 +327,15 @@ def _curl_post_json(url: str, payload: Any, timeout: float,
 
 
 def _get_elevation(lat: float, lng: float) -> Optional[float]:
-    """Fetch elevation (m) for a point via Open-Meteo (free, no key).
-    Cached on disk in /tmp (ephemeral on HF Spaces — acceptable)."""
+    """Fetch elevation (m) for a point — local SRTM model first, then Open-Meteo.
+
+    Local-first strategy (100% offline on HF Spaces when model is bundled):
+      1. Check in-memory/disk cache for previously computed elevation.
+      2. Try LOCAL SRTM .npy model (if LOCAL_ELEVATION_ENABLED, default true).
+      3. Fall back to Open-Meteo elevation API (free, no key) if local fails.
+
+    Cached on disk in /tmp (ephemeral on HF Spaces — acceptable).
+    """
     cache: Dict[str, float] = {}
     try:
         if os.path.exists(ELEV_CACHE_PATH):
@@ -315,6 +346,16 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
     key = f"{round(lat, 6)},{round(lng, 6)}"
     if key in cache:
         return cache[key]
+
+    # --- Local elevation lookup (priority) ---
+    if _get_elevation_local_enabled:
+        local_elev = _get_elevation_local(lat, lng)
+        if local_elev is not None:
+            cache[key] = local_elev
+            _save_elevation_cache(cache)
+            return local_elev
+
+    # --- Open-Meteo elevation API (fallback — free, no key) ---
     url = f"{OM_ELEV_BASE}?latitude={lat}&longitude={lng}"
     data = _curl_get_json(url, timeout=6)
     elev = None
@@ -325,12 +366,96 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
             elev = None
     if elev is not None:
         cache[key] = elev
-        try:
-            with open(ELEV_CACHE_PATH, "w") as f:
-                json.dump(cache, f)
-        except Exception:
-            pass  # ephemeral fs, not critical
+        _save_elevation_cache(cache)
     return elev
+
+
+def _save_elevation_cache(cache: Dict[str, float]) -> None:
+    """Persist the elevation cache to disk (best-effort)."""
+    try:
+        with open(ELEV_CACHE_PATH, "w") as f:
+            json.dump(cache, f)
+    except Exception:
+        pass  # ephemeral fs, not critical
+
+
+def _load_local_elevation() -> bool:
+    """Lazy-load the local SRTM elevation .npy array (singleton).
+
+    Grid covers VN bounding box (8°N–23.5°N, 102°E–109.5°E) at 30m resolution.
+    Array shape: (1500, 1400) float32 = ~8.4MB RAM. Lazy-loaded once; never
+    reloaded (singleton). Graceful: returns False + sets _local_elev_load_failed
+    so the caller can fall through to the Open-Meteo API fallback.
+    """
+    global _local_elev_array, _local_elev_loaded, _local_elev_load_failed
+    if _local_elev_loaded:
+        return _local_elev_array is not None
+    if _local_elev_load_failed:
+        return False
+    try:
+        import numpy as np
+        if not os.path.exists(LOCAL_ELEVATION_MODEL_PATH):
+            print(f"[Climate] Local elevation model not found at {LOCAL_ELEVATION_MODEL_PATH} — "
+                  f"will fall back to Open-Meteo API")
+            _local_elev_load_failed = True
+            _local_elev_loaded = True
+            return False
+        print(f"[Climate] Loading local SRTM elevation model from {LOCAL_ELEVATION_MODEL_PATH} ...")
+        _local_elev_array = np.load(LOCAL_ELEVATION_MODEL_PATH)
+        _local_elev_loaded = True
+        print(f"[Climate] Local elevation model loaded OK (shape={_local_elev_array.shape}, "
+              f"~{_local_elev_array.nbytes / 1e6:.1f}MB RAM)")
+        return True
+    except Exception as e:
+        print(f"[Climate] Local elevation model FAILED to load: {type(e).__name__}: {e}")
+        _local_elev_load_failed = True
+        _local_elev_loaded = True
+        return False
+
+
+def _get_elevation_local(lat: float, lng: float) -> Optional[float]:
+    """Look up elevation (m) for a point from the LOCAL SRTM .npy array.
+
+    Converts (lat, lng) → grid pixel index using the VN bounding box.
+    Uses bilinear interpolation between the 4 nearest cells for sub-meter
+    accuracy at 30m resolution.
+    Returns None if the point is outside the VN bounding box or model not loaded.
+    """
+    if not _load_local_elevation() or _local_elev_array is None:
+        return None
+    # Skip if outside VN bounding box
+    if not (VN_SOUTH <= lat <= VN_NORTH and VN_WEST <= lng <= VN_EAST):
+        return None
+    # Convert (lat, lng) to grid indices
+    row = (lat - VN_SOUTH) / _ELEV_LAT_STEP
+    col = (lng - VN_WEST) / _ELEV_LON_STEP
+    r0, c0 = int(row), int(col)
+    # Boundary check
+    if r0 < 0 or r0 + 1 >= _ELEV_NROWS or c0 < 0 or c0 + 1 >= _ELEV_NCOLS:
+        return None
+    # Bilinear interpolation
+    fr, fc = row - r0, col - c0
+    try:
+        e00 = float(_local_elev_array[r0, c0])
+        e01 = float(_local_elev_array[r0, c0 + 1])
+        e10 = float(_local_elev_array[r0 + 1, c0])
+        e11 = float(_local_elev_array[r0 + 1, c0 + 1])
+        # Handle NODATA (SRTM uses -32768 for missing)
+        vals = [e00, e01, e10, e11]
+        valid = [v for v in vals if v != -32768.0]
+        if not valid:
+            return None
+        # Bilinear interpolation with NODATA protection
+        if all(v != -32768.0 for v in vals):
+            elev = (e00 * (1 - fr) * (1 - fc) +
+                    e01 * (1 - fr) * fc +
+                    e10 * fr * (1 - fc) +
+                    e11 * fr * fc)
+        else:
+            elev = sum(valid) / len(valid)  # nearest valid average
+        return elev if elev is not None else None
+    except (IndexError, ValueError, TypeError):
+        return None
 
 
 def _get_weather(lat: float, lng: float) -> Optional[Dict[str, Any]]:
