@@ -119,10 +119,11 @@ RUN wget -O /data/vietnam.osm.pbf \
 # Build routing profiles for car (matches the frontend "driving-car" profile).
 # osrm-backend ships its car.lua profile at /usr/share/osrm/profiles/car.lua.
 ENV OSRM_PROFILE=car
-# Extract → Partition → Customize (Contraction Hierarchies — fastest queries)
+# Extract → Contract (Contraction Hierarchies — fastest queries, matches
+# supervisord's --algorithm=ch). partition/customize is the MLD workflow
+# and is intentionally NOT used here to avoid a CH/MLD data-format mismatch.
 RUN osrm-extract -p /usr/share/osrm/profiles/car.lua /data/vietnam.osm.pbf
-RUN osrm-partition /data/vietnam.osm.pbf
-RUN osrm-customize /data/vietnam.osm.pbf
+RUN osrm-contract /data/vietnam.osm.pbf
 # Final prepared file: /data/vietnam.osm.pbf + .osrm + .cells + .mldPartition etc.
 
 # === Stage 4: Runtime — combines all 3 services ===
