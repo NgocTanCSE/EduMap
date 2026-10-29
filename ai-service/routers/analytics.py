@@ -435,8 +435,10 @@ def _holt_linear_forecast(years: List[int], values: List[float],
 @router.post("/daily-insight")
 async def get_daily_insight(request_data: DashboardInsightRequest):
     from services.llm_service import llm_service
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY.")
+    # On HF Spaces free plan (no API keys), generate_daily_insight itself
+    # handles the is_ready=False case via _daily_insight_fallback — so we
+    # never return 503 from the router. The method always produces a valid
+    # insight dict.
     try:
         insight = await llm_service.generate_daily_insight(request_data.dashboard_data or {})
         return insight

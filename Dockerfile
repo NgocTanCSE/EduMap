@@ -54,7 +54,8 @@ COPY ai-service/requirements.txt ./
 # Torch deps (filelock, sympy, etc.) are installed by requirements.txt's
 # transformers dependency. Swap is non-fatal (Docker build can't swapon).
 # See: https://pytorch.org/get-started/locally/
-ENV PIP_NUM_THREADS=1  # Reduces pip memory by limiting parallel downloads
+# Reduces pip memory by limiting parallel downloads
+ENV PIP_NUM_THREADS=1
 RUN ( \
     (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
     chmod 600 /swapfile && \

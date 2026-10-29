@@ -439,6 +439,7 @@ class LLMService:
         self.adzuna_country = os.getenv("ADZUNA_COUNTRY", "us")
         self.has_adzuna = bool(self.adzuna_app_id) and bool(self.adzuna_app_key)
         self.sqlite_path = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
+        self._resolved_db_path = None
         if self.has_adzuna:
             print(f"INFO: Adzuna API configured (country={self.adzuna_country}). LLM-independent market trends enabled.")
         else:
@@ -2482,34 +2483,144 @@ Trả về **mảng JSON** sau:
             "_reason": f"AI unavailable -- template fallback ({err[:140]})",
         }
 
+    def _resolve_db_path(self) -> Optional[str]:
+        """Resolve the SQLite DB path across environments.
+
+        Tries the configured ``self.sqlite_path`` first (HF Spaces), then
+        common local-dev relative paths, so fallback methods work both on
+        HF Spaces and under ``pytest`` run from ``ai-service/``.
+        """
+        if self._resolved_db_path is not None:
+            return self._resolved_db_path
+        candidates = [self.sqlite_path]
+        # Local dev relative to the ai-service directory
+        _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        candidates.append(os.path.join(_repo_root, "frontend", "public", "edumap.db"))
+        candidates.append(os.path.join(os.path.dirname(_repo_root), "frontend", "public", "edumap.db"))
+        candidates.append("../frontend/public/edumap.db")
+        candidates.append("/app/frontend/public/edumap.db")
+        for p in candidates:
+            if p and os.path.exists(p):
+                self._resolved_db_path = p
+                return p
+        self._resolved_db_path = None
+        return None
+
     def _recommend_career_fallback(self, data: "CareerAnalysisRequest", err: str = "") -> list:
-        """Template-based career recommendations when all LLM providers are down."""
-        skill = ""
+        """SQLite-based career recommendations (no LLM needed).
+
+        Queries the real ``career_paths`` table from SQLite and matches the
+        user's skills against each career's ``skills_required`` via keyword
+        overlap. Returns up to 3 best matches with computed scores + radar
+        charts — the same shape as the LLM response, just computed locally.
+
+        On HF Spaces free plan (no API keys) this is the primary path, not a
+        degraded fallback.
+        """
+        # Extract user skills from the request
+        user_skills_raw = []
         if hasattr(data, "skills") and data.skills:
-            skill = str(data.skills)[:200]
-        reason = f"AI unavailable -- template fallback ({err[:140]})"
-        return [
-            {
-                "title": "AI Engineer / Machine Learning Engineer",
-                "match_score": 85,
-                "explanation": f"Dựa trên hồ sơ kỹ năng ({skill[:80]}), vai trò này có nhu cầu cao trên thị trường.",
-                "missing_skills": ["Python", "Machine Learning", "Statistics"],
-                "demand_level": "Cao",
-                "radar_chart": {"Technical": 85, "Soft Skills": 75, "Problem Solving": 80, "Language": 70, "Creativity": 82},
+            user_skills_raw = data.skills if isinstance(data.skills, list) else [str(data.skills)]
+        elif hasattr(data, "recent_keywords") and data.recent_keywords:
+            user_skills_raw = data.recent_keywords if isinstance(data.recent_keywords, list) else [str(data.recent_keywords)]
+        if not user_skills_raw and hasattr(data, "career_aspirations") and data.career_aspirations:
+            user_skills_raw = data.career_aspirations if isinstance(data.career_aspirations, list) else [str(data.career_aspirations)]
+        user_skills_lower = [str(s).lower().strip() for s in user_skills_raw if s]
+
+        # Query real career paths from SQLite
+        rows = []
+        db_path = self._resolve_db_path()
+        if db_path:
+            try:
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT title, field, description, skills_required, "
+                    "salary_range, demand_level FROM career_paths "
+                    "WHERE deleted_at IS NULL LIMIT 50"
+                )
+                rows = [dict(r) for r in cur.fetchall()]
+                conn.close()
+            except Exception:
+                rows = []
+
+        if not rows:
+            return [
+                {
+                    "title": "Chưa có dữ liệu ngành nghề",
+                    "match_score": 0,
+                    "explanation": "Hệ thống đang ở chế độ ngoại tuyến và chưa có dữ liệu ngành nghề trong SQLite. "
+                                   "Vui lòng cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết.",
+                    "missing_skills": [],
+                    "demand_level": "Chưa rảnh",
+                    "radar_chart": {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0, "Language": 0, "Creativity": 0},
+                    "_degraded": True,
+                    "_reason": "Empty SQLite career_paths table",
+                }
+            ]
+
+        # Match user skills against each career's required skills
+        scored = []
+        for row in rows:
+            req_skills_raw = []
+            try:
+                req_skills_raw = json.loads(row.get("skills_required", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                req_skills_raw = str(row.get("skills_required", "")).split(",")
+            req_skills_lower = [str(s).lower().strip() for s in req_skills_raw if s]
+
+            matched = [s for s in req_skills_lower if any(
+                us in s or s in us for us in user_skills_lower
+            )]
+            match_ratio = len(matched) / max(len(req_skills_lower), 1)
+            match_score = int(70 + match_ratio * 30)
+
+            missing = [s for s in req_skills_lower if not any(
+                us in s or s in us for us in user_skills_lower
+            )]
+
+            # Build radar chart from keyword categorisation
+            radar = {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0,
+                     "Language": 0, "Creativity": 0}
+            tech_kw = ["lập trình", "python", "sql", "git", "cấu trúc dữ liệu", "pytorch", "tensorflow",
+                       "mlops", "plc", "scada", "robotics", "excel", "power bi", "tableau",
+                       "phần mềm kế toán", "google ads", "seo", "content", "thiết kế"]
+            soft_kw = ["giao tiếp", "sư phạm", "quản lý", "tuyển dụng", "phân tích dữ liệu"]
+            ps_kw = ["toán học", "thống kê", "giải quyết vấn đề", "machine learning", "ai"]
+            lang_kw = ["tiếng anh", "tiếng anh kỹ thuật", "ngoại ngữ"]
+            creat_kw = ["thiết kế", "sáng tạo", "content", "marketing", "đổi mới"]
+
+            for s in req_skills_lower:
+                for kw in tech_kw:
+                    if kw in s: radar["Technical"] += 20
+                for kw in soft_kw:
+                    if kw in s: radar["Soft Skills"] += 20
+                for kw in ps_kw:
+                    if kw in s: radar["Problem Solving"] += 20
+                for kw in lang_kw:
+                    if kw in s: radar["Language"] += 20
+                for kw in creat_kw:
+                    if kw in s: radar["Creativity"] += 20
+            for k in radar:
+                radar[k] = min(radar[k], 100)
+
+            demand_map = {"cao": "Cao", "rất cao": "Rất Cao", "trung bình": "Trung bình"}
+            scored.append({
+                "title": row.get("title", "Không tên"),
+                "match_score": match_score,
+                "explanation": f"Ngành '{row.get('field', '')}': {row.get('description', '')[:200]}. "
+                               f"Kỹ năng khớp: {len(matched)}/{len(req_skills_lower)}.",
+                "missing_skills": missing[:5] if missing else [],
+                "demand_level": demand_map.get(row.get("demand_level", "").lower(), row.get("demand_level", "Chưa rảnh")),
+                "salary_range": row.get("salary_range", ""),
+                "radar_chart": radar,
                 "_degraded": True,
-                "_reason": reason,
-            },
-            {
-                "title": "Fullstack Developer",
-                "match_score": 78,
-                "explanation": "Lĩnh vực phát triển web fullstack luôn có nhu cầu ổn định và cơ hội phát triển.",
-                "missing_skills": ["TypeScript", "React", "Node.js"],
-                "demand_level": "Cao",
-                "radar_chart": {"Technical": 78, "Soft Skills": 70, "Problem Solving": 75, "Language": 65, "Creativity": 72},
-                "_degraded": True,
-                "_reason": reason,
-            },
-        ]
+                "_reason": f"SQLite keyword match ({err[:100]})" if err else "SQLite fallback (offline)",
+            })
+
+        scored.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+        return scored[:3]
 
     def _summarize_material_fallback(self, data: "MaterialSummaryRequest", err: str = "") -> dict:
         """Template-based material summary when all LLM providers are down."""
@@ -2526,9 +2637,92 @@ Trả về **mảng JSON** sau:
         }
 
     def _match_mentors_fallback(self, data: "MatchRequest", err: str = "") -> list:
-        """Return an empty list when all LLM providers are down — the caller
-        can surface a message telling the user to try again later."""
-        return []
+        """SQLite-based mentor matching when all LLM providers are down.
+
+        Queries the real ``mentors`` table and matches by specialties keyword
+        overlap. AGENTS.md §6 notes mentors may be intentionally empty — in
+        that case we return a helpful empty-state message (never fabricated
+        mentors).
+        """
+        import sqlite3
+
+        # Extract desired skills/specialties from request
+        desired = []
+        if hasattr(data, "specialties") and data.specialties:
+            desired = data.specialties if isinstance(data.specialties, list) else [str(data.specialties)]
+        elif hasattr(data, "skills") and data.skills:
+            desired = data.skills if isinstance(data.skills, list) else [str(data.skills)]
+        desired_lower = [str(s).lower().strip() for s in desired if s]
+
+        rows = []
+        db_path = self._resolve_db_path()
+        if db_path:
+            try:
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT user_id, specialties, experience_years, rating_avg, "
+                    "total_sessions, is_verified, location FROM mentors "
+                    "WHERE deleted_at IS NULL LIMIT 50"
+                )
+                rows = [dict(r) for r in cur.fetchall()]
+                conn.close()
+            except Exception:
+                rows = []
+
+        if not rows:
+            return [{
+                "user_id": "empty",
+                "name": "Chưa có mentor phù hợp",
+                "match_score": 0,
+                "explanation": "Hiện chưa có mentor nào trong hệ thống phù hợp với yêu cầu của bạn. "
+                               "Hãy quay lại sau hoặc điều chỉnh từ khóa tìm kiếm.",
+                "specialties": [],
+                "rating": 0,
+                "is_verified": False,
+                "_degraded": True,
+            }]
+
+        scored = []
+        for row in rows:
+            specs_raw = row.get("specialties") or ""
+            try:
+                specs = json.loads(specs_raw) if isinstance(specs_raw, str) else (specs_raw or [])
+            except (json.JSONDecodeError, TypeError):
+                specs = str(specs_raw).split(",") if specs_raw else []
+            specs_lower = [str(s).lower().strip() for s in specs if s]
+
+            matched = [s for s in specs_lower if any(
+                d in s or s in d for d in desired_lower
+            )]
+            match_ratio = len(matched) / max(len(specs_lower), 1)
+            score = int(60 + match_ratio * 40)
+            if row.get("is_verified"):
+                score += 10
+            score = min(score, 100)
+
+            try:
+                exp = int(row.get("experience_years") or 0)
+            except (TypeError, ValueError):
+                exp = 0
+            score += min(exp * 2, 20)
+            score = min(score, 100)
+
+            scored.append({
+                "user_id": str(row.get("user_id", "")),
+                "name": f"Mentor #{str(row.get('user_id', ''))[-6:]}",
+                "match_score": score,
+                "explanation": f"Chuyên môn: {', '.join(specs_lower[:5])}. "
+                               f"Kinh nghiệm: {exp} năm. Đánh giá: {row.get('rating_avg', 0)}/5.",
+                "specialties": specs_lower[:5],
+                "rating": row.get("rating_avg", 0) or 0,
+                "is_verified": bool(row.get("is_verified", 0)),
+                "_degraded": True,
+            })
+
+        scored.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+        return scored[:5]
 
     def _geo_analysis_fallback(self, data: "GeoDensityAnalysisRequest", hubs: list, err: str = "") -> dict:
         """Template-based geo analysis when all LLM providers are down.
@@ -2656,11 +2850,12 @@ Trả về **mảng JSON** sau:
             if not opportunities:
                 return self._empty_match_response(profile)
 
+            # When no LLM provider is configured (HF Spaces free plan), skip
+            # the LLM batch scoring and go straight to the keyword-based
+            # fallback — the backend has already pre-filtered opportunities
+            # from SQLite, so the keyword match operates on real data.
             if not self.is_ready:
-                raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID "
-                    "hoặc GEMINI_API_KEY."
-                )
+                return self._opportunity_match_fallback(profile, opportunities, "No LLM provider")
 
             # Batch to respect the timeout budget — 8 ops per LLM call.
             BATCH = 8

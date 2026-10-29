@@ -42,25 +42,46 @@ def _get_llm_service():
 # ── Fallback (no LLM needed) ────────────────────────────────────────────
 
 def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
-    """Template-based route explanation when all LLM providers are down."""
+    """Data-driven route explanation using real safety scores (no LLM needed).
+
+    Extracts and compares the actual safety metrics (flood risk, traffic risk,
+    distance, duration) from each route alternative and produces a structured
+    Vietnamese explanation of why the top-ranked route is safest.
+    """
     routes = data.routes or []
     best = routes[0] if routes else None
 
     if best:
         best_str = (
-            f"• Lộ trình {best.safetyScore}/100 — "
-            f"{best.distance / 1000:.1f} km, "
-            f"{best.duration / 60:.0f} phút. "
+            f"Lộ trình đề xuật (xếp hạng 1) — {best.safetyScore}/100, "
+            f"{best.distance / 1000:.1f} km, {best.duration / 60:.0f} phút. "
             f"Rủi ro ngập: {best.safetyFactors.floodRisk}%, "
-            f"rủi ro tắc nghẽn: {best.safetyFactors.trafficRisk}%."
+            f"rủi ro tắc nghẽn: {best.safetyFactors.trafficRisk}%. "
+            f"{best.explanation or ''}"
         )
     else:
         best_str = "Không có lộ trình khả dụng."
 
+    # Find the safest and shortest routes for comparison
+    if len(routes) > 1:
+        sorted_by_flood = sorted(routes, key=lambda r: r.safetyFactors.floodRisk)
+        sorted_by_dist = sorted(routes, key=lambda r: r.distance)
+        lowest_flood = sorted_by_flood[0]
+        shortest = sorted_by_dist[0]
+        comparison = (
+            f"Trong {len(routes)} tuyến: tuyến #{routes.index(lowest_flood)} có rủi ro ngập thấp nhất "
+            f"({lowest_flood.safetyFactors.floodRisk}%), "
+            f"tuyến #{routes.index(shortest)} ngắn nhất ({shortest.distance / 1000:.1f} km). "
+            f"Tuyến #{routes.index(best)} được chọn vì cân bằng an toàn và thời gian."
+        )
+    else:
+        comparison = "Chỉ có một lộ trình khả dụng."
+
     explanation = (
-        "Không thể sử dụng AI để giải thích lộ trình. "
-        "Dưỡng tóm tắt dựa trên điểm số an toàn tĩnh:\n"
-        + best_str
+        f"Dựa trên phân tích an toàn thời gian thực (chế độ offline):\n"
+        f"{best_str}\n\n{comparison}\n\n"
+        f"Lưu ý: Đây là phân tích dựa trên điểm số an toàn SQLite. "
+        f"Để nhận giải thích chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY."
     )
 
     route_reasons = []
@@ -73,16 +94,21 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
                 f"rủi ro giao thông {r.safetyFactors.trafficRisk}%. "
                 f"Quãng đường {r.distance / 1000:.1f} km, "
                 f"Thời gian {r.duration / 60:.0f} phút. "
-                f"Lý do: {r.explanation or ''}"
+                f"{r.explanation or ''}"
             ),
+            "safety_score": r.safetyScore,
+            "flood_risk_pct": r.safetyFactors.floodRisk,
+            "traffic_risk_pct": r.safetyFactors.trafficRisk,
+            "distance_km": round(r.distance / 1000, 1),
+            "duration_minutes": round(r.duration / 60),
         })
 
     return {
         "explanation": explanation,
         "route_reasons": route_reasons,
         "degraded": True,
-        "reason": f"AI unavailable -- template fallback ({err[:140]})",
-        "source": "template",
+        "reason": f"Offline data-driven (no LLM) — {err[:140]}",
+        "source": "data_driven",
     }
 
 
