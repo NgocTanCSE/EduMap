@@ -312,10 +312,12 @@ class TestAgentLoop:
         assert len(result["reply"]) > 0
 
     def test_degraded_reply_is_helpful(self, map_agent, db_path):
-        """The degraded reply should tell the user the service is unavailable."""
+        """The degraded reply should indicate the service is offline and offer
+        SQLite-based results instead of just saying 'service not ready'."""
         from services.llm_service import llm_service
         with patch.object(llm_service, 'is_ready', False):
-            result = map_agent.run_agent_loop("Xin chào", [])
+            result = map_agent.run_agent_loop("Tìm trường học ở Biên Hòa", [])
         assert result["degraded"] is True
-        assert "chưa sẵn sàng" in result["reply"].lower() or "unavailable" in result["reply"].lower() \
-            or "chưa" in result["reply"] or "không thể" in result["reply"].lower()
+        # The degraded reply should mention the offline mode (not a raw 502/503).
+        assert "offline" in result["reply"].lower() or "sqlite" in result["reply"].lower() \
+            or "chưa sẵn sàng" in result["reply"].lower() or "không thể" in result["reply"].lower()

@@ -606,130 +606,10 @@ class MapAgent:
         Returns ``{"reply": str, "tools_used": [...], "sources": [...]}``.
         If the LLM is unavailable, returns a degraded reply.
         """
-        if not llm_service or not llm_service.is_ready:
-            return {
-                "reply": "Xin chào! Hiện tại dịch vụ AI chưa sẵn sàng. "
-                         "Vui lòng cấu hình XKIRO_API_KEY (primary) hoặc "
-                         "NVIDIA_API_KEY, GEMINI_API_KEY, CLOUDFLARE_API_TOKEN, HF_TOKEN.",
-                "tools_used": [],
-                "sources": [],
-                "degraded": True,
-            }
-
-        system_prompt = self._system_prompt()
-        messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": system_prompt},
-        ]
-        # Recent history (last 6 turns)
-        for msg in (history or [])[-6:]:
-            messages.append({
-                "role": msg.get("role", "user"),
-                "content": str(msg.get("content", "")),
-            })
-        messages.append({"role": "user", "content": question})
-
-        tools = self.TOOLS
-        tools_used: List[Dict[str, Any]] = []
-
-        for _round in range(self.MAX_TOOL_ROUNDS):
-            # ── Step 1: ask LLM (with tools) ────────────────────────────────
-            try:
-                resp = llm_service._xkiro_chat_with_tools(
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                    temperature=0.3,
-                    max_tokens=2048,
-                )
-            except Exception as e:
-                # Fallback: plan-then-execute via non-tool LLM call
-                return self._fallback_plan_execute(question, history, tools_used)
-
-            choice = resp.get("choices", [{}])[0]
-            msg: Dict[str, Any] = choice.get("message", {})
-
-            # ── Step 1a: if the model wants to call tools ───────────────────
-            tool_calls = msg.get("tool_calls", [])
-            if tool_calls:
-                # Add the assistant message (with tool_calls) to history
-                messages.append({
-                    "role": "assistant",
-                    "content": msg.get("content") or "",
-                    "tool_calls": tool_calls,
-                })
-
-                # Execute tools in parallel (they're independent reads)
-                for tc in tool_calls:
-                    fn_name = tc.get("function", {}).get("name", "")
-                    fn_args_raw = tc.get("function", {}).get("arguments", "{}")
-                    try:
-                        fn_args = json.loads(fn_args_raw) if isinstance(fn_args_raw, str) else fn_args_raw
-                    except (json.JSONDecodeError, TypeError):
-                        fn_args = {}
-
-                    tool_fn = self._tool_map.get(fn_name)
-                    if tool_fn is None:
-                        tools_used.append({"tool": fn_name, "error": f"Tool '{fn_name}' không tồn tại."})
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.get("id", ""),
-                            "name": fn_name,
-                            "content": json.dumps({"error": f"Tool '{fn_name}' không tồn tại."}),
-                        })
-                        continue
-
-                    try:
-                        result = tool_fn(**fn_args)
-                    except Exception as ex:
-                        result = {"error": f"Tool '{fn_name}' thất bại: {type(ex).__name__}: {ex}"}
-
-                    # Serialise result for LLM (truncate large outputs)
-                    result_str = json.dumps(result, ensure_ascii=False, default=str)
-                    if len(result_str) > 4000:
-                        result_str = result_str[:4000] + "... (truncated)"
-
-                    tools_used.append({
-                        "tool": fn_name,
-                        "arguments": fn_args,
-                        "result_preview": result_str[:300],
-                    })
-
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "name": fn_name,
-                        "content": result_str,
-                    })
-
-                # Continue loop — the model will see tool results and decide again
-                continue
-
-            # ── Step 1b: no tool_calls → final natural-language answer ───────
-            final_reply = msg.get("content", "")
-            if final_reply:
-                final_reply = final_reply.strip()
-            else:
-                final_reply = "Không có phản hồi từ AI."
-
-            # Extract sources from tool results
-            sources = self._extract_sources(tools_used)
-
-            return {
-                "reply": final_reply,
-                "tools_used": tools_used,
-                "sources": sources,
-                "degraded": False,
-            }
-
-        # If we exhausted MAX_TOOL_ROUNDS without a final reply, force a summary
-        if tools_used:
-            return self._fallback_plan_execute(question, history, tools_used)
-        return {
-            "reply": "Tôi đã thử nhmas không thể hoàn thành yêu cầu. Vui lòng thử lại với câu hỏi cụ thể hơn.",
-            "tools_used": tools_used,
-            "sources": [],
-            "degraded": True,
-        }
+        # XKIRO tool calling was removed from the provider chain (see
+        # AGENTS.md §3). Always use plan-then-execute via
+        # _generate_text_with_fallback (Cloudflare → Gemini → template).
+        return self._fallback_plan_execute(question, history, [])
 
     # ─────────────────────────────────────────────────────────────────────────
     # Fallback: plan-then-execute (Gemini / non-tool-calling LLM)
@@ -747,13 +627,12 @@ class MapAgent:
         plan of tool calls. We parse it, execute the tools, then prompt the LLM
         again to summarise the results.
         """
+        # When no LLM provider is configured (HF Spaces free plan), use
+        # keyword-based planning to run SQLite queries directly and produce a
+        # template summary — so the agent still answers geo/data questions
+        # from real Vietnamese data instead of just saying "service not ready".
         if not llm_service or not llm_service.is_ready:
-            return {
-                "reply": "Dịch vụ AI chưa sẵn sàng.",
-                "tools_used": tools_used,
-                "sources": [],
-                "degraded": True,
-            }
+            return self._keyword_plan_execute(question, history, tools_used)
 
         # Step 1: ask LLM to plan tool calls in JSON
         plan_prompt = f"""
@@ -842,6 +721,127 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                 "sources": [],
                 "degraded": True,
             }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Keyword-based plan (no LLM provider — HF Spaces free plan)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _keyword_plan_execute(
+        self,
+        question: str,
+        history: Optional[List[Dict[str, str]]],
+        tools_used: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Plan-and-execute using regex/keyword heuristics when no LLM is configured.
+
+        Detects common Vietnamese geo/education query patterns and runs
+        SQLite queries directly. Always returns a valid reply (never 502/503).
+        """
+        q_lower = question.lower().strip()
+
+        # Pattern: "tìm <type> ở/gần <place>" or "có <type> nào ở <place>"
+        # → query map_points filtered by type + city/district keyword.
+        _type_keywords = {
+            "trường": [1, 2],       # university, school
+            "trường đại học": [1],
+            "trường trung học": [2],
+            "thư viện": [3],
+            "phòng lab": [5],
+            "lab": [5],
+            "wifi": [6],
+            "khu xanh": [7],
+            "quán cà phê": [8],
+            "nhà sách": [4],
+        }
+
+        # Try to identify a location filter from the question
+        city_keywords = ["biên hòa", "đồng nai", "tp.hcm", "tp hồ chí minh",
+                         "hà nội", "đà nẵng", "cần thơ", "hải phòng",
+                         "biên giới", "thị trấn", "thành phố"]
+        matched_city = None
+        for kw in city_keywords:
+            if kw in q_lower:
+                matched_city = kw.replace(".", " ")  # normalise
+                break
+
+        # Try to identify an education type
+        matched_types: List[int] = []
+        for kw, type_ids in _type_keywords.items():
+            if kw in q_lower:
+                matched_types.extend(type_ids)
+        matched_types = list(set(matched_types))
+
+        # Build and execute the SQLite query (inline values — query_sqlite
+        # does not accept params; SQL-injection is already blocked by the
+        # blocklist + allowlist + read-only mode in query_sqlite itself).
+        sql = "SELECT name, type_id, address, city, district, rating_avg, " \
+              "json_extract(location, '$.coordinates[1]') AS lat, " \
+              "json_extract(location, '$.coordinates[0]') AS lng " \
+              "FROM map_points WHERE location IS NOT NULL AND deleted_at IS NULL"
+
+        conditions = []
+        if matched_types:
+            type_placeholders = ",".join(str(t) for t in matched_types)
+            conditions.append(f"type_id IN ({type_placeholders})")
+        if matched_city:
+            # Inline the LIKE value (safe due to query_sqlite's blocklist).
+            safe_city = matched_city.replace("'", "''")
+            conditions.append(f"city LIKE '%{safe_city}%'")
+        elif "biên hòa" in q_lower or "đồng nai" in q_lower:
+            conditions.append("city LIKE '%Biên Hòa%'")
+
+        if conditions:
+            sql += " AND " + " AND ".join(conditions)
+
+        sql += " LIMIT 20"
+
+        try:
+            results = self.query_sqlite(sql)
+        except Exception as e:
+            results = [{"error": f"Lỗi truy vấn: {e}"}]
+
+        tools_used.append({
+            "tool": "query_sqlite", "arguments": {"sql": sql},
+            "result_preview": json.dumps(results[:3], ensure_ascii=False)[:300] if results else "",
+        })
+
+        sources = self._extract_sources(tools_used)
+
+        # Template summary (no LLM needed)
+        if results and not any("error" in r for r in results):
+            # Build a readable template reply
+            type_names = {1: "Đại học", 2: "Trường", 3: "Thư viện", 4: "Nhà sách",
+                          5: "Lab", 6: "Wifi", 7: "Khu xanh", 8: "Quán cà phê"}
+            parts = [f"Dựa trên dữ liệu hệ thống EduMap, tôi tìm thấy {len(results)} kết quả cho câu hỏi của bạn:"]
+            for r in results[:10]:
+                tname = type_names.get(r.get("type_id"), "Cơ sở")
+                name = r.get("name", "Không tên")
+                addr = r.get("address", "")
+                city = r.get("city", "")
+                rating = r.get("rating_avg", 0)
+                parts.append(f"  • **{name}** ({tname}) — {addr}, {city}. Đánh giá: {rating}/5")
+            parts.append("")
+            parts.append("_Lưu ý: Đây là kết quả từ dữ liệu SQLite (chế độ offline). "
+                         "Để nhận tư vấn chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY._")
+            reply = "\n".join(parts)
+        elif results:
+            reply = f"[Chế độ offline] Tìm thấy lỗi khi truy vấn SQLite: {results[0].get('error', 'Không xác định')}. " \
+                    f"Vui lòng thử câu hỏi cụ thế hơn (ví dụ: 'Tìm trường ở Biên Hòa')."
+        else:
+            if matched_city:
+                reply = f"Tôi không tìm thấy kết quả nào khớp với '{matched_city}' trong bảng dữ liệu. " \
+                        f"Hãy thử câu hỏi khác hoặc kiểm tra chính tả."
+            else:
+                reply = "Tôi hiểu bạn đang hỏi về giáo dục. Để được hỗ trợ chính xác, " \
+                        "vui lòng cho biết thêm địa điểm (ví dụ: 'Tìm trường ở Biên Hòa, Đồng Nai'). " \
+                        "Tôi sẽ tìm kiếm trong cơ sở dữ liệu SQLite của EduMap."
+
+        return {
+            "reply": reply,
+            "tools_used": tools_used,
+            "sources": sources,
+            "degraded": True,
+        }
 
     # ─────────────────────────────────────────────────────────────────────────
     # Helpers

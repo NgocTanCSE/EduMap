@@ -1037,8 +1037,10 @@ class LLMService:
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY (fallback).")
+        # On HF Spaces free plan (no API keys), is_ready is False.
+        # Don't raise — let the provider cascade below be empty ([None, None])
+        # which skips straight to _chat_fallback_reply. The cache check below
+        # still runs so cached degraded responses are served fast.
 
         # Kiểm tra Cache
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()

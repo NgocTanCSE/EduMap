@@ -175,3 +175,76 @@ async def measure_impact(request_data: ImpactMeasureRequest):
             f"Tính toán đo lường tác động thất bại: {e}",
             bbox,
         )
+
+
+@router.get("/metrics", response_model=Dict[str, Any])
+async def get_impact_metrics(
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius_km: float = 15.0,
+    min_lat: Optional[float] = None,
+    max_lat: Optional[float] = None,
+    min_lng: Optional[float] = None,
+    max_lng: Optional[float] = None,
+    deployment_date: Optional[str] = None,
+    region: Optional[str] = None,
+    facility_types: Optional[str] = None,
+):
+    """GET /api/ai/impact/metrics → lightweight impact metrics summary.
+
+    Same bbox resolution as POST /measure but returns a compact metrics dict
+    (population, before/after access rates, impact score, coverage improvement)
+    without the full narrative/trend. Falls back to the same degraded report
+    shape when the DB or computation is unavailable.
+    """
+    # Build a lightweight request object for the service.
+    class _Req:
+        pass
+    req = _Req()
+    req.lat = lat
+    req.lng = lng
+    req.radius_km = radius_km or 15.0
+    req.min_lat = min_lat
+    req.max_lat = max_lat
+    req.min_lng = min_lng
+    req.max_lng = max_lng
+    req.deployment_date = deployment_date
+    req.region = region or "Biên Hòa, Đồng Nai"
+    req.facility_types = facility_types.split(",") if facility_types else None
+
+    cache_key = (
+        f"impact_metrics:{lat or ''}:{lng or ''}:{min_lat or ''}:{max_lat or ''}:"
+        f"{min_lng or ''}:{max_lng or ''}:{radius_km}:"
+        f"{deployment_date or ''}:{region or ''}:{facility_types or ''}"
+    )
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        cached = dict(cached)
+        cached["metadata"] = {**cached.get("metadata", {}), "cached": True}
+        logger.info("impact metrics cache hit: %s", cache_key)
+        return cached
+
+    try:
+        from services.impact_measure import impact_measure
+        result = await asyncio.to_thread(impact_measure.measure, req)
+        _cache_set(cache_key, result)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error in impact/metrics: %s", e)
+        # Reuse _empty_degraded_report for a valid-shaped fallback.
+        if min_lat is not None and max_lat is not None and min_lng is not None and max_lng is not None:
+            mn_lat, mx_lat = min(min_lat, max_lat), max(min_lat, max_lat)
+            mn_lng, mx_lng = min(min_lng, max_lng), max(min_lng, max_lng)
+            bbox = [round(mn_lat, 5), round(mx_lat, 5), round(mn_lng, 5), round(mx_lng, 5)]
+        elif lat is not None and lng is not None:
+            mn_lat, mx_lat, mn_lng, mx_lng = _default_bbox(lat, lng, radius_km)
+            bbox = [round(mn_lat, 5), round(mx_lat, 5), round(mn_lng, 5), round(mx_lng, 5)]
+        else:
+            bbox = [10.75, 11.20, 106.60, 107.20]
+        return _empty_degraded_report(
+            region or "Biên Hòa, Đồng Nai",
+            f"Tính toán metrics thất bại: {e}",
+            bbox,
+        )

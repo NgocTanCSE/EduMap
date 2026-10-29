@@ -54,9 +54,15 @@ async def check_scholarship_eligibility(data: ScholarshipCheckRequest):
     scholarship_data = data.scholarship_data or {}
     transcript_data = data.transcript_data or {}
 
-    # Chỉ trả về kết quả THẬT từ AI — bỏ thông báo "xin chúc mừng" mẫu
+    # Chỉ trả về kết quả THẬT từ AI — nếu chưa có provider, trả về degraded 200
+    # thay vì 503 (per AGENTS.md "never 502s/503s" graceful-degradation policy).
     if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY.")
+        return {
+            "is_eligible": False,
+            "message": "Hiện dịch vụ AI chưa sẵn sàng để đánh giá tự động. "
+                       "Vui lòng kiểm tra điều kiện học bổng và liên hệ phòng tư vấn.",
+            "degraded": True,
+        }
 
     try:
         gpa_info = ""

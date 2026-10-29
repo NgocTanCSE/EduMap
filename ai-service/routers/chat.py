@@ -17,9 +17,8 @@ router = APIRouter(prefix="/api/ai/chat", tags=["1. AI RAG Chat"])
 @router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    # Chỉ trả về trả lời THẬT từ AI — bỏ lời nhắn "bảo trì" mẫu
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY.")
+    # On HF Spaces free plan, providers may be absent — let chat_with_rag
+    # handle the degraded fallback internally instead of returning 503.
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 
@@ -85,9 +84,6 @@ async def chat_stream_endpoint(request: ChatRequest):
     (stream=True) qua curl --ipv4 --insecure, thay thế approach cũ
     (gửi toàn bộ response rồi split thành từng từ với delay 50ms).
     """
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng.")
-
     async def generate_stream():
         try:
             history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
@@ -132,8 +128,6 @@ async def chat_stream_endpoint(request: ChatRequest):
 @router.post("/stream-simple")
 async def chat_stream_simple_endpoint(request: ChatRequest):
     """Chat RAG streaming đơn giản — trả về chunks."""
-    if not llm_service or not llm_service.is_ready:
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng.")
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 
