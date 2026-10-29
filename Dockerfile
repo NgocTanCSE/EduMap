@@ -150,6 +150,11 @@ RUN wget -O /data/vietnam.osm.pbf \
 
 FROM osrm/osrm-backend:v5.25.0 AS osrm-builder
 WORKDIR /data
+# Force sequential build: BuildKit runs independent stages in parallel.
+# osrm-extract (2–4GB RAM) + ai-deps pip install (~1–2GB RAM) running
+# simultaneously exceed HF Spaces' ~4GB Docker build RAM → OOMKilled 137.
+# This COPY creates a build-graph edge: osrm-builder waits for ai-deps.
+COPY --from=ai-deps /app/requirements.txt /tmp/ai-deps-complete
 # Copy pre-downloaded OSM data from the downloader stage (no wget in this image)
 COPY --from=osm-downloader /data/vietnam.osm.pbf /data/vietnam.osm.pbf
 # Profile: /opt/car.lua (confirmed from Docker Hub README usage examples)
