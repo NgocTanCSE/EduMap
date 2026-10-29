@@ -6,7 +6,7 @@ import subprocess
 import urllib.request
 import urllib.error
 import urllib.parse
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # ChromaDB's PostHog telemetry is incompatible with newer posthog releases and
 # logs a noisy "capture() takes 1 positional argument but 3 were given" error

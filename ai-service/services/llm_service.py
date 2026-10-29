@@ -12,7 +12,7 @@ import urllib.error
 import urllib.parse
 import contextlib
 from dotenv import load_dotenv
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 
 try:
     import requests
