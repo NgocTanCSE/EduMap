@@ -118,7 +118,7 @@ export class GeoVisionService {
     this.aiServiceUrl =
       process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
     this.bingKey = process.env.BING_MAPS_API_KEY || undefined;
-    this.geoVisionModel = process.env.GEO_VISION_MODEL || 'facebook/owlv2-base-c';
+    this.geoVisionModel = process.env.GEO_VISION_MODEL || 'google/owlv2-base-patch16-ensemble';
   }
 
   // ── T1: fetch + stitch tiles ──────────────────────────────────────────────
@@ -272,7 +272,7 @@ export class GeoVisionService {
 
   /**
    * POST to the AI service's /api/ai/geo/vision-detect endpoint.
-   * The AI service calls the HF Inference API (facebook/owlv2) via curl.
+   * The AI service calls the HF Inference API (google/owlv2) via curl.
    */
   async sendToVisionModel(
     imageBase64: string,

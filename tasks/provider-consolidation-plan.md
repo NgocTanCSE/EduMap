@@ -14,7 +14,7 @@ exchange, knowledge graph, question gaps, language bridge, career, mentor, etc.
 - XKIRO là provider **duy nhất hỗ trợ streaming** (SSE). Khi bỏ XKIRO, streaming
   sẽ fallback về non-streaming + word-by-word simulation. Cloudflare Workers AI
   **cũng hỗ trợ streaming** (qua `stream: true` trong request body) → cần implement.
-- **GeoVision (vision detection)** dùng HF Inference API (`facebook/owlv2-base-c`)
+- **GeoVision (vision detection)** dùng HF Inference API (`google/owlv2-base-c`)
   — đây là zero-shot object detection, KHÔNG phải text generation/embedding.
   **Giữ nguyên** vì Cloudflare/Gemini chưa có model vision tương đương được cấu hình.
 - **STT (speech.py)** — XKIRO đã không hoạt động (XKIRO_STT_MODEL rỗng).

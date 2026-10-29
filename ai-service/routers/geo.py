@@ -11,7 +11,7 @@ from models.geo_models import GeoDensityAnalysisRequest, VisionDetectRequest
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
 
 # ── GeoVision AI (Idea #10) — HF Inference API config ──────────────────────
-GEO_VISION_MODEL = os.getenv("GEO_VISION_MODEL", "facebook/owlv2-base-c")
+GEO_VISION_MODEL = os.getenv("GEO_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
 HF_TOKEN = (os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or "").strip().strip('"').strip("'")
 HF_ROUTER_URL = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
 # Circuit breaker: skip HF vision inference for 5 min after auth/network failure
@@ -25,16 +25,16 @@ GEO_VISION_DEFAULT_LABELS = [
 # ── Local vision fallback (Idea #10) ────────────────────────────────────────
 # When HF_TOKEN is absent (common on HF Spaces free plan without secrets),
 # GeoVision AI falls back to a LOCAL zero-shot object detection model loaded
-# into RAM. We use facebook/owlv2-tiny (~120MB RAM) — smallest OV model that
-# still detects buildings/schools. This guarantees vision detection works
-# with ZERO API keys as per AGENTS.md §3 "never 502s" rule.
+# into RAM. We use google/owlv2-base-patch16-ensemble (~440MB) — public OWLv2
+# ensemble model. This guarantees vision detection works with ZERO API keys
+# as per AGENTS.md §3 "never 502s" rule.
 #
 # Env-tunable:
-#   LOCAL_VISION_MODEL       — default facebook/owlv2-tiny-vvit/od (smallest)
+#   LOCAL_VISION_MODEL       — default google/owlv2-base-patch16-ensemble
 #   LOCAL_VISION_ENABLED     — default true (auto-enable when HF_TOKEN absent)
 #   LOCAL_VISION_THRESHOLD   — default 0.25 (lower = more detections, more noise)
 #   LOCAL_VISION_IMAGE_MAX   — default 1024 (square max px, keeps CPU inference <15s)
-LOCAL_VISION_MODEL = os.getenv("LOCAL_VISION_MODEL", "facebook/owlv2-tiny")
+LOCAL_VISION_MODEL = os.getenv("LOCAL_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
 LOCAL_VISION_ENABLED = os.getenv("LOCAL_VISION_ENABLED", "true").lower() not in ("0", "false", "no", "off")
 LOCAL_VISION_THRESHOLD = float(os.getenv("LOCAL_VISION_THRESHOLD", "0.25"))
 LOCAL_VISION_IMAGE_MAX = int(os.getenv("LOCAL_VISION_IMAGE_MAX", "1024"))
@@ -56,7 +56,7 @@ def _strip_data_uri(b64: str) -> str:
 
 
 def _load_local_vision_model():
-    """Lazy-load the local zero-shot object detection model (owlv2-tiny).
+    """Lazy-load the local zero-shot object detection model (google/owlv2-base-patch16-ensemble).
 
     Runs on CPU via torch (no GPU needed). Singleton — loads once and caches.
     Uses getattr for resilience if partially-constructed in tests.
@@ -165,7 +165,7 @@ def _local_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
     except Exception as e:
         print(f"[GeoVision] Local detection error: {type(e).__name__}: {e}")
         return []
-    """Call HF Inference API (facebook/owlv2) via curl — IPv4 + --insecure
+    """Call HF Inference API (google/owlv2) via curl — IPv4 + --insecure
     for HF Spaces compatibility (same pattern as vector_store.py embeddings).
 
     Returns: [{score, label, box:{xmin,ymin,xmax,ymax}}, ...]
@@ -412,7 +412,7 @@ async def vision_detect(request: VisionDetectRequest):
     GeoVision AI (Idea #10) — POST /api/ai/geo/vision-detect
 
     Sends a base64-encoded satellite/map image to the HF Inference API
-    (facebook/owlv2 — zero-shot object detection) and returns detection
+    (google/owlv2 — zero-shot object detection) and returns detection
     results: [{score, label, box:{xmin,ymin,xmax,ymax}}].
 
     Uses curl --ipv4 --insecure for HF Spaces IPv6/TLS compatibility

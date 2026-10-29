@@ -82,7 +82,7 @@ RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/de
     echo "[elevation-builder] SRTM .npy created (or zero-padded placeholder)"
 
 # === Stage 3d: Pre-download local AI models (vision — GeoVision #10) ===
-# Pre-downloads the owlv2-tiny vision model into HF cache directory so it
+# Pre-downloads the google/owlv2-base-patch16-ensemble vision model into HF cache directory so it
 # does NOT need to be re-downloaded from HF Hub on every cold start.
 # Uses the same python:3.11 image as ai-deps to reuse transformers/torch.
 #
@@ -93,7 +93,7 @@ RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/de
 FROM python:3.11-slim AS vision-model-dl
 WORKDIR /data
 # Install transformers + torch to cache model weights for ALL local models:
-#   - owlv2-tiny (~120MB)  — GeoVision local vision fallback
+#   - google/owlv2-base-patch16-ensemble (~440MB)  — GeoVision local vision fallback
 #   - Gemma 2B IT (~850MB) — general text generation (replacing Cloudflare/Gemini)
 #   - TinyLlama 1.1B (~630MB) — Edge AI Tutor (/offline-tutor)
 # Using 4-bit quantization at runtime; build stage downloads FP16 weights which
@@ -322,8 +322,11 @@ ENV ANONYMIZED_TELEMETRY=False
 # huggingface.co/models/{GEO_VISION_MODEL} — zero-shot object detection.
 # Runs on HF's Inference API (router.huggingface.co), NOT bundled in Docker.
 # curl uses --ipv4 --insecure for HF Spaces IPv6/TLS compatibility.
-ENV GEO_VISION_MODEL=facebook/owlv2-base-c
+ENV GEO_VISION_MODEL=google/owlv2-base-patch16-ensemble
 ENV GEO_VISION_TIMEOUT_SECONDS=25
+# ── Local vision model (GeoVision fallback when HF_TOKEN absent) ─────────────
+ENV LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble
+ENV LOCAL_VISION_ENABLED=true
 # Bing Maps tiles (optional aerial source). Empty = OSM tiles used.
 ENV BING_MAPS_API_KEY=""
 # Embedding time budget: total chain + per-provider cap. Together these keep

@@ -272,7 +272,7 @@ export function GeoVisionPanel({
             <Info className="w-3.5 h-3.5" />
             <span>Thông tin</span>
           </div>
-          <div>• Model: facebook/owlv2-base-c (zero-shot trên HF Inference)</div>
+          <div>• Model: google/owlv2-base-patch16-ensemble (zero-shot trên HF Inference)</div>
           <div>• Lưới tile: ≤ 8×8 = 64 ô (max 2048×2048 px tại z=18)</div>
           <div>• Cache ảnh: 24h</div>
           <div>• Phát hiện trong 80m của POI → "đã biết", còn lại → "mới"</div>

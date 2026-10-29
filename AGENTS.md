@@ -261,7 +261,7 @@ text-generation and embedding providers. On HF Spaces, Cloudflare TLS is
 blackholed so Gemini is the effective primary.)
 
 The Local SentenceTransformer fallback (`intfloat/multilingual-e5-small`,
-~270MB / ~300MB RAM, 768-dim, Vietnamese support) is lazy-loaded on the
+~270MB / ~600MB RAM, 768-dim, Vietnamese support) is lazy-loaded on the
 first embedding request and acts as the **guaranteed offline backup** when
 both Cloudflare and Gemini are unreachable — RAG semantic search works with
 ZERO API keys on the HF free plan. A local `cross-encoder/ms-marco-MiniLM-L6-v2`
@@ -274,17 +274,17 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 
 **GeoVision AI (Idea #10 — unlisted school/educational-facility detection):**
 
-- **Primary**: `GEO_VISION_MODEL` (default `facebook/owlv2-base-c`): zero-shot object
+- **Primary**: `GEO_VISION_MODEL` (default `google/owlv2-base-patch16-ensemble`): zero-shot object
   detection model on HF Inference API. NOT bundled in Docker — runs on HF's servers.
   Requires `HF_TOKEN`.
 - **Local fallback** (NEW, 2026-10-29): when `HF_TOKEN` is absent, falls back to
-  `facebook/owlv2-tiny` (~120MB model, ~200-300MB RAM) — zero-shot object detection
+  `google/owlv2-base-patch16-ensemble` (~440MB model, ~400-600MB RAM) — zero-shot object detection
   that runs on CPU via `transformers` + `torch` (already in requirements). Lazy-loaded
   on first call (~3-8s inference on 2-vCPU HF Spaces). Env-tunable:
-  `LOCAL_VISION_MODEL` (default `facebook/owlv2-tiny`),
+  `LOCAL_VISION_MODEL` (default `google/owlv2-base-patch16-ensemble`),
   `LOCAL_VISION_ENABLED` (default true), `LOCAL_VISION_THRESHOLD` (default 0.25),
   `LOCAL_VISION_IMAGE_MAX` (default 1024px).
-- **Fallback chain**: HF Inference API (`HF_TOKEN` set) → local `owlv2-tiny` (no key) →
+- **Fallback chain**: HF Inference API (`HF_TOKEN` set) → local `owlv2-base-patch16-ensemble` (no key) →
   `degraded=true` + empty detections (never 502s).
 - Tile sources for the stitched image:
   - `osm` (default) — OSM standard tiles via `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
@@ -409,7 +409,7 @@ Rules that must be preserved:
   network failure. `curl --ipv4 --insecure` is used for all API calls (HF
   Spaces IPv6/TLS quirk).
 - **Local embedding fallback**: `intfloat/multilingual-e5-small` (~270MB,
-  ~300MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
+  ~600MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
   Lazy-loaded on first fallback, acts as the **guaranteed offline backup** when
   Cloudflare + Gemini are both unreachable. Env-tunable:
   `LOCAL_EMBEDDING_MODEL` (default `intfloat/multilingual-e5-small`),
@@ -421,7 +421,7 @@ Rules that must be preserved:
 - **Local embedding cache**: `_embed_cache_max` expanded 128 → 1024 (env:
   `EMBED_CACHE_MAX`). With 1024 entries × 768 dims × 4 bytes ≈ 3MB RAM —
   negligible cost. TTL remains 30 min (`EMBED_CACHE_TTL_SECONDS`).
-- **Local vision fallback** (NEW): `facebook/owlv2-tiny` (~120MB, ~200-300MB RAM)
+- **Local vision fallback** (NEW): `google/owlv2-base-patch16-ensemble` (~440MB, ~400-600MB RAM)
   zero-shot object detection for GeoVision AI. Env-tunable:
   `LOCAL_VISION_MODEL`, `LOCAL_VISION_ENABLED` (default true),
   `LOCAL_VISION_THRESHOLD` (default 0.25), `LOCAL_VISION_IMAGE_MAX` (1024px).
@@ -481,8 +481,8 @@ HF_TOKEN=<token> ./deploy-hf.sh
   - `LOCAL_LLM_TEMPERATURE=0.3`, `LOCAL_LLM_MAX_TOKENS=512`
   - `TINYLLAMA_ENABLED=true` — TinyLlama 1.1B 4-bit (Edge AI Tutor only)
   - `TINYLLAMA_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v1.0`
-  - `LOCAL_VISION_ENABLED=true` — owlv2-tiny vision (GeoVision fallback)
-  - `LOCAL_VISION_MODEL=facebook/owlv2-tiny`
+  - `LOCAL_VISION_ENABLED=true` — owlv2-base-patch16-ensemble vision (GeoVision fallback)
+  - `LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble`
   - `LOCAL_VISION_THRESHOLD=0.25`, `LOCAL_VISION_IMAGE_MAX=1024`
   - `LOCAL_EMBEDDING_ENABLED=true` (default false if unset — see AGENTS §3)
   - `LOCAL_EMBEDDING_MODEL=intfloat/multilingual-e5-small`
@@ -529,9 +529,9 @@ so the app works with **ZERO API keys** set.
 |-----------|-------|-------------|-----|-------------|
 | Text generation | Gemma 2B IT (4-bit NF4) | ~850MB | ~1.5GB | `LOCAL_LLM_ENABLED=false` |
 | Edge AI Tutor | TinyLlama 1.1B (4-bit NF4) | ~630MB | ~1.5GB | `TINYLLAMA_ENABLED=false` |
-| Embeddings | intfloat/multilingual-e5-small | ~270MB | ~300MB | `LOCAL_EMBEDDING_DISABLED=true` |
+| Embeddings | intfloat/multilingual-e5-small | ~270MB | ~600MB | `LOCAL_EMBEDDING_DISABLED=true` |
 | Reranker | cross-encoder/ms-marco-MiniLM-L6-v2 | ~80MB | ~100MB | `LOCAL_RERANKER_ENABLED=false` |
-| Vision (GeoVision) | facebook/owlv2-tiny | ~120MB | ~300MB | `LOCAL_VISION_ENABLED=false` |
+| Vision (GeoVision) | google/owlv2-base-patch16-ensemble | ~440MB | ~600MB | `LOCAL_VISION_ENABLED=false` |
 | Elevation | SRTM 30m VN tile (.npy) | ~8.4MB | ~8.4MB | `LOCAL_ELEVATION_ENABLED=false` |
 | Routing | OSRM CH graph (OSM-VN) | ~500-800MB | ~256MB | N/A (always local) |
 
@@ -563,7 +563,7 @@ to avoid RAM spikes. All models also lazy-load on first request.
   - OSRM Vietnam graph: ~500-800MB
   - Gemma 2B IT (FP16 for convert): ~850MB
   - TinyLlama 1.1B: ~630MB
-  - owlv2-tiny: ~120MB
+  - owlv2-tiny: ~440MB
   - multilingual-e5-small + ms-marco-MiniLM-L6-v2: ~350MB
   - SRTM elevation .npy: ~8.4MB
   - Code + SQLite DB: ~150MB

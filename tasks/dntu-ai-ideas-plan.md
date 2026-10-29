@@ -729,7 +729,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
   - **Verify**: curl test, tile fetched OK
 
 - [ ] **Task 2**: AI service `POST /api/ai/geo/vision-detect`
-  - Gửi image tới HF Inference API (facebook/owlv2 or custom)
+  - Gửi image tới HF Inference API (google/owlv2 or custom)
   - Parse detections → GeoJSON points
   - Filter: confidence > 0.7, class = "school"/"building"
   - **Verify**: test với 3 sample images
