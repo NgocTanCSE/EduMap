@@ -304,6 +304,16 @@ COPY --from=osrm-builder /osrm-libs /tmp/osrm-libs
 # Ensures we have all needed .so files even if some aren't in Debian 12 apt.
 RUN mkdir -p /usr/local/osrm-lib && \
     cp /tmp/osrm-libs/* /usr/local/osrm-lib/ 2>/dev/null || true; \
+    # CRITICAL: Remove system-provided libc libraries to prevent GLIBC conflict.
+    # osrm/osrm-backend:v5.25.0 ships its own libc.so.6 (from its base image,
+    # possibly older glibc or musl). If copied to ld.so.conf.d, the dynamic
+    # linker loads /usr/local/osrm-lib/libc.so.6 instead of Debian 12's
+    # glibc 2.36 → "GLIBC_2.33 not found" → /bin/sh crashes → container exits.
+    # System glibc 2.36 satisfies all GLIBC_2.33/2.34 requirements.
+    rm -f /usr/local/osrm-lib/libc.so.6 /usr/local/osrm-lib/libm.so.6 \
+        /usr/local/osrm-lib/libpthread.so.0 /usr/local/osrm-lib/libdl.so.2 \
+        /usr/local/osrm-lib/librt.so.1 /usr/local/osrm-lib/ld-linux-*.so* \
+        /usr/local/osrm-lib/libc-*.so 2>/dev/null; \
     rm -rf /tmp/osrm-libs; \
     echo "/usr/local/osrm-lib" > /etc/ld.so.conf.d/99-osrm-lib.conf && \
     ldconfig
