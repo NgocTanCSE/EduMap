@@ -11,9 +11,9 @@
 FROM node:20-slim AS frontend-builder
 WORKDIR /app
 COPY frontend/package*.json ./
-# --no-audit/--no-fund skips metadata download; --jobs limits parallel extraction
+# --no-audit/--no-fund skips metadata download; --jobs=1 serializes extraction (4 jobs = 8GB V8 heap cap on HF free tier)
 ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=4
+RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=1
 COPY frontend/ ./
 # Remove .env.local — its values (BACKEND_URL=http://backend:3000) get baked
 # into next.config.js rewrites at build time. Instead use Docker ENV below.
@@ -30,7 +30,7 @@ FROM node:20-slim AS frontend-deps
 WORKDIR /app
 COPY frontend/package*.json ./
 ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund --jobs=4
+RUN npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund --jobs=1
 
 # === Stage 2: Build Backend (needs native modules, keep full deps) ===
 FROM node:20-slim AS backend-builder
@@ -39,7 +39,7 @@ RUN apt-get update -qq && apt-get install -y -qq python3 make g++ gcc && rm -rf 
 ARG CACHEBUST
 COPY backend/package*.json ./
 ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=4
+RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=1
 COPY backend/ ./
 # Safety net: remove stale files that might persist from old HF Space uploads.
 # (hf upload doesn't sync deletions; .dockerignore also excludes these, but
