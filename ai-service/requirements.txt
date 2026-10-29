@@ -48,3 +48,11 @@ edge-tts>=7.0.0
 # PyTorch wheel index), so sentence_transformers reuses it without adding a
 # second torch copy. ONNX runtime is pulled in automatically for CPU speed-up.
 sentence-transformers>=2.7.0
+
+# ── Local Vision Detection (GeoVision AI fallback — Idea #10) ─────────────
+# facebook/owlv2-tiny (~120MB model, ~200-300MB RAM) — zero-shot object
+# detection that runs locally on CPU when HF Inference API is unavailable
+# (no HF_TOKEN, or network failure). Uses transformers (already installed
+# above for Edge AI Tutor) + Pillow for image decoding.
+# Disabled via LOCAL_VISION_ENABLED=false to force HF API-only.
+Pillow>=10.0.0

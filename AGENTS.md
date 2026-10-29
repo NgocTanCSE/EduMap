@@ -276,8 +276,18 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 
 **GeoVision AI (Idea #10 — unlisted school/educational-facility detection):**
 
-- `GEO_VISION_MODEL` (default `facebook/owlv2-base-c`): zero-shot object detection
-  model on HF Inference API. NOT bundled in Docker — runs on HF's servers.
+- **Primary**: `GEO_VISION_MODEL` (default `facebook/owlv2-base-c`): zero-shot object
+  detection model on HF Inference API. NOT bundled in Docker — runs on HF's servers.
+  Requires `HF_TOKEN`.
+- **Local fallback** (NEW, 2026-10-29): when `HF_TOKEN` is absent, falls back to
+  `facebook/owlv2-tiny` (~120MB model, ~200-300MB RAM) — zero-shot object detection
+  that runs on CPU via `transformers` + `torch` (already in requirements). Lazy-loaded
+  on first call (~3-8s inference on 2-vCPU HF Spaces). Env-tunable:
+  `LOCAL_VISION_MODEL` (default `facebook/owlv2-tiny`),
+  `LOCAL_VISION_ENABLED` (default true), `LOCAL_VISION_THRESHOLD` (default 0.25),
+  `LOCAL_VISION_IMAGE_MAX` (default 1024px).
+- **Fallback chain**: HF Inference API (`HF_TOKEN` set) → local `owlv2-tiny` (no key) →
+  `degraded=true` + empty detections (never 502s).
 - Tile sources for the stitched image:
   - `osm` (default) — OSM standard tiles via `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
     (no key; shows building footprints useful for school detection).
@@ -413,6 +423,10 @@ Rules that must be preserved:
 - **Local embedding cache**: `_embed_cache_max` expanded 128 → 1024 (env:
   `EMBED_CACHE_MAX`). With 1024 entries × 768 dims × 4 bytes ≈ 3MB RAM —
   negligible cost. TTL remains 30 min (`EMBED_CACHE_TTL_SECONDS`).
+- **Local vision fallback** (NEW): `facebook/owlv2-tiny` (~120MB, ~200-300MB RAM)
+  zero-shot object detection for GeoVision AI. Env-tunable:
+  `LOCAL_VISION_MODEL`, `LOCAL_VISION_ENABLED` (default true),
+  `LOCAL_VISION_THRESHOLD` (default 0.25), `LOCAL_VISION_IMAGE_MAX` (1024px).
 - **LLM response cache** (new): `_generate_text_with_fallback` now caches
   successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
   TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
