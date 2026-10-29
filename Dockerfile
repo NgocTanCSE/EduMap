@@ -158,7 +158,7 @@ RUN wget -O /data/vietnam.osm.pbf \
 # Keeps: motorway/trunk/primary/secondary/tertiary/unclassified/residential
 #        + link roads + traffic_signals + barrier nodes (for routing correctness)
 RUN osmium tags-filter /data/vietnam.osm.pbf \
-    'w/highway=motorway;trunk;primary;secondary;tertiary;unclassified;residential;primary_link;secondary_link;tertiary_link;trunk_link;give_way;stop;mini_roundabout;traffic_signals' \
+    'w/highway=motorway,trunk,primary,secondary,tertiary,unclassified,residential,primary_link,secondary_link,tertiary_link,trunk_link,traffic_signals,mini_roundabout' \
     'n/barrier' \
     -o /data/vietnam-filtered.osm.pbf && \
     mv /data/vietnam-filtered.osm.pbf /data/vietnam.osm.pbf && \
