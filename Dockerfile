@@ -147,11 +147,22 @@ FROM debian:bookworm-slim AS osm-downloader
 WORKDIR /data
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends wget ca-certificates && \
+    apt-get install -y -qq --no-install-recommends wget ca-certificates osmium-tool && \
     rm -rf /var/lib/apt/lists/*
-ARG OSM_CACHEBUST=20261029
+ARG OSM_CACHEBUST=20261030
 RUN wget -O /data/vietnam.osm.pbf \
     https://download.geofabrik.de/asia/vietnam-latest.osm.pbf
+# Filter OSM data to major road types only — removes service/path/footway/
+# cycleway/track/steps (~30% of edges) to reduce osrm-extract's edge-expanded
+# graph memory from ~5GB to ~3GB (fits in HF Spaces' 4GB build RAM).
+# Keeps: motorway/trunk/primary/secondary/tertiary/unclassified/residential
+#        + link roads + traffic_signals + barrier nodes (for routing correctness)
+RUN osmium tags-filter /data/vietnam.osm.pbf \
+    'w/highway=motorway;trunk;primary;secondary;tertiary;unclassified;residential;primary_link;secondary_link;tertiary_link;trunk_link;give_way;stop;mini_roundabout;traffic_signals' \
+    'n/barrier' \
+    -o /data/vietnam-filtered.osm.pbf && \
+    mv /data/vietnam-filtered.osm.pbf /data/vietnam.osm.pbf && \
+    echo "[osm-downloader] Filtered to major roads — ready for osrm-extract"
 
 FROM osrm/osrm-backend:v5.25.0 AS osrm-builder
 WORKDIR /data

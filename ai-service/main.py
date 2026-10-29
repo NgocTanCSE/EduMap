@@ -236,8 +236,12 @@ async def get_trends():
 
 @app.post("/api/ai/predict")
 async def predict_user(data: dict):
-    if not llm_service or not getattr(llm_service, "is_ready", False):
-        raise HTTPException(status_code=503, detail="AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY (fallback).")
+    """Career prediction endpoint (legacy alias — frontend uses career/recommend).
+
+    Removed the hard 503 gate so the method's own fallback handles the
+    ``is_ready=False`` case. ``generate_career_advice`` already degrades to
+    a SQLite-backed keyword-based response (never 502/503).
+    """
     try:
         return {"status": "success", "recommendation": await llm_service.generate_career_advice(data)}
     except Exception as e:

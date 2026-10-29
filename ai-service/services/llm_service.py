@@ -1429,9 +1429,123 @@ class LLMService:
         res = await self.chat_with_rag(message, history, context)
         return res.get("reply")
 
+    def _career_advice_fallback(self, user_info: dict, err: str = "") -> str:
+        """SQLite-based career advice when all LLM providers are down.
+
+        Reads real Vietnamese career_paths from the SQLite DB and matches
+        by keyword overlap against the user's skills/interest. Never
+        fabricates careers or organizations — returns honest empty-state
+        text when the DB is empty or unreachable.
+
+        AGENTS.md §6 data policy: only real Vietnamese data from
+        ``scripts/real_vn_data.py``.
+        """
+        import sqlite3
+
+        skills_raw = user_info.get("skills", "")
+        if isinstance(skills_raw, str):
+            skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
+        elif isinstance(skills_raw, list):
+            skills = [str(s).strip() for s in skills_raw if s]
+        else:
+            skills = []
+
+        interests_raw = user_info.get("interests", [])
+        if isinstance(interests_raw, str):
+            interests = [s.strip() for s in interests_raw.split(",") if s.strip()]
+        elif isinstance(interests_raw, list):
+            interests = [str(s).strip() for s in interests_raw if s]
+        else:
+            interests = []
+
+        user_terms_lower = [str(s).lower().strip() for s in skills + interests if s]
+
+        db_path = self._resolve_db_path()
+        rows = []
+        if db_path:
+            try:
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=8)
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT title, field, description, skills_required, "
+                    "salary_range, demand_level FROM career_paths LIMIT 50"
+                )
+                rows = [dict(r) for r in cur.fetchall()]
+                conn.close()
+            except Exception:
+                rows = []
+
+        if not rows:
+            return (
+                f"Thông tin kỹ năng: {skills_raw}.\n"
+                f"Hệ thống đang ở chế độ ngoại tuyến (SQLite trống hoặc không có API key)."
+                f" Để nhận tư vấn chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN"
+                f" hoặc GEMINI_API_KEY. Lỗi: {err[:140]}"
+            )
+
+        # Keyword-matching: rank career paths by skill/interest overlap
+        scored = []
+        for row in rows:
+            db_skills = []
+            skills_field = row.get("skills_required")
+            if skills_field:
+                import json as _json
+                try:
+                    parsed = _json.loads(skills_field)
+                    if isinstance(parsed, list):
+                        db_skills = [str(s).lower().strip() for s in parsed]
+                except Exception:
+                    db_skills = [str(skills_field).lower().strip()]
+
+            db_text = " ".join(db_skills + [
+                str(row.get("title", "")),
+                str(row.get("field", "")),
+                str(row.get("description", "")),
+            ]).lower()
+
+            overlap = sum(1 for term in user_terms_lower if term and term in db_text)
+            scored.append((row, overlap))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top = scored[:3]
+
+        lines = [
+            f"Lộ trình học tập (chế độ offline — SQLite careers match) dựa trên kỹ năng: {skills_raw or 'chưa cung cấp'}:",
+            "",
+        ]
+        for row, score in top:
+            salary = row.get("salary_range") or "Liên hệ nhà tuyển dụng"
+            demand = row.get("demand_level") or "Chưa rảnh"
+            lines.append(
+                f"• {row.get('title', 'Không tên')}"
+                f" | Lĩnh vực: {row.get('field', 'N/A')}"
+                f" | Mức lương: {salary}"
+                f" | Nhu cầu: {demand}"
+                f" | Điểm khớp: {score}/{max(len(user_terms_lower), 1)}"
+            )
+            desc = (row.get("description") or "").strip()
+            if desc:
+                lines.append(f"  Mô tả: {desc[:200]}")
+            lines.append("")
+
+        lines.append(
+            "Lưu ý: Đây là gợi ý từ SQLite dựa trên từ khóa. Để nhận Tư vấn AI chi "
+            "tiết (Roadmap JSON, kỹ năng chi tiết, chiến lược phỏng vấn), hãy "
+            "cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc GEMINI_API_KEY."
+        )
+        return "\n".join(lines)
+
     async def generate_career_advice(self, user_info: dict):
-        """Generate AI career advice. Falls back to a template response when all providers are down."""
-        prompt = f"Tư vấn lộ trình học tập dựa trên kỹ năng: {user_info.get('skills')}"
+        """Generate AI career advice.
+
+        Primary:  LLM cascade (Cloudflare Workers AI → Gemini) when configured.
+        Fallback: SQLite ``career_paths`` keyword matching against the user's
+        skills — returns real Vietnamese career data with salary ranges and
+        demand levels. This is a genuine data-driven recommendation, not a
+        hardcoded template. AGENTS.md §6 data policy applies (real orgs only).
+        """
+        prompt = f"Tư vấn lộ trình học tập dựa trên kỳ năng: {user_info.get('skills')}"
         try:
             if not self.is_ready:
                 raise RuntimeError("AI Service chưa sẵn sàng.")
@@ -1439,10 +1553,7 @@ class LLMService:
             return response
         except Exception as e:
             print(f"Error in generate_career_advice: {e}")
-            return f"Thông tin kỹ năng: {user_info.get('skills', '')}. " \
-                    f"Để nhận tư vấn chi tiết từ AI, vui lòng cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID " \
-                    f"hoặc GEMINI_API_KEY. " \
-                    f"Lỗi: {str(e)[:140]}"
+            return self._career_advice_fallback(user_info, str(e))
 
     async def analyze_market_trends(self, market_data: list):
         """Phân tích xu hướng thị trường việc làm — LUÔN trả về kết quả thành công.
