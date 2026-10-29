@@ -50,9 +50,14 @@ WORKDIR /app
 COPY ai-service/requirements.txt ./
 # Install torch from CPU-only index first (avoids pulling CUDA runtime wheels
 # which would add ~2GB to the image — wasteful on HF Spaces free tier).
+# 2GB swap handles pip install memory pressure (exit 137 / OOMKilled otherwise).
 # See: https://pytorch.org/get-started/locally/
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir -r requirements.txt
+RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048) && \
+    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt && \
+    swapoff /swapfile && rm -f /swapfile && \
+    echo "[ai-deps] torch + requirements installed with swap"
 
 # === Stage 3c: Local elevation model (SRTM 30m for Vietnam — Climate Guardian #11) ===
 # (downloads SRTM, converts to .npy — see above for full comment)
@@ -76,6 +81,11 @@ RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/de
 # Pre-downloads the owlv2-tiny vision model into HF cache directory so it
 # does NOT need to be re-downloaded from HF Hub on every cold start.
 # Uses the same python:3.11 image as ai-deps to reuse transformers/torch.
+#
+# CRITICAL FIX for OOMKilled (exit 137):
+#   from_pretrained() loads the full model into RAM (Gemma 2B = ~4GB → OOM).
+#   snapshot_download() only fetches files to HF cache (~200MB RAM).
+#   2GB swap covers pip install torch step (~800MB wheel).
 FROM python:3.11-slim AS vision-model-dl
 WORKDIR /data
 # Install transformers + torch to cache model weights for ALL local models:
@@ -84,21 +94,23 @@ WORKDIR /data
 #   - TinyLlama 1.1B (~630MB) — Edge AI Tutor (/offline-tutor)
 # Using 4-bit quantization at runtime; build stage downloads FP16 weights which
 # are then re-quantized on first lazy-load.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir transformers Pillow
-RUN python3 -c "from transformers import Owlv2Processor, Owlv2ForObjectDetection; \
-    Owlv2Processor.from_pretrained('facebook/owlv2-tiny'); \
-    Owlv2ForObjectDetection.from_pretrained('facebook/owlv2-tiny')" \
-    && echo "[vision-dl] owlv2-tiny model cached successfully"
-RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
-    AutoTokenizer.from_pretrained('google/gemma-2b-it'); \
-    AutoModelForCausalLM.from_pretrained('google/gemma-2b-it')" \
-    && echo "[llm-dl] Gemma 2B IT model cached successfully"
-RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
-    AutoTokenizer.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0'); \
-    AutoModelForCausalLM.from_pretrained('TinyLlama/TinyLlama-1.1B-Chat-v1.0')" \
-    && echo "[tutor-dl] TinyLlama 1.1B model cached successfully"
-# Copy cache to /data/models for runtime copy
+RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048) && \
+    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir transformers Pillow && \
+    swapoff /swapfile && rm -f /swapfile && \
+    echo "[vision-model-dl] torch + transformers installed"
+# Download model weights WITHOUT loading into Python memory.
+# snapshot_download only fetches files to ~/.cache/huggingface/ — no model
+# instantiation, so RAM usage stays at ~200MB instead of ~4GB.
+RUN python3 -c "
+from huggingface_hub import snapshot_download
+for model_id in ['facebook/owlv2-tiny', 'google/gemma-2b-it', 'TinyLlama/TinyLlama-1.1B-Chat-v1.0']:
+    snapshot_download(model_id)
+    print(f'[vision-dl] {model_id} cached successfully')
+print('[vision-dl] All 3 local models cached')
+" && echo "[vision-dl] all models cached successfully"
+# Copy cache to /data/hf-cache for runtime COPY
 RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || mkdir -p /data/hf-cache
 # Ensure /data/hf-cache always exists (even if empty) so the runtime Stage 4
 # COPY --from=vision-model-dl always has a valid source directory.
@@ -130,7 +142,14 @@ ENV OSRM_PROFILE=car
 # supervisord's --algorithm=ch). partition/customize is the MLD workflow
 # and is intentionally NOT used here to avoid a CH/MLD data-format mismatch.
 RUN osrm-extract -p /opt/car.lua /data/vietnam.osm.pbf
-RUN osrm-contract /data/vietnam.osm.pbf
+# 2GB swap for osrm-contract (CH hierarchy build can use 2-4GB RAM on HF
+# Spaces 2vCPU — without swap this can trigger OOMKilled exit 137).
+# Swap is created+deleted in the same layer so it doesn't bloat final image.
+RUN (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
+    chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && \
+    osrm-contract /data/vietnam.osm.pbf && \
+    swapoff /swapfile && rm -f /swapfile && \
+    echo "[osrm-builder] CH contraction complete"
 # Copy osrm-routed binary (in PATH in the osrm/osrm-backend image)
 RUN mkdir -p /osrm-bin /osrm-libs && cp "$(command -v osrm-routed)" /osrm-bin/
 # Collect osrm-routed's shared library dependencies (recursive ldd).
