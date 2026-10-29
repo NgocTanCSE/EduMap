@@ -103,39 +103,58 @@ RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || mkdir -p /data/hf-c
 # Ensure /data/hf-cache always exists (even if empty) so the runtime Stage 4
 # COPY --from=vision-model-dl always has a valid source directory.
 # Pre-processes Vietnam OSM data into an OSRM routing graph — see below.
-# osrm-backend is available in Debian 12's main repository (no PPA needed).
-FROM node:20-slim AS osrm-builder
+# Uses the official osrm/osrm-backend Docker image which ships pre-compiled
+# osrm-extract, osrm-contract, osrm-routed binaries + car.lua profile at /opt/car.lua.
+# Avoids the OSRM PPA (removed from Launchpad) and apt packages (osrm-backend
+# is NOT in Debian 12/Bookworm — only in Debian sid/unstable).
+FROM osrm/osrm-backend:v5.25.0 AS osrm-builder
 WORKDIR /data
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends \
-      osrm-backend wget ca-certificates \
-      && rm -rf /var/lib/apt/lists/*
+# Ensure wget is available (image is minimal, may not include it)
+RUN apt-get update -qq 2>/dev/null && \
+    apt-get install -y -qq wget ca-certificates 2>/dev/null && \
+    rm -rf /var/lib/apt/lists/* 2>/dev/null || true
 # Download Vietnam extract from Geofabrik (~180 MB). CACHEBUST via ARG
 # forces re-download only when OSM data changes (every ~monthly).
 ARG OSM_CACHEBUST=20261029
 RUN wget -O /data/vietnam.osm.pbf \
     https://download.geofabrik.de/asia/vietnam-latest.osm.pbf
 # Build routing profiles for car (matches the frontend "driving-car" profile).
-# osrm-backend ships its car.lua profile at /usr/share/osrm/profiles/car.lua.
+# The osrm/osrm-backend image ships its car.lua profile at /opt/car.lua
+# (confirmed in the Docker Hub README usage examples).
 ENV OSRM_PROFILE=car
 # Extract → Contract (Contraction Hierarchies — fastest queries, matches
 # supervisord's --algorithm=ch). partition/customize is the MLD workflow
 # and is intentionally NOT used here to avoid a CH/MLD data-format mismatch.
-RUN osrm-extract -p /usr/share/osrm/profiles/car.lua /data/vietnam.osm.pbf
+RUN osrm-extract -p /opt/car.lua /data/vietnam.osm.pbf
 RUN osrm-contract /data/vietnam.osm.pbf
+# Collect osrm-routed binary + ALL shared library dependencies (recursive
+# ldd) so they can be copied to the runtime stage (node:20-slim). The
+# osrm/osrm-backend image is Debian-based but possibly older (e.g. Debian 10
+# vs Debian 12), so we collect every transitive .so dependency.
+# cp -L dereferences symlinks so we copy the actual .so files, not links.
+RUN mkdir -p /osrm-bin /osrm-libs && \
+    cp $(which osrm-routed) /osrm-bin/ && \
+    (ldd $(which osrm-routed) | grep "=>" | awk '{print $3}' | grep '^/' | \
+    while read lib; do \
+        cp -L "$lib" /osrm-libs/ 2>/dev/null; \
+        ldd "$lib" 2>/dev/null | grep "=>" | awk '{print $3}' | grep '^/' | \
+        while read sublib; do cp -L "$sublib" /osrm-libs/ 2>/dev/null; done; \
+    done && \
+    echo "[osrm-builder] collected $(ls /osrm-libs/ | wc -l) shared libs for osrm-routed") || \
+    echo "[osrm-builder] osrm-routed is statically linked — no shared libs needed"
 # Final prepared file: /data/vietnam.osm.pbf + .osrm + .cells + .mldPartition etc.
 
 # === Stage 4: Runtime — combines all 3 services ===
 FROM node:20-slim AS runtime
 WORKDIR /app
 
-# Install system dependencies: python3 (for AI svc), pip, supervisor,
-# osrm-backend (provides osrm-routed + shared libs — no COPY needed since
-# both stages use Debian 12, so library ABIs are compatible).
+# Install system dependencies: python3 (for AI svc), pip, supervisor.
+# osrm-routed binary + shared libraries are COPY'd from the osrm-builder
+# stage (cannot apt-get install osrm-backend — not in Debian 12 Bookworm).
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
-      python3 python3-pip supervisor curl ca-certificates osrm-backend \
+      python3 python3-pip supervisor curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Frontend ---
@@ -197,9 +216,23 @@ RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models \
 
 # Copy pre-processed OSRM graph (built in osrm-builder stage) — survives
 # container restarts since it's baked into the Docker image (unlike /tmp cache).
-# osrm-extract/partition/customize produces multiple files: *.osrm, *.osrm.hsgr,
-# *.osrm.geometry, *.osrm.cells, *.osrm.mld, etc. — copy them all.
+# osrm-extract/osrm-contract produces: *.osrm, *.osrm.hsgr, *.osrm.geometry, etc.
+# Copy them all.
 COPY --from=osrm-builder /data/ /app/osrm-data/
+# Copy osrm-routed binary + shared libraries from osrm-builder stage.
+# Cannot apt-get install osrm-backend (not in Debian 12 Bookworm — only sid).
+COPY --from=osrm-builder /osrm-bin /usr/local/bin/
+COPY --from=osrm-builder /osrm-libs /tmp/osrm-libs
+# Install OSRM shared libraries into a dedicated directory with high
+# ldconfig priority. This avoids conflicts with Debian 12 system libraries
+# while ensuring ABI compatibility with the osrm-routed binary from the
+# osrm/osrm-backend:v5.25.0 image (possibly built on older Debian).
+# cp -L handles the case where /osrm-libs is empty (static binary).
+RUN mkdir -p /usr/local/osrm-lib && \
+    cp /tmp/osrm-libs/* /usr/local/osrm-lib/ 2>/dev/null || true && \
+    rm -rf /tmp/osrm-libs && \
+    echo "/usr/local/osrm-lib" > /etc/ld.so.conf.d/00-osrm-lib.conf && \
+    ldconfig
 # Copy local SRTM elevation model (.npy) for 100% offline Climate Guardian
 COPY --from=elevation-builder /data/srtm_vn.npy /app/ai-service/models/elevation/srtm_vn.npy
 # Copy pre-downloaded vision model cache (avoids HF Hub download on cold start)
