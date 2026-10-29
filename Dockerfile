@@ -80,6 +80,13 @@ RUN ( \
 # Further split into 7 sequential pip install calls — each resolves a
 # smaller dependency graph (<~20 transitive deps), keeping peak RAM <2GB
 # on HF Spaces free tier (2 vCPU, limited build RAM).
+#
+# BuildKit parallelism fix: Wait for frontend-builder's 'npm run build'
+# (Next.js ~2GB RAM) to finish before starting pip install (~1.5GB).
+# Without this dependency edge, both stages run in parallel → 3.5GB+
+# exceeds HF Spaces' ~4GB Docker build RAM → OOMKilled 137.
+# (torch install in Step 1 runs in parallel with frontend npm ci — safe.)
+COPY --from=frontend-builder /app/package.json /tmp/frontend-build-done
 RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests python-multipart && \
     pip install --no-cache-dir psycopg2-binary pandas numpy pypdf redis && \
     pip install --no-cache-dir posthog httpx tqdm Pillow gTTS && \
