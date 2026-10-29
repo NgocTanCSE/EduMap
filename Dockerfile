@@ -63,18 +63,22 @@ RUN ( \
     (swapoff /swapfile 2>/dev/null || true) && rm -f /swapfile && \
     echo "[ai-deps] torch deps installed"
 
-# Step 2: Core + ML packages (everything EXCEPT chromadb).
+# Step 2: Core + ML + TTS packages (everything EXCEPT chromadb).
 # Split from chromadb to avoid OOM — pip's resolver loads the entire
 # dependency tree (kubernetes, onnxruntime, etc.) into memory at once,
 # causing exit 137 when combined with transformers + scikit-learn.
-RUN pip install --no-cache-dir \
-  fastapi uvicorn pydantic python-dotenv requests python-multipart \
-  psycopg2-binary pandas numpy posthog pypdf redis \
-  gTTS edge-tts Pillow httpx tqdm && \
-    pip install --no-cache-dir \
-  transformers huggingface_hub accelerate sentencepiece \
-  sentence-transformers scikit-learn scipy && \
-    echo "[ai-deps] core + ML packages installed"
+#
+# Further split into 7 sequential pip install calls — each resolves a
+# smaller dependency graph (<~20 transitive deps), keeping peak RAM <2GB
+# on HF Spaces free tier (2 vCPU, limited build RAM).
+RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests python-multipart && \
+    pip install --no-cache-dir psycopg2-binary pandas numpy pypdf redis && \
+    pip install --no-cache-dir posthog httpx tqdm Pillow gTTS && \
+    pip install --no-cache-dir huggingface_hub accelerate sentencepiece && \
+    pip install --no-cache-dir transformers && \
+    pip install --no-cache-dir sentence-transformers scikit-learn scipy && \
+    pip install --no-cache-dir edge-tts && \
+    echo "[ai-deps] core + ML + TTS packages installed"
 
 # Step 3: chromadb deps FIRST (kubernetes, onnxruntime — large graph),
 # then chromadb itself with --no-deps so pip doesn't re-resolve everything.
