@@ -64,15 +64,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-1 flex-row bg-background">
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      {/* `lg:ml-60` leaves room for the fixed w-60 sidebar on desktop. On
-          mobile the sidebar becomes an off-canvas drawer and the content
-          takes the full width. A plain <div> (not <main>) is used because
-          individual pages already render their own <main>; nesting <main>
-          in <main> is invalid HTML. */}
-      <div className="flex min-h-screen flex-1 flex-col bg-background lg:ml-60">
+      {/* `lg:ml-[var(--sidebar-width)]` dynamically syncs with the sidebar
+          width (240px expanded, 56px collapsed) via the CSS variable set by
+          setSidebarWidthVar() in Sidebar.tsx. This eliminates the 184px gap
+          that appeared when the sidebar collapsed but the margin stayed fixed
+          at 240px. On mobile the sidebar becomes an off-canvas drawer and the
+          content takes the full width. A plain <div> (not <main>) is used
+          because individual pages already render their own <main>; nesting
+          <main> in <main> is invalid HTML. */}
+      <div className="flex flex-1 flex-col bg-background lg:ml-[var(--sidebar-width)]">
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
           <button
             type="button"
