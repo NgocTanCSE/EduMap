@@ -109,6 +109,18 @@ def _fresh_service(collection=None):
     svc._embed_cache_ttl = 1800.0
     svc._gemini_embed_down_until = 0.0
     svc._cf_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 4.0
+    # Local embedding attributes (for has_embedding property resilience)
+    svc.local_embedding_disabled = True  # default: disabled in tests (no sentence_transformers)
+    svc._local_embedder = None
+    svc._local_embedder_failed = False
+    svc._local_embedder_loaded = False
+    svc.local_embed_dim = 768
+    svc.local_reranker_disabled = True
+    svc._local_reranker = None
+    svc._local_reranker_failed = False
+    svc._local_reranker_loaded = False
     svc.collection = collection
     # Mock get_embedding to return a fixed 768-dim vector
     svc.get_embedding = lambda text: [0.01] * 768

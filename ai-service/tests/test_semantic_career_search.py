@@ -55,6 +55,23 @@ def _make_vector_store():
     svc._embed_cache_max = 128
     svc._embed_cache_ttl = 1800.0
     svc.has_api = False  # disable real embedding by default
+    svc.has_gemini_api = False
+    svc.has_cf_api = False
+    svc._gemini_embed_down_until = 0.0
+    svc._cf_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 4.0
+    # Local embedding + reranker attributes (disabled = True in tests to avoid
+    # loading sentence_transformers/CrossEncoder which aren't installed locally)
+    svc.local_embedding_disabled = True
+    svc._local_embedder = None
+    svc._local_embedder_failed = False
+    svc._local_embedder_loaded = False
+    svc.local_embed_dim = 768
+    svc.local_reranker_disabled = True
+    svc._local_reranker = None
+    svc._local_reranker_failed = False
+    svc._local_reranker_loaded = False
     return svc
 
 

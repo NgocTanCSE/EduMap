@@ -37,3 +37,14 @@ sentencepiece>=0.2.0
 # Google Cloud TTS needs GOOGLE_TTS_API_KEY; edge-tts and gTTS are keyless.
 gTTS>=2.5.0
 edge-tts>=7.0.0
+
+# ── Local Embedding (100% offline fallback — Idea: HF Spaces resource leverage) ─
+# intfloat/multilingual-e5-small (~270MB on disk, ~300-500MB RAM, 768 dims).
+# Acts as the FINAL fallback in the embedding chain AFTER Cloudflare + Gemini
+# have both failed (e.g. no API keys set, or external APIs unreachable from
+# HF Spaces due to network blackholes). This guarantees embeddings — and
+# therefore RAG semantic search — work with ZERO API keys on the HF free plan.
+# torch is already installed in the Dockerfile ai-deps stage (Stage 3, CPU-only
+# PyTorch wheel index), so sentence_transformers reuses it without adding a
+# second torch copy. ONNX runtime is pulled in automatically for CPU speed-up.
+sentence-transformers>=2.7.0

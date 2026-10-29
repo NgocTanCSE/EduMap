@@ -138,6 +138,27 @@ class LLMService:
         else:
             print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use local SQLite fallback for market trends.")
 
+        # --- LLM response cache (in-memory, 24h TTL) ---
+        # Cache successful LLM text responses keyed by the full prompt + params.
+        # This dramatically reduces Gemini/Cloudflare API calls for repeated
+        # questions (career paths, scholarship summaries, mentor matching).
+        # TTL: 24h for static content that rarely changes. Configurable via
+        # RESPONSE_CACHE_TTL_SECONDS and RESPONSE_CACHE_MAX.
+        # RAM: 2048 entries × ~1KB avg = ~2MB — negligible on 16GB HF Spaces.
+        self._response_cache: Dict[str, str] = {}
+        self._response_cache_meta: Dict[str, float] = {}  # cache_key -> insert timestamp
+        self._response_cache_max = int(os.getenv("RESPONSE_CACHE_MAX", "2048"))
+        self._response_cache_ttl = float(
+            os.getenv("RESPONSE_CACHE_TTL_SECONDS", "86400")  # 24h default
+        )
+        self._response_cache_hits = 0
+        self._response_cache_misses = 0
+        print(
+            f"INFO: Response cache: max={self._response_cache_max}, "
+            f"ttl={int(self._response_cache_ttl)}s (RESPONSE_CACHE_MAX / RESPONSE_CACHE_TTL_SECONDS) "
+            f"-> ~{int(self._response_cache_max * 1.5) // 1024}MB RAM est."
+        )
+
         # Startup connectivity diagnostics: surfaces HF Spaces egress problems
         # (IPv6 blackhole / blocked DNS) in the logs instead of only at chat time.
         if self.is_ready and os.getenv("AI_PREFLIGHT", "true").lower() not in ("0", "false", "no", "off"):
@@ -548,6 +569,33 @@ class LLMService:
             raise RuntimeError(f"Cloudflare streaming exhausted all models. Last error: {last_err or 'no tokens yielded'}")
         raise RuntimeError(f"Cloudflare streaming exhausted all models (last: {last_model}). Last error: {last_err or 'no tokens yielded'}")
 
+    def _store_response_cache(self, cache_key: str, response: str) -> None:
+        """Cache a successful LLM response with TTL + FIFO-LRU eviction.
+
+        Mirrors _store_embed_cache: TTL (default 24h) first, then FIFO
+        eviction when over capacity. 2048 entries × ~1KB avg ≈ 2MB RAM.
+        """
+        import time
+        if not (response and isinstance(response, str)):
+            return
+        now = time.monotonic()
+        # Lazily evict expired entries before inserting
+        if len(self._response_cache) >= self._response_cache_max:
+            expired = [
+                k for k, ts in self._response_cache_meta.items()
+                if now - ts > self._response_cache_ttl
+            ]
+            for k in expired:
+                self._response_cache.pop(k, None)
+                self._response_cache_meta.pop(k, None)
+            # If still over capacity after TTL purge, evict oldest (FIFO)
+            while len(self._response_cache) >= self._response_cache_max:
+                oldest = next(iter(self._response_cache))
+                self._response_cache.pop(oldest, None)
+                self._response_cache_meta.pop(oldest, None)
+        self._response_cache[cache_key] = response
+        self._response_cache_meta[cache_key] = now
+
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Try LLM providers in priority order: Cloudflare Workers AI → Google Gemini.
 
@@ -558,8 +606,35 @@ class LLMService:
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError so the caller can use a
         template fallback (never 502s).
+
+        Results are cached for 24h (RESPONSE_CACHE_TTL_SECONDS) to avoid
+        redundant API calls for identical prompts — e.g. the same career
+        path or scholarship recommendation requested repeatedly.
         """
         import time as _time
+
+        # --- In-memory response cache ---
+        # Cache key = md5(prompt + params). Identical prompts with the same
+        # generation params return the cached response — zero API calls.
+        # TTL (default 24h) prevents stale responses for slowly-changing content.
+        _cache_key = hashlib.md5(
+            (prompt + f"|{temperature}|{max_tokens}|{top_p}").encode("utf-8")
+        ).hexdigest()
+
+        _cached = self._response_cache.get(_cache_key)
+        if _cached is not None:
+            _cached_ts = self._response_cache_meta.get(_cache_key, 0.0)
+            if _time.monotonic() - _cached_ts <= self._response_cache_ttl:
+                self._response_cache_hits += 1
+                print(f"  [cache] Response cache HIT (prompt_hash={_cache_key[:8]}, "
+                      f"ttl={int(self._response_cache_ttl)}s, hits={self._response_cache_hits})")
+                return _cached
+            else:
+                # Expired — remove stale entry
+                self._response_cache.pop(_cache_key, None)
+                self._response_cache_meta.pop(_cache_key, None)
+
+        self._response_cache_misses += 1
         errors: dict = {}
 
         # 1. Cloudflare Workers AI (internal cascade of 3 DSS models)
@@ -569,6 +644,7 @@ class LLMService:
                     prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
                 )
                 if result:
+                    self._store_response_cache(_cache_key, result)
                     print("  -> Cloudflare Workers AI generate OK")
                     return result
             except Exception as e:
@@ -582,6 +658,7 @@ class LLMService:
                     prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
                 )
                 if result:
+                    self._store_response_cache(_cache_key, result)
                     print("  -> Google Gemini generate OK")
                     return result
             except Exception as e:

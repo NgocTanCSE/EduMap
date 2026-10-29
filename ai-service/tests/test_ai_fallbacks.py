@@ -294,6 +294,96 @@ def test_match_mentors_safety_cap_with_custom_max():
     print("✓ test_match_mentors_safety_cap_with_custom_max")
 
 
+def test_response_cache_avoids_duplicate_llm_calls():
+    """_generate_text_with_fallback should cache responses so the same prompt
+    hits the provider chain only once (dramatically reducing API calls)."""
+    svc = _fresh_service()
+    # Simulate a working provider by mocking the Gemini generate path
+    svc.has_gemini = True
+    svc._gemini_generate = lambda prompt, **kw: "cached_response_text"
+
+    prompt = "Explain the water cycle"
+    # First call: provider is invoked, result cached
+    resp1 = svc._generate_text_with_fallback(prompt, temperature=0.3)
+    assert resp1 == "cached_response_text"
+    assert svc._response_cache_hits == 0
+    assert svc._response_cache_misses == 1
+    assert len(svc._response_cache) == 1
+
+    # Second call: should HIT the cache, provider NOT called
+    call_count = [0]
+    original = svc._gemini_generate
+    def counting_gemini(prompt, **kw):
+        call_count[0] += 1
+        return "should_not_be_used"
+    svc._gemini_generate = counting_gemini
+
+    resp2 = svc._generate_text_with_fallback(prompt, temperature=0.3)
+    assert resp2 == "cached_response_text"
+    assert call_count[0] == 0  # provider was NOT called
+    assert svc._response_cache_hits == 1
+    assert svc._response_cache_misses == 1
+    print("✓ test_response_cache_avoids_duplicate_llm_calls")
+
+
+def test_response_cache_different_params_not_shared():
+    """Different temperature/max_tokens must produce cache MISSES (distinct keys)."""
+    svc = _fresh_service()
+    svc.has_gemini = True
+    svc._gen_count = 0
+    def mock_gen(prompt, **kw):
+        svc._gen_count += 1
+        return f"resp_{svc._gen_count}"
+    svc._gemini_generate = mock_gen
+
+    r1 = svc._generate_text_with_fallback("prompt", temperature=0.7)
+    r2 = svc._generate_text_with_fallback("prompt", temperature=0.3)  # different temp -> MISS
+    assert r1 != r2  # different responses
+    assert svc._gen_count == 2  # both hit provider
+    assert svc._response_cache_misses == 2
+
+    # Same params again -> HIT
+    r3 = svc._generate_text_with_fallback("prompt", temperature=0.7)
+    assert r3 == r1
+    assert svc._gen_count == 2  # no new provider call
+    assert svc._response_cache_hits == 1
+    print("✓ test_response_cache_different_params_not_shared")
+
+
+def test_response_cache_ttl_expiry():
+    """Expired cache entries (past TTL) should trigger a provider call again."""
+    svc = _fresh_service()
+    svc.has_gemini = True
+    svc._gemini_generate = lambda prompt, **kw: "fresh_response"
+    svc._response_cache_ttl = 0.1  # 100ms for testing
+
+    r1 = svc._generate_text_with_fallback("question")
+    assert svc._response_cache_hits == 0
+    assert svc._response_cache_misses == 1
+
+    import time
+    time.sleep(0.15)  # wait for TTL expiry
+    r2 = svc._generate_text_with_fallback("question")
+    assert r2 == "fresh_response"
+    assert svc._response_cache_hits == 0  # expired -> miss, not hit
+    assert svc._response_cache_misses == 2  # second call was a miss
+    print("✓ test_response_cache_ttl_expiry")
+
+
+def test_response_cache_only_stores_success():
+    """Failed provider calls must NOT pollute the cache (no empty/partial entries)."""
+    svc = _fresh_service()
+    # has_gemini=False, has_cf=False -> RuntimeError raised, not cached
+    try:
+        svc._generate_text_with_fallback("no providers")
+        assert False, "Should have raised RuntimeError"
+    except RuntimeError:
+        pass
+    assert len(svc._response_cache) == 0
+    assert svc._response_cache_misses == 1
+    print("✓ test_response_cache_only_stores_success")
+
+
 if __name__ == "__main__":
     test_learning_path_degraded_fallback()
     test_recommend_career_degraded_fallback()
@@ -307,4 +397,8 @@ if __name__ == "__main__":
     test_analyze_geo_density_fallback_accepts_geojson_hubs()
     test_get_suggestions_degraded_fallback()
     test_generate_career_advice_degraded_fallback()
+    test_response_cache_avoids_duplicate_llm_calls()
+    test_response_cache_different_params_not_shared()
+    test_response_cache_ttl_expiry()
+    test_response_cache_only_stores_success()
     print("\n✅ All AI fallback tests passed!")

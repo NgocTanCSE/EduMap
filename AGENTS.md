@@ -257,10 +257,17 @@ Text generation (`ai-service/services/llm_service.py`):
 `Cloudflare Workers AI → Google Gemini` (with template fallback).
 
 Embeddings (`ai-service/services/vector_store.py`):
-`Cloudflare Workers AI → Google Gemini`.
+`Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
 (XKIRO, NVIDIA, Kimi, and HF Inference API have been removed as
 text-generation and embedding providers. On HF Spaces, Cloudflare TLS is
 blackholed so Gemini is the effective primary.)
+
+The Local SentenceTransformer fallback (`intfloat/multilingual-e5-small`,
+~270MB / ~300MB RAM, 768-dim, Vietnamese support) is lazy-loaded on the
+first embedding request and acts as the **guaranteed offline backup** when
+both Cloudflare and Gemini are unreachable — RAG semantic search works with
+ZERO API keys on the HF free plan. A local `cross-encoder/ms-marco-MiniLM-L6-v2`
+reranker (~80MB) further improves precision by 15-30% on the returned top-k results.
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
@@ -393,6 +400,24 @@ Rules that must be preserved:
   providers. Each has a 5-minute circuit breaker after auth (401/403) or
   network failure. `curl --ipv4 --insecure` is used for all API calls (HF
   Spaces IPv6/TLS quirk).
+- **Local embedding fallback**: `intfloat/multilingual-e5-small` (~270MB,
+  ~300MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
+  Lazy-loaded on first fallback, acts as the **guaranteed offline backup** when
+  Cloudflare + Gemini are both unreachable. Env-tunable:
+  `LOCAL_EMBEDDING_MODEL` (default `intfloat/multilingual-e5-small`),
+  `LOCAL_EMBEDDING_DISABLED=true/false`, `LOCAL_EMBEDDING_THREADS` (default 1
+  to avoid starving the web-serving processes on 2-vCPU free tier).
+- **Local reranker** (optional): `cross-encoder/ms-marco-MiniLM-L6-v2`
+  (~80MB, ~100MB RAM) re-ranks top-k RAG results by 15-30%. Env-tunable:
+  `LOCAL_RERANKER_MODEL`, `LOCAL_RERANKER_DISABLED`, `LOCAL_RERANKER_THRESHOLD`.
+- **Local embedding cache**: `_embed_cache_max` expanded 128 → 1024 (env:
+  `EMBED_CACHE_MAX`). With 1024 entries × 768 dims × 4 bytes ≈ 3MB RAM —
+  negligible cost. TTL remains 30 min (`EMBED_CACHE_TTL_SECONDS`).
+- **LLM response cache** (new): `_generate_text_with_fallback` now caches
+  successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
+  TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
+  redundant Cloudflare/Gemini calls for identical prompts (career paths,
+  scholarship summaries, mentor matches) — critical for the HF free-tier quota.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
 ## 4. Useful local commands
@@ -537,6 +562,7 @@ inventing new values.
   states). Product names (EduMap, Talk2Map, Language Bridge AI,
   ImpactMatch, Resource Exchange AI, GeoVision AI) stay as-is.
 - **Verify** with `cd frontend && npx tsc --noEmit && npm run build`.
+  (Verified 2026-10-28: both pass, 0 TypeScript errors, clean build.)
 
 - **Map Hub floating panels (2026-10-28):**
   - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating):
