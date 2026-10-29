@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -12,6 +12,12 @@ interface RoutePolylineProps {
 
 export function RoutePolyline({ geometry, color = '#E07A5F', weight = 5, opacity = 0.8 }: RoutePolylineProps) {
   const map = useMap();
+
+  // Guard: prevent repeated fitBounds calls from the same geometry reference,
+  // which would cause infinite zoom/pan loop (fitBounds → zoom event → re-render
+  // → new geometry object → useEffect re-run → fitBounds → ...).
+  // Other tools use maxZoom + animate:false — RoutePolyline was missing both.
+  const lastFittedRef = useRef<any>(null);
 
   useEffect(() => {
     if (!geometry) return;
@@ -29,7 +35,20 @@ export function RoutePolyline({ geometry, color = '#E07A5F', weight = 5, opacity
     }
 
     if (polyline) {
-      map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+      const bounds = polyline.getBounds();
+      // Guard: skip if we already fitted to these exact bounds (same geometry)
+      const curKey = `${bounds.getNorth()}_${bounds.getSouth()}_${bounds.getEast()}_${bounds.getWest()}`;
+      if (lastFittedRef.current === curKey) return;
+      lastFittedRef.current = curKey;
+
+      // maxZoom prevents extreme close-up zoom; animate:false + duration:0
+      // prevents the zoom animation from triggering recursive map events
+      map.fitBounds(bounds, {
+        padding: [50, 50],
+        maxZoom: 14,
+        animate: false,
+        duration: 0,
+      });
     }
 
     return () => {
