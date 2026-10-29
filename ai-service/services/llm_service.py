@@ -144,25 +144,43 @@ def _load_local_llm(model_name: str = "google/gemma-2b-it"):
         from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
         import torch
 
-        # 4-bit quantization config — NF4 for best CPU memory efficiency
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_use_double_quant=True,
-        )
+        # Check if bitsandbytes is available for 4-bit quantization
+        HAS_BNB = False
+        try:
+            import bitsandbytes
+            HAS_BNB = True
+        except ImportError:
+            pass
 
-        print(f"[LocalLLM] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
-        _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        _local_llm_model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            quantization_config=bnb_config,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            # Trust remote code for Gemma token format
-            trust_remote_code=False,
-        )
-        print(f"[LocalLLM] {model_name} loaded OK (RAM ~1.5GB)")
+        if HAS_BNB:
+            # 4-bit quantization config — NF4 for best CPU memory efficiency
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+            )
+            print(f"[LocalLLM] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
+            _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            _local_llm_model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                quantization_config=bnb_config,
+                device_map="auto",
+                torch_dtype=torch.float16,
+                trust_remote_code=False,
+            )
+            print(f"[LocalLLM] {model_name} loaded OK (4-bit NF4, RAM ~1.5GB)")
+        else:
+            # FP16 fallback — no bitsandbytes, use float16 (~3GB RAM on HF free tier)
+            print(f"[LocalLLM] bitsandbytes not available — loading {model_name} (FP16, ~3GB RAM)...")
+            _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            _local_llm_model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                trust_remote_code=False,
+            )
+            print(f"[LocalLLM] {model_name} loaded OK (FP16, RAM ~3GB)")
         return True
     except Exception as e:
         print(f"[LocalLLM] Load FAILED: {type(e).__name__}: {e}")
@@ -260,22 +278,42 @@ def _load_tinyllama(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0") -> b
         from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
         import torch
 
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_use_double_quant=True,
-        )
-        print(f"[TinyLlama] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
-        _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        _tinyllama_model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            quantization_config=bnb_config,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            trust_remote_code=False,
-        )
-        print(f"[TinyLlama] {model_name} loaded OK (RAM ~1.5GB)")
+        # Check if bitsandbytes is available for 4-bit quantization
+        HAS_BNB = False
+        try:
+            import bitsandbytes
+            HAS_BNB = True
+        except ImportError:
+            pass
+
+        if HAS_BNB:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+            )
+            print(f"[TinyLlama] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
+            _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            _tinyllama_model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                quantization_config=bnb_config,
+                device_map="auto",
+                torch_dtype=torch.float16,
+                trust_remote_code=False,
+            )
+            print(f"[TinyLlama] {model_name} loaded OK (4-bit NF4, RAM ~1.5GB)")
+        else:
+            # FP16 fallback — no bitsandbytes, use float16 (~2.5GB RAM)
+            print(f"[TinyLlama] bitsandbytes not available — loading {model_name} (FP16)...")
+            _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            _tinyllama_model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                trust_remote_code=False,
+            )
+            print(f"[TinyLlama] {model_name} loaded OK (FP16)")
         return True
     except Exception as e:
         print(f"[TinyLlama] Load FAILED: {type(e).__name__}: {e}")

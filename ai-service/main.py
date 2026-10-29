@@ -152,24 +152,30 @@ def _startup_stagger_local_models():
             try:
                 if name == "embeddings":
                     from services.vector_store import vs_instance
-                    vs_instance._warmup_local_embedding()
-                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                    ok = vs_instance._warmup_local_embedding()
+                    print(f"[staggered-warmup] {name} {'model pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "reranker":
                     from services.vector_store import vs_instance
-                    vs_instance._warmup_local_reranker()
-                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                    ok = vs_instance._warmup_local_reranker()
+                    print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "vision":
                     from routers.geo import _load_local_vision_model
-                    _load_local_vision_model()
-                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                    ok = _load_local_vision_model()
+                    print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load FAILED — GeoVision will use HF Inference API / template fallback'}")
                 elif name == "llm":
                     from services.llm_service import _load_local_llm
-                    _load_local_llm()
-                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                    ok = _load_local_llm()
+                    if ok:
+                        print(f"[staggered-warmup] {name} pre-loaded OK")
+                    else:
+                        print(f"[staggered-warmup] {name} pre-load FAILED — using Cloudflare/Gemini/template fallback chain")
                 elif name == "tinyllama":
                     from services.llm_service import _load_tinyllama
-                    _load_tinyllama()
-                    print(f"[staggered-warmup] {name} model pre-loaded OK")
+                    ok = _load_tinyllama()
+                    if ok:
+                        print(f"[staggered-warmup] {name} pre-loaded OK")
+                    else:
+                        print(f"[staggered-warmup] {name} pre-load FAILED — using template tutor fallback")
             except Exception as e:
                 # Non-fatal: lazy-load will retry on first request
                 print(f"[staggered-warmup] {name} pre-load failed (non-fatal): {type(e).__name__}: {e}")
