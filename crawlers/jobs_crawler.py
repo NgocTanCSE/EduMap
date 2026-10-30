@@ -26,10 +26,21 @@ owner). Idempotent: upsert by (title, company_name, location) — `jobs` has no
 unique constraint, so SELECT-then-UPDATE/INSERT (db_utils.upsert_rows) is used
 (no schema change).
 """
-import os, re, sys
+import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html,
                       crawl_pages, ensure_column, extract_itviec_jobs, extract_topcv_jobs)
+from crawl_scope import (
+    crawl_years, year_scope_range, in_year_scope,
+    LOCATION_LAYERS, location_matches,
+)
+
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+# Default deadline for undated crawl rows — end of crawl year, keeping items
+# visible across the 2-year window.
+_DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
 REMOTEOK = "https://remoteok.com/api"
 REMOTIVE = "https://api.remotive.com/v1/projects"
@@ -64,6 +75,16 @@ def infer_job_type(tags, position):
     return "full_time"
 
 
+def _location_layer(location_str):
+    """Classify a job's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA)."""
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
 def _base_row(title, company, location, description, tags, job_type, salary, logo=None):
     desc = clean(description or "")
     if tags:
@@ -72,12 +93,13 @@ def _base_row(title, company, location, description, tags, job_type, salary, log
         "title": (title or "")[:255],
         "company_name": (company or "")[:255],
         "location": (location or "Remote")[:255],
+        "location_scope": _location_layer(location),
         "description": desc,
         "job_type": job_type,
         "salary_range": salary,
         "required_skills": Jsonb(list(tags or [])),
         "experience_level": "any",
-        "application_deadline": None,
+        "application_deadline": _DEFAULT_DEADLINE.date().isoformat(),
         "views": 0,
         "status": "active",
         "image_url": logo,
@@ -243,10 +265,14 @@ def crawl():
 
 def run():
     print("jobs_crawler: start")
+    print(f"  [scope] crawl_year={crawl_years()[0]} | years={crawl_years()} "
+          f"| layers={[l['label'] for l in LOCATION_LAYERS]}")
     rows = crawl()
     conn = get_conn()
     try:
         ensure_column(conn, "jobs", "image_url", "TEXT")
+        ensure_column(conn, "jobs", "location_scope", "TEXT")
+        ensure_column(conn, "jobs", "application_deadline", "TEXT")
         if rows:
             r = upsert_rows(conn, "jobs", rows, ["title", "company_name", "location"])
             print(f"jobs_crawler: {r}")

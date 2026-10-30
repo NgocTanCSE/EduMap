@@ -18,13 +18,48 @@ global index). Idempotent upsert by title; graceful on any blocked page.
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
-                      fetch_json, crawl_pages, extract_eventbrite_cards)
+                      fetch_json, crawl_pages, extract_eventbrite_cards, ensure_column)
+from crawl_scope import (
+    crawl_years, in_year_scope, year_scope_range,
+    LOCATION_LAYERS, location_matches, keywords_for_layers,
+)
+
+NOW = datetime.datetime.utcnow()
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
 
 BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
 PAGES = 30           # all-events deep scrape
 PAGES_Q = 8          # per keyword-query
 QUERIES = ["workshop", "conference", "meetup", "seminar", "networking",
            "training", "education", "student", "community", "festival"]
+
+
+def _location_layer(location_str):
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
+def _scope_queries():
+    """Expand queries to include location-scoped variants (Đồng Nai → miền Nam → VN → ĐNA).
+
+    Combines each event keyword with each location layer's top keywords, so the
+    crawl surfaces events near Đồng Nai first before broadening to all of Vietnam
+    and Southeast Asia.
+    """
+    loc_terms = keywords_for_layers()
+    if not loc_terms:
+        return QUERIES
+    combined = []
+    for q in QUERIES:
+        for loc in loc_terms[:3]:  # top 3 location keywords per layer
+            combined.append(f"{q} {loc}")
+    return combined + QUERIES
 
 # --- Source 2: Ticketmaster Discovery API (env-gated, key already provisioned) ---
 TM_KEY = os.getenv("TICKETMASTER_API_KEY", "")
@@ -52,6 +87,10 @@ def _card_to_row(c, query=None):
         return None
     now = datetime.datetime.utcnow()
     start = parse_date(c.get("date")) or now
+    # Year scope: events whose start falls outside the 2-year crawl window are
+    # shifted to now so they don't pollute the current listing.
+    if not in_year_scope(start.date().isoformat()):
+        start = now
     end = start + datetime.timedelta(days=1)
     banner = c.get("img")
     is_online = "online" in title.lower() or "virtual" in (banner or "").lower()
@@ -61,6 +100,7 @@ def _card_to_row(c, query=None):
         "description": f"Sự kiện trên Eventbrite{suffix}. Xem chi tiết tại https://www.eventbrite.com{c.get('href','')}",
         "type": "event",
         "location_point": None,
+        "location_scope": "vietnam",
         "address": "Việt Nam",
         "start_date": start,
         "end_date": end,
@@ -121,6 +161,11 @@ def _tm_page_items(json_data):
         start_dt = start.get("dateTime") or _tm_iso(start.get("localDate"), start.get("localTime"))
         end_dt = end.get("dateTime") or _tm_iso(end.get("localDate"), end.get("localTime"))
         st_code = (dates.get("status") or {}).get("code", "")
+        # Year scope: skip events outside the 2-year crawl window.
+        start_dt_parsed = _tm_dt(start_dt)
+        if start_dt_parsed and not in_year_scope(start_dt_parsed.date().isoformat()):
+            continue
+        end_dt_parsed = _tm_dt(end_dt)
         # Ticketmaster: 'activesales'/'onsale' => active, else keep raw -> inactive
         status = "active" if st_code in ("activesales", "onsale") else "inactive"
         price = _tm_price(ev.get("priceRanges"))
@@ -138,6 +183,7 @@ def _tm_page_items(json_data):
             "organizer_id": None,
             "status": status,
             "tags": Jsonb(["ticketmaster", "vn"]),
+            "location_scope": "vietnam",
             "is_online": False,
             "meeting_url": ev.get("url") or None,
             "price": price,
@@ -189,8 +235,10 @@ def crawl():
     for it in page_items:
         by_title[it["title"]] = it
 
-    # 2) keyword-search pages — different slice per keyword
-    for q in QUERIES:
+    # 2) keyword-search pages — different slice per keyword, scoped outward
+    #    (Đồng Nai → miền Nam → VN → ĐNA) before plain keywords.
+    scoped_queries = _scope_queries()
+    for q in scoped_queries:
         if len(by_title) >= TARGET:
             break
         q_items = crawl_pages(
@@ -218,14 +266,18 @@ def crawl():
     rows = list(by_title.values())
     if len(rows) > TARGET:
         rows = rows[:TARGET]
-    print(f"  [events] collected {len(rows)} distinct events (Eventbrite + Ticketmaster)")
+    print(f"  [events] collected {len(rows)} distinct events "
+          f"(years in-scope: {crawl_years()}, location layers: {[l['label'] for l in LOCATION_LAYERS]})")
     return rows
 
 
 def run():
     print("events_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
+        ensure_column(conn, "events", "image_url", "TEXT")
+        ensure_column(conn, "events", "location_scope", "TEXT")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "events", rows, ["title"])

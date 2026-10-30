@@ -23,6 +23,7 @@ crawling the real social platforms whenever credentials are configured.
 import os, re, sys, time
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, Jsonb, make_session, fetch_json, fetch_html, fetch_og_image
+from crawl_scope import crawl_years, LOCATION_LAYERS
 
 FB_TOKEN = os.getenv("FB_TOKEN")
 IG_TOKEN = os.getenv("IG_TOKEN")
@@ -194,6 +195,7 @@ def _try_reddit():
 
 
 def crawl():
+    print(f"  [social] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     rows = _try_facebook() + _try_instagram() + _try_linkedin() + _try_reddit()
     if not rows:
         print("  [social] No social tokens / platforms blocked -> falling back to HN public API")
@@ -202,6 +204,7 @@ def crawl():
 
 def run():
     print("social_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()}")
     rows = crawl()
     conn = get_conn()
     try:

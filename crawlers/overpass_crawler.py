@@ -8,6 +8,14 @@ import time
 import requests
 from typing import List, Dict, Any, Tuple
 
+from crawl_scope import (
+    crawl_years, year_scope_range, in_year_scope,
+    LOCATION_LAYERS, DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
+)
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 # Backup Overpass servers
 OVERPASS_MIRRORS = [
@@ -16,17 +24,23 @@ OVERPASS_MIRRORS = [
     "https://overpass.openstreetmap.ru/api/interpreter",
 ]
 
-# Vietnam regions (south,west,north,east) - split into 5 parts
+# Vietnam regions — reordered so SOUTH (incl. Đồng Nai) is crawled first, then
+# northward, matching the location expansion: Đồng Nai → miền Nam → VN.
 VIETNAM_REGIONS = {
-    "north": "20.5,102.0,23.5,106.5",
-    "north_central": "17.0,104.0,20.5,107.0",
-    "central": "14.0,105.0,17.0,109.0",
-    "south_central": "11.0,105.0,14.0,109.0",
+    "dong_nai": DONG_NAI_BBOX,
+    "southern_vn": SOUTHERN_VN_BBOX,
     "south": "8.0,104.0,11.5,107.5",
+    "south_central": "11.0,105.0,14.0,109.0",
+    "central": "14.0,105.0,17.0,109.0",
+    "north_central": "17.0,104.0,20.5,107.0",
+    "north": "20.5,102.0,23.5,106.5",
 }
+# Scope order: coastal south → north.  DONG_NAI and SOUTHERN_VN come first.
+SCOPE_ORDER = ["dong_nai", "southern_vn", "south", "south_central",
+               "central", "north_central", "north"]
 
 # Full Vietnam bbox
-VIETNAM_FULL = "8.0,102.0,23.5,109.5"
+VIETNAM_FULL = VIETNAM_BBOX
 
 
 def _respect_rate_limit(last_ts: float, min_delay: float = 3.0) -> float:
@@ -240,7 +254,10 @@ class OverpassCrawler:
         return combined
 
     def _crawl_region(self, region_name: str, bbox: str) -> List[Dict]:
-        """Crawl all categories for a single region, tiled to avoid timeouts."""
+        """Crawl all categories for a single region, tiled to avoid timeouts.
+
+        Tags each element with its ``location_scope`` matching the region name.
+        """
         print(f"\n  [{region_name.upper()}] bbox={bbox}")
         all_locs: List[Dict] = []
 
@@ -249,16 +266,25 @@ class OverpassCrawler:
         all_locs.extend(self._fetch_tiled(self.fetch_all_tourism_transport, bbox, "Tourism+Transport"))
         all_locs.extend(self._fetch_tiled(self.fetch_wifi,                 bbox, "WiFi"))
 
+        # Tag each location with its scope layer.
+        for loc in all_locs:
+            loc["location_scope"] = region_name
+
         print(f"  Region total: {len(all_locs)}")
         return all_locs
 
     def crawl_vietnam(self) -> List[Dict[str, Any]]:
-        """Crawl all of Vietnam by regions. Returns combined list."""
+        """Crawl all of Vietnam by regions, walking the location expansion
+        (Đồng Nai → miền Nam → southern → central → northern)."""
         all_locations = []
+        print(f"  [scope] crawl_years={_CRAWL_YEARS} | scope_order={SCOPE_ORDER}")
 
-        for region_name, bbox in VIETNAM_REGIONS.items():
+        for region_name in SCOPE_ORDER:
+            bbox = VIETNAM_REGIONS.get(region_name)
+            if not bbox:
+                continue
             print(f"\n{'='*60}")
-            print(f"Crawling region: {region_name.upper()}")
+            print(f"Crawling region: {region_name.upper()} (scope layer)")
             print(f"{'='*60}")
             region_data = self._crawl_region(region_name, bbox)
             all_locations.extend(region_data)
@@ -268,7 +294,10 @@ class OverpassCrawler:
         print("NATIONWIDE SUMMARY")
         print(f"{'='*60}")
         print(f"  Total locations: {len(all_locations)}")
-
+        from collections import Counter
+        layer_counts = Counter(l.get("location_scope", "unknown") for l in all_locations)
+        print(f"  Per-layer: {dict(layer_counts)}")
+        print(f"  [scope] crawl_years: {crawl_years()}")
         return all_locations
 
     def get_all_locations(self) -> List[Dict[str, Any]]:

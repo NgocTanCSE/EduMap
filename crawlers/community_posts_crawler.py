@@ -19,6 +19,7 @@ import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_json,
                       fetch_og_image, crawl_pages)
+from crawl_scope import crawl_years, LOCATION_LAYERS
 
 # --- Source 1: Hacker News ---
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
@@ -110,6 +111,7 @@ def _devto_page_items(json_data):
 
 
 def crawl():
+    print(f"  [community] crawl_years={crawl_years()} | location_scope=vietnam")
     s = make_session()
     by_key = {}  # (title, source) -> row
 
@@ -144,6 +146,7 @@ def crawl():
 
 def run():
     print("community_posts_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
         rows = crawl()

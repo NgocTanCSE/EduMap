@@ -9,8 +9,10 @@ from huggingface_hub import snapshot_download
 
 MODELS = [
     "google/owlv2-base-patch16-ensemble",           # GeoVision local vision fallback (zero-shot OD)
-    "google/gemma-2b-it",                            # general text generation
-    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",            # Edge AI Tutor
+    "google/gemma-2b-it",                            # general text LLM (gated — SKIPPED w/o HF_TOKEN at build; TinyLlama is the reliable replacement)
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",            # local LLM fallback — ungated, works on HF free tier without HF_TOKEN
+    "intfloat/multilingual-e5-small",                # local embeddings fallback (~270 MB, 768-dim)
+    "cross-encoder/ms-marco-MiniLM-L6-v2",           # local reranker (~80 MB)
 ]
 
 for model_id in MODELS:

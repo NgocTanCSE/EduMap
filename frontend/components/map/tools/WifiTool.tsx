@@ -178,7 +178,10 @@ function WifiPanel({
       </div>
 
       {wifiLocations.length > 0 ? (
-        <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
+        // No inner `max-h-48` cap: render all hotspots so the default state is
+        // NOT "bị cắt nội dung". Overflow is handled by the panel body's own
+        // `overflow-y-auto` (single scroll container, not a trapped scrollbox).
+        <div className="space-y-1">
           {wifiLocations.map((w: any) => (
             <div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="font-medium text-foreground">{w.name || w.ssid}</div>

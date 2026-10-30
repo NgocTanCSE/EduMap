@@ -11,14 +11,26 @@ import time
 import requests
 from typing import List, Dict, Any
 
+from crawl_scope import (
+    crawl_years, year_scope_range, in_year_scope,
+    LOCATION_LAYERS, DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
+)
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+
 OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
 
+# Location expansion: Đồng Nai → miền Nam → cả Việt Nam (bboxes ordered by scope).
 VIETNAM_BBOXES = {
-    "dong_nai": "10.68,106.75,11.15,107.25",
+    "dong_nai": DONG_NAI_BBOX,
+    "southern_vn": SOUTHERN_VN_BBOX,
+    "vietnam": VIETNAM_BBOX,
 }
+SCOPE_ORDER = ["dong_nai", "southern_vn", "vietnam"]
 
 
 class DongNaiSchoolCrawler:
@@ -273,26 +285,58 @@ class DongNaiSchoolCrawler:
         return "school"
 
     def crawl_all(self) -> Dict[str, Any]:
-        """Main method: crawl all Dong Nai schools, libraries, WiFi."""
-        bbox = VIETNAM_BBOXES["dong_nai"]
+        """Main method: crawl schools/libraries/WiFi walking the location
+        expansion (Đồng Nai → miền Nam → cả Việt Nam)."""
+        print(f"=== Dong Nai Detailed School Crawler (scope: {SCOPE_ORDER}) ===\n")
+        print(f"  [scope] crawl_years={_CRAWL_YEARS} | layers={[l['label'] for l in LOCATION_LAYERS]}")
 
-        print("=== Dong Nai Detailed School Crawler ===\n")
+        schools = []
+        unis = []
+        libs = []
+        wifi_spots = []
+        seen_keys = set()
 
-        print("[1/4] Querying schools...")
-        schools = self.fetch_all_schools(bbox)
-        print(f"  Found {len(schools)} schools")
+        for layer in SCOPE_ORDER:
+            bbox = VIETNAM_BBOXES[layer]
+            print(f"\n--- Location layer: {layer} ({bbox}) ---")
 
-        print("[2/4] Querying universities/colleges...")
-        unis = self.fetch_universities(bbox)
-        print(f"  Found {len(unis)} universities/colleges")
+            print(f"[schools] querying {layer}...")
+            layer_schools = self.fetch_all_schools(bbox)
+            print(f"  Found {len(layer_schools)} schools")
+            for s in layer_schools:
+                s["location_scope"] = layer
+                k = (s.get("name"), s.get("lat"), s.get("lng"))
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    schools.append(s)
 
-        print("[3/4] Querying libraries...")
-        libs = self.fetch_libraries(bbox)
-        print(f"  Found {len(libs)} libraries")
+            print(f"[universities] querying {layer}...")
+            layer_unis = self.fetch_universities(bbox)
+            print(f"  Found {len(layer_unis)} universities/colleges")
+            for u in layer_unis:
+                u["location_scope"] = layer
+                k = (u.get("name"), u.get("lat"), u.get("lng"))
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    unis.append(u)
 
-        print("[4/4] Querying public WiFi spots...")
-        wifi_spots = self.fetch_public_wifi(bbox)
-        print(f"  Found {len(wifi_spots)} WiFi spots")
+            print(f"[libraries] querying {layer}...")
+            layer_libs = self.fetch_libraries(bbox)
+            print(f"  Found {len(layer_libs)} libraries")
+            for l in layer_libs:
+                l["location_scope"] = layer
+                libs.append(l)
+
+            print(f"[wifi] querying {layer}...")
+            layer_wifi = self.fetch_public_wifi(bbox)
+            print(f"  Found {len(layer_wifi)} WiFi spots")
+            for w in layer_wifi:
+                w["location_scope"] = layer
+                wifi_spots.append(w)
+
+            if layer == "dong_nai":
+                # Đồng Nai is the primary layer; continue to southern + Vietnam
+                continue
 
         # Combine schools + universities
         all_education = schools + unis
@@ -324,6 +368,8 @@ class DongNaiSchoolCrawler:
                 "with_wifi": with_wifi,
                 "with_library": with_lib,
                 "type_breakdown": dict(type_counts),
+                "location_layers_scanned": SCOPE_ORDER,
+                "crawl_years": list(_CRAWL_YEARS),
             }
         }
 

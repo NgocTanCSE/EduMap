@@ -1,4 +1,7 @@
 import random
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
+from crawl_scope import crawl_years
 
 regions = ['Đồng Nai', 'TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ']
 
@@ -10,7 +13,7 @@ metrics = [
     ('Online Learning Adoption', 60, 95)
 ]
 
-for year in [2022, 2023, 2024]:
+for year in crawl_years():
     for region in regions:
         for metric_name, min_v, max_v in metrics:
             val = random.uniform(min_v, max_v)

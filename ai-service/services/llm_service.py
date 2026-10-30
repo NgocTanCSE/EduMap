@@ -389,8 +389,27 @@ def _tinyllama_template_fallback(prompt: str, difficulty: str = "middle") -> str
 
 
 def _time_limit(seconds: int):
-    """Simple signal-based timeout context manager. No-op fallback on error."""
+    """Timeout context manager for local LLM generation.
+
+    Uses signal.SIGALRM when running in the main thread (precise interrupt).
+    In worker threads (the asyncio.to_thread path used by
+    _generate_text_with_fallback) signal is unavailable — the previous dead
+    ``try/except`` never caught the ValueError because signal.signal() runs
+    inside _ctx.__enter__(), not when _ctx() is called. We now check the
+    thread explicitly and return a no-op context manager, since generation is
+    already bounded by ``max_new_tokens``.
+
+    Fixes "signal only works in main thread of the main interpreter" which
+    broke the TinyLlama (and Gemma) local LLM fallback on HF Spaces.
+    """
     import signal
+    import threading
+
+    # signal.SIGALRM is only usable in the main thread. Returning here avoids
+    # the ValueError that previously broke local-LLM generation inside
+    # asyncio.to_thread worker threads.
+    if threading.current_thread() is not threading.main_thread():
+        return contextlib.nullcontext()
 
     class _Timeout(Exception):
         pass
@@ -407,11 +426,9 @@ def _time_limit(seconds: int):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, old)
-    try:
-        return _ctx()
-    except (ValueError, OSError):
-        # signal.alarm may fail on non-main thread; return a no-op context
-        return contextlib.nullcontext()
+    return _ctx()
+
+
 class LLMService:
     def __init__(self):
         # ── Google Gemini (fallback text generation + embeddings) ────────────
@@ -433,7 +450,7 @@ class LLMService:
             if m.strip()
         ]
         self.gemini_model_name = self.gemini_models[0] if self.gemini_models else "gemini-3.8-flash"
-        self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
+        self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "8"))
         self.has_gemini = bool(self.gemini_key)
         # Circuit breaker: a network/TLS failure will fail identically for every
         # model, so stop hammering Gemini for 5 minutes.
@@ -519,7 +536,7 @@ class LLMService:
         self._local_llm_down_until = 0.0  # circuit breaker (5 min)
         if self.local_llm_enabled:
             print(f"INFO: Local LLM fallback configured: {self.local_llm_model_name} (~1.5GB RAM, lazy-load)")
-            print("INFO: Provider chain: Cloudflare -> Gemini -> Local Gemma 2B -> template")
+            print("INFO: Provider chain: Cloudflare -> Gemini -> Local Gemma 2B -> TinyLlama -> template")
 
         # --- TinyLlama 1.1B (Edge AI Tutor — /offline-tutor, separate singleton) ---
         self.tinyllama_model_name = os.getenv(

@@ -20,7 +20,23 @@ by title.
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
-                      crawl_pages, extract_eventbrite_cards)
+                      crawl_pages, extract_eventbrite_cards, ensure_column)
+from crawl_scope import (
+    crawl_years, in_year_scope, year_scope_range,
+    LOCATION_LAYERS, location_matches, keywords_for_layers,
+)
+
+NOW = datetime.datetime.utcnow()
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+QUERIES = [
+    "fundraising", "charity", "donation", "support", "community", "cause",
+    "nonprofit", "ngo", "aid", "relief", "volunteer", "education", "student",
+]
+# Location-scoped query variants (Đồng Nai → miền Nam → VN → ĐNA).
+LOCATION_QUERIES = [f"{q} {kw}" for q in QUERIES[:5]
+                    for kw in keywords_for_layers()[:6]]
+PAGES = 8  # per query
 
 NOW = datetime.datetime.utcnow()
 QUERIES = [
@@ -89,6 +105,7 @@ def _donation_items(html):
             "current_amount": cur or 0,
             "organizer_id": None,
             "location_point": None,
+            "location_scope": "vietnam",
             "status": "active",
             "start_date": NOW,
             "end_date": NOW + datetime.timedelta(days=30),
@@ -101,7 +118,8 @@ def crawl():
     s = make_session()
     by_title = {}
 
-    for q in QUERIES:
+    # Location-scoped queries first (Đồng Nai → miền Nam → VN → ĐNA), then plain.
+    for q in LOCATION_QUERIES + QUERIES:
         if len(by_title) >= CAP:
             break
         page_items = crawl_pages(
@@ -117,15 +135,20 @@ def crawl():
     rows = list(by_title.values())
     if len(rows) > TARGET:
         rows = rows[:TARGET]
-    print(f"  [donations] collected {len(rows)} distinct campaigns ({len(QUERIES)} queries x {PAGES} pages)")
+    print(f"  [donations] collected {len(rows)} distinct campaigns "
+          f"({len(LOCATION_QUERIES)} location-scoped + {len(QUERIES)} plain queries x {PAGES} pages)")
+    print(f"  [scope] years={crawl_years()} | location layers: {[l['label'] for l in LOCATION_LAYERS]}")
     return rows
 
 
 def run():
     print("donations_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} | expanding Đồng Nai → miền Nam → VN → ĐNA")
+    rows = crawl()
     conn = get_conn()
     try:
-        rows = crawl()
+        ensure_column(conn, "donation_campaigns", "image_url", "TEXT")
+        ensure_column(conn, "donation_campaigns", "location_scope", "TEXT")
         if rows:
             r = upsert_rows(conn, "donation_campaigns", rows, ["title"])
             print(f"donations_crawler: {r}")

@@ -21,8 +21,15 @@ import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
                       fetch_json, crawl_pages, extract_eventbrite_cards, ensure_column)
+from crawl_scope import (
+    crawl_years, in_year_scope, year_scope_range,
+    LOCATION_LAYERS, location_matches, keywords_for_layers,
+)
 
 NOW = datetime.datetime.utcnow()
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
 
 # --- Source 1: Eventbrite (HTML, multiple keyword queries) ---
 QUERIES = [
@@ -57,6 +64,24 @@ def parse_date(s):
 # --------------------------------------------------------------------------- #
 # Source 1: Eventbrite HTML
 # --------------------------------------------------------------------------- #
+def _location_layer(location_str):
+    """Classify a posting's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA)."""
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
+def _scope_deadline(d):
+    """Default deadline to end-of-crawl-year when the raw date falls outside the
+    2-year window or is missing, keeping the scholarship visible."""
+    if d and in_year_scope(d.date().isoformat()):
+        return d
+    return NOW + datetime.timedelta(days=30)
+
+
 def _eb_card_to_row(c, query=None):
     """Map one extract_eventbrite_cards() card to a scholarships row dict."""
     title = (c.get("title") or "").strip()
@@ -71,8 +96,9 @@ def _eb_card_to_row(c, query=None):
         ),
         "provider": "Eventbrite / cộng đồng",
         "location": None,                 # geography(Point); left NULL (no geocode)
+        "location_scope": "vietnam",      # Eventbrite /d/vietnam scope
         "value_amount": None,
-        "deadline": parse_date(c.get("date")) or (NOW + datetime.timedelta(days=30)),
+        "deadline": _scope_deadline(parse_date(c.get("date"))),
         "image_url": c.get("img"),        # per-card image, matched to the correct card
         "eligibility_criteria": Jsonb({
             "source": query,
@@ -116,8 +142,9 @@ def _devto_page_items(json_data, tag=None):
             ),
             "provider": "Dev.to",
             "location": None,
+            "location_scope": "unscoped",
             "value_amount": None,
-            "deadline": NOW + datetime.timedelta(days=30),
+            "deadline": _scope_deadline(NOW),
             "image_url": a.get("cover_image") or None,
             "eligibility_criteria": Jsonb({
                 "source": "devto", "tag": tag,
@@ -182,9 +209,11 @@ def crawl():
 
 def run():
     print("scholarships_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
         ensure_column(conn, "scholarships", "image_url", "TEXT")
+        ensure_column(conn, "scholarships", "location_scope", "TEXT")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "scholarships", rows, ["title"])

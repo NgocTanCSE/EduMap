@@ -9,6 +9,8 @@ import json
 import uuid
 from typing import List, Dict
 
+from crawl_scope import crawl_years, year_scope_range, LOCATION_LAYERS
+
 class WiFiCrawler:
     """Crawler để lấy WiFi hotspots từ Đồng Nai"""
 
@@ -160,10 +162,22 @@ class WiFiCrawler:
         return locations
 
     def crawl_all_wifi(self) -> Dict:
-        """Thu thập tất cả dữ liệu WiFi"""
+        """Thu thập tất cả dữ liệu WiFi (Đồng Nai → miền Nam → VN → ĐNA).
+
+        This is a curated snapshot of Đồng Nai WiFi hotspots.  The Overpass-based
+        ``overpass_crawler.py`` handles the live outward expansion.  Here we tag
+        each hotspot with its scope layer and emit the crawl-year window.
+        """
         all_wifi = self.get_bienhoa_wifi_locations() + self.get_dong_nai_wifi_zones()
+        # Tag each WiFi location with its scope layer (all Đồng Nai-sourced here).
+        for loc in all_wifi:
+            loc.setdefault("location_scope", "dong_nai")
+        _CY = crawl_years()
+        print(f"  [wifi] crawl_years={_CY} | layers={[l['label'] for l in LOCATION_LAYERS]}")
         return {
             "total": len(all_wifi),
+            "location_scope": "dong_nai",
+            "crawl_years": list(_CY),
             "locations": all_wifi,
             "summary": {
                 "by_category": self._count_by_category(all_wifi),

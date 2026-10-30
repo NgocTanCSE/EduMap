@@ -42,11 +42,25 @@ from typing import Iterable
 # Share ONE Overpass HTTP client with the crawler package (Phase G consolidation).
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
 from overpass_utils import overpass_post  # noqa: E402
+from crawl_scope import (  # noqa: E402
+    crawl_years, year_scope_range, LOCATION_LAYERS,
+    DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
+)
+
+# Location expansion: start from Đồng Nai, then southern VN, then full Vietnam.
+# (Southeast Asia is not covered by this POI crawler — OSM data for chợ/markets
+#  in neighboring countries is out of scope for EduMap's Vietnam-first product.)
+SCOPE_BBOXES = [
+    ("dong_nai", DONG_NAI_BBOX),
+    ("southern_vn", SOUTHERN_VN_BBOX),
+    ("vietnam", VIETNAM_BBOX),
+]
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
 
 # --------------------------------------------------------------------------- #
 # CONFIG (env override friendly — the HF container already exports DB_* / etc.) #
 # --------------------------------------------------------------------------- #
-DEFAULT_BBOX = (8.0, 102.0, 23.5, 109.5)  # (south, west, north, east) — Vietnam
+DEFAULT_BBOX = (8.0, 102.0, 23.5, 109.5)  # (south, west, north, east) — Vietnam (fallback)
 
 CONFIG = {
     "OVERPASS_URL":    os.getenv("CRAWL_OVERPASS_URL", "https://overpass-api.de/api/interpreter"),
@@ -147,7 +161,7 @@ def _address(el: dict) -> str:
 
 
 def fetch_tile(lat_s: float, lon_w: float, lat_n: float, lon_e: float,
-               osm_tag: str) -> list[dict]:
+               osm_tag: str, location_scope: str = "vietnam") -> list[dict]:
     """Query one tile for an OSM key=value pair across node + way + relation.
 
     Markets (chợ) are frequently mapped as `way`/area polygons in OSM — querying
@@ -181,6 +195,7 @@ def fetch_tile(lat_s: float, lon_w: float, lat_n: float, lon_e: float,
             "lng": lon,
             "address": _address(el),
             "is_bach_hoa_xanh": any(p in name.lower() for p in BX_PATTERNS),
+            "location_scope": location_scope,
         })
     return out
 
@@ -269,7 +284,12 @@ def main(argv: list[str] | None = None) -> int:
     cfg = parse_args(sys.argv if argv is None else argv)
     bbox = cfg.get("BBOX", DEFAULT_BBOX)
     step = cfg["TILE_DEG"]
+    _CY = crawl_years()
+    print(f"  [poi] crawl_years={_CY} | scope layers: {[l['label'] for l in LOCATION_LAYERS]}")
+    print(f"  [poi] walking location expansion: Đồng Nai → miền Nam → Vietnam")
     log(f"Crawl start — bbox={bbox} tile={step}° dry_run={cfg['DRY_RUN']} overpass={cfg['OVERPASS_URL']}")
+    print(f"  [scope] crawl_years={_CY} | years window=[{_YEAR_MIN}, {_YEAR_MAX}]")
+    log(f"  [scope] crawl_years={_CY} | location layers={[l['label'] for l in LOCATION_LAYERS]}")
 
     if cfg["DRY_RUN"]:
         log("  DRY RUN — no DB writes.")
@@ -284,22 +304,28 @@ def main(argv: list[str] | None = None) -> int:
     seen_osm: set[int] = set()
     pois: list[dict] = []
     # OSM key=value pairs to crawl: chợ (markets) + Bách hóa Xanh & other convenience.
-    # fetch_tile now queries node + way + relation for each, so polygon markets are no longer skipped.
-    # `kind` is derived from the tag (anything with "market" -> market; "convenience" -> convenience).
     targets = ["amenity=marketplace", "shop=market", "shop=convenience"]
 
-    for (lat_s, lon_w, lat_n, lon_e) in tiles(bbox, step):
-        for tag in targets:
-            els = fetch_tile(lat_s, lon_w, lat_n, lon_e, tag)
-            for el in els:
-                osm_key = (el["osm_id"] if isinstance(el["osm_id"], int) else 0, el["name"], round(el["lat"], 6), round(el["lng"], 6))
-                if osm_key in seen_osm:
-                    continue
-                if cfg["LIMIT_PER_TYPE"] and len([x for x in pois if x["category"] == el["category"]]) >= cfg["LIMIT_PER_TYPE"]:
-                    continue
-                seen_osm.add(osm_key)
-                pois.append(el)
-            time.sleep(cfg["SLEEP_BETWEEN"])
+    # Walk the location expansion layers (single --bbox overrides everything).
+    scope_bboxes = SCOPE_BBOXES if "BBOX" not in cfg else [("custom", bbox)]
+    for layer_label, layer_bbox in scope_bboxes:
+        layer_s, layer_w, layer_n, layer_e = map(float, layer_bbox.split(","))
+        log(f"  Location layer: {layer_label} ({layer_bbox}) — {layer_n - layer_s:.1f}° × {layer_e - layer_w:.1f}°")
+        for (lat_s, lon_w, lat_n, lon_e) in tiles((layer_s, layer_w, layer_n, layer_e), step):
+            for tag in targets:
+                els = fetch_tile(lat_s, lon_w, lat_n, lon_e, tag, location_scope=layer_label)
+                for el in els:
+                    osm_key = (el["osm_id"] if isinstance(el["osm_id"], int) else 0, el["name"], round(el["lat"], 6), round(el["lng"], 6))
+                    if osm_key in seen_osm:
+                        continue
+                    if cfg["LIMIT_PER_TYPE"] and len([x for x in pois if x["category"] == el["category"]]) >= cfg["LIMIT_PER_TYPE"]:
+                        continue
+                    seen_osm.add(osm_key)
+                    pois.append(el)
+                time.sleep(cfg["SLEEP_BETWEEN"])
+
+        if layer_label != scope_bboxes[-1][0]:
+            log(f"  Completed layer '{layer_label}' — {len(pois)} POIs so far, expanding to next layer.")
 
     # De-dup again by exact coords+name (neighbour tiles / mixed node+way overlap).
     uniq: list[dict] = []
@@ -312,16 +338,22 @@ def main(argv: list[str] | None = None) -> int:
         uniq.append(p)
 
     bx = sum(1 for p in uniq if p["is_bach_hoa_xanh"])
+    layer_counts = {}
+    for p in uniq:
+        ls = p.get("location_scope", "vietnam")
+        layer_counts[ls] = layer_counts.get(ls, 0) + 1
     log(f"  collected {len(uniq)} unique POIs "
         f"({sum(1 for p in uniq if p['category']=='market')} markets, "
         f"{sum(1 for p in uniq if p['category']=='convenience')} convenience, "
         f"{bx} Bách Hóa Xanh).")
+    log(f"  per-layer: {layer_counts}")
 
     inserted = skipped = 0
     if conn:
         inserted, skipped = upsert(conn, uniq)
         conn.close()
     log(f"  DB: inserted={inserted} skipped={skipped} dry_run={cfg['DRY_RUN']}")
+    log(f"  [scope] crawl_years={_CY} | layers={layer_counts}")
     log("Crawl done.")
     return 0
 

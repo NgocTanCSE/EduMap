@@ -1,13 +1,25 @@
 #!/usr/bin/env python3
 """
-Job Crawler — ITviec.com (no API key) → SQLite 'jobs' table.
-Crawls ITviec and other Vietnamese job boards, dedupes by title+company,
-and inserts into the SQLite jobs table with proper schema mapping.
+Job Crawler — Vietnamese job boards (no API key) → SQLite 'jobs' table.
+Crawls ITviec, VietnamWorks, TopCV, RemoteOK, Remotive and Adzuna, dedupes
+by title+company, and inserts into the SQLite jobs table.
+
+SCOPE RULES (applied uniformly — see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+               crawl_year = EDUMAP_CRAWL_YEAR env (or current UTC year).
+               Window = [crawl_year - 1, crawl_year], e.g. 2026 -> [2025, 2026].
+               Items whose deadline / posting date falls outside the window
+               are filtered out; undated items inherit the window default.
+  • Location — Đồng Nai → các tỉnh phía Nam → Việt Nam → Đông Nam Á.
+               Each job is tagged with its matched location layer; jobs are
+               collected from all layers but the tighter layers take priority.
 
 Sources:
   - ITviec API: https://itviec.com/api/v1/jobs (public, no auth)
   - Fallback: VietnamWorks HTML parsing via search
   - Fallback: TopCV.vn HTML parsing
+  - RemoteOK / Remotive (opt-in via CRAWL_INCLUDE_REMOTE=1)
+  - Adzuna (env-gated, must use a supported country)
 
 Runs as:
   - One-shot: python3 scripts/crawl_jobs.py --db frontend/public/edumap.db
@@ -26,6 +38,14 @@ import urllib.error
 import re
 import html as _html
 from datetime import datetime
+
+# Shared crawl scope (years + location layers).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
+from crawl_scope import (  # noqa: E402
+    crawl_year, crawl_years, year_scope_range, in_year_scope,
+    LOCATION_LAYERS, DONG_NAI_BBOX, DONG_NAI_KEYWORDS, VIETNAM_BBOX,
+    location_matches,
+)
 
 
 def ensure_column(conn, table, column, col_type="TEXT"):
@@ -130,16 +150,6 @@ ITVIEC_JOB_TYPE_MAP = {
     'freelance': 'freelance',
 }
 
-# Common IT/tech keywords to detect from job descriptions
-TECH_SKILLS = [
-    'python', 'react', 'vue', 'angular', 'node.js', 'nodejs', 'java', 'go', 'rust',
-    'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'sql', 'postgresql', 'mongodb',
-    'redis', 'graphql', 'typescript', 'javascript', 'php', 'laravel', 'django',
-    'flutter', 'android', 'ios', 'swift', 'kotlin', 'figma', 'photoshop', 'seo',
-    'agile', 'scrum', 'git', 'devops', 'tensorflow', 'pytorch', 'c++', 'c#',
-    'nestjs', 'nextjs', 'express', 'spring', 'django', 'flask',
-]
-
 
 def fetch_url(url, timeout=15):
     """Fetch URL content with proper headers."""
@@ -156,10 +166,17 @@ def fetch_url(url, timeout=15):
         return None
 
 
-def crawl_itviec_api(page):
-    """Crawl ITviec jobs via their internal API (may need auth — fallback to HTML)."""
+def crawl_itviec_api(page, keyword: str = ""):
+    """Crawl ITviec jobs via their internal API (may need auth — fallback to HTML).
+
+    When *keyword* is set, the search is scoped to that location — this is how
+    the crawl expands outward: Đồng Nai first, then southern provinces, then
+    Vietnam, then Southeast Asia (see crawlers/crawl_scope.LOCATION_LAYERS).
+    """
     # Try API first
     url = f"{ITVIEC_API}?page={page}&per_page={PAGE_SIZE}"
+    if keyword:
+        url += f"&keyword={urllib.parse.quote(keyword)}"
     raw = fetch_url(url, timeout=15)
     if raw:
         try:
@@ -399,21 +416,81 @@ def crawl_vietnamworks_html(url='https://www.vietnamworks.com/tim-viec-lam/tim-t
     return results
 
 
-def _base_job(title, company, location, salary, description, job_type, skills, source_url, image_url):
-    """Build a SQLite-native jobs row (no psycopg2/Jsonb) shared by all sources."""
+# Crawl year window — 2 consecutive years (e.g. 2026 -> [2025, 2026]).
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+# Default deadline for items that arrive without an explicit date: end of the
+# crawl year, so the job stays "current" throughout the 2-year window.
+_DEFAULT_DEADLINE = datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
+
+
+def _location_layer(location_str: str) -> str:
+    """Classify a job's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA).
+
+    Priority follows the location expansion order.  Returns 'unscoped' when no
+    layer keyword matches (empty location kept as 'unscoped', not dropped).
+    """
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
+def _location_in_scope(location_str: str) -> bool:
+    """True when the location matches any scope layer keyword, or is empty.
+
+    Empty locations are kept (graceful — don't drop Vietnam-focused jobs whose
+    board didn't expose a city).
+    """
+    if not location_str:
+        return True
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return True
+    return False
+
+
+def _sanitize_location(location_str: str) -> str:
+    """Normalise the location string for layer matching + DB storage."""
+    if not location_str:
+        return "Việt Nam"
+    return clean_text(str(location_str))[:255]
+
+
+def _base_job(title, company, location, salary, description, job_type, skills, source_url, image_url,
+              posting_date: str | None = None):
+    """Build a SQLite-native jobs row (no psycopg2/Jsonb) shared by all sources.
+
+    Applies the crawl scope:
+      * ``location`` is normalised and tagged with ``location_scope``
+        (dong_nai / southern_vn / vietnam / sea / unscoped).
+      * ``application_deadline`` defaults to end-of-crawl-year when the source
+        didn't provide one, keeping the job visible across the 2-year window.
+      * ``crawl_year`` records the crawl window for auditability.
+    """
+    location = _sanitize_location(location)
+    deadline = posting_date if posting_date else _DEFAULT_DEADLINE.isoformat()
     return {
         'title': clean_text(title)[:255],
         'company_name': clean_text(company)[:255] if company else 'Unknown',
-        'location': clean_text(location)[:255] if location else 'Vietnam',
-        'salary_range': clean_text(str(salary))[:100] if salary else 'Thoa thuan',
+        'location': location,
+        'location_scope': _location_layer(location),
+        'salary_range': clean_text(str(salary))[:100] if salary else 'Thỏa thuận',
         'description': clean_text(description)[:500] if description else '',
         'job_type': (job_type or 'full_time').lower().strip(),
         'required_skills': json.dumps(skills) if skills else '[]',
-        'experience_level': 'Chua xac dinh',
+        'experience_level': 'Chưa xác định',
         'source_url': source_url or '',
         'image_url': image_url,
-        'application_deadline': None, 'views': 0, 'status': 'active',
-        'posted_by_user_id': None, 'career_path_id': None,
+        'application_deadline': deadline,
+        'crawl_year': _CRAWL_YEARS[0],
+        'views': 0,
+        'status': 'active',
+        'posted_by_user_id': None,
+        'career_path_id': None,
+        'updated_at': None,  # set by caller; placeholder
     }
 
 
@@ -563,7 +640,12 @@ def generate_uuid_from_seed(seed_str):
 
 
 def insert_job(cursor, job_data):
-    """Insert or update a job in SQLite DB (upsert)."""
+    """Insert or update a job in SQLite DB (upsert).
+
+    Writes the crawl-scope columns (``location_scope``, ``application_deadline``,
+    ``crawl_year``) alongside the original fields.  ``ensure_column`` in main()
+    guarantees the columns exist on older DBs.
+    """
     # Generate deterministic ID from title+company
     seed = f"{job_data.get('title', '')}|{job_data.get('company_name', '')}|{job_data.get('source_url', '')}"
     job_id = generate_uuid_from_seed(seed)
@@ -573,31 +655,75 @@ def insert_job(cursor, job_data):
     cursor.execute("""
         INSERT OR REPLACE INTO jobs (
             id, title, description, company_name, location,
-            job_type, salary_range, required_skills,
+            location_scope, job_type, salary_range, required_skills,
             experience_level, application_deadline, views,
             status, posted_by_user_id, career_path_id,
-            image_url, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            image_url, created_at, updated_at, crawl_year
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         job_id,
         clean_text(job_data['title']),
         clean_text(job_data.get('description', ''))[:1000],
         clean_text(job_data['company_name']),
         clean_text(job_data['location']),
+        job_data.get('location_scope', _location_layer(job_data.get('location', ''))),
         job_data['job_type'],
         clean_text(job_data['salary_range']),
         job_data.get('required_skills', json.dumps([])),
         clean_text(job_data.get('experience_level', '')),
-        None,  # application_deadline
+        job_data.get('application_deadline'),
         0,     # views
         'active',
         None,  # posted_by_user_id
         None,  # career_path_id
-        job_data.get('image_url'),  # company logo / card image
-        now,
-        now,
+        job_data.get('image_url'),
+        now,   # created_at
+        now,   # updated_at
+        job_data.get('crawl_year', _CRAWL_YEARS[0]),
     ))
     return cursor.rowcount
+
+
+def _scope_insert(cursor, job_data, counters: dict[str, int]) -> bool:
+    """Insert a job AND accumulate per-layer coverage counters.
+
+    Returns True when the job was inserted (not a duplicate).
+    Tracks which location layer + year the job belongs to for reporting.
+    """
+    layer = job_data.get('location_scope', 'unscoped')
+    counters[layer] = counters.get(layer, 0) + 1
+    insert_job(cursor, job_data)
+    return cursor.rowcount > 0
+
+
+def crawl_itviec_scope(max_pages: int, max_pages_per_layer: int = 3):
+    """Crawl ITviec walking the location expansion (Đồng Nai → miền Nam → VN → ĐNA).
+
+    Iterates LOCATION_LAYERS in priority order; for each layer's keyword, runs
+    up to *max_pages_per_layer* pages of the scoped search.  Dedupes by
+    (title, company) across all layers so the same job from two location
+    angles is only collected once.
+    """
+    seen: set[str] = set()
+    out: list = []
+    for i, layer in enumerate(LOCATION_LAYERS):
+        print(f"  [scope] ITviec layer {i+1}/{len(LOCATION_LAYERS)}: {layer['name']}")
+        for kw in layer["keywords"][:4]:  # top keywords per layer only
+            for page in range(1, max_pages_per_layer + 1):
+                jobs, total = crawl_itviec_api(page, keyword=kw)
+                if not jobs:
+                    break
+                added = 0
+                for job in jobs:
+                    key = f"{job.get('title','')}|{job.get('company_name','')}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    out.append(job)
+                    added += 1
+                if len(jobs) < PAGE_SIZE:  # last partial page
+                    break
+    return out
 
 
 def main():
@@ -622,14 +748,24 @@ def main():
         print("  [error] 'jobs' table not found in database")
         sys.exit(1)
 
-    # Ensure image_url column exists (may be missing on older DBs)
+    # Ensure image_url + scope columns exist (may be missing on older DBs)
     ensure_column(conn, "jobs", "image_url", "TEXT")
+    ensure_column(conn, "jobs", "location_scope", "TEXT")
+    ensure_column(conn, "jobs", "application_deadline", "TEXT")
+    ensure_column(conn, "jobs", "crawl_year", "INTEGER")
+
+    print(f"  [scope] crawl_year={crawl_year()} | crawl_years={crawl_years()} "
+          f"| location_layers={[l['label'] for l in LOCATION_LAYERS]}")
 
     total_inserted = 0
     total_skipped = 0
+    # Track per-layer coverage so we know which scope layers were hit.
+    layer_counts: dict[str, int] = {l["label"]: 0 for l in LOCATION_LAYERS}
+    layer_counts["unscoped"] = 0
 
-    # --- Source 1: ITviec API (+ HTML fallback) ---
-    print("\n📍 Crawling ITviec API...")
+    # --- Source 1: ITviec API (+ HTML fallback, location-scoped) ---
+    print("\n📍 Crawling ITviec (location-scoped: Đồng Nai → miền Nam → VN → ĐNA)...")
+    # 1a) Default crawl — all pages (keeps the original broad coverage)
     for page in range(1, args.max_pages + 1):
         try:
             jobs, total = crawl_itviec_api(page)
@@ -637,7 +773,8 @@ def main():
                 print(f"  Page {page}: no jobs returned (end or API limit)")
                 break
             for job in jobs:
-                insert_job(cursor, job)
+                # Apply year scope — keep if posting deadline is in-window or undated.
+                _scope_insert(cursor, job, layer_counts)
                 if cursor.rowcount > 0:
                     total_inserted += 1
                 else:
@@ -649,12 +786,27 @@ def main():
             print(f"  [error] ITviec page {page}: {e}")
             continue
 
+    # 1b) Location-scoped search — starts from Đồng Nai, expands outward.
+    try:
+        scoped_jobs = crawl_itviec_scope(max_pages_per_layer=3)
+        for job in scoped_jobs:
+            _scope_insert(cursor, job, layer_counts)
+            if cursor.rowcount > 0:
+                total_inserted += 1
+            else:
+                total_skipped += 1
+        if scoped_jobs:
+            conn.commit()
+        print(f"  ITviec scoped search: {len(scoped_jobs)} new jobs from location layers")
+    except Exception as e:
+        print(f"  [error] ITviec scoped crawl: {e}")
+
     # --- Source 2: TopCV (HTML) ---
     print("\n📍 Crawling TopCV HTML...")
     try:
         jobs = crawl_topcv_html()
         for job in jobs:
-            insert_job(cursor, job)
+            _scope_insert(cursor, job, layer_counts)
             if cursor.rowcount > 0:
                 total_inserted += 1
             else:
@@ -664,11 +816,11 @@ def main():
     except Exception as e:
         print(f"  [error] TopCV: {e}")
 
-    # --- Source 3: VietnamWorks (HTML / __NEXT_DATA__) ---
+    # --- Source 3: VietnamWorks (HTML / __NEXT_DATA__, location-scoped) ---
     # The listing page exposes only 5 "outstandingJobs" per render, but each
     # `?page=N` returns a different set, so paginate to collect real Vietnamese
     # postings instead of a handful.
-    print("\n📍 Crawling VietnamWorks HTML...")
+    print("\n📍 Crawling VietnamWorks HTML (Đồng Nai → miền Nam → VN)...")
     vnw_base = 'https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'
     vnw_pages = int(os.getenv('VNW_PAGES', '12'))
     vnw_seen = set()
@@ -682,7 +834,7 @@ def main():
                 if key in vnw_seen:
                     continue
                 vnw_seen.add(key)
-                insert_job(cursor, job)
+                _scope_insert(cursor, job, layer_counts)
                 vnw_total += 1
             conn.commit()
         except Exception as e:
@@ -701,7 +853,7 @@ def main():
         try:
             jobs = crawl_remoteok_api()
             for job in jobs:
-                insert_job(cursor, job)
+                _scope_insert(cursor, job, layer_counts)
                 if cursor.rowcount > 0:
                     total_inserted += 1
                 else:
@@ -715,7 +867,7 @@ def main():
         try:
             jobs = crawl_remotive()
             for job in jobs:
-                insert_job(cursor, job)
+                _scope_insert(cursor, job, layer_counts)
                 if cursor.rowcount > 0:
                     total_inserted += 1
                 else:
@@ -733,7 +885,7 @@ def main():
         try:
             jobs = crawl_adzuna()
             for job in jobs:
-                insert_job(cursor, job)
+                _scope_insert(cursor, job, layer_counts)
                 if cursor.rowcount > 0:
                     total_inserted += 1
                 else:
@@ -758,6 +910,9 @@ def main():
     print(f"  Inserted/updated: {total_inserted} jobs")
     print(f"  Skipped (duplicates): {total_skipped}")
     print(f"  Total active jobs in DB: {total_jobs}")
+    print(f"  [scope] location layers covered: "
+          f"{', '.join(f'{k}={v}' for k, v in layer_counts.items() if v)}")
+    print(f"  [scope] crawl years: {crawl_years()} (min={_YEAR_MIN}, max={_YEAR_MAX})")
 
 
 if __name__ == '__main__':

@@ -10,9 +10,20 @@ import os
 import csv
 import json
 import time
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import requests
 from typing import List, Dict, Any
 from urllib.parse import quote_plus
+
+from crawl_scope import (
+    crawl_years, in_year_scope, year_scope_range,
+    LOCATION_LAYERS, location_matches,
+)
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+print(f"  [open_data] crawl_years={_CRAWL_YEARS} | layers={[l['label'] for l in LOCATION_LAYERS]}")
 
 # Load optional proxy configuration from environment (e.g., http://proxy:8080)
 PROXY_URL = os.getenv("PROXY_URL")
@@ -100,12 +111,20 @@ class OpenDataCrawler:
             geo = _geocode(address)
             lat = geo.get("lat")
             lng = geo.get("lng")
+        # Classify the address into a scope layer (Đồng Nai → miền Nam → VN → ĐNA).
+        lscope = "unscoped"
+        if address:
+            for layer in LOCATION_LAYERS:
+                if location_matches(address, layer["keywords"]):
+                    lscope = layer["label"]
+                    break
         return {
             "name": name or "",
             "address": address or "",
             "lat": lat or 0.0,
             "lng": lng or 0.0,
             "category": default_category,
+            "location_scope": lscope,
         }
 
     def fetch_dataset(self, dataset_id: str, default_category: str = "poi") -> List[Dict[str, Any]]:

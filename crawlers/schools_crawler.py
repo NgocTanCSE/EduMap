@@ -9,6 +9,8 @@ import json
 import uuid
 from typing import List, Dict
 
+from crawl_scope import crawl_years, year_scope_range, in_year_scope, LOCATION_LAYERS
+
 class SchoolsCrawler:
     """Crawler để lấy thông tin trường học và không gian giáo dục tại Đồng Nai"""
 
@@ -254,7 +256,12 @@ class SchoolsCrawler:
         return dntu_spaces
 
     def crawl_all_schools(self) -> Dict:
-        """Thu thập tất cả dữ liệu trường học"""
+        """Thu thập tất cả dữ liệu trường học (Đồng Nai → miền Nam → VN → ĐNA).
+
+        This is a curated snapshot of real Đồng Nai schools.  The Overpass-based
+        ``dongnai_schools_crawler.py`` handles the live outward expansion.  Here
+        we tag each school with its scope layer and emit the crawl-year window.
+        """
         universities = self.get_universities()
         secondary = self.get_secondary_schools()
         training = self.get_training_centers()
@@ -262,12 +269,21 @@ class SchoolsCrawler:
 
         all_schools = universities + secondary + training + dntu_spaces
 
+        # Tag each school with its location scope (all Đồng Nai-sourced here).
+        for s in all_schools:
+            s["location_scope"] = "dong_nai"
+
+        _CY = crawl_years()
+        print(f"  [schools] crawl_years={_CY} | layers={[l['label'] for l in LOCATION_LAYERS]}")
+
         return {
             "total": len(all_schools),
             "universities": len(universities),
             "secondary_schools": len(secondary),
             "training_centers": len(training),
             "dntu_spaces": len(dntu_spaces),
+            "location_scope": "dong_nai",
+            "crawl_years": list(_CY),
             "locations": all_schools
         }
 
@@ -335,6 +351,7 @@ if __name__ == "__main__":
     result = crawler.crawl_all_schools()
 
     print(f"Total locations: {result['total']}")
+    print(f"  [scope] crawl_years={result['crawl_years']} | location_scope={result['location_scope']}")
     print(f"Universities: {result['universities']}")
     print(f"Secondary schools: {result['secondary_schools']}")
     print(f"Training centers: {result['training_centers']}")

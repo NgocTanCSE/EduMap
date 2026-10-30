@@ -13,9 +13,17 @@ Multiple sources, ALL paginated (crawl nhiều trang, không chỉ 1-2):
 posts has no unique key -> dedup by (title, source) (upsert_row
 SELECT-then-update). Graceful: a source that 403/lỗi -> 0 rows, no crash.
 """
-import os, re, sys, time
+import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html, crawl_pages, extract_eventbrite_cards
+from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html, crawl_pages, extract_eventbrite_cards, ensure_column
+from crawl_scope import (
+    crawl_years, in_year_scope, year_scope_range,
+    LOCATION_LAYERS, location_matches, keywords_for_layers,
+)
+
+NOW = datetime.datetime.utcnow()
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
 
 DEVPOST = "https://devpost.com/api/hackathons"
 PER_PAGE = 30
@@ -24,6 +32,7 @@ TARGET = 200
 # Eventbrite hackathon/competition keyword pages (VN).
 EVENTBRITE = "https://www.eventbrite.com/d/vietnam/all-events/"
 EB_QUERIES = ["hackathon", "competition", "contest", "student"]
+EB_LOCATION_QUERIES = [f"hackathon {kw}" for kw in keywords_for_layers()[:8]]
 EB_PAGES = 6  # per query
 
 
@@ -52,6 +61,7 @@ def _devpost_items(data):
             "content": desc[:3000],
             "media_urls": Jsonb(media),
             "tags": Jsonb(["hackathon", "devpost"]),
+            "location_scope": "unscoped",
             "like_count": 0,
             "comment_count": 0,
             "status": "active",
@@ -109,8 +119,9 @@ def crawl():
         key=("title", "source"), max_pages=MAX_PAGES,
         stop_when_fewer_than=PER_PAGE, sleep=0.5, label='hackathons(devpost-popular)'))
 
-    # 3) Eventbrite VN — several keyword queries, each paginated
-    for q in EB_QUERIES:
+    # 3) Eventbrite VN — location-scoped queries first (Đồng Nai → miền Nam →
+    #    VN → ĐNA), then plain keywords.  Each query is paginated.
+    for q in EB_LOCATION_QUERIES + EB_QUERIES:
         rows.extend(crawl_pages(
             s, lambda p, q=q: f"{EVENTBRITE}?q={q}&page={p}", fetch_html,
             _eventbrite_items, key=("title", "source"),
@@ -134,14 +145,18 @@ def crawl():
 
     print(f"  [hackathons] collected {len(rows)} rows across "
           f"Devpost browse+popular + Eventbrite ({len(EB_QUERIES)} queries x {EB_PAGES} pages)")
+    print(f"  [scope] years={crawl_years()} | location layers scoped via Eventbrite q=")
     return rows
 
 
 def run():
     print("hackathons_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} | location layers expanding Đồng Nai → miền Nam → VN → ĐNA")
     rows = crawl()
     conn = get_conn()
     try:
+        ensure_column(conn, "posts", "image_url", "TEXT")
+        ensure_column(conn, "posts", "location_scope", "TEXT")
         if rows:
             r = upsert_rows(conn, "posts", rows, ["title", "source"])
             print(f"hackathons_crawler: {r}  (-> posts tag=hackathon)")

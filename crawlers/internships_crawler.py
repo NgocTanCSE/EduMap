@@ -20,6 +20,15 @@ import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html,
                       crawl_pages, ensure_column, extract_itviec_jobs, extract_topcv_jobs)
+from crawl_scope import (
+    crawl_years, year_scope_range, in_year_scope,
+    LOCATION_LAYERS, location_matches,
+)
+
+# 2 consecutive years (e.g. 2026 -> [2025, 2026])
+_CRAWL_YEARS = crawl_years()
+_YEAR_MIN, _YEAR_MAX = year_scope_range()
+_DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
 REMOTEOK_INTERN = "https://remoteok.com/api?category=internship"
 REMOTIVE = "https://api.remotive.com/v1/projects"
@@ -55,13 +64,30 @@ def _is_intern(title, tags):
     return any(h in blob for h in INTERN_HINTS)
 
 
+def _location_layer(location_str):
+    """Classify a posting's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA)."""
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
 def _intern_row(title, company, description, field, tags, salary, logo=None, deadline=None):
     desc = clean(description or "")
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
+    # Year scope: keep items whose deadline falls in the 2-year crawl window;
+    # absent an explicit deadline, inherit the crawl-year boundary.
+    if deadline is None or not in_year_scope(deadline):
+        deadline = _DEFAULT_DEADLINE
     return {
         "title": (title or "")[:255],
         "company_id": None,
+        "company_name": (company or "")[:255],
+        "location": "Việt Nam",
+        "location_scope": "vietnam",
         "description": desc,
         "field": (str(field)[:100] if field else "internship"),
         "location_point": None,
@@ -231,18 +257,21 @@ def crawl():
         sleep=1.0, label='internships(topcv)'))
 
     print(f"  [internships] collected {len(rows)} raw rows across "
-          f"RemoteOK+Remotive+ITviec+Adzuna+TopCV")
+          f"RemoteOK+Remotive+ITviec+Adzuna+TopCV (years in-scope: {crawl_years()})")
     return rows
 
 
 def run():
     print("internships_crawler: start")
+    print(f"  [scope] crawl_years={crawl_years()} "
+          f"| layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
         ensure_column(conn, "internships", "image_url", "TEXT")
+        ensure_column(conn, "internships", "location_scope", "TEXT")
         rows = crawl()
         if rows:
-            r = upsert_rows(conn, "internships", rows, ["title"])
+            r = upsert_rows(conn, "internships", rows, ["title", "company_name"])
             print(f"internships_crawler: {r}")
         else:
             print("internships_crawler: 0 rows")

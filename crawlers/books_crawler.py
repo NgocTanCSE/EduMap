@@ -20,9 +20,13 @@ Subjects (basic -> advanced):
 
 import json
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import uuid
 import requests
 from typing import List, Dict
+
+from crawl_scope import crawl_years, year_scope_range, LOCATION_LAYERS
 
 COVER_BASE = "https://covers.openlibrary.org/b/OLID"
 
@@ -116,19 +120,33 @@ class BooksCrawler:
         return libraries
 
     def crawl_all_books(self) -> Dict:
-        """Thu thập toàn bộ sách (đủ môn học, từ cơ bản đến nâng cao)."""
+        """Thu thập toàn bộ sách (đủ môn học, từ cơ bản đến nâng cao).
+
+        Sách nền tảng (Foundational) được xuất theo 2 năm cửa sổ crawl
+        (crawl_years). Location scope: sách giáo dục cho toàn VN + ĐNA, tag
+        location_scope='vietnam'.
+        """
         subjects = list(SUBJECT_BOOKS.keys())
         all_books = []
+        _CY = crawl_years()
+        print(f"  [books] crawl_years={_CY} | layers={[l['label'] for l in LOCATION_LAYERS]}")
 
         for subject in subjects:
             books = self.search_openlibrary_books(subject, limit=20)
+            for book in books:
+                book["location_scope"] = "vietnam"
             all_books.extend([(subject, book) for book in books])
+
+        libs = self.get_libraries()
+        for lib in libs:
+            lib.setdefault("location_scope", "dong_nai")
 
         return {
             "total_books": len(all_books),
             "subjects": subjects,
             "books": all_books,
-            "libraries": self.get_libraries(),
+            "libraries": libs,
+            "crawl_years": list(_CY),
         }
 
     def to_learning_materials_sql(self, books_by_subject: List[tuple]) -> List[str]:

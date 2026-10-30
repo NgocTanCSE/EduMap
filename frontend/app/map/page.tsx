@@ -931,7 +931,9 @@ export default function MapPage() {
                     <Users className="w-3.5 h-3.5" />
                     <span>Gần đây ({nearbyPois.length})</span>
                   </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
+                {/* Nearby facilities — render all, no max-h-48 cap so
+                    default state isn't "bị cắt nội dung"; panel body scrolls. */}
+                  <div className="space-y-1">
                     {nearbyPois.map((poi) => (
                       <button
                         key={poi.id}
@@ -1003,9 +1005,13 @@ export default function MapPage() {
             )
           ) : null}
         </div>
-        {/* Panel resize handle */}
+        {/* Panel resize handle — prominent + titled, mirroring the
+            Chỉ đường routing panel's resize affordance so the Bản đồ panel
+            is visibly "thay đổi kích thước" (SE-corner = analogous to the
+            routing panel's left-edge strip for a left-anchored panel). */}
         <div
-          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-primary/20 hover:bg-primary/40 rounded-br-lg select-none"
+          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-primary/30 hover:bg-primary/50 rounded-tl-lg select-none transition-colors"
+          title="Kéo để thay đổi kích thước"
           onMouseDown={onMapPanelResizeMouseDown}
         />
       </div>
