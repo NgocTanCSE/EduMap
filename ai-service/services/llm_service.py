@@ -1050,9 +1050,28 @@ class LLMService:
                     print("  -> Local Gemma 2B generate OK")
                     return result
             except Exception as e:
-                # Local LLM failure is non-fatal — template fallback catches it
+                # Local LLM failure is non-fatal — try TinyLlama next, then template
                 errors["local_llm"] = str(e)
                 print(f"Local Gemma 2B generate failed: {e}")
+
+        # 3b. Local TinyLlama 1.1B (not gated — reliable on HF Spaces free plan)
+        # Gemma 2B IT is a gated model on HuggingFace (needs HF_TOKEN). On the
+        # free HF Spaces tier without HF_TOKEN, step 3 always fails. TinyLlama
+        # 1.1B is NOT gated and can be downloaded without authentication, so it
+        # serves as the reliable local LLM fallback when Gemma is unavailable.
+        if self.tinyllama_enabled:
+            try:
+                result = _tinyllama_generate(
+                    prompt, temperature=temperature or 0.3,
+                    max_tokens=max_tokens or 512, top_p=top_p or 0.9,
+                )
+                if result:
+                    self._store_response_cache(_cache_key, result)
+                    print("  -> Local TinyLlama generate OK")
+                    return result
+            except Exception as e:
+                errors["tinyllama"] = str(e)
+                print(f"Local TinyLlama generate failed: {e}")
 
         # Build a detailed, per-provider error message.
         parts = []
@@ -1065,7 +1084,9 @@ class LLMService:
         elif errors.get("Gemini"):
             parts.append(f"Gemini: {errors['Gemini'][:150]}")
         if self.has_local_llm and errors.get("local_llm"):
-            parts.append(f"Local LLM: {errors['local_llm'][:150]}")
+            parts.append(f"Local Gemma: {errors['local_llm'][:150]}")
+        if self.tinyllama_enabled and errors.get("tinyllama"):
+            parts.append(f"TinyLlama: {errors['tinyllama'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
@@ -1192,6 +1213,21 @@ class LLMService:
                 last_err = str(e)
                 print(f"Chat gen {gen_fn.__name__} failed: {e}")
                 continue
+
+        # 3b. Local TinyLlama 1.1B (not gated — reliable fallback when
+        # Gemma 2B is gated or all remote providers fail)
+        if not reply_text and self.tinyllama_enabled:
+            try:
+                response = await asyncio.to_thread(
+                    _tinyllama_generate,
+                    prompt, temperature=0.3, max_tokens=2048, top_p=0.8,
+                )
+                if response:
+                    reply_text = response.strip()
+                    print("  -> local TinyLlama generate OK (chat_with_rag)")
+            except Exception as e:
+                last_err = str(e)
+                print(f"chat_with_rag TinyLlama failed: {e}")
 
         if not reply_text:
             print(f"AI Generation Error: {last_err or 'no provider available'} — using template fallback")
@@ -1386,6 +1422,20 @@ class LLMService:
                 last_err = str(e)
                 print(f"[stream] Provider {gen_fn.__name__} failed — {type(e).__name__}: {str(e)[:200]}. Error detail: {last_err[:300]}")
                 continue
+
+        if not reply_text and self.tinyllama_enabled:
+            # Local fallback: Gemma 2B is gated on HF — TinyLlama is not.
+            try:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(_tinyllama_generate, prompt, temperature=0.3, max_tokens=2048, top_p=0.8),
+                    timeout=max(3.0, _gen_budget - (time.monotonic() - _stream_start)),
+                )
+                if response:
+                    reply_text = response.strip()
+                    print("  -> local TinyLlama generate OK (stream fallback)")
+            except Exception as e:
+                last_err = str(e)
+                print(f"[stream] TinyLlama generate failed: {type(e).__name__}: {str(e)[:200]}")
 
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
