@@ -35,7 +35,11 @@ except ImportError:
 
 try:
     import chromadb
-except ImportError:
+except ImportError as e:
+    print(f"ChromaDB import failed: {type(e).__name__}: {e}")
+    chromadb = None
+except Exception as e:
+    print(f"ChromaDB import failed (non-ImportError): {type(e).__name__}: {e}")
     chromadb = None
 
 

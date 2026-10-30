@@ -8,7 +8,11 @@
 # feature crawlers still run even if cron fails to start.
 set -euo pipefail
 
-DB_PATH="/app/frontend/public/edumap.db"
+# Default to SQLite for HF Spaces (no PostgreSQL server available).
+export DB_TYPE="${DB_TYPE:-sqlite}"
+export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/frontend/public/edumap.db}"
+
+DB_PATH="${DB_SQLITE_PATH}"
 CRAWLERS_DIR="/app/crawlers"
 
 # Crawl year window — 2 consecutive years (e.g. EDUMAP_CRAWL_YEAR=2027 → [2026,2027]).

@@ -696,7 +696,7 @@ def _scope_insert(cursor, job_data, counters: dict[str, int]) -> bool:
     return cursor.rowcount > 0
 
 
-def crawl_itviec_scope(max_pages: int, max_pages_per_layer: int = 3):
+def crawl_itviec_scope(max_pages: int = 5, max_pages_per_layer: int = 3):
     """Crawl ITviec walking the location expansion (Đồng Nai → miền Nam → VN → ĐNA).
 
     Iterates LOCATION_LAYERS in priority order; for each layer's keyword, runs

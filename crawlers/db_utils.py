@@ -16,21 +16,41 @@ import re
 import time
 import random
 import json
-import requests
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extras import RealDictCursor
+import sqlite3
+import contextlib
 
-# psycopg2 <2.8 has no Jsonb adapter; use Json (emits a quoted JSON string that
-# PostgreSQL coerces to jsonb on input) so the crawlers work on old + new envs.
+# HF Spaces runs SQLite only (no PostgreSQL server). psycopg2 is optional —
+# only needed when DB_TYPE=postgresql (dev / docker-compose). Crawlers on
+# HF Spaces use sqlite3 (stdlib) to upsert into edumap.db.
 try:
-    from psycopg2.extras import Jsonb as _NativeJsonb
-except ImportError:  # pragma: no cover
-    from psycopg2.extras import Json as _NativeJsonb
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    import psycopg2
+    from psycopg2 import sql
+    from psycopg2.extras import RealDictCursor
+    try:
+        from psycopg2.extras import Jsonb as _NativeJsonb
+    except ImportError:  # pragma: no cover
+        from psycopg2.extras import Json as _NativeJsonb
+    _HAS_PSYCOPG = True
+except ImportError:
+    psycopg2 = None
+    sql = None
+    RealDictCursor = None
+    _NativeJsonb = None
+    _HAS_PSYCOPG = False
 
 
 def Jsonb(obj):
-    """Wrap a dict/list as a PostgreSQL jsonb value (old + new psycopg2)."""
+    """Wrap a dict/list as a PostgreSQL jsonb value (old + new psycopg2).
+
+    On SQLite (HF Spaces), stores as JSON TEXT string instead.
+    """
+    if _IS_SQLITE:
+        return json.dumps(obj, ensure_ascii=False) if obj is not None else None
     return _NativeJsonb(obj)
 
 
@@ -43,19 +63,20 @@ def ensure_column(conn, table, column, col_type="TEXT"):
 
     Uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS (PostgreSQL).
     On SQLite (used in HF Spaces / local Docker), falls back to
-    checking information_schema and ALTER TABLE ADD COLUMN.
+    checking PRAGMA table_info and ALTER TABLE ADD COLUMN.
     Safe to call every run — no-op if column already exists.
     """
     if _has_col(conn, table, column):
         return
     try:
-        with conn.cursor() as cur:
+        with _cursor(conn) as cur:
             cur.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
         conn.commit()
+        _TABLE_COLS_CACHE.pop(table, None)  # invalidate cached columns
         print(f"  [ensure_column {table}] added column '{column}' ({col_type})")
-    except psycopg2.Error as e:
+    except Exception as e:
         conn.rollback()
-        print(f"  [ensure_column {table}] cannot add '{column}': {e.diag.message_primary if e.diag else e}")
+        print(f"  [ensure_column {table}] cannot add '{column}': {e}")
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +225,15 @@ def fetch_og_image(session, url, timeout=15, retries=1):
 # --------------------------------------------------------------------------- #
 # Config
 # --------------------------------------------------------------------------- #
+# SQLite mode (HF Spaces default): DB_TYPE=sqlite → use sqlite3 stdlib.
+# PostgreSQL mode (dev / docker-compose): DB_TYPE unset or =postgresql → psycopg2.
+_IS_SQLITE = os.getenv("DB_TYPE", "sqlite") == "sqlite"
+_DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
+# SQLite uses ? placeholders; PostgreSQL uses %s.
+_PLACEHOLDER = "?" if _IS_SQLITE else "%s"
+# Timestamp expression: SQLite has no NOW(); use datetime('now').
+_NOW_EXPR = "datetime('now')" if _IS_SQLITE else "NOW()"
+
 DB_CFG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": int(os.getenv("DB_PORT", "5433")),
@@ -222,7 +252,24 @@ USER_AGENTS = [
 _TABLE_COLS_CACHE: dict = {}
 
 
+@contextlib.contextmanager
+def _cursor(conn):
+    """Context manager that works with BOTH sqlite3 and psycopg2 cursors.
+
+    psycopg2 cursors support `with conn.cursor() as cur:` natively (commits/
+    rolls back on exit). SQLite3 cursors do NOT — they raise TypeError for
+    the context-manager protocol. This helper abstracts that difference.
+    """
+    cur = conn.cursor()
+    try:
+        yield cur
+    finally:
+        cur.close()
+
+
 def get_conn():
+    if _IS_SQLITE:
+        return sqlite3.connect(_DB_SQLITE_PATH)
     return psycopg2.connect(**DB_CFG)
 
 
@@ -234,11 +281,18 @@ def make_session():
 
 def _has_col(conn, table, col):
     """Cache columns per table — some tables (badges/green_challenges) have no
-    updated_at, so we never reference a column that doesn't exist."""
+    updated_at, so we never reference a column that doesn't exist.
+
+    SQLite: uses PRAGMA table_info. PostgreSQL: uses information_schema.
+    """
     if table not in _TABLE_COLS_CACHE:
-        with conn.cursor() as cur:
-            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s", [table])
-            _TABLE_COLS_CACHE[table] = {r[0] for r in cur.fetchall()}
+        with _cursor(conn) as cur:
+            if _IS_SQLITE:
+                cur.execute(f"PRAGMA table_info({table})")
+                _TABLE_COLS_CACHE[table] = {row[1] for row in cur.fetchall()}
+            else:
+                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s", [table])
+                _TABLE_COLS_CACHE[table] = {r[0] for r in cur.fetchall()}
     return col in _TABLE_COLS_CACHE[table]
 
 
@@ -246,9 +300,14 @@ def sync_seq(conn, table, col="id"):
     """Re-align a SERIAL sequence to max(id) to prevent PK collisions that arise
     from manual/seed inserts that bypass nextval (e.g. badges.id).
     `table`/`col` are internal hard-coded names -> safe to interpolate as
-    identifiers (psycopg2 %s would render them as quoted strings -> syntax err)."""
+    identifiers (psycopg2 %s would render them as quoted strings -> syntax err).
+
+    No-op on SQLite (AUTOINCREMENT handles this automatically).
+    """
+    if _IS_SQLITE:
+        return
     try:
-        with conn.cursor() as cur:
+        with _cursor(conn) as cur:
             cur.execute(
                 f"SELECT setval(pg_get_serial_sequence('{table}', '{col}'), "
                 f"COALESCE((SELECT MAX({col}) FROM {table}), 1), true)"
@@ -516,21 +575,21 @@ def upsert_row(conn, table, row, key_cols):
         return False
     cols = list(row.keys())
     vals = [row[c] for c in cols]
-    placeholders = ", ".join(["%s"] * len(cols))
+    placeholders = ", ".join([_PLACEHOLDER] * len(cols))
 
-    key_where = " AND ".join([f"{c} = %s" for c in key_cols])
+    key_where = " AND ".join([f"{c} = {_PLACEHOLDER}" for c in key_cols])
     key_vals = [row[c] for c in key_cols if c in row]
 
-    with conn.cursor() as cur:
+    with _cursor(conn) as cur:
         cur.execute(f"SELECT id FROM {table} WHERE {key_where}", key_vals)
         existing = cur.fetchone()
         if existing:
             set_cols = [c for c in cols if c not in key_cols and c != "id"]
             if set_cols:
-                extra = ["updated_at = NOW()"] if _has_col(conn, table, "updated_at") else []
-                set_clause = ", ".join([f"{c} = %s" for c in set_cols] + extra)
+                extra = [f"updated_at = {_NOW_EXPR}"] if _has_col(conn, table, "updated_at") else []
+                set_clause = ", ".join([f"{c} = {_PLACEHOLDER}" for c in set_cols] + extra)
                 cur.execute(
-                    f"UPDATE {table} SET {set_clause} WHERE id = %s",
+                    f"UPDATE {table} SET {set_clause} WHERE id = {_PLACEHOLDER}",
                     [row[c] for c in set_cols] + [existing[0]],
                 )
             return False  # updated, not new
@@ -548,8 +607,8 @@ def upsert_rows(conn, table, rows, key_cols):
             else:
                 updated += 1
             conn.commit()
-        except psycopg2.Error as e:
+        except Exception as e:
             conn.rollback()
             skipped += 1
-            print(f"    [upsert {table}] skip row key={ {k: r.get(k) for k in key_cols} }: {e.diag.message_primary if e.diag else e}")
+            print(f"    [upsert {table}] skip row key={ {k: r.get(k) for k in key_cols} }: {e}")
     return {"added": added, "updated": updated, "skipped": skipped, "total": len(rows)}

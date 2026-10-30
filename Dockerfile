@@ -99,7 +99,7 @@ RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests p
 # Step 3: chromadb deps FIRST (kubernetes, onnxruntime — large graph),
 # then chromadb itself with --no-deps so pip doesn't re-resolve everything.
 # This isolates chromadb's huge dependency tree from the rest.
-RUN pip install --no-cache-dir kubernetes onnxruntime mmh3 click graphene grpcio pybase64 pypika schema && \
+RUN pip install --no-cache-dir kubernetes onnxruntime mmh3 click graphene grpcio pybase64 pypika schema brotli datasketch deprecated && \
     pip install --no-cache-dir --no-deps "chromadb>=0.4.0,<0.6.0" && \
     echo "[ai-deps] chromadb + deps installed"
 
@@ -227,9 +227,10 @@ WORKDIR /app
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
       python3 python3-pip supervisor curl ca-certificates cron \
-      libprotobuf32 libtbb12 \
+      libprotobuf32 libtbb12 libgomp1 \
       libboost-filesystem1.74.0 libboost-iostreams1.74.0 \
       libboost-system1.74.0 libboost-thread1.74.0 \
+      libboost-program-options1.74.0 \
       zlib1g libbz2-1.0 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -311,18 +312,21 @@ COPY --from=osrm-builder /osrm-libs /tmp/osrm-libs
 RUN mkdir -p /usr/local/osrm-lib && \
     cp /tmp/osrm-libs/* /usr/local/osrm-lib/ 2>/dev/null || true; \
     # CRITICAL: Remove ALL system-provided C/C++ runtime libraries to prevent
-    # GLIBCXX/GLIBC version conflicts. osrm/osrm-backend:v5.25.0 is Alpine-based
-    # (38MB image) and ships OLDER glibc/libstdc++. The /etc/ld.so.conf.d/99-
-    # osrm-lib.conf dir has HIGHER priority than built-in /usr/lib paths, so
-    # the dynamic linker loads OLD libstdc++.so.6 from osrm-lib instead of
-    # Debian 12's GCC 12 libstdc++ (which has GLIBCXX_3.4.29, CXXABI_1.3.11).
+    # GLIBCXX/GLIBC version conflicts. osrm/osrm-backend:v5.25.0 is Debian-based
+    # and ships OLDER libstdc++/libc. The /etc/ld.so.conf.d/99-osrm-lib.conf dir
+    # has HIGHER priority than built-in /usr/lib paths, so the dynamic linker
+    # loads OLD libstdc++.so.6 from osrm-lib instead of Debian 12's GCC 12
+    # libstdc++ (which has GLIBCXX_3.4.29, CXXABI_1.3.11).
     # Result: ALL native modules crash (sqlite3, scipy, torch) → backend +
     # AI service can't start → 0 features work.
     #
-    # Fix: remove libc/libstdc++/libprotobuf/libtbb/libboost/libz etc. — ALL
+    # Fix: remove libc/libstdc++/libprotobuf/libtbb/libgomp/libz etc. — ALL
     # these are available via apt in the runtime stage (Debian 12, newer).
     # System libs are backward-compatible with osrm-routed. Only OSRM-specific
-    # libs (libosrm.so, etc.) remain in /usr/local/osrm-lib.
+    # libs (libosrm.so, etc.) AND boost libs (different soname: 1.62 vs 1.74)
+    # remain in /usr/local/osrm-lib. Boost is NOT removed because osrm-routed
+    # links against the specific 1.62 ABI and the system's 1.74 soname won't
+    # satisfy it — different sonames mean no conflict for other programs.
     rm -f /usr/local/osrm-lib/libc.so.6 /usr/local/osrm-lib/libm.so.6 \
         /usr/local/osrm-lib/libpthread.so.0 /usr/local/osrm-lib/libdl.so.2 \
         /usr/local/osrm-lib/librt.so.1 /usr/local/osrm-lib/ld-linux-*.so* \
@@ -332,10 +336,19 @@ RUN mkdir -p /usr/local/osrm-lib && \
         /usr/local/osrm-lib/libgomp.so.1 \
         /usr/local/osrm-lib/libprotobuf.so* /usr/local/osrm-lib/libprotoc.so* \
         /usr/local/osrm-lib/libtbb*.so* \
-        /usr/local/osrm-lib/libboost_*.so* \
         /usr/local/osrm-lib/libz.so* /usr/local/osrm-lib/libzstd.so* \
         /usr/local/osrm-lib/libbz2.so* \
         2>/dev/null; \
+    # Symlink fallback: if ldd didn't collect libboost_program_options.so.1.62.0
+    # from the osrm-builder (e.g. stripped binary), point the 1.62 soname to the
+    # system's 1.74 version. Boost program_options ABI is stable enough for
+    # osrm-routed's minimal parse_command_line usage.
+    if [ ! -f /usr/local/osrm-lib/libboost_program_options.so.1.62.0 ] && \
+       [ -f /usr/lib/x86_64-linux-gnu/libboost_program_options.so.1.74.0 ]; then \
+      ln -sf /usr/lib/x86_64-linux-gnu/libboost_program_options.so.1.74.0 \
+             /usr/local/osrm-lib/libboost_program_options.so.1.62.0 && \
+      echo "[runtime] symlinked boost_program_options 1.62 -> 1.74 for osrm-routed"; \
+    fi; \
     rm -rf /tmp/osrm-libs; \
     echo "/usr/local/osrm-lib" > /etc/ld.so.conf.d/99-osrm-lib.conf && \
     ldconfig
@@ -347,7 +360,7 @@ COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface
 
 # Environment variables for all 3 services
 # ── Cache busters — change to force HF Spaces Docker rebuild ──
-ARG CACHEBUST=20261030_runtime-libstdcpp-osrmfix
+ARG CACHEBUST=20261030_osrm-boost-chroma-fix
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
