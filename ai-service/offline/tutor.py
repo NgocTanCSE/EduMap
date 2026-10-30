@@ -224,13 +224,25 @@ class OfflineTutor:
         try:
             from services.llm_service import llm_service as _llm
 
-            full_prompt = f"{_SYSTEM_PROMPT}\n\n{prompt}"
-            return _llm._generate_text_with_fallback(
+            full_prompt = (
+                _SYSTEM_PROMPT + "\n\nTrả lời bằng văn bản thuần, không dùng "
+                "markdown (không **, #, ``` hay •).\n\n" + prompt
+            )
+            text = _llm._generate_text_with_fallback(
                 full_prompt,
                 temperature=OFFLINE_TEMPERATURE,
                 max_tokens=max_tokens or OFFLINE_MAX_TOKENS,
                 top_p=OFFLINE_TOP_P,
-            )
+            ) or ""
+            # The app renders plain text everywhere (EduMap has no markdown
+            # renderer), so flatten any markers the LLM emitted. The same
+            # helper is exposed to the frontend as a client-side safety net.
+            try:
+                from services.llm_service import _strip_markdown as _strip
+            except Exception:  # pragma: no cover
+                def _strip(x: str) -> str:
+                    return x
+            return _strip(text)
         except Exception as e:
             logger.warning(f"[OfflineTutor] LLM generation failed: {e}")
             return ""

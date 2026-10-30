@@ -30,7 +30,7 @@
 >   - Cold start takes tens of seconds → frontends/proxies need retries and
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
->     (Cloudflare Workers AI → Gemini) with template fallbacks.
+>     (DeepSeek → Gemini → Cloudflare Workers AI) with template fallbacks.
 >   - Only one container, one public port (7680) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
@@ -278,7 +278,12 @@ Multiple standalone pages that share a domain have been consolidated into
 ## 3. AI provider chain
 
 Text generation (`ai-service/services/llm_service.py`):
-`Cloudflare Workers AI → Google Gemini` (with template fallback).
+`DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → Cloudflare Workers AI → template fallback`.
+DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as an HF Space
+secret); Gemini is the first fallback and the one that reliably works on
+HF Spaces egress; Cloudflare Workers AI is the last remote fallback.
+All calls use `curl --ipv4 --insecure` (HF Spaces IPv6/TLS quirk). DeepSeek
+has no embeddings API, so embeddings stay on their own chain below.
 
 Embeddings (`ai-service/services/vector_store.py`):
 `Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
@@ -354,7 +359,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
   `POST /api/ai/language/tts`).
   - Simplify/translate use `_generate_text_with_fallback` cascade
-    (Cloudflare Workers AI → Google Gemini) with `temperature=0.3`,
+    (DeepSeek → Google Gemini → Cloudflare Workers AI) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
     never 502s when all providers are down (HF Spaces free plan).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
@@ -429,8 +434,9 @@ Rules that must be preserved:
   - Keep these below the NestJS stream timeout (10s). A slow provider must
     never starve the fallbacks or leave the chat bubble empty.
 - Provider model slugs and circuit breakers:
-  Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
-  Google Gemini (`gemini-3.8-flash`, etc.) are the only two text-generation
+  DeepSeek (`deepseek-chat`/`deepseek-reasoner`, primary), Cloudflare Workers AI
+  (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
+  Google Gemini (`gemini-3.8-flash`, etc.) are the three text-generation
   providers. Each has a 5-minute circuit breaker after auth (401/403) or
   network failure. `curl --ipv4 --insecure` is used for all API calls (HF
   Spaces IPv6/TLS quirk).
@@ -454,7 +460,7 @@ Rules that must be preserved:
 - **LLM response cache** (new): `_generate_text_with_fallback` now caches
   successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
   TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
-  redundant Cloudflare/Gemini calls for identical prompts (career paths,
+  redundant DeepSeek/Gemini/Cloudflare calls for identical prompts (career paths,
   scholarship summaries, mentor matches) — critical for the HF free-tier quota.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
@@ -485,8 +491,9 @@ HF_TOKEN=<token> ./deploy-hf.sh
 
 ## 5. Environment notes
 
-- **All external API keys are now OPTIONAL.** The app runs 100% locally with
-  zero keys set — local models + template fallbacks handle every feature.
+- **All external API keys are now OPTIONAL.** The app works with zero keys set —
+  the DeepSeek → Gemini → Cloudflare cascade degrades to template fallbacks +
+  cached SQLite data when every remote provider is unreachable.
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`,
   `HF_TOKEN` (GeoVision vision detection only) are HF Secrets (optional).
 - `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
@@ -507,11 +514,14 @@ HF_TOKEN=<token> ./deploy-hf.sh
   translate) do NOT require this key — they use the same `_generate_text_with_fallback`
   cascade as all other AI features.
 - **Local model env vars** (all default to enabled):
-  - `LOCAL_LLM_ENABLED=true` — Gemma 2B IT 4-bit text generation (fallback #3)
-  - `LOCAL_LLM_MODEL=google/gemma-2b-it` — model name
+  - `DEEPSEEK_API_KEY` — primary text-generation provider (HF Space secret)
+  - `DEEPSEEK_BASE_URL=https://api.deepseek.com`, `DEEPSEEK_MODEL=deepseek-chat,deepseek-reasoner`
+  - `DEEPSEEK_TIMEOUT_SECONDS=20` (wide budget because the reasoner is slow)
+  - `LOCAL_LLM_ENABLED=true` — Gemma 2B IT 4-bit text generation (offline fallback #4)
+  - `LOCAL_LLM_MODEL=google/gemma-2b-it` — model name (gated — usually a no-op on HF)
   - `LOCAL_LLM_TEMPERATURE=0.3`, `LOCAL_LLM_MAX_TOKENS=512`
-  - `TINYLLAMA_ENABLED=true` — TinyLlama 1.1B 4-bit (Edge AI Tutor only)
-  - `TINYLLAMA_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v1.0`
+  - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
+    set `false` to force template-only answers (instant, no network call)
   - `LOCAL_VISION_ENABLED=true` — owlv2-base-patch16-ensemble vision (GeoVision fallback)
   - `LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble`
   - `LOCAL_VISION_THRESHOLD=0.25`, `LOCAL_VISION_IMAGE_MAX=1024`
@@ -552,14 +562,16 @@ fabricated. The following rules now apply to every feature:
 
 ## 6.5. Local models bundle (2026-10-30) — zero external keys required
 
-All AI features now run **100% locally** on HF Spaces free tier. The provider
-chain degrades through Cloudflare/Gemini → local models → template fallbacks,
-so the app works with **ZERO API keys** set.
+All AI features degrade through DeepSeek/Gemini/Cloudflare → local Gemma →
+template fallbacks, so the app **works with ZERO API keys set** (DeepSeek/Gemini
+are optional secrets; without any key it answers from templates + cached
+SQLite data). The only bundled local model is Gemma 2B (gated, so it is usually
+a no-op on the free tier); TinyLlama was removed.
 
 | Component | Model | Size (disk) | RAM | Env disable |
 |-----------|-------|-------------|-----|-------------|
 | Text generation | Gemma 2B IT (4-bit NF4) | ~850MB | ~1.5GB | `LOCAL_LLM_ENABLED=false` |
-| Edge AI Tutor | TinyLlama 1.1B (4-bit NF4) | ~630MB | ~1.5GB | `TINYLLAMA_ENABLED=false` |
+| Edge AI Tutor | (text cascade) | 0 | 0 | `OFFLINE_TUTOR_USE_LLM=false` |
 | Embeddings | intfloat/multilingual-e5-small | ~270MB | ~600MB | `LOCAL_EMBEDDING_DISABLED=true` |
 | Reranker | cross-encoder/ms-marco-MiniLM-L6-v2 | ~80MB | ~100MB | `LOCAL_RERANKER_ENABLED=false` |
 | Vision (GeoVision) | google/owlv2-base-patch16-ensemble | ~440MB | ~600MB | `LOCAL_VISION_ENABLED=false` |
@@ -567,11 +579,16 @@ so the app works with **ZERO API keys** set.
 | Routing | OSRM CH graph (OSM-VN) | ~500-800MB | ~256MB | N/A (always local) |
 
 **Provider chain** (`_generate_text_with_fallback`):
-`Cloudflare Workers AI → Google Gemini → Local Gemma 2B → template fallback`
+`DeepSeek → Google Gemini → Cloudflare Workers AI → Local Gemma 2B → template`
+TinyLlama was removed on 2026-10-30: 2-vCPU CPU inference needed 30-60 s per
+answer, exceeding both the chat UX budget and the NestJS proxy deadline.
+The tutor (`offline/tutor.py`) now calls the shared cascade; when no provider
+is reachable it returns curated Vietnamese templates with `degraded=True`.
 
 **Staggered startup** (`main.py` `@app.on_event("startup")`): each model
-pre-loads 15s after the prior (embeddings → reranker → vision → Gemma → TinyLlama)
-to avoid RAM spikes. All models also lazy-load on first request.
+pre-loads 15s after the prior (embeddings → reranker → vision → Gemma).
+All models also lazy-load on first request. TinyLlama is no longer in the
+staggered warmup (the Edge AI Tutor no longer bundles a local LLM).
 
 **Memory-aware guards** (`utils/memory_guard.py`):
 - `RAM_THRESHOLD_GB` (default 4.0) — refuse to load any LLM if free RAM < threshold.
@@ -579,7 +596,7 @@ to avoid RAM spikes. All models also lazy-load on first request.
 - `GET /api/ai/system/status` — full status: RAM, loaded models, provider chain.
 
 **Total worst-case RAM** (all models loaded simultaneously):
-~9.2GB / 16GB ✅ (within budget with ~6.8GB headroom for Next.js + NestJS + OSRM).
+~7.7GB / 16GB ✅ (within budget with ~8.3GB headroom for Next.js + NestJS + OSRM).
 
 **Dockerfile multi-stage build** pre-downloads ALL model weights in the
 `vision-model-dl` stage so cold-start never hits the HF Hub download path.
@@ -592,8 +609,8 @@ to avoid RAM spikes. All models also lazy-load on first request.
   repeated failure is a bug.
 - **Disk budget (Docker image):** all model weights bundled in image:
   - OSRM Vietnam graph: ~500-800MB
-  - Gemma 2B IT (FP16 for convert): ~850MB
-  - TinyLlama 1.1B: ~630MB
+  - Gemma 2B IT (4-bit NF4): ~850MB
+  - (TinyLlama 1.1B removed 2026-10-30)
   - owlv2-tiny: ~440MB
   - multilingual-e5-small + ms-marco-MiniLM-L6-v2: ~350MB
   - SRTM elevation .npy: ~8.4MB
@@ -602,14 +619,14 @@ to avoid RAM spikes. All models also lazy-load on first request.
 - **RAM budget (runtime, worst case all models loaded):**
   - System (Next.js + NestJS + OSRM + FastAPI): ~5-6GB
   - Gemma 2B 4-bit: ~1.5GB
-  - TinyLlama 4-bit: ~1.5GB
   - Embeddings + reranker + vision: ~0.7GB
   - Elevation + SRTM: ~0.01GB
-  - **Total ≈ 9.2GB / 16GB** (within budget with ~6.8GB headroom ✅)
-- **Note on local LLM speed:** Gemma 2B / TinyLlama run on CPU (2 vCPU) at
-  ~2-5 tokens/sec. This is acceptable for structured generation (career paths,
-  summaries, template fill) but **not** for long conversational chat. The
-  template fallback handles long conversations where real-time response matters.
+  - **Total ≈ 7.7GB / 16GB** (within budget with ~8.3GB headroom ✅)
+- **Note on local LLM speed:** Gemma 2B runs on CPU (2 vCPU) at ~2-5 tokens/sec.
+  Acceptable for structured generation (career paths, summaries), **not** for
+  long conversational chat. That job now belongs to the DeepSeek → Gemini
+  cascade (remote, fast). The template fallback handles the long-chat case and
+  answers instantly when no provider is reachable.
 - AI chat history and uploads are ephemeral (`/tmp`).
 - Geo/PostGIS analytics is limited in SQLite mode — there is no `ST_DWithin`,
   `ST_MakePoint` or `::geography`. Query builders MUST branch on
@@ -725,10 +742,10 @@ because every climate test mocked `_get_elevation` and no test touched
 | 2 | GeoVision would 500 whenever `HF_TOKEN` is set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the HF code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
 | 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
 | 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
-| 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | provider cascade (8 s) + a 3 s local-TinyLlama attempt + word-by-word streaming exceeded the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): local LLM is skipped when < 2 s remain, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
+| 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | a slow/dead provider could run past the 8 s generation budget + word-by-word streaming, exceeding the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): every provider call is wrapped in `asyncio.wait_for`, the provider list skips when time is exhausted, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
 
 Verification done locally (allowed per §1): `python3 -m pytest tests -q` →
-**420 passed**; `py_compile` clean; an AST undefined-name sweep over
+**449 passed**; `py_compile` clean; an AST undefined-name sweep over
 `ai-service/**/*.py` reports no remaining undefined names. Runtime truth is
 still the HF Space after deploy.
 
@@ -746,8 +763,10 @@ still the HF Space after deploy.
 - `Local Gemma 2B model could not be loaded (… weights not baked)`: `google/gemma-2b-it`
   is **gated**, so `scripts/cache_models.py` skips it during the Docker build
   (see the comment in that file). The Gemma step is therefore a permanent no-op
-  on the free plan; TinyLlama 1.1B is the only working local text model.
-- `Local TinyLlama … _Timeout: Local LLM generation exceeded 35s`: CPU-only
+  on the free plan; Gemma 2B is the only bundled local text model, but it is
+  gated (needs `HF_TOKEN`), so on the free tier it is usually a no-op and the
+  tutor falls through to the DeepSeek/Gemini cascade or the template fallback.
+- `Local Gemma 2B slow on CPU (_Timeout: generation exceeded 35s)`: CPU-only
   generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
   non-streaming endpoints (`/api/ai/language/simplify`, geo analysis, …) pay
   that timeout before falling back to the template. Chat streaming is already
