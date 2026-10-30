@@ -80,12 +80,31 @@ Multiple standalone pages that share a domain have been consolidated into
   Data Hunter, Gap Predictor, Resource Optimizer, GeoVision AI, Survey Planner,
   Climate Guardian, AI Agent, Voice Search, Wifi, Green.
   - Old routes (`/map/data-hunter`, `/climate-guardian`, `/ai-agent`,
-    `/voice-search`, `/wifi`, `/green`, `/talk2map`) now redirect to
-    `/map?tool=<id>` (or `/map` for Talk2Map since search is built into the
-    map page).
+    `/voice-search`, `/talk2map`) still redirect to `/map?tool=<id>` (or `/map`
+    for Talk2Map since search is built into the map page).
+    - **Exception (2026-10-30):** `/green` and `/wifi` are no longer plain
+      redirect popups. They are now full **listing hubs** modeled on the
+      `/hackathon` page (`ContentShell` + `SectionHeader` + `SearchInput` +
+      card grid + `EmptyState`), with a prominent "XEM TRÊN BẢN ĐỒ" button that
+      opens the matching Map Hub tool (`/map?tool=green` / `/map?tool=wifi`).
+      The `green`/`wifi` entries in `feature-catalog.ts` now point to
+      `/green` and `/wifi` respectively.
   - Tools use `next/dynamic({ ssr: false })` to avoid leaflet SSR crashes.
   - Registry: `components/map/tools/registry.tsx` (10 tools, `MAP_TOOLS` array).
   - Each tool module exports `XxxPanel` + `XxxOverlay` as named exports.
+  - **Coordinate fix (2026-10-30):**
+    - `GreenOverlay` renders `green_challenges.lat`/`lng` directly. The shipped
+      `edumap.db` (and `scripts/real_vn_data.py:GREEN_CHALLENGES`) had lat/lng
+      **swapped** (lat=105.8342 > 90 → Leaflet Web-Mercator emitted NaN and
+      dropped all green markers). Fixed in both the source tuple order and the
+      shipped DB (now lat=21.0285, lng=105.8342, Hanoi). A defensive
+      lat-range guard now skips any out-of-range pin.
+    - `WifiOverlay.getCoords()` read `loc.location.coordinates` + `loc.lat`/`loc.lng`,
+      but the `locations` entity exposes GeoJSON at the **top-level**
+      `coordinates` field (`{type:'Point',coordinates:[lng,lat]}`) — so every
+      wifi hotspot was skipped (zero markers). Fixed to read the top-level
+      GeoJSON (with legacy `loc.lat`/`loc.lng` fallback), and the render guard
+      now uses the null-returning helper.
 
 - **`/career` (Career Hub)** — tab bar with 7 tabs:
   Tổng quan (dashboard), Việc làm (jobs), Lộ trình (roadmap), Dự báo (predictive),

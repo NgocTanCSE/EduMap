@@ -208,10 +208,20 @@ function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[
 
   if (!locations.length) return null;
 
-  const getCoords = (loc: any): [number, number] => {
-    if (loc.location?.coordinates) return [loc.location.coordinates[1], loc.location.coordinates[0]];
-    if (loc.lat && loc.lng) return [loc.lat, loc.lng];
-    return [0, 0];
+  const getCoords = (loc: any): [number, number] | null => {
+    // Location entity stores GeoJSON at the TOP-LEVEL `coordinates` field:
+    //   coordinates: { type: 'Point', coordinates: [lng, lat] }
+    // (TypeORM returns the parsed object, not a string, for SQLite `json` cols.)
+    const geo = loc?.coordinates;
+    if (geo?.coordinates && Array.isArray(geo.coordinates)) {
+      return [geo.coordinates[1], geo.coordinates[0]];
+    }
+    // Legacy/alternate shape: nested location.coordinates
+    if (loc?.location?.coordinates) {
+      return [loc.location.coordinates[1], loc.location.coordinates[0]];
+    }
+    if (loc?.lat && loc?.lng) return [Number(loc.lat), Number(loc.lng)];
+    return null;
   };
 
   const getColor = (isFree: boolean) => isFree ? "#10b981" : "#f59e0b";
@@ -226,8 +236,9 @@ function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[
   return (
     <>
       {locations.map((loc: any) => {
-        if (!loc.lat && !loc.lng && !loc.location?.coordinates) return null;
-        const [lat, lng] = getCoords(loc);
+        const coords = getCoords(loc);
+        if (!coords) return null;
+        const [lat, lng] = coords;
         return (
           <React.Fragment key={loc.id || `${lat}-${lng}`}>
             <Marker position={[lat, lng]} icon={_wifiIcon}>

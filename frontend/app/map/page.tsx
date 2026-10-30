@@ -268,6 +268,8 @@ function getResultCount(toolId: string, result: any): number | undefined {
   if (toolId === "geo-vision") return result?.detections?.length;
   if (toolId === "survey-planner") return result?.features?.length;
   if (toolId === "climate") return result?.risk_ranking?.length;
+  if (toolId === "wifi") return Array.isArray(result) ? result.length : undefined;
+  if (toolId === "green") return Array.isArray(result) ? result.length : undefined;
   return undefined;
 }
 

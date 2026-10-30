@@ -892,8 +892,8 @@ GREEN_CHALLENGES: list[tuple] = [
         "50",
         "https://wwf.org.vn/",
         "Toàn quốc",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "green-tet-trong-cay",
@@ -905,8 +905,8 @@ GREEN_CHALLENGES: list[tuple] = [
         "50",
         "https://doanthanhnien.vn/",
         "Toàn quốc",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "green-clean-up",
@@ -918,8 +918,8 @@ GREEN_CHALLENGES: list[tuple] = [
         "40",
         "https://monre.gov.vn/",
         "Toàn quốc",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "green-world-environment-day",
@@ -931,8 +931,8 @@ GREEN_CHALLENGES: list[tuple] = [
         "30",
         "https://monre.gov.vn/",
         "Toàn quốc",
-        105.8342,
         21.0285,
+        105.8342,
     ),
 ]
 
