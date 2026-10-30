@@ -29,6 +29,7 @@ if [ -r /proc/1/environ ]; then
 CLOUDFLARE_EMBEDDING_MODEL OPENAI_API_KEY ADZUNA_APP_ID \
 ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
 GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
+DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL DEEPSEEK_TIMEOUT_SECONDS \
 CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED \
 GEO_VISION_MODEL GEO_VISION_TIMEOUT_SECONDS BING_MAPS_API_KEY \
 OWM_API_KEY OWM_TIMEOUT_SECONDS \
@@ -59,7 +60,8 @@ fi
 
 # ── Debug: print which AI sources are available (without revealing secrets) ─
 echo "AI service env check:"
-[ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set (primary LLM provider)" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
+[ -n "$DEEPSEEK_API_KEY" ] && echo "  DEEPSEEK_API_KEY: ✓ set (primary LLM provider)" || echo "  DEEPSEEK_API_KEY: ✗ NOT set (falling back to Gemini/Cloudflare)"
+[ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set (fallback LLM provider)" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
 [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo "  CLOUDFLARE_ACCOUNT_ID: ✓ set" || echo "  CLOUDFLARE_ACCOUNT_ID: ✗ NOT set"
 [ -n "$GEMINI_API_KEY" ] && echo "  GEMINI_API_KEY: ✓ set (fallback LLM + embeddings)" || echo "  GEMINI_API_KEY: ✗ NOT set"
 [ -n "$CF_AI_GATEWAY_ID" ] && echo "  CF_AI_GATEWAY_ID: ✓ set" || echo "  CF_AI_GATEWAY_ID: ✗ NOT set (direct Workers AI)"

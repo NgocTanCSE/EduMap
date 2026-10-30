@@ -226,7 +226,7 @@ WORKDIR /app
 # Bookworm main — only the osrm-backend meta-package itself is missing).
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
-      python3 python3-pip supervisor curl ca-certificates \
+      python3 python3-pip supervisor curl ca-certificates cron \
       libprotobuf32 libtbb12 \
       libboost-filesystem1.74.0 libboost-iostreams1.74.0 \
       libboost-system1.74.0 libboost-thread1.74.0 \
@@ -243,7 +243,13 @@ COPY frontend/next.config.js ./
 COPY frontend/tsconfig.json ./
 # Copy scripts dir EARLY — verify_db.py is needed before edumap.db verification
 COPY scripts/ /app/scripts/
-RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
+# Copy the crawler package — required by run_feature_crawlers.sh + run_overpass_seed.sh
+COPY crawlers/ /app/crawlers/
+# Install crontab for nightly feature crawlers + Overpass POI upsert
+COPY crawlers/crontab /etc/cron.d/edumap-crawlers
+RUN chmod +x /app/scripts/*.sh /app/scripts/*.py && \
+    chmod 0644 /etc/cron.d/edumap-crawlers && \
+    crontab /etc/cron.d/edumap-crawlers
 
 COPY frontend/public/edumap.db ./public/edumap.db
 # Verify edumap.db is a valid SQLite database.
@@ -356,12 +362,12 @@ ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
 ENV NEXT_PUBLIC_API_URL=/api
 ENV AI_SERVICE_URL=http://127.0.0.1:8000
-# ── Edge AI Tutor (offline LLM) ──────────────────────────────────────────
-# TinyLlama 1.1B model is downloaded at runtime from HF Hub to a writable
-# volume (/app/uploads). It must NOT be bundled in the Docker image
-# (*.bin/*.safetensors excluded by .huggingfaceignore + .dockerignore).
-ENV OFFLINE_MODEL_NAME=TinyLlama/TinyLlama-1.1B-Chat-v1.0
-ENV OFFLINE_MODEL_CACHE=/app/uploads/offline-models
+# ── Edge AI Tutor (Idea #7) ──────────────────────────────────────────────
+# No local tutor model is bundled any more: TinyLlama 1.1B was removed on
+# 2026-10-30 (30-60 s per answer on 2 vCPU). The tutor generates through the
+# DeepSeek → Gemini → Cloudflare cascade and falls back to Vietnamese
+# templates. Set OFFLINE_TUTOR_USE_LLM=false to force template-only answers.
+ENV OFFLINE_TUTOR_USE_LLM=true
 # ── Routing provider chain ──────────────────────────────────────────
 # HF Spaces runs everything in a single container (supervisord): frontend
 # (7680), backend (3000), AI svc (8000), osrm (5000 — local backend).

@@ -1,13 +1,14 @@
 """
-Edge AI Tutor — offline LLM tutor (Idea #7).
+Edge AI Tutor — offline-first LLM tutor (Idea #7).
 
-Runs a small language model (TinyLlama 1.1B Chat) **locally** inside the
-ai-service container on HF Spaces.  No external API calls are required — the
-model is downloaded once at runtime from HuggingFace Hub and cached on disk.
+The bundled TinyLlama 1.1B local model was **removed** (2026-10-30): loading it
+needed ~1.5 GB RAM and produced ~2-5 tokens/s on the 2-vCPU HF free tier, i.e.
+30-60 s per answer. The tutor now generates through the shared text cascade
+(DeepSeek → Gemini → Cloudflare) and falls back to curated Vietnamese templates
+when no provider is configured or every provider fails.
 
-When the model cannot be loaded (e.g. HF Spaces free-tier RAM is exhausted)
-or generation fails for any reason, every method degrades gracefully to a
-template-based Vietnamese response and sets ``degraded=True`` on the result.
+Every method still degrades gracefully: it never raises and always returns a
+valid response with ``degraded=True`` when the text came from a template.
 
 Design goals (per AGENTS.md):
   * Lazy loading — the model is instantiated only on the first request so
@@ -39,39 +40,16 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 # ── Configuration (env-tunable, AGENTS.md compliant) ───────────────────────
-OFFLINE_MODEL_NAME = os.getenv(
-    "OFFLINE_MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-)
-OFFLINE_MODEL_CACHE = os.getenv(
-    "OFFLINE_MODEL_CACHE", "/app/uploads/offline-models"
-)
-OFFLINE_MODEL_ENABLED = (
-    os.getenv("OFFLINE_MODEL_ENABLED", "true").lower() != "false"
-)
 OFFLINE_MAX_TOKENS = int(os.getenv("OFFLINE_MAX_TOKENS", "256"))
 OFFLINE_TEMPERATURE = float(os.getenv("OFFLINE_TEMPERATURE", "0.7"))
 OFFLINE_TOP_P = float(os.getenv("OFFLINE_TOP_P", "0.9"))
 OFFLINE_CACHE_TTL = int(os.getenv("OFFLINE_CACHE_TTL", "3600"))  # 1 hour (s)
 OFFLINE_CACHE_MAX = int(os.getenv("OFFLINE_CACHE_MAX", "128"))
-
-# HF Spaces free-tier is CPU-only (no CUDA). We try 4-bit quantisation with
-# bitsandbytes if CUDA is available, otherwise fall back to BF16 / FP16
-# dynamic quantisation which still fits in ~1-1.5 GB RAM.
-_TORCH_AVAILABLE = False
-_TRANSFORMERS_AVAILABLE = False
-_BNB_AVAILABLE = False
-try:
-    import torch  # noqa: F401
-    _TORCH_AVAILABLE = True
-except ImportError:
-    logger.warning("torch not installed — offline tutor will use template fallback only")
-
-if _TORCH_AVAILABLE:
-    try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        _TRANSFORMERS_AVAILABLE = True
-    except ImportError:
-        logger.warning("transformers not installed — offline tutor will use template fallback")
+# Set OFFLINE_TUTOR_USE_LLM=false to force the template-only path (the tutor
+# then answers instantly without any network call, e.g. for offline demos).
+OFFLINE_TUTOR_USE_LLM = (
+    os.getenv("OFFLINE_TUTOR_USE_LLM", "true").lower() != "false"
+)
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -161,37 +139,14 @@ def _template_suggest(next_step: str, topic: str = "") -> Dict[str, Any]:
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# Prompt templates for the local LLM
+# Prompt templates for the tutor LLM
 # ───────────────────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = (
-    "Bạn là 'Trợ lý ngoại tuyến' — một giáo viên AI chạy cục bộ trên thiết bị, "
-    "không cần kết nối internet. Bạn giúp học sinh giải thích khái niệm, "
-    "làm bài tập và đề xuất lộ trình học tập. Trả lời ngắn gọn, rõ ràng, "
-    "bằng tiếng Việt, phù hợp với trình độ học sinh."
+    "Bạn là 'Trợ lý học tập' của EduMap DNTU. Bạn giúp học sinh giải thích "
+    "khái niệm, làm bài tập và đề xuất lộ trình học tập. Trả lời ngắn gọn, "
+    "rõ ràng, bằng tiếng Việt, phù hợp với trình độ học sinh."
 )
-
-
-def _format_chat_prompt(messages: List[Dict[str, str]]) -> str:
-    """Format messages into TinyLlama-1.1B-Chat chat template.
-
-    TinyLlama uses a Llama-2-style template:
-      <|system|>\\n{system}</s>\\n<|user|>\\n{user}</s>\\n
-    If the tokenizer already has a chat_template we let it handle this, but
-    this helper is the fallback for raw string construction.
-    """
-    parts: List[str] = []
-    for msg in messages:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-        if role == "system":
-            parts.append(f"<|system|>\n{content}\n")
-        elif role == "user":
-            parts.append(f"<|user|>\n{content}\n")
-        else:  # assistant
-            parts.append(f"<|assistant|>\n{content}\n")
-    parts.append("<|assistant|>\n")
-    return "".join(parts)
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -200,27 +155,19 @@ def _format_chat_prompt(messages: List[Dict[str, str]]) -> str:
 
 
 class OfflineTutor:
-    """Local LLM tutor that runs offline inside the ai-service container.
+    """Tutor that answers through the shared LLM cascade, templates as backup.
 
-    The model (TinyLlama 1.1B Chat, 4-bit or BF16) is loaded lazily on the
-    first call to any public method.  Subsequent calls reuse the in-memory
-    instance.  An in-process TTL cache prevents regenerating identical
-    responses.
-
-    Thread safety: all public methods are synchronous; a class-level lock
-    serialises the one-time model download.  Inference itself is fast enough
-    (~2-4 s/token on CPU for 1.1B) that serialisation is acceptable.
+    No model is bundled or downloaded any more: text comes from
+    ``LLMService._generate_text_with_fallback`` (DeepSeek → Gemini → Cloudflare)
+    and, when that is unavailable, from the curated Vietnamese templates below.
+    An in-process TTL cache prevents regenerating identical responses, which
+    matters because a DeepSeek/Gemini round-trip is ~1-3 s.
     """
 
     _instance: Optional["OfflineTutor"] = None
     _instance_lock = threading.Lock()
 
     def __init__(self) -> None:
-        self._model: Any = None
-        self._tokenizer: Any = None
-        self._load_lock = threading.Lock()
-        self._model_loaded: bool = False
-        self._model_failed: bool = False
         self._cache: Dict[str, Tuple[str, float]] = {}  # key → (result_json, expiry_ts)
         self._cache_lock = threading.Lock()
 
@@ -235,162 +182,57 @@ class OfflineTutor:
                     cls._instance = cls()
         return cls._instance
 
-    # ── Model loading (lazy, lazy, lazy) ────────────────────────────────
-
-    def _load_model(self) -> bool:
-        """Attempt to load the local LLM.  Returns True on success.
-
-        Tries, in order of preference:
-          1. 4-bit NF4 via bitsandbytes (smallest, ~300 MB)
-          2. BF16 via torch (good quality/size ratio)
-          3. FP16 (fallback)
-        Sets ``_model_failed = True`` so we don't retry on every request.
-        """
-        if self._model_loaded or self._model_failed:
-            return self._model_loaded
-
-        if not _TORCH_AVAILABLE or not _TRANSFORMERS_AVAILABLE:
-            logger.info("transformers/torch not available — using template fallback")
-            self._model_failed = True
-            return False
-
-        if not OFFLINE_MODEL_ENABLED:
-            logger.info("OFFLINE_MODEL_ENABLED=false — using template fallback")
-            self._model_failed = True
-            return False
-
-        try:
-            from transformers import (
-                AutoModelForCausalLM,
-                AutoTokenizer,
-            )
-
-            model_name = OFFLINE_MODEL_NAME
-            cache_dir = OFFLINE_MODEL_CACHE
-            os.makedirs(cache_dir, exist_ok=True)
-
-            logger.info(f"[OfflineTutor] Loading model: {model_name} → {cache_dir}")
-
-            # ── Try 4-bit quantisation (requires CUDA + bitsandbytes) ──
-            use_4bit = False
-            try:
-                import bitsandbytes as bnb  # noqa: F401
-                _bnb_available = True
-            except ImportError:
-                _bnb_available = False
-
-            try:
-                if _bnb_available:
-                    from transformers import BitsAndBytesConfig
-
-                    quant_cfg = BitsAndBytesConfig(
-                        load_in_4bit=True,
-                        bnb_4bit_compute_dtype="auto",
-                        bnb_4bit_quant_type="nf4",
-                        bnb_4bit_use_double_quant=True,
-                    )
-                    self._tokenizer = AutoTokenizer.from_pretrained(
-                        model_name, cache_dir=cache_dir, use_fast=True
-                    )
-                    self._model = AutoModelForCausalLM.from_pretrained(
-                        model_name,
-                        cache_dir=cache_dir,
-                        device_map="auto",
-                        quantization_config=quant_cfg,
-                        trust_remote_code=False,
-                    )
-                    use_4bit = True
-                    logger.info("[OfflineTutor] Model loaded with 4-bit NF4 quantisation")
-            except Exception as e:
-                logger.warning(f"[OfflineTutor] 4-bit load failed ({e}), trying BF16")
-
-            # ── Fallback: BF16 (works on CPU) ──
-            if not use_4bit:
-                self._tokenizer = AutoTokenizer.from_pretrained(
-                    model_name, cache_dir=cache_dir, use_fast=True
-                )
-                self._model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    cache_dir=cache_dir,
-                    torch_dtype="auto",
-                    device_map="auto",
-                    trust_remote_code=False,
-                )
-                logger.info("[OfflineTutor] Model loaded with auto dtype (BF16/FP16)")
-
-            self._model_loaded = True
-            return True
-
-        except Exception as e:
-            logger.error(f"[OfflineTutor] Model load failed: {e}")
-            self._model_failed = True
-            return False
-
     # ── Generation ──────────────────────────────────────────────────────
 
-    def _generate(self, prompt: str, max_tokens: int = None) -> str:
-        """Generate text from *prompt* using the local model.
-
-        Falls back to ``None`` → caller invokes template fallback.
-        """
-        if not self._load_model():
-            return ""
-
-        if self._model is None or self._tokenizer is None:
-            return ""
-
+    def _llm_ready(self) -> bool:
+        """True when at least one remote text provider is configured."""
+        if not OFFLINE_TUTOR_USE_LLM:
+            return False
         try:
-            from transformers import GenerationConfig
+            from services.llm_service import llm_service as _llm
 
-            max_new = max_tokens or OFFLINE_MAX_TOKENS
+            return bool(getattr(_llm, "is_ready", False))
+        except Exception:  # pragma: no cover — llm_service import is defensive
+            return False
 
-            # Use the tokenizer's chat template if available
-            use_template = hasattr(self._tokenizer, "apply_chat_template")
-            if use_template:
-                messages = [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ]
-                try:
-                    input_ids = self._tokenizer.apply_chat_template(
-                        messages,
-                        add_generation_prompt=True,
-                        return_tensors="pt",
-                    )
-                except Exception:
-                    # Fallback to manual formatting
-                    input_ids = self._tokenizer.encode(
-                        _format_chat_prompt(messages),
-                        return_tensors="pt",
-                    )
-            else:
-                input_ids = self._tokenizer.encode(
-                    _format_chat_prompt(
-                        [
-                            {"role": "system", "content": _SYSTEM_PROMPT},
-                            {"role": "user", "content": prompt},
-                        ]
-                    ),
-                    return_tensors="pt",
-                )
+    def _provider_name(self) -> Optional[str]:
+        """Name to report in ``model_used`` (None when templates were used)."""
+        if not self._llm_ready():
+            return None
+        try:
+            from services.llm_service import llm_service as _llm
 
-            with __import__("torch").no_grad():
-                gen_cfg = GenerationConfig(
-                    max_new_tokens=max_new,
-                    temperature=OFFLINE_TEMPERATURE,
-                    top_p=OFFLINE_TOP_P,
-                    do_sample=True,
-                    pad_token_id=self._tokenizer.eos_token_id,
-                )
-                outputs = self._model.generate(input_ids=input_ids, generation_config=gen_cfg)
+            if getattr(_llm, "has_deepseek", False):
+                return getattr(_llm, "deepseek_models", ["deepseek-chat"])[0]
+            if getattr(_llm, "has_gemini", False):
+                return getattr(_llm, "gemini_model_name", None)
+            if getattr(_llm, "has_cf", False):
+                return getattr(_llm, "model_name", None)
+        except Exception:
+            pass
+        return None
 
-            # Decode and strip the prompt portion
-            input_len = input_ids.shape[-1] if hasattr(input_ids, "shape") else len(input_ids[0])
-            result = self._tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
-            return result.strip()
+    def _generate(self, prompt: str, max_tokens: int = None) -> str:
+        """Generate text for *prompt*; return "" so the caller uses templates.
 
+        Uses the shared cascade (DeepSeek → Gemini → Cloudflare). Local model
+        generation was removed because 2 vCPU CPU inference needed 30-60 s per
+        answer, which the NestJS proxy (10 s) and the UX cannot absorb.
+        """
+        if not self._llm_ready():
+            return ""
+        try:
+            from services.llm_service import llm_service as _llm
+
+            full_prompt = f"{_SYSTEM_PROMPT}\n\n{prompt}"
+            return _llm._generate_text_with_fallback(
+                full_prompt,
+                temperature=OFFLINE_TEMPERATURE,
+                max_tokens=max_tokens or OFFLINE_MAX_TOKENS,
+                top_p=OFFLINE_TOP_P,
+            )
         except Exception as e:
-            logger.error(f"[OfflineTutor] Generation error: {e}")
+            logger.warning(f"[OfflineTutor] LLM generation failed: {e}")
             return ""
 
     # ── Cache helpers ──────────────────────────────────────────────────
@@ -455,16 +297,16 @@ class OfflineTutor:
         # Add a footer if using fallback
         if degraded:
             text += (
-                "\n\n*Lưu ý: Trả lời này được tạo bởi bản sao chép mẫu (template) "
-                "vì mô hình AI cục bộ chưa sẵn sàng. Hãy tải lên thiết bị để "
-                "nhận được giải thích chi tiết hơn.*"
+                "\n\nLưu ý: Trả lời này được tạo từ mẫu có sẵn của EduMap vì "
+                "chưa kết nối được nhà cung cấp AI. Nội dung vẫn bám sát "
+                "chương trình học nhưng ngắn hơn so với câu trả lời do AI sinh."
             )
 
         result = {
             "text": text,
             "degraded": degraded,
             "source": source,
-            "model_used": OFFLINE_MODEL_NAME if self._model_loaded else None,
+            "model_used": self._provider_name(),
             "topic": topic,
         }
         self._cache_set(cache_key, json.dumps(result, ensure_ascii=False))
@@ -530,7 +372,7 @@ class OfflineTutor:
             "questions": questions,
             "degraded": degraded,
             "source": "template" if degraded else "model",
-            "model_used": OFFLINE_MODEL_NAME if self._model_loaded else None,
+            "model_used": self._provider_name(),
             "topic": topic,
             "difficulty": difficulty,
         }
@@ -609,7 +451,7 @@ class OfflineTutor:
                 "difficulty": level,
                 "degraded": False,
                 "source": "model",
-                "model_used": OFFLINE_MODEL_NAME if self._model_loaded else None,
+                "model_used": self._provider_name(),
                 "progression": user_progression,
             }
 
@@ -619,18 +461,24 @@ class OfflineTutor:
     # ── Diagnostics ────────────────────────────────────────────────────
 
     def status(self) -> Dict[str, Any]:
-        """Return the current status of the offline tutor (for health checks)."""
+        """Return the current status of the offline tutor (for health checks).
+
+        ``model_name`` / ``model_loaded`` are kept for backwards compatibility
+        with the backend health check: they now describe the remote text
+        provider used by the cascade (no local weights are loaded at all).
+        """
+        provider = self._provider_name()
         return {
-            "model_name": OFFLINE_MODEL_NAME,
-            "model_loaded": self._model_loaded,
-            "model_failed": self._model_failed,
-            "model_enabled": OFFLINE_MODEL_ENABLED,
-            "torch_available": _TORCH_AVAILABLE,
-            "transformers_available": _TRANSFORMERS_AVAILABLE,
+            "model_name": provider or "template",
+            "model_loaded": provider is not None,
+            "model_failed": False,
+            "model_enabled": OFFLINE_TUTOR_USE_LLM,
+            "source": "llm-cascade" if provider else "template",
+            "engine": "llm-cascade" if provider else "template",
+            "template_fallback": provider is None,
             "cache_entries": len(self._cache),
             "cache_ttl_seconds": OFFLINE_CACHE_TTL,
             "cache_max_entries": OFFLINE_CACHE_MAX,
-            "model_cache_path": OFFLINE_MODEL_CACHE,
         }
 
 

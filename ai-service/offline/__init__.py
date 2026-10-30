@@ -1,9 +1,10 @@
 """
 Edge AI Tutor — offline LLM tutor package (Idea #7).
 
-Provides local, internet-free AI tutoring using a small language model
-(TinyLlama 1.1B Chat, 4-bit quantized) running inside the ai-service
-container on HF Spaces.
+AI tutoring backed by the ai-service text cascade
+(DeepSeek → Gemini → Cloudflare) with curated Vietnamese templates as the
+fallback. No local model weights are bundled (TinyLlama was removed on
+2026-10-30 — 30-60 s per answer on the 2-vCPU free tier).
 
 Public API:
     from offline.tutor import OfflineTutor

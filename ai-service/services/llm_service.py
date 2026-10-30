@@ -5,6 +5,7 @@ import json
 import ssl
 import io
 import hashlib
+import re
 import subprocess
 import sqlite3
 import urllib.request
@@ -241,151 +242,55 @@ def _local_llm_generate(
         raise RuntimeError(f"Local LLM inference failed: {type(e).__name__}: {e}")
 
 
-# ── TinyLlama 1.1B (Edge AI Tutor — /offline-tutor page) ─────────────────────
-# Separate singleton from Gemma 2B chat LLM to avoid RAM contention.
-# Only loaded when /api/ai/tutor/chat is hit — never loaded alongside the
-# chat LLM on the same request. Lazy-load + Memory-aware (needs >3GB free).
-# RAM: ~1.5GB with 4-bit quantization on HF Spaces free tier.
-_tinyllama_model = None
-_tinyllama_tokenizer = None
-_tinyllama_loaded = False
-_tinyllama_load_failed = False
-_tinyllama_down_until = 0.0  # 5-min circuit breaker after OOM/crash
+_MD_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+.-]*\n?")
+_MD_INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+_MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s*", re.M)
+_MD_HR_RE = re.compile(r"^\s{0,3}([-*_])(?:\s*\1){2,}\s*$", re.M)
+_MD_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
+_MD_BOLD_RE = re.compile(r"(\*\*\*|\*\*|__)(?=\S)(.+?)(?<=\S)\1", re.S)
+_MD_ITALIC_STAR_RE = re.compile(r"(?<![\w*])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![\w*])")
+_MD_ITALIC_UNDERSCORE_RE = re.compile(r"(?<![\w_])_(?=\S)([^_\n]+?)(?<=\S)_(?![\w_])")
+_MD_STRIKE_RE = re.compile(r"~~(.+?)~~", re.S)
+_MD_BULLET_RE = re.compile(r"^(\s*)[*+-]\s+", re.M)
 
 
-def _load_tinyllama(model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0") -> bool:
-    """Lazy-load the TinyLlama 1.1B chat model (4-bit NF4 quantization).
+def _strip_markdown(text: str) -> str:
+    """Remove markdown markers from model output.
 
-    Separate from Gemma 2B to keep the Edge AI Tutor's RAM isolated.
-    Only loaded when /api/ai/tutor/chat is hit — not during chat or RAG.
+    EduMap renders chat in a plain-text bubble (``whitespace-pre-wrap``, no
+    markdown parser), so ``**đậm**``, ``# tiêu đề``, ``` fences, ``---`` rules
+    and ``[chữ](url)`` links used to show up literally as ``***`` noise in the
+    UI. This flattens the text while keeping the structure a reader needs:
+    headings/bullets survive as plain lines, links keep their label + URL.
+
+    Idempotent and safe on non-markdown text (Vietnamese diacritics pass
+    through untouched).
     """
-    global _tinyllama_model, _tinyllama_tokenizer, _tinyllama_loaded, _tinyllama_load_failed
-    if _tinyllama_loaded:
-        return _tinyllama_model is not None
-    _tinyllama_loaded = True
+    if not text:
+        return text or ""
 
-    # Memory-aware guard
-    ram = _get_ram_info()
-    print(f"[TinyLlama] RAM check: {ram['available_gb']:.1f}GB available "
-          f"(need >{MIN_RAM_GB_FOR_LLM}GB free)")
-    if ram["available_gb"] < MIN_RAM_GB_FOR_LLM:
-        print(f"[TinyLlama] ABORT — only {ram['available_gb']:.1f}GB free "
-              f"(need {MIN_RAM_GB_FOR_LLM}GB). Using template tutor fallback.")
-        _tinyllama_load_failed = True
-        return False
+    out = text.replace("\r\n", "\n")
 
-    try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-        import torch
-
-        # Check if bitsandbytes is available for 4-bit quantization
-        HAS_BNB = False
-        try:
-            import bitsandbytes
-            HAS_BNB = True
-        except ImportError:
-            pass
-
-        if HAS_BNB:
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-            )
-            print(f"[TinyLlama] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
-            _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            _tinyllama_model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=bnb_config,
-                device_map="auto",
-                torch_dtype=torch.float16,
-                trust_remote_code=False,
-            )
-            print(f"[TinyLlama] {model_name} loaded OK (4-bit NF4, RAM ~1.5GB)")
-        else:
-            # FP16 fallback — no bitsandbytes, use float16 (~2.5GB RAM)
-            print(f"[TinyLlama] bitsandbytes not available — loading {model_name} (FP16)...")
-            _tinyllama_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            _tinyllama_model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.float16,
-                device_map="auto",
-                trust_remote_code=False,
-            )
-            print(f"[TinyLlama] {model_name} loaded OK (FP16)")
-        return True
-    except Exception as e:
-        print(f"[TinyLlama] Load FAILED: {type(e).__name__}: {e}")
-        _tinyllama_load_failed = True
-        return False
-
-
-def _tinyllama_generate(prompt: str, temperature=0.3, max_tokens=512, top_p=0.9) -> str:
-    """Generate text using TinyLlama 1.1B (Edge AI Tutor — /offline-tutor only).
-
-    NOT part of the main chat fallback chain — only called by the tutor router.
-    Returns non-empty text on success; raises RuntimeError on failure so the
-    caller falls back to template-based tutor responses.
-    """
-    global _tinyllama_down_until
-
-    import time as _time
-    if _time.monotonic() < _tinyllama_down_until:
-        raise RuntimeError("TinyLlama circuit breaker open — skipping (recent OOM)")
-
-    if not _tinyllama_loaded or _tinyllama_model is None:
-        if not _load_tinyllama():
-            raise RuntimeError("TinyLlama model could not be loaded (transformers/torch missing or weights not baked)")
-
-    try:
-        # TinyLlama is chat-tuned — use its chat template
-        messages = [{"role": "user", "content": prompt}]
-        formatted = _tinyllama_tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = _tinyllama_tokenizer(formatted, return_tensors="pt", truncation=True)
-        input_ids = inputs.input_ids
-        with _time_limit(seconds=35):
-            output = _tinyllama_model.generate(
-                input_ids=input_ids,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=True,
-                pad_token_id=_tinyllama_tokenizer.eos_token_id,
-            )
-        generated = _tinyllama_tokenizer.decode(
-            output[0][input_ids.shape[-1]:], skip_special_tokens=True
-        )
-        text = generated.strip()
-        if not text:
-            raise RuntimeError("TinyLlama produced empty response")
-        return text
-    except RuntimeError:
-        raise
-    except Exception as e:
-        _tinyllama_down_until = _time.monotonic() + 300
-        raise RuntimeError(f"TinyLlama inference failed: {type(e).__name__}: {e}")
-
-
-# ── TinyLlama tutor template fallback (100% offline, no model needed) ────────
-# Used when the model file is missing, RAM too tight, or inference fails.
-# Returns Vietnamese educational explanations per difficulty level.
-_TUTOR_TEMPLATES = {
-    "elementary": "🔹 Giải thích dạng thiếu niên (lớp 1-3):\n{prompt}\n\nĐây là nội dung cơ bản, được giải thích bằng từ ngữ đơn giản. " +
-                 "Nếu câu hỏi cần hình ảnh minh họa, bạn nên dùng tính năng GeoVision AI trên bản đồ EduMap.",
-    "middle": "🔹 Giải thích THCS (lớp 6-9):\n{prompt}\n\nNội dung được chia thành các phần nhỏ, dễ hiểu. " +
-             "Hãy kết hợp với bản đồ EduMap để tìm các trường học lân cận.",
-    "high": "🔹 Giải thích THPT (lớp 10-12):\n{prompt}\n\nNội dung chi tiết với ví dụ thực tế trong bối cảnh giáo dục Việt Nam.",
-    "college": "🔹 Giải thích đại học:\n{prompt}\n\nPhân tích sâu với tham chiếu tới nghiên cứu và lĩnh vực học thực thụ.",
-}
-
-
-def _tinyllama_template_fallback(prompt: str, difficulty: str = "middle") -> str:
-    """Template-based tutor response when the local TinyLlama model is unavailable."""
-    template = _TUTOR_TEMPLATES.get(difficulty, _TUTOR_TEMPLATES["middle"])
-    return template.format(prompt=prompt)
+    # Code fences: keep the code, drop the fences and the language tag.
+    out = _MD_FENCE_RE.sub("", out)
+    # Inline code: keep the content only.
+    out = _MD_INLINE_CODE_RE.sub(r"\1", out)
+    # Headings: drop the leading hashes, keep the title text.
+    out = _MD_HEADING_RE.sub("", out)
+    # Horizontal rules: drop the whole line.
+    out = _MD_HR_RE.sub("", out)
+    # Links: "nhãn (url)" — the URL stays readable for copy/paste.
+    out = _MD_LINK_RE.sub(lambda m: f"{m.group(1)} ({m.group(2)})", out)
+    # Emphasis (two passes: nested ***bold italic*** needs the outer pass first).
+    out = _MD_BOLD_RE.sub(r"\2", out)
+    out = _MD_STRIKE_RE.sub(r"\1", out)
+    out = _MD_ITALIC_STAR_RE.sub(r"\1", out)
+    out = _MD_ITALIC_UNDERSCORE_RE.sub(r"\1", out)
+    # Bullets: "* mục" / "- mục" / "+ mục" → "• mục" (plain-text bullet).
+    out = _MD_BULLET_RE.sub(lambda m: f"{m.group(1)}• ", out)
+    # Collapse the blank lines left behind by removed rules/fences.
+    out = re.sub(r"\n{3,}", "\n\n", out)
+    return out.strip()
 
 
 def _time_limit(seconds: int):
@@ -400,7 +305,7 @@ def _time_limit(seconds: int):
     already bounded by ``max_new_tokens``.
 
     Fixes "signal only works in main thread of the main interpreter" which
-    broke the TinyLlama (and Gemma) local LLM fallback on HF Spaces.
+    broke local LLM generation on HF Spaces.
     """
     import signal
     import threading
@@ -431,6 +336,29 @@ def _time_limit(seconds: int):
 
 class LLMService:
     def __init__(self):
+        # ── DeepSeek (primary text generation — OpenAI-compatible API) ───────
+        # DeepSeek is the primary text provider: cheap, fast and it answers in
+        # Vietnamese well. It exposes an OpenAI-compatible /chat/completions
+        # endpoint, so the same payload shape also works for any compatible
+        # gateway. Calls go through `curl --ipv4 --insecure` for the same
+        # HF Spaces IPv6/TLS reason as every other provider.
+        self.deepseek_key = (os.getenv("DEEPSEEK_API_KEY") or "").strip().strip('"').strip("'")
+        self.deepseek_base_url = (
+            os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").strip().rstrip("/")
+        )
+        self.deepseek_models = [
+            m.strip()
+            for m in os.getenv("DEEPSEEK_MODEL", "deepseek-chat,deepseek-reasoner").split(",")
+            if m.strip()
+        ] or ["deepseek-chat"]
+        self.deepseek_model_name = self.deepseek_models[0]
+        # DeepSeek is slower than Gemini for long prompts (reasoner especially),
+        # so the budget is a bit wider than GEMINI_TIMEOUT_SECONDS.
+        self.deepseek_timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "20"))
+        self.has_deepseek = bool(self.deepseek_key)
+        # Circuit breaker: 5 min cooldown after auth/network failure.
+        self._deepseek_down_until = 0.0
+
         # ── Google Gemini (fallback text generation + embeddings) ────────────
         # Gemini key is used for embeddings (vector_store.py) and as the
         # fallback text-generation provider. Cloudflare Workers AI is the
@@ -476,18 +404,22 @@ class LLMService:
         # backend's 60s HTTP timeout (3 models x retries used to take >60s).
         self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
         # --- Provider summary ---
-        # Cloudflare is primary (configured via CLOUDFLARE_API_TOKEN).
-        # Gemini is fallback (configured via GEMINI_API_KEY).
-        # is_ready = True if at least one provider (Cloudflare OR Gemini) is configured
-        self.is_ready = self.has_gemini or self.has_cf
+        # DeepSeek is primary (configured via DEEPSEEK_API_KEY).
+        # Gemini is first fallback (GEMINI_API_KEY), Cloudflare is second
+        # fallback (CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID). Local Gemma
+        # and the Vietnamese templates are the last two safety nets.
+        # is_ready = True if at least one remote provider is configured.
+        self.is_ready = self.has_deepseek or self.has_gemini or self.has_cf
+        if self.has_deepseek:
+            print(f"INFO: DeepSeek provider configured (primary). Model={self.deepseek_model_name}")
         if self.has_cf:
-            print(f"INFO: Cloudflare Workers AI provider configured. Model={self.model_name}")
+            print(f"INFO: Cloudflare Workers AI provider configured (fallback). Model={self.model_name}")
         if self.has_gemini:
             print(f"INFO: Google Gemini provider configured (fallback). Model={self.gemini_model_name}")
         if not self.is_ready:
-            print("ERROR: Khong co CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoac GEMINI_API_KEY. Cau hinh de dung AI chat.")
+            print("ERROR: Khong co DEEPSEEK_API_KEY / GEMINI_API_KEY / CLOUDFLARE_API_TOKEN. Cau hinh de dung AI chat.")
         else:
-            print(f"INFO: LLM provider chain: Cloudflare Workers AI -> Google Gemini")
+            print("INFO: LLM provider chain: DeepSeek -> Google Gemini -> Cloudflare Workers AI -> template")
         # --- Adzuna API (job market data — LLM-independent trends) ---
         self.adzuna_app_id = os.getenv("ADZUNA_APP_ID")
         self.adzuna_app_key = os.getenv("ADZUNA_APP_KEY")
@@ -536,17 +468,7 @@ class LLMService:
         self._local_llm_down_until = 0.0  # circuit breaker (5 min)
         if self.local_llm_enabled:
             print(f"INFO: Local LLM fallback configured: {self.local_llm_model_name} (~1.5GB RAM, lazy-load)")
-            print("INFO: Provider chain: Cloudflare -> Gemini -> Local Gemma 2B -> TinyLlama -> template")
-
-        # --- TinyLlama 1.1B (Edge AI Tutor — /offline-tutor, separate singleton) ---
-        self.tinyllama_model_name = os.getenv(
-            "TINYLLAMA_MODEL", "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-        )
-        self.tinyllama_enabled = os.getenv(
-            "TINYLLAMA_ENABLED", "true"
-        ).lower() in ("1", "true", "yes", "on")
-        if self.tinyllama_enabled:
-            print(f"INFO: TinyLlama 1.1B configured for Edge AI Tutor (~1.5GB RAM, lazy-load)")
+            print("INFO: Provider chain: DeepSeek -> Gemini -> Cloudflare -> Local Gemma 2B -> template")
 
         # Startup connectivity diagnostics: surfaces HF Spaces egress problems
         # (IPv6 blackhole / blocked DNS) in the logs instead of only at chat time.
@@ -554,6 +476,8 @@ class LLMService:
             try:
                 from services.net import probe_tls
                 targets = []
+                if self.has_deepseek:
+                    targets.append(urllib.parse.urlparse(self.deepseek_base_url).hostname or "api.deepseek.com")
                 if self.has_cf:
                     targets.append("api.cloudflare.com")
                 if self.has_gemini:
@@ -579,6 +503,192 @@ class LLMService:
             code in (404, 410)  # 410 = Gone / deprecated model
             or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
         )
+
+    # ── DeepSeek (primary text provider) ────────────────────────────────────
+
+    def _deepseek_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Call DeepSeek's OpenAI-compatible ``/chat/completions`` endpoint.
+
+        DeepSeek is the primary text provider (``DEEPSEEK_API_KEY``). Requests
+        go through ``curl --ipv4 --insecure`` for the same HF Spaces IPv6/TLS
+        reason as Cloudflare/Gemini. Any OpenAI-compatible gateway can be used
+        by pointing ``DEEPSEEK_BASE_URL`` at it.
+        """
+        import time as _time
+
+        if not self.has_deepseek:
+            raise RuntimeError("DEEPSEEK_API_KEY not set — cannot use DeepSeek.")
+        if _time.monotonic() < self._deepseek_down_until:
+            raise RuntimeError("DeepSeek temporarily disabled after a network failure.")
+
+        url = f"{self.deepseek_base_url}/chat/completions"
+        last_err = None
+
+        for model in self.deepseek_models:
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Bạn là trợ lý học tập của EduMap DNTU. Trả lời bằng tiếng Việt, "
+                            "ngắn gọn, đúng trọng tâm, dùng văn bản thuần."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": float(temperature if temperature is not None else 0.7),
+                "max_tokens": int(max_tokens or 1024),
+                "stream": False,
+            }
+            if top_p is not None:
+                payload["top_p"] = float(top_p)
+            body_json = json.dumps(payload, ensure_ascii=False)
+
+            try:
+                proc = subprocess.run(
+                    [
+                        "curl", "--ipv4", "--insecure", "-sS",
+                        "-X", "POST", url,
+                        "-H", f"Authorization: Bearer {self.deepseek_key}",
+                        "-H", "Content-Type: application/json",
+                        "-d", body_json,
+                        "--connect-timeout", "6",
+                        "--max-time", str(self.deepseek_timeout),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.deepseek_timeout + 2,
+                )
+            except Exception as e:
+                self._deepseek_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"DeepSeek connection failed: {type(e).__name__}: {e}")
+
+            if proc.returncode != 0:
+                err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
+                # 28 = timeout, 6/7 = DNS/connect — all network level, so cool
+                # the provider down instead of retrying every request.
+                self._deepseek_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"DeepSeek connection failed: {err}")
+
+            try:
+                data = json.loads(proc.stdout or "{}")
+            except Exception:
+                last_err = f"{model}: invalid JSON response: {(proc.stdout or '')[:160]}"
+                print(f"DeepSeek model {model} tra ve JSON khong hop le, thu model ke tiep...")
+                continue
+
+            if isinstance(data, dict) and data.get("error"):
+                err = data.get("error") or {}
+                code = int(err.get("code") or 0)
+                message = str(err.get("message") or "")
+                low = message.lower()
+                if code in (401, 403) or "authentication" in low or "invalid api key" in low:
+                    self._deepseek_down_until = _time.monotonic() + 300
+                    raise RuntimeError(f"DeepSeek auth error (HTTP {code}): {message[:200]}")
+                if code == 402 or "insufficient balance" in low:
+                    # Out of credit — do not retry the other model, it shares
+                    # the same wallet. Fall straight through to Gemini.
+                    self._deepseek_down_until = _time.monotonic() + 300
+                    raise RuntimeError(f"DeepSeek insufficient balance (HTTP {code}): {message[:160]}")
+                last_err = f"{model}: HTTP {code} {message[:120]}"
+                print(f"DeepSeek model {model} loi HTTP {code}, thu model ke tiep...")
+                continue
+
+            text = ""
+            try:
+                choices = data.get("choices") or []
+                text = (choices[0].get("message", {}).get("content") or "").strip()
+            except (IndexError, AttributeError, TypeError):
+                text = ""
+
+            if text:
+                return text
+            last_err = f"{model}: empty text response"
+            print(f"DeepSeek model {model} tra ve empty response, thu model ke tiep...")
+
+        raise RuntimeError(f"DeepSeek generation failed: {last_err or 'no model available'}")
+
+    def _deepseek_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
+        """Yield tokens from DeepSeek's streaming ``/chat/completions``.
+
+        Same SSE shape as OpenAI: ``data: {"choices":[{"delta":{"content":"…"}}]}``.
+        Yields nothing (and returns) if the stream produced no content, so the
+        caller can fall back to the non-streaming cascade.
+        """
+        import time as _time
+
+        if not self.has_deepseek:
+            raise RuntimeError("DEEPSEEK_API_KEY not set — cannot stream from DeepSeek.")
+        if _time.monotonic() < self._deepseek_down_until:
+            raise RuntimeError("DeepSeek temporarily disabled after a network failure.")
+
+        url = f"{self.deepseek_base_url}/chat/completions"
+        model = self.deepseek_models[0]
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Bạn là trợ lý học tập của EduMap DNTU. Trả lời bằng tiếng Việt, "
+                        "ngắn gọn, đúng trọng tâm, dùng văn bản thuần."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": float(temperature if temperature is not None else 0.7),
+            "max_tokens": int(max_tokens or 1024),
+            "stream": True,
+        }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        body_json = json.dumps(payload, ensure_ascii=False)
+
+        try:
+            proc = subprocess.Popen(
+                [
+                    "curl", "--ipv4", "--insecure", "-sS", "-N",
+                    "-X", "POST", url,
+                    "-H", f"Authorization: Bearer {self.deepseek_key}",
+                    "-H", "Content-Type: application/json",
+                    "-d", body_json,
+                    "--connect-timeout", "6",
+                    "--max-time", str(self.deepseek_timeout),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except Exception as e:
+            self._deepseek_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"DeepSeek stream Popen failed: {type(e).__name__}: {e}")
+
+        try:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line or not line.startswith("data: "):
+                    continue
+                data_str = line[6:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                except json.JSONDecodeError:
+                    continue
+                try:
+                    delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+                except (IndexError, AttributeError):
+                    delta = {}
+                content = delta.get("content") or ""
+                if content:
+                    yield content
+        finally:
+            try:
+                proc.kill()
+            except Exception:
+                pass
 
     def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Call Google Gemini generateContent.
@@ -1026,21 +1136,21 @@ class LLMService:
         self._response_cache_misses += 1
         errors: dict = {}
 
-        # 1. Cloudflare Workers AI (internal cascade of 3 DSS models)
-        if self.has_cf:
+        # 1. DeepSeek (primary — DEEPSEEK_API_KEY, OpenAI-compatible API)
+        if self.has_deepseek:
             try:
-                result = self._cloudflare_generate(
+                result = self._deepseek_generate(
                     prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
                 )
                 if result:
                     self._store_response_cache(_cache_key, result)
-                    print("  -> Cloudflare Workers AI generate OK")
+                    print(f"  -> DeepSeek generate OK (model={self.deepseek_model_name})")
                     return result
             except Exception as e:
-                errors["Cloudflare"] = str(e)
-                print(f"Cloudflare generate failed: {e}")
+                errors["DeepSeek"] = str(e)
+                print(f"DeepSeek generate failed: {e}")
 
-        # 2. Google Gemini (fallback — only provider that reliably works on HF Spaces)
+        # 2. Google Gemini (fallback — reliable on HF Spaces egress)
         if self.has_gemini:
             try:
                 result = self._gemini_generate(
@@ -1054,8 +1164,24 @@ class LLMService:
                 errors["Gemini"] = str(e)
                 print(f"Google Gemini generate failed: {e}")
 
-        # 3. Local Gemma 2B Q4_K_M (offline — replaces all external providers
-        # on HF Spaces free plan. Lazy-load ~3-5s, ~1.5GB RAM.)
+        # 3. Cloudflare Workers AI (last remote fallback — its TLS is often
+        # blackholed on HF Spaces, hence the position after DeepSeek/Gemini)
+        if self.has_cf:
+            try:
+                result = self._cloudflare_generate(
+                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
+                )
+                if result:
+                    self._store_response_cache(_cache_key, result)
+                    print("  -> Cloudflare Workers AI generate OK")
+                    return result
+            except Exception as e:
+                errors["Cloudflare"] = str(e)
+                print(f"Cloudflare generate failed: {e}")
+
+        # 4. Local Gemma 2B Q4 (offline last resort — gated weights, so it is
+        # usually a fast no-op on the free tier; TinyLlama was removed because
+        # 2 vCPU inference needed 30-60 s per answer).
         if self.has_local_llm:
             try:
                 result = _local_llm_generate(
@@ -1067,43 +1193,25 @@ class LLMService:
                     print("  -> Local Gemma 2B generate OK")
                     return result
             except Exception as e:
-                # Local LLM failure is non-fatal — try TinyLlama next, then template
                 errors["local_llm"] = str(e)
                 print(f"Local Gemma 2B generate failed: {e}")
 
-        # 3b. Local TinyLlama 1.1B (not gated — reliable on HF Spaces free plan)
-        # Gemma 2B IT is a gated model on HuggingFace (needs HF_TOKEN). On the
-        # free HF Spaces tier without HF_TOKEN, step 3 always fails. TinyLlama
-        # 1.1B is NOT gated and can be downloaded without authentication, so it
-        # serves as the reliable local LLM fallback when Gemma is unavailable.
-        if self.tinyllama_enabled:
-            try:
-                result = _tinyllama_generate(
-                    prompt, temperature=temperature or 0.3,
-                    max_tokens=max_tokens or 512, top_p=top_p or 0.9,
-                )
-                if result:
-                    self._store_response_cache(_cache_key, result)
-                    print("  -> Local TinyLlama generate OK")
-                    return result
-            except Exception as e:
-                errors["tinyllama"] = str(e)
-                print(f"Local TinyLlama generate failed: {e}")
-
         # Build a detailed, per-provider error message.
         parts = []
-        if not self.has_cf:
-            parts.append("Cloudflare: không cấu hình")
-        elif errors.get("Cloudflare"):
-            parts.append(f"Cloudflare: {errors['Cloudflare'][:150]}")
+        if not self.has_deepseek:
+            parts.append("DeepSeek: không cấu hình")
+        elif errors.get("DeepSeek"):
+            parts.append(f"DeepSeek: {errors['DeepSeek'][:150]}")
         if not self.has_gemini:
             parts.append("Gemini: không cấu hình")
         elif errors.get("Gemini"):
             parts.append(f"Gemini: {errors['Gemini'][:150]}")
+        if not self.has_cf:
+            parts.append("Cloudflare: không cấu hình")
+        elif errors.get("Cloudflare"):
+            parts.append(f"Cloudflare: {errors['Cloudflare'][:150]}")
         if self.has_local_llm and errors.get("local_llm"):
             parts.append(f"Local Gemma: {errors['local_llm'][:150]}")
-        if self.tinyllama_enabled and errors.get("tinyllama"):
-            parts.append(f"TinyLlama: {errors['tinyllama'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
@@ -1197,7 +1305,8 @@ class LLMService:
         1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
         2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
-        4. Trình bày rõ ràng, sử dụng bullet points nếu cần thiết.
+        4. Trình bày rõ ràng, dùng dấu gạch đầu dòng "-" khi cần liệt kê.
+        5. KHÔNG dùng markdown: không **, không *, không #, không ``` và không bảng markdown.\n           Giao diện chat chỉ hiển thị văn bản thuần, ký tự markdown sẽ hiện ra thành rác.
         """
 
         # Format history (lấy 6 tin nhắn gần nhất)
@@ -1208,12 +1317,13 @@ class LLMService:
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
 
-        # Provider chain: Cloudflare Workers AI (primary) → Google Gemini (fallback).
+        # Provider chain: DeepSeek (primary) → Gemini → Cloudflare Workers AI.
         reply_text = None
         last_err = None
         for gen_fn in [
-            self._cloudflare_generate if self.has_cf else None,
+            self._deepseek_generate if self.has_deepseek else None,
             self._gemini_generate if self.has_gemini else None,
+            self._cloudflare_generate if self.has_cf else None,
         ]:
             if gen_fn is None:
                 continue
@@ -1231,24 +1341,13 @@ class LLMService:
                 print(f"Chat gen {gen_fn.__name__} failed: {e}")
                 continue
 
-        # 3b. Local TinyLlama 1.1B (not gated — reliable fallback when
-        # Gemma 2B is gated or all remote providers fail)
-        if not reply_text and self.tinyllama_enabled:
-            try:
-                response = await asyncio.to_thread(
-                    _tinyllama_generate,
-                    prompt, temperature=0.3, max_tokens=2048, top_p=0.8,
-                )
-                if response:
-                    reply_text = response.strip()
-                    print("  -> local TinyLlama generate OK (chat_with_rag)")
-            except Exception as e:
-                last_err = str(e)
-                print(f"chat_with_rag TinyLlama failed: {e}")
-
         if not reply_text:
             print(f"AI Generation Error: {last_err or 'no provider available'} — using template fallback")
             reply_text = self._chat_fallback_reply(message, sources, context)
+
+        # The app renders chat as plain text (no markdown parser), so strip
+        # **bold** / # headings / ``` fences before the reply leaves the API.
+        reply_text = _strip_markdown(reply_text)
 
         final_res = {"reply": reply_text, "sources": sources}
         cache_service.set(cache_key, final_res, ttl=3600)
@@ -1347,7 +1446,8 @@ class LLMService:
         1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
         2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
-        4. Trình bày rõ ràng, sử dụng bullet points nếu cần thiết.
+        4. Trình bày rõ ràng, dùng dấu gạch đầu dòng "-" khi cần liệt kê.
+        5. KHÔNG dùng markdown: không **, không *, không #, không ``` và không bảng markdown.\n           Giao diện chat chỉ hiển thị văn bản thuần, ký tự markdown sẽ hiện ra thành rác.
         """
 
         history_str = ""
@@ -1360,7 +1460,28 @@ class LLMService:
         # ---- 3. Send metadata (sources) first ----
         yield f"data: {json.dumps({'sources': sources, 'meta': True})}\n\n"
 
-        # ---- 4. Try true streaming via Cloudflare Workers AI SSE ----
+        # ---- 4a. Try true streaming via DeepSeek SSE (primary) ----
+        if self.has_deepseek:
+            try:
+                full_reply = ""
+                for token in self._deepseek_generate_stream(
+                    prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+                ):
+                    full_reply += token
+                    yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
+                if full_reply:
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                    cache_service.set(
+                        cache_key,
+                        {"reply": _strip_markdown(full_reply), "sources": sources},
+                        ttl=3600,
+                    )
+                    return
+                print("DeepSeek streaming returned empty reply, falling back to non-streaming")
+            except Exception as e:
+                print(f"DeepSeek streaming failed, falling back to non-stream: {e}")
+
+        # ---- 4b. Try true streaming via Cloudflare Workers AI SSE ----
         if self.has_cf:
             try:
                 full_reply = ""
@@ -1405,11 +1526,10 @@ class LLMService:
 
         # Time budget: the NestJS proxy (ai.service.ts `timeout: 10000`) kills
         # this request at ~10s. Reserve time for the word-by-word stream + SSE
-        # framing, otherwise the local TinyLlama attempt (up to 35s inside the
-        # thread) pushes total time past the proxy deadline → NestJS logs
-        # "SSE stream error from ai-service: aborted" and the chat bubble stays
-        # empty. Budget chain: provider cascade → local LLM → template reply,
-        # all inside `_proxy_deadline`.
+        # framing, otherwise a slow provider pushes total time past the proxy
+        # deadline → NestJS logs "SSE stream error from ai-service: aborted"
+        # and the chat bubble stays empty. Budget chain: provider cascade →
+        # template reply, all inside `_proxy_deadline`.
         _proxy_deadline = float(os.getenv("STREAM_PROXY_DEADLINE_SECONDS", "10"))
         _final_reserve = float(os.getenv("STREAM_FINAL_RESERVE_SECONDS", "1.5"))
         _elapsed = time.monotonic() - _stream_start
@@ -1420,8 +1540,9 @@ class LLMService:
         reply_text = None
         last_err = None
         for gen_fn in [
-            self._cloudflare_generate if self.has_cf else None,
+            self._deepseek_generate if self.has_deepseek else None,
             self._gemini_generate if self.has_gemini else None,
+            self._cloudflare_generate if self.has_cf else None,
         ]:
             if gen_fn is None:
                 continue
@@ -1449,29 +1570,11 @@ class LLMService:
                 print(f"[stream] Provider {gen_fn.__name__} failed — {type(e).__name__}: {str(e)[:200]}. Error detail: {last_err[:300]}")
                 continue
 
-        if not reply_text and self.tinyllama_enabled:
-            # Local fallback: Gemma 2B is gated on HF — TinyLlama is not.
-            # Only attempt it when the remaining proxy budget can absorb it;
-            # otherwise go straight to the template reply so the user still
-            # receives an answer before the proxy closes the SSE connection.
-            _local_left = _proxy_deadline - (time.monotonic() - _stream_start) - _final_reserve
-            if _local_left < 2.0:
-                print(f"[stream] Local LLM skipped — only {_local_left:.1f}s left before the proxy deadline; using template reply")
-            else:
-                try:
-                    response = await asyncio.wait_for(
-                        asyncio.to_thread(_tinyllama_generate, prompt, temperature=0.3, max_tokens=2048, top_p=0.8),
-                        timeout=_local_left,
-                    )
-                    if response:
-                        reply_text = response.strip()
-                        print("  -> local TinyLlama generate OK (stream fallback)")
-                except Exception as e:
-                    last_err = str(e)
-                    print(f"[stream] TinyLlama generate failed: {type(e).__name__}: {str(e)[:200]}")
-
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
+
+        # Plain-text UI: strip markdown markers before the word-by-word stream.
+        reply_text = _strip_markdown(reply_text)
 
         # Stream word-by-word so the UI shows a typing effect even when
         # real SSE streaming from Cloudflare is unavailable. `max_duration`

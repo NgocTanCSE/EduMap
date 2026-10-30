@@ -321,11 +321,14 @@ export default function MapPage() {
   });
 
   const { size: mapPanelSize, onResizeMouseDown: onMapPanelResizeMouseDown } = useResizable({
-    initialSize: { width: 320, height: 400 },
-    minWidth: 200,
-    minHeight: 300,
-    maxWidth: 500,
-    maxHeight: windowSize.height - 40,
+    // Default to the same proportions as the Chỉ đường routing panel
+    // (width 400, height calc(100dvh - 120px)) so the panel isn't "nhỏ quá" —
+    // the user can still resize both axes from the handles below.
+    initialSize: { width: 400, height: Math.max(480, windowSize.height - 120) },
+    minWidth: 320,
+    minHeight: 420,
+    maxWidth: 700,
+    maxHeight: Math.max(480, windowSize.height - 40),
   });
 
   // Read ?tool=<id> from URL on mount
@@ -828,7 +831,7 @@ export default function MapPage() {
             width: mapPanelSize.width,
             height: mapPanelSize.height,
           }}
-          className="fixed z-[50] max-h-[calc(100dvh-8rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
+          className="fixed z-[50] max-h-[calc(100dvh-4rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
         >
           <div
             className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none"
@@ -1005,10 +1008,19 @@ export default function MapPage() {
             )
           ) : null}
         </div>
-        {/* Panel resize handle — prominent + titled, mirroring the
-            Chỉ đường routing panel's resize affordance so the Bản đồ panel
-            is visibly "thay đổi kích thước" (SE-corner = analogous to the
-            routing panel's left-edge strip for a left-anchored panel). */}
+        {/* Right-edge width-resize strip — mirror of the Chỉ đường routing
+            panel's left-edge `cursor-col-resize` strip. The old 4×4 SE corner
+            made horizontal resize barely usable, so the user reported "chỉ có
+            tăng/giảm phần dọc, không có rộng". This prominent strip (visible
+            on hover) makes width resize easy; the SE corner below keeps height
+            resize for the left-anchored panel. */}
+        <div
+          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group select-none"
+          title="Kéo để thay đổi độ rộng"
+          onMouseDown={onMapPanelResizeMouseDown}
+        >
+          <div className="absolute top-1/2 right-1/2 translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors" />
+        </div>
         <div
           className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-primary/30 hover:bg-primary/50 rounded-tl-lg select-none transition-colors"
           title="Kéo để thay đổi kích thước"

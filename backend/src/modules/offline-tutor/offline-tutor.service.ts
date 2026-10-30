@@ -31,9 +31,9 @@ export class OfflineTutorService {
    *  - suggest     → tutor.suggest_next()
    *
    * Caching: the result is cached for 1 hour (3600s) keyed by a stable hash
-   * of {action, topic, difficulty, num_questions}. This is important because
-   * CPU inference for TinyLlama 1.1B takes several seconds — caching avoids
-   * re-computation when the same question is asked.
+   * of {action, topic, difficulty, num_questions}. This matters because a
+   * DeepSeek/Gemini round-trip costs 1-3s — caching avoids re-generation when
+   * the same question is asked again.
    *
    * Error handling: if ai-service is unreachable (e.g. model still loading),
    * returns a graceful degraded response that the frontend can render immediately.

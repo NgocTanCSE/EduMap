@@ -659,9 +659,13 @@ inventing new values.
   No emoji-as-icon, no raster/SVG illustration used as an icon.
   `<img>` is allowed only for real user/content images (avatars, event
   covers, QR codes, uploaded proof photos).
-- **One page frame.** Use `.page-shell` (or `.page-shell-narrow`) from
-  `app/globals.css`; it sets `max-w-6xl`, `px-4 py-6 sm:px-6 sm:py-8` and
-  `space-y-6`. Pages that must stay full-width use
+- **One page frame.** Use `ContentShell` (or `.page-shell` from
+  `app/globals.css`); it sets `max-w-8xl`, `px-4 sm:px-6 py-6` and
+  `space-y-6` (tightened 2026-10-30 from `max-w-7xl py-8 space-y-8` to reduce
+  "thừa khoảng trống" on widescreen). Listing hubs that should consume the
+  full width (e.g. `/green`, `/wifi`) drop the cap with
+  `<ContentShell className="max-w-none">` and widen their grid to
+  `lg:grid-cols-4`. Pages that must stay full-width use
   `px-4 py-6 sm:px-6 sm:py-8` instead of `p-8`.
 - **One card system.** `.card-surface` + `.card-equal` (`h-full flex-col`)
   + `.card-footer` (`mt-auto` + top border) keeps titles/descriptions/CTAs
@@ -683,6 +687,9 @@ inventing new values.
 - **Map Hub floating panels (2026-10-28):**
   - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating):
     - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable` (chỉ kéo ở header), có nút Ẩn/Hiện ("Mở bảng bản đồ"). `onMouseDown` chỉ gắn vào header để cuộn chuột trong nội dung không bị chặn.
+      - **Cỡ lớn hơn (2026-10-30):** mặc định `width: 400px`, `height: calc(100dvh - 120px)` (giống mẫu Chỉ đường routing panel); `useResizable` cho phép resize cả 2 trục.
+      - **Nút resize nổi bật (2026-10-30):** góc dưới-phải `cursor-se-resize` (`w-5 h-5`, `title="Kéo để thay đổi kích thước"`, hover `bg-primary/50`) — analog của nút resize `cursor-col-resize` ở mép trái bên Chỉ đường.
+      - **Không cắt nội dung (2026-10-30):** bỏ `max-h-48 overflow-y-auto` trong danh sách Wifi và "Gần đây"; panel body (`flex-1 overflow-y-auto`) cuộn thay thế để nội dung luôn hiện hết trong trạng thái mặc định.
     - **Bảng chỉ đường** (phải, `RoutingPanel`): xuất hiện **sổ xuống từ nút "Chỉ đường" floating** (góc trên phải), `fixed` tại `top-[56px] right-4`, không kéo tự do nữa. `max-h-[calc(100dvh-120px)]` + `overflow-y-auto scrollbar-hide` để nội dung không bị rớt/cắt. `width: 340px` co dãn với màn hình.
   - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel, vẫn có thể pan/zoom bình thường khi panel chỉ đường mở (không bị khóa).
   - Nút zoom `+`/`-` trên bản đồ đã ẩn (`zoomControl={false}`); người dùng cuộn chuột để zoom.

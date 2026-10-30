@@ -1,10 +1,10 @@
 /**
  * EduMap Edge AI Tutor — Offline Page (Idea #7)
  *
- * A PWA-enabled page that lets students get AI tutoring (explain concepts,
- * generate practice questions, get study suggestions) WITHOUT internet —
- * the model (TinyLlama 1.1B Chat, 4-bit) runs locally inside the
- * ai-service container on HF Spaces.
+ * A PWA-enabled page for AI tutoring (explain concepts, generate practice
+ * questions, get study suggestions). Answers come from the ai-service text
+ * cascade (DeepSeek → Gemini → Cloudflare); when no provider is reachable the
+ * service returns curated Vietnamese templates with `degraded=true`.
  *
  * Features:
  *  - Three modes: Explain, Practice, Suggest (action selector)
@@ -28,6 +28,7 @@ import {
   Timer,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { stripMarkdown } from '@/src/lib/plain-text';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -288,22 +289,22 @@ export default function OfflineTutorPage() {
                 Trợ lý ngoại tuyến
               </h1>
               <p className="text-sm text-foreground/55">
-                Gia sư AI cục bộ — không cần internet (TinyLlama 1.1B Chat)
+                Gia sư AI của EduMap — trả lời tức thì, có câu trả lời mẫu dự phòng
               </p>
             </div>
             {modelStatus && (
               <div className="text-right text-xs text-foreground/55">
                 {isModelReady ? (
                   <span className="inline-flex items-center gap-1.5 text-accent">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Mô hình đã sẵn sàng
+                    <CheckCircle2 className="h-3.5 w-3.5" /> AI đã sẵn sàng
                   </span>
                 ) : isModelFailed ? (
                   <span className="inline-flex items-center gap-1.5 text-primary">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Đang dùng bản sao chép mẫu
+                    <AlertTriangle className="h-3.5 w-3.5" /> Đang dùng câu trả lời mẫu
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-foreground/40">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải mô hình…
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra AI…
                   </span>
                 )}
               </div>
@@ -321,12 +322,13 @@ export default function OfflineTutorPage() {
                 <BookOpen aria-hidden="true" className="h-7 w-7 text-primary" />
               </div>
               <h2 className="mb-2 text-lg font-semibold text-foreground/80">
-                Trợ lý ngoại tuyến — Trợ lý AI cục bộ
+                Trợ lý ngoại tuyến — Gia sư AI của EduMap
               </h2>
               <p className="mb-6 max-w-md text-sm text-foreground/55">
-                Hỏi về bất kỳ chủ đề học tập nào — mô hình AI chạy trực tiếp
-                trên thiết bị, không cần kết nối internet. Hoạt động với
-                bản sao chép mẫu ngay cả khi mô hình chưa tải xong.
+                Hỏi về bất kỳ chủ đề học tập nào — AI trả lời theo chương
+                trình phổ thông Việt Nam. Nếu nhà cung cấp AI tạm thời không
+                phản hồi, hệ thống dùng câu trả lời mẫu có sẵn nên bạn luôn
+                nhận được nội dung.
               </p>
 
               <div className="mb-4 flex flex-wrap justify-center gap-2">
@@ -367,10 +369,10 @@ export default function OfflineTutorPage() {
                           </div>
                         ) : msg.nextStep ? (
                           <div className="whitespace-pre-wrap">
-                            {msg.content}
+                            {stripMarkdown(msg.content)}
                           </div>
                         ) : msg.content ? (
-                          <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content }} />
+                          <div className="whitespace-pre-wrap">{stripMarkdown(msg.content)}</div>
                         ) : (
                           <span className="text-foreground/40">Đang xử lý...</span>
                         )}

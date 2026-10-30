@@ -1,8 +1,8 @@
 /**
  * Mobile screen: OfflineTutorScreen
  *
- * Edge AI Tutor (Idea #7) — allows students to get AI tutoring without
- * internet via the local TinyLlama 1.1B model running in ai-service.
+ * Edge AI Tutor (Idea #7) — AI tutoring powered by the ai-service text
+ * cascade (DeepSeek → Gemini → Cloudflare) with Vietnamese template fallback.
  *
  * Three modes:
  *  - Explain: explain a concept

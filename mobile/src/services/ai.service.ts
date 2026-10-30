@@ -172,9 +172,9 @@ export const aiService = {
 
   // ===================== OFFLINE TUTOR (Idea #7) =====================
   /**
-   * Edge AI Tutor — local LLM (TinyLlama 1.1B 4-bit) running in ai-service.
-   * No external API calls required. Falls back to template-based responses
-   * when the model isn't loaded.
+   * Edge AI Tutor — ai-service text cascade (DeepSeek → Gemini → Cloudflare).
+   * Falls back to template-based Vietnamese responses when no provider is
+   * reachable.
    */
   offlineTutor: (payload: {
     action: 'explain' | 'practice' | 'suggest';

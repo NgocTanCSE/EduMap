@@ -90,7 +90,7 @@ export default function WifiPage() {
   const freeCount = items.filter((w) => w.is_free).length;
 
   return (
-    <ContentShell>
+    <ContentShell className="max-w-none">
       <SectionHeader
         title="Trạm Wifi"
         subtitle="Bản đồ các trạm Wifi công cộng miễn phí và trả tiền trên toàn mạng lưới giáo dục. Nhấn vào bất kỳ điểm nào để xem chi tiết hoặc mở trên bản đồ."
@@ -164,7 +164,7 @@ export default function WifiPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="h-48">
                 <CardContent className="p-0"><Skeleton className="h-full w-full" /></CardContent>
@@ -172,7 +172,7 @@ export default function WifiPage() {
             ))}
           </div>
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filtered.map((w) => {
               const rating = Number(w.rating_avg) || 0;
               const reviewCount = Number(w.rating_count) || 0;

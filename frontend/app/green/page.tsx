@@ -71,7 +71,7 @@ export default function GreenChallengePage() {
   const totalPoints = challenges.reduce((sum, c) => sum + (Number(c.points) || 0), 0);
 
   return (
-    <ContentShell>
+    <ContentShell className="max-w-none">
       <SectionHeader
         title="Thử thách xanh"
         subtitle="Tham gia các chiến dịch môi trường thực — trồng cây, tắt đèn, dọn rác — và kiếm điểm xanh cùng cộng đồng giáo dục."
@@ -144,7 +144,7 @@ export default function GreenChallengePage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="h-56">
                 <CardContent className="p-0"><Skeleton className="h-full w-full" /></CardContent>
@@ -152,7 +152,7 @@ export default function GreenChallengePage() {
             ))}
           </div>
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filtered.map((c) => {
               const badge = statusBadge(c.status || '');
               const pts = Number(c.points) || 0;

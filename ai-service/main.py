@@ -125,6 +125,8 @@ def _startup_seed_vector_db():
 # cold-start penalty. Models are pre-loaded in sequence with delays to avoid
 # RAM spikes that could OOM the 16GB HF Spaces free container.
 # Order: embeddings → reranker → vision → LLM (each ~15s apart).
+# TinyLlama was removed on 2026-10-30 — the Edge AI Tutor now uses the
+# DeepSeek/Gemini/Cloudflare cascade, so there is no second local LLM.
 @app.on_event("startup")
 def _startup_stagger_local_models():
     """Staggered pre-load of local models to smooth the RAM curve on startup.
@@ -142,7 +144,6 @@ def _startup_stagger_local_models():
         ("reranker", "vector_store"),
         ("vision", "geo"),
         ("llm", "llm_service"),
-        ("tinyllama", "llm_service"),
     ]
 
     def _warmup():
@@ -169,13 +170,6 @@ def _startup_stagger_local_models():
                         print(f"[staggered-warmup] {name} pre-loaded OK")
                     else:
                         print(f"[staggered-warmup] {name} pre-load FAILED — using Cloudflare/Gemini/template fallback chain")
-                elif name == "tinyllama":
-                    from services.llm_service import _load_tinyllama
-                    ok = _load_tinyllama()
-                    if ok:
-                        print(f"[staggered-warmup] {name} pre-loaded OK")
-                    else:
-                        print(f"[staggered-warmup] {name} pre-load FAILED — using template tutor fallback")
             except Exception as e:
                 # Non-fatal: lazy-load will retry on first request
                 print(f"[staggered-warmup] {name} pre-load failed (non-fatal): {type(e).__name__}: {e}")

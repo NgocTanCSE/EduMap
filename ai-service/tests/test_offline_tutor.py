@@ -1,12 +1,12 @@
 """Unit tests for the Edge AI Tutor (offline) — Idea #7.
 
-These tests run WITHOUT any network access and WITHOUT the local model
-installed — they verify:
+These tests run WITHOUT any network access (the LLM cascade is disabled) —
+they verify:
 
   1. Template fallback works for all three actions (explain, practice, suggest)
   2. The cache returns cached results on repeat calls
-  3. Graceful degradation: every method returns a valid dict even when
-     the model is unavailable (torch/transformers not installed)
+  3. Graceful degradation: every method returns a valid dict with
+     degraded=True when no text provider is reachable
   4. Input validation / safety clamps (num_questions in 1-5 range)
   5. The FastAPI router returns 200 with degraded=True when model is absent
 
@@ -22,8 +22,8 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Disable the local model so tests exercise ONLY the template fallback path.
-os.environ["OFFLINE_MODEL_ENABLED"] = "false"
+# Force the template-only path so tests never touch a network provider.
+os.environ["OFFLINE_TUTOR_USE_LLM"] = "false"
 
 from offline.tutor import OfflineTutor  # noqa: E402
 from offline.tutor import (
@@ -152,7 +152,8 @@ def test_status_reports_model_state():
     assert "model_name" in status
     assert "model_loaded" in status
     assert "model_failed" in status
-    assert "source" in status or "torch_available" in status
+    assert status["engine"] in ("llm-cascade", "template")
+    assert "template_fallback" in status
     print("✓ test_status_reports_model_state")
 
 

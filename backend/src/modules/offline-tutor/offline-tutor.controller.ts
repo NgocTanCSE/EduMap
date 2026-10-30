@@ -16,10 +16,9 @@ import { Public } from 'src/common/decorators/public.decorator';
 /**
  * POST /api/offline/tutor — Edge AI Tutor (Idea #7)
  *
- * Proxies to the ai-service FastAPI endpoint that runs a local
- * TinyLlama 1.1B Chat model (4-bit) in the same Docker container.
- * No external AI provider calls are required — the model runs entirely
- * inside the HF Spaces container (CPU-only).
+ * Proxies to the ai-service FastAPI endpoint, which answers through the
+ * shared text cascade (DeepSeek → Gemini → Cloudflare) and falls back to
+ * curated Vietnamese templates when no provider is available.
  *
  * Auth: Public endpoint so the offline tutor works even without login
  *       (e.g. students without an account). User context is used if present.

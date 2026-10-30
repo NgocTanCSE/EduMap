@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
+import { stripMarkdown } from '@/src/lib/plain-text';
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 
 export default function AIChatPage() {
@@ -332,7 +333,7 @@ export default function AIChatPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="whitespace-pre-wrap">{m.content}</div>
+                      <div className="whitespace-pre-wrap">{stripMarkdown(m.content)}</div>
                       {m.isStreaming && (
                         <span className="inline-block w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce ml-0.5 [animation-delay:0.6s]"></span>
                       )}

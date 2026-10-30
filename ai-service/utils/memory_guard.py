@@ -1,6 +1,6 @@
 """OOM guard — monitors RAM and prevents model loading when memory is too tight.
 
-Integrated into all local model loaders (Gemma 2B, TinyLlama, embeddings,
+Integrated into all local model loaders (Gemma 2B, embeddings,
 reranker, vision) to prevent the 16GB HF Spaces free-tier container from
 being OOM-killed by the kernel.
 
