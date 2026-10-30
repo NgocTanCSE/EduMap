@@ -6,6 +6,7 @@ import { MentorAvailability } from './entities/mentor-availability.entity';
 import { User } from '../auth/entities/user.entity';
 import { AIService } from '../ai/ai.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DEV_USER_UUID } from '../../common/constants/dev-user.constants';
 
 @Injectable()
 export class MentorService {
@@ -105,7 +106,15 @@ export class MentorService {
   private static readonly MAX_MENTORS_TO_LLM = 15;
 
   async getAIRecommendedMentors(userId: string, options?: { specialty?: string; region?: string }) {
-    const user = await this.userRepo.findOne({ where: { id: userId as any } });
+    let user = await this.userRepo.findOne({ where: { id: userId as any } });
+    if (!user) {
+      // On HF Spaces (free plan) the SQLite file reverts to the Docker image
+      // on every restart. Users created at runtime via Google login are lost,
+      // but their JWT remains valid (same JWT_SECRET) so the JwtAuthGuard
+      // already passed. Fall back to the deterministic dev user so the feature
+      // degrades gracefully instead of 404-ing.
+      user = await this.userRepo.findOne({ where: { id: DEV_USER_UUID } });
+    }
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
 
     // ── 1. Derive specialty filters from student profile ─────────────────

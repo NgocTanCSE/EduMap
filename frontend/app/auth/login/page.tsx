@@ -417,11 +417,11 @@ function GoogleLoginContent() {
               </div>
             )}
 
-            {/* Dev Login — fallback for local testing when Google OAuth is NOT
-                configured (or the button cannot render). Hidden from production
-                builds and hidden as soon as the Google button is ready, so the
-                Google iframe stays the primary login affordance. */}
-            {process.env.NODE_ENV !== 'production' && !googleReady && (
+            {/* Dev Login — fallback for when Google OAuth is NOT configured or
+                not available (e.g. HF Spaces free plan where GOOGLE_CLIENT_ID
+                secret is often unset). Visible in production too because the
+                dev user is seeded into edumap.db and survives container restarts. */}
+            {(process.env.NODE_ENV !== 'production' || !googleReady) && (
               <div className="border-t border-border pt-4 mt-2">
                 <button
                   type="button"

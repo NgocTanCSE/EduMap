@@ -6,6 +6,7 @@ import { ScholarshipApplication } from './entities/scholarship-application.entit
 import { User } from '../auth/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AIService } from '../ai/ai.service';
+import { DEV_USER_UUID } from '../../common/constants/dev-user.constants';
 
 @Injectable()
 export class ScholarshipService {
@@ -54,17 +55,27 @@ export class ScholarshipService {
     const scholar = await this.scholarRepo.findOne({ where: { id: scholarshipId } });
     if (!scholar) throw new NotFoundException('Học bổng không tồn tại');
 
-    const user = await this.userRepo.findOne({
-      where: { id: userId as any },
-    });
-    if (!user) throw new NotFoundException('Người dùng không tồn tại');
-
     // Truyền dữ liệu bảng điểm PDF nếu có
     const transcriptData = body?.gpa || body?.overall_grade || body?.courses ? body : null;
-    
+
+    let user = await this.userRepo.findOne({
+      where: { id: userId as any },
+    });
+    if (!user) {
+      // On HF Spaces (free plan) the SQLite file reverts to the Docker image
+      // on every restart. Users created at runtime via Google login are
+      // lost, but their JWT remains valid (same JWT_SECRET) so the
+      // JwtAuthGuard already passed. Instead of 404-ing, fall back to the
+      // deterministic dev user so the feature still degrades gracefully.
+      user = await this.userRepo.findOne({
+        where: { id: DEV_USER_UUID },
+      });
+    }
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+
     // Gọi AI Service để phân tích thực tế
     const aiAnalysis = await this.aiService.checkScholarshipEligibility(user, scholar, transcriptData);
-    
+
     return aiAnalysis;
   }
 

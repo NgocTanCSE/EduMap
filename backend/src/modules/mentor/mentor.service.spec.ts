@@ -7,6 +7,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { Mentor, Booking } from './entities/mentor.entity';
 import { MentorAvailability } from './entities/mentor-availability.entity';
 import { User } from '../auth/entities/user.entity';
+import { DEV_USER_UUID } from '../../common/constants/dev-user.constants';
 
 /**
  * Builds a TypeORM query-builder mock where every method returns the same
@@ -72,11 +73,37 @@ describe('MentorService', () => {
   });
 
   describe('getAIRecommendedMentors — pre-filter', () => {
-    it('should throw NotFoundException when user does not exist', async () => {
+    it('should throw NotFoundException when neither user nor dev user exists', async () => {
+      // Both the requested user lookup and the dev user fallback return null
       userRepo.findOne.mockResolvedValue(null);
       await expect(service.getAIRecommendedMentors('nonexistent-user')).rejects.toThrow(
         'Người dùng không tồn tại',
       );
+    });
+
+    it('should fall back to dev user when requested user is not found (HF Spaces restart scenario)', async () => {
+      // First call (by userId) → null (user lost on container restart)
+      // Second call (by DEV_USER_UUID) → dev user found
+      userRepo.findOne
+        .mockResolvedValueOnce(null) // user not found by ID
+        .mockResolvedValueOnce({
+          id: DEV_USER_UUID,
+          email: 'dev@edumap.com',
+          full_name: 'Dev User',
+          skills: ['Python'],
+          interests: ['AI'],
+          major: 'Computer Science',
+          mbti_type: 'INTJ',
+        } as any); // dev user found
+
+      const { qb } = mockQueryBuilder([]);
+      mentorRepo.createQueryBuilder = jest.fn(() => qb) as any;
+
+      const result = await service.getAIRecommendedMentors('nonexistent-user');
+      expect(result).toEqual({ message: 'Hiện chưa có mentor nào phù hợp.' });
+      expect(aiService.matchMentor).not.toHaveBeenCalled();
+      // Verify the dev user UUID was used as fallback
+      expect(userRepo.findOne).toHaveBeenCalledWith({ where: { id: DEV_USER_UUID } });
     });
 
     it('should return "no mentors" message when DB returns 0 mentors after pre-filter', async () => {

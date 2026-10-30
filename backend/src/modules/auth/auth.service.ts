@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { DEV_USER_UUID, DEV_USER_EMAIL } from '../../common/constants/dev-user.constants';
 
 @Injectable()
 export class AuthService {
@@ -174,21 +175,37 @@ export class AuthService {
     };
   }
 
-  /** Dev-only helper: ensures a test user exists in the database so that
-   * `/api/auth/me` (and other DB-backed endpoints) don't 500 on a missing user.
-   * Called by AuthController.devLogin(). Creates with a deterministic email
-   * so repeated calls are idempotent. */
+  /** Dev-only helper: ensures a dev user exists in the database so that
+   * `/api/auth/dev-login` (and every DB-backed endpoint that looks up the
+   * user from the JWT `sub` claim) works on HF Spaces free tier where runtime
+   * users created via Google login are wiped on container restart but the JWT
+   * remains valid.
+   *
+   * Called by AuthController.devLogin(). Uses a deterministic UUID and email
+   * so that:
+   *   - the seeded row in edumap.db is found and returned (same UUID every
+   *     time, stable across container restarts)
+   *   - if the seeded row is missing (e.g. DB was modified), a new row is
+   *     inserted with the same deterministic UUID — guaranteeing the JWT `sub`
+   *     always matches the DB row.
+   * Idempotent: repeated calls never create duplicate rows. */
   async createDevUser(): Promise<User> {
-    const email = 'dev@edumap.com';
-    let user = await this.userRepo.findOne({ where: { email } });
+    // 1. Try by deterministic UUID first (fast path — seeded row exists)
+    let user = await this.userRepo.findOne({ where: { id: DEV_USER_UUID } });
     if (user) return user;
 
+    // 2. Try by email (older seeded rows may have a different UUID)
+    user = await this.userRepo.findOne({ where: { email: DEV_USER_EMAIL } });
+    if (user) return user;
+
+    // 3. Create with the deterministic UUID so the JWT `sub` is always stable
     const randomPassword = crypto.randomBytes(32).toString('hex');
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(randomPassword, salt);
 
     const newUser = this.userRepo.create({
-      email,
+      id: DEV_USER_UUID,
+      email: DEV_USER_EMAIL,
       full_name: 'Dev User',
       avatar_url: '',
       password_hash,

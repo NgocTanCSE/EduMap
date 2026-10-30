@@ -4,6 +4,19 @@ import { Repository } from 'typeorm';
 import { Location } from '../map/entities/location.entity';
 import { isPostgresNow } from '../../common/utils/db-column.utils';
 
+/**
+ * `location_categories.id = 6` is the dedicated `wifi_hotspot` category
+ * (see `backend/src/database/seed.sql`). The wifi feature must return ONLY
+ * rows in this category — NOT every `locations` row whose free-text
+ * `description` happens to contain the substring "wifi"
+ * (e.g. a university described as `wifi_education`, or a library as
+ * `wifi_provincial_library`). Those are generic map POIs that merely *have*
+ * wifi as an amenity; surfacing them under the Wifi tool is what made the
+ * Wifi tool display look "combined with" the main map browse (the same
+ * schools/libraries/hospitals showed up under "Trạm Wifi").
+ */
+const WIFI_CATEGORY_ID = 6;
+
 @Injectable()
 export class WifiService {
   private readonly logger = new Logger(WifiService.name);
@@ -33,7 +46,10 @@ export class WifiService {
   async getWifiPoints() {
     try {
       return this.locationRepo.createQueryBuilder('locations')
-        .where("LOWER(locations.description) LIKE :desc", { desc: '%wifi%' })
+        // Only dedicated wifi hotspots (category_id = 6), never generic POIs
+        // that merely mention "wifi" in their description — those belong to the
+        // main map browse, not the Wifi tool.
+        .where("locations.category_id = :wifiCategory", { wifiCategory: WIFI_CATEGORY_ID })
         .orderBy('locations.created_at', 'DESC')
         .getMany();
     } catch (error: any) {
@@ -121,7 +137,8 @@ export class WifiService {
           'ST_DWithin(locations.coordinates, ST_MakePoint(:lng, :lat)::geography, :radius)',
           { lat, lng, radius },
         )
-        .andWhere("LOWER(locations.description) LIKE :desc", { desc: '%wifi%' })
+        // Dedicated wifi hotspots only (category_id = 6); see getWifiPoints().
+        .andWhere("locations.category_id = :wifiCategory", { wifiCategory: WIFI_CATEGORY_ID })
         .orderBy('locations.created_at', 'DESC')
         .getMany();
     }
@@ -130,14 +147,12 @@ export class WifiService {
     // `locations.coordinates` is JSON text on SQLite: there is no ST_DWithin,
     // ST_MakePoint or `::geography` cast, so the old raw query failed with
     // `SQLITE_ERROR: unrecognized token: ":"` (named Postgres params were also
-    // passed through). Load the wifi-shaped rows and filter with Haversine.
-    // The row count is tiny (wifi hotspots only), so this stays sub-10ms.
+    // passed through). Load the dedicated wifi-hotspot rows (category_id = 6)
+    // and filter with Haversine. The row count is tiny (wifi hotspots only),
+    // so this stays sub-10ms.
     const candidates = await this.locationRepo
       .createQueryBuilder('locations')
-      .where(
-        '(locations.category_id = :wifiCategory OR LOWER(locations.description) LIKE :wifiLike OR LOWER(locations.name) LIKE :wifiLike)',
-        { wifiCategory: 6, wifiLike: '%wifi%' },
-      )
+      .where('locations.category_id = :wifiCategory', { wifiCategory: WIFI_CATEGORY_ID })
       .getMany();
 
     const nearby = candidates

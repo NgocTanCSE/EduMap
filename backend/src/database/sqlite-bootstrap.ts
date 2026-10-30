@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as fs from 'fs';
+import { DEV_USER_UUID, DEV_USER_EMAIL } from '../common/constants/dev-user.constants';
 
 /**
  * SQLite bootstrap / schema self-healing for HF Spaces.
@@ -290,6 +291,27 @@ export async function ensureSqliteSchema(): Promise<void> {
         await exec(db, 'ALTER TABLE users ADD COLUMN location TEXT');
         changes.push('added users.location');
       }
+    }
+
+    // 4d. Ensure the deterministic dev user exists in the `users` table.
+    // On HF Spaces the SQLite file is bundled in the Docker image and reverts
+    // on every restart, but a user created at runtime via Google login is lost.
+    // The dev user is re-seeded here on every boot so that JWTs issued via
+    // /api/auth/dev-login always have a matching DB row.
+    // Password hash is bcrypt of "EduMap-dev-2026" (rounds=10). The dev-login
+    // endpoint creates its own random password via AuthService, so this
+    // static hash is only a fallback for direct email/password login.
+    const devUserCheck: any[] = await all(
+      db,
+      `SELECT id FROM users WHERE id = '${DEV_USER_UUID}' OR email = '${DEV_USER_EMAIL}' LIMIT 1`,
+    );
+    if (devUserCheck.length === 0) {
+      await exec(
+        db,
+        `INSERT INTO users (id, email, password_hash, full_name, role, status, email_verified, created_at, updated_at) VALUES
+        ('${DEV_USER_UUID}', '${DEV_USER_EMAIL}', '$2b$10$.TcmEcuSTmYLAJsphDUU.OnhHTwFMJXZ7wtLbFoI3nLKZGB/Jiv.G', 'Dev User', 'student', 'active', 1, datetime('now','localtime'), datetime('now','localtime'))`,
+      );
+      changes.push(`seeded dev user (${DEV_USER_UUID})`);
     }
 
     // 5. Seed `education_stats` when the shipped DB has the table but no rows.
