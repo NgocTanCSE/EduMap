@@ -151,12 +151,12 @@ def _startup_stagger_local_models():
             time.sleep(15)  # 15s stagger between each model
             try:
                 if name == "embeddings":
-                    from services.vector_store import vs_instance
-                    ok = vs_instance._warmup_local_embedding()
+                    from services.vector_store import vector_store
+                    ok = vector_store._warmup_local_embedding()
                     print(f"[staggered-warmup] {name} {'model pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "reranker":
-                    from services.vector_store import vs_instance
-                    ok = vs_instance._warmup_local_reranker()
+                    from services.vector_store import vector_store
+                    ok = vector_store._warmup_local_reranker()
                     print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "vision":
                     from routers.geo import _load_local_vision_model

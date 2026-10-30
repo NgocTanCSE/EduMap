@@ -169,17 +169,60 @@ class VectorStoreService:
 
         # --- ChromaDB collection (optional; not required for get_embedding) ---
         self.collection = None
+        self._collection_next_retry = 0.0
+        self._collection_init_attempts = 0
+        self._init_collection()
+
+    # ChromaDB init knobs (HF Spaces free tier boot can be slow: chromadb import
+    # + persistent client + collection creation on 2 vCPU).
+    CHROMA_INIT_TIMEOUT_SECONDS = float(os.getenv("CHROMA_INIT_TIMEOUT_SECONDS", "30"))
+    CHROMA_RETRY_SECONDS = float(os.getenv("CHROMA_RETRY_SECONDS", "60"))
+
+    def _init_collection(self) -> bool:
+        """Create (or re-create) the ChromaDB client + ``edumap_docs`` collection.
+
+        Called once from ``__init__`` and again lazily from ``_ensure_collection``
+        when a later query finds ``self.collection is None``.
+
+        Previously a failed first attempt (15 s SIGALRM on a cold 2-vCPU boot,
+        corrupt/stale ``/tmp/chroma_db``, chromadb import error) latched
+        ``collection = None`` **for the lifetime of the process** — the HF log
+        then printed ``Vector store collection is None — returning empty RAG
+        results`` on every chat request, so RAG was permanently empty. Retrying
+        at most once per ``CHROMA_RETRY_SECONDS`` lets a slow boot recover
+        without restarting the Space.
+
+        Returns True when the collection is usable.
+        """
+        if self.collection is not None:
+            return True
         if chromadb is None:
             print("ChromaDB module not available. Vector store disabled.")
-            return
+            return False
+
+        self._collection_init_attempts += 1
+        # Cooldown: never retry more often than CHROMA_RETRY_SECONDS (a retry
+        # under load is what the SIGALRM guard exists to prevent).
+        self._collection_next_retry = time.monotonic() + self.CHROMA_RETRY_SECONDS
+
         try:
             import signal as _signal
+            import threading
 
-            def _chroma_timeout_handler(signum, frame):
-                raise TimeoutError("ChromaDB initialization exceeded 15s — likely stale/corrupt data files.")
+            # signal.SIGALRM only works in the main thread. When the AI service
+            # is imported from a worker thread (tests, scripts), installing the
+            # handler raises ValueError and used to abort initialization — so
+            # only arm the alarm in the main thread.
+            use_alarm = threading.current_thread() is threading.main_thread()
+            if use_alarm:
+                def _chroma_timeout_handler(signum, frame):
+                    raise TimeoutError(
+                        "ChromaDB initialization exceeded "
+                        f"{self.CHROMA_INIT_TIMEOUT_SECONDS:.0f}s — likely stale/corrupt data files."
+                    )
 
-            _signal.signal(_signal.SIGALRM, _chroma_timeout_handler)
-            _signal.alarm(15)
+                _signal.signal(_signal.SIGALRM, _chroma_timeout_handler)
+                _signal.alarm(int(self.CHROMA_INIT_TIMEOUT_SECONDS))
             try:
                 db_path = os.getenv("CHROMA_DB_PATH", "./chroma_db")
                 try:
@@ -205,10 +248,26 @@ class VectorStoreService:
                 except Exception as e:
                     print(f"Could not read collection dim on startup: {e}")
             finally:
-                _signal.alarm(0)
+                if use_alarm:
+                    _signal.alarm(0)
         except Exception as e:
-            print(f"Vector store initialization failed: {e}")
+            print(
+                f"Vector store initialization failed: {e} "
+                f"(attempt {self._collection_init_attempts}, retry in {self.CHROMA_RETRY_SECONDS:.0f}s)"
+            )
             self.collection = None
+            return False
+        return True
+
+    def _ensure_collection(self) -> bool:
+        """Lazily (re)initialize ChromaDB if the first attempt failed."""
+        if self.collection is not None:
+            return True
+        if chromadb is None:
+            return False
+        if time.monotonic() < getattr(self, "_collection_next_retry", 0.0):
+            return False
+        return self._init_collection()
 
     @property
     def has_embedding(self) -> bool:
@@ -847,7 +906,7 @@ class VectorStoreService:
         total = len(documents)
         stats = {"added": 0, "failed": 0, "total": total}
         try:
-            if not self.collection:
+            if not self.collection and not self._ensure_collection():
                 raise RuntimeError("Vector store collection chưa được khởi tạo.")
             save_fn = getattr(self.collection, "upsert", self.collection.add)
 
@@ -895,7 +954,7 @@ class VectorStoreService:
           (e.g. ChromaDB not initialised) so callers can degrade gracefully.
         """
         try:
-            if not self.collection:
+            if not self.collection and not self._ensure_collection():
                 print("[embed_document] Vector store collection is None — skipping (graceful degradation).")
                 return False
             if not self.has_embedding:
@@ -963,11 +1022,13 @@ class VectorStoreService:
         of ``include``).
         """
         try:
-            if not self.collection:
-                # ChromaDB not initialized (e.g., timeout on startup).
-                # Return empty results so RAG degrades gracefully instead of
-                # crashing the chat endpoint — the LLM will answer from its
-                # own knowledge + conversation history.
+            if not self.collection and not self._ensure_collection():
+                # ChromaDB still not initialized (cold-boot timeout, corrupt
+                # /tmp state, chromadb missing). Return empty results so RAG
+                # degrades gracefully instead of crashing the chat endpoint —
+                # the LLM will answer from its own knowledge + conversation
+                # history. `_ensure_collection()` retries at most once per
+                # CHROMA_RETRY_SECONDS so a slow boot can recover.
                 print("Vector store collection is None — returning empty RAG results (graceful degradation).")
                 return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
 
@@ -1061,7 +1122,7 @@ class VectorStoreService:
         """
         import json as _json
 
-        if not self.collection:
+        if not self.collection and not self._ensure_collection():
             print("Vector store collection is None — semantic search disabled.")
             return []
         if not self.has_embedding:
