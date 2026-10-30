@@ -728,9 +728,14 @@ still the HF Space after deploy.
 ### Still-degraded paths seen in the same log (not crashes, by design or open)
 
 - `Vector store collection is None — returning empty RAG results`: ChromaDB
-  collection did not initialise on that boot (startup uses a 15 s SIGALRM guard
-  and prints `Vector store initialization failed: …`). If RAG quality matters,
-  look for that line in the boot log — chat still answers LLM-only/template.
+  collection did not initialise on that boot. **Fixed** (commit after §9's
+  table): init is now retryable (`_init_collection` / `_ensure_collection`,
+  `CHROMA_INIT_TIMEOUT_SECONDS` default 30, `CHROMA_RETRY_SECONDS` default 60),
+  the SIGALRM guard is skipped outside the main thread, and `main.py`'s
+  staggered warmup no longer imports the non-existent `vs_instance` (it
+  silently skipped the embeddings + reranker warm-up on every boot). If RAG is
+  still empty after a deploy, look for `Vector store initialization failed: …`
+  in the boot log.
 - `Local Gemma 2B model could not be loaded (… weights not baked)`: `google/gemma-2b-it`
   is **gated**, so `scripts/cache_models.py` skips it during the Docker build
   (see the comment in that file). The Gemma step is therefore a permanent no-op
