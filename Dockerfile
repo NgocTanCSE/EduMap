@@ -347,6 +347,11 @@ ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
 ENV DB_SQLITE_PATH=/app/frontend/public/edumap.db
 ENV DB_SYNC=false
+# Enable dev-login on HF Spaces so users always have a working auth path.
+# On the free tier the SQLite file reverts to the image on restart; the dev
+# user is seeded into edumap.db and re-seeded by ensureSqliteSchema() on boot,
+# so its UUID is stable and JWTs remain valid across restarts.
+ENV ENABLE_DEV_LOGIN=true
 ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
 ENV NEXT_PUBLIC_API_URL=/api
@@ -400,6 +405,11 @@ ENV BING_MAPS_API_KEY=""
 ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
 ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
 ENV RAG_TIMEOUT_SECONDS=8
+# Per-provider generation budget in the streaming fallback cascade.
+# Increased from 5 to 8 so Gemini (primary LLM on HF Spaces) has enough time
+# for TCP/TLS connect (~4-6s on HF free tier) + first-token latency + response.
+# Still stays under the NestJS 10s proxy deadline.
+ENV GEN_TIMEOUT_SECONDS=8
 # Use a fresh, ephemeral ChromaDB path so stale chromadb_data from a previous
 # Space revision (whose *.bin files may have been partially excluded by upload
 # ignore_patterns) can never block or crash the AI service at startup.

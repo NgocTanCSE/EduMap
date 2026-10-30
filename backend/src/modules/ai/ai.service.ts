@@ -299,7 +299,7 @@ export class AIService {
     return {
       available_books: materials.map((m) => m.title),
       educational_locations: points.map(
-        (p) => `${p.name} (${p.category?.display_name}) at ${p.address}`,
+        (p) => `${p.name || 'Không rõ tên'} (${p.category?.display_name || 'Chưa phân loại'}) at ${p.address || 'Chưa có địa chỉ'}`,
       ),
       user_message: message,
       session_topics: sessionTopics,

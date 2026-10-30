@@ -1352,7 +1352,7 @@ class LLMService:
         # prompt building, skip generation and go to template fallback.
         _elapsed = time.monotonic() - _stream_start
         _remaining_budget = max(2.0, 10.0 - _elapsed - 2.0)  # at least 2s, or 10-elapsed-2
-        _gen_budget = float(os.getenv("GEN_TIMEOUT_SECONDS", "5"))
+        _gen_budget = float(os.getenv("GEN_TIMEOUT_SECONDS", "8"))
         _gen_budget = min(_gen_budget, _remaining_budget)
 
         reply_text = None
@@ -1384,6 +1384,7 @@ class LLMService:
                 continue
             except Exception as e:
                 last_err = str(e)
+                print(f"[stream] Provider {gen_fn.__name__} failed — {type(e).__name__}: {str(e)[:200]}. Error detail: {last_err[:300]}")
                 continue
 
         if not reply_text:
@@ -1441,7 +1442,7 @@ class LLMService:
         educational_locations = ctx.get("educational_locations", []) if isinstance(ctx.get("educational_locations"), list) else []
 
         parts = []
-        parts.append("Xin chào! Tôi là Trợ lý ảo của EduMap DNTU. Hiện tại dịch vụ AI đang bảo trì nên tôi sẽ hỗ trợ dựa trên dữ liệu hệ thống:")
+        parts.append("Xin chào! Tôi là Trợ lý ảo của EduMap DNTU. Tôi đang sử dụng dữ liệu hệ thống để hỗ trợ bạn:")
         parts.append("")
         parts.append(f"**Câu hỏi của bạn:** {message}")
         parts.append("")
@@ -1459,7 +1460,7 @@ class LLMService:
         if educational_locations:
             parts.append(f"Địa điểm giáo dục gần bạn: {educational_locations[0]}")
         parts.append("")
-        parts.append("Lưu ý: Đây là trả lời tự động dựa trên dữ liệu hệ thống. Để nhận tư vấn chi tiết và cá nhân hóa từ AI thực sự, vui lòng quay lại sau khi dịch vụ AI hoạt động trở lại.")
+        parts.append("Lưu ý: Trả lời này dựa trên dữ liệu hệ thống EduMap. Để nhận tư vấn cá nhân hóa từ AI thực sự, vui lòng thử lại sau vài phút.")
         return "\n".join(parts)
 
     async def chat_response(self, message: str, history: list = None, context: dict = None):
