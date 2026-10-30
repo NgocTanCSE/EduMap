@@ -453,7 +453,7 @@ export default function OfflineTutorPage() {
                     : 'Nhập chương đã học và điểm yếu...'
                 }
                 disabled={isLoading}
-                className="w-full rounded-lg border border-input px-4 py-3 text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+                className="form-input"
               />
               <button
                 onClick={() => void sendMessage()}
@@ -472,7 +472,7 @@ export default function OfflineTutorPage() {
                 onChange={(e) => setInputContext(e.target.value)}
                 placeholder="Tài liệu tham khảo (tùy chọn)..."
                 disabled={isLoading}
-                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+                className="form-input"
               />
             )}
 
@@ -482,7 +482,7 @@ export default function OfflineTutorPage() {
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as any)}
                   disabled={isLoading}
-                  className="rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                  className="form-select"
                 >
                   <option value="easy">Dễ</option>
                   <option value="medium">Trung bình</option>
@@ -495,7 +495,7 @@ export default function OfflineTutorPage() {
                   value={numQuestions}
                   onChange={(e) => setNumQuestions(Math.max(1, Math.min(5, parseInt(e.target.value) || 3)))}
                   disabled={isLoading}
-                  className="w-20 rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                  className="w-20 form-input"
                 />
               </div>
             )}
@@ -507,7 +507,7 @@ export default function OfflineTutorPage() {
                 onChange={(e) => setInputContext(e.target.value)}
                 placeholder="Mục tiêu học tập (ví dụ: 'Chuẩn bị thi THPT QG')..."
                 disabled={isLoading}
-                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+                className="form-input"
               />
             )}
           </div>

@@ -15,6 +15,7 @@ export function useResizable({
   maxWidth,
   maxHeight,
   onResize,
+  handleEdge = "right",
 }: {
   initialSize?: { width: number; height: number };
   minWidth?: number;
@@ -22,6 +23,15 @@ export function useResizable({
   maxWidth?: number;
   maxHeight?: number;
   onResize?: (size: { width: number; height: number }) => void;
+  /** Which edge the drag handle sits on.
+   *  - `'right'` (default): handle is on the right edge (or bottom-right
+   *    corner); dragging right widens. Used by the Sidebar and the map
+   *    floating panel.
+   *  - `'left'`: handle is on the LEFT edge of a RIGHT-anchored panel
+   *    (e.g. the Chỉ đường routing panel is pinned with `right-4`);
+   *    dragging the left edge rightwards NARROWS the panel, so the width
+   *    delta is inverted. */
+  handleEdge?: "left" | "right";
 } = {}): UseResizableReturn {
   const [size, setSize] = useState({ width: initialSize.width, height: initialSize.height });
   const isResizingRef = useRef(false);
@@ -48,8 +58,12 @@ export function useResizable({
   const onMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isResizingRef.current) return;
-      let newWidth = startRef.current.width + (e.clientX - startRef.current.x);
-      let newHeight = startRef.current.height + (e.clientY - startRef.current.y);
+      const deltaX = e.clientX - startRef.current.x;
+      const deltaY = e.clientY - startRef.current.y;
+      // A left-edge handle (right-anchored panel) widens when the mouse moves
+      // LEFT, so its width delta is inverted versus the default right-edge handle.
+      let newWidth = startRef.current.width + (handleEdge === "left" ? -deltaX : deltaX);
+      let newHeight = startRef.current.height + deltaY;
       if (minWidth !== undefined) newWidth = Math.max(newWidth, minWidth);
       if (minHeight !== undefined) newHeight = Math.max(newHeight, minHeight);
       if (maxWidth !== undefined) newWidth = Math.min(newWidth, maxWidth);
@@ -57,7 +71,7 @@ export function useResizable({
       setSize({ width: newWidth, height: newHeight });
       onResize?.({ width: newWidth, height: newHeight });
     },
-    [minWidth, minHeight, maxWidth, maxHeight, onResize]
+    [handleEdge, minWidth, minHeight, maxWidth, maxHeight, onResize]
   );
 
   const onMouseUp = useCallback(() => {

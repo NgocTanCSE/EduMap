@@ -121,10 +121,13 @@ export default function RoutingPanel({
 
   // Resize state — user can drag the left edge to widen/narrow the panel.
   // Width clamps to [280, 480] px so content never collapses or balloons.
+  // `handleEdge: 'left'` because the panel is right-anchored (right-4) and the
+  // drag handle sits on its LEFT edge — without it the hook would invert W↔N.
   const { size: panelSize, onResizeMouseDown: onResizeMouseDown } = useResizable({
-    initialSize: { width: 340, height: 400 },
+    initialSize: { width: 400, height: 400 },
     minWidth: 280,
     maxWidth: 480,
+    handleEdge: "left",
   });
 
   const formatDuration = (seconds: number) => {

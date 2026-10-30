@@ -545,7 +545,7 @@ export default function ResourceExchangePage() {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary"
+                  className="form-select"
                 >
                   <option value="">Tất cả</option>
                   {RESOURCE_TYPES.map((t) => (
@@ -564,11 +564,11 @@ export default function ResourceExchangePage() {
                   placeholder="Ví dụ: Đồng Nai"
                   value={regionFilter}
                   onChange={(e) => setRegionFilter(e.target.value)}
-                  className="px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary w-48"
+                  className="form-input w-48"
                 />
               </div>
             </div>
-            <Button onClick={fetchData} variant="outline" size="sm">
+            <Button onClick={fetchData} variant="outline">
               <Loader2 className="w-4 h-4 mr-1" /> Làm mới
             </Button>
           </div>
@@ -623,7 +623,7 @@ export default function ResourceExchangePage() {
       {tab === "matches" && (
         <div>
           <div className="flex flex-col sm:flex-row gap-4 items-end justify-between mb-4 p-4 bg-card/50 border border-border rounded-xl">
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch flex-1">
+            <div className="flex flex-col sm:flex-row gap-4 items-end flex-1">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground uppercase">
                   Khu vực
@@ -633,7 +633,7 @@ export default function ResourceExchangePage() {
                   placeholder="Ví dụ: Đồng Nai"
                   value={regionFilter}
                   onChange={(e) => setRegionFilter(e.target.value)}
-                  className="w-full sm:w-48 px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary"
+                  className="w-full sm:w-48 form-input"
                 />
               </div>
               <div className="space-y-1">
@@ -643,7 +643,7 @@ export default function ResourceExchangePage() {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary"
+                  className="form-select"
                 >
                   <option value="">Tất cả</option>
                   {RESOURCE_TYPES.map((t) => (
