@@ -348,7 +348,7 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
         return cache[key]
 
     # --- Local elevation lookup (priority) ---
-    if _get_elevation_local_enabled:
+    if LOCAL_ELEVATION_ENABLED:
         local_elev = _get_elevation_local(lat, lng)
         if local_elev is not None:
             cache[key] = local_elev

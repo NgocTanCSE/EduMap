@@ -12,10 +12,17 @@
 >   every restart wipes `/tmp`. There is **no** paid hardware, no persistent
 >   volume, no external Postgres/Redis/MinIO/Chroma server.
 > - **Local machine = code editing only.** `/home/ngoctan/Downloads/EduMap`
->   exists to write code, read code, and run unit tests / typechecks. A local
+>   exists to write code, read code, and run **Python unit tests only**
+>   (`py_compile`, `pytest ai-service/tests`, AST/`grep` inspection). A local
 >   run (even a green one) is **never** proof that the feature works: the only
 >   accepted verification is a request against
 >   <https://tancse2005-edumap.hf.space> after a deploy.
+> - **Never start the local stack.** Do NOT run `npm install` / `npm run dev`
+>   / `npm run build`, `nest start`, `docker build`, `docker compose`,
+>   `supervisord`, or any local server on this machine (user rule, 2026-10-30).
+>   Fixes are prepared as code + tests; the user deploys and verifies on HF.
+>   If a change seems to need a local runtime check, say so and stop — do not
+>   start processes.
 > - Consequences that shape every design decision:
 >   - Anything written to `/tmp` (ChromaDB vectors, uploads, caches, elevation
 >     tiles) disappears on restart → features must degrade gracefully and
@@ -453,21 +460,26 @@ Rules that must be preserved:
 
 ## 4. Useful local commands
 
+> Per §1, the local machine is **edit + Python tests only**. The `npm`/`npx`
+> commands below are listed for reference (and for when the user explicitly
+> asks for them) — do not run them by default, and never start a dev server or
+> Docker build locally.
+
 ```bash
 # Python syntax check
 python3 -m py_compile ai-service/services/vector_store.py
 
-# AI service unit tests
+# AI service unit tests (the default local verification loop)
 cd ai-service && python3 -m pytest tests -q
 
-# Backend tests / build
+# Backend tests / build — ONLY if the user explicitly asks
 cd backend && npm test -- --runInBand
 cd backend && npm run build
 
-# Frontend typecheck/build
+# Frontend typecheck/build — ONLY if the user explicitly asks
 cd frontend && npx tsc --noEmit
 
-# Deploy to HF (only after changes are committed)
+# Deploy to HF (only after changes are committed; user runs this, the agent has no token)
 HF_TOKEN=<token> ./deploy-hf.sh
 ```
 
@@ -690,3 +702,46 @@ inventing new values.
   calling `React.useState` (consistent with the existing `React.useRef` /
   `React.useEffect` pattern in the same file). Verify: `npx tsc --noEmit`
   exits 0.
+
+## 9. Runtime fixes from the 2026-10-30 HF log (NameError sweep)
+
+The user pasted a production log from <https://tancse2005-edumap.hf.space>.
+Four `NameError`s plus one SSE-budget bug were found; all are fixed and
+covered by regression tests (`ai-service/tests/test_undefined_name_regressions.py`,
+`ai-service/tests/test_chat_stream_budget.py`). The unit tests had hidden them
+because every climate test mocked `_get_elevation` and no test touched
+`routers/system.py` or `_hf_vision_detect`.
+
+| # | Symptom in the HF log | Root cause | Fix |
+|---|---|---|---|
+| 1 | `Error in climate/risk: name '_get_elevation_local_enabled' is not defined` (same for `climate/alternatives`) → 200 + degraded empty heatmap | `climate_guardian._get_elevation()` referenced an identifier that was never defined; the flag is the module constant `LOCAL_ELEVATION_ENABLED` | use `LOCAL_ELEVATION_ENABLED` (`services/climate_guardian.py`) |
+| 2 | GeoVision would 500 whenever `HF_TOKEN` is set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the HF code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
+| 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
+| 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
+| 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | provider cascade (8 s) + a 3 s local-TinyLlama attempt + word-by-word streaming exceeded the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): local LLM is skipped when < 2 s remain, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
+
+Verification done locally (allowed per §1): `python3 -m pytest tests -q` →
+**420 passed**; `py_compile` clean; an AST undefined-name sweep over
+`ai-service/**/*.py` reports no remaining undefined names. Runtime truth is
+still the HF Space after deploy.
+
+### Still-degraded paths seen in the same log (not crashes, by design or open)
+
+- `Vector store collection is None — returning empty RAG results`: ChromaDB
+  collection did not initialise on that boot (startup uses a 15 s SIGALRM guard
+  and prints `Vector store initialization failed: …`). If RAG quality matters,
+  look for that line in the boot log — chat still answers LLM-only/template.
+- `Local Gemma 2B model could not be loaded (… weights not baked)`: `google/gemma-2b-it`
+  is **gated**, so `scripts/cache_models.py` skips it during the Docker build
+  (see the comment in that file). The Gemma step is therefore a permanent no-op
+  on the free plan; TinyLlama 1.1B is the only working local text model.
+- `Local TinyLlama … _Timeout: Local LLM generation exceeded 35s`: CPU-only
+  generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
+  non-streaming endpoints (`/api/ai/language/simplify`, geo analysis, …) pay
+  that timeout before falling back to the template. Chat streaming is already
+  bounded by fix #5; shortening the non-stream budget is a product decision
+  (template-first vs. slow local text), not applied here.
+- `TTS provider edge_tts failed: No audio was received`: egress to the Edge TTS
+  endpoint failed; the chain degrades to gTTS then browser `speechSynthesis`.
+- `GET /api/v1/config`, `/api/.env`, `/api/settings`, `POST /api/predict`
+  (`"not json"`): internet scanner traffic, not our routes. Harmless noise.

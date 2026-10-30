@@ -165,6 +165,9 @@ def _local_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
     except Exception as e:
         print(f"[GeoVision] Local detection error: {type(e).__name__}: {e}")
         return []
+
+
+def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
     """Call HF Inference API (google/owlv2) via curl — IPv4 + --insecure
     for HF Spaces compatibility (same pattern as vector_store.py embeddings).
 

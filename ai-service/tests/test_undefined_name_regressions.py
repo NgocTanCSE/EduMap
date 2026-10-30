@@ -1,0 +1,155 @@
+"""Regression tests for ``NameError`` bugs found in the HF Spaces runtime log.
+
+These four bugs all raised ``NameError`` inside a request handler and were only
+visible in production (the unit tests mocked the broken code path away):
+
+  1. ``services/climate_guardian._get_elevation`` referenced the undefined
+     ``_get_elevation_local_enabled`` → every climate risk/alternatives call
+     degraded, so the Climate Guardian map showed no elevation-based risk.
+  2. ``routers/geo._hf_vision_detect`` body existed but its ``def`` line was
+     missing → NameError (not RuntimeError) whenever ``HF_TOKEN`` was set.
+  3. ``routers/system.system_status`` called ``check_oom`` without importing
+     it → ``GET /api/ai/system/status`` returned 500.
+  4. ``LLMService.recommend_career_semantic`` built an f-string prompt whose
+     ``{title, match_score, ...}`` JSON schema was parsed as a set literal →
+     ``NameError: name 'title' is not defined``.
+
+Every test below fails with ``NameError`` (or ``AttributeError`` for the
+missing function) before the fix and passes after it.
+"""
+
+import asyncio
+import os
+import sys
+from unittest.mock import patch
+
+_AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _AI_DIR not in sys.path:
+    sys.path.insert(0, _AI_DIR)
+
+# Ensure SQLite mode + no real HTTP calls during tests.
+os.environ["DB_TYPE"] = "sqlite"
+os.environ["AI_PREFLIGHT"] = "false"
+os.environ.setdefault("DB_SQLITE_PATH", os.path.abspath(
+    os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
+))
+
+import pytest
+
+import services.climate_guardian as climate_guardian_module
+from routers import geo, system
+from services.llm_service import LLMService
+
+
+# ── 1. Climate Guardian elevation ───────────────────────────────────────────
+
+
+def test_get_elevation_uses_defined_local_flag(monkeypatch, tmp_path):
+    """``_get_elevation`` must not raise when the local SRTM model is absent.
+
+    Before the fix this raised ``NameError: name '_get_elevation_local_enabled'
+    is not defined`` and the router swallowed it into a degraded (empty)
+    heatmap.
+    """
+    monkeypatch.setattr(climate_guardian_module, "ELEV_CACHE_PATH",
+                        str(tmp_path / "elev_cache.json"))
+    monkeypatch.setattr(climate_guardian_module, "LOCAL_ELEVATION_ENABLED", True)
+    monkeypatch.setattr(climate_guardian_module, "_load_local_elevation",
+                        lambda: False)
+    monkeypatch.setattr(climate_guardian_module, "_curl_get_json",
+                        lambda url, timeout=6: {"elevation": [12.5]})
+
+    assert climate_guardian_module._get_elevation(10.95, 106.88) == 12.5
+
+
+def test_get_elevation_skips_local_when_disabled(monkeypatch, tmp_path):
+    """``LOCAL_ELEVATION_ENABLED=false`` must skip the local model entirely."""
+    calls = {"local": 0}
+
+    def _fake_local(lat, lng):
+        calls["local"] += 1
+        return 99.0
+
+    monkeypatch.setattr(climate_guardian_module, "ELEV_CACHE_PATH",
+                        str(tmp_path / "elev_cache.json"))
+    monkeypatch.setattr(climate_guardian_module, "LOCAL_ELEVATION_ENABLED", False)
+    monkeypatch.setattr(climate_guardian_module, "_get_elevation_local", _fake_local)
+    monkeypatch.setattr(climate_guardian_module, "_curl_get_json",
+                        lambda url, timeout=6: {"elevation": [3.0]})
+
+    assert climate_guardian_module._get_elevation(10.95, 106.88) == 3.0
+    assert calls["local"] == 0
+
+
+# ── 2. GeoVision HF Inference API helper ────────────────────────────────────
+
+
+def test_hf_vision_detect_requires_token(monkeypatch):
+    """``_hf_vision_detect`` must exist and raise RuntimeError without a token."""
+    monkeypatch.setattr(geo, "HF_TOKEN", "")
+    monkeypatch.setattr(geo, "_geo_vision_down_until", 0.0)
+
+    with pytest.raises(RuntimeError, match="HF_TOKEN"):
+        geo._hf_vision_detect("ZmFrZQ==", ["school"])
+
+
+def test_hf_vision_detect_respects_circuit_breaker(monkeypatch):
+    """An open circuit breaker raises RuntimeError instead of calling HF."""
+    monkeypatch.setattr(geo, "HF_TOKEN", "fake-token")
+    monkeypatch.setattr(geo, "_geo_vision_down_until", 10 ** 12)
+
+    with pytest.raises(RuntimeError, match="circuit breaker"):
+        geo._hf_vision_detect("ZmFrZQ==", ["school"])
+
+
+# ── 3. /api/ai/system/status ────────────────────────────────────────────────
+
+
+def test_system_status_resolves_check_oom():
+    """The status endpoint must import ``check_oom`` (was a NameError → 500)."""
+    status = asyncio.run(system.system_status())
+
+    assert "ram" in status
+    assert "oom_guard" in status
+    assert status["oom_guard"]["enabled"] is True
+    assert "providers" in status
+
+
+# ── 4. Career semantic enrichment prompt ────────────────────────────────────
+
+
+def test_recommend_career_semantic_prompt_builds_json_schema():
+    """The enrichment prompt contains a literal JSON schema, not an f-string set.
+
+    Before the fix the f-string evaluated ``{title, match_score, ...}`` as a
+    Python set literal and raised ``NameError: name 'title' is not defined``
+    before the ``try`` block, so the whole endpoint 500'd.
+    """
+    svc = LLMService()
+    svc.is_ready = True
+    semantic_results = [{
+        "title": "Data Analyst",
+        "match_score": 0.91,
+        "explanation": "",
+        "missing_skills": [],
+        "radar_chart": {},
+    }]
+    captured = {}
+
+    def _fake_generate(prompt, **kwargs):
+        captured["prompt"] = prompt
+        return "[]"
+
+    async def _run():
+        with patch("services.vector_store.vector_store") as mock_vs, \
+             patch.object(svc, "_generate_text_with_fallback", side_effect=_fake_generate):
+            mock_vs.semantic_career_search.return_value = semantic_results
+            return await svc.recommend_career_semantic(["python"], ["data"])
+
+    result = asyncio.run(_run())
+
+    prompt = captured["prompt"]
+    assert "{title, match_score" in prompt
+    assert "radar_chart" in prompt
+    # Degraded to the semantic results when the LLM returns an empty list.
+    assert result and result[0]["title"] == "Data Analyst"

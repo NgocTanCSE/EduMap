@@ -1394,17 +1394,26 @@ class LLMService:
         if not self.is_ready:
             print("[stream] No LLM providers configured — using template fallback directly")
             reply_text = self._chat_fallback_reply(message, sources, context)
-            async for chunk in self._stream_word_by_word(reply_text, sources=sources, is_final=True):
+            async for chunk in self._stream_word_by_word(
+                reply_text, sources=sources, is_final=True,
+                max_duration=max(0.5, float(os.getenv("STREAM_PROXY_DEADLINE_SECONDS", "10"))
+                                 - (time.monotonic() - _stream_start)),
+            ):
                 yield chunk
             cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
             return
 
-        # Time budget: NestJS proxy kills the request at ~10s. Leave 2s of
-        # headroom so the word-by-word streaming + SSE framing finishes before
-        # the proxy closes the connection. If we've already spent >8s on RAG +
-        # prompt building, skip generation and go to template fallback.
+        # Time budget: the NestJS proxy (ai.service.ts `timeout: 10000`) kills
+        # this request at ~10s. Reserve time for the word-by-word stream + SSE
+        # framing, otherwise the local TinyLlama attempt (up to 35s inside the
+        # thread) pushes total time past the proxy deadline → NestJS logs
+        # "SSE stream error from ai-service: aborted" and the chat bubble stays
+        # empty. Budget chain: provider cascade → local LLM → template reply,
+        # all inside `_proxy_deadline`.
+        _proxy_deadline = float(os.getenv("STREAM_PROXY_DEADLINE_SECONDS", "10"))
+        _final_reserve = float(os.getenv("STREAM_FINAL_RESERVE_SECONDS", "1.5"))
         _elapsed = time.monotonic() - _stream_start
-        _remaining_budget = max(2.0, 10.0 - _elapsed - 2.0)  # at least 2s, or 10-elapsed-2
+        _remaining_budget = max(1.5, _proxy_deadline - _elapsed - _final_reserve)
         _gen_budget = float(os.getenv("GEN_TIMEOUT_SECONDS", "8"))
         _gen_budget = min(_gen_budget, _remaining_budget)
 
@@ -1442,29 +1451,43 @@ class LLMService:
 
         if not reply_text and self.tinyllama_enabled:
             # Local fallback: Gemma 2B is gated on HF — TinyLlama is not.
-            try:
-                response = await asyncio.wait_for(
-                    asyncio.to_thread(_tinyllama_generate, prompt, temperature=0.3, max_tokens=2048, top_p=0.8),
-                    timeout=max(3.0, _gen_budget - (time.monotonic() - _stream_start)),
-                )
-                if response:
-                    reply_text = response.strip()
-                    print("  -> local TinyLlama generate OK (stream fallback)")
-            except Exception as e:
-                last_err = str(e)
-                print(f"[stream] TinyLlama generate failed: {type(e).__name__}: {str(e)[:200]}")
+            # Only attempt it when the remaining proxy budget can absorb it;
+            # otherwise go straight to the template reply so the user still
+            # receives an answer before the proxy closes the SSE connection.
+            _local_left = _proxy_deadline - (time.monotonic() - _stream_start) - _final_reserve
+            if _local_left < 2.0:
+                print(f"[stream] Local LLM skipped — only {_local_left:.1f}s left before the proxy deadline; using template reply")
+            else:
+                try:
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(_tinyllama_generate, prompt, temperature=0.3, max_tokens=2048, top_p=0.8),
+                        timeout=_local_left,
+                    )
+                    if response:
+                        reply_text = response.strip()
+                        print("  -> local TinyLlama generate OK (stream fallback)")
+                except Exception as e:
+                    last_err = str(e)
+                    print(f"[stream] TinyLlama generate failed: {type(e).__name__}: {str(e)[:200]}")
 
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
 
         # Stream word-by-word so the UI shows a typing effect even when
-        # real SSE streaming from Cloudflare is unavailable.
-        async for chunk in self._stream_word_by_word(reply_text, sources=sources, is_final=True):
+        # real SSE streaming from Cloudflare is unavailable. `max_duration`
+        # fits the whole reply inside whatever is left of the proxy deadline
+        # (a 300-word reply at 30ms/word would otherwise take 9s and be cut).
+        _stream_left = _proxy_deadline - (time.monotonic() - _stream_start)
+        async for chunk in self._stream_word_by_word(
+            reply_text, sources=sources, is_final=True,
+            max_duration=max(0.5, _stream_left),
+        ):
             yield chunk
         cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
 
     async def _stream_word_by_word(self, text: str, sources: list = None,
-                                   is_final: bool = False, delay: float = 0.03):
+                                   is_final: bool = False, delay: float = 0.03,
+                                   max_duration: Optional[float] = None):
         """Yield a pre-computed reply as individual SSE chunks with a typing delay.
 
         Used when true streaming (Cloudflare SSE) is unavailable — the entire
@@ -1483,6 +1506,11 @@ class LLMService:
         delay : float
             Seconds to sleep between word chunks (default 30 ms → ~readable but
             not painfully slow; tuned for 1 vCPU HF Spaces).
+        max_duration : float, optional
+            Upper bound (seconds) for the whole stream. The per-word delay is
+            shrunk so ``len(words) * delay <= max_duration``. Callers pass the
+            time left before the NestJS proxy deadline (~10s) so long replies
+            are delivered completely instead of being truncated mid-sentence.
         """
         import asyncio
 
@@ -1493,6 +1521,10 @@ class LLMService:
         import re
         words = re.split(r'( +|\n+)', text)
         words = [w for w in words if w]  # filter empty strings
+
+        if max_duration is not None and words:
+            # Fit the reply inside the caller's deadline.
+            delay = min(delay, max(0.0, max_duration) / len(words))
 
         for i, word in enumerate(words):
             yield f"data: {json.dumps({'token': word, 'is_final': False})}\n\n"
@@ -2027,7 +2059,7 @@ class LLMService:
 
             Hãy tạo explanation ngắn gọn (1-2 câu) cho mỗi nghề nghiệp và thêm radar_chart cho 5 tiêu chí:
             Technical, Soft Skills, Problem Solving, Language, Creativity.
-            Chỉ trả về JSON: [{title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}}]
+            Chỉ trả về JSON: [{{title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}}}]
             Giữ nguyên match_score từ semantic results. Chỉ trả về JSON, không giải thích thêm.
             """
             try:

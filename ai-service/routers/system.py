@@ -15,8 +15,8 @@ from services.llm_service import (
     _tinyllama_model,
     _tinyllama_load_failed,
 )
-from services.vector_store import vs_instance
-from utils.memory_guard import _get_ram_info, OOM_STATUS, RAM_THRESHOLD_GB
+from services.vector_store import vector_store
+from utils.memory_guard import _get_ram_info, check_oom, OOM_STATUS, RAM_THRESHOLD_GB
 
 router = APIRouter(tags=["system"])
 
@@ -39,13 +39,13 @@ async def system_status() -> Dict[str, Any]:
             "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0 (4-bit NF4, ~1.5GB)",
         },
         "embedding_model": {
-            "loaded": getattr(vs_instance, "_local_embedder_loaded", False)
-            and getattr(vs_instance, "_local_embedder", None) is not None,
+            "loaded": getattr(vector_store, "_local_embedder_loaded", False)
+            and getattr(vector_store, "_local_embedder", None) is not None,
             "model": "intfloat/multilingual-e5-small (~300MB)",
         },
         "reranker_model": {
-            "loaded": getattr(vs_instance, "_local_reranker_loaded", False)
-            and getattr(vs_instance, "_local_reranker", None) is not None,
+            "loaded": getattr(vector_store, "_local_reranker_loaded", False)
+            and getattr(vector_store, "_local_reranker", None) is not None,
             "model": "cross-encoder/ms-marco-MiniLM-L6-v2 (~100MB)",
         },
     }
@@ -53,11 +53,11 @@ async def system_status() -> Dict[str, Any]:
     # Provider chain status
     providers = {
         "cloudflare_workers_ai": {
-            "configured": bool(getattr(vs_instance, "has_cf", False)),
+            "configured": bool(getattr(vector_store, "has_cf_api", False)),
             "note": "Primary text generation (free-plan fallback)",
         },
         "google_gemini": {
-            "configured": bool(getattr(vs_instance, "has_gemini", False)),
+            "configured": bool(getattr(vector_store, "has_gemini_api", False)),
             "note": "External fallback (set GEMINI_API_KEY as HF Secret)",
         },
         "local_gemma_2b": {
