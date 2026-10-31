@@ -72,11 +72,6 @@ export default function DashboardPage() {
         <div className="w-full max-w-xl rounded-lg border border-border bg-card p-8 text-center shadow-sm">
           <User className="mx-auto h-10 w-10 text-muted-foreground/60" />
           <h1 className="mt-4 text-2xl font-semibold">Chào bạn!</h1>
-          <p className="mt-2 text-sm text-muted-foreground/70">
-            Đăng nhập để quản lý tài khoản, xem thống kê và hoạt động của bạn
-            trên EduMap. Các tính năng chính (Bản đồ, Thư viện, Sự kiện, Nghề
-            nghiệp...) đều có sẵn ở thanh bên trái.
-          </p>
           <Link
             href="/auth/login"
             className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"

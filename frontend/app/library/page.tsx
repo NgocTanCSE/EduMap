@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
   BookMarked,
-  Bookmark,
   Database,
   Download,
   ExternalLink,
@@ -14,7 +13,6 @@ import {
   Search,
   Video,
 } from 'lucide-react';
-import Link from 'next/link';
 import { libraryService } from '@/src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from 'sonner';
@@ -119,14 +117,6 @@ export default function LibraryPage() {
         icon={Library}
         title="Thư viện học liệu"
         subtitle="Sách, video và tài liệu mở cho học sinh, sinh viên Biên Hoà."
-        right={
-          <Link
-            href="/dashboard#da-luu"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary/40 hover:text-foreground"
-          >
-            <Bookmark className="h-4 w-4" /> Đã lưu
-          </Link>
-        }
       />
 
       {/* Search bar — flat surface, no glow/blur so it matches every other form */}
@@ -232,9 +222,6 @@ export default function LibraryPage() {
                 </div>
 
                 <div className="flex flex-1 flex-col p-4">
-                  <div className="absolute top-3 right-3 z-20">
-                    <BookmarkButton targetType="library" targetId={res.id} size="sm" />
-                  </div>
                   <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
                     {res.title}
                   </h3>
@@ -247,6 +234,7 @@ export default function LibraryPage() {
                       {res.view_count ?? 0} lượt xem
                     </span>
                     <div className="flex items-center gap-1">
+                      <BookmarkButton targetType="library" targetId={res.id} size="sm" className="h-8 w-8 shrink-0 rounded-lg border border-border bg-background/60 text-muted-foreground hover:bg-muted hover:text-foreground" />
                       {res.file_url ? (
                         <>
                           <a

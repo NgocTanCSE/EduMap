@@ -776,3 +776,34 @@ still the HF Space after deploy.
   endpoint failed; the chain degrades to gTTS then browser `speechSynthesis`.
 - `GET /api/v1/config`, `/api/.env`, `/api/settings`, `POST /api/predict`
   (`"not json"`): internet scanner traffic, not our routes. Harmless noise.
+
+## 10. UI cleanup pass (2026-10-31)
+
+- **Sidebar collapse is now wired (was broken):** `NavGroup` already had icon-only
+  logic, but the main render never passed `sidebarCollapsed` down to `NavGroup` /
+  `AccountSection`, so the 56px rail overflowed with text ("bị sai"). Fixed by passing
+  `collapsed={sidebarCollapsed}` to both, adding a `collapsed?: boolean` param to
+  `AccountSection`, and hiding the brand label (`Edu…Map`), the guest "Đăng nhập", and
+  the logged-in name/email/role + "Hồ sơ / Xuất" labels (`sr-only` / `!collapsed`) so
+  only icons show on the collapsed rail. The collapse button was already present.
+- **/community full-width:** removed the inline `max-w-7xl` + `flex justify-center`
+  wrapper (ContentShell was already tightened to `max-w-8xl` in the prior pass;
+  /community used its own wrapper, so it stayed boxed/centered).
+- **/library "Đã lưu":** removed the `SectionHeader right` "Đã lưu" nav-link and the
+  now-unused `Bookmark` / `Link` imports; moved the per-card `BookmarkButton` from the
+  top-right image overlay into the `card-footer` action group next to download/external
+  (single save affordance per card). `BookmarkButton` was already functional
+  (`useBookmarks` → `bookmarkService.toggle`); it only looked inactive due to a prior
+  `bg-primary` override (fixed on /dashboard/impact).
+- **/dashboard/impact buttons:** Refresh + BookmarkButton both forced `h-9` with
+  `min-w-[6rem]` so the `Lưu`↔`Đã lưu` label toggle no longer resizes/jumps; removed
+  the `bg-primary` on BookmarkButton so the active filled `Heart` is visible.
+- **Static description `<p>` removal (20 pages):** verbose intro-subtitle / hero blurbs
+  sitting under headings or inside modals — career, career/predictive, career/jobs (English
+  subtitle), dashboard, dashboard/impact, intl, learning-spaces, map, marketplace (+cart),
+  volunteer, admin/dashboard, auth/login, community, hs-connection, mentor, stem, summer,
+  surveys, leaderboard. Empty states (`Chưa có…`, `Không tìm thấy…`), data-bound text
+  (`{user.email}`, `{analysis.summary}`, card `line-clamp` descriptions, form-helper copy,
+  `eligibility.message`) were intentionally KEPT per §6 honest-empty-states + §8 card system.
+- Verified locally: `cd frontend && npx tsc --noEmit` → exit 0; `npm run build` → exit 0.
+  Runtime truth = HF Spaces free CPU tier; no `HF_TOKEN` locally, user deploys.

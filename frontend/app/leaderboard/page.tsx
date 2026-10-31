@@ -88,10 +88,6 @@ export default function LeaderboardPage() {
             <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Vinh danh những nỗ lực</h1>
-          <p className="text-muted-foreground/60 max-w-2xl mx-auto">
-            Càng học tập, quyên góp và tham gia hoạt động cộng đồng, thứ hạng của bạn càng cao.
-            Hãy cùng nhau xây dựng cộng đồng học tập tích cực!
-          </p>
         </div>
 
         {/* My Progress Card (If logged in) */}

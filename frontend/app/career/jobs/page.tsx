@@ -52,7 +52,6 @@ export default function JobsPage() {
           <h1 className="text-2xl font-bold text-primary">
             Career Opportunities
           </h1>
-          <p className="text-muted-foreground/60">Discover jobs and courses tailored to your professional growth.</p>
         </header>
 
         {/* Search & Filter Bar */}

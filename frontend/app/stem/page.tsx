@@ -163,9 +163,6 @@ export default function StemLabsPage() {
         <div className="bg-card p-6 sm:p-8 rounded-xl border border-border relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="h1-page mb-4">Hệ Thống Phòng Lab STEM</h1>
-            <p className="text-muted-foreground/60 max-w-md leading-relaxed">
-              Khám phá và đặt lịch sử dụng các thiết bị nghiên cứu khoa học, bộ kit robot và máy in 3D tại các phòng Lab đối tác của EduMap.
-            </p>
           </div>
           <div className="relative z-10 mt-6">
             <div className="relative w-full max-w-md">

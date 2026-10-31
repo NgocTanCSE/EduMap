@@ -155,8 +155,8 @@ export default function CommunityPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex justify-center p-4 md:p-8">
-      <div className="w-full max-w-7xl flex flex-col lg:flex-row gap-8">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
+      <div className="w-full flex flex-col lg:flex-row gap-8">
         
         {/* Main Feed */}
         <div className="flex-1 space-y-6 max-w-3xl w-full">

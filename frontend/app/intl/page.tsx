@@ -122,7 +122,6 @@ export default function IntlPage() {
             <div className="bg-background border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowJoinModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2">Tham gia Mạng lưới</h3>
-                <p className="text-sm text-muted-foreground/60 mb-6">Kết nối với cộng đồng du học sinh EduMap trên toàn cầu.</p>
                 
                 <form onSubmit={handleJoinAlumni} className="space-y-4">
                     <div>

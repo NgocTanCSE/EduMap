@@ -148,9 +148,6 @@ export default function AdminDashboardPage() {
                   <Shield className="w-8 h-8 text-foreground" />
                </div>
                <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
-               <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-sm">
-                  Mọi thao tác quản trị đều được mã hóa và ghi nhật ký hệ thống. Đảm bảo tuân thủ các quy tắc bảo mật dữ liệu người dùng.
-               </p>
                <a href="/admin/reports">
                   <button className="px-8 py-3 rounded-lg bg-card text-foreground text-sm font-bold hover:bg-primary/80 transition-colors">
                      KIỂM TRA AUDIT LOGS

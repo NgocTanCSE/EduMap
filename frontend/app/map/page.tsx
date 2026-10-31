@@ -220,11 +220,7 @@ function AiPanel({ open, onClose, analysis, loading }: {
               </div>
             )}
           </>
-        ) : (
-          <p className="text-sm text-muted-foreground/60">
-            Nhấn "Phân tích AI" để nhận gợi ý địa điểm học tập quanh Biên Hòa.
-          </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

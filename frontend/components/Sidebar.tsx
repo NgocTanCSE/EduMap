@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, LogOut, User, X } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { EduMapLogo } from "@/components/ui/Logo";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
+import { cn } from "@/lib/utils";
 import {
   SIDEBAR_EXPANDED_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
@@ -42,15 +43,24 @@ type NavGroup = FeatureGroup & { items: Feature[] };
 function NavGroup({
   group,
   activeHref,
+  collapsed,
   onNavigate,
 }: {
   group: NavGroup;
   activeHref: string;
+  collapsed: boolean;
   onNavigate?: () => void;
 }) {
   return (
     <div className="mb-5">
-      <p className="px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/65">
+      {/* Group label is read by screen readers only when collapsed so the 56px
+          rail isn't choked with text that overflows its width. */}
+      <p
+        className={cn(
+          "px-3 mb-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/65",
+          collapsed && "sr-only"
+        )}
+      >
         {group.label}
       </p>
       <nav className="space-y-0.5">
@@ -65,23 +75,32 @@ function NavGroup({
               href={item.href}
               aria-current={active ? "page" : undefined}
               onClick={onNavigate}
-              className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group ${
+              title={item.label}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors group",
+                // Collapsed: icon-only, centred, square hit-area (no text to
+                // overflow the 56px rail).
+                collapsed && "justify-center w-10 h-10 mx-auto p-0",
                 active
                   ? "text-primary bg-primary/10 font-semibold"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-              title={item.label}
+              )}
             >
               <Icon
-                className={`w-4 h-4 shrink-0 ${
+                className={cn(
+                  "w-4 h-4 shrink-0",
                   active
                     ? "text-primary"
                     : "text-muted-foreground/70 group-hover:text-primary"
-                }`}
+                )}
               />
-              <span className="truncate">{item.label}</span>
-              {active && (
-                <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />
+              {!collapsed && (
+                <>
+                  <span className="truncate">{item.label}</span>
+                  {active && (
+                    <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary" />
+                  )}
+                </>
               )}
             </Link>
           );
@@ -91,7 +110,7 @@ function NavGroup({
   );
 }
 
-function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
+function AccountSection({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const { user, isLoggedIn, loading, logout } = useAuth();
 
   // Hydration-safe: auth state is resolved from localStorage inside an effect, so the
@@ -123,14 +142,26 @@ function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
     // route before being redirected; give them a clear sign-in affordance.
     return (
       <div className="p-4 border-t border-border">
-        <Link
-          href="/auth/login"
-          onClick={onNavigate}
-          className="flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors"
-        >
-          <User className="w-4 h-4" />
-          Đăng nhập
-        </Link>
+        {collapsed ? (
+          <Link
+            href="/auth/login"
+            onClick={onNavigate}
+            aria-label="Đăng nhập"
+            className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
+          >
+            <User className="w-4 h-4" />
+            <span className="sr-only">Đăng nhập</span>
+          </Link>
+        ) : (
+          <Link
+            href="/auth/login"
+            onClick={onNavigate}
+            className="flex items-center justify-center gap-2 w-full h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-colors"
+          >
+            <User className="w-4 h-4" />
+            Đăng nhập
+          </Link>
+        )}
       </div>
     );
   }
@@ -139,46 +170,56 @@ function AccountSection({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="p-4 border-t border-border space-y-3">
-      <div className="flex items-center gap-3">
+      <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
         <img
           src={avatar}
           onError={onImageError(avatarFallback(user.fullName))}
           alt={user.fullName || "user"}
           className="w-10 h-10 rounded-full object-cover"
         />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground truncate">
-            {user.fullName}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-          {user.role && (
-            <p className="text-[10px] font-black uppercase text-primary/70 mt-0.5">
-              {user.role}
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground truncate">
+              {user.fullName}
             </p>
-          )}
-        </div>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            {user.role && (
+              <p className="text-[10px] font-black uppercase text-primary/70 mt-0.5">
+                {user.role}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-2 pt-1">
+      <div className={cn("flex items-center gap-2 pt-1", collapsed && "flex-col")}>
         <Link
           href="/profile"
           onClick={onNavigate}
-          className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium rounded-lg bg-muted/40 hover:bg-muted text-foreground transition-colors"
+          aria-label="Hồ sơ"
+          className={cn(
+            "flex items-center justify-center gap-1.5 h-9 text-xs font-medium rounded-lg bg-muted/40 hover:bg-muted text-foreground transition-colors",
+            collapsed ? "w-10 h-10 p-0" : "flex-1"
+          )}
           title="Hồ sơ"
         >
           <User className="w-3.5 h-3.5" />
-          Hồ sơ
+          {!collapsed && <span>Hồ sơ</span>}
         </Link>
         <button
           onClick={() => {
             logout();
             onNavigate?.();
           }}
-          className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-semibold rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
+          aria-label="Đăng xuất"
+          className={cn(
+            "flex items-center justify-center gap-1.5 h-9 text-xs font-semibold rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors",
+            collapsed ? "w-10 h-10 p-0" : "flex-1"
+          )}
           title="Đăng xuất"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Xuất
+          {!collapsed && <span>Xuất</span>}
         </button>
       </div>
     </div>
@@ -257,9 +298,11 @@ export default function Sidebar({
             className="flex items-center gap-2.5 text-lg font-semibold text-foreground"
           >
             <EduMapLogo className="h-7 w-7 text-primary" />
-            <span>
-              Edu<span className="text-primary">Map</span>
-            </span>
+            {!sidebarCollapsed && (
+              <span>
+                Edu<span className="text-primary">Map</span>
+              </span>
+            )}
           </Link>
           <button
             type="button"
@@ -287,13 +330,14 @@ export default function Sidebar({
               key={group.label}
               group={group}
               activeHref={activeHref}
+              collapsed={sidebarCollapsed}
               onNavigate={onClose}
             />
           ))}
         </div>
 
         {/* Account (avatar / profile / logout) */}
-        <AccountSection onNavigate={onClose} />
+        <AccountSection collapsed={sidebarCollapsed} onNavigate={onClose} />
 
         {/* Resize handle — vertical divider on the right edge.
             Only visible on desktop (lg) when sidebar is expanded and not on

@@ -78,7 +78,6 @@ export default function HSConnectionPage() {
                         <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Kết nối & Học hỏi</h1>
-                    <p className="text-muted-foreground/60">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

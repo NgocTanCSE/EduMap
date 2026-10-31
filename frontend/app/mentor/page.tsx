@@ -78,9 +78,6 @@ export default function MentorPage() {
       <div className="bg-card p-10 rounded-xl border border-border flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
         <div className="relative z-10 space-y-4 max-w-xl">
           <h1 className="h1-page">Trung tâm Cố vấn EduMap</h1>
-          <p className="text-muted-foreground/60">
-            Kết nối với chuyên gia hàng đầu, nhận hướng dẫn 1-on-1 và cùng mentor phát triển sự nghiệp của bạn.
-          </p>
           <div className="pt-4">
             <Button
               onClick={handleAiMatch}

@@ -86,9 +86,6 @@ function CareerDashboard() {
             <UserCircle size={32} className="text-primary" />
           </div>
           <h2 className="text-xl font-semibold">Kết nối để xem tiến trình sự nghiệp</h2>
-          <p className="text-sm text-muted-foreground/60 max-w-md mx-auto">
-            Đăng nhập để theo dõi kỹ năng, lộ trình học tập, đơn ứng tuyển và nhận gợi ý công việc từ AI.
-          </p>
           <button
             type="button"
             onClick={() => {

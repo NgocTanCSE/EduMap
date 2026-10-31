@@ -293,9 +293,6 @@ function GoogleLoginContent() {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
               Đăng nhập qua Google
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Chọn vai trò của bạn và đăng nhập một cách an toàn với tài khoản Google của bạn.
-            </p>
           </div>
 
           {/* Error Message */}

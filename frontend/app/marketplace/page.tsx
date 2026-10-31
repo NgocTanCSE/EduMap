@@ -126,7 +126,6 @@ export default function ShareMarketplacePage() {
             <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowShareModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Share2 className="text-primary w-6 h-6"/> Chia sẻ tài liệu</h3>
-                <p className="text-sm text-muted-foreground/60 mb-6">Đóng góp sách hoặc học cụ của bạn cho cộng đồng.</p>
                 
                 <form onSubmit={handleShareSubmit} className="space-y-4">
                     <div>
@@ -215,9 +214,6 @@ export default function ShareMarketplacePage() {
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="text-2xl font-semibold mb-4">Góc Chia Sẻ & Trao Đổi</h1>
-            <p className="text-muted-foreground/60 max-w-md leading-relaxed">
-              Mua bán, trao đổi sách cũ, giáo trình và đồ dùng học tập từ cộng đồng học sinh, sinh viên EduMap.
-            </p>
           </div>
           <div className="relative z-10">
             <button 

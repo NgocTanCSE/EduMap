@@ -259,18 +259,14 @@ export default function ImpactMeasurementPage() {
             <BarChart3 className="h-6 w-6 text-primary" />
             Đo lường Tác động AI
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Đánh giá việc triển khai cơ sở giáo dục (wifi, thư viện, phòng lab…) có cải thiện
-            truy cập giáo dục không — trước/sau, xu hướng, điểm số tác động + khoảng tin cậy.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchReport}
             disabled={loading || !user}
-            className="inline-flex items-center justify-center rounded-md border bg-primary px-3 py-2 text-sm font-medium shadow hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Làm mới
           </button>
           <BookmarkButton
@@ -278,7 +274,7 @@ export default function ImpactMeasurementPage() {
             targetId={report?.region || "bien-hoa"}
             size="sm"
             showLabel
-            className="inline-flex items-center justify-center rounded-md border bg-primary px-3 py-2 text-sm font-medium shadow hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex h-9 min-w-[6rem] items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
           />
         </div>
       </div>

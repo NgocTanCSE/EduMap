@@ -150,9 +150,6 @@ export default function SummerCampaignsPage() {
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 sm:p-8 rounded-xl border border-border relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="h1-page mb-4">Mùa Hè Xanh</h1>
-            <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
-              Chiến dịch thanh niên tình nguyện tham gia phát triển cộng đồng, dạy học và cải thiện cơ sở hạ tầng tại các vùng khó khăn.
-            </p>
           </div>
           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
             <Sun className="w-24 h-24" />
