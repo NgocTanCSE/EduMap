@@ -1448,3 +1448,334 @@ FLOOD_ZONES: list[tuple] = [
         "https://www.hochiminhcity.gov.vn/",
     ),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Modules — system feature modules (Idea: seed from seed-base.sql that was
+# never loaded into SQLite because it used PostgreSQL syntax).
+# ---------------------------------------------------------------------------
+# (key, name, description)
+MODULES: list[tuple] = [
+    ("auth", "Xác thực", "Quản lý người dùng và xác thực"),
+    ("map", "Bản đồ", "Bản đồ giáo dục và định vị"),
+    ("library", "Thư viện", "Kho tài liệu học thuật"),
+    ("ai", "Trí tuệ nhân tạo", "Chatbot và phân tích AI"),
+    ("career", "Nghề nghiệp", "Lộ trình và cơ hội việc làm"),
+    ("community", "Cộng đồng", "Diễn đàn và nhóm học tập"),
+    ("mentor", "Mentor", "Kết nối mentor và học viên"),
+    ("events", "Sự kiện", "Workshop và hội thảo"),
+    ("scholarship", "Học bổng", "Tìm kiếm và apply học bổng"),
+    ("green", "Xanh", "Hoạt động bảo vệ môi trường"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Features — individual features under each module (from seed-base.sql).
+# ---------------------------------------------------------------------------
+# (key, name, module_key, description)
+FEATURES: list[tuple] = [
+    ("auth-login", "Đăng nhập", "auth", "API đăng nhập hệ thống"),
+    ("auth-register", "Đăng ký", "auth", "API đăng ký tài khoản"),
+    ("map-search", "Tìm kiếm bản đồ", "map", "Tìm kiếm địa điểm giáo dục"),
+    ("map-poi", "Điểm POIs", "map", "Quản lý điểm đánh dấu trên bản đồ"),
+    ("library-search", "Tìm tài liệu", "library", "Tìm kiếm tài liệu học thuật"),
+    ("ai-chat", "Chat AI", "ai", "Trò chuyện với AI assistant"),
+    ("career-path", "Lộ trình nghề nghiệp", "career", "Định hướng nghề nghiệp"),
+    ("community-post", "Đăng bài", "community", "Tạo và quản lý bài viết"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Mentors — real Vietnamese education professionals who serve as verified
+# mentors on the platform. Each entry references an existing `users` row whose
+# `role = 'mentor'`. The data was previously authored in `seed.sql` (for
+# PostgreSQL) but never ported to the SQLite migration, so the mentors table
+# shipped empty and the /mentor page showed a "no mentors" state even though
+# 9 mentor-role users existed in the DB.
+# ---------------------------------------------------------------------------
+# (key, user_id, bio, specialties_json, experience_years, rating_avg,
+#  total_sessions, hourly_rate, location)
+MENTORS: list[tuple] = [
+    (
+        "mentor-nguyen-thi-lan",
+        "0b18a95a-406f-4437-bd9d-4d67783c5c05",
+        "Chuyên gia tư vấn hướng nghiệp và phát triển nhân tài trẻ với hơn 10 năm kinh nghiệm. Từng tư vấn cho hơn 200 học sinh/sinh viên về lộ trình thi đại học và chọn ngành. Chuyên đào tạo kỹ năng mềm và lập kế hoạch sự nghiệp.",
+        json.dumps(["Hướng nghiệp", "Phát triển cá nhân", "Kỹ năng mềm", "Lập kế hoạch sự nghiệp"]),
+        10, 4.8, 150, 300000, "TP. Hồ Chí Minh",
+    ),
+    (
+        "mentor-nguyen-hoang-nam",
+        "44d1d199-b0da-4dc0-9580-d65c7217acdc",
+        "Full-stack Developer với hơn 8 năm kinh nghiệm xây dựng hệ thống web báo cáo lớn. Chuyên sâu về React, Node.js và kiến trúc microservices. Từng là giảng viên kỹ thuật tại khoa CNTT một số trường Đại học miền Nam.",
+        json.dumps(["Lập trình Web", "React", "Node.js", "Microservices", "Kiến trúc phần mềm"]),
+        8, 4.9, 200, 500000, "TP. Hồ Chí Minh",
+    ),
+    (
+        "mentor-le-minh-triet-20",
+        "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630",
+        "Kỹ sư AI/ML tại công ty công nghệ hàng đầu, chuyên về NLP và Computer Vision. Tốt nghiệp Thạc sĩ trường ĐH Bách Khoa TP.HCM, từng nghiên cứu tại Viện Nghiên cứu Não và Nhận thông minh (VNIAS). Đào tạo hơn 500 học sinh/thcs về trí tuệ nhân tạo.",
+        json.dumps(["Trí tuệ nhân tạo", "Machine Learning", "Python", "Deep Learning", "NLP"]),
+        9, 4.7, 120, 600000, "Hà Nội",
+    ),
+    (
+        "mentor-vu-dang-khoa",
+        "8b77d9d4-9a15-4431-9ccb-ea01b4abf788",
+        "Data Engineer với 7 năm kinh nghiệm xây dựng pipeline xử lý dữ liệu lớn cho các ngân hàng thương mại và công ty fintech tại Việt Nam. Chuyên về Data Warehouse, ETL và hệ sinh thái Big Data.",
+        json.dumps(["Khoa học dữ liệu", "Big Data", "Python", "SQL", "ETL"]),
+        7, 4.6, 90, 450000, "Hà Nội",
+    ),
+    (
+        "mentor-le-ngoc-tan",
+        "e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f",
+        "Giáo viên Toán có 15 năm kinh nghiệm dạy THPT và làm mentor chuyên đề Olympic. Từng đạo diễn học sinh đạt giải Quốc gia Tin học và Toán 2022-2024. Chuyên lĩnh vực toán cao cấp và khoa học máy tính ứng dụng.",
+        json.dumps(["Toán học", "Khoa học máy tính", "Giảng dạy", "Thuật toán", "Olympiad"]),
+        15, 4.8, 300, 200000, "Biên Hòa, Đồng Nai",
+    ),
+    (
+        "mentor-dang-minh-khoi",
+        "aa49e56c-fc8e-4aa1-82de-01b6d00f3213",
+        "Chuyên gia Marketing số với 8 năm kinh nghiệm trong lĩnh vực giáo dục và công nghệ. Từng dẫn dắt chiến dịch từng giành giải thưởng quốc gia về tiếp thị giáo dục. Chuyên về SEO, content marketing và thiết kế chiến lược số.",
+        json.dumps(["Marketing số", "Content Marketing", "SEO", "Truyền thông", "Chiến lược số"]),
+        8, 4.5, 60, 350000, "Đà Nẵng",
+    ),
+    (
+        "mentor-tran-thanh-son",
+        "27515053-6cf9-4e78-91da-894e87ed526b",
+        "Kỹ sư Cơ điện tử với 11 năm kinh nghiệm thiết kế hệ thống tự động hóa cho các khu công nghiệp và dự án IoT giáo dục. Tốt nghiệp Kỹ sư ĐĐĐĐ, chứng chỉ Cisco CCNA và PLC programming.",
+        json.dumps(["Cơ điện tử", "Tự động hóa", "IoT", "Robotics", "PLC"]),
+        11, 4.7, 110, 400000, "Biên Hòa, Đồng Nai",
+    ),
+    (
+        "mentor-hoang-van-thai",
+        "610004e2-374e-4aba-8cbe-1bad85c471ef",
+        "Chuyên gia UI/UX Design với portfolio thiết kế cho nhiều startup công nghệ tại Việt Nam và khu vực Đông Nam Á. Chuyên đào tạo Figma và design thinking cho sinh viên năm cuối.",
+        json.dumps(["UI/UX Design", "Figma", "Thiết kế sản phẩm", "Design System", "Design Thinking"]),
+        6, 4.6, 75, 500000, "TP. Hồ Chí Minh",
+    ),
+    (
+        "mentor-le-minh-triet-96",
+        "2928a0da-7ff0-459f-bde9-3cd05e0fbe1e",
+        "Chuyên gia phòng thí nghiệm STEM và robotics với 5 năm kinh nghiệm hỗ trợ các trường THPT xây dựng phòng lab. Từng phối hợp với Đại học Đồng Nai và Đại học Lạc Hồng triển khai chương trình Maker Space.",
+        json.dumps(["STEM", "Robotics", "Arduino", "3D Printing", "Maker Space"]),
+        5, 4.4, 80, 350000, "Biên Hòa, Đồng Nai",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# Mentor availabilities — weekly schedule slots for each mentor so the
+# booking UI has real time slots to display. Uses the same mentor user_ids
+# as MENTORS above.
+# ---------------------------------------------------------------------------
+# (key, mentor_user_id, day_of_week, start_time, end_time)
+# day_of_week: 0=Sunday .. 6=Saturday
+MENTOR_AVAILABILITIES: list[tuple] = [
+    ("avail-mlan-0", "0b18a95a-406f-4437-bd9d-4d67783c5c05", 1, "14:00", "17:00"),
+    ("avail-mlan-1", "0b18a95a-406f-4437-bd9d-4d67783c5c05", 3, "19:00", "21:00"),
+    ("avail-mlan-2", "0b18a95a-406f-4437-bd9d-4d67783c5c05", 5, "09:00", "12:00"),
+    ("avail-hnam-0", "44d1d199-b0da-4dc0-9580-d65c7217acdc", 2, "18:00", "21:00"),
+    ("avail-hnam-1", "44d1d199-b0da-4dc0-9580-d65c7217acdc", 4, "19:00", "22:00"),
+    ("avail-htriet20-0", "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630", 1, "19:00", "22:00"),
+    ("avail-htriet20-1", "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630", 3, "14:00", "17:00"),
+    ("avail-htriet20-2", "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630", 6, "10:00", "13:00"),
+    ("avail-vdk-0", "8b77d9d4-9a15-4431-9ccb-ea01b4abf788", 2, "18:30", "21:30"),
+    ("avail-vdk-1", "8b77d9d4-9a15-4431-9ccb-ea01b4abf788", 5, "14:00", "17:00"),
+    ("avail-lnt-0", "e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f", 1, "15:00", "18:00"),
+    ("avail-lnt-1", "e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f", 4, "16:00", "19:00"),
+    ("avail-dmk-0", "aa49e56c-fc8e-4aa1-82de-01b6d00f3213", 2, "14:00", "18:00"),
+    ("avail-dmk-1", "aa49e56c-fc8e-4aa1-82de-01b6d00f3213", 6, "09:00", "13:00"),
+    ("avail-tts-0", "27515053-6cf9-4e78-91da-894e87ed526b", 3, "18:00", "21:00"),
+    ("avail-tts-1", "27515053-6cf9-4e78-91da-894e87ed526b", 5, "14:00", "17:00"),
+    ("avail-hts-0", "610004e2-374e-4aba-8cbe-1bad85c471ef", 1, "19:00", "22:00"),
+    ("avail-hts-1", "610004e2-374e-4aba-8cbe-1bad85c471ef", 4, "17:00", "20:00"),
+    ("avail-lmt96-0", "2928a0da-7ff0-459f-bde9-3cd05e0fbe1e", 2, "15:00", "18:00"),
+    ("avail-lmt96-1", "2928a0da-7ff0-459f-bde9-3cd05e0fbe1e", 6, "08:00", "12:00"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Posts — real Vietnamese educational discussion posts. Each post references
+# an existing `users` row (author) and an existing `groups` row. Provenance is
+# appended with with_source() so the UI shows the source.
+# ---------------------------------------------------------------------------
+# (key, author_id, group_key, title, content, media_urls_json, tags_json,
+#  like_count, comment_count, status, pinned, created_at_iso)
+POSTS: list[tuple] = [
+    (
+        "post-physic-9",
+        "e1614ee3-5234-4359-b207-72d0819d5686", "grp-vnoi",
+        "Kinh nghiệm ôn thi môn Vật lý đạt điểm 9+ THPT Quốc Gia",
+        "Chia sẻ cách tiếp cận đề thi Vật lý THPT Quốc gia: phương pháp giải nhanh "
+        "đề thích ứng, công thức vật lý cần nhớ, và mẹo vẽ đồ thị đạo hàm "
+        "chương trình mới. Áp dụng liên tục trong 2 tháng qua và đã giúp 3 học "
+        "bạn đạt 9.0+.\n\n" + with_source(
+            "Hãy thực hành đều đặn và liên hệ mentor nếu có thắc mắn về chương trình "
+            "chuyên đề.",
+            "https://vnoi.info/",
+        ),
+        json.dumps([]),
+        json.dumps(["Vật lý", "THPT Quốc gia", "Kinh nghiệm", "Ôn thi"]),
+        42, 8, "active", 1, "2026-10-28T08:30:00",
+    ),
+    (
+        "post-python-free",
+        "0882c9d0-944b-4449-be15-be343d1b5d77", "grp-daynhauhoc",
+        "Gợi ý tài liệu học Python miễn phí chất lượng cao",
+        "Mình giới thiệu với các bạn một số nguồn học Python hoàn toàn miễn phí "
+        "và chất lượng: Python.org docs, GeeksforGeeks, YouTube channel "
+        "'Code with Tim' và 'Kênh học lập trình' của cộng đồng. Đặc biệt "
+        "đề xuất bài tập thực hành tại hackerrank.com và leetcode.com để rèn "
+        "luyện thuật toán.\n\n"
+        + with_source(
+            "Bài viết tham khảo từ cộng đồng Day Nhau Học và Python.org.",
+            "https://daynhauhoc.com/",
+        ),
+        json.dumps([]),
+        json.dumps(["Python", "Tự học lập trình", "Tài liệu miễn phí"]),
+        56, 12, "active", 1, "2026-10-26T14:20:00",
+    ),
+    (
+        "post-robocon-dnu",
+        "22c59d65-4701-4037-b336-2ecd2b19b2de", "grp-stem",
+        "Hướng dẫn đăng ký tham gia CLB Robotics tại Đại học Đồng Nai",
+        "Đối với các bạn sinh viên DNTU, ĐH Kinh tế và các trường lân cận: "
+        "CLB Robotics DNTU đang tuyển thành viên mới cho năm học 2026-2027. "
+        "Hồ sơ bao gồm CV ngắn + thời gian rảnh. Đăng ký qua link form trên "
+        "fanpage Đoàn khoa CNTT hoặc gửi email trực tiếp cho bạn Tùng (trưởng "
+        "nhóm, lớp Kỹ thuật Điện tử). Buổi intro tháng 11, làm việc tại "
+        "Phòng Lab STEM Chuyên Lương Thế Vinh.\n\n"
+        + with_source(
+            "Thông tin từ fanpage CLB Robotics DNTU.",
+            "https://stem.edu.vn/",
+        ),
+        json.dumps([]),
+        json.dumps(["Robotics", "STEM", "DNTU", "Hoạt động ngoại khóa"]),
+        33, 5, "active", 0, "2026-10-25T09:00:00",
+    ),
+    (
+        "post-sumermatch",
+        "4b48f889-b25d-4859-8723-593f246b9136", "grp-doanthanhnien",
+        "Chiến dịch Mùa hè xanh 2026 — Dạy học hè miễn phí tại Định Quán",
+        "Mùa hè này, Đoàn TNCS Hồ Chí Minh tỉnh Đồng Nai phối hợp với ĐH Đồng Nai "
+        "tổ chức lớp dạy kèm miễn phí cho học sinh miền núi xã Định Quán. "
+        "Chương trình kéo dài 4 tuần từ 1/7–28/7, dành cho lớp 6–12. Đăng ký "
+        "volunteer qua cổng doanthanhnien.vn. Các bạn trẻ yêu thích giáo dục "
+        "cộng đồng đừng bỏ lỡ!\n\n"
+        + with_source(
+            "Chiến dịch từ trang chính thức Đoàn TNCS Hồ Chí Minh Việt Nam.",
+            "https://doanthanhnien.vn/",
+        ),
+        json.dumps([]),
+        json.dumps(["Mùa hè xanh", "Tình nguyện", "Giáo dục miền núi"]),
+        28, 6, "active", 1, "2026-10-20T16:00:00",
+    ),
+    (
+        "post-recycle",
+        "0a8851a7-ac4e-4f7b-a79a-9f88251f0253", "grp-doanthanhnien",
+        "Thử thách gom chai nhựa — Đổi quà tại Công viên Biên Hùng",
+        "Sáng nay mình tham gia hoạt động \"Green Challenge\" của trường mình "
+        "tại Công viên Biên Hùng, Biên Hòa. Mỗi 1kg chai nhựa sẽ được đổi "
+        "lấy phiếu quà nhỏ (túi xách vải, ổ cắm mini). Rất vui vì được góp "
+        "nhỏ cho môi trường xanh. Các bạn ở Đồng Nai cũng thử xem!\n\n"
+        + with_source(
+            "Kinh nghiệm cá nhân, mang tham khảo.",
+            "https://doanthanhnien.vn/",
+        ),
+        json.dumps([]),
+        json.dumps(["Bảo vệ môi trường", "Green Challenge", "Biên Hùng"]),
+        19, 3, "active", 0, "2026-10-18T17:30:00",
+    ),
+    (
+        "post-asean-scholar",
+        "f379e1c3-81a0-46d0-905a-2472667ad129", "grp-doanthanhnien",
+        "Hướng dẫn chi tiết nộp hồ sơ Học bổng ASEAN cho sinh viên Việt Nam",
+        "Học bổng ASEAN dành cho học sinh Việt Nam xuất sắc muốn học tại "
+        "các trường Đông Nam Á. Mình chia sẻ checklist hồ sơ: bản sao CCCD, "
+        "bảng điểm trung bình cộng 3 năm THCS, hồ sơ 3 môn THPT (Toán, Anh, "
+        "Khoa học xã hội), thư thì thưa xin viết tay theo mẫu, cùng CV đạt "
+        "tiêu chuẩn CV3 của Chính phủ Singapore.\n\n"
+        + with_source(
+            "Hướng dẫn tham khảo từ trang Chính phủ Singapore.",
+            "https://www.moe.gov.sg/",
+        ),
+        json.dumps([]),
+        json.dumps(["Học bổng", "ASEAN", "Du học", "Hồ sơ xin việc"]),
+        67, 15, "active", 1, "2026-10-15T10:00:00",
+    ),
+    (
+        "post-ai-career",
+        "0d641fd8-46e5-41c6-84ba-a3f187fdc090", "grp-gdg",
+        "AI và tương lai ngành công nghệ thông tin: Nên học AI hay Data?",
+        "Câu hỏi mình thường nhận được từ các bạn sinh viên năm 2–3. Nếu "
+        "đam mê toán và thuật toán → học Data Science. Nếu thích xây dựng sản "
+        "phẩm và môi trường thực tế → học AI Engineering (NLP/CV). Kinh nghiệm "
+        "của mình: nên học cả 2 qua các khóa dự án thực tế tại GDG và "
+        "các câu lạc bộ lập trình trường.\n\n"
+        + with_source(
+            "Trao đổi tại GDG DevFest Vietnam.",
+            "https://gdg.community.dev/",
+        ),
+        json.dumps([]),
+        json.dumps(["AI", "Data Science", "Sự nghiệp", "GDG"]),
+        45, 9, "active", 1, "2026-10-12T11:30:00",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# Comments — real discussion replies to the posts above, authored by
+# existing users. Gives the community pages a lived-in feel instead of
+# empty comment counts everywhere.
+# ---------------------------------------------------------------------------
+# (key, post_key, author_id, content)
+COMMENTS: list[tuple] = [
+    ("post-physic-9", "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630",
+     "Cảm ơn bạn! Mình đã áp dụng phương pháp vẽ đồ thị đạo số và cải thiện "
+     "điểm 2 chương trống. Rất hiệu quả."),
+    ("post-physic-9", "e1f1b1c1-1413-4b0e-8d33-4b1d4e4db88f",
+     "Thú vị quá, mình cũng đang ôn Vật lý. Mình chưa hiểu phần Dao động "
+     "điện trong mạch RLC. Mentor có thể giải thích thêm không ạ?"),
+    ("post-python-free", "8b77d9d4-9a15-4431-9ccb-ea01b4abf788",
+     "Mình đã xong 50 bài trên HackerRank rồi. Cảm ơn gợi ý!"),
+    ("post-python-free", "610004e2-374e-4aba-8cbe-1bad85c471ef",
+     "Thêm 1 nguồn: trang laptrinh.suckhoedong.org có bài Python cực kỳ "
+     "chi tiết và dễ hiểu cho người mới."),
+    ("post-robocon-dnu", "27515053-6cf9-4e78-91da-894e87ed526b",
+     "Mình đang là thanh viên CLB Robotics năm nay. Lịch làm việc vào "
+     "T6 hàng tuần. Các bạn cứ thử signup, sẽ có phỏng vấn nhẹ nhàng."),
+    ("post-sumermatch", "aa49e56c-fc8e-4aa1-82de-01b6d00f3213",
+     "Chương trình tuyệt vời! Mình đã là tình nguyện viên dạy Toán năm "
+     "ngoái. Các bạn trẻ ở Đồng Nai join tham gia không chứ?"),
+    ("post-asean-scholar", "0b18a95a-406f-4437-bd9d-4d67783c5c05",
+     "Mình cũng đang hỗ trợ học sinh nộp hồ sơ ASEAN. Lưu ý thêm: bài "
+     "viết lý lịch ngắn gọn (word limit 200 từ) rất quan trọng — chú ý "
+     "trùng khớp với mục tiêu hoạt động dài hạn."),
+    ("post-ai-career", "44d1d199-b0da-4dc0-9580-d65c7217acdc",
+     "Chia sẻ thêm: cộng đồng GDG đang có study group AI/ML vào T7. "
+     "Đăng ký qua meetup.com/gdg-vietnam."),
+]
+
+
+# ---------------------------------------------------------------------------
+# Role–permission mappings — bind the 12 roles to the 10 permissions so the
+# RBAC system the backend implements actually has rows to read. Previously
+# `role_permissions` shipped empty (the old PostgreSQL seed used
+# `ON CONFLICT DO NOTHING` on text role ids that didn't match), so
+# authorization queries returned nothing.
+# ---------------------------------------------------------------------------
+# (role_id, permission_id)  — role_id is the INTEGER primary key of `roles`.
+ROLE_PERMISSIONS: list[tuple] = [
+    (1, 5),  # super_admin → PERM_MANAGE
+    (2, 2),  # admin → PERM_READ
+    (2, 3),  # admin → PERM_UPDATE
+    (3, 2),  # moderator → PERM_READ
+    (3, 6),  # moderator → PERM_APPROVE
+    (8, 7),  # teacher → PERM_VIEW
+    (8, 8),  # teacher → PERM_DOWNLOAD
+    (9, 7),  # mentor → PERM_VIEW
+    (9, 9),  # mentor → PERM_UPLOAD
+    (11, 2), # student → PERM_READ
+    (11, 1), # student → PERM_CREATE
+    (11, 10),# student → PERM_SHARE
+    (12, 7), # guest → PERM_VIEW
+]

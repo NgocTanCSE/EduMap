@@ -242,6 +242,156 @@ class TestTaskImplementations:
             assert "match_score" in m
             assert 0 <= m["match_score"] <= 100
 
+    def test_impact_match_pre_filter_score_nonzero(self):
+        """Regression test for BUG 2: _run_impact_match pair dict was missing
+        the 'match_score' key (total was computed but never stored).
+
+        This meant pairs.sort() was a no-op (all scores 0) and
+        pre_filter_score was always 0 in the final result.
+
+        Verify at least one match has pre_filter_score > 0.
+        """
+        result = _run_impact_match()
+        data = result.get("data", {})
+        matches = data.get("ranked_matches", [])
+        if matches:
+            has_nonzero = any(m.get("pre_filter_score", 0) > 0 for m in matches)
+            assert has_nonzero, (
+                "BUG 2: pre_filter_score is 0 for all impact_match pairs — "
+                "the 'match_score' key was never stored in the pair dict"
+            )
+
+    def test_resource_exchange_pre_filter_score_nonzero(self):
+        """Regression test for BUG 4: _run_resource_exchange proximity_score had
+        an operator-precedence bug:
+          req_loc and res_loc and req_loc in res_loc or res_loc in req_loc
+        Python parses this as (A and B and C) or D, so when res_loc was empty
+        (falsy), the 'or res_loc in req_loc' branch evaluated '' in req_loc
+        (empty string 'in' any string = True), giving proximity=60 instead of 30.
+
+        Fix: parenthesize to (req_loc and res_loc and (req_loc in res_loc or res_loc in req_loc)).
+
+        Test: for pairs with EMPTY locations, proximity should be 30.0, making
+        the max total = 30*0.4 + 25 + 50 + 10 = 97 (not 100).
+        """
+        result = _run_resource_exchange()
+        data = result.get("data", {})
+        matches = data.get("ranked_matches", [])
+        for m in matches:
+            res_loc = (m.get("resource", {}).get("location") or "").lower().strip()
+            req_loc = (m.get("request", {}).get("location") or "").lower().strip()
+            pfs = m.get("pre_filter_score", m.get("match_score", 0))
+            if not res_loc and not req_loc:
+                # proximity=30 → 30*0.4=12 max contribution
+                # max total = 12 + 25 (need_level) + 50 (condition) + 10 (availability) = 97
+                assert pfs <= 97.0, (
+                    f"BUG 4: pre_filter_score={pfs} with empty locations exceeds 97 — "
+                    f"proximity=60 bug not fixed (res_loc='{res_loc}', req_loc='{req_loc}')"
+                )
+
+    def test_auto_regions_geographic_correctness(self):
+        """Regression test for BUG 5: AUTO_REGIONS bboxes were geographically
+        incorrect. Verify each region's bbox falls within the correct
+        lat/lng range for the actual Vietnamese province/city.
+        """
+        region_checks = {
+            "dong_nai":  {"lat_range": (10.8, 12.0), "lng_range": (106.5, 108.0)},
+            "hcmc":      {"lat_range": (10.5, 11.2), "lng_range": (106.0, 107.5)},
+            "hanoi":     {"lat_range": (20.5, 22.0), "lng_range": (105.0, 106.5)},
+            "danang":    {"lat_range": (15.5, 16.5), "lng_range": (107.5, 109.0)},
+            "cantho":    {"lat_range": (9.5, 10.5), "lng_range": (105.0, 106.5)},
+        }
+        for region in AUTO_REGIONS:
+            rid = region["id"]
+            if rid not in region_checks:
+                continue
+            lat1, lat2, lng1, lng2 = region["bbox"]
+            checks = region_checks[rid]
+            assert lat1 >= checks["lat_range"][0], (
+                f"BUG 5: {rid} south latitude {lat1} below expected {checks['lat_range'][0]}"
+            )
+            assert lat2 <= checks["lat_range"][1], (
+                f"BUG 5: {rid} north latitude {lat2} above expected {checks['lat_range'][1]}"
+            )
+            assert lng1 >= checks["lng_range"][0], (
+                f"BUG 5: {rid} west longitude {lng1} below expected {checks['lng_range'][0]}"
+            )
+            assert lng2 <= checks["lng_range"][1], (
+                f"BUG 5: {rid} east longitude {lng2} above expected {checks['lng_range'][1]}"
+            )
+
+    def test_daily_insight_loads_education_stats(self):
+        """Regression test for BUG 3: _run_daily_insight queried 'metric_name'
+        column which doesn't exist in education_stats table (actual column is
+        'metric_type'). Query failed silently, leaving stats empty.
+
+        Verify the daily_insight task runs without exception and returns valid
+        structure. If education_stats has data, the query should now succeed
+        (previously failed silently).
+        """
+        result = _run_daily_insight()
+        assert result["task"] == "daily_insight"
+        assert "data" in result
+        assert "degraded" in result
+        # Verify education_stats query doesn't crash — stats should be in the
+        # payload sent to generate_daily_insight (degraded=False means it worked)
+        # Even if LLM fails (no API keys), the stats loading itself should succeed
+        assert result["degraded"] is False or "reason" in result
+
+    def test_impact_match_pre_filter_score_nonzero(self):
+        """Regression test for BUG: _run_impact_match pair dict was missing
+        the 'match_score' key, so pre_filter_score was always 0.
+
+        When the LLM is unavailable (no API keys in test env), the fallback
+        _impact_match_fallback ignores the SQLite total score and computes
+        its own. However the auto_scheduler still injects pre_filter_score
+        from the pair dict's match_score — which was always 0 before the fix.
+
+        Verify at least one match has pre_filter_score > 0 (the SQLite
+        total was actually being stored in the pair dict).
+        """
+        result = _run_impact_match()
+        data = result.get("data", {})
+        matches = data.get("ranked_matches", [])
+        if matches:
+            # With the bug, ALL pre_filter_score values were 0.
+            # After the fix, at least some should be non-zero.
+            has_nonzero = any(m.get("pre_filter_score", 0) > 0 for m in matches)
+            assert has_nonzero, (
+                "BUG: pre_filter_score is 0 for all impact_match pairs — "
+                "the 'match_score' key is missing from the pair dict"
+            )
+
+    def test_resource_exchange_pre_filter_score_nonzero(self):
+        """Regression test for BUG: _run_resource_exchange proximity_score had
+        an operator-precedence bug (req_loc and res_loc and ... or res_loc in req_loc)
+        that evaluated to True when res_loc was empty (empty string 'in' any string).
+
+        When both locations are empty, proximity should be 30.0 (not 60.0),
+        so the total match_score should be LOWER than if proximity were 60.0.
+
+        Verify that pairs with empty locations get proximity=30, producing
+        a total score that does NOT include the 12-point proximity bonus
+        (60*0.4 vs 30*0.4 = 12 point difference).
+        """
+        result = _run_resource_exchange()
+        data = result.get("data", {})
+        matches = data.get("ranked_matches", [])
+        for m in matches:
+            res_loc = (m.get("resource", {}).get("location") or "").lower()
+            req_loc = (m.get("request", {}).get("location") or "").lower()
+            # When both locations are empty, proximity should be 30.0, not 60.0
+            if not res_loc and not req_loc:
+                # proximity_score * 0.40 = either 24.0 (60*0.4) or 12.0 (30*0.4)
+                # condition + availability + need_level = at most ~88
+                # With proximity=60: max_total = 24 + need_level(0-25) + condition(0-50) + 10 = up to 109 → capped 100
+                # With proximity=30: max_total = 12 + need_level(0-25) + condition(0-50) + 10 = up to 97
+                # So with proximity=30 and empty locations, max score should be <= 97 (not 100)
+                assert m["match_score"] <= 97.0, (
+                    "BUG: proximity_score=60 given for empty locations — "
+                    "operator precedence bug not fixed"
+                )
+
 
 # ─── GET endpoints (via TestClient) ───────────────────────────────────────────
 

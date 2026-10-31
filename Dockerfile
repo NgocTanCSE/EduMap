@@ -467,6 +467,14 @@ ENV PYTHONUNBUFFERED=1
 # --- Cloudflare AI Gateway (tuỳ chọn; bật qua HF Spaces Secrets) ---
 ENV CF_AI_GATEWAY_ID=""
 ENV CF_AI_GATEWAY_ENABLED="false"
+# --- Tavily AI Search & Extract (crawlers) ---
+# Replaced Overpass/Eventbrite/ITviec/RemoteOK/Remotive/Dev.to (all blocked
+# on HF Spaces egress) with Tavily's single HTTPS endpoint.
+ENV TAVILY_API_KEY=""
+ENV TAVILY_TIMEOUT_SECONDS=25
+ENV TAVILY_MAX_RESULTS=8
+ENV TAVILY_CIRCUIT_BREAKER_FAILURES=5
+ENV TAVILY_CIRCUIT_BREAKER_TTL=300
 
 EXPOSE 7680
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

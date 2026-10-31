@@ -2,205 +2,163 @@
 """
 Social crawler -> `posts` table (tag='social').
 
-Multi-source. True social-platform crawling wherever a public token/keys are
-provided (via env); otherwise always yields fresh, public content:
+Replaces ALL HTTP-based sources (Facebook Graph API, Instagram Basic Display,
+LinkedIn, X/Twitter, Reddit, Hacker News) which are **blocked on Hugging
+Face Spaces free tier** (egress port blackhole) with Tavily AI search +
+extract.
 
-  Token-gated (env, optional — gracefully skipped when missing/blocked):
-    FB_TOKEN  -> Facebook Graph API public page/posts (v18.0)
-    IG_TOKEN  -> Instagram Basic Display recent media
-    LI_TOKEN  -> LinkedIn (extension point — LinkedIn gating is strict; left
-                  as a placeholder that degrades to [])
-    TWITTER_BEARER_TOKEN -> X / Twitter v2 recent search (community keywords)
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to Facebook, Instagram,
+  LinkedIn, Twitter, Reddit and HN APIs — all blocked/unreliable at HF egress.
+  This version uses a single Tavily API call (https://api.tavily.com —
+  reachable from HF).
 
-  Always-on public sources (NO key, rate-limit friendly):
-    Reddit public JSON API — r/Vietnam + r/education + r/AskAcademia,
-      cursor-paginated (up to 3 pages/subreddit via `after`), deduped.
-    Hacker News public JSON API — fallback when ALL platforms yield 0 rows.
+  Social-platform tokens (FB_TOKEN, IG_TOKEN, etc.) are still imported for
+  completeness but the Tavily path is the primary one. When TAVILY_API_KEY
+  is absent, the crawler returns 0 rows (graceful), never crashes.
 
-This keeps the nightly run healthy (no crash, always yields data) while still
-crawling the real social platforms whenever credentials are configured.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
+  - Optional (if Tavily keyless yields nothing): HN public API fallback
+
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows (or HN fallback), logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
-import os, re, sys, time
+import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, Jsonb, make_session, fetch_json, fetch_html, fetch_og_image
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import crawl_years, LOCATION_LAYERS
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import clean_text, parse_tavily_posts
 
+# Social-platform tokens (kept for completeness; Tavily is the primary path).
 FB_TOKEN = os.getenv("FB_TOKEN")
 IG_TOKEN = os.getenv("IG_TOKEN")
 LI_TOKEN = os.getenv("LI_TOKEN")
 TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
-REDDIT_LIMIT = 50      # Reddit .json limit (max 100)
-REDDIT_PAGES = 3       # cursor pages per subreddit
+
+# --- Source: Tavily Vietnamese social/community content ---
+_TAVILY_SOCIAL_QUERIES = [
+    # Đồng Nai
+    "cộng đồng giáo dục Đồng Nai",
+    "mạng xã hội giáo dục Biên Hòa",
+    # miền Nam
+    "cộng đồng sinh viên TP Hồ Chí Minh",
+    "cộng đồng developer miền Nam",
+    # Việt Nam
+    "cộng đồng giáo dục Việt Nam 2025",
+    "bài viết giáo dục nổi tiếng",
+    "cộng đồng học thuật Việt Nam",
+    "xã hội giáo dục công nghệ thông minh",
+    # keyword-focussed
+    "chia sẻ kinh nghiệm học tập",
+    "cộng đồng học lập trình Việt Nam",
+    "mạng xã hội giáo dục học thuật",
+    "cộng đồng nghiên cứu khoa học",
+]
+
+TARGET = 120  # soft cap
+
+# HN fallback (public API — may or may not be reachable from HF).
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
+
 
 def clean(t):
     return re.sub(r"<[^>]+>", " ", t or "").replace("\n", " ").strip()[:3000]
 
-def _try_facebook():
-    if not FB_TOKEN:
-        return []
-    try:
-        s = make_session()
-        # Public Page posts (replace PAGE_ID with a known page, e.g. a VN edu page)
-        page_id = os.getenv("FB_PAGE_ID", "facebook")
-        data = fetch_json(s, f"https://graph.facebook.com/v18.0/{page_id}/posts?access_token={FB_TOKEN}&limit=100&fields=message,created_time,permalink_url,attachments,picture")
-        out = []
-        for p in (data or {}).get("data", []):
-            # Extract image from attachments or picture field
-            media_urls = []
-            pic = p.get("picture")
-            if pic and isinstance(pic, str) and pic.startswith("http"):
-                media_urls.append(pic)
-            atts = p.get("attachments")
-            if isinstance(atts, dict):
-                for att in atts.get("data", []):
-                    mu = att.get("media_url")
-                    if mu and isinstance(mu, str) and mu.startswith("http"):
-                        media_urls.append(mu)
-            out.append({
-                "title": (p.get("message") or "")[:60],
-                "source": "facebook",
-                "content": clean(p.get("message") or ""),
-                "media_urls": Jsonb(media_urls if media_urls else ([p.get("permalink_url")] if p.get("permalink_url") else [])),
-                "tags": Jsonb(["social", "facebook"]),
-                "like_count": 0, "comment_count": 0, "status": "active", "pinned": False,
-            })
-        return out
-    except Exception as e:
-        print(f"  [social] FB error: {e}")
-        return []
 
-def _try_instagram():
-    if not IG_TOKEN:
-        return []
+def _fallback_hn(n=80):
+    """HN public API fallback — only when Tavily yields nothing AND HN is reachable."""
+    # Uses urllib (stdlib) to avoid requests dependency in cron env.
+    import urllib.request, json as _json
+    rows = []
     try:
-        s = make_session()
-        data = fetch_json(s, f"https://graph.instagram.com/me/media?access_token={IG_TOKEN}&fields=id,caption,media_url,timestamp&limit=50")
-        out = []
-        for m in (data or {}).get("data", []):
-            out.append({
-                "title": (m.get("caption") or "")[:60],
-                "source": "instagram",
-                "content": clean(m.get("caption") or ""),
-                "media_urls": Jsonb([m.get("media_url")] if m.get("media_url") else []),
-                "tags": Jsonb(["social", "instagram"]),
-                "like_count": 0, "comment_count": 0, "status": "active", "pinned": False,
-            })
-        return out
+        req = urllib.request.Request(HN_TOP, headers={"User-Agent": "EduMap/1.0"})
+        raw_ids = urllib.request.urlopen(req, timeout=20).read().decode("utf-8")
+        ids = _json.loads(raw_ids)
+        if not isinstance(ids, list):
+            return rows
     except Exception as e:
-        print(f"  [social] IG error: {e}")
-        return []
-
-def _try_linkedin():
-    if not LI_TOKEN:
-        return []
-    try:
-        # LinkedIn requires authenticated access to public share data; placeholder.
-        s = make_session()
-        data = fetch_json(s, f"https://api.linkedin.com/v2/shares?q=owners&oauth2_access_token={LI_TOKEN}", timeout=15)
-        return []  # requires owner context; left as extension point
-    except Exception as e:
-        print(f"  [social] LinkedIn error: {e}")
-        return []
-
-def _fallback_hn(n=100):
-    s = make_session()
-    ids = fetch_json(s, HN_TOP)
-    out = []
-    if not ids or not isinstance(ids, list):
-        return out
+        print(f"  [social] HN fallback unreachable: {e}")
+        return rows
     for iid in ids[:n]:
-        item = fetch_json(s, HN_ITEM.format(id=iid), timeout=15)
-        if item and item.get("type") == "story" and item.get("title"):
-            story_url = item.get("url")
-            media_urls = []
-            # If the story links externally, try to fetch og:image (real post image, not just the URL)
-            if story_url:
-                og = fetch_og_image(s, story_url, timeout=8)
-                if og:
-                    media_urls.append(og)
-                else:
-                    media_urls.append(story_url)  # fallback to the link itself
-            out.append({
-                "title": (item["title"])[:255],
-                "source": "hackernews_social",
-                "content": clean(item.get("text") or item.get("url") or ""),
-                "media_urls": Jsonb(media_urls),
-                "tags": Jsonb(["social", "hackernews"]),
-                "like_count": int(item.get("score") or 0),
-                "comment_count": int(item.get("descendants") or 0),
-                "status": "active",
-                "pinned": False,
-            })
+        try:
+            req = urllib.request.Request(HN_ITEM.format(id=iid), headers={"User-Agent": "EduMap/1.0"})
+            item = _json.loads(urllib.request.urlopen(req, timeout=15).read().decode("utf-8"))
+        except Exception:
+            continue
+        if not item or item.get("type") != "story" or not item.get("title"):
+            continue
+        rows.append({
+            "title": (item["title"])[:255],
+            "source": "hackernews_social",
+            "content": clean(item.get("text") or item.get("url") or ""),
+            "media_urls": Jsonb([]),
+            "tags": Jsonb(["social", "hackernews"]),
+            "like_count": int(item.get("score") or 0),
+            "comment_count": int(item.get("descendants") or 0),
+            "status": "active",
+            "pinned": False,
+        })
         time.sleep(0.1)
-    return out
-
-def _try_reddit():
-    """Source: Reddit public JSON API (NO key). Cursor-paginated.
-
-    Subreddits chosen for education/community content in the VN context.
-    Each subreddit is walked up to REDDIT_PAGES pages via the `after` cursor;
-    we stop early when a page returns no `after` (no more results).
-    """
-    subs = ["Vietnam", "education", "AskAcademia"]
-    out = []
-    try:
-        s = make_session()
-        for sub in subs:
-            after = None
-            for _ in range(REDDIT_PAGES):
-                url = f"https://www.reddit.com/r/{sub}/top.json?limit={REDDIT_LIMIT}"
-                if after:
-                    url += f"&after={after}"
-                data = fetch_json(s, url, timeout=20)
-                if not data:
-                    print(f"  [social] reddit r/{sub} unreachable")
-                    break
-                children = (data.get("data") or {}).get("children", [])
-                if not children:
-                    break
-                for c in children:
-                    d = c.get("data") or {}
-                    title = (d.get("title") or "").strip()
-                    if not title or title.lower() in ("see all", "xem tất cả"):
-                        continue
-                    media = []
-                    imgs = (d.get("preview") or {}).get("images", [])
-                    if imgs:
-                        src = (imgs[0].get("source") or {}).get("url")
-                        if src:
-                            media.append(src.replace("&#39;", "'").replace("&amp;", "&"))
-                    link = d.get("permalink") or d.get("url") or ""
-                    if not media and link.startswith("http"):
-                        media.append(link)
-                    out.append({
-                        "title": title[:255],
-                        "source": f"reddit_{sub}",
-                        "content": clean(d.get("selftext") or ""),
-                        "media_urls": Jsonb(media),
-                        "tags": Jsonb(["social", "reddit", sub]),
-                        "like_count": int(d.get("score") or 0),
-                        "comment_count": int(d.get("num_comments") or 0),
-                        "status": "active",
-                        "pinned": bool(d.get("stickied")),
-                    })
-                after = (data.get("data") or {}).get("after")
-                if not after:
-                    break
-                time.sleep(0.2)
-    except Exception as e:
-        print(f"  [social] Reddit error: {e}")
-    return out
+    return rows
 
 
 def crawl():
-    print(f"  [social] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
-    rows = _try_facebook() + _try_instagram() + _try_linkedin() + _try_reddit()
-    if not rows:
-        print("  [social] No social tokens / platforms blocked -> falling back to HN public API")
-        rows = _fallback_hn(120)
+    """Crawl Vietnamese social/community content via Tavily.
+
+    Replaces FB/IG/LinkedIn/Twitter/Reddit/HN (all blocked on HF Spaces egress).
+    Falls back to HN public API when Tavily yields nothing.
+    Returns a flat list of posts row dicts (tag=social), deduped by (title, source).
+    """
+    by_key = {}
+    client = TavilyClient()
+    tavily_ok = client.is_configured()
+    if not tavily_ok:
+        print("  [social] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [social] Thử chế độ keyless của Tavily...")
+
+    if tavily_ok or True:  # Attempt keyless mode regardless.
+        for q in _TAVILY_SOCIAL_QUERIES:
+            if len(by_key) >= TARGET:
+                break
+            try:
+                results = tavily_search_and_extract(
+                    q,
+                    search_depth="basic",
+                    max_results=8,
+                    extract_top_k=5,
+                    extract_depth="basic",
+                )
+                print(f"  [social] [tavily] '{q[:50]}...' → {len(results)} results")
+                parsed = parse_tavily_posts(results, post_tag="social", source_name="tavily_social")
+                for post in parsed:
+                    key = (post["title"], post["source"])
+                    if key not in by_key:
+                        by_key[key] = post
+            except Exception as e:
+                print(f"  [social] [warn] Tavily query failed '{q[:50]}...': {e}")
+                continue
+
+    # HN fallback only when Tavily yielded nothing AND no social tokens.
+    if not by_key and not (FB_TOKEN or IG_TOKEN or LI_TOKEN or TWITTER_BEARER):
+        print("  [social] Tavily yielded 0 rows, and no social tokens — falling back to HN public API")
+        for row in _fallback_hn(80):
+            by_key[(row["title"], row["source"])] = row
+
+    rows = list(by_key.values())
+    if len(rows) > TARGET:
+        rows = rows[:TARGET]
+    print(f"  [social] collected {len(rows)} distinct posts")
     return rows
+
 
 def run():
     print("social_crawler: start")
@@ -208,14 +166,17 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
+        # Ensure posts table has location_scope column.
+        ensure_column(conn, "posts", "image_url", "TEXT")
+        ensure_column(conn, "posts", "location_scope", "TEXT")
         if rows:
-            from db_utils import upsert_rows
             r = upsert_rows(conn, "posts", rows, ["title", "source"])
             print(f"social_crawler: {r} (-> posts tag=social)")
         else:
-            print("social_crawler: 0 rows")
+            print("social_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     run()

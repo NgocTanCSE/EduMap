@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
+import { CareerTabBar } from '@/components/career/CareerTabBar';
 
 export default function CareerRoadmapPage() {
   const [roadmap, setRoadmap] = useState<any>(null);
@@ -63,8 +64,9 @@ export default function CareerRoadmapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-card text-foreground p-8">
-      <div className="w-full mx-auto">
+    <div className="min-h-screen bg-background text-foreground">
+      <CareerTabBar />
+      <div className="w-full mx-auto p-8">
         
         {/* Input Section */}
         <div className="mb-12 p-8 rounded-lg bg-card/50 border border-border">

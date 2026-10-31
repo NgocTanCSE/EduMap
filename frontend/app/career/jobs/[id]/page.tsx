@@ -10,7 +10,8 @@ import {
   ArrowLeft, 
   Send, 
   FileUp,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ export default function JobDetailPage() {
   // Application form state
   const [coverLetter, setCoverLetter] = useState('');
   const [cvFile, setCvFile] = useState<File | null>(null);
+  const [showApplyModal, setShowApplyModal] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -73,6 +75,7 @@ export default function JobDetailPage() {
       });
 
       setApplied(true);
+      setShowApplyModal(false);
       toast.success('Application submitted successfully!');
     } catch (err) {
       toast.error('Failed to submit application. Please try again.');
@@ -149,45 +152,17 @@ export default function JobDetailPage() {
 
             <div className="space-y-6">
                 {!applied ? (
-                    <aside className="bg-card border border-border p-6 rounded-xl space-y-6 sticky top-8">
-                        <h2 className="text-2xl font-semibold text-center">Ready to apply?</h2>
-                        <form onSubmit={handleApply} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Cover Letter (Optional)</label>
-                                <textarea 
-                                    placeholder="Introduce yourself briefly..."
-                                    className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[120px]"
-                                    value={coverLetter}
-                                    onChange={e => setCoverLetter(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Upload CV (PDF)</label>
-                                <div className="relative group">
-                                    <input 
-                                        type="file" 
-                                        accept=".pdf"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                        onChange={e => setCvFile(e.target.files?.[0] || null)}
-                                    />
-                                    <div className="bg-card/40 border border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 group-hover:border-primary/50 transition-all">
-                                        <FileUp className="text-muted-foreground group-hover:text-primary" />
-                                        <span className="text-xs text-muted-foreground/60">
-                                            {cvFile ? cvFile.name : "Select your CV file"}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button 
-                                type="submit" 
-                                disabled={applying}
-                                className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
-                            >
-                                {applying ? "Submitting..." : <><Send size={18} /> Send Application</>}
-                            </button>
-                        </form>
+                    <aside className="bg-card border border-border p-8 rounded-xl space-y-6 text-center sticky top-8">
+                        <h2 className="text-2xl font-semibold">Ứng tuyển ngay</h2>
+                        <p className="text-xs text-muted-foreground/60">
+                            Gửi hồ sơ ứng tuyển cùng CV và thư giới thiệu.
+                        </p>
+                        <button
+                            onClick={() => setShowApplyModal(true)}
+                            className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
+                        >
+                            <Send size={18} /> Nộp hồ sơ ứng tuyển
+                        </button>
                     </aside>
                 ) : (
                     <aside className="bg-primary/10 border border-accent/30 p-8 rounded-xl space-y-4 text-center">
@@ -211,6 +186,68 @@ export default function JobDetailPage() {
                 </div>
             </div>
         </div>
+
+        {/* Apply Modal */}
+        {showApplyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">
+              <button
+                onClick={() => setShowApplyModal(false)}
+                className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                <Send className="text-primary/80 w-5 h-5" /> Nộp hồ sơ ứng tuyển
+              </h3>
+              <p className="text-sm text-primary/70 mb-6 font-bold">{job.title}</p>
+
+              <form onSubmit={handleApply} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
+                    Thư giới thiệu (Cover Letter)
+                  </label>
+                  <textarea
+                    placeholder="Introduce yourself briefly..."
+                    className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[120px]"
+                    value={coverLetter}
+                    onChange={e => setCoverLetter(e.target.value)}
+                    disabled={applying}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
+                    Upload CV (PDF)
+                  </label>
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      onChange={e => setCvFile(e.target.files?.[0] || null)}
+                      disabled={applying}
+                    />
+                    <div className="bg-card/40 border border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 group-hover:border-primary/50 transition-all">
+                      <FileUp className="text-muted-foreground group-hover:text-primary" />
+                      <span className="text-xs text-muted-foreground/60">
+                        {cvFile ? cvFile.name : "Select your CV file"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={applying}
+                  className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
+                >
+                  {applying ? "Submitting..." : <><Send size={18} /> Send Application</>}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

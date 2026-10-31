@@ -2,54 +2,80 @@
 """
 Scholarships crawler -> `scholarships` table (title UNIQUE).
 
-Multiple sources, ALL paginated (crawl nhiều trang, không chỉ 1-2):
+Replaces ALL HTTP-based sources (Eventbrite, Dev.to) which are
+**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
+Tavily AI search + extract.
 
-  1. Eventbrite public search (server-side HTML, NO key) — multiple keyword
-     queries walked across PAGES pages each, deduped globally by title so the
-     same scholarship from two query angles is only upserted once.
-  2. Dev.to public API (JSON, NO key, rate-limit friendly) — articles tagged
-     scholarship/grant/education/fellowship, per_page=20, paginated (page=N),
-     stopped at the first page yielding fewer than 20 (last partial page).
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to Eventbrite and Dev.to —
+  both blocked at HF egress.  This version uses a single Tavily API call
+  (https://api.tavily.com — reachable from HF).
 
-Card-aware extraction (extract_eventbrite_cards) so image_url/date belong to
-the correct card — never a global site index. Idempotent upsert by title.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
 
-Graceful: any blocked/unreachable source/query/page -> 0 rows for that slice,
-no crash (the whole run degrades to whatever sources are alive).
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
-                      fetch_json, crawl_pages, extract_eventbrite_cards, ensure_column)
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import parse_date_or_default, clean_text, extract_deadline
 
 NOW = datetime.datetime.utcnow()
 # 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
+_DEFAULT_DEADLINE = NOW + datetime.timedelta(days=30)
 
-# --- Source 1: Eventbrite (HTML, multiple keyword queries) ---
-QUERIES = [
-    "scholarship", "education", "student", "grant", "learning",
-    "training", "school", "university", "course", "tuition",
-    "financial aid", "fund",
+# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
+# VN → ĐNA) plus keyword-focussed.
+_TAVILY_SCHOLARSHIP_QUERIES = [
+    # Đồng Nai
+    "học bổng sinh viên Đồng Nai 2025",
+    "học bổng xuất sắc Đại học Bà Rịa",
+    # miền Nam
+    "học bổng du học TP Hồ Chí Minh",
+    "học bổng giáo dục miền Nam 2025",
+    # Việt Nam
+    "học bổng du học Việt Nam 2025",
+    "học bổng xuất sắc quốc tế Việt Nam",
+    "học bổng tài chính đại học 2025",
+    # keyword-focussed
+    "học bổng toán học Việt Nam",
+    "học bổng lập trình viên đại học",
+    "học bổng nghiên cứu khoa học",
+    "học bổng học thuật Việt Nam",
+    "học bổng bổng du học Nhật Hàn Nga",
+    "học bổng Fulbright Vietnam",
+    "học bổng liên quốc gia",
 ]
-PAGES = 15  # per Eventbrite query
-BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
-
-# --- Source 2: Dev.to public API (JSON, no key) ---
-DEVTO_TAGS = ["scholarship", "grant", "education", "fellowship"]
-DEVTO_PER_PAGE = 20
-DEVTO_PAGES = 6
 
 TARGET = 150  # soft cap on distinct scholarships
 
 
+def _location_layer(location_str):
+    if not location_str:
+        return "unscoped"
+    for layer in LOCATION_LAYERS:
+        if location_matches(location_str, layer["keywords"]):
+            return layer["label"]
+    return "unscoped"
+
+
 def parse_date(s):
-    """Best-effort parse of a single date token into a datetime."""
+    """Best-effort parse of a date token into a datetime."""
     if not s:
         return None
     s = s.strip()
@@ -61,19 +87,6 @@ def parse_date(s):
     return None
 
 
-# --------------------------------------------------------------------------- #
-# Source 1: Eventbrite HTML
-# --------------------------------------------------------------------------- #
-def _location_layer(location_str):
-    """Classify a posting's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA)."""
-    if not location_str:
-        return "unscoped"
-    for layer in LOCATION_LAYERS:
-        if location_matches(location_str, layer["keywords"]):
-            return layer["label"]
-    return "unscoped"
-
-
 def _scope_deadline(d):
     """Default deadline to end-of-crawl-year when the raw date falls outside the
     2-year window or is missing, keeping the scholarship visible."""
@@ -82,128 +95,87 @@ def _scope_deadline(d):
     return NOW + datetime.timedelta(days=30)
 
 
-def _eb_card_to_row(c, query=None):
-    """Map one extract_eventbrite_cards() card to a scholarships row dict."""
-    title = (c.get("title") or "").strip()
-    if not title or title.lower() in ("see all", "xem tất cả", "see all  "):
+def _scholarship_row(title, description, provider, deadline=None, image_url=None,
+                     apply_url="", source_url="", query=None):
+    """Map one Tavily search result to a scholarships row dict."""
+    title = (title or "").strip()
+    if not title:
         return None
-    suffix = f" (tìm theo '{query}')" if query else ""
+    desc = f"Học bổng tìm thấy qua Tavily" + (f" (tìm theo '{query}')" if query else "") + f". {clean_text(description)[:200]}"
+    deadline_dt = parse_date(deadline) if deadline else None
+    if not deadline_dt:
+        # Try extracting a date from the description.
+        dl_str = extract_deadline(clean_text(description) or "")
+        if dl_str:
+            deadline_dt = parse_date(dl_str)
+    if not deadline_dt or not in_year_scope(deadline_dt.date().isoformat()):
+        deadline_dt = _DEFAULT_DEADLINE
     return {
         "title": title[:255],
-        "description": (
-            f"Học bổng/giáo dục từ Eventbrite{suffix}. "
-            f"Chi tiết: https://www.eventbrite.com{c.get('href', '')}"
-        ),
-        "provider": "Eventbrite / cộng đồng",
-        "location": None,                 # geography(Point); left NULL (no geocode)
-        "location_scope": "vietnam",      # Eventbrite /d/vietnam scope
+        "description": desc,
+        "provider": (provider or "Cộng đồng")[:255],
+        "location": None,
+        "location_scope": "vietnam",
         "value_amount": None,
-        "deadline": _scope_deadline(parse_date(c.get("date"))),
-        "image_url": c.get("img"),        # per-card image, matched to the correct card
-        "eligibility_criteria": Jsonb({
-            "source": query,
-            "url": ("https://www.eventbrite.com" + c["href"]) if c.get("href") else None,
-        }),
-        "apply_url": ("https://www.eventbrite.com" + c["href"]) if c.get("href") else BASE,
+        "deadline": deadline_dt,
+        "image_url": image_url,
+        "eligibility_criteria": Jsonb({"source": source_url, "query": query}),
+        "apply_url": apply_url or source_url,
         "status": "active",
     }
 
 
-def _eb_items(html, query=None):
-    """Parse one Eventbrite listing page -> list of row dicts (deduped by title)."""
-    if not html:
-        return []
-    out = {}
-    for c in extract_eventbrite_cards(html):
-        row = _eb_card_to_row(c, query)
-        if row and row["title"] not in out:
-            out[row["title"]] = row
-    return list(out.values())
-
-
-# --------------------------------------------------------------------------- #
-# Source 2: Dev.to JSON API
-# --------------------------------------------------------------------------- #
-def _devto_page_items(json_data, tag=None):
-    """Turn a Dev.to article list (one page) into scholarships row dicts."""
-    out = {}
-    if not isinstance(json_data, list):
-        return []
-    for a in json_data:
-        title = (a.get("title") or "").strip()
-        if not title or title in out:
-            continue
-        url = a.get("url") or ""
-        desc = (a.get("description") or "").strip()
-        out[title] = {
-            "title": title[:255],
-            "description": (
-                f"Học bổng/giáo dục từ Dev.to{(' (tag:' + tag + ')') if tag else ''}. {desc[:200]}"
-            ),
-            "provider": "Dev.to",
-            "location": None,
-            "location_scope": "unscoped",
-            "value_amount": None,
-            "deadline": _scope_deadline(NOW),
-            "image_url": a.get("cover_image") or None,
-            "eligibility_criteria": Jsonb({
-                "source": "devto", "tag": tag,
-                "url": url, "tags": a.get("tag_list", []),
-            }),
-            "apply_url": url,
-            "status": "active",
-        }
-    return list(out.values())
-
-
-# --------------------------------------------------------------------------- #
-# Orchestrator
-# --------------------------------------------------------------------------- #
 def crawl():
-    s = make_session()
+    """Crawl Vietnamese scholarships via Tavily Search + Extract.
+
+    Replaces Eventbrite + Dev.to (both blocked on HF Spaces egress).
+    Returns a flat list of scholarship row dicts, deduped by title.
+    """
     by_title = {}
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [scholarships] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [scholarships] Thử chế độ keyless của Tavily...")
 
-    # 1) Eventbrite — multi-query, multi-page
-    for q in QUERIES:
+    for q in _TAVILY_SCHOLARSHIP_QUERIES:
         if len(by_title) >= TARGET:
             break
-        page_items = crawl_pages(
-            s, lambda p, q=q: f"{BASE}?q={q}&page={p}", fetch_html,
-            lambda h: _eb_items(h, q), key=("title",),
-            max_pages=PAGES, stop_when_empty=True, sleep=0.6,
-            label=f'scholarships(eb:{q})')
-        for it in page_items:
-            if it["title"] not in by_title:
-                by_title[it["title"]] = it
-        if len(by_title) >= TARGET:
-            break
-
-    # 2) Dev.to — multi-tag, multi-page (only if still under target)
-    if len(by_title) < TARGET:
-        for tag in DEVTO_TAGS:
-            if len(by_title) >= TARGET:
-                break
-            tag_items = crawl_pages(
-                s,
-                lambda p, tag=tag: (
-                    f"https://dev.to/api/articles?tag={tag}"
-                    f"&per_page={DEVTO_PER_PAGE}&page={p}"
-                ),
-                fetch_json,
-                lambda d: _devto_page_items(d, tag),
-                key=("title",),
-                max_pages=DEVTO_PAGES, stop_when_empty=True,
-                stop_when_fewer_than=DEVTO_PER_PAGE, sleep=0.4,
-                label=f'scholarships(devto:{tag})')
-            for it in tag_items:
-                if it["title"] not in by_title:
-                    by_title[it["title"]] = it
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=10,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            print(f"  [scholarships] [tavily] '{q[:50]}...' → {len(results)} results")
+            for r in results:
+                title = clean_text(r.get("title", ""))[:255]
+                if not title:
+                    continue
+                # Extract provider name from content (e.g. "trường Đại học Bách Khoa").
+                provider = None
+                blob = r.get("raw_content", "") or r.get("content", "") or ""
+                m = re.search(r"(trường\s+\S[^,\n.;]{2,60}|trường\s+đại\s+học\s+\S[^,\n.;]{2,60})", blob, re.I)
+                if m:
+                    provider = clean_text(m.group(1))[:255]
+                if title not in by_title:
+                    by_title[title] = _scholarship_row(
+                        title=title,
+                        description=blob,
+                        provider=provider,
+                        apply_url=r.get("url", ""),
+                        source_url=r.get("url", ""),
+                        query=q,
+                    )
+        except Exception as e:
+            print(f"  [scholarships] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
     rows = list(by_title.values())
     if len(rows) > TARGET:
         rows = rows[:TARGET]
-    print(f"  [scholarships] collected {len(rows)} distinct "
-          f"(Eventbrite + Dev.to) — target cap {TARGET}")
+    print(f"  [scholarships] collected {len(rows)} distinct scholarships")
     return rows
 
 
@@ -219,7 +191,7 @@ def run():
             r = upsert_rows(conn, "scholarships", rows, ["title"])
             print(f"scholarships_crawler: {r}")
         else:
-            print("scholarships_crawler: 0 rows (sources blocked/unreachable — graceful)")
+            print("scholarships_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
 

@@ -5,6 +5,7 @@ import { Search, MapPin, Briefcase, Building2, ChevronRight } from 'lucide-react
 import Link from 'next/link';
 import { CardSkeleton } from '../../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { CareerTabBar } from '@/components/career/CareerTabBar';
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -46,14 +47,16 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
-      <div className="w-full mx-auto space-y-8">
-        <header className="space-y-4">
-          <h1 className="text-2xl font-bold text-primary">
-            Career Opportunities
-          </h1>
-          <p className="text-muted-foreground/60">Discover jobs and courses tailored to your professional growth.</p>
-        </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <CareerTabBar />
+      <div className="px-4 py-6 sm:px-6 sm:py-8">
+        <div className="w-full mx-auto space-y-8">
+          <header className="space-y-4">
+            <h1 className="text-2xl font-bold text-primary">
+              Career Opportunities
+            </h1>
+            <p className="text-muted-foreground/60">Discover jobs and courses tailored to your professional growth.</p>
+          </header>
 
         {/* Search & Filter Bar */}
         <form onSubmit={handleSearch} className="bg-card/50 p-4 rounded-lg border border-border flex flex-wrap gap-4 items-center">
@@ -141,6 +144,7 @@ export default function JobsPage() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

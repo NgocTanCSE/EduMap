@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/src/components/ui/Skeleton";
 import { analyticsService } from "@/reporting/services/analytics.service";
 import { cn } from "@/lib/utils";
+import { CareerTabBar } from "@/components/career/CareerTabBar";
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -838,7 +839,9 @@ export default function AITrendsPage() {
   }
 
   return (
-    <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
+    <>
+      <CareerTabBar />
+      <main className="w-full px-4 py-6 sm:px-6 sm:py-8 space-y-6">
       <SectionHeader
         title="Xu hướng thị trường"
         subtitle="Diễn biến giáo dục 2022–2024 và nhu cầu kỹ năng từ các tin tuyển dụng đang hoạt động."
@@ -1306,5 +1309,6 @@ export default function AITrendsPage() {
         </>
       )}
     </main>
+    </>
   );
 }

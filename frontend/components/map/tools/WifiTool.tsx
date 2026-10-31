@@ -2,24 +2,42 @@
  * Wifi Tool — Wifi hotspot layer on the unified Map Hub.
  *
  * Previously a standalone page at `/wifi`; now the `wifi` tab on `/map`.
- * Fetches Wifi locations from `/api/wifi/locations` and renders markers on
- * the shared InteractiveMap.
+ * Fetches Wifi locations from `/api/wifi/locations` and renders markers
+ * on the shared InteractiveMap.
  *
- * Panel: toggle layer, nearby search, quick stats.
- * Overlay: Wifi markers (color-coded: free=green, paid=orange), signal
- * strength circles, and click-to-detail popups.
+ * Panel: toggle layer, nearby search, quick stats, free/paid breakdown.
+ * Overlay: signal range circles (enhanced rendering). The star-shaped pin
+ * markers are owned by FeaturedPinsLayer and hidden when this tool is active;
+ * the overlay here only renders signal-range circles + a subtle ring marker
+ * so there is zero duplication.
  */
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Wifi, MapPin, Navigation, Eye, EyeOff, RefreshCw, AlertCircle } from "lucide-react";
+import { Wifi, MapPin, Navigation, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
-import { Marker, Popup, Circle, useMap } from "react-leaflet";
+import { Marker, Popup, Circle, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
+import { createPinIcon, type PinBadge } from "./PinTheme";
+
+interface WifiLocation {
+  id: string;
+  name: string;
+  ssid?: string;
+  description?: string;
+  address?: string;
+  is_free?: boolean;
+  is_verified?: boolean;
+  speedLabel?: string;
+  lat?: number;
+  lng?: number;
+  location?: { type: string; coordinates: [number, number] };
+  coordinates?: [number, number];
+}
 
 /**
  * Derive display-friendly wifi metadata from the real row data.
@@ -33,55 +51,55 @@ import type { ToolPanelProps, ToolOverlayProps } from "./types";
  * name/description seed text ("Free Wifi … miễn phí", "cáp quang siêu tốc",
  * "tốc độ cao", "ổn định"), so we derive an honest free/paid flag and a
  * qualitative speed tier from those strings instead of inventing numbers.
- * See backend WifiService (filter now `category_id = 6`, not `description LIKE '%wifi%'`).
  */
-function deriveWifiMeta(loc: any): { isFree: boolean; speedLabel: string } {
+function deriveWifiMeta(loc: WifiLocation): { isFree: boolean; speedLabel: string } {
   const text = `${loc?.name || ""} ${loc?.description || ""}`.toLowerCase();
   const isFree = /free|miễn phí/i.test(text);
-  let speedLabel = "Ổn định"; // default qualitative tier when description is silent
+  let speedLabel = "Ổn định";
   if (/cáp quang|fiber|siêu tốc/i.test(text)) speedLabel = "Rất nhanh";
   else if (/tốc độ cao|high-speed/i.test(text)) speedLabel = "Nhanh";
   return { isFree, speedLabel };
 }
 
-function withWifiMeta(locs: any[]): any[] {
+function withWifiMeta(locs: WifiLocation[]): WifiLocation[] {
   return (Array.isArray(locs) ? locs : []).map((w) => {
     const meta = deriveWifiMeta(w);
     return { ...w, is_free: meta.isFree, speedLabel: meta.speedLabel };
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const _wifiIcon = typeof window !== "undefined" ? L.icon({
-  iconUrl: "data:image/svg+xml;base64," + btoa("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 1C7.03 1 3 5.03 3 10c0 4.97 4 9 9 9s9-4.03 9-9S16.97 1 12 1zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z'/><path d='M12 5c-2.76 0-5 2.24-5 5h2c0-1.66 1.34-3 3-3s3 1.34 3 3c0 1.03-.38 1.97-1.03 2.67l1.41 1.42C17.12 10.35 19 8.32 19 6c0-1.1-.19-2.16-.53-3.14L18.17 4.07C17.53 5.41 16.42 6.41 15.07 6.93.67 6.42 0 7.16 0 8c0 3.31 2.69 6 6 6h1v-2H6c-2.76 0-5-2.24-5-5S3.24 2 6 2c1.66 0 3 1.34 3 3v1h2V5c0-2.76-2.24-5-5-5S1 2.24 1 5v1h2v1H3c-.55 0-1 .45-1 1v1h2v2H2c-.55 0-1 .45-1 1v1.17C1 10.61 1 12.31 2 14c1.1 2.07 3.13 3.57 5.5 3.9V18h5v-2.1c2.37-.33 4.5-1.83 5.5-4.15.36-.72.6-1.51.6-2.35 0-1.66-.81-3.11-2.05-4.03-.84.53-1.83.83-2.95.68-.02.08-.05.16-.05.24v1H9V8c0-.55-.45-1-1-1s-1 .45-1 1v1.17H6.05c.93-.33 1.79-.93 2.47-1.71L9 7.57V6.2c-.3-.27-.52-.65-.66-1.1-.51.43-.9 1-1.19 1.62-.14-.07-.29-.12-.45-.12-.36-.11-.74-.2-1.11-.2-.17 0-.33.01-.5.03C4.78 7.16 4 6.43 4 5.5 4 4.67 4.67 4 5.54 4c.63 0 1.19.39 1.42 1 .39-2 .85-3.91 1.42-5.78C6.95 1.54 6 2.67 6 4c0 2.21 1.79 4 4 4l1 4 1-4c2.21 0 4-1.79 4-4 0-1.46-1.12-2.68-2.56-2.95.57 1.87 1.03 3.78 1.27 5.74.44-.15.87-.29 1.31-.29.55 0 1.08.12 1.56.33Z' fill='%23ffffff'/></svg>"),
-  iconSize: [26, 26],
-  iconAnchor: [13, 26],
-  popupAnchor: [0, -28],
-}) : L.divIcon({
-  html: "<div style='width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:#10b981;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.3)'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff' width='14' height='14'><path d='M12 1C7.03 1 3 5.03 3 10c0 4.97 4 9 9 9s9-4.03 9-9S16.97 1 12 1zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z'/><path d='M12 5c-2.76 0-5 2.24-5 5h2c0-1.66 1.34-3 3-3s3 1.34 3 3c0 1.03-.38 1.97-1.03 2.67l1.41 1.42C17.12 10.35 19 8.32 19 6c0-1.1-.19-2.16-.53-3.14L18.17 4.07C17.53 5.41 16.42 6.41 15.07 6.93.67 6.42 0 7.16 0 8c0 3.31 2.69 6 6 6h1v-2H6c-2.76 0-5-2.24-5-5S3.24 2 6 2c1.66 0 3 1.34 3 3v1h2V5c0-2.76-2.24-5-5-5S1 2.24 1 5v1h2v1H3c-.55 0-1 .45-1 1v1h2v2H2c-.55 0-1 .45-1 1v1.17C1 10.61 1 12.31 2 14c1.1 2.07 3.13 3.57 5.5 3.9V18h5v-2.1c2.37-.33 4.5-1.83 5.5-4.15.36-.72.6-1.51.6-2.35 0-1.66-.81-3.11-2.05-4.03-.84.53-1.83.83-2.95.68-.02.08-.05.16-.05.24v1H9V8c0-.55-.45-1-1-1s-1 .45-1 1v1.17H6.05c.93-.33 1.79-.93 2.47-1.71L9 7.57V6.2c-.3-.27-.52-.65-.66-1.1-.51.43-.9 1-1.19 1.62-.14-.07-.29-.12-.45-.12-.36-.11-.74-.2-1.11-.2-.17 0-.33.01-.5.03C4.78 7.16 4 6.43 4 5.5 4 4.67 4.67 4 5.54 4c.63 0 1.19.39 1.42 1 .39-2 .85-3.91 1.42-5.78C6.95 1.54 6 2.67 6 4c0 2.21 1.79 4 4 4l1 4 1-4c2.21 0 4-1.79 4-4 0-1.46-1.12-2.68-2.56-2.95.57 1.87 1.03 3.78 1.27 5.74.44-.15.87-.29 1.31-.29.55 0 1.08.12 1.56.33Z' fill='%23ffffff'/></svg></div>",
-  iconSize: [26, 26],
-  iconAnchor: [13, 26],
-  popupAnchor: [0, -28],
-});
+/** Resolve the badge for a wifi location. */
+function wifiBadge(loc: WifiLocation): PinBadge | undefined {
+  if (loc.is_verified) return { type: "verified" };
+  if (loc.is_free) return { type: "new" };
+  return undefined;
+}
 
-const WifiTool = {
-  id: "wifi",
-  label: "Wifi",
-  longLabel: "Trạm Wifi",
-  icon: Wifi,
-  description: "Hiển thị trạm Wifi miễn phí và trả tiền trên bản đồ.",
-  longDescription: "Hiển thị trạm Wifi trên bản đồ với phân màu theo tốc độ và loại (miễn phí/trả tiền).",
-  authRequired: false,
-  hideBaseLayers: false,
-  Panel: WifiPanel,
-  Overlay: WifiOverlay,
+// ─── Color / radius helpers ──────────────────────────────────────────────────
+
+const SPEED_COLOR: Record<string, string> = {
+  "Rất nhanh": "#22c55e",  // green — fastest
+  "Nhanh":     "#3b82f6",  // blue
+  "Ổn định":   "#f59e0b",  // amber — default
 };
 
-function WifiPanel({
+const SPEED_RADIUS: Record<string, number> = {
+  "Rất nhanh": 400,
+  "Nhanh":     300,
+  "Ổn định":   200,
+};
+
+const getSpeedColor = (label?: string): string => SPEED_COLOR[label || ""] || "#f59e0b";
+const getSpeedRadius = (label?: string): number => SPEED_RADIUS[label || ""] || 200;
+const getFreeColor = (isFree: boolean): string => isFree ? "#10b981" : "#f59e0b";
+
+// ─── Panel ──────────────────────────────────────────────────────────────────
+
+export function WifiPanel({
   viewport, result, onResult, loading, setLoading, error, setError,
   active, user,
-}: any) {
-  const [wifiLocations, setWifiLocations] = useState<any[]>([]);
+}: ToolPanelProps) {
+  const [wifiLocations, setWifiLocations] = useState<WifiLocation[]>([]);
   const [showLayer, setShowLayer] = useState(true);
   const [nearby, setNearby] = useState(false);
 
@@ -90,7 +108,7 @@ function WifiPanel({
     fetchWifiLocations();
   }, [active]);
 
-  const fetchWifiLocations = async () => {
+  const fetchWifiLocations = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -108,7 +126,7 @@ function WifiPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError, onResult]);
 
   const getNearbyWifi = async () => {
     if (!navigator.geolocation) {
@@ -121,10 +139,8 @@ function WifiPanel({
         setNearby(true);
         const response = await fetchWithRetry(`/api/wifi/locations/nearby?lat=${latitude}&lng=${longitude}`);
         const data = await response.json();
-        // Same shape-tolerant unwrap as fetchWifiLocations(): the BFF returns a
-        // raw JSON array, so reading only `data.data` would always yield [].
-        const locations2 = unwrapApiResponse<any>(data);
-        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(locations2) ? locations2 : [];
+        const locations = unwrapApiResponse<any>(data);
+        const raw = Array.isArray(data?.data) ? data.data : Array.isArray(locations) ? locations : [];
         const locs = withWifiMeta(raw);
         setWifiLocations(locs);
         onResult(locs);
@@ -135,6 +151,11 @@ function WifiPanel({
       }
     });
   };
+
+  const freeCount = wifiLocations.filter((w) => w.is_free).length;
+  const paidCount = wifiLocations.length - freeCount;
+  const verifiedCount = wifiLocations.filter((w) => w.is_verified).length;
+  const fastCount = wifiLocations.filter((w) => w.speedLabel === "Rất nhanh").length;
 
   if (!active) return null;
 
@@ -153,6 +174,7 @@ function WifiPanel({
         </button>
       </div>
 
+      {/* Action buttons */}
       <div className="flex gap-2">
         <button
           onClick={fetchWifiLocations}
@@ -172,19 +194,49 @@ function WifiPanel({
         </button>
       </div>
 
-      <div className="flex gap-2 text-[10px]">
-        <span className="px-1.5 py-0.5 rounded bg-green-100/30 text-green-600">Miễn phí</span>
-        <span className="px-1.5 py-0.5 rounded bg-orange-100/30 text-orange-600">Trả tiền</span>
+      {/* Category summary chips */}
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        <span className="px-1.5 py-0.5 rounded bg-green-100/30 text-green-600">
+          Miễn phí: {freeCount}
+        </span>
+        <span className="px-1.5 py-0.5 rounded bg-orange-100/30 text-orange-600">
+          Trả tiền: {paidCount}
+        </span>
+        <span className="px-1.5 py-0.5 rounded bg-blue-100/30 text-blue-600">
+          Tốc độ cao: {fastCount}
+        </span>
+        {verifiedCount > 0 && (
+          <span className="px-1.5 py-0.5 rounded bg-accent/20 text-accent">
+            <CheckCircle2 className="w-3 h-3 inline mr-0.5" /> Đã xác minh: {verifiedCount}
+          </span>
+        )}
       </div>
 
+      {/* Speed legend */}
+      <div className="flex gap-2 text-[10px] text-muted-foreground/60">
+        <span>• Rất nhanh: <MapPin className="w-2 h-2 inline text-green-500" /> 400m</span>
+        <span>• Nhanh: <MapPin className="w-2 h-2 inline text-blue-500" /> 300m</span>
+        <span>• Ổn định: <MapPin className="w-2 h-2 inline text-amber-500" /> 200m</span>
+      </div>
+
+      {/* Location list */}
       {wifiLocations.length > 0 ? (
         <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
-          {wifiLocations.map((w: any) => (
+          {wifiLocations.map((w) => (
             <div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
-              <div className="font-medium text-foreground">{w.name || w.ssid}</div>
-              <div className="text-muted-foreground/60 mt-0.5">
-                {w.is_free ? "Miễn phí" : "Trả tiền"} • {w.speedLabel}
+              <div className="flex items-center gap-1.5 font-medium text-foreground">
+                {w.is_verified && <CheckCircle2 className="w-3 h-3 text-green-600" />}
+                {w.name || w.ssid}
               </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                  w.is_free ? "bg-green-100/30 text-green-600" : "bg-orange-100/30 text-orange-600"
+                }`}>
+                  {w.is_free ? "Miễn phí" : "Trả tiền"}
+                </span>
+                <span className="text-muted-foreground/60">• {w.speedLabel}</span>
+              </div>
+              {w.address && <p className="text-muted-foreground/60 mt-0.5">{w.address}</p>}
             </div>
           ))}
         </div>
@@ -202,51 +254,84 @@ function WifiPanel({
   );
 }
 
-function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[]; viewport: any }) {
-  const map = useMap();
-  const locations = result || [];
+// ─── Overlay ─────────────────────────────────────────────────────────────────
+
+function WifiOverlay({ result }: ToolOverlayProps) {
+  const locations: WifiLocation[] = result || [];
 
   if (!locations.length) return null;
 
-  const getCoords = (loc: any): [number, number] => {
-    if (loc.location?.coordinates) return [loc.location.coordinates[1], loc.location.coordinates[0]];
-    if (loc.lat && loc.lng) return [loc.lat, loc.lng];
-    return [0, 0];
-  };
-
-  const getColor = (isFree: boolean) => isFree ? "#10b981" : "#f59e0b";
-  // No real numeric speed exists in the store, so scale the circle radius by
-  // the qualitative tier derived in deriveWifiMeta().
-  const getRadius = (label?: string) => {
-    if (label === "Rất nhanh") return 300;
-    if (label === "Nhanh") return 220;
-    return 140;
+  /** Coords are already pre-resolved by withWifiMeta in the panel. */
+  const getCoords = (loc: WifiLocation): [number, number] | null => {
+    // Primary: pre-resolved lat/lng
+    if (Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng))) {
+      return [Number(loc.lat), Number(loc.lng)];
+    }
+    // Fallback: GeoJSON location (top-level coordinates [lng, lat])
+    if (loc.location?.coordinates) {
+      return [loc.location.coordinates[1], loc.location.coordinates[0]];
+    }
+    // Legacy: loc.lat/lng (already covered above)
+    return null;
   };
 
   return (
     <>
-      {locations.map((loc: any) => {
-        if (!loc.lat && !loc.lng && !loc.location?.coordinates) return null;
-        const [lat, lng] = getCoords(loc);
+      {locations.map((loc) => {
+        const coords = getCoords(loc);
+        if (!coords) return null;
+        const [lat, lng] = coords;
+        const speedColor = getSpeedColor(loc.speedLabel);
+        const radius = getSpeedRadius(loc.speedLabel);
+        const icon = createPinIcon("wifi", wifiBadge(loc));
+
         return (
           <React.Fragment key={loc.id || `${lat}-${lng}`}>
-            <Marker position={[lat, lng]} icon={_wifiIcon}>
+            {/* Signal range circle — the overlay's primary visual contribution.
+                The star glyph marker is hidden here since FeaturedPinsLayer
+                renders green/wifi pins; this overlay adds the signal halo. */}
+            <Circle
+              center={[lat, lng]}
+              radius={radius}
+              pathOptions={{
+                color: speedColor,
+                fillColor: speedColor,
+                fillOpacity: 0.07,
+                weight: 1.5,
+                dashArray: "5 3",
+              }}
+            />
+            {/* Subtle ring marker at the center so the hotspot is still
+                clickable for the popup even though the star is rendered by
+                the featured-pins layer (or shown here when no featured layer). */}
+            <Marker position={[lat, lng]} icon={icon}>
+              <Tooltip direction="top" offset={[0, -30]} opacity={1} className="wifi-tooltip">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Wifi className="w-3 h-3 text-amber-400" />
+                  <span className="font-bold">{loc.name || loc.ssid}</span>
+                  <span className="text-muted-foreground/70">• {loc.is_free ? "Miễn phí" : "Trả tiền"}</span>
+                </div>
+              </Tooltip>
               <Popup>
-                <div className="space-y-1">
+                <div className="space-y-1 max-w-xs">
                   <div className="font-medium text-sm">{loc.name || loc.ssid}</div>
-                  <div className={`text-xs px-1.5 py-0.5 rounded ${loc.is_free ? "bg-green-100/30 text-green-600" : "bg-orange-100/30 text-orange-600"}`}>
-                    {loc.is_free ? "Miễn phí" : "Trả tiền"} • {loc.speedLabel}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      loc.is_free ? "bg-green-100/30 text-green-600" : "bg-orange-100/30 text-orange-600"
+                    }`}>
+                      {loc.is_free ? "Miễn phí" : "Trả tiền"}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">• {loc.speedLabel}</span>
                   </div>
                   {loc.address && <p className="text-xs text-muted-foreground/70">{loc.address}</p>}
-                  {loc.is_verified && <span className="text-xs text-green-600">✓ Đã xác minh</span>}
+                  {loc.is_verified && (
+                    <div className="flex items-center gap-1 text-xs text-green-600">
+                      <CheckCircle2 className="w-3 h-3" /> Đã xác minh
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
-            <Circle
-              center={[lat, lng]}
-              radius={getRadius(loc.speedLabel)}
-              pathOptions={{ color: getColor(loc.is_free), fillColor: getColor(loc.is_free), fillOpacity: 0.1, weight: 1 }}
-            />
           </React.Fragment>
         );
       })}
@@ -254,8 +339,18 @@ function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[
   );
 }
 
-WifiTool.Panel = WifiPanel;
-WifiTool.Overlay = WifiOverlay;
+const WifiTool = {
+  id: "wifi",
+  label: "Wifi",
+  longLabel: "Trạm Wifi",
+  icon: Wifi,
+  description: "Hiển thị trạm Wifi miễn phí và trả tiền trên bản đồ.",
+  longDescription: "Hiển thị trạm Wifi trên bản đồ với phân màu theo tốc độ và loại (miễn phí/trả tiền).",
+  authRequired: false,
+  hideBaseLayers: false,
+  Panel: WifiPanel,
+  Overlay: WifiOverlay,
+};
 
 export { WifiPanel, WifiOverlay };
 export default WifiTool;

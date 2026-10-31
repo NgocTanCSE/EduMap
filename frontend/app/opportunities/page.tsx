@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { opportunityIllustration } from '@/src/lib/illustrations';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { DetailPopup } from '@/components/ui/DetailPopup';
+import { CareerTabBar } from '@/components/career/CareerTabBar';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -39,7 +40,9 @@ export default function OpportunitiesPage() {
   );
 
   return (
-    <div className="page-shell">
+    <div className="min-h-screen bg-background text-foreground">
+      <CareerTabBar />
+      <div className="page-shell">
       {/* Header */}
       <div className="text-center space-y-6 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
@@ -206,6 +209,7 @@ export default function OpportunitiesPage() {
         </DetailPopup>
       )}
 
+    </div>
     </div>
   );
 }

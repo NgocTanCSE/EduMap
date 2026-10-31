@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """
-Job Crawler — Vietnamese job boards (no API key) → SQLite 'jobs' table.
-Crawls ITviec, VietnamWorks, TopCV, RemoteOK, Remotive and Adzuna, dedupes
-by title+company, and inserts into the SQLite jobs table.
+Job Crawler — Vietnamese job boards via Tavily AI search/extract → SQLite 'jobs' table.
+
+Crawls Vietnamese tech/finance/education job postings via the Tavily search+extract
+API, parses each result into the standardized jobs-row schema, and upserts into the
+SQLite jobs table.
+
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous version of
+  this crawler made direct HTTP calls to ITviec, TopCV, VietnamWorks, RemoteOK,
+  Remotive and Adzuna — all of which are blocked/blackholed at the HF Spaces egress
+  port level.  This version replaces every source with a single Tavily API call
+  (https://api.tavily.com — reachable from HF Spaces egress).
 
 SCOPE RULES (applied uniformly — see crawlers/crawl_scope.py):
   • Years   — 2 consecutive years centred on the crawl year.
@@ -11,15 +20,17 @@ SCOPE RULES (applied uniformly — see crawlers/crawl_scope.py):
                Items whose deadline / posting date falls outside the window
                are filtered out; undated items inherit the window default.
   • Location — Đồng Nai → các tỉnh phía Nam → Việt Nam → Đông Nam Á.
-               Each job is tagged with its matched location layer; jobs are
+               Each job is tagged with its matched location scope; jobs are
                collected from all layers but the tighter layers take priority.
 
-Sources:
-  - ITviec API: https://itviec.com/api/v1/jobs (public, no auth)
-  - Fallback: VietnamWorks HTML parsing via search
-  - Fallback: TopCV.vn HTML parsing
-  - RemoteOK / Remotive (opt-in via CRAWL_INCLUDE_REMOTE=1)
-  - Adzuna (env-gated, must use a supported country)
+Sources (Tavily):
+  - Tavily Search + Extract: https://api.tavily.com/search + /extract
+    (Bearer auth via TAVILY_API_KEY HF Space Secret; keyless mode as fallback)
+
+Graceful degradation:
+  - When TAVILY_API_KEY is absent, the client returns 0 rows (no crash).
+  - When Tavily is unreachable, the same — 0 rows, error logged.
+  - Every error is caught so the cron loop always exits 0.
 
 Runs as:
   - One-shot: python3 scripts/crawl_jobs.py --db frontend/public/edumap.db
@@ -47,112 +58,25 @@ from crawl_scope import (  # noqa: E402
     location_matches,
 )
 
-
-def ensure_column(conn, table, column, col_type="TEXT"):
-    """Add a column to a SQLite table if it doesn't already exist (idempotent)."""
-    cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({table})")
-    existing = {row[1] for row in cursor.fetchall()}
-    if column not in existing:
-        cursor.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
-        conn.commit()
-        print(f"  [ensure_column] added '{column}' to {table}")
-    cursor.close()
+# Tavily client + structured parsers (replaces all HTTP-based sources).
+from tavily_client import TavilyClient, tavily_search_and_extract  # noqa: E402
+from tavily_parse import (  # noqa: E402
+    parse_tavily_jobs, clean_text,
+)
 
 
-def extract_card_image(card_html, source_domain=None):
-    """Extract the FIRST relevant <img> src from a single card's HTML block.
-
-    Card-aware: searches <img> tags *within* the card block, not across
-    the whole page.  Filters tracking pixels (1x1, .gif, pixel/track/spacer).
-    """
-    if not card_html:
-        return None
-    img_tags = re.findall(r'<img\s+[^>]*>', card_html, re.IGNORECASE | re.DOTALL)
-    if not img_tags:
-        return None
-    content_imgs = []
-    for tag in img_tags:
-        src_match = re.search(r'src="([^"]+)"', tag, re.IGNORECASE)
-        if not src_match:
-            continue
-        src = src_match.group(1)
-        # Skip data: URIs
-        if src.startswith("data:"):
-            continue
-        low = src.lower()
-        if any(x in low for x in ("pixel", "track", "spacer", "loading", "1x1", ".gif")):
-            continue
-        w_match = re.search(r'width\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
-        h_match = re.search(r'height\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
-        if w_match or h_match:
-            continue
-        content_imgs.append(src)
-    if source_domain:
-        domain_imgs = [i for i in content_imgs if source_domain in i.lower()]
-        if domain_imgs:
-            return domain_imgs[0]
-    return content_imgs[0] if content_imgs else None
-
-USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-ITVIEC_API = 'https://itviec.com/api/v1/jobs'
-MAX_PAGES = 5  # ~500 jobs max per run
-PAGE_SIZE = 100
-
-# --- Source parity with crawlers/jobs_crawler.py (Postgres path) ---
-# HF Spaces ships a stdlib-only Python image, so these sources use `fetch_url`
-# (urllib) — NO requests/psycopg2 dependency — matching the existing sources.
-REMOTEOK_URL = 'https://remoteok.com/api'
-REMOTIVE_URL = 'https://api.remotive.com/v1/projects'
-REMOTIVE_LIMIT = 50  # offset-pagination step
-# Adzuna only exposes endpoints for a fixed list of countries. Vietnam is NOT
-# one of them — `https://api.adzuna.com/v1/api/jobs/vn/search/1` returns
-# HTTP 404 (seen in the HF crawler logs). Keep the crawler enabled only when
-# ADZUNA_COUNTRY is a real endpoint, otherwise skip with an explicit message
-# instead of retrying a URL that can never succeed.
-ADZUNA_SUPPORTED_COUNTRIES = {
-    'gb', 'us', 'at', 'au', 'be', 'br', 'ca', 'ch', 'de', 'es',
-    'fr', 'in', 'it', 'mx', 'nl', 'nz', 'pl', 'sg', 'za',
-}
-ADZUNA_COUNTRY = (os.getenv('ADZUNA_COUNTRY', 'vn') or 'vn').lower()
-ADZUNA_APP_ID = os.getenv('ADZUNA_APP_ID', '')
-ADZUNA_APP_KEY = os.getenv('ADZUNA_APP_KEY', '')
+PAGE_SIZE = 20
+MAX_PAGES = int(os.getenv("MAX_PAGES", "3"))
 
 
-def _extract_logo(job):
-    """Extract company/logo URL from an ITviec API job object.
-
-    ITviec API may return logo under various keys depending on version.
-    Checks common patterns: logo, company.logo, image, thumbnail, etc.
-    """
-    if not job:
-        return None
-    # Direct logo field
-    for key in ('logo', 'image_url', 'image', 'thumbnail', 'logo_url', 'photo'):
-        val = job.get(key)
-        if val and isinstance(val, str) and val.startswith(('http://', 'https://')):
-            return val
-    # Nested under company dict
-    comp = job.get('company')
-    if isinstance(comp, dict):
-        for key in ('logo', 'image', 'image_url', 'logo_url', 'photo', 'avatar'):
-            val = comp.get(key)
-            if val and isinstance(val, str) and val.startswith(('http://', 'https://')):
-                return val
-    return None
-
-# ITviec job type mapping
-ITVIEC_JOB_TYPE_MAP = {
-    'full_time': 'full_time',
-    'part_time': 'part_time',
-    'internship': 'internship',
-    'contract': 'contract',
-    'freelance': 'freelance',
-}
+# --------------------------------------------------------------------------- #
+# Generic URL fetcher (kept for potential diagnostics; Tavily replaces all crawls)
+# --------------------------------------------------------------------------- #
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 
 
 def fetch_url(url, timeout=15):
-    """Fetch URL content with proper headers."""
+    """Fetch URL content with proper headers (legacy helper, kept for compatibility)."""
     try:
         req = urllib.request.Request(url, headers={
             'User-Agent': USER_AGENT,
@@ -166,255 +90,101 @@ def fetch_url(url, timeout=15):
         return None
 
 
-def crawl_itviec_api(page, keyword: str = ""):
-    """Crawl ITviec jobs via their internal API (may need auth — fallback to HTML).
+# --------------------------------------------------------------------------- #
+# Tavily-based job crawler                                                     #
+# --------------------------------------------------------------------------- #
 
-    When *keyword* is set, the search is scoped to that location — this is how
-    the crawl expands outward: Đồng Nai first, then southern provinces, then
-    Vietnam, then Southeast Asia (see crawlers/crawl_scope.LOCATION_LAYERS).
+# Search queries — one per location layer, in expansion priority order.
+# Vietnamese-language queries so Tavily returns Vietnamese job boards.
+_TAVILY_JOB_QUERIES = [
+    # Đồng Nai (highest priority)
+    "tuyển dụng lập trình viên phần mềm Đồng Nai 2025",
+    "tuyển dụng IT kĩ thuật viên Bình Dương miền Nam",
+    "tuyển dụng lập trình viên Biên Hòa Đồng Nai",
+    # miền Nam
+    "tuyển dụng developer TP Hồ Chí Minh 2025",
+    "tuyển dụng lập trình viên Cần Thơ 2025",
+    # Việt Nam (national)
+    "tuyển dụng lập trình viên Hà Nội 2025",
+    "tuyển dụng kỹ sư phần mềm Việt Nam 2025",
+    # Đông Nam Á (regional context)
+    "tuyển dụng developer Singapore Vietnam remote",
+    "tuyển dụng IT remote Việt Nam",
+]
+
+# Additional keyword-focused queries to capture specific roles.
+_TAVILY_JOB_KEYWORD_QUERIES = [
+    "tuyển dụng data analyst Việt Nam 2025",
+    "tuyển dụng designer giáo dục Việt Nam",
+    "tuyển dụng product manager tech startup VN",
+    "tuyển dung frontend react angular Việt Nam",
+    "tuyển dụng devops engineer Việt Nam 2025",
+]
+
+
+def _crawl_tavily_jobs():
+    """Crawl Vietnamese jobs via Tavily Search + Extract.
+
+    Builds location-scoped queries (Đồng Nai → miền Nam → VN → ĐNA) and
+    parses Tavily results into ``_base_job()`` row dicts.
+
+    Returns a list of job row dicts (same schema as the old ITviec/TopCV/etc.
+    crawlers).  Returns ``[]`` when TAVILY_API_KEY is absent or Tavily is
+    unreachable — never raises.
     """
-    # Try API first
-    url = f"{ITVIEC_API}?page={page}&per_page={PAGE_SIZE}"
-    if keyword:
-        url += f"&keyword={urllib.parse.quote(keyword)}"
-    raw = fetch_url(url, timeout=15)
-    if raw:
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  ⚠️  TAVILY_API_KEY không được cài đặt — crawl Tavily trả về 0 dòng (giảm dần)")
+        # Attempt keyless mode (Tavily supports limited keyless search).
+        print("  ℹ️  Thử chế độ keyless của Tavily...")
+
+    # Build the full query list (main + keyword-focussed).
+    queries = list(_TAVILY_JOB_QUERIES) + list(_TAVILY_JOB_KEYWORD_QUERIES)
+
+    all_results = []
+    for q in queries:
         try:
-            data = json.loads(raw)
-            jobs = data.get('jobs', [])
-            total = data.get('meta', {}).get('total', 0) or data.get('total_pages', 0) * PAGE_SIZE
-            results = []
-            for job in jobs:
-                title = job.get('title', '') or job.get('name', '')
-                company = (job.get('company', {}) or {}).get('name', '') if isinstance(job.get('company'), dict) else str(job.get('company', ''))
-                location = ''
-                if isinstance(job.get('location'), dict):
-                    location = job['location'].get('city', {}).get('locale', '')
-                salary = job.get('salary', '')
-                if isinstance(salary, dict):
-                    salary = f"{salary.get('min_price', '')} - {salary.get('max_price', '')}"
-                tags = job.get('tags', [])
-                if isinstance(tags, list):
-                    skills = [t.get('name', '') for t in tags if isinstance(t, dict) and 'name' in t]
-                else:
-                    skills = []
-                description = job.get('description', '')
-                job_type_raw = job.get('job_type', '') or job.get('contract_type', '')
-                job_type = ITVIEC_JOB_TYPE_MAP.get(job_type_raw.lower(), 'full_time')
-                results.append({
-                    'title': title.strip() if title else 'Unknown',
-                    'company_name': company.strip()[:255] if company else 'Unknown',
-                    'location': location.strip()[:255] if location else 'Vietnam',
-                    'salary_range': str(salary).strip()[:100] if salary else 'Thoa thuan',
-                    'description': description[:500] if description else '',
-                    'job_type': job_type,
-                    'required_skills': json.dumps(skills) if skills else '',
-                    'experience_level': ', '.join(skills[:5]) if skills else 'Chua xac dinh',
-                    'source_url': job.get('url', ''),
-                    'image_url': _extract_logo(job),  # company logo from API
-                })
-            if results:
-                return results, total
-        except json.JSONDecodeError:
-            pass
-
-    # Fallback: scrape ITviec HTML
-    html_url = f'https://itviec.com/jobs?page={page}'
-    raw_html = fetch_url(html_url, timeout=15)
-    if not raw_html:
-        return [], 0
-    return crawl_itviec_html(raw_html, page)
-
-
-def crawl_itviec_html(raw_html, page):
-    """Parse ITviec HTML job listings (fallback when API requires auth).
-
-    ITviec uses /it-jobs/<id>-<slug> for job detail pages. Each card's
-    HTML block is isolated so the company logo img is matched 1-to-1
-    with the correct job (not a global index).
-    """
-    results = []
-    # ITviec job detail links: /it-jobs/<id>-<slug>
-    job_pattern = r'<a[^>]*href="(/it-jobs/\d+[^"]*)"[^>]*title="([^"]+)"'
-    job_links = re.findall(job_pattern, raw_html)
-
-    if not job_links:
-        # Fallback: try newer pattern without title attr
-        job_pattern = r'href="(/it-jobs/\d+[^"]*)"[^>]*>\s*<h3[^>]*>([^<]+)'
-        job_links = re.findall(job_pattern, raw_html, re.DOTALL)
-
-    if not job_links:
-        # Fallback: /jobs/<slug> pattern (older ITviec)
-        job_pattern = r'href="(/jobs/[^"]+)"[^>]*title="([^"]+)"'
-        job_links = re.findall(job_pattern, raw_html)
-
-    # Build card-to-image mapping by extracting <img> within each card block
-    for href, title in job_links[:30]:
-        # Find the card block around this href
-        idx = raw_html.find(f'href="{href}"')
-        if idx < 0:
-            idx = raw_html.find(href)
-        if idx < 0:
-            results.append({
-                'title': title.strip(),
-                'company_name': 'ITviec Employer',
-                'location': 'Ho Chi Minh City / Hanoi',
-                'salary_range': 'Thoa thuan',
-                'description': '',
-                'job_type': 'full_time',
-                'required_skills': json.dumps([]),
-                'experience_level': '',
-                'source_url': f'https://itviec.com{href}',
-                'image_url': None,
-            })
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=MAX_PAGES * PAGE_SIZE,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            all_results.extend(results)
+            print(f"  [tavily] query '{q[:50]}...' → {len(results)} results")
+            time.sleep(0.5)  # Gentle rate-limiting.
+        except Exception as e:
+            print(f"  [warn] Tavily query failed '{q[:50]}...': {e}")
             continue
 
-        # Extract a reasonable card block (500 chars before + after href)
-        card_block = raw_html[max(0, idx - 500):idx + 800]
-        logo = extract_card_image(card_block, source_domain="itviec")
+    # Parse Tavily results into job row dicts.
+    parsed_jobs = parse_tavily_jobs(all_results, source_name="tavily")
 
-        results.append({
-            'title': clean_text(title.strip()),
-            'company_name': 'ITviec Employer',
-            'location': 'Ho Chi Minh City / Hanoi',
-            'salary_range': 'Thoa thuan',
-            'description': '',
-            'job_type': 'full_time',
-            'required_skills': json.dumps([]),
-            'experience_level': '',
-            'source_url': f'https://itviec.com{href}',
-            'image_url': logo,
-        })
-    total = len(job_links)
-    return results, total
+    # Convert parsed dicts to _base_job() rows (normalises scope/deadline/crawl_year).
+    rows = []
+    for j in parsed_jobs:
+        row = _base_job(
+            title=j["title"],
+            company=j["company_name"],
+            location=j["location"],
+            salary=j["salary_range"],
+            description=j["description"],
+            job_type=j["job_type"],
+            skills=json.loads(j["required_skills"]) if j.get("required_skills") else [],
+            source_url=j.get("source_url", ""),
+            posting_date=j.get("application_deadline", _DEFAULT_DEADLINE.isoformat()),
+        )
+        row["image_url"] = j.get("image_url")
+        row["crawl_year"] = _CRAWL_YEARS[0]
+        rows.append(row)
 
-
-def crawl_topcv_html():
-    """Fallback: scrape TopCV.vn (HTML parsing, card-aware image extraction)."""
-    url = 'https://www.topcv.vn/viec-lam'
-    raw = fetch_url(url, timeout=15)
-    if not raw:
-        return []
-
-    results = []
-    # Match any card with a job title and company inside the <a> block
-    job_pattern = re.findall(
-        r'<a[^>]*href="([^"]+)"[^>]*>\s*<h3[^>]*>([^<]+)</h3>(.*?)</a>',
-        raw, re.DOTALL | re.IGNORECASE
-    )
-    for href, title, card_body in job_pattern[:50]:
-        if len(title.strip()) < 5:
-            continue
-        logo = extract_card_image(card_body, source_domain="topcv")
-        company_match = re.search(r'<p[^>]*class="[^"]*company[^"]*"[^>]*>([^<]+)</p>', card_body, re.IGNORECASE)
-        results.append({
-            'title': clean_text(title.strip()),
-            'company_name': clean_text(company_match.group(1).strip()[:255]) if company_match else 'Unknown',
-            'location': 'Vietnam',
-            'salary_range': 'Thoa thuan',
-            'description': '',
-            'job_type': 'full_time',
-            'required_skills': json.dumps([]),
-            'experience_level': '',
-            'source_url': href if href.startswith('http') else f'https://www.topcv.vn{href}',
-            'image_url': logo,
-        })
-    return results
+    return rows
 
 
-def crawl_vietnamworks_html(url='https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'):
-    """Fallback: scrape VietnamWorks (Next.js __NEXT_DATA__ JSON extraction).
-
-    VietnamWorks is a Next.js site — the old JSON-in-HTML pattern no longer
-    exists.  Job list + company logos now live in the __NEXT_DATA__ script tag
-    under ``props.pageProps.outstandingJobs``.
-
-    Each job object has: jobTitle, company, location, salary, url,
-    imageUrl, logoUrl — so we get the REAL per-company logo, not an index match.
-    """
-    raw = fetch_url(url, timeout=15)
-    if not raw:
-        return []
-
-    results = []
-
-    # Parse Next.js __NEXT_DATA__ script
-    next_data_match = re.search(
-        r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>',
-        raw, re.DOTALL
-    )
-    if not next_data_match:
-        print("  [vietnamworks] No __NEXT_DATA__ script found; HTML structure may have changed")
-        return []
-
-    try:
-        next_data = json.loads(next_data_match.group(1))
-    except json.JSONDecodeError:
-        print("  [vietnamworks] Failed to parse __NEXT_DATA__ JSON")
-        return []
-
-    page_props = next_data.get("props", {}).get("pageProps", {}) or {}
-
-    # VietnamWorks renamed its lists over time; collect every job-shaped list.
-    outstanding = []
-    for key in ("outstandingJobs", "jobs", "jobList", "searchResults", "items"):
-        value = page_props.get(key)
-        if isinstance(value, list) and value:
-            outstanding.extend(value)
-    # Some deploys nest the list under data/results.
-    for key in ("data", "results"):
-        value = page_props.get(key)
-        if isinstance(value, dict):
-            for nested in ("jobs", "jobList", "items"):
-                if isinstance(value.get(nested), list):
-                    outstanding.extend(value[nested])
-
-    if not outstanding:
-        print("  [vietnamworks] no job list found in __NEXT_DATA__")
-        return []
-
-    seen = set()
-    for job in outstanding[:60]:
-        if not isinstance(job, dict):
-            continue
-        title = job.get("jobTitle", "") or job.get("title", "")
-        company = job.get("company", "")
-        if isinstance(company, dict):
-            company = company.get("name") or company.get("displayName") or company.get("companyName") or ""
-        location = job.get("location", "Vietnam")
-        if isinstance(location, dict):
-            location = location.get("name") or location.get("displayName") or "Việt Nam"
-        salary = job.get("salary") or job.get("prettySalary") or job.get("salaryRange")
-        job_url = job.get("url", "") or job.get("link", "") or job.get("jobUrl", "")
-        # logoUrl is full-size company logo; imageUrl is thumbnail
-        image_url = job.get("logoUrl") or job.get("imageUrl") or job.get("logo") or None
-        # Ensure full URL
-        if image_url and image_url.startswith("//"):
-            image_url = "https:" + image_url
-        title = clean_text(title)
-        if len(title) < 3:
-            continue
-        dedup_key = f"{title}|{clean_text(company)}"
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-
-        results.append({
-            'title': title,
-            'company_name': clean_text(company) if company else 'Nhà tuyển dụng',
-            'location': clean_text(location) if location else 'Việt Nam',
-            'salary_range': clean_text(str(salary))[:100] if salary else 'Thỏa thuận',
-            'description': clean_text(job.get("description", ""))[:500] if job.get("description") else '',
-            'job_type': str(job.get("jobType") or job.get("type") or 'full_time').lower(),
-            'required_skills': json.dumps([], ensure_ascii=False),
-            'experience_level': clean_text(job.get("experienceLevel", "")) if job.get("experienceLevel") else 'Chưa xác định',
-            'source_url': job_url if job_url else url,
-            'image_url': image_url,
-        })
-    if results:
-        print(f"  VietnamWorks: extracted {len(results)} jobs ({url})")
-    return results
-
+# --------------------------------------------------------------------------- #
+# Row builder / DB helpers (unchanged from original)                         #
+# --------------------------------------------------------------------------- #
 
 # Crawl year window — 2 consecutive years (e.g. 2026 -> [2025, 2026]).
 _CRAWL_YEARS = crawl_years()
@@ -494,132 +264,12 @@ def _base_job(title, company, location, salary, description, job_type, skills, s
     }
 
 
-def crawl_remoteok_api():
-    """Source: RemoteOK public API (no key). Single endpoint returns all."""
-    url = f"{REMOTEOK_URL}?api=jobs"
-    raw = fetch_url(url, timeout=20)
-    if not raw:
-        return []
-    try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        return []
-    out = []
-    if not isinstance(data, list):
-        return []
-    for j in data:
-        if not isinstance(j, dict) or not j.get('position'):   # first item is the "legal" header
-            continue
-        salary = None
-        if j.get('salary_min') or j.get('salary_max'):
-            salary = f"{j.get('salary_min', '')}-{j.get('salary_max', '')} USD"
-        logo = j.get('logo') or j.get('company_logo') or None
-        if logo and not str(logo).startswith(('http://', 'https://')):
-            logo = None
-        out.append(_base_job(
-            j.get('position', ''), j.get('company', ''), j.get('location', ''),
-            salary, j.get('description', ''), j.get('job_type'), j.get('tags', []),
-            j.get('url') or f"https://remoteok.com/{j.get('id', '')}", logo))
-    return out
-
-
-def crawl_remotive():
-    """Source: Remotive public API (no key). Offset-paginated; stop when <LIMIT."""
-    out = []
-    offset = 0
-    for _ in range(8):                      # <=400 jobs
-        url = f"{REMOTIVE_URL}?limit={REMOTIVE_LIMIT}&offset={offset}"
-        raw = fetch_url(url, timeout=20)
-        if not raw:
-            break
-        try:
-            data = json.loads(raw)
-        except (json.JSONDecodeError, ValueError):
-            break
-        projects = data.get('projects') or []
-        if not projects:
-            break
-        for p in projects:
-            if not isinstance(p, dict) or not p.get('title'):
-                continue
-            comp = p.get('company_name', '') or ''
-            loc = p.get('location', '') or 'Remote'
-            tags = []
-            if isinstance(p.get('tags'), list):
-                tags = [t.get('name', '') for t in p.get('tags') if isinstance(t, dict) and t.get('name')]
-            logo = None
-            company_obj = p.get('company')
-            if isinstance(company_obj, dict):
-                logo = company_obj.get('logo')
-            if logo and not str(logo).startswith(('http://', 'https://')):
-                logo = None
-            out.append(_base_job(
-                p.get('title', ''), comp, loc, None,
-                p.get('description', ''), None, tags,
-                p.get('url') or REMOTIVE_URL, logo))
-        if len(projects) < REMOTIVE_LIMIT:  # last partial page
-            break
-        offset += REMOTIVE_LIMIT
-        time.sleep(0.4)
-    return out
-
-
-def adzuna_is_supported():
-    """True when ADZUNA_COUNTRY is an Adzuna endpoint that actually exists."""
-    return ADZUNA_COUNTRY in ADZUNA_SUPPORTED_COUNTRIES
-
-
-def crawl_adzuna():
-    """Source: Adzuna (free tier, needs ADZUNA_APP_ID + ADZUNA_APP_KEY).
-
-    Adzuna has no Vietnam endpoint, so the default `vn` country is skipped
-    (the previous code hammered a 404 URL on every crawl run). Set
-    ADZUNA_COUNTRY to a supported market (e.g. `sg`, `gb`, `us`) to enable.
-    """
-    if not (ADZUNA_APP_ID and ADZUNA_APP_KEY):
-        return []
-    if not adzuna_is_supported():
-        print(f"  ⏭️  Adzuna: country '{ADZUNA_COUNTRY}' is not supported by the API "
-              f"(supported: {', '.join(sorted(ADZUNA_SUPPORTED_COUNTRIES))}). Skipped.")
-        return []
-    out = []
-    for page in range(1, 6):                # <=250 jobs
-        url = (f"https://api.adzuna.com/v1/api/jobs/{ADZUNA_COUNTRY}/search/{page}"
-               f"?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_APP_KEY}"
-               f"&results_per_page=50&what=developer")
-        raw = fetch_url(url, timeout=20)
-        if not raw:
-            break
-        try:
-            data = json.loads(raw)
-        except (json.JSONDecodeError, ValueError):
-            break
-        results = data.get('results') or []
-        if not results:
-            break
-        for j in results:
-            if not isinstance(j, dict) or not j.get('title'):
-                continue
-            company = (j.get('company') or {}).get('display_name', '')
-            loc = (j.get('location') or {}).get('display_name', '')
-            salary = None
-            if j.get('salary_min') or j.get('salary_max'):
-                cur = j.get('salary_currency', 'USD')
-                salary = f"{j.get('salary_min', '')}-{j.get('salary_max', '')} {cur}"
-            out.append(_base_job(
-                j.get('title', ''), company, loc, salary,
-                j.get('description', ''), j.get('contract_type'),
-                [], j.get('redirect_url') or '', j.get('logo_image') or None))
-        time.sleep(0.4)
-    return out
-
-
 def clean_text(text):
     """Unescape HTML entities and clean text, PRESERVING Vietnamese diacritics.
 
     The previous implementation stripped every non-ASCII character, which
     turned real Vietnamese job titles into unreadable strings such as
-    "Cong ty CTV CMC" / "Thoa thuan". SQLite stores UTF-8 natively, so there is
+    "Cong ty CTM CMC" / "Thoa thuan". SQLite stores UTF-8 natively, so there is
     no reason to ASCII-fold. We only strip control characters and HTML tags.
     """
     if text is None:
@@ -696,43 +346,24 @@ def _scope_insert(cursor, job_data, counters: dict[str, int]) -> bool:
     return cursor.rowcount > 0
 
 
-def crawl_itviec_scope(max_pages: int = 5, max_pages_per_layer: int = 3):
-    """Crawl ITviec walking the location expansion (Đồng Nai → miền Nam → VN → ĐNA).
-
-    Iterates LOCATION_LAYERS in priority order; for each layer's keyword, runs
-    up to *max_pages_per_layer* pages of the scoped search.  Dedupes by
-    (title, company) across all layers so the same job from two location
-    angles is only collected once.
-    """
-    seen: set[str] = set()
-    out: list = []
-    for i, layer in enumerate(LOCATION_LAYERS):
-        print(f"  [scope] ITviec layer {i+1}/{len(LOCATION_LAYERS)}: {layer['name']}")
-        for kw in layer["keywords"][:4]:  # top keywords per layer only
-            for page in range(1, max_pages_per_layer + 1):
-                jobs, total = crawl_itviec_api(page, keyword=kw)
-                if not jobs:
-                    break
-                added = 0
-                for job in jobs:
-                    key = f"{job.get('title','')}|{job.get('company_name','')}"
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    out.append(job)
-                    added += 1
-                if len(jobs) < PAGE_SIZE:  # last partial page
-                    break
-    return out
+def ensure_column(conn, table, column, col_type="TEXT"):
+    """Add a column to a SQLite table if it doesn't already exist."""
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    cols = [row[1] for row in cursor.fetchall()]
+    if column not in cols:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+        conn.commit()
+    cursor.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Crawl jobs into SQLite DB')
+    parser = argparse.ArgumentParser(description='Crawl jobs into SQLite DB via Tavily')
     parser.add_argument('--db', required=True, help='Path to SQLite database')
     parser.add_argument('--max-pages', type=int, default=MAX_PAGES, help='Max pages to crawl per source')
     args = parser.parse_args()
 
-    print(f"🚀 Starting job crawler → {args.db}")
+    print(f"🚀 Starting job crawler (Tavily) → {args.db}")
 
     # Verify DB exists and has jobs table
     if not os.path.exists(args.db):
@@ -746,6 +377,7 @@ def main():
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
     if not cursor.fetchone():
         print("  [error] 'jobs' table not found in database")
+        conn.close()
         sys.exit(1)
 
     # Ensure image_url + scope columns exist (may be missing on older DBs)
@@ -759,146 +391,25 @@ def main():
 
     total_inserted = 0
     total_skipped = 0
-    # Track per-layer coverage so we know which scope layers were hit.
     layer_counts: dict[str, int] = {l["label"]: 0 for l in LOCATION_LAYERS}
     layer_counts["unscoped"] = 0
 
-    # --- Source 1: ITviec API (+ HTML fallback, location-scoped) ---
-    print("\n📍 Crawling ITviec (location-scoped: Đồng Nai → miền Nam → VN → ĐNA)...")
-    # 1a) Default crawl — all pages (keeps the original broad coverage)
-    for page in range(1, args.max_pages + 1):
-        try:
-            jobs, total = crawl_itviec_api(page)
-            if not jobs:
-                print(f"  Page {page}: no jobs returned (end or API limit)")
-                break
-            for job in jobs:
-                # Apply year scope — keep if posting deadline is in-window or undated.
-                _scope_insert(cursor, job, layer_counts)
-                if cursor.rowcount > 0:
-                    total_inserted += 1
-                else:
-                    total_skipped += 1
-            conn.commit()
-            print(f"  Page {page}: {len(jobs)} jobs found, {total} total available")
-            time.sleep(1)  # Rate limiting
-        except Exception as e:
-            print(f"  [error] ITviec page {page}: {e}")
-            continue
+    # --- Tavily-based job crawl ---
+    # Replaces all HTTP-based sources (ITviec, TopCV, VietnamWorks, RemoteOK,
+    # Remotive, Adzuna) which are blocked on HF Spaces egress.
+    print("\n📍 Crawling Vietnamese jobs via Tavily AI search...")
+    print("    (Đồng Nai → miền Nam → VN → ĐNA, kèm từ khóa chuyên ngành)")
 
-    # 1b) Location-scoped search — starts from Đồng Nai, expands outward.
-    try:
-        scoped_jobs = crawl_itviec_scope(max_pages_per_layer=3)
-        for job in scoped_jobs:
-            _scope_insert(cursor, job, layer_counts)
-            if cursor.rowcount > 0:
-                total_inserted += 1
-            else:
-                total_skipped += 1
-        if scoped_jobs:
-            conn.commit()
-        print(f"  ITviec scoped search: {len(scoped_jobs)} new jobs from location layers")
-    except Exception as e:
-        print(f"  [error] ITviec scoped crawl: {e}")
+    jobs = _crawl_tavily_jobs()
 
-    # --- Source 2: TopCV (HTML) ---
-    print("\n📍 Crawling TopCV HTML...")
-    try:
-        jobs = crawl_topcv_html()
-        for job in jobs:
-            _scope_insert(cursor, job, layer_counts)
-            if cursor.rowcount > 0:
-                total_inserted += 1
-            else:
-                total_skipped += 1
-        conn.commit()
-        print(f"  TopCV: {len(jobs)} jobs found")
-    except Exception as e:
-        print(f"  [error] TopCV: {e}")
-
-    # --- Source 3: VietnamWorks (HTML / __NEXT_DATA__, location-scoped) ---
-    # The listing page exposes only 5 "outstandingJobs" per render, but each
-    # `?page=N` returns a different set, so paginate to collect real Vietnamese
-    # postings instead of a handful.
-    print("\n📍 Crawling VietnamWorks HTML (Đồng Nai → miền Nam → VN)...")
-    vnw_base = 'https://www.vietnamworks.com/tim-viec-lam/tim-tat-ca-viec-lam'
-    vnw_pages = int(os.getenv('VNW_PAGES', '12'))
-    vnw_seen = set()
-    vnw_total = 0
-    for page_no in range(1, vnw_pages + 1):
-        vnw_url = f"{vnw_base}?page={page_no}" if page_no > 1 else vnw_base
-        try:
-            jobs = crawl_vietnamworks_html(vnw_url)
-            for job in jobs:
-                key = f"{job.get('title')}|{job.get('company_name')}"
-                if key in vnw_seen:
-                    continue
-                vnw_seen.add(key)
-                _scope_insert(cursor, job, layer_counts)
-                vnw_total += 1
-            conn.commit()
-        except Exception as e:
-            print(f"  [error] VietnamWorks page {page_no}: {e}")
-        time.sleep(0.6)
-    total_inserted += vnw_total
-    print(f"  VietnamWorks: {vnw_total} unique Vietnamese jobs found")
-
-    # --- Source 4/5: global remote boards (opt-in only) ---
-    # EduMap is a Vietnam-first product: RemoteOK/Remotive return mostly
-    # non-Vietnamese remote roles that made the Jobs page feel fake/irrelevant.
-    # Set CRAWL_INCLUDE_REMOTE=1 if you explicitly want them.
-    include_remote = os.getenv('CRAWL_INCLUDE_REMOTE', '0') not in ('0', '', 'false', 'False')
-    if include_remote:
-        print("\n📍 Crawling RemoteOK API...")
-        try:
-            jobs = crawl_remoteok_api()
-            for job in jobs:
-                _scope_insert(cursor, job, layer_counts)
-                if cursor.rowcount > 0:
-                    total_inserted += 1
-                else:
-                    total_skipped += 1
-            conn.commit()
-            print(f"  RemoteOK: {len(jobs)} jobs found")
-        except Exception as e:
-            print(f"  [error] RemoteOK: {e}")
-
-        print("\n📍 Crawling Remotive API...")
-        try:
-            jobs = crawl_remotive()
-            for job in jobs:
-                _scope_insert(cursor, job, layer_counts)
-                if cursor.rowcount > 0:
-                    total_inserted += 1
-                else:
-                    total_skipped += 1
-            conn.commit()
-            print(f"  Remotive: {len(jobs)} jobs found")
-        except Exception as e:
-            print(f"  [error] Remotive: {e}")
-    else:
-        print("\n⏭️  RemoteOK/Remotive skipped (set CRAWL_INCLUDE_REMOTE=1 to enable non-Vietnam remote jobs)")
-
-    # --- Source 6 (env-gated): Adzuna (country must be a supported market) ---
-    if ADZUNA_APP_ID and ADZUNA_APP_KEY and adzuna_is_supported():
-        print(f"\n📍 Crawling Adzuna ({ADZUNA_COUNTRY.upper()})...")
-        try:
-            jobs = crawl_adzuna()
-            for job in jobs:
-                _scope_insert(cursor, job, layer_counts)
-                if cursor.rowcount > 0:
-                    total_inserted += 1
-                else:
-                    total_skipped += 1
-            conn.commit()
-            print(f"  Adzuna: {len(jobs)} jobs found")
-        except Exception as e:
-            print(f"  [error] Adzuna: {e}")
-    elif ADZUNA_APP_ID and ADZUNA_APP_KEY:
-        print(f"\n⏭️  Adzuna skipped: country '{ADZUNA_COUNTRY}' has no Adzuna endpoint "
-              f"(Adzuna does not cover Vietnam).")
-    else:
-        print("\n⏭️  Adzuna skipped (set ADZUNA_APP_ID + ADZUNA_APP_KEY to enable)")
+    for job in jobs:
+        _scope_insert(cursor, job, layer_counts)
+        if cursor.rowcount > 0:
+            total_inserted += 1
+        else:
+            total_skipped += 1
+    conn.commit()
+    print(f"  Tavily: {len(jobs)} jobs found")
 
     # --- Summary ---
     cursor.execute("SELECT COUNT(*) FROM jobs WHERE status='active'")
@@ -906,7 +417,7 @@ def main():
     cursor.close()
     conn.close()
 
-    print(f"\n✅ Crawl complete!")
+    print(f"\n✅ Crawl complete (Tavily mode)!")
     print(f"  Inserted/updated: {total_inserted} jobs")
     print(f"  Skipped (duplicates): {total_skipped}")
     print(f"  Total active jobs in DB: {total_jobs}")

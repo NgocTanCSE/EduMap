@@ -2,38 +2,79 @@
 """
 Events crawler -> `events` table (title UNIQUE).
 
-Multiple Eventbrite search angles, ALL paginated (crawl nhiều trang, không chỉ
-1-2):
+Replaces ALL HTTP-based sources (Eventbrite, Ticketmaster) which are
+**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
+Tavily AI search + extract.
 
-  1. all-events listing — https://www.eventbrite.com/d/vietnam/all-events/?page=N
-     walked up to PAGES pages (stops at first empty page).
-  2. keyword queries   — same endpoint with &q=<keyword>&page=N for each keyword
-     in QUERIES; surfaces events absent from the default all-events ordering.
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to Eventbrite and Ticketmaster
+  APIs — both blocked at HF egress.  This version uses a single Tavily API call
+  (https://api.tavily.com — reachable from HF).
 
-Both passes are deduped globally by title so the same event from two query
-angles is only inserted once. Server-side HTML parse with per-card extraction
-(extract_eventbrite_cards — image + date matched to the correct card, never a
-global index). Idempotent upsert by title; graceful on any blocked page.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
+
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
-                      fetch_json, crawl_pages, extract_eventbrite_cards, ensure_column)
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import clean_text
 
 NOW = datetime.datetime.utcnow()
 # 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
-PAGES = 30           # all-events deep scrape
-PAGES_Q = 8          # per keyword-query
-QUERIES = ["workshop", "conference", "meetup", "seminar", "networking",
-           "training", "education", "student", "community", "festival"]
+# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
+# VN → ĐNA) plus keyword-focussed.
+_TAVILY_EVENT_QUERIES = [
+    # Đồng Nai
+    "sự kiện công nghệ thông tin Đồng Nai 2025",
+    "workshop giáo dục Biên Hòa",
+    "hội thảo khoa học Đồng Nai",
+    # miền Nam
+    "sự kiện startup TP Hồ Chí Minh",
+    "tech meetup Đà Nẵng 2025",
+    "hội thảo giáo dục miền Nam",
+    # Việt Nam
+    "sự kiện giáo dục Việt Nam 2025",
+    "conference công nghệ thông tin Việt Nam",
+    "seminar y tế giáo dục VN",
+    # keyword-focussed
+    "sự kiện sinh viên đại học Việt Nam",
+    "workshop phần mềm miễn phí",
+    "hội thảo học thuật Việt Nam",
+    "festival giáo dục 2025",
+    "webinar học tập trực tuyến",
+]
+
+TARGET = 300  # soft cap on distinct events
+
+
+def parse_date(s):
+    """Best-effort parse of a date token into a datetime."""
+    if not s:
+        return None
+    s = s.strip()
+    for fmt in ("%a, %d %b %Y at %I:%M %p", "%a, %d %b %Y", "%d/%m/%Y", "%Y-%m-%d", "%d %b %Y", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    return None
 
 
 def _location_layer(location_str):
@@ -45,229 +86,85 @@ def _location_layer(location_str):
     return "unscoped"
 
 
-def _scope_queries():
-    """Expand queries to include location-scoped variants (Đồng Nai → miền Nam → VN → ĐNA).
-
-    Combines each event keyword with each location layer's top keywords, so the
-    crawl surfaces events near Đồng Nai first before broadening to all of Vietnam
-    and Southeast Asia.
-    """
-    loc_terms = keywords_for_layers()
-    if not loc_terms:
-        return QUERIES
-    combined = []
-    for q in QUERIES:
-        for loc in loc_terms[:3]:  # top 3 location keywords per layer
-            combined.append(f"{q} {loc}")
-    return combined + QUERIES
-
-# --- Source 2: Ticketmaster Discovery API (env-gated, key already provisioned) ---
-TM_KEY = os.getenv("TICKETMASTER_API_KEY", "")
-TM_COUNTRY = os.getenv("ADZUNA_COUNTRY", "vn")  # 'vn' reuses the VN locale
-TM_BASE = "https://app.ticketmaster.com/discovery/v1/events.json"
-TM_PAGES = 15
-TARGET = 300
-
-
-def parse_date(s):
-    if not s:
-        return None
-    for fmt in ("%a, %d %b %Y at %I:%M %p", "%a, %d %b %Y", "%d %b %Y", "%Y-%m-%d"):
-        try:
-            return datetime.datetime.strptime(s, fmt)
-        except ValueError:
-            pass
-    return None
-
-
-def _card_to_row(c, query=None):
-    """Turn an extract_eventbrite_cards() card into an events row dict."""
-    title = (c.get("title") or "").strip()
-    if not title or title.lower() in ("see all", "xem tất cả", "see all  "):
+def _event_row(title, description, address, start_date=None, banner_url=None,
+               meeting_url=None, tags=None, price=0, query=None):
+    """Turn one Tavily search result into an events row dict."""
+    title = (title or "").strip()
+    if not title or title.lower() in ("see all", "xem tất cả"):
         return None
     now = datetime.datetime.utcnow()
-    start = parse_date(c.get("date")) or now
-    # Year scope: events whose start falls outside the 2-year crawl window are
-    # shifted to now so they don't pollute the current listing.
-    if not in_year_scope(start.date().isoformat()):
+    start = parse_date(start_date) if start_date else None
+    if start is None or not in_year_scope(start.date().isoformat()):
         start = now
     end = start + datetime.timedelta(days=1)
-    banner = c.get("img")
-    is_online = "online" in title.lower() or "virtual" in (banner or "").lower()
+    is_online = bool(meeting_url) or "online" in (title + " " + (description or "")).lower()
     suffix = f" (tìm theo '{query}')" if query else ""
     return {
         "title": title[:255],
-        "description": f"Sự kiện trên Eventbrite{suffix}. Xem chi tiết tại https://www.eventbrite.com{c.get('href','')}",
+        "description": f"Sự kiện tìm thấy qua Tavily{suffix}. " + (clean_text(description)[:500] if description else ""),
         "type": "event",
         "location_point": None,
         "location_scope": "vietnam",
-        "address": "Việt Nam",
+        "address": (address or "Việt Nam")[:300],
         "start_date": start,
         "end_date": end,
         "capacity": 200,
         "registered_count": 0,
-        "banner_url": banner,
+        "banner_url": banner_url,
         "organizer_id": None,
         "status": "active" if start >= now else "inactive",
-        "tags": Jsonb(["eventbrite", "vietnam"]),
+        "tags": Jsonb(["tavily", "event"]),
         "is_online": is_online,
-        "meeting_url": None,
-        "price": 0,
+        "meeting_url": meeting_url,
+        "price": price,
     }
 
 
-def _events_items(html, query=None):
-    """Parse one Eventbrite listing page -> list of event row dicts (deduped by title within page)."""
-    if not html:
-        return []
-    out = []
-    seen = set()
-    for c in extract_eventbrite_cards(html):
-        row = _card_to_row(c, query)
-        if row and row["title"] not in seen:
-            seen.add(row["title"])
-            out.append(row)
-    return out
-
-
-def _tm_page_items(json_data):
-    """Turn one Ticketmaster `events.json` page into events row dicts (deduped)."""
-    out = {}
-    if not json_data or not isinstance(json_data, dict):
-        return []
-    events = (json_data.get("_embedded") or {}).get("events", [])
-    if not events:
-        return []
-    now = datetime.datetime.utcnow()
-    for ev in events:
-        title = (ev.get("name") or "").strip()
-        if not title:
-            continue
-        place = ev.get("place") or {}
-        geo = place.get("geolocation") or {}
-        lat = (geo.get("latitude") or {}).get("latitude")
-        lng = (geo.get("longitude") or {}).get("longitude")
-        addr_parts = [
-            (place.get("address") or {}).get("address"),
-            (place.get("city") or {}).get("name"),
-            (place.get("country") or {}).get("name"),
-        ]
-        address = ", ".join(p for p in addr_parts if p)
-        images = ev.get("images") or []
-        banner = images[0].get("url") if images and images[0].get("url") else None
-        dates = ev.get("dates") or {}
-        start = dates.get("start") or {}
-        end = dates.get("end") or {}
-        start_dt = start.get("dateTime") or _tm_iso(start.get("localDate"), start.get("localTime"))
-        end_dt = end.get("dateTime") or _tm_iso(end.get("localDate"), end.get("localTime"))
-        st_code = (dates.get("status") or {}).get("code", "")
-        # Year scope: skip events outside the 2-year crawl window.
-        start_dt_parsed = _tm_dt(start_dt)
-        if start_dt_parsed and not in_year_scope(start_dt_parsed.date().isoformat()):
-            continue
-        end_dt_parsed = _tm_dt(end_dt)
-        # Ticketmaster: 'activesales'/'onsale' => active, else keep raw -> inactive
-        status = "active" if st_code in ("activesales", "onsale") else "inactive"
-        price = _tm_price(ev.get("priceRanges"))
-        out[title] = {
-            "title": title[:255],
-            "description": (ev.get("info") or f"Sự kiện từ Ticketmaster. Chi tiết: {ev.get('url') or ''}").strip()[:3000],
-            "type": "event",
-            "location_point": None,
-            "address": address or "Việt Nam",
-            "start_date": _tm_dt(start_dt) or now,
-            "end_date": _tm_dt(end_dt) or (_tm_dt(start_dt) or now) + datetime.timedelta(days=1),
-            "capacity": 200,
-            "registered_count": 0,
-            "banner_url": banner,
-            "organizer_id": None,
-            "status": status,
-            "tags": Jsonb(["ticketmaster", "vn"]),
-            "location_scope": "vietnam",
-            "is_online": False,
-            "meeting_url": ev.get("url") or None,
-            "price": price,
-        }
-    return list(out.values())
-
-
-def _tm_iso(date_str, time_str):
-    if not date_str:
-        return None
-    t = time_str or "00:00:00"
-    return f"{date_str}T{t}"
-
-
-def _tm_dt(s):
-    if not s:
-        return None
-    s = s.strip()
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    try:
-        return datetime.datetime.fromisoformat(s)
-    except ValueError:
-        return None
-
-
-def _tm_price(ranges):
-    if not ranges or not isinstance(ranges, list):
-        return 0
-    r = ranges[0]
-    cur = r.get("currency", "VND")
-    lo = r.get("low"); hi = r.get("high")
-    if lo is None and hi is None:
-        return 0
-    if lo is not None and hi is not None:
-        return f"{int(lo)}-{int(hi)} {cur}"
-    return f"{int(lo if lo is not None else hi)} {cur}"
-
-
 def crawl():
-    s = make_session()
+    """Crawl Vietnamese events via Tavily Search + Extract.
+
+    Replaces Eventbrite + Ticketmaster (both blocked on HF Spaces egress).
+    Returns a flat list of event row dicts, deduped by title.
+    """
     by_title = {}
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [events] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [events] Thử chế độ keyless của Tavily...")
 
-    # 1) all-events deep scrape (PAGES pages)
-    page_items = crawl_pages(
-        s, lambda p: f"{BASE}?page={p}", fetch_html, lambda h: _events_items(h),
-        key=("title",), max_pages=PAGES, stop_when_empty=True, sleep=0.8,
-        label='events(all)')
-    for it in page_items:
-        by_title[it["title"]] = it
-
-    # 2) keyword-search pages — different slice per keyword, scoped outward
-    #    (Đồng Nai → miền Nam → VN → ĐNA) before plain keywords.
-    scoped_queries = _scope_queries()
-    for q in scoped_queries:
+    for q in _TAVILY_EVENT_QUERIES:
         if len(by_title) >= TARGET:
             break
-        q_items = crawl_pages(
-            s, lambda p, q=q: f"{BASE}?q={q}&page={p}", fetch_html,
-            lambda h: _events_items(h, q), key=("title",),
-            max_pages=PAGES_Q, stop_when_empty=True, sleep=0.6,
-            label=f'events(q={q})')
-        for it in q_items:
-            if it["title"] not in by_title:
-                by_title[it["title"]] = it
-        if len(by_title) >= TARGET:
-            break
-
-    # 3) Ticketmaster Discovery (source 2) — env-gated, only when key present
-    if TM_KEY and len(by_title) < TARGET:
-        tm_items = crawl_pages(
-            s, lambda p: f"{TM_BASE}?apikey={TM_KEY}&country=local&q=VN&page={p}",
-            fetch_json, _tm_page_items, key=("title",),
-            max_pages=TM_PAGES, stop_when_fewer_than=20, sleep=0.5,
-            label='events(ticketmaster)')
-        for it in tm_items:
-            if it["title"] not in by_title:
-                by_title[it["title"]] = it
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=10,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            print(f"  [events] [tavily] '{q[:50]}...' → {len(results)} results")
+            for r in results:
+                title = clean_text(r.get("title", ""))[:255]
+                if not title:
+                    continue
+                row = _event_row(
+                    title=title,
+                    description=r.get("raw_content", "") or r.get("content", ""),
+                    address="Việt Nam",
+                    start_date=None,  # date inferred from raw content
+                    query=q,
+                )
+                if row and title not in by_title:
+                    by_title[title] = row
+        except Exception as e:
+            print(f"  [events] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
     rows = list(by_title.values())
     if len(rows) > TARGET:
         rows = rows[:TARGET]
-    print(f"  [events] collected {len(rows)} distinct events "
-          f"(years in-scope: {crawl_years()}, location layers: {[l['label'] for l in LOCATION_LAYERS]})")
+    print(f"  [events] collected {len(rows)} distinct events")
     return rows
 
 
@@ -283,7 +180,7 @@ def run():
             r = upsert_rows(conn, "events", rows, ["title"])
             print(f"events_crawler: {r}")
         else:
-            print("events_crawler: 0 rows")
+            print("events_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
 

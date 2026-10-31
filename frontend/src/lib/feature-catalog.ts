@@ -436,9 +436,9 @@ export const FEATURES: Feature[] = [
   {
     id: "green",
     label: "Thử thách xanh",
-    href: "/map?tool=green",
+    href: "/green",
     icon: Leaf,
-    description: "Hoạt động sống xanh, minh chứng và điểm thưởng.",
+    description: "Hoạt động sống xanh, chứng kiến và minh chứng Tại TP. Hồ Chí Minh.",
     group: "community",
     sidebar: true,
     keywords: ["xanh", "môi trường", "green", "carbon"],
@@ -456,9 +456,9 @@ export const FEATURES: Feature[] = [
   {
     id: "wifi",
     label: "Trạm Wifi",
-    href: "/map?tool=wifi",
+    href: "/wifi",
     icon: Wifi,
-    description: "Bản đồ điểm Wifi miễn phí và đo tốc độ thực tế.",
+    description: "Danh sách trạm Wifi giáo dục và tốc độ kết nối thực tế.",
     group: "community",
     sidebar: true,
     keywords: ["wifi", "internet", "tốc độ"],

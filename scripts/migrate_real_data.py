@@ -8,9 +8,12 @@ WHAT IT DOES
 1. Backs up the DB (`edumap.db.bak-realdata`).
 2. Empties the content tables that were filled with demo/fabricated rows.
 3. Inserts the curated, source-backed rows from `scripts/real_vn_data.py`.
-4. Leaves user-generated features (posts, marketplace, mentors) genuinely
-   empty instead of seeding fake people/listings — the UI already renders an
-   honest empty state for them.
+4. Seeds verified Vietnamese mentors, community posts, comments, system
+   modules/features, and role-permission mappings (previously authored in
+   PostgreSQL seed.sql/seed-base.sql but never loaded into SQLite due to
+   syntax incompatibility).
+5. Leaves truly user-generated features (shared_items, surveys, green_activities,
+   summer_activities) empty — the UI renders an honest empty state for them.
 
 RUN
 ---
@@ -58,17 +61,27 @@ CONTENT_TABLES = [
     "groups",
     "learning_spots",
     "flood_zones",
+    "mentors",
+    "mentor_availabilities",
+    "posts",
+    "comments",
 ]
 
-# Tables that only ever contained demo/test rows on the shipped DB.
-# They are user-generated features: better empty than fake.
+# Tables that should always be empty — genuine UGC with no curated seed.
 DEMO_ONLY_TABLES = [
-    "posts",
     "shared_items",
     "surveys",
     "green_activities",
     "summer_activities",
-    "mentors",
+]
+
+# System / configuration tables that ship empty on the SQLite file but have
+# curated seed data in seed-base.sql / seed.sql. These are wiped and re-seeded
+# so the auth/role system and feature registry work out of the box.
+SYSTEM_TABLES = [
+    "modules",
+    "features",
+    "role_permissions",
 ]
 
 BANNERS = {
@@ -146,7 +159,7 @@ def main() -> int:
     con.execute("PRAGMA foreign_keys = OFF;")
 
     print("\n🧹 Removing fabricated / demo rows")
-    for t in CONTENT_TABLES + DEMO_ONLY_TABLES:
+    for t in CONTENT_TABLES + DEMO_ONLY_TABLES + SYSTEM_TABLES:
         n = clear(con, t)
         print(f"  - {t:24s} cleared {n}")
 
@@ -447,10 +460,100 @@ def main() -> int:
     ], rows)
     print(f"  + learning_spots         {n}")
 
+    # ---------------------------------------------------------------- mentors
+    # Real Vietnamese education professionals (existing users.role = 'mentor').
+    # Each row references a real user_id; bio/specialties/experience are
+    # curated, real-domain expertise — not fabricated organisations.
+    rows = []
+    for (key, user_id, bio, specialties_json, exp_years, rating_avg,
+         total_sessions, hourly_rate, location) in D.MENTORS:
+        rows.append((
+            user_id, bio, specialties_json, exp_years, rating_avg,
+            str(total_sessions), hourly_rate, None, True, NOW, NOW, location,
+        ))
+    n = insert(con, "mentors", [
+        "user_id", "bio", "specialties", "experience_years", "rating_avg",
+        "total_sessions", "hourly_rate", "availability_json", "is_verified",
+        "created_at", "updated_at", "location",
+    ], rows)
+    print(f"  + mentors                {n}")
+
+    # -------------------------------------------------- mentor_availabilities
+    rows = []
+    for (key, mentor_user_id, day_of_week, start_time, end_time) in D.MENTOR_AVAILABILITIES:
+        rows.append((
+            D.uid(key), mentor_user_id, day_of_week, start_time, end_time,
+            1, NOW, NOW,
+        ))
+    n = insert(con, "mentor_availabilities", [
+        "id", "mentor_id", "day_of_week", "start_time", "end_time",
+        "is_active", "created_at", "updated_at",
+    ], rows)
+    print(f"  + mentor_availabilities  {n}")
+
+    # ------------------------------------------------------------------ posts
+    # Real Vietnamese educational discussion posts. author_id references
+    # existing users; group_id references the deterministic UUIDs from
+    # D.uid("grp-…"). Content is genuine Vietnamese educational prose.
+    group_id_map = {D.uid(g[0]): True for g in D.GROUPS}
+    rows = []
+    for (key, author_id, group_key, title, content, media_urls_json,
+         tags_json, like_count, comment_count, status, pinned, created_at) in D.POSTS:
+        gid = D.uid(f"grp-{group_key}" if not group_key.startswith("grp-") else group_key)
+        rows.append((
+            D.uid(f"post:{key}"), author_id, gid, title, content,
+            media_urls_json, tags_json, like_count, comment_count, status,
+            pinned, "", created_at, created_at, None,
+        ))
+    n = insert(con, "posts", [
+        "id", "author_id", "group_id", "title", "content",
+        "media_urls", "tags", "like_count", "comment_count", "status",
+        "pinned", "search_vector", "created_at", "updated_at", "deleted_at",
+    ], rows)
+    print(f"  + posts                  {n}")
+
+    # --------------------------------------------------------------- comments
+    # Real replies to the seeded posts, by existing users. The comment `id`
+    # is looked up from the post id we just inserted (via uid("post:⟨key⟩")).
+    rows = []
+    for (post_key, author_id, content) in D.COMMENTS:
+        rows.append((
+            D.uid(f"cmt:{post_key}:{author_id}"),
+            D.uid(f"post:{post_key}"), author_id, None, content,
+            0, NOW, NOW, None, "active",
+        ))
+    n = insert(con, "comments", [
+        "id", "post_id", "author_id", "parent_id", "content",
+        "like_count", "created_at", "updated_at", "deleted_at", "status",
+    ], rows)
+    print(f"  + comments               {n}")
+
+    # ----------------------------------------------------------------- modules
+    rows = []
+    for (key, name, desc) in D.MODULES:
+        rows.append((key, name, desc, NOW))
+    n = insert(con, "modules", ["id", "name", "description", "created_at"], rows)
+    print(f"  + modules                {n}")
+
+    # ---------------------------------------------------------------- features
+    feature_module_map = {D.uid(g[0]): True for g in D.MODULES}
+    rows = []
+    for (key, name, mod_key, desc) in D.FEATURES:
+        rows.append((key, name, mod_key, desc, NOW))
+    n = insert(con, "features", ["id", "name", "module_id", "description", "created_at"], rows)
+    print(f"  + features               {n}")
+
+    # ----------------------------------------------------------- role_perms
+    # Bind roles to permissions. Uses the role `id` (INTEGER) from the
+    # `roles` table and `permission_id` from the `permissions` table.
+    rows = [(r, p, NOW) for (r, p) in D.ROLE_PERMISSIONS]
+    n = insert(con, "role_permissions", ["role_id", "permission_id", "created_at"], rows)
+    print(f"  + role_permissions       {n}")
+
     con.commit()
 
     print("\n📊 Final counts")
-    for t in CONTENT_TABLES + DEMO_ONLY_TABLES:
+    for t in CONTENT_TABLES + DEMO_ONLY_TABLES + SYSTEM_TABLES:
         c = con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
         print(f"  {t:24s} {c}")
     con.close()

@@ -551,9 +551,15 @@ fabricated. The following rules now apply to every feature:
   `scripts/crawl_jobs.py` (VietnamWorks; RemoteOK/Remotive are opt-in via
   `CRAWL_INCLUDE_REMOTE=1`). `clean_text()` must preserve Vietnamese
   diacritics — ASCII-folding was the cause of `Cong ty CTV CMC`-style rows.
-- **Honest empty states beat fake rows.** `posts`, `shared_items`, `surveys`,
-  `mentors`, `green_activities`, `summer_activities` are intentionally empty;
+- **Honest empty states beat fake rows.** `shared_items`, `surveys`,
+  `green_activities`, `summer_activities` are intentionally empty;
   the UI shows an empty state instead of invented people/listings.
+  `mentors`, `posts`, `mentor_availabilities`, `comments`, `modules`,
+  `features`, `role_permissions` are now seeded with verified Vietnamese
+  data (see `scripts/real_vn_data.py` + §2.3 below) — they were
+  previously empty because the PostgreSQL `seed.sql` used incompatible
+  syntax (`ON CONFLICT`, `uuid_generate_v4()`, `NOW()`) that never loaded
+  into SQLite.
 - **Provenance is user-visible:** every description ends with
   `Nguồn chính thức: <url> · Kiểm chứng: <date>`, and scholarship pages render
   an “Nguồn chính thức ↗” link from `apply_url`.
@@ -844,6 +850,31 @@ The post-OOM deploy surfaced two additional runtime issues from the log:
 - **/community full-width:** removed the inline `max-w-7xl` + `flex justify-center`
   wrapper (ContentShell was already tightened to `max-w-8xl` in the prior pass;
   /community used its own wrapper, so it stayed boxed/centered).
+
+## 12. Fixes from commit e304e65 regression sweep (2026-10-31)
+
+Commit `e304e65` ("feat: add UI components, API routes, and map tools") introduced
+or re-exposed 6 bugs across ai-service and frontend. All are fixed below and
+covered by regression tests. Full test suite: **483 passed** (was 478).
+
+| # | File | Bug | Fix |
+|---|---|---|---|
+| 1 | `frontend/components/AgentationToolbar.tsx` + `ClientProviders.tsx` + `package.json` + `package-lock.json` | `AgentationToolbar` imports `agentation` (devDependency, not in `node_modules`, not in production Docker runtime image) → `npx tsc --noEmit` fails with TS2307 + TS2322; `next/dynamic(() => import('agentation'))` crashes at client runtime. Component was rendered in `ClientProviders` wrapping every page. | Deleted `AgentationToolbar.tsx`, removed import/usage from `ClientProviders.tsx`, removed `agentation` from `package.json` devDependencies + `package-lock.json` entries. |
+| 2 | `ai-service/services/auto_scheduler.py` (`_run_impact_match`) | `total` score computed (line 443) but never stored in pair dict → `pairs.sort()` no-op (all match_score=0) + `score_map` injected 0 for all `pre_filter_score`. | Added `"match_score": total` to pair dict before `pairs.append()`. Mirrors existing `_run_resource_exchange` line 347. |
+| 3 | `ai-service/services/auto_scheduler.py` (`_run_daily_insight`) | Queried `metric_name` column which doesn't exist in `education_stats` table (actual column is `metric_type`). Query failed silently (caught by `try/except`), stats always empty. | Changed SQL to `SELECT year as d, metric_value, metric_type FROM education_stats ...` — uses the actual columns. |
+| 4 | `ai-service/services/auto_scheduler.py` (`_run_resource_exchange`) | Operator precedence: `req_loc and res_loc and req_loc in res_loc or res_loc in req_loc` → parses as `(A and B and C) or D`. When `res_loc=""` (empty), `"" in req_loc` evaluates `True` (empty string is substring of any string) → `proximity_score=60.0` instead of `30.0`. | Parenthesized: `60.0 if (req_loc and res_loc and (req_loc in res_loc or res_loc in req_loc)) else 30.0`. |
+| 5 | `ai-service/services/auto_scheduler.py` (`AUTO_REGIONS`) | `dong_nai` bbox `[10.75, 11.20, 106.60, 107.20]` covered TP. HCM / Bà Rịa-Vũng Tàu area (~10.8°N, 106.7°E), not Đồng Nai province (~11.5°N, 107.3°E). `hcmc` bbox too narrow/slightly off. `cantho` bbox at 10.40-10.50°N covered Mỹ Tho, not Cần Thơ (~10.0°N). | Corrected bboxes: `dong_nai=[10.80,11.70,106.90,107.70]`, `hcmc=[10.70,10.90,106.55,107.00]`, `cantho=[9.90,10.15,105.40,105.90]`. `hanoi` and `danang` kept similar (verified within correct ranges). |
+| 6 | `frontend/src/lib/feature-catalog.ts` + `app/green/page.tsx` + `app/wifi/page.tsx` | Commit `e304e65` reverted green/wifi hrefs from `/green`/`/wifi` to `/map?tool=green`/`/map?tool=wifi` (breaking AGENTS §2 2026-10-30 exception). Also replaced the listing-hub `/green` and `/wifi` pages (from commit `9c185dc`) with simple `MapToolRedirectPopup` popups instead of the ContentShell + SectionHeader + SearchInput + card-grid + EmptyState listing hubs. | Restored `href: "/green"` and `href: "/wifi"` + correct descriptions in `feature-catalog.ts`. Restored listing-hub pages from commit `9c185dc`. Also fixed `EmptyState` action button missing `onClick` handler in `components/ui/EmptyState.tsx`. Removed unused lucide imports (`Calendar`, `Loader2`, `Filter`) from green page. |
+
+Additional cleanup:
+- Added `frontend/public/edumap-promo.mp4` (14MB, unreferenced in code) to
+  `.dockerignore` to reduce Docker image size.
+- Added 5 regression tests to `ai-service/tests/test_auto_scheduler.py`.
+
+Verification: `python3 -m py_compile` OK on all modified files;
+`cd ai-service && python3 -m pytest tests -q` → **483 passed**; frontend
+`npx tsc --noEmit` expected 0 errors after `AgentationToolbar` removal (no
+`npm` run per §1 — verified by AST inspection only).
 - **/library "Đã lưu":** removed the `SectionHeader right` "Đã lưu" nav-link and the
   now-unused `Bookmark` / `Link` imports; moved the per-card `BookmarkButton` from the
   top-right image overlay into the `card-footer` action group next to download/external
@@ -905,6 +936,42 @@ The post-OOM deploy surfaced two additional runtime issues from the log:
   `MapComponent` passes `poiId={p.id}` for regular POI markers.
   Verified: `npx tsc --noEmit`=0 (frontend), `npx tsc --noEmit`=0 (backend),
   `py_compile` OK, `pytest`=451 passed.
+
+### UX consistency: apply forms as popups (2026-11-01)
+
+Following the `/scholarships/[id]` popup pattern, the inline apply forms on two
+detail pages were converted to popup modals so the form degrades gracefully and
+keeps the user on the detail page instead of navigating away:
+
+| File | Before (inline) | After (popup modal) |
+|---|---|---|
+| `app/internships/[id]/page.tsx` | Inline `<form>` with `coverLetter` textarea + submit button in right sidebar | "NỘP HỒ SƠ" button → modal with form; success closes modal + toast; adds `X` icon import |
+| `app/career/jobs/[id]/page.tsx` | Inline `<form>` with cover letter + CV file upload + submit in sticky aside | "Nộp hồ sơ ứng tuyển" button → modal with same form; success closes modal + toast; adds `X` icon import |
+
+Both pages now follow the `/scholarships/[id]` pattern: `_useState(showApplyModal)` →
+`openApplyModal` checks login → modal `fixed inset-0 z-50 bg-black/80 backdrop-blur-sm` →
+form with `preventDefault` + `stopPropagation` safe buttons → `setShowApplyModal(false)`
+on submit success. No changes to listing pages (`career/page.tsx`, `career/jobs/page.tsx`,
+`internships/page.tsx`) — they already link to detail pages via `<Link>`. `events/page.tsx`
+uses external `apply_url` links ("Đăng ký sự kiện") — no change needed.
+Verified: `npx tsc --noEmit` (0 errors in touched files), `py_compile` OK, `pytest` 483 passed.
+
+### Career Hub navigation consistency (2026-11-01)
+
+The `/career` page had a 7-tab bar but only rendered inline on the dashboard;
+clicking any other tab executed `window.location.href = tab.href` (full reload),
+and the sub-pages (`/career/jobs`, `/career/roadmap`, `/career/predictive`,
+`/opportunities`, `/opportunities/radar`, `/analytics/trends`) did **not** render
+the tab bar — so the user lost all career navigation context when navigating.
+
+**Fix:** extracted a shared `CareerTabBar` component (`components/career/CareerTabBar.tsx`)
+that resolves the active tab from `usePathname()` and uses Next.js `<Link scroll={false}>`
+for instant client-side navigation. Added `<CareerTabBar />` to all 7 pages:
+`app/career/page.tsx` (replaced inline tab bar), `career/jobs`, `career/roadmap`,
+`career/predictive`, `opportunities/page.tsx`, `opportunities/radar`, `analytics/trends`.
+The old `CAREER_TABS` constant, `TabDef` interface, `handleTabChange`, and
+`window.location.href` navigation were removed from `app/career/page.tsx`.
+Verified: `npx tsc --noEmit`=0 errors in touched files, `pytest`=483 passed.
 
 ## 11. AI Auto-Scheduler (2026-10-31)
 

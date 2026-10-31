@@ -67,6 +67,14 @@ export interface MapPopupContentProps {
   /** POI id — when provided, shows a BookmarkButton so the user can "ghim"
       this school/facility directly from the popup (targetType="poi"). */
   poiId?: string;
+  /** Featured-pin extra fields — shown as contextual info rows. */
+  carbonSaved?: number;
+  participants?: number;
+  points?: number;
+  currentAmount?: number;
+  targetAmount?: number;
+  speedLabel?: string;
+  isFree?: boolean;
 }
 
 function AmenityLabel({ icon, label }: { icon: string; label: string }) {
@@ -92,6 +100,13 @@ export function MapPopupContent({
   featureLink,
   facilityIcons,
   poiId,
+  carbonSaved,
+  participants,
+  points,
+  currentAmount,
+  targetAmount,
+  speedLabel,
+  isFree,
 }: MapPopupContentProps) {
   const hasNearby = showNearby && nearbyPoints && nearbyPoints.length > 0;
   const hasActions = onRouteHere || (featureLink && categoryTag);
@@ -121,6 +136,33 @@ export function MapPopupContent({
       {description && (
         <p className="text-sm text-muted-foreground/80 leading-snug mb-2 line-clamp-3">
           {description}
+        </p>
+      )}
+
+      {/* Featured-pin extra data rows */}
+      {carbonSaved !== undefined && carbonSaved > 0 && (
+        <p className="text-xs text-muted-foreground/60 mb-1">
+          • CO₂ tiết kiệm: <b className="text-green-600">{carbonSaved} kg</b>
+        </p>
+      )}
+      {participants !== undefined && participants > 0 && (
+        <p className="text-xs text-muted-foreground/60 mb-1">
+          • {participants} người tham gia
+        </p>
+      )}
+      {points !== undefined && (
+        <p className="text-xs text-muted-foreground/60 mb-1">
+          • {points} điểm
+        </p>
+      )}
+      {speedLabel && (
+        <p className="text-xs text-muted-foreground/60 mb-1">
+          • Tốc độ: {speedLabel} {isFree !== undefined && (isFree ? "· Miễn phí" : "· Trả tiền")}
+        </p>
+      )}
+      {currentAmount !== undefined && targetAmount !== undefined && (
+        <p className="text-xs text-muted-foreground/60 mb-1">
+          • Quyên góp: <b className="text-primary">{currentAmount?.toLocaleString()}₫</b> / {targetAmount?.toLocaleString()}₫
         </p>
       )}
 
@@ -163,7 +205,7 @@ export function MapPopupContent({
           {showVerified && (
             <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-accent">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Verified</span>
+              <span>Đã xác minh</span>
             </div>
           )}
           {categoryTag && (

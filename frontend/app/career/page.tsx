@@ -14,24 +14,7 @@ import {
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
-
-interface TabDef {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  href: string;
-}
-
-// Tab bar: dashboard is inline; the rest link to sub-pages
-const CAREER_TABS: TabDef[] = [
-  { id: "dashboard", label: "Tổng quan", icon: TrendingUp, href: "/career" },
-  { id: "jobs", label: "Việc làm", icon: Briefcase, href: "/career/jobs" },
-  { id: "roadmap", label: "Lộ trình", icon: Compass, href: "/career/roadmap" },
-  { id: "predictive", label: "Dự báo AI", icon: BrainCircuit, href: "/career/predictive" },
-  { id: "opportunities", label: "Cơ hội", icon: Rocket, href: "/opportunities" },
-  { id: "radar", label: "Opportunity Radar", icon: Target, href: "/opportunities/radar" },
-  { id: "analytics", label: "Thống kê", icon: BarChart3, href: "/analytics/trends" },
-];
+import { CareerTabBar } from '@/components/career/CareerTabBar';
 
 function CareerDashboard() {
   const [stats, setStats] = useState({
@@ -216,61 +199,18 @@ function CareerDashboard() {
 }
 
 export default function CareerPage() {
-  const [activeTab, setActiveTab] = useState("dashboard");
-
-  // Read tab from URL on mount (for deep links like /career?tab=jobs)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
-    if (tab && CAREER_TABS.some(t => t.id === tab)) {
-      setActiveTab(tab);
-    }
-  }, []);
-
-  const handleTabChange = (tabId: string) => {
-    const tab = CAREER_TABS.find(t => t.id === tabId);
-    if (!tab) return;
-    // For dashboard: update URL in-place
-    if (tabId === "dashboard") {
-      setActiveTab(tabId);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("tab");
-      window.history.replaceState({}, "", url);
-    } else {
-      // For other tabs: navigate to the sub-page
-      window.location.href = tab.href;
-    }
-  };
-
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
-      {/* Tab bar — single scrollable row (matches Map Hub tool tabs).
-          `flex-nowrap` (not `flex-wrap`) keeps the bar to one row on narrow
-          screens; the outer `overflow-x-auto` scrolls when the 7 tabs exceed
-          the viewport width instead of wrapping and eating ~70px of vertical
-          space with a second row. */}
-      <div className="border-b border-border bg-card overflow-x-auto scrollbar-hide">
-        <div className="flex flex-nowrap items-center gap-1.5 p-3" style={{ minWidth: 'max-content' }}>
-          {CAREER_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                activeTab === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground/60 hover:bg-muted/50"
-              }`}
-            >
-              <tab.icon className="w-3.5 h-3.5" /> {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Shared Career Hub tab bar — consistent navigation across all
+          career sub-pages (jobs, roadmap, predictive, opportunities,
+          radar, analytics). Uses Next.js <Link> for instant client-side
+          nav instead of window.location.href full reload. */}
+      <CareerTabBar />
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         <div className="page-shell">
-          {activeTab === "dashboard" ? <CareerDashboard /> : null}
+          <CareerDashboard />
         </div>
       </div>
     </div>

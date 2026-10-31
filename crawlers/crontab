@@ -17,10 +17,12 @@ EDUMAP_CRAWL_YEAR=2026
 # Each crawler is idempotent and degrades gracefully (blocked source -> 0 rows).
 0 0 * * * root bash /app/scripts/run_feature_crawlers.sh >> /app/crawlers/crawled_data/feature_crawl.log 2>&1
 
-# --- nightly Overpass POI upsert (01:00) — schools, labs, greens, restaurants... ---
-# SAFE: crawl_pois_vietnam.py upserts (dedup via EXISTS guard), NEVER drops schema
-# or wipes user rows. Runs 1h after feature crawlers so the DB is warm. Full-nation
-# upsert is idempotent (same POIs re-upserted), so a post-reset DB auto-heals nightly.
+# --- nightly Tavily POI upsert (01:00) — markets, schools, greens, wifi... ---
+# SAFE: crawl_pois_vietnam.py upserts (dedup via name+coords), NEVER drops schema
+# or wipes user rows. Uses Tavily AI Search (TAVILY_API_KEY) — Overpass API is
+# blocked on HF Spaces egress. Runs 1h after feature crawlers so the DB is warm.
+# A post-reset DB auto-heals nightly when TAVILY_API_KEY is set; without it,
+# the crawler degrades to 0 rows and curated snapshots fill the gaps.
 0 1 * * * root bash /app/scripts/run_overpass_seed.sh >> /app/crawlers/crawled_data/overpass_crawl.log 2>&1
 
 # --- optional FULL REFRESH (nationwide Overpass + seed rebuild, DROPS schema) ---

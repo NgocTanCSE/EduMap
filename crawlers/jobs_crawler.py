@@ -2,38 +2,41 @@
 """
 Jobs crawler  -> `jobs` table.
 
-Multiple sources, ALL multi-page (crawl many trang, not just 1-2):
+Replaces ALL HTTP-based sources (RemoteOK, Remotive, ITviec, TopCV, Adzuna)
+which are **blocked on Hugging Face Spaces free tier** (egress port blackhole)
+with a single Tavily AI search+extract call.
 
-  1. RemoteOK  — free public API, one big list (~99 remote jobs).
-                 https://remoteok.com/api  (NO key)
-  2. Remotive  — free JSON API, offset-paginated (limit=100 per page, walk
-                 offset=0,100,200,... until <100 returned).
-                 https://api.remotive.com/v1/projects  (NO key)
-  3. ITviec    — Vietnam tech jobs, server-side HTML list, paginated ?page=N.
-                 https://itviec.com/cong-nghe-thong-tin?page={N}
-                 (best-effort regex; blocked/drift -> graceful 0 rows, no crash)
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  Direct HTTP to
+  job boards is unreachable from HF egress.  Tavily's single HTTPS endpoint
+  (https://api.tavily.com) is reachable, so we search for Vietnamese job
+  postings there and parse the extracted article content into the standardized
+  jobs-row schema.
 
-Map:  title         <- position/name
-      company_name  <- company/company_name
-      location      <- location / category / "Remote"
-      description   <- description (tags stripped)
-      job_type      <- inferred from tags/title (enum-valid)
-      salary_range  <- salary
-      required_skills <- tags (jsonb)
-      experience_level, views, status, ...
-created_by/posted_by_user_id/career_path_id left NULL (crawled rows have no
-owner). Idempotent: upsert by (title, company_name, location) — `jobs` has no
-unique constraint, so SELECT-then-UPDATE/INSERT (db_utils.upsert_rows) is used
-(no schema change).
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
+
+Graceful degradation:
+  - When TAVILY_API_KEY is absent → 0 rows, logged, no crash.
+  - When Tavily is unreachable → 0 rows, circuit breaker engaged, no crash.
+
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA (tag per-job via location_scope).
+
+Runs as:
+  - One-shot: python3 crawlers/jobs_crawler.py
+  - Cron daily via run_feature_crawlers.sh
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html,
-                      crawl_pages, ensure_column, extract_itviec_jobs, extract_topcv_jobs)
-from crawl_scope import (
+from db_utils import (get_conn, upsert_rows, Jsonb, ensure_column)  # noqa: E402
+from crawl_scope import (  # noqa: E402
     crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, location_matches,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract  # noqa: E402
+from tavily_parse import parse_tavily_jobs, clean_text  # noqa: E402
 
 # 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
@@ -42,18 +45,30 @@ _YEAR_MIN, _YEAR_MAX = year_scope_range()
 # visible across the 2-year window.
 _DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
-REMOTEOK = "https://remoteok.com/api"
-REMOTIVE = "https://api.remotive.com/v1/projects"
-ITVIEC = "https://itviec.com/cong-nghe-thong-tin"
-ITVIEC_PAGES = 12  # walk 12 listing pages (graceful: stops early if empty)
-TOPCV = "https://www.topcv.vn/viec-lam-cong-nghe-thong-tin"
-TOPCV_PAGES = 12
-# Adzuna — free job search API (paginated JSON, uses env credentials). Optional:
-# skipped gracefully when ADZUNA_APP_ID / ADZUNA_APP_KEY are not set.
-ADZUNA_COUNTRY = os.getenv("ADZUNA_COUNTRY", "vn")
-ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
-ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
-ADZUNA_Q = "it developer cong nghe thong tin"
+# Tavily search queries — location-scoped (Đồng Nai → miền Nam → VN → ĐNA)
+# plus keyword-focussed queries for specific roles.  Vietnamese language so
+# Tavily returns Vietnamese job boards.
+_TAVILY_JOB_QUERIES = [
+    # Đồng Nai (highest priority)
+    "tuyển dụng lập trình viên phần mềm Đồng Nai 2025",
+    "tuyển dụng IT kĩ thuật viên Bình Dương miền Nam",
+    "tuyển dụng kỹ sư phần mềm Biên Hòa Đồng Nai",
+    # miền Nam
+    "tuyển dụng developer TP Hồ Chí Minh 2025",
+    "tuyển dụng lập trình viên Cần Thơ 2025",
+    # Việt Nam (national)
+    "tuyển dụng lập trình viên Hà Nội 2025",
+    "tuyển dụng kỹ sư phần mềm Việt Nam 2025",
+    # Đông Nam Á (regional remote)
+    "tuyển dụng developer Singapore Vietnam remote",
+    "tuyển dụng IT remote Việt Nam",
+    # Keyword-focussed
+    "tuyển dụng data analyst Việt Nam 2025",
+    "tuyển dụng designer giáo dục Việt Nam",
+    "tuyển dụng product manager tech startup VN",
+    "tuyển dụng frontend react angular Việt Nam",
+    "tuyển dụng devops engineer Việt Nam 2025",
+]
 
 JOB_TYPE_TAGS = {
     'intern': 'internship', 'internship': 'internship', 'thực tập': 'internship',
@@ -86,17 +101,18 @@ def _location_layer(location_str):
 
 
 def _base_row(title, company, location, description, tags, job_type, salary, logo=None):
-    desc = clean(description or "")
+    """Build a SQLite-native jobs row (same schema as original source crawlers)."""
+    desc = clean_text(description or "")
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
     return {
         "title": (title or "")[:255],
         "company_name": (company or "")[:255],
-        "location": (location or "Remote")[:255],
+        "location": (location or "Việt Nam")[:255],
         "location_scope": _location_layer(location),
-        "description": desc,
-        "job_type": job_type,
-        "salary_range": salary,
+        "description": desc[:500],
+        "job_type": (job_type or "full_time").lower().strip(),
+        "salary_range": clean_text(str(salary))[:100] if salary else "Thỏa thuận",
         "required_skills": Jsonb(list(tags or [])),
         "experience_level": "any",
         "application_deadline": _DEFAULT_DEADLINE.date().isoformat(),
@@ -106,160 +122,56 @@ def _base_row(title, company, location, description, tags, job_type, salary, log
     }
 
 
-# ---- Source 1: RemoteOK (one-shot list) ----
-def _remoteok_items(data):
-    rows = []
-    if not data or not isinstance(data, list) or len(data) < 2:
-        return rows
-    for j in data[1:]:  # element 0 is the {legal,last_updated} metadata object
-        title = (j.get("position") or "").strip()
-        if not title:
-            continue
-        tags = j.get("tags") or []
-        if not isinstance(tags, list):
-            tags = [tags]
-        yield _base_row(title, j.get("company"),
-                        j.get("location") or "Remote",
-                        j.get("description"), tags,
-                        infer_job_type(tags, j.get("position")),
-                        _parse_remoteok_salary(j), j.get("logo"))
-
-
-def _parse_remoteok_salary(j):
-    mn = j.get("salary_min"); mx = j.get("salary_max")
-    if mn and mx:
-        return f"{mn}-{mx} USD"
-    if mn:
-        return f"${mn}+ USD"
-    if mx:
-        return f"up to ${mx} USD"
-    return None
-
-
-# ---- Source 2: Remotive (offset-paginated JSON) ----
-def _remotive_items(data):
-    rows = []
-    if not data or not isinstance(data, dict):
-        return rows
-    for p in data.get("projects", []):
-        title = (p.get("title") or "").strip()
-        if not title:
-            continue
-        tags = [t for t in (p.get("tags") or []) if isinstance(t, str)]
-        # location is usually empty for remote listings; fall back to category
-        location = p.get("location") or (p.get("category", {}).get("name") if isinstance(p.get("category"), dict) else "") or "Remote"
-        yield _base_row(title, p.get("company_name"), location,
-                        p.get("description"), tags,
-                        infer_job_type(tags, p.get("title")),
-                        p.get("salary"), p.get("company_logo"))
-
-
-def _remotive_url(page, limit=100):
-    return f"{REMOTIVE}?limit={limit}&offset={(page - 1) * limit}"
-
-
-# ---- Source 3: ITviec (HTML list, paginated) — best-effort ----
-def _itviec_items(html):
-    rows = []
-    if not html:
-        return rows
-    # ITviec job listing is paginated (?page=N). We walk many pages and let
-    # crawl_pages dedup by (title, company, location). Card-aware parsing lives
-    # in db_utils.extract_itviec_jobs (shared with internships_crawler).
-    for c in extract_itviec_jobs(html):
-        yield _base_row(c["title"], c["company"], c["location"],
-                        f"Xem chi tiết tại https://itviec.com{c['href']}",
-                        [], "full_time", None, None)
-
-
-# ---- Source 4: Adzuna (free JSON API, offset/page paginated, env-gated) ----
-def _adzuna_url(page):
-    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
-        return None
-    return (f"https://api.adzuna.com/v1/api/jobs/{ADZUNA_COUNTRY}/search/{page}"
-            f"?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_APP_KEY}"
-            f"&results_per_page=50&what={ADZUNA_Q.replace(' ', '+')}")
-
-
-def _adzuna_items(data):
-    rows = []
-    if not data or not isinstance(data, dict):
-        return rows
-    for j in data.get("results", []):
-        title = (j.get("title") or "").strip()
-        if not title:
-            continue
-        company = ""
-        c = j.get("company") or {}
-        if isinstance(c, dict):
-            company = c.get("display_name") or ""
-        loc = ""
-        locobj = j.get("location") or {}
-        if isinstance(locobj, dict):
-            loc = locobj.get("display_name") or " - ".join(locobj.get("area") or [])
-        cat = (j.get("category") or {}).get("label") or ""
-        tags = [t for t in [cat] if t]
-        salary = None
-        mn = j.get("salary_min"); mx = j.get("salary_max")
-        if mn and mx:
-            salary = f"{mn}-{mx}"
-        yield _base_row(title, company, loc or "Việt Nam",
-                        j.get("description"), tags,
-                        infer_job_type(tags, title), salary, j.get("logo"))
-
-
-# ---- Source 5: TopCV (Vietnam tech jobs, HTML list, paginated) ----
-def _topcv_items(html):
-    rows = []
-    if not html:
-        return rows
-    for c in extract_topcv_jobs(html):
-        yield _base_row(c["title"], c["company"], c["location"],
-                        f"Xem chi tiết tại {c['href']}", [], "full_time", None, None)
-
-
 def crawl():
-    """Crawl ALL sources, return a flat list of job dicts (deduped by caller via
-    upsert_rows key)."""
-    s = make_session()
+    """Crawl Vietnamese jobs via Tavily Search + Extract.
+
+    Replaces RemoteOK + Remotive + ITviec + TopCV + Adzuna (all blocked on
+    HF Spaces egress).  Builds location-scoped Vietnamese queries, fetches
+    search+extract results, and parses them into ``_base_row()`` row dicts.
+
+    Returns a flat list of job dicts (deduped by caller via upsert_rows key).
+    Returns ``[]`` when TAVILY_API_KEY is absent or Tavily is unreachable.
+    """
     rows = []
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [jobs] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        # Keyless mode attempt (Tavily supports limited keyless search).
+        print("  [jobs] Thử chế độ keyless của Tavily...")
 
-    # 1) RemoteOK (single call, ~99 remote jobs)
-    data = fetch_json(s, REMOTEOK)
-    if data:
-        rows.extend(_remoteok_items(data))
-    else:
-        print("  [jobs] RemoteOK unreachable")
+    all_results = []
+    for q in _TAVILY_JOB_QUERIES:
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=10,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            all_results.extend(results)
+            print(f"  [jobs] [tavily] '{q[:50]}...' → {len(results)} results")
+        except Exception as e:
+            print(f"  [jobs] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
-    # 2) Remotive — truly paginated (offset 0, 100, 200, ...)
-    rows.extend(crawl_pages(
-        s, _remotive_url, fetch_json, _remotive_items,
-        key=("title", "company_name"), max_pages=10,
-        stop_when_fewer_than=100, sleep=0.6, label='jobs(remotive)'))
+    # Parse Tavily results into job row dicts (structured field extraction).
+    parsed = parse_tavily_jobs(all_results, source_name="tavily")
+    for j in parsed:
+        row = _base_row(
+            title=j["title"],
+            company=j["company_name"],
+            location=j["location"],
+            description=j["description"],
+            tags=json.loads(j["required_skills"]) if j.get("required_skills") else [],
+            job_type=j["job_type"],
+            salary=j["salary_range"] if j["salary_range"] != "Thỏa thuận" else None,
+            logo=j.get("image_url"),
+        )
+        row["source_url"] = j.get("source_url", "")
+        rows.append(row)
 
-    # 3) ITviec — Vietnam tech jobs, HTML pagination
-    rows.extend(crawl_pages(
-        s, lambda p: f"{ITVIEC}?page={p}", fetch_html, _itviec_items,
-        key=("title", "company_name", "location"), max_pages=ITVIEC_PAGES,
-        sleep=1.0, label='jobs(itviec)'))
-
-    # 4) Adzuna — free paginated JSON API (env-gated; skipped if no creds)
-    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
-        rows.extend(crawl_pages(
-            s, _adzuna_url, fetch_json, _adzuna_items,
-            key=("title", "company_name"), max_pages=20,
-            stop_when_fewer_than=50, sleep=0.5, label='jobs(adzuna)'))
-    else:
-        print("  [jobs] Adzuna skipped (ADZUNA_APP_ID / ADZUNA_APP_KEY not set)")
-
-    # 5) TopCV — Vietnam tech jobs, HTML pagination (best-effort)
-    rows.extend(crawl_pages(
-        s, lambda p: f"{TOPCV}?page={p}", fetch_html, _topcv_items,
-        key=("title", "company_name", "location"), max_pages=TOPCV_PAGES,
-        sleep=1.0, label='jobs(topcv)'))
-
-    print(f"  [jobs] collected {len(rows)} raw rows across "
-          f"RemoteOK+Remotive+ITviec+Adzuna+TopCV")
+    print(f"  [jobs] collected {len(rows)} raw rows via Tavily")
     return rows
 
 
@@ -277,9 +189,14 @@ def run():
             r = upsert_rows(conn, "jobs", rows, ["title", "company_name", "location"])
             print(f"jobs_crawler: {r}")
         else:
-            print("jobs_crawler: 0 rows")
+            print("jobs_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
+
+
+# Late import of json (used by parse_tavily_jobs output) to avoid adding it to
+# the top-level import block which is stdlib anyway.
+import json  # noqa: E402
 
 
 if __name__ == "__main__":

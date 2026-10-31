@@ -2,150 +2,130 @@
 """
 Hackathons crawler -> `posts` table (tag='hackathon').
 
-Multiple sources, ALL paginated (crawl nhiều trang, không chỉ 1-2):
+Replaces ALL HTTP-based sources (Devpost, Eventbrite) which are
+**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
+Tavily AI search + extract.
 
-  1. Devpost browse    — https://devpost.com/api/hackathons?per_page=30&page=N
-                         (free, NO key) — default ordering.
-  2. Devpost popular   — same endpoint, &sort=popular -> different slice.
-  3. Eventbrite VN     — https://www.eventbrite.com/d/vietnam/all-events/?q=hackathon&page=N
-                         (+ q=contest, q=competition) — server-side HTML, card-aware.
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to Devpost and Eventbrite —
+  both blocked at HF egress.  This version uses a single Tavily API call
+  (https://api.tavily.com — reachable from HF).
 
-posts has no unique key -> dedup by (title, source) (upsert_row
-SELECT-then-update). Graceful: a source that 403/lỗi -> 0 rows, no crash.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
+
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
-import os, re, sys, time, datetime
+import os, re, sys, time, datetime, json
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html, crawl_pages, extract_eventbrite_cards, ensure_column
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import clean_text, parse_tavily_posts
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-DEVPOST = "https://devpost.com/api/hackathons"
-PER_PAGE = 30
-MAX_PAGES = 8
-TARGET = 200
-# Eventbrite hackathon/competition keyword pages (VN).
-EVENTBRITE = "https://www.eventbrite.com/d/vietnam/all-events/"
-EB_QUERIES = ["hackathon", "competition", "contest", "student"]
-EB_LOCATION_QUERIES = [f"hackathon {kw}" for kw in keywords_for_layers()[:8]]
-EB_PAGES = 6  # per query
+TARGET = 200  # soft cap
+
+# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
+# VN → ĐNA) plus keyword-focussed.
+_TAVILY_HACKATHON_QUERIES = [
+    # Đồng Nai
+    "hackathon Đồng Nai 2025",
+    "cuộc thi lập trình sinh viên Bình Dương",
+    # miền Nam
+    "hackathon TP Hồ Chí Minh",
+    "cuộc thi code miền Nam",
+    # Việt Nam
+    "hackathon Việt Nam 2025",
+    "cuộc thi sinh viên đại học Việt Nam",
+    "code competition Việt Nam",
+    # keyword-focussed
+    "cuộc thi AI trí tuệ nhân tạo",
+    "hackathon giáo dục 2025",
+    "cuộc thi phần mềm sinh viên",
+    "startup competition Việt Nam",
+]
 
 
-def clean(t):
-    return re.sub(r"<[^>]+>", " ", t or "").replace("\n", " ").strip()[:3000]
-
-
-# ---- Source 1 & 2: Devpost (browse + popular sort) ----
-def _devpost_items(data):
-    rows = []
-    if not data or "hackathons" not in data:
-        return rows
-    for h in data.get("hackathons", []):
-        title = (h.get("title") or "").strip()
-        if not title:
-            continue
-        desc = clean(h.get("description") or "")
-        if not desc:
-            desc = h.get("time_left_to_submission") or h.get("submission_period_dates") or ""
-        media = []
-        if h.get("image_url"):
-            media.append(h["image_url"])
-        rows.append({
-            "title": title[:255],
-            "source": "devpost",
-            "content": desc[:3000],
-            "media_urls": Jsonb(media),
-            "tags": Jsonb(["hackathon", "devpost"]),
-            "location_scope": "unscoped",
-            "like_count": 0,
-            "comment_count": 0,
-            "status": "active",
-            "pinned": False,
-        })
-    return rows
-
-
-def _devpost_url(sort):
-    # crawl_pages is page-based -> build a page URL; sort=None for browse.
-    def _u(page):
-        base = f"{DEVPOST}?per_page={PER_PAGE}&page={page}"
-        if sort:
-            base += f"&sort={sort}"
-        return base
-    return _u
-
-
-# ---- Source 3: Eventbrite VN (hackathon/competition search, paginated) ----
-def _eventbrite_items(html):
-    rows = []
-    if not html:
-        return rows
-    for c in extract_eventbrite_cards(html):
-        title = (c.get("title") or "").strip()
-        if not title or title.lower() in ("see all", "xem tất cả"):
-            continue
-        rows.append({
-            "title": title[:255],
-            "source": "eventbrite",
-            "content": f"Sự kiện trên Eventbrite. Xem chi tiết tại https://www.eventbrite.com{c.get('href','')}",
-            "media_urls": Jsonb([c["img"]] if c.get("img") else []),
-            "tags": Jsonb(["hackathon", "eventbrite"]),
-            "like_count": 0,
-            "comment_count": 0,
-            "status": "active",
-            "pinned": False,
-        })
-    return rows
+def _hackathon_row(title, content, url, media_urls=None):
+    """Build a posts row dict for a hackathon listing."""
+    return {
+        "title": (title or "")[:255],
+        "source": "tavily",
+        "content": clean_text(content or "")[:3000],
+        "media_urls": Jsonb(media_urls or []),
+        "tags": Jsonb(["hackathon", "tavily"]),
+        "location_scope": "vietnam",
+        "like_count": 0,
+        "comment_count": 0,
+        "status": "active",
+        "pinned": False,
+    }
 
 
 def crawl():
-    s = make_session()
-    rows = []
+    """Crawl Vietnamese hackathons via Tavily Search + Extract.
 
-    # 1) Devpost browse (default ordering)
-    rows.extend(crawl_pages(
-        s, _devpost_url(None), fetch_json, _devpost_items,
-        key=("title", "source"), max_pages=MAX_PAGES,
-        stop_when_fewer_than=PER_PAGE, sleep=0.5, label='hackathons(devpost)'))
+    Replaces Devpost + Eventbrite (both blocked on HF Spaces egress).
+    Returns a flat list of post row dicts (tag=hackathon), deduped by (title, source).
+    """
+    by_key = {}
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [hackathons] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [hackathons] Thử chế độ keyless của Tavily...")
 
-    # 2) Devpost popular sort — different slice, deduped by title
-    rows.extend(crawl_pages(
-        s, _devpost_url("popular"), fetch_json, _devpost_items,
-        key=("title", "source"), max_pages=MAX_PAGES,
-        stop_when_fewer_than=PER_PAGE, sleep=0.5, label='hackathons(devpost-popular)'))
+    for q in _TAVILY_HACKATHON_QUERIES:
+        if len(by_key) >= TARGET:
+            break
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=10,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            print(f"  [hackathons] [tavily] '{q[:50]}...' → {len(results)} results")
+            for r in results:
+                title = clean_text(r.get("title", ""))[:255]
+                if not title or len(title) < 3:
+                    continue
+                key = (title, "tavily")
+                if key in by_key:
+                    continue
+                # Use parse_tavily_posts to get structured post rows.
+                parsed = parse_tavily_posts([r], post_tag="hackathon", source_name="tavily")
+                if parsed:
+                    by_key[key] = parsed[0]
+                else:
+                    by_key[key] = _hackathon_row(
+                        title=title,
+                        content=r.get("raw_content", "") or r.get("content", ""),
+                        url=r.get("url", ""),
+                    )
+        except Exception as e:
+            print(f"  [hackathons] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
-    # 3) Eventbrite VN — location-scoped queries first (Đồng Nai → miền Nam →
-    #    VN → ĐNA), then plain keywords.  Each query is paginated.
-    for q in EB_LOCATION_QUERIES + EB_QUERIES:
-        rows.extend(crawl_pages(
-            s, lambda p, q=q: f"{EVENTBRITE}?q={q}&page={p}", fetch_html,
-            _eventbrite_items, key=("title", "source"),
-            max_pages=EB_PAGES, sleep=0.8, label=f'hackathons(eb:{q})'))
-
-    # soft cap so we don't upsert an unbounded backlog in one run
+    rows = list(by_key.values())
     if TARGET and len(rows) > TARGET:
         rows = rows[:TARGET]
-
-    # Global dedup by (title, source) — the two Devpost sort angles and the
-    # Eventbrite queries can surface the same hackathon more than once.
-    _seen = set()
-    deduped = []
-    for r in rows:
-        k = (r.get("title", ""), r.get("source", ""))
-        if k in _seen:
-            continue
-        _seen.add(k)
-        deduped.append(r)
-    rows = deduped
-
-    print(f"  [hackathons] collected {len(rows)} rows across "
-          f"Devpost browse+popular + Eventbrite ({len(EB_QUERIES)} queries x {EB_PAGES} pages)")
-    print(f"  [scope] years={crawl_years()} | location layers scoped via Eventbrite q=")
+    print(f"  [hackathons] collected {len(rows)} rows via Tavily "
+          f"(years in-scope: {crawl_years()})")
     return rows
 
 
@@ -161,7 +141,7 @@ def run():
             r = upsert_rows(conn, "posts", rows, ["title", "source"])
             print(f"hackathons_crawler: {r}  (-> posts tag=hackathon)")
         else:
-            print("hackathons_crawler: 0 rows")
+            print("hackathons_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
 

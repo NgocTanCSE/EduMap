@@ -1,16 +1,17 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, GeoJSON } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ShieldCheck, MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, Star, Heart, type LucideIcon } from 'lucide-react';
+import { MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
 import { MapPopupContent, type NearbyFacility } from '@/components/ui/MapPopupContent';
+import { FeaturedPinsLayer, type FeaturedPin } from '@/components/map/FeaturedPinsLayer';
 
 // EduMap POI markers are themeable CSS divIcons — no external PNG/CDN.
 // Each category maps to a Tailwind color token + a Lucide glyph, rendered to
@@ -32,34 +33,10 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   lab: Atom, stem: Atom, green: Leaf, park: Leaf, wifi: Wifi, cafe: Coffee,
   restaurant: Globe, market: ShoppingCart, convenience: Store,
 };
-/** A featured "ghim" pin that links to a feature page. */
-export interface FeaturedPin {
-  id: string;
-  name: string;
-  category: string;
-  lat: number;
-  lng: number;
-  description?: string;
-  address?: string;
-  featureLink: string;
-}
-
-const FEATURED_ICON_COLOR: Record<string, string> = {
-  stem: 'text-destructive',
-  green: 'text-green-600',
-  summer: 'text-orange-500',
-  wifi: 'text-amber-400',
-  market: 'text-primary',
-  donate: 'text-red-500',
-};
-const FEATURED_ICON: Record<string, LucideIcon> = {
-  stem: Atom,
-  green: Leaf,
-  summer: GraduationCap,
-  wifi: Wifi,
-  market: ShoppingCart,
-  donate: Heart,
-};
+// FeaturedPin interface is now imported from FeaturedPinsLayer.tsx
+// (the canonical source for featured "ghim" pin data shape).
+// The old inline FEATURED_ICON_COLOR / FEATURED_ICON / getFeaturedIconForCategory
+// maps have been replaced by the centralised PinTheme system (components/map/PinTheme.tsx).
 
 // Tear-drop pin glyph; fill="currentColor" inherits the category color.
 const PIN_GLYPH = `<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2.5C8.17 2.5 5 5.67 5 9.5 5 14.85 11.25 20.15 11.53 20.46a1 1 0 001.46-.01C12.75 20.15 19 14.85 19 9.5 19 5.67 15.83 2.5 12 2.5zm0 13.5a5.5 5.5 0 110-11 5.5 5.5 0 010 11z"/></svg>`;
@@ -94,31 +71,6 @@ const getIconForCategory = (categoryName: string) => {
   _divIconCache.set(key, icon);
   return icon;
 }
-
-/** Star-shaped featured-pin icon (distinct from regular tear-drop POI pins). */
-const _featuredIconCache = new Map<string, ReturnType<typeof L.divIcon>>();
-const getFeaturedIconForCategory = (categoryName: string) => {
-  const cat = (categoryName || '').toLowerCase();
-  const key = `featured-${cat || '_default'}`;
-  const cached = _featuredIconCache.get(key);
-  if (cached) return cached;
-
-  const RawIcon = FEATURED_ICON[cat] || Star;
-  const color = FEATURED_ICON_COLOR[cat] || 'text-accent';
-  const iconSvg = renderIconToHtml(RawIcon, 'w-3 h-3');
-  // Star glyph (filled, gold-ish outline) with the category icon centered.
-  const starSvg = '<svg viewBox="0 0 24 24" class="absolute inset-0 w-6 h-6"><path fill="currentColor" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.94L12 17.77l-6.18 3.31 1.18-6.94-5-4.97L8.91 8.26z"/></svg>';
-  const html = `<div class="${color} relative flex items-center justify-center" style="width:28px;height:28px">${starSvg}<span class="relative text-white flex items-center justify-center w-3 h-3">${iconSvg}</span></div>`;
-  const icon = L.divIcon({
-    className: 'edumap-featured-marker shadow-lg',
-    html,
-    iconSize: [28, 28],
-    iconAnchor: [14, 29],
-    popupAnchor: [0, -36],
-  });
-  _featuredIconCache.set(key, icon);
-  return icon;
-};;
 
 // Mini-icons used inside the popup to label a POI's nearby facilities.
 const facilityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -365,11 +317,22 @@ interface InteractiveMapProps {
    * satellite detections, etc.) on the SAME shared map instance.
    */
   overlay?: React.ReactNode;
+  /**
+   * The currently-active tool ID (e.g. "green", "wifi"). When set, the
+   * featured-pins layer hides pins for this category so the tool overlay
+   * doesn't render duplicates.
+   */
+  activeToolId?: string | null;
+  /**
+   * Which featured-pin categories are currently visible. When provided,
+   * only pins in this set are shown by the FeaturedPinsLayer.
+   */
+  visiblePinCategories?: Set<string>;
 }
 
-export default function InteractiveMap({ 
-  points = [], 
-  selectedPoint = null, 
+export default function InteractiveMap({
+  points = [],
+  selectedPoint = null,
   onSelectPoint = () => {},
   onMapClick = () => {},
   showHeatmap = false,
@@ -380,6 +343,8 @@ export default function InteractiveMap({
   featuredPins = [],
   onFeaturedPinClick,
   overlay = null,
+  activeToolId = null,
+  visiblePinCategories,
 }: InteractiveMapProps) {
   const defaultCenter: [number, number] = [10.957, 106.843];
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -497,6 +462,17 @@ export default function InteractiveMap({
       onMapClick(lat, lng);
     }
   }, [routingMode, onMapClick]);
+
+  // ─── Featured pins: hide categories rendered by active tool overlays ─────
+  // When the GreenTool or WifiTool tab is active, their overlays render their
+  // own markers — so we tell FeaturedPinsLayer to suppress that category to
+  // avoid duplicate pins on top of each other.
+  const hiddenPinCategories = useMemo(() => {
+    const hidden = new Set<string>();
+    if (activeToolId === "green") hidden.add("green");
+    if (activeToolId === "wifi") hidden.add("wifi");
+    return hidden;
+  }, [activeToolId]);
 
   const fetchRoute = useCallback(async (originPoint: { lat: number; lng: number }, destPoint: { lat: number; lng: number }, options?: { avoidFlood?: boolean; avoidTraffic?: boolean }) => {
     setIsLoadingRoute(true);
@@ -961,48 +937,19 @@ export default function InteractiveMap({
           </MarkerClusterGroup>
         )}
 
-        {/* Featured "ghim" pins (separate cluster) — star icons with feature-page links */}
+        {/* Featured "ghim" pins — rendered via the centralised FeaturedPinsLayer.
+            When a tool tab (green/wifi) is active, that tool's category is
+            hidden here to avoid duplicate markers (the tool overlay renders
+            its own enhanced markers instead). */}
         {!showHeatmap && featuredPins.length > 0 && (
-          <MarkerClusterGroup chunkedLoading>
-            {featuredPins
-              .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)))
-              .map((p: any) => {
-                const lat = Number(p.lat);
-                const lng = Number(p.lng);
-
-                return (
-                    <Marker
-                      key={p.id}
-                      position={[lat, lng]}
-                      icon={getFeaturedIconForCategory(p.category)}
-                      eventHandlers={{
-                        click: () => {
-                          if (onFeaturedPinClick) {
-                            onFeaturedPinClick(p);
-                          } else {
-                            window.location.href = p.featureLink;
-                          }
-                        },
-                      }}
-                    >
-                    <Tooltip direction="top" offset={[0, -30]} opacity={1}>
-                      <span className="font-bold text-xs">{p.name}</span>
-                    </Tooltip>
-                    <Popup>
-                      <MapPopupContent
-                        title={p.name}
-                        address={p.address}
-                        description={p.description}
-                        categoryTag={p.category}
-                        featureLink={p.featureLink}
-                      />
-                    </Popup>
-                  </Marker>
-                );
-              })}
-          </MarkerClusterGroup>
+          <FeaturedPinsLayer
+            pins={featuredPins}
+            visible={!showHeatmap}
+            visibleCategories={visiblePinCategories}
+            hiddenCategories={hiddenPinCategories}
+            onPinClick={onFeaturedPinClick}
+          />
         )}
-
         {/* Origin/Destination Markers */}
         {origin && <OriginMarker position={[origin.lat, origin.lng]} />}
         {destination && <DestinationMarker position={[destination.lat, destination.lng]} />}

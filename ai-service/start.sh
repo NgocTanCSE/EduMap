@@ -33,8 +33,9 @@ DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL DEEPSEEK_TIMEOUT_SECONDS \
 CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED \
 GEO_VISION_MODEL GEO_VISION_TIMEOUT_SECONDS BING_MAPS_API_KEY \
 OWM_API_KEY OWM_TIMEOUT_SECONDS \
-GOOGLE_TTS_API_KEY"
-    for var in $SECRET_VARS; do
+GOOGLE_TTS_API_KEY \
+TAVILY_API_KEY TAVILY_TIMEOUT_SECONDS \
+TAVILY_MAX_RESULTS TAVILY_CIRCUIT_BREAKER_FAILURES TAVILY_CIRCUIT_BREAKER_TTL
         if [ -z "${!var}" ]; then
             val=$(echo "$PARENT_ENV" | grep "^${var}=" | head -1 | cut -d= -f2-)
             [ -n "$val" ] && export "$var=$val"
@@ -68,6 +69,7 @@ echo "AI service env check:"
 [ -n "$HF_TOKEN" ] && echo "  HF_TOKEN: ✓ set (GeoVision vision detection)" || echo "  HF_TOKEN: ✗ NOT set"
 [ -n "$OWM_API_KEY" ] && echo "  OWM_API_KEY: ✓ set (OpenWeatherMap for Climate Guardian)" || echo "  OWM_API_KEY: ✗ NOT set"
 [ -n "$GOOGLE_TTS_API_KEY" ] && echo "  GOOGLE_TTS_API_KEY: ✓ set (Google Cloud TTS for Language Bridge)" || echo "  GOOGLE_TTS_API_KEY: ✗ NOT set (will use edge-tts / gTTS fallback)"
+[ -n "$TAVILY_API_KEY" ] && echo "  TAVILY_API_KEY: ✓ set (crawlers: jobs, internships, events, etc.)" || echo "  TAVILY_API_KEY: ✗ NOT set (crawlers degrade to curated snapshot / 0 rows)"
 
 # ── Launch AI service ───────────────────────────────────────────────────────
 exec $PY -m uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5

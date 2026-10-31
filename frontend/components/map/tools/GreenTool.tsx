@@ -6,37 +6,69 @@
  * on the shared InteractiveMap.
  *
  * Panel: challenge list, filter by status, quick stats.
- * Overlay: green challenge markers, clustered by nearby.
+ * Overlay: green challenge markers with status halos (only renders when the
+ * featured-pins layer is hidden for the "green" category — avoids duplicate
+ * markers). Uses the centralised PinTheme for consistent star icons + badges.
  */
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Leaf, CheckCircle2, Clock, Users, RefreshCw, AlertCircle, Filter } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Leaf, CheckCircle2, Clock, Users, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
-import { Marker, Popup, useMap } from "react-leaflet";
+import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
+import { createPinIcon, createClusterIcon, type PinBadge } from "./PinTheme";
 
-const _greenIcon = typeof window !== "undefined" ? L.icon({
-  iconUrl: "data:image/svg+xml;base64," + btoa("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 3L2 8v9c0 4.97 3.58 9.24 8.5 10.62l.5.13.5-.13C18.42 17.24 22 12.97 22 8V8l-2-1.12V5c0-.55-.45-1-1-1h-1.5c-.28 0-.5.22-.5.5v2.5c0 .55.45 1 1 1H20l-8 4-8-4V5c0-.55-.45-1-1-1H7c-.55 0-1-.45-1-1V3c0-.55.45-1 1-1h1.5c.28 0 .5.22.5.5v1.58L12 8z'/><path d='M12 17c-2.76 0-5-2.24-5-5h2c0 1.66 1.34 3 3 3s3-1.34 3-3c0-.28-.03-.55-.08-.82L13 8.18V9c0 1.66-1.34 3-3 3S7 10.66 7 9V7.18L6.08 6.68C5.42 7.83 5 9.36 5 11c0 2.76 2.24 5 5 5v2zm0 5c-3.87 0-7-3.13-7-7 0-1.66.55-3.17 1.48-4.3L8 12.18V13c0 2.21 1.79 4 4 4l1.52-1.02C14.12 15.05 15 13.61 15 12c0-1.66-.55-3.17-1.48-4.3L12 8.18V5c0-2.21-1.79-4-4-4S4 2.79 4 5v2.17l1.52 1.02C6.25 7.05 7 8.45 7 10c0 1.66-.55 3.17-1.48 4.3L4.48 15.17c.93 1.17 2.44 2 4.02 2 1.58-.03 3.04-.95 3.98-2.38L14 11.83v-.82l1.52-1.02c-.36-.87-.86-1.67-1.48-2.38C16.21 8.57 17 10.17 17 12c0 2.76-2.24 5-5 5v-1.5c-.28 0-.55-.03-.82-.08-.27 1.42-.38 2.88-.38 4.38 0 1.66.55 3.17 1.48 4.3L12 17z' fill='%23ffffff'/></svg>"),
-  iconSize: [26, 26],
-  iconAnchor: [13, 26],
-  popupAnchor: [0, -28],
-}) : L.divIcon({
-  html: "<div style='width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:#10b981;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.3)'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff' width='14' height='14'><path d='M12 3L2 8v9c0 4.97 3.58 9.24 8.5 10.62l.5.13.5-.13C18.42 17.24 22 12.97 22 8V8l-2-1.12V5c0-.55-.45-1-1-1h-1.5c-.28 0-.5.22-.5.5v2.5c0 .55.45 1 1 1H20l-8 4-8-4V5c0-.55-.45-1-1-1H7c-.55 0-1-.45-1-1V3c0-.55.45-1 1-1h1.5c.28 0 .5.22.5.5v1.58L12 8z'/><path d='M12 17c-2.76 0-5-2.24-5-5h2c0 1.66 1.34 3 3 3s3-1.34 3-3c0-.28-.03-.55-.08-.82L13 8.18V9c0 1.66-1.34 3-3 3S7 10.66 7 9V7.18L6.08 6.68C5.42 7.83 5 9.36 5 11c0 2.76 2.24 5 5 5v2zm0 5c-3.87 0-7-3.13-7-7 0-1.66.55-3.17 1.48-4.3L8 12.18V13c0 2.21 1.79 4 4 4l1.52-1.02C14.12 15.05 15 13.61 15 12c0-1.66-.55-3.17-1.48-4.3L12 8.18V5c0-2.21-1.79-4-4-4S4 2.79 4 5v2.17l1.52 1.02C6.25 7.05 7 8.45 7 10c0 1.66-.55 3.17-1.48 4.3L4.48 15.17c.93 1.17 2.44 2 4.02 2 1.58-.03 3.04-.95 3.98-2.38L14 11.83v-.82l1.52-1.02c-.36-.87-.86-1.67-1.48-2.38C16.21 8.57 17 10.17 17 12c0 2.76-2.24 5-5 5v-1.5c-.28 0-.55-.03-.82-.08-.27 1.42-.38 2.88-.38 4.38 0 1.66.55 3.17 1.48 4.3L12 17z' fill='%23ffffff'/></svg></div>",
-  iconSize: [26, 26],
-  iconAnchor: [13, 26],
-  popupAnchor: [0, -28],
-});
+interface GreenChallenge {
+  id: string;
+  title: string;
+  description: string;
+  status: "active" | "completed" | "upcoming";
+  carbon_saved_kg: number;
+  participants_count: number;
+  points?: number;
+  lat: number;
+  lng: number;
+  address?: string;
+  created_by?: string;
+}
+
+// ─── Status halo — rendered as a Circle around each marker to give a
+//     quick at-a-glance view of challenge status without duplicating the
+//     star glyph itself (the FeaturedPinsLayer handles the star markers).
+const STATUS_HALO_COLOR: Record<string, { color: string; label: string }> = {
+  active:    { color: "#10b981", label: "Đang diễn ra" },
+  completed: { color: "#22c55e", label: "Hoàn thành" },
+  upcoming:  { color: "#f59e0b", label: "Sắp diễn ra" },
+};
+
+const STATUS_FILTER_LABELS: Record<string, string> = {
+  all: "Tất cả",
+  active: "Đang diễn ra",
+  completed: "Hoàn thành",
+  upcoming: "Sắp diễn ra",
+};
+
+/** Determine the badge for a green challenge based on its status. */
+function greenBadge(challenge: GreenChallenge): PinBadge | undefined {
+  switch (challenge.status) {
+    case "completed": return { type: "verified" };
+    case "active":    return { type: "progress", value: Math.min(100, Math.round((challenge.participants_count / 50) * 100)) };
+    case "upcoming":  return { type: "new" };
+    default:          return undefined;
+  }
+}
+
+// ─── Panel ──────────────────────────────────────────────────────────────────
 
 export function GreenPanel({
   viewport, result, onResult, loading, setLoading, error, setError,
   active, user,
-}: any) {
-  const [challenges, setChallenges] = useState<any[]>([]);
-  const [showLayer, setShowLayer] = useState(true);
+}: ToolPanelProps) {
+  const [challenges, setChallenges] = useState<GreenChallenge[]>([]);
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
@@ -44,14 +76,14 @@ export function GreenPanel({
     fetchChallenges();
   }, [active]);
 
-  const fetchChallenges = async () => {
+  const fetchChallenges = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await fetchWithRetry("/api/green/challenges");
       if (!response.ok) throw new Error("Không thể tải thử thách xanh");
       const data = await response.json();
-      const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const items: GreenChallenge[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       setChallenges(items);
       onResult(items);
     } catch (err: any) {
@@ -60,15 +92,16 @@ export function GreenPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError, onResult]);
 
-  const filtered = challenges.filter(c => {
-    if (filter === "completed" && c.status !== "completed") return false;
-    if (filter === "active" && c.status !== "active") return false;
-    return true;
+  const filtered = challenges.filter((c) => {
+    if (filter === "all") return true;
+    return c.status === filter;
   });
 
   const totalPoints = challenges.reduce((sum, c) => sum + (c.points || 0), 0);
+  const totalCarbon = challenges.reduce((sum, c) => sum + (c.carbon_saved_kg || 0), 0);
+  const totalParticipants = challenges.reduce((sum, c) => sum + (c.participants_count || 0), 0);
 
   if (!active) return null;
 
@@ -79,53 +112,68 @@ export function GreenPanel({
           <Leaf className="w-4 h-4 text-green-600" /> Thử thách xanh
         </h3>
         <button
-          onClick={() => setShowLayer(!showLayer)}
-          className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground/60"
-          title={showLayer ? "Ẩn lớp xanh" : "Hiện lớp xanh"}
+          onClick={fetchChallenges}
+          disabled={loading}
+          className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground"
+          title="Làm mới"
         >
-          {showLayer ? <Leaf className="w-3 h-3 text-green-600" /> : <Leaf className="w-3 h-3" />}
+          {loading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
         </button>
       </div>
 
-      <div className="flex gap-1.5 text-[10px]">
-        <button
-          onClick={() => setFilter("all")}
-          className={`px-2 py-1 rounded ${filter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground/60 hover:bg-muted/30"}`}
-        >
-          Tất cả
-        </button>
-        <button
-          onClick={() => setFilter("active")}
-          className={`px-2 py-1 rounded ${filter === "active" ? "bg-primary/10 text-primary" : "text-muted-foreground/60 hover:bg-muted/30"}`}
-        >
-          Đang diễn ra
-        </button>
-        <button
-          onClick={() => setFilter("completed")}
-          className={`px-2 py-1 rounded ${filter === "completed" ? "bg-primary/10 text-primary" : "text-muted-foreground/60 hover:bg-muted/30"}`}
-        >
-          Hoàn thành
-        </button>
+      {/* Quick stats */}
+      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="p-2 rounded-lg bg-muted/20">
+          <div className="font-bold text-green-600">{totalCarbon} kg</div>
+          <div className="text-muted-foreground/60">CO₂ tiết kiệm</div>
+        </div>
+        <div className="p-2 rounded-lg bg-muted/20">
+          <div className="font-bold text-green-600">{totalParticipants}</div>
+          <div className="text-muted-foreground/60">Người tham gia</div>
+        </div>
+        <div className="p-2 rounded-lg bg-muted/20">
+          <div className="font-bold text-green-600">{totalPoints}</div>
+          <div className="text-muted-foreground/60">Điểm xanh</div>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs">
-        <span className="px-1.5 py-0.5 rounded bg-green-100/30 text-green-600">
-          {totalPoints} điểm
-        </span>
-        <span className="text-muted-foreground/60">
-          {challenges.length} thử thách
-        </span>
+      {/* Status filter chips */}
+      <div className="flex gap-1.5 text-[10px] flex-wrap">
+        {Object.entries(STATUS_FILTER_LABELS).map(([key, label]) => {
+          const on = filter === key;
+          const halo = STATUS_HALO_COLOR[key] || STATUS_HALO_COLOR.active;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-2 py-1 rounded transition-all ${
+                on
+                  ? "bg-green-100/30 text-green-600 border border-green-600/30 shadow"
+                  : "text-muted-foreground/60 hover:bg-muted/30 border border-transparent"
+              }`}
+            >
+              {key !== "all" && (
+                <span className="w-1.5 h-1.5 rounded-full inline-block mr-1"
+                      style={{ backgroundColor: halo.color }} />
+              )}
+              {label}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Challenge list */}
       {filtered.length > 0 ? (
-        <div className="space-y-1 max-h-52 overflow-y-auto">
-          {filtered.map((c: any) => (
+        <div className="space-y-1 max-h-52 overflow-y-auto scrollbar-hide">
+          {filtered.map((c) => (
             <div key={c.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="flex items-center gap-1.5 font-medium text-foreground">
                 {c.status === "completed" ? (
                   <CheckCircle2 className="w-3 h-3 text-green-600" />
-                ) : (
+                ) : c.status === "active" ? (
                   <Clock className="w-3 h-3 text-orange-500" />
+                ) : (
+                  <BarChart3 className="w-3 h-3 text-blue-500" />
                 )}
                 {c.title}
               </div>
@@ -138,6 +186,11 @@ export function GreenPanel({
                 <div className="flex items-center gap-1 text-muted-foreground/60 mt-0.5">
                   <Users className="w-3 h-3" /> {c.participants_count} người
                 </div>
+              )}
+              {c.points > 0 && (
+                <p className="text-muted-foreground/60 mt-0.5">
+                  • {c.points} điểm
+                </p>
               )}
             </div>
           ))}
@@ -156,26 +209,78 @@ export function GreenPanel({
   );
 }
 
-export function GreenOverlay({ result }: { result: any[]; loading: boolean; points: any[]; viewport: any }) {
-  const locations = result || [];
+// ─── Overlay ─────────────────────────────────────────────────────────────────
 
-  if (!locations.length) return null;
+export function GreenOverlay({ result, loading, points, viewport }: ToolOverlayProps) {
+  const challenges: GreenChallenge[] = result || [];
 
+  if (!challenges.length) return null;
+
+  // The overlay only renders status-halo circles + ring icons around each
+  // challenge. The star glyph + popup is owned by FeaturedPinsLayer (which
+  // hides "green" pins when this tool is active). This avoids duplicate
+  // markers while still giving the tool tab a distinct map presence.
   return (
     <>
-      {locations.map((c: any) => {
-        if (!c.lat || !c.lng) return null;
+      {challenges.map((c) => {
+        const lat = Number(c.lat);
+        const lng = Number(c.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const halo = STATUS_HALO_COLOR[c.status] || STATUS_HALO_COLOR.active;
+        const icon = createPinIcon("green", greenBadge(c));
+
         return (
-          <Marker key={c.id} position={[c.lat, c.lng]} icon={_greenIcon}>
-            <Popup>
-              <div className="space-y-1">
-                <div className="font-medium text-sm">{c.title}</div>
-                <div className="text-xs text-muted-foreground/70">
-                  CO₂: {c.carbon_saved_kg} kg • {c.participants_count} người tham gia
+          <React.Fragment key={c.id}>
+            {/* Semi-transparent status halo circle */}
+            <Circle
+              center={[lat, lng]}
+              radius={220}
+              pathOptions={{
+                color: halo.color,
+                fillColor: halo.color,
+                fillOpacity: 0.08,
+                weight: 2,
+                dashArray: "4 4",
+              }}
+            />
+            {/* Star pin via PinTheme (rendered by this overlay since featured
+                pins hide green when the green tool tab is active) */}
+            <Marker
+              position={[lat, lng]}
+              icon={icon}
+              eventHandlers={{
+                click: () => {
+                  // The popup handles the click; no extra action needed.
+                },
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -30]} opacity={1} className="green-status-tooltip">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: halo.color }} />
+                  <span className="font-bold">{c.title}</span>
+                  <span className="text-muted-foreground/70">[{halo.label}]</span>
                 </div>
-              </div>
-            </Popup>
-          </Marker>
+              </Tooltip>
+              <Popup>
+                <div className="space-y-1 max-w-xs">
+                  <div className="font-medium text-sm">{c.title}</div>
+                  <div className="text-xs text-muted-foreground/70">
+                    {halo.label} · CO₂: {c.carbon_saved_kg} kg
+                  </div>
+                  {c.participants_count > 0 && (
+                    <div className="text-xs text-muted-foreground/70">
+                      {c.participants_count} người tham gia
+                    </div>
+                  )}
+                  {c.points > 0 && (
+                    <div className="text-xs text-muted-foreground/70">
+                      • {c.points} điểm
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          </React.Fragment>
         );
       })}
     </>

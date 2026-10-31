@@ -101,7 +101,34 @@ def test_summarize_material_degraded_fallback():
 def test_match_mentors_degraded_fallback():
     """match_mentors returns a degraded empty-state (not empty list) instead of raising.
     Per AGENTS.md §6, mentors may be intentionally empty — the response should
-    include a helpful message rather than fabricate mentors."""
+    include a helpful message rather than fabricate mentors.
+    Mocks the DB to return no rows, so this tests the empty-state path."""
+    from unittest.mock import patch
+    svc = _fresh_service()
+    svc.is_ready = False  # simulate no provider
+    data = MatchRequest(
+        student_id="test-student",
+        student_skills_needed=["Python"],
+        student_mbti="INTJ",
+        preferred_days=["Mon", "Wed"],
+        available_mentors=[],
+    )
+    # Mock _resolve_db_path to return None so the DB query is skipped,
+    # simulating an empty mentors table — guarantees the empty-state branch.
+    with patch.object(svc, "_resolve_db_path", return_value=None):
+        result = svc._match_mentors_fallback(data, "No LLM provider")
+    assert isinstance(result, list)
+    assert len(result) >= 1
+    assert result[0]["match_score"] == 0
+    assert "empty" in str(result[0]).lower() or "không" in result[0].get("explanation", "").lower()
+    assert result[0]["_degraded"] is True
+    print("✓ test_match_mentors_degraded_fallback")
+
+
+def test_match_mentors_degraded_fallback_with_seeded_data():
+    """When the mentors table has real Vietnamese data, the degraded fallback
+    returns actual mentor matches (scored by specialty overlap) with
+    _degraded=True, instead of an empty-state."""
     svc = _fresh_service()
     svc.is_ready = False  # simulate no provider
     data = MatchRequest(
@@ -113,11 +140,16 @@ def test_match_mentors_degraded_fallback():
     )
     result = svc._match_mentors_fallback(data, "No LLM provider")
     assert isinstance(result, list)
-    # Empty mentors table → helpful empty-state (never fabricated mentors)
     assert len(result) >= 1
-    assert result[0]["match_score"] == 0
-    assert "empty" in str(result[0]).lower() or "không" in result[0].get("explanation", "").lower()
-    print("✓ test_match_mentors_degraded_fallback")
+    for item in result:
+        assert "_degraded" in item
+        assert item["match_score"] > 0
+        assert "user_id" in item
+        assert "specialties" in item
+        assert "explanation" in item
+        assert "rating" in item
+        assert "is_verified" in item
+    print("✓ test_match_mentors_degraded_fallback_with_seeded_data")
 
 
 def test_analyze_geo_density_degraded_fallback():
@@ -414,6 +446,7 @@ if __name__ == "__main__":
     test_recommend_career_degraded_fallback()
     test_summarize_material_degraded_fallback()
     test_match_mentors_degraded_fallback()
+    test_match_mentors_degraded_fallback_with_seeded_data()
     test_match_mentors_safety_cap()
     test_match_mentors_safety_cap_with_custom_max()
     test_mentor_profile_accepts_id_alias()

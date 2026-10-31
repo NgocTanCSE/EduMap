@@ -28,6 +28,9 @@ data_raw
 osrm-data
 seed_crawled_data.sql
 
+# Unreferenced static assets (not imported anywhere in code) — reduce image size
+frontend/public/edumap-promo.mp4
+
 # Documentation (not needed at runtime in the container)
 docs
 

@@ -3,54 +3,68 @@
 Donations / fundraising campaigns crawler -> `donation_campaigns` table
 (title UNIQUE).
 
-Multiple Eventbrite fundraising query angles, ALL paginated (crawl nhiều trang,
-không chỉ 1-2):
+Replaces ALL HTTP-based sources (Eventbrite) which are
+**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
+Tavily AI search + extract.
 
-  Each keyword in QUERIES is fetched across PAGES pages of
-  https://www.eventbrite.com/d/vietnam/all-events/?q=<kw>&page=N
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to Eventbrite — blocked at
+  HF egress.  This version uses a single Tavily API call
+  (https://api.tavily.com — reachable from HF).
 
-Card-aware extraction (extract_eventbrite_cards) so the campaign image is the
-correct one — never the site logo/banner (the old global-index bug). The parser
-now reads the money figures straight off each card's block
-("Raised $X of $Y goal") when present, instead of hardcoding 0/0.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
 
-Graceful: any blocked/unreachable page -> 0 rows, no crash. Idempotent upsert
-by title.
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_html,
-                      crawl_pages, extract_eventbrite_cards, ensure_column)
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import clean_text, make_donation_row, extract_deadline
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-QUERIES = [
-    "fundraising", "charity", "donation", "support", "community", "cause",
-    "nonprofit", "ngo", "aid", "relief", "volunteer", "education", "student",
-]
-# Location-scoped query variants (Đồng Nai → miền Nam → VN → ĐNA).
-LOCATION_QUERIES = [f"{q} {kw}" for q in QUERIES[:5]
-                    for kw in keywords_for_layers()[:6]]
-PAGES = 8  # per query
 
-NOW = datetime.datetime.utcnow()
-QUERIES = [
-    "fundraising", "charity", "donation", "support", "community", "cause",
-    "nonprofit", "ngo", "aid", "relief", "volunteer", "education", "student",
+# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam → VN)
+# plus keyword-focussed fundraising queries.
+_TAVILY_DONATION_QUERIES = [
+    # Đồng Nai
+    "quyên góp từ thiện giáo dục Đồng Nai",
+    "chiến dịch gây quỹ trường học Biên Hòa",
+    # miền Nam
+    "quyên góp giáo dục TP Hồ Chí Minh",
+    "gây quỹ từ thiện miền Nam",
+    # Việt Nam
+    "quyên góp xây trường học Việt Nam",
+    "chiến dịch từ thiện giáo dục 2025",
+    "gây quỹ đầu tư trang thiết bị giáo dục",
+    # keyword-focussed
+    "học bổng từ thiện sinh viên nghèo",
+    "quyên góp xây nhà trường vùng sâu",
+    "gây quỹ sách cho thư viện trường học",
+    "chiến dịch hiến thuốc tặng thuốc cho bệnh viện",
+    "từ thiện công nghệ thông tin trường học",
 ]
-PAGES = 8  # per query
-BASE = "https://www.eventbrite.com/d/vietnam/all-events/"
+
 TARGET = 150
-CAP = 500  # hard stop on distinct campaigns
+CAP = 500
 
 
 def _money(s):
-    """'1,234' / '$1,234' / '1.2k' -> 1234 (int). None if unparseable."""
+    """'1,234' / '$1,234' / '1.2k' / '15 triệu' -> numeric string. None if unparseable."""
     if not s:
         return None
     s = s.replace("$", "").replace(",", "").replace(" ", "").strip().lower()
@@ -66,78 +80,95 @@ def _money(s):
         return None
 
 
-def _parse_amounts(block):
-    """Extract (current_amount, target_amount) from a card's money text."""
-    cur = None
-    tgt = None
-    # "Raised $X of $Y" / "$X raised of $Y goal"
-    m = re.search(r'([Rr]aised)\s*\$([\d,.]+)\s*(?:of\s*\$([\d,.]+))?', block)
-    if m:
-        cur = _money(m.group(2))
-        if m.group(3):
-            tgt = _money(m.group(3))
+def _parse_amounts(text):
+    """Extract (current_amount, target_amount) from a campaign description."""
+    if not text:
+        return None, None
+    cur = tgt = None
+    # "Đã quyên góp X / mục tiêu Y", "raised X of Y", "X / Y"
+    m = re.search(r"(?:đã\s*quyên\s*góp|raised|quyên\s*góp|hiện\s*có)\s*([\d\.,\s]*(?:triệu|đ|vnd|usd|eur|$)?)",
+                  text, re.IGNORECASE)
+    if m and m.group(1):
+        cur = _money(m.group(1))
+    m2 = re.search(r"(?:mục\s*tiêu|hôm\s*nay|goal|target|của)\s*([\d\.,\s]*(?:triệu|đ|vnd|usd|eur|$)?)",
+                   text, re.IGNORECASE)
+    if m2 and m2.group(1):
+        tgt = _money(m2.group(1))
     if cur is None:
-        m2 = re.search(r'\$([\d,.]+)\s*raised', block, re.I)
-        if m2:
-            cur = _money(m2.group(1))
-    if tgt is None:
-        m3 = re.search(r'(?:goal|target|of)\s*\$([\d,.]+)', block, re.I)
+        # Look for a monetary amount in the text.
+        m3 = re.search(r"([\d\.,]+\s*(?:triệu|đ|vnd|usd|eur|\$))", text, re.IGNORECASE)
         if m3:
-            tgt = _money(m3.group(1))
+            cur = _money(m3.group(1))
     return cur, tgt
 
 
-def _donation_items(html):
-    """Parse one Eventbrite listing page -> list of campaign dicts (deduped by title)."""
-    rows = {}
-    if not html:
-        return []
-    for c in extract_eventbrite_cards(html):
-        title = (c.get("title") or "").strip()
-        if not title:
-            continue
-        block = c.get("raw_block") or ""
-        cur, tgt = _parse_amounts(block)
-        rows[title] = {
-            "title": title[:255],
-            "description": f"Chiến dịch quyên góp từ Eventbrite. Chi tiết: https://www.eventbrite.com{c.get('href','')}",
-            "target_amount": tgt or 0,
-            "current_amount": cur or 0,
-            "organizer_id": None,
-            "location_point": None,
-            "location_scope": "vietnam",
-            "status": "active",
-            "start_date": NOW,
-            "end_date": NOW + datetime.timedelta(days=30),
-            "images": Jsonb([c["img"]] if c.get("img") else []),
-        }
-    return list(rows.values())
+def _donation_row(title, description, source_url, query=None):
+    """Map one Tavily result to a donation_campaigns row dict."""
+    title = (title or "").strip()
+    if not title:
+        return None
+    desc = clean_text(description or "")
+    cur, tgt = _parse_amounts(desc)
+    suffix = f" (tìm theo '{query}')" if query else ""
+    banner = None
+    # Look for image URL in the raw content.
+    m = re.search(r'(https?://[^\s"\'<>]+?\.(?:jpg|jpeg|png|gif|webp))', desc[:2000])
+    if m:
+        banner = m.group(1)
+    return make_donation_row(
+        title=title[:255],
+        description=f"Chiến dịch quyên góp tìm thấy qua Tavily{suffix}. {desc[:500]}",
+        target_amount=tgt or 0,
+        current_amount=cur or 0,
+        image_url=banner,
+        source_url=source_url,
+    )
 
 
 def crawl():
-    s = make_session()
-    by_title = {}
+    """Crawl Vietnamese fundraising campaigns via Tavily Search + Extract.
 
-    # Location-scoped queries first (Đồng Nai → miền Nam → VN → ĐNA), then plain.
-    for q in LOCATION_QUERIES + QUERIES:
+    Replaces Eventbrite (blocked on HF Spaces egress).
+    Returns a flat list of donation_campaigns row dicts, deduped by title.
+    """
+    by_title = {}
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [donations] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [donations] Thử chế độ keyless của Tavily...")
+
+    for q in _TAVILY_DONATION_QUERIES:
         if len(by_title) >= CAP:
             break
-        page_items = crawl_pages(
-            s, lambda p, q=q: f"{BASE}?q={q}&page={p}", fetch_html,
-            _donation_items, key=("title",), max_pages=PAGES,
-            stop_when_empty=True, sleep=0.6, label=f'donations(q={q})')
-        for it in page_items:
-            if it["title"] not in by_title:
-                by_title[it["title"]] = it
-        if len(by_title) >= CAP:
-            break
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=10,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            print(f"  [donations] [tavily] '{q[:50]}...' → {len(results)} results")
+            for r in results:
+                title = clean_text(r.get("title", ""))[:255]
+                if not title:
+                    continue
+                row = _donation_row(
+                    title=title,
+                    description=r.get("raw_content", "") or r.get("content", ""),
+                    source_url=r.get("url", ""),
+                    query=q,
+                )
+                if row and title not in by_title:
+                    by_title[title] = row
+        except Exception as e:
+            print(f"  [donations] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
     rows = list(by_title.values())
     if len(rows) > TARGET:
         rows = rows[:TARGET]
-    print(f"  [donations] collected {len(rows)} distinct campaigns "
-          f"({len(LOCATION_QUERIES)} location-scoped + {len(QUERIES)} plain queries x {PAGES} pages)")
-    print(f"  [scope] years={crawl_years()} | location layers: {[l['label'] for l in LOCATION_LAYERS]}")
+    print(f"  [donations] collected {len(rows)} distinct campaigns")
     return rows
 
 
@@ -153,7 +184,7 @@ def run():
             r = upsert_rows(conn, "donation_campaigns", rows, ["title"])
             print(f"donations_crawler: {r}")
         else:
-            print("donations_crawler: 0 rows (sources blocked/unreachable — graceful)")
+            print("donations_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
 

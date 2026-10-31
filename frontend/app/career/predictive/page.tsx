@@ -4,6 +4,7 @@ import { BrainCircuit, Star, Compass, ArrowRight, ShieldCheck, Zap, Activity, Bo
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import { CareerTabBar } from '@/components/career/CareerTabBar';
 
 interface CareerPath {
   title: string;
@@ -98,8 +99,10 @@ export default function PredictiveCareerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
-      <div className="w-full mx-auto space-y-12">
+    <div className="min-h-screen bg-background text-foreground">
+      <CareerTabBar />
+      <div className="px-4 py-6 sm:px-6 sm:py-8">
+        <div className="w-full mx-auto space-y-12">
         
         {/* Profile Analysis */}
         <div className="p-10 rounded-lg bg-card border border-border flex flex-col md:flex-row gap-10 items-center">
@@ -198,6 +201,7 @@ export default function PredictiveCareerPage() {
               </div>
            </div>
         </div>
+      </div>
       </div>
     </div>
   );

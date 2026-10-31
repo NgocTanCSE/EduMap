@@ -2,70 +2,67 @@
 """
 Internships crawler -> `internships` table (title UNIQUE).
 
-Multiple sources, ALL walking many pages (crawl nhiều trang, không chỉ 1-2):
+Replaces ALL HTTP-based sources (RemoteOK, Remotive, ITviec, TopCV, Adzuna)
+which are **blocked on Hugging Face Spaces free tier** (egress port blackhole)
+with Tavily AI search + extract.
 
-  1. RemoteOK  — free API ?category=internship (one-shot list).
-                 https://remoteok.com/api?category=internship  (NO key)
-  2. Remotive  — free JSON API, offset-paginated (limit=100/page); we keep only
-                 projects whose title/tags look like an internship.
-                 https://api.remotive.com/v1/projects  (NO key)
-  3. ITviec    — Vietnam jobs HTML list, paginated ?page=N; keep cards whose
-                 title contains 'intern' / 'thực tập'. (best-effort regex)
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  version of this crawler made direct HTTP calls to RemoteOK, Remotive, ITviec,
+  TopCV and Adzuna — all blocked at HF egress.  This version uses a single
+  Tavily API call (https://api.tavily.com — reachable from HF).
 
-Map: title <- position/name, field/tags, description, salary_range, deadline,
-requirements, benefits, status='open'. company_id / location_point left NULL
-(organizations not in these sources; no geocoding). Idempotent upsert by title.
+Sources:
+  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
+
+Scope rules (see crawlers/crawl_scope.py):
+  • Years   — 2 consecutive years centred on the crawl year.
+  • Location — Đồng Nai → miền Nam → VN → ĐNA.
+
+Graceful degradation:
+  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
+  - Tavily unreachable → 0 rows, no crash.
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, make_session, fetch_json, fetch_html,
-                      crawl_pages, ensure_column, extract_itviec_jobs, extract_topcv_jobs)
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
 from crawl_scope import (
     crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, location_matches,
 )
+from tavily_client import TavilyClient, tavily_search_and_extract
+from tavily_parse import parse_tavily_jobs, clean_text, _location_layer
 
 # 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 _DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
-REMOTEOK_INTERN = "https://remoteok.com/api?category=internship"
-REMOTIVE = "https://api.remotive.com/v1/projects"
-ITVIEC = "https://itviec.com/cong-nghe-thong-tin"
-ITVIEC_PAGES = 12
-TOPCV = "https://www.topcv.vn/viec-lam-thuc-tap-cong-nghe-thong-tin"
-TOPCV_PAGES = 12
-# Adzuna — free JSON API (env-gated). Reuses the same Adzuna credentials as the
-# jobs crawler; filters results to internship/thực tập postings.
-ADZUNA_COUNTRY = os.getenv("ADZUNA_COUNTRY", "vn")
-ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
-ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
-ADZUNA_INTERN_Q = "intern thực tập"
+# Tavily search queries — location-scoped (Đồng Nai → miền Nam → VN → ĐNA)
+# plus keyword-focussed queries for specific intern roles.  Vietnamese so
+# Tavily returns Vietnamese job boards.
+_TAVILY_INTERN_QUERIES = [
+    # Đồng Nai
+    "tuyển thực tập sinh lập trình viên Đồng Nai 2025",
+    "tuyển intern developer Biên Hòa Đồng Nai",
+    "thực tập phần mềm Bình Dương",
+    # miền Nam
+    "tuyển thực tập IT TP Hồ Chí Minh",
+    "intern lập trình viên Cần Thơ",
+    # Việt Nam
+    "tuyển thực tập sinh đại học lập trình Hà Nội",
+    "intern software engineer Việt Nam 2025",
+    # keyword-focussed
+    "thực tập data analyst Việt Nam",
+    "thực tập frontend developer Việt Nam",
+    "thực tập devops engineer Việt Nam",
+    "thực tập UI UX designer giáo dục",
+]
 
-INTERN_HINTS = ("intern", "internship", "thực tập", "thuc tap", "trainee", "internship")
-
-
-def clean(t):
-    return re.sub(r"<[^>]+>", " ", t or "").replace("\n", " ").strip()[:2000]
-
-
-def parse_date(d):
-    if not d:
-        return None
-    try:
-        return datetime.datetime.fromisoformat(d.replace("Z", "+00:00"))
-    except Exception:
-        return None
-
-
-def _is_intern(title, tags):
-    blob = " ".join([str(title or ""), *(str(t) for t in (tags or []))]).lower()
-    return any(h in blob for h in INTERN_HINTS)
+TARGET = 100  # soft cap on distinct internships
 
 
 def _location_layer(location_str):
-    """Classify a posting's location into its scope layer (Đồng Nai → miền Nam → VN → ĐNA)."""
     if not location_str:
         return "unscoped"
     for layer in LOCATION_LAYERS:
@@ -75,7 +72,8 @@ def _location_layer(location_str):
 
 
 def _intern_row(title, company, description, field, tags, salary, logo=None, deadline=None):
-    desc = clean(description or "")
+    """Build an internships row dict (same schema as the original source parsers)."""
+    desc = clean_text(description or "")
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
     # Year scope: keep items whose deadline falls in the 2-year crawl window;
@@ -102,169 +100,67 @@ def _intern_row(title, company, description, field, tags, salary, logo=None, dea
     }
 
 
-# ---- Source 1: RemoteOK internships (one-shot) ----
-def _remoteok_items(data):
-    rows = []
-    if not data or not isinstance(data, list) or len(data) < 2:
-        return rows
-    for j in data[1:]:
-        title = (j.get("position") or "").strip()
-        if not title:
-            continue
-        tags = j.get("tags") or []
-        if not isinstance(tags, list):
-            tags = [tags]
-        if not _is_intern(title, tags):
-            continue
-        yield _intern_row(title, j.get("company"), j.get("description"),
-                         (tags[0] if tags else "internship"), tags,
-                         _parse_remoteok_salary(j), j.get("logo"), parse_date(j.get("date")))
-
-
-def _parse_remoteok_salary(j):
-    mn = j.get("salary_min"); mx = j.get("salary_max")
-    if mn and mx:
-        return f"{mn}-{mx} USD"
-    if mn:
-        return f"${mn}+ USD"
-    if mx:
-        return f"up to ${mx} USD"
-    return None
-
-
-# ---- Source 2: Remotive (offset-paginated) -> filter internships ----
-def _remotive_items(data):
-    rows = []
-    if not data or not isinstance(data, dict):
-        return rows
-    for p in data.get("projects", []):
-        title = (p.get("title") or "").strip()
-        if not title:
-            continue
-        tags = [t for t in (p.get("tags") or []) if isinstance(t, str)]
-        if not _is_intern(title, tags):
-            continue
-        location = p.get("location") or (p.get("category", {}).get("name") if isinstance(p.get("category"), dict) else "") or "Remote"
-        yield _intern_row(title, p.get("company_name"), p.get("description"),
-                          (tags[0] if tags else "internship"), tags,
-                          p.get("salary"), p.get("company_logo"))
-
-
-def _remotive_url(page, limit=100):
-    return f"{REMOTIVE}?limit={limit}&offset={(page - 1) * limit}"
-
-
-# ---- Source 3: ITviec (HTML, paginated) -> filter intern/thực tập ----
-def _itviec_items(html):
-    rows = []
-    if not html:
-        return rows
-    for c in extract_itviec_jobs(html):
-        if not _is_intern(c["title"], []):
-            continue
-        yield _intern_row(c["title"], c["company"],
-                          f"Xem chi tiết tại https://itviec.com{c['href']}",
-                          "internship", [], None, None)
-
-
-# ---- Source 4: Adzuna (JSON API, page-paginated, env-gated) -> filter intern ----
-def _adzuna_url(page):
-    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
-        return None
-    return (f"https://api.adzuna.com/v1/api/jobs/{ADZUNA_COUNTRY}/search/{page}"
-            f"?app_id={ADZUNA_APP_ID}&app_key={ADZUNA_APP_KEY}"
-            f"&results_per_page=50&what={ADZUNA_INTERN_Q.replace(' ', '+')}")
-
-
-def _adzuna_items(data):
-    rows = []
-    if not data or not isinstance(data, dict):
-        return rows
-    for j in data.get("results", []):
-        title = (j.get("title") or "").strip()
-        if not title or not _is_intern(title, []):
-            continue
-        company = (j.get("company") or {}).get("display_name") or ""
-        locobj = j.get("location") or {}
-        loc = locobj.get("display_name") or " - ".join(locobj.get("area") or []) or "Việt Nam"
-        cat = (j.get("category") or {}).get("label") or ""
-        tags = [t for t in [cat] if t]
-        yield _intern_row(title, company, j.get("description"),
-                          (tags[0] if tags else "internship"), tags,
-                          _adzuna_salary(j), j.get("logo"))
-
-
-def _adzuna_salary(j):
-    mn = j.get("salary_min"); mx = j.get("salary_max")
-    if mn and mx:
-        return f"{mn}-{mx}"
-    if mn:
-        return f"${mn}+"
-    if mx:
-        return f"up to ${mx}"
-    return None
-
-
-# ---- Source 5: TopCV (HTML, paginated) -> filter intern/thực tập ----
-def _topcv_items(html):
-    rows = []
-    if not html:
-        return rows
-    for c in extract_topcv_jobs(html):
-        if not _is_intern(c["title"], []):
-            continue
-        yield _intern_row(c["title"], c["company"],
-                          f"Xem chi tiết tại {c['href']}",
-                          "internship", [], None, None)
-
-
 def crawl():
-    s = make_session()
+    """Crawl Vietnamese internships via Tavily Search + Extract.
+
+    Replaces RemoteOK + Remotive + ITviec + TopCV + Adzuna (all blocked on
+    HF Spaces egress).  Builds location-scoped Vietnamese queries, fetches
+    search+extract results, and parses them into ``_intern_row()`` row dicts.
+
+    Returns a flat list of internship dicts (deduped by caller via
+    upsert_rows key).  Returns ``[]`` when TAVILY_API_KEY is absent.
+    """
     rows = []
+    client = TavilyClient()
+    if not client.is_configured():
+        print("  [internships] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
+        print("  [internships] Thử chế độ keyless của Tavily...")
 
-    # 1) RemoteOK internships (single call)
-    data = fetch_json(s, REMOTEOK_INTERN)
-    if data:
-        rows.extend(_remoteok_items(data))
-    else:
-        print("  [internships] RemoteOK intern unreachable")
+    all_results = []
+    for q in _TAVILY_INTERN_QUERIES:
+        try:
+            results = tavily_search_and_extract(
+                q,
+                search_depth="basic",
+                max_results=8,
+                extract_top_k=5,
+                extract_depth="basic",
+            )
+            all_results.extend(results)
+            print(f"  [internships] [tavily] '{q[:50]}...' → {len(results)} results")
+        except Exception as e:
+            print(f"  [internships] [warn] Tavily query failed '{q[:50]}...': {e}")
+            continue
 
-    # 2) Remotive — paginated offset, filtered to internships
-    rows.extend(crawl_pages(
-        s, _remotive_url, fetch_json, _remotive_items,
-        key=("title",), max_pages=8, max_total=80,
-        stop_when_fewer_than=100, sleep=0.6, label='internships(remotive)'))
+    # Parse Tavily results — filter to intern/thực tập postings.
+    jobs = parse_tavily_jobs(all_results, source_name="tavily")
+    for j in jobs:
+        title_lower = j["title"].lower()
+        if not any(h in title_lower for h in ("intern", "internship", "thực tập", "trainee", "thuc tap")):
+            continue
+        row = _intern_row(
+            title=j["title"],
+            company=j["company_name"],
+            description=j["description"],
+            field="internship",
+            tags=json.loads(j["required_skills"]) if j.get("required_skills") else [],
+            salary=j["salary_range"] if j["salary_range"] != "Thỏa thuán" else None,
+            logo=j.get("image_url"),
+            deadline=j.get("application_deadline"),
+        )
+        rows.append(row)
 
-    # 3) ITviec — paginated HTML, filter to intern titles
-    rows.extend(crawl_pages(
-        s, lambda p: f"{ITVIEC}?page={p}", fetch_html, _itviec_items,
-        key=("title",), max_pages=ITVIEC_PAGES,
-        sleep=1.0, label='internships(itviec)'))
+    if len(rows) > TARGET:
+        rows = rows[:TARGET]
 
-    # 4) Adzuna — env-gated paginated JSON, filter to internships
-    if ADZUNA_APP_ID and ADZUNA_APP_KEY:
-        rows.extend(crawl_pages(
-            s, _adzuna_url, fetch_json, _adzuna_items,
-            key=("title",), max_pages=15, max_total=80,
-            stop_when_fewer_than=50, sleep=0.5, label='internships(adzuna)'))
-    else:
-        print("  [internships] Adzuna skipped (ADZUNA_APP_ID / ADZUNA_APP_KEY not set)")
-
-    # 5) TopCV — paginated HTML, filter to intern/thực tập titles (best-effort)
-    rows.extend(crawl_pages(
-        s, lambda p: f"{TOPCV}?page={p}", fetch_html, _topcv_items,
-        key=("title",), max_pages=TOPCV_PAGES,
-        sleep=1.0, label='internships(topcv)'))
-
-    print(f"  [internships] collected {len(rows)} raw rows across "
-          f"RemoteOK+Remotive+ITviec+Adzuna+TopCV (years in-scope: {crawl_years()})")
+    print(f"  [internships] collected {len(rows)} rows via Tavily "
+          f"(years in-scope: {crawl_years()})")
     return rows
 
 
 def run():
     print("internships_crawler: start")
-    print(f"  [scope] crawl_years={crawl_years()} "
-          f"| layers={[l['label'] for l in LOCATION_LAYERS]}")
+    print(f"  [scope] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
         ensure_column(conn, "internships", "image_url", "TEXT")
@@ -274,9 +170,13 @@ def run():
             r = upsert_rows(conn, "internships", rows, ["title", "company_name"])
             print(f"internships_crawler: {r}")
         else:
-            print("internships_crawler: 0 rows")
+            print("internships_crawler: 0 rows (Tavily keyless/unreachable — graceful)")
     finally:
         conn.close()
+
+
+# Late import for json (used by parse_tavily_jobs output).
+import json  # noqa: E402
 
 
 if __name__ == "__main__":

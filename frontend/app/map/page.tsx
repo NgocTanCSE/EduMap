@@ -34,7 +34,7 @@ import {
   Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom,
   Globe, Leaf, Coffee, Star, Shield, Mic, MicOff,
   Home as HomeIcon, RefreshCw, AlertCircle,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Heart, ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
@@ -95,16 +95,8 @@ interface Location {
   lng: number;
 }
 
-interface FeaturedPin {
-  id: string;
-  name: string;
-  category: string;
-  lat: number;
-  lng: number;
-  description?: string;
-  address?: string;
-  featureLink: string;
-}
+// FeaturedPin interface is now imported from components/map/FeaturedPinsLayer.tsx
+import type { FeaturedPin } from "@/components/map/FeaturedPinsLayer";
 
 const DEFAULT_CENTER: [number, number] = [10.957, 106.843];
 
@@ -394,13 +386,25 @@ export default function MapPage() {
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
 
   const [pinningCoord, setPinningCoord] = useState<{ lat: number; lng: number } | null>(null);
-  const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<{ id: string; name: string; category: string; lat: number; lng: number; description?: string; address?: string; featureLink: string } | null>(null);
+  const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<FeaturedPin | null>(null);
   const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
 
   const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
   const [showFeaturedPins, setShowFeaturedPins] = useState(true);
+  const [visiblePinCategories, setVisiblePinCategories] = useState<Set<string>>(
+    new Set(["stem", "green", "summer", "wifi", "donate", "market"])
+  );
+  const [showPinLegend, setShowPinLegend] = useState(false);
+  const togglePinCategory = (cat: string) => {
+    setVisiblePinCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   const [fs, setFs] = useState(false);
 
@@ -697,14 +701,14 @@ export default function MapPage() {
     [fetchMapData, activeCategory, activeTool],
   );
 
-  const handleMapClick = (lat: number, lng: number) => {
+  const handleMapClick = useCallback((lat: number, lng: number) => {
     if (!authService.isLoggedIn()) {
       toast("Vui lòng đăng nhập để ghim vị trí mới", { description: "Chuyển hướng đến trang đăng nhập Google" });
       return;
     }
     setPinningCoord({ lat, lng });
     setPinForm({ name: "", category: "school", description: "", address: "" });
-  };
+  }, []);
 
   const handleSelectFixedLocation = (loc: Location) => {
     setPinningCoord({ lat: loc.lat, lng: loc.lng });
@@ -814,8 +818,10 @@ export default function MapPage() {
           nearbyPoints={nearbyPois}
           geoJsonData={geoJsonData}
           featuredPins={showFeaturedPins ? featuredPins : []}
-          onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin as any)}
+          onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin)}
           overlay={overlayNode}
+          activeToolId={activeTool === "home" ? null : activeTool}
+          visiblePinCategories={visiblePinCategories}
         />
       </main>
 
@@ -1074,6 +1080,15 @@ export default function MapPage() {
           >
             <Star className="w-4 h-4" />
           </button>
+          {showFeaturedPins && (
+            <button
+              onClick={() => setShowPinLegend(!showPinLegend)}
+              title={showPinLegend ? "Đóng chú giải ghim" : "Mở chú giải ghim"}
+              className={`p-2 rounded-lg transition-colors ${showPinLegend ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}
+            >
+              <Layers className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={toggleFullscreen}
             title={fs ? "Thoát toàn màn hình" : "Toàn màn hình"}
@@ -1083,6 +1098,50 @@ export default function MapPage() {
           </button>
         </div>
       </div>
+
+      {/* ─── Pin legend / category toggle panel ─── */}
+      {showPinLegend && (
+        <div className="fixed bottom-24 right-6 z-[60] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
+          <div className="p-2.5 border-b border-border flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-foreground">Chú giải ghim bản đồ</h4>
+            <button
+              onClick={() => setShowPinLegend(false)}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="p-2.5 space-y-1.5">
+            {[
+              { cat: "stem",   label: "STEM",     color: "text-destructive",   icon: Atom },
+              { cat: "green",  label: "Xanh",      color: "text-green-600",     icon: Leaf },
+              { cat: "summer", label: "Mùa hè",    color: "text-orange-500",    icon: GraduationCap },
+              { cat: "wifi",   label: "Wifi",      color: "text-amber-400",     icon: Wifi },
+              { cat: "donate", label: "Quyên góp", color: "text-red-500",       icon: Heart },
+              { cat: "market", label: "Chợ",       color: "text-primary",       icon: ShoppingCart },
+            ].map(({ cat, label, color, icon: Icon }) => {
+              const visible = visiblePinCategories.has(cat);
+              return (
+                <button
+                  key={cat}
+                  onClick={() => togglePinCategory(cat)}
+                  className="w-full flex items-center gap-2 text-left text-xs p-1.5 rounded hover:bg-muted/40 transition-colors"
+                >
+                  <div className={`w-5 h-5 flex items-center justify-center ${color}`}>
+                    <Icon className="w-3 h-3" />
+                  </div>
+                  <span className="flex-1 text-foreground">{label}</span>
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                    visible ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"
+                  }`}>
+                    {visible && <div className="w-2 h-2 rounded-full bg-current" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ─── Voice search results overlay ─── */}
       {showVoiceResults && voiceResults.length > 0 && (

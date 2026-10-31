@@ -75,11 +75,11 @@ def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, An
 # Used by climate_risk + impact_measure tasks to pre-compute for key areas
 # so the frontend shows results immediately on map load.
 AUTO_REGIONS: List[Dict[str, Any]] = [
-    {"id": "dong_nai",  "name": "Đồng Nai",      "bbox": [10.75, 11.20, 106.60, 107.20]},
-    {"id": "hcmc",      "name": "TP. Hồ Chí Minh", "bbox": [10.75, 10.83, 106.65, 106.76]},
-    {"id": "hanoi",     "name": "Hà Nội",        "bbox": [20.95, 21.05, 105.75, 105.90]},
-    {"id": "danang",    "name": "Đà Nẵng",       "bbox": [15.90, 16.10, 107.90, 108.40]},
-    {"id": "cantho",    "name": "Cần Thơ",       "bbox": [10.40, 10.50, 105.50, 105.90]},
+    {"id": "dong_nai",  "name": "Đồng Nai",      "bbox": [10.80, 11.70, 106.90, 107.70]},
+    {"id": "hcmc",      "name": "TP. Hồ Chí Minh", "bbox": [10.70, 10.90, 106.55, 107.00]},
+    {"id": "hanoi",     "name": "Hà Nội",        "bbox": [20.90, 21.15, 105.60, 106.00]},
+    {"id": "danang",    "name": "Đà Nẵng",       "bbox": [15.80, 16.15, 107.90, 108.50]},
+    {"id": "cantho",    "name": "Cần Thơ",       "bbox": [9.90, 10.15, 105.40, 105.90]},
 ]
 
 
@@ -225,7 +225,7 @@ def _run_daily_insight() -> Dict[str, Any]:
     stats = {}
     try:
         rows = _query_sqlite(
-            "SELECT date(metric_name) as d, metric_value FROM education_stats ORDER BY d DESC LIMIT 50"
+            "SELECT year as d, metric_value, metric_type FROM education_stats ORDER BY d DESC LIMIT 50"
         )
         if rows:
             stats["education_stats"] = rows
@@ -299,7 +299,7 @@ def _run_resource_exchange() -> Dict[str, Any]:
             # Scoring (mirrors backend _scorePair)
             # proximity: location overlap heuristic (40%)
             res_loc = (res.get("location") or "").lower()
-            proximity_score = 60.0 if (req_loc and res_loc and req_loc in res_loc or res_loc in req_loc) else 30.0
+            proximity_score = 60.0 if (req_loc and res_loc and (req_loc in res_loc or res_loc in req_loc)) else 30.0
             # need_level (urgencyWeight/4 * 100 * 0.25)
             need_level = (req_urgency_weight / 4.0) * 100
             need_level_score = need_level * 0.25
@@ -465,6 +465,7 @@ def _run_impact_match() -> Dict[str, Any]:
                     "location": spon.get("location") or None,
                 },
                 "category_match": category_match,
+                "match_score": total,
             })
 
     pairs.sort(key=lambda x: x["match_score"] if "match_score" in x else 0, reverse=True)

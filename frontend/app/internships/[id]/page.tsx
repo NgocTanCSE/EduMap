@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import {
-  Briefcase, Building2, MapPin, DollarSign, ArrowLeft, Clock, Send, CheckCircle2, Loader2
+  Briefcase, Building2, MapPin, DollarSign, ArrowLeft, Clock, Send, CheckCircle2, Loader2, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { internshipService, Internship } from '@/src/services/internship.service';
@@ -18,6 +18,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
   const [coverLetter, setCoverLetter] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [applicationResult, setApplicationResult] = useState<any>(null);
+  const [showApplyModal, setShowApplyModal] = useState(false);
 
   const isLoggedIn = authService.isLoggedIn();
 
@@ -55,11 +56,21 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
       const result = await internshipService.applyInternship(internshipId, coverLetter);
       setApplicationResult(result);
       toast.success('Ứng tuyển thành công!');
+      setShowApplyModal(false);
     } catch (error: any) {
       toast.error(error.message || 'Ứng tuyển thất bại');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openApplyModal = () => {
+    if (!isLoggedIn) {
+      toast.error('Vui lòng đăng nhập để ứng tuyển!');
+      window.location.href = `/auth/login?redirect=/internships/${internshipId}`;
+      return;
+    }
+    setShowApplyModal(true);
   };
 
   if (loading) {
@@ -196,50 +207,71 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
                 </p>
               </Card>
             ) : (
-              <form
-                onSubmit={handleApply}
-                className="bg-card border border-border rounded-xl p-8 space-y-6"
-              >
-                <div>
-                  <h3 className="text-xl font-bold flex items-center gap-2 mb-2">
-                    <Briefcase className="text-primary/80 w-5 h-5" /> Nộp hồ sơ ứng tuyển
-                  </h3>
-                  <p className="text-xs text-muted-foreground/60">
-                    Gửi kèm Cover Letter để nhà tuyển dụng hiểu rõ hơn về bạn.
-                  </p>
-                </div>
+              <Card className="p-8 text-center space-y-4">
+                <h3 className="text-xl font-bold text-primary">Nộp hồ sơ ứng tuyển</h3>
+                <p className="text-xs text-muted-foreground/60">
+                  Gửi kèm Cover Letter để nhà tuyển dụng hiểu rõ hơn về bạn.
+                </p>
+                <button
+                  onClick={openApplyModal}
+                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-colors flex justify-center items-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  NỘP HỒ SƠ
+                </button>
+                <p className="text-[10px] text-muted-foreground/60">
+                  Hồ sơ cá nhân của bạn trên EduMap sẽ tự động được đính kèm vào đơn ứng tuyển này.
+                </p>
+              </Card>
+            )}
+          </div>
+        </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
-                      Thư giới thiệu (Cover Letter) *
-                    </label>
-                    <textarea
-                      required
-                      rows={6}
-                      value={coverLetter}
-                      onChange={e => setCoverLetter(e.target.value)}
-                      placeholder="Kính gửi ban tuyển dụng..."
-                      className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none resize-none"
-                    />
-                  </div>
+        {/* Apply Modal */}
+        {showApplyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">
+              <button
+                onClick={() => setShowApplyModal(false)}
+                className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                <Briefcase className="text-primary/80 w-5 h-5" /> Nộp hồ sơ ứng tuyển
+              </h3>
+              <p className="text-sm text-primary/70 mb-6 font-bold">{internship.title}</p>
+
+              <form onSubmit={handleApply} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
+                    Thư giới thiệu (Cover Letter) *
+                  </label>
+                  <textarea
+                    required
+                    rows={6}
+                    value={coverLetter}
+                    onChange={e => setCoverLetter(e.target.value)}
+                    placeholder="Kính gửi ban tuyển dụng..."
+                    className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm focus:border-primary outline-none resize-none"
+                  />
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/80 text-primary-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                  className="w-full py-4 mt-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
                 >
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
-                  GỬI HỒ SƠ ỨNG TUYỂN
+                  {submitting ? 'ĐANG GỬI HỒ SƠ...' : 'GỬI HỒ SƠ ỨNG TUYỂN'}
                 </button>
-                <p className="text-[10px] text-center text-muted-foreground/60">
+                <p className="text-[10px] text-center text-muted-foreground/60 mt-2">
                   Hồ sơ cá nhân của bạn trên EduMap sẽ tự động được đính kèm vào đơn ứng tuyển này.
                 </p>
               </form>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

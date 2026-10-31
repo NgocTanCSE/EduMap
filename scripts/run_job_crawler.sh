@@ -35,9 +35,12 @@ while true; do
     fi
 
     # --- Overpass POI upsert (Postgres path — same dev/HF caveat) ---
+    # NOTE: Overpass API is blocked on HF Spaces; crawl_pois_vietnam.py now
+    # uses Tavily (TAVILY_API_KEY) instead. When the key is absent, the script
+    # degrades to 0 rows gracefully.
     if [ -f "/app/scripts/run_overpass_seed.sh" ]; then
       bash /app/scripts/run_overpass_seed.sh 2>&1 || \
-        echo "[crawler] overpass seed failed (graceful — continue)" >&2
+        echo "[crawler] poi seed failed (graceful — continue)" >&2
     fi
   else
     echo "[crawler] DB at $DB_PATH not found, skipping crawl this cycle..." >&2

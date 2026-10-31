@@ -1,28 +1,34 @@
 # -*- coding: utf-8 -*-
 """
-OverpassCrawler - Nationwide Vietnam OpenStreetMap data fetcher.
-Splits queries by region to avoid timeouts and rate limits.
+OverpassCrawler → **renamed** to TavilyCrawler (compat shim keeps the class name).
+
+Deployment context (see AGENTS.md §1):
+  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The Overpass API
+  (https://overpass-api.de) is **blocked on HF Spaces egress**, so the original
+  overpass_crawler.py returned 0 POIs every night.  This module is a drop-in
+  replacement: the ``OverpassCrawler`` class name is preserved so that
+  ``crawlers/aggregator.py`` (which imports it) works unchanged; the internals
+  now use Tavily Search + Extract via ``crawlers/tavily_poi.py``.
+
+  When TAVILY_API_KEY is absent or Tavily is unreachable, the crawler returns
+  ``[]`` — the curated snapshots in schools_crawler / wifi_crawler /
+  green_spaces_crawler fill the gaps (AGENTS.md §6 honest-empty-state rule).
 """
-
+import os
+import sys
 import time
-import requests
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
-from crawl_scope import (
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from crawl_scope import (  # noqa: E402
     crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
 )
+from tavily_poi import TavilyPoiClient  # noqa: E402
+
 # 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-# Backup Overpass servers
-OVERPASS_MIRRORS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.openstreetmap.ru/api/interpreter",
-]
 
 # Vietnam regions — reordered so SOUTH (incl. Đồng Nai) is crawled first, then
 # northward, matching the location expansion: Đồng Nai → miền Nam → VN.
@@ -35,16 +41,13 @@ VIETNAM_REGIONS = {
     "north_central": "17.0,104.0,20.5,107.0",
     "north": "20.5,102.0,23.5,106.5",
 }
-# Scope order: coastal south → north.  DONG_NAI and SOUTHERN_VN come first.
 SCOPE_ORDER = ["dong_nai", "southern_vn", "south", "south_central",
                "central", "north_central", "north"]
-
-# Full Vietnam bbox
 VIETNAM_FULL = VIETNAM_BBOX
 
 
-def _respect_rate_limit(last_ts: float, min_delay: float = 3.0) -> float:
-    """Ensure minimum delay between Overpass requests."""
+def _respect_rate_limit(last_ts: float, min_delay: float = 1.0) -> float:
+    """Ensure minimum delay between Tavily requests."""
     now = time.time()
     elapsed = now - last_ts
     if elapsed < min_delay:
@@ -53,220 +56,82 @@ def _respect_rate_limit(last_ts: float, min_delay: float = 3.0) -> float:
 
 
 class OverpassCrawler:
-    """Nationwide Vietnam Overpass crawler with regional splitting."""
+    """Nationwide Vietnam crawler — **Tavily-based** (Overpass API is blocked on HF).
+
+    The class name ``OverpassCrawler`` is preserved for backward compatibility
+    with ``crawlers/aggregator.py`` which imports it.  Internally it delegates
+    to ``TavilyPoiClient`` which uses the Tavily Search + Extract API
+    (https://api.tavily.com — reachable from HF Spaces egress).
+    """
 
     def __init__(self, proxy_url: str = None):
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "EduMapNationwide/1.0", "Accept": "application/json"})
-        self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
-        if self.proxies:
-            self.session.proxies.update(self.proxies)
+        self._client = TavilyPoiClient()
         self._last_ts = 0.0
-        self._mirror_idx = 0
+        print(f"  [overpass→tavily] TavilyPoiClient ready "
+              f"(configured={self._client.client.is_configured()})")
 
     def _get_url(self) -> str:
-        """Rotate through Overpass mirrors."""
-        url = OVERPASS_MIRRORS[self._mirror_idx % len(OVERPASS_MIRRORS)]
-        self._mirror_idx += 1
-        return url
-
-    def _post(self, data: str, retries: int = 3) -> Dict[str, Any]:
-        """Send POST request with retry and mirror rotation."""
-        for attempt in range(retries):
-            self._last_ts = _respect_rate_limit(self._last_ts)
-            url = self._get_url()
-            try:
-                resp = self.session.post(url, data=data, timeout=300)
-                if resp.status_code == 429:
-                    wait = 60 * (attempt + 1)
-                    print(f"    [Rate limited] Waiting {wait}s...")
-                    time.sleep(wait)
-                    continue
-                if resp.status_code == 504:
-                    wait = 30 * (attempt + 1)
-                    print(f"    [Timeout] Waiting {wait}s...")
-                    time.sleep(wait)
-                    continue
-                resp.raise_for_status()
-                return resp.json()
-            except Exception as e:
-                if attempt < retries - 1:
-                    wait = 30 * (attempt + 1)
-                    print(f"    [Error] {e}, retrying in {wait}s...")
-                    time.sleep(wait)
-                else:
-                    print(f"    [Failed] {e}")
-        return {"elements": []}
-
-    def _normalize_element(self, el: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert OSM element to unified schema."""
-        tags = el.get("tags", {})
-        name = tags.get("name", "")
-        parts = []
-        if tags.get("addr:housenumber"):
-            parts.append(tags["addr:housenumber"])
-        if tags.get("addr:street"):
-            parts.append(tags["addr:street"])
-        if tags.get("addr:ward"):
-            parts.append(tags["addr:ward"])
-        if tags.get("addr:city"):
-            parts.append(tags["addr:city"])
-        address = ", ".join(parts)
-
-        lat = el.get("lat") or el.get("center", {}).get("lat")
-        lng = el.get("lon") or el.get("center", {}).get("lon")
-
-        # Category from primary tag
-        for tag_key in ["amenity", "shop", "leisure", "tourism", "healthcare",
-                        "office", "craft", "man_made", "boundary"]:
-            if tag_key in tags:
-                category = tags[tag_key]
-                break
-        else:
-            category = "poi"
-
-        return {
-            "name": name,
-            "address": address,
-            "lat": float(lat) if lat else 0.0,
-            "lng": float(lng) if lng else 0.0,
-            "category": category,
-        }
+        """Kept for compatibility (no longer used — Tavily is a single endpoint)."""
+        return "https://api.tavily.com/search"
 
     def fetch(self, query: str) -> List[Dict[str, Any]]:
-        """Execute Overpass query and return normalized locations."""
-        try:
-            raw = self._post(query)
-        except Exception as e:
-            print(f"    [Query failed] {e}")
-            return []
-        elements = raw.get("elements", [])
-        locations = []
-        for el in elements:
-            try:
-                loc = self._normalize_element(el)
-                if loc["name"]:
-                    locations.append(loc)
-            except Exception:
-                continue
-        return locations
+        """Search Tavily for one query and return normalized locations.
+        Kept as a low-level compatibility method.
+        """
+        self._last_ts = _respect_rate_limit(self._last_ts)
+        results = self._client._search_category([query], "poi")
+        return results
 
     # ------------------------------------------------------------------
-    # Combined queries for efficiency
+    # Category fetchers (same method names as the Overpass version)      #
     # ------------------------------------------------------------------
 
     def fetch_all_education_health(self, bbox: str) -> List[Dict[str, Any]]:
-        """Fetch education + health in one query."""
-        query = f"""
-        [out:json][timeout:180];
-        (
-          node[amenity~"school|library|university|kindergarten|college|hospital|clinic|pharmacy|doctors|dentist"]({bbox});
-          way[amenity~"school|library|university|kindergarten|college|hospital|clinic|pharmacy|doctors|dentist"]({bbox});
-        );
-        out center;
-        """
-        return self.fetch(query)
+        """Fetch education + health POIs via Tavily (schools, libraries, hospitals)."""
+        self._last_ts = _respect_rate_limit(self._last_ts)
+        return self._client.fetch_all_education_health(bbox)
 
     def fetch_all_food_shops(self, bbox: str) -> List[Dict[str, Any]]:
-        """Fetch food/drink + shops in one query."""
-        query = f"""
-        [out:json][timeout:180];
-        (
-          node[amenity~"restaurant|cafe|fast_food|bar|pub|ice_cream|food_court"]({bbox});
-          way[amenity~"restaurant|cafe|fast_food|bar|pub|ice_cream|food_court"]({bbox});
-          node[shop]({bbox});
-          way[shop]({bbox});
-        );
-        out center;
-        """
-        return self.fetch(query)
+        """Fetch food/drink + shops via Tavily (markets, restaurants, cafés)."""
+        self._last_ts = _respect_rate_limit(self._last_ts)
+        return self._client.fetch_all_food_shops(bbox)
 
     def fetch_all_tourism_transport(self, bbox: str) -> List[Dict[str, Any]]:
-        """Fetch tourism + transport + public services in one query."""
-        query = f"""
-        [out:json][timeout:180];
-        (
-          node[tourism~"hotel|hostel|guest_house|motel|attraction|museum|zoo|camp_site|viewpoint"]({bbox});
-          way[tourism~"hotel|hostel|guest_house|motel|attraction|museum|zoo|camp_site|viewpoint"]({bbox});
-          node[leisure~"park|garden|nature_reserve|water_park|stadium|sports_centre"]({bbox});
-          way[leisure~"park|garden|nature_reserve|water_park|stadium|sports_centre"]({bbox});
-          node[amenity~"bus_station|parking|taxi|car_rental|post_office|bank|atm|townhall|fuel"]({bbox});
-          way[amenity~"bus_station|parking|taxi|car_rental|post_office|bank|atm|townhall|fuel"]({bbox});
-          node[aeroway~"aerodrome|helipad"]({bbox});
-        );
-        out center;
-        """
-        return self.fetch(query)
-
-    # ------------------------------------------------------------------
-    # WiFi hotspots
-    # ------------------------------------------------------------------
+        """Fetch tourism + transport + public services via Tavily."""
+        self._last_ts = _respect_rate_limit(self._last_ts)
+        return self._client.fetch_all_tourism_transport(bbox)
 
     def fetch_wifi(self, bbox: str) -> List[Dict[str, Any]]:
-        """Fetch WiFi hotspots for a bbox."""
-        query = f"""
-        [out:json][timeout:120];
-        (
-          node["internet_access"="wlan"]({bbox});
-        );
-        out;
-        """
-        return self.fetch(query)
+        """Fetch WiFi hotspots via Tavily."""
+        self._last_ts = _respect_rate_limit(self._last_ts)
+        return self._client.fetch_wifi(bbox)
 
     # ------------------------------------------------------------------
-    # Nationwide crawl methods
+    # Nationwide crawl (same interface as the Overpass version)         #
     # ------------------------------------------------------------------
 
-    # Tile size (degrees) used when crawling a region. Keeps every Overpass
-    # request small enough (~50km) to avoid 504/timeout on large regions.
-    tile_size: float = 0.5
+    tile_size: float = 0.5  # kept for compatibility; Tavily doesn't tile.
 
     def _iter_tiles(self, bbox: str, size: float = None) -> List[str]:
-        """Split a bbox into smaller tiles to avoid Overpass timeouts on large regions."""
-        size = size or self.tile_size
-        parts = [float(x) for x in bbox.split(",")]
-        s, w, n, e = parts[0], parts[1], parts[2], parts[3]
-        tiles = []
-        lat = s
-        while lat < n:
-            lon = w
-            while lon < e:
-                t_s = lat
-                t_w = lon
-                t_n = min(lat + size, n)
-                t_e = min(lon + size, e)
-                tiles.append(f"{t_s},{t_w},{t_n},{t_e}")
-                lon += size
-            lat += size
-        return tiles
+        """Kept for compatibility — returns a single tile (Tavily uses search, not tiles)."""
+        return ["placeholder"]
 
     def _fetch_tiled(self, query_fn, bbox: str, label: str) -> List[Dict]:
-        """Run a category query_fn over each tile of bbox, aggregating results."""
-        tiles = self._iter_tiles(bbox)
-        total = 0
-        combined: List[Dict] = []
-        for i, tile in enumerate(tiles, 1):
-            data = query_fn(tile)
-            combined.extend(data)
-            total += len(data)
-            if i % 5 == 0 or i == len(tiles):
-                print(f"      {label}: {i}/{len(tiles)} tiles, {total} records so far")
-        return combined
+        """Kept for compatibility — calls query_fn(bbox) directly (no tiling)."""
+        return query_fn(bbox)
 
     def _crawl_region(self, region_name: str, bbox: str) -> List[Dict]:
-        """Crawl all categories for a single region, tiled to avoid timeouts.
+        """Crawl all categories for a single region via Tavily.
 
         Tags each element with its ``location_scope`` matching the region name.
         """
         print(f"\n  [{region_name.upper()}] bbox={bbox}")
-        all_locs: List[Dict] = []
+        all_locs = []
+        all_locs.extend(self.fetch_all_education_health(bbox))
+        all_locs.extend(self.fetch_all_food_shops(bbox))
+        all_locs.extend(self.fetch_all_tourism_transport(bbox))
+        all_locs.extend(self.fetch_wifi(bbox))
 
-        all_locs.extend(self._fetch_tiled(self.fetch_all_education_health, bbox, "Edu+Health"))
-        all_locs.extend(self._fetch_tiled(self.fetch_all_food_shops,      bbox, "Food+Shops"))
-        all_locs.extend(self._fetch_tiled(self.fetch_all_tourism_transport, bbox, "Tourism+Transport"))
-        all_locs.extend(self._fetch_tiled(self.fetch_wifi,                 bbox, "WiFi"))
-
-        # Tag each location with its scope layer.
         for loc in all_locs:
             loc["location_scope"] = region_name
 
@@ -275,7 +140,10 @@ class OverpassCrawler:
 
     def crawl_vietnam(self) -> List[Dict[str, Any]]:
         """Crawl all of Vietnam by regions, walking the location expansion
-        (Đồng Nai → miền Nam → southern → central → northern)."""
+        (Đồng Nai → miền Nam → southern → central → northern).
+
+        Uses Tavily Search + Extract (Overpass API is blocked on HF Spaces).
+        """
         all_locations = []
         print(f"  [scope] crawl_years={_CRAWL_YEARS} | scope_order={SCOPE_ORDER}")
 
@@ -291,7 +159,7 @@ class OverpassCrawler:
 
         # Summary
         print(f"\n{'='*60}")
-        print("NATIONWIDE SUMMARY")
+        print("NATIONWIDE SUMMARY (Tavily)")
         print(f"{'='*60}")
         print(f"  Total locations: {len(all_locations)}")
         from collections import Counter
