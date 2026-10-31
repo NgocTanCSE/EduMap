@@ -5,20 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff } from "lucide-react";
+import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff, Trash2 } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
 import { stripMarkdown } from '@/src/lib/plain-text';
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 
+const initialMessage: any = {
+  role: 'assistant',
+  content: 'Xin chào! Mình là trợ lý học tập AI của hệ thống EduMap DNTU. Mình có thể giúp bạn lên lộ trình học tập, tìm kiếm tài liệu, hoặc gợi ý mentor phù hợp.',
+  sources: [],
+};
+
 export default function AIChatPage() {
-  const [messages, setMessages] = useState<any[]>([
-    {
-      role: 'assistant',
-      content: 'Xin chào! Mình là trợ lý học tập AI của hệ thống EduMap DNTU. Mình có thể giúp bạn lên lộ trình học tập, tìm kiếm tài liệu, hoặc gợi ý mentor phù hợp.',
-      sources: []
-    }
-  ]);
+  const [messages, setMessages] = useState<any[]>([initialMessage]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
@@ -69,6 +69,13 @@ export default function AIChatPage() {
 
     fetchHistory();
   }, []);
+
+  // Sentinel pinned after the last message — drives auto-scroll-to-bottom as
+  // tokens stream in, the same behaviour users expect from other AI chats.
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end", inline: "nearest" });
+  }, [messages]);
 
   // Voice-to-Geo (Idea #16): record voice → STT → fill chat input
   const toggleVoiceRecording = useCallback(() => {
@@ -296,6 +303,21 @@ export default function AIChatPage() {
     }
   };
 
+  // Clear chat — resets the visible conversation to the initial greeting and
+  // best-effort wipes persisted history on the backend (ignored on failure so a
+  // 404/405 from the free-tier proxy never blocks clearing the view).
+  const handleClear = () => {
+    if (!confirm("Xóa toàn bộ nội dung trò chuyện hiện tại? Lịch sử trên thiết bị sẽ được xóa.")) return;
+    setMessages([initialMessage]);
+    const token = authService.getAccessToken();
+    if (token) {
+      fetch("/api/ai/history", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full p-4 bg-background">
       <div className="flex items-center justify-between mb-4 p-4 bg-card/50 rounded-lg border border-border">
@@ -304,10 +326,23 @@ export default function AIChatPage() {
             <Bot className="w-6 h-6 text-foreground" />
           </div>
           <div>
-          <h1 className="h1-page">DNTU Assistant</h1>
+            <h1 className="h1-page">DNTU Assistant</h1>
           </div>
         </div>
-        {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+        <div className="flex items-center gap-2">
+          {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+          <Button
+            onClick={handleClear}
+            disabled={isLoading}
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground"
+            title="Xóa trò chuyện"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Xóa</span>
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 pr-4">
@@ -364,6 +399,7 @@ export default function AIChatPage() {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 

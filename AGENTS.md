@@ -852,3 +852,14 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
   `eligibility.message`) were intentionally KEPT per §6 honest-empty-states + §8 card system.
 - Verified locally: `cd frontend && npx tsc --noEmit` → exit 0; `npm run build` → exit 0.
   Runtime truth = HF Spaces free CPU tier; no `HF_TOKEN` locally, user deploys.
+- **/ai-chat auto-scroll + clear (2026-10-31):** the page rendered the message list in a
+  `ScrollArea` but never scrolled to the bottom while tokens streamed, so the AI's reply
+  was "stuck" above the fold. Added a scroll-sentinel `<div ref={messagesEndRef} />`
+  after the last message + a `useEffect([messages])` calling
+  `messagesEndRef.current?.scrollIntoView({ block:"end", inline:"nearest" })` so the
+  viewport pins to the newest message/token (runs on every SSE chunk + history append).
+  Also added a header "Xóa" button (`Trash2` icon, `handleClear`) that resets the visible
+  conversation to the hoisted `initialMessage` and best-effort `DELETE /api/ai/history`
+  (guarded by `authService.getAccessToken()`, `.catch(() => {})` so a 404/405 on the
+  HF free tier never blocks clearing the view). `Button` already imported; disabled
+  while `isLoading` to avoid a mid-stream clear.
