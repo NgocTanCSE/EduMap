@@ -743,11 +743,53 @@ because every climate test mocked `_get_elevation` and no test touched
 | 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
 | 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
 | 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | a slow/dead provider could run past the 8 s generation budget + word-by-word streaming, exceeding the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): every provider call is wrapped in `asyncio.wait_for`, the provider list skips when time is exhausted, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
+| 6 | **Local LLM (Gemma) always failed to generate** — `NameError: name 'generated' is not defined` inside `_local_llm_generate` | the `generated = _local_llm_tokenizer.decode(...)` line was lost during the TinyLlama→Gemma refactor (commit `0d12ee7`). Every call raised NameError → caught by outer `except` → opened the 5-min circuit breaker, wasting ~1.5 GB RAM holding a loaded model that could never respond. | restored the decode step (`services/llm_service.py:233`); added regression tests `test_local_llm_generate_decodes_output` + `test_local_llm_generate_raises_on_empty_output`. **Also set `LOCAL_LLM_ENABLED=false` in the Dockerfile** — Gemma 2B is gated on HF Hub (§6.5 confirms it's a no-op on the free tier), so disabling it saves 1.5 GB RAM without changing the cascade (`DeepSeek → Gemini → Cloudflare → template`). |
 
 Verification done locally (allowed per §1): `python3 -m pytest tests -q` →
-**449 passed**; `py_compile` clean; an AST undefined-name sweep over
+**451 passed**; `py_compile` clean; an AST undefined-name sweep over
 `ai-service/**/*.py` reports no remaining undefined names. Runtime truth is
 still the HF Space after deploy.
+
+### Build-time OOM fix (2026-10-31 — exit 137)
+
+The `35f39b0` commit changed `CACHEBUST` which invalidated the Docker layer cache,
+triggering a full rebuild on HF Spaces. During a cold rebuild, multiple build
+stages run in parallel via BuildKit:
+
+| Phase | Parallel stages | Est. RAM |
+|---|---|---|
+| Phase 1 (cold) | frontend-builder npm ci + backend-builder npm ci + frontend-deps npm ci + **ai-deps torch** + elevation-builder + vision-model-dl + osm-downloader | ~5.2 GB ⚡ |
+
+The torch install (~2.5 GB peak) ran in parallel with three `npm ci` steps
+(~1 GB + 500 MB + 500 MB), exceeding HF Spaces' ~4 GB build RAM budget.
+The 2 GB swap inside `ai-deps` Step 1 may fail silently in `python:3.11-slim`,
+leaving 2.5 GB of physical RAM for torch.
+
+**Fix**: Moved the torch install from `ai-deps` Step 1 (parallel with npm ci)
+to `ai-deps` Step 2 (after the `COPY --from=frontend-builder` edge), so torch
+installs only **after** the frontend build completes and ~2–3 GB of build RAM
+is freed. Torch deps (`filelock`, `typing-extensions`, etc. — ~100 MB) remain in
+Step 1 and still run in parallel safely.
+
+### Runtime OOM mitigation (2026-10-31)
+
+`supervisord.conf` had `startsecs=1` (default) on frontend and backend, so all 6
+programs started within ~2 s of each other — Next.js (~1 GB) + NestJS (~1 GB) +
+OSRM graph (~1 GB) + ai-service model loading all peaked near t=8. Added
+staggered `startsecs`:
+
+| Program | Before | After | Effect |
+|---|---|---|---|
+| frontend | 1 (default) | 3 | 2s grace before backend |
+| backend | 1 (default) | 5 | 2s grace before ai-service |
+| ai-service | 10 | 15 | 5s grace before OSRM graph load |
+| osrm | 8 | 8 (unchanged) | — |
+| crawler | 10 | 10 (unchanged) | — |
+| cron | 5 | 5 (unchanged) | — |
+
+Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSRM (t=23)
+→ crawler (t=31) → cron (t=41). Peak RAM at any one moment drops from ~5 GB to
+~3 GB.
 
 ### Still-degraded paths seen in the same log (not crashes, by design or open)
 
@@ -766,6 +808,9 @@ still the HF Space after deploy.
   on the free plan; Gemma 2B is the only bundled local text model, but it is
   gated (needs `HF_TOKEN`), so on the free tier it is usually a no-op and the
   tutor falls through to the DeepSeek/Gemini cascade or the template fallback.
+  **Resolved (2026-10-31):** `LOCAL_LLM_ENABLED=false` is now set in the Dockerfile,
+  so Gemma is never loaded at runtime. Saves ~1.5 GB RAM. The cascade is
+  `DeepSeek → Gemini → Cloudflare → template` (Gemma was step 4 of 5).
 - `Local Gemma 2B slow on CPU (_Timeout: generation exceeded 35s)`: CPU-only
   generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
   non-streaming endpoints (`/api/ai/language/simplify`, geo analysis, …) pay

@@ -19,9 +19,10 @@ missing function) before the fix and passes after it.
 """
 
 import asyncio
+import contextlib
 import os
 import sys
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
@@ -115,7 +116,90 @@ def test_system_status_resolves_check_oom():
     assert "providers" in status
 
 
-# ── 4. Career semantic enrichment prompt ────────────────────────────────────
+# ── 5. Local LLM generate (Gemma decode step) ────────────────────────────────
+
+
+def test_local_llm_generate_decodes_output(monkeypatch):
+    """``_local_llm_generate`` must decode model output via ``tokenizer.decode``.
+
+    Before the fix, the function body had ``text = generated.strip()`` without
+    ever assigning ``generated`` — the ``decode`` call was lost when the code
+    was refactored from TinyLlama to Gemma in commit ``0d12ee7``.  Every local
+    LLM invocation raised ``NameError``, which the outer ``except`` turned into
+    a ``RuntimeError`` + 5-minute circuit breaker, wasting ~1.5 GB of RAM
+    holding a model that could never produce output.
+    """
+    import services.llm_service as llm_mod
+
+    # Bypass circuit breaker and lazy-load check
+    monkeypatch.setattr(llm_mod, "_local_llm_down_until", 0.0)
+    monkeypatch.setattr(llm_mod, "_local_llm_loaded", True)
+    monkeypatch.setattr(llm_mod, "_local_llm_load_failed", False)
+
+    # Mock tokenizer — decode must be called (this is the line that was missing)
+    mock_tokenizer = MagicMock()
+    mock_tokenizer.eos_token_id = 1
+    mock_tokenizer.decode.return_value = "  Hello from Gemma  "
+
+    # tokenizer() returns {"input_ids": ...} with a shape for slicing
+    mock_input_ids = MagicMock()
+    mock_input_ids.shape = (1, 5)
+
+    # inputs = tokenizer(...) → inputs.input_ids (attribute access, not dict)
+    mock_inputs = MagicMock()
+    mock_inputs.input_ids = mock_input_ids
+    mock_tokenizer.return_value = mock_inputs
+
+    # Mock model.generate to return a tensor-like object
+    mock_model = MagicMock()
+    mock_output = MagicMock()
+    mock_output.__getitem__ = MagicMock(return_value=MagicMock())
+    mock_model.generate.return_value = mock_output
+
+    monkeypatch.setattr(llm_mod, "_local_llm_model", mock_model)
+    monkeypatch.setattr(llm_mod, "_local_llm_tokenizer", mock_tokenizer)
+
+    _dummy_ctx = contextlib.nullcontext()
+    monkeypatch.setattr(llm_mod, "_time_limit", lambda *a, **kw: _dummy_ctx)
+
+    result = llm_mod._local_llm_generate("test prompt")
+
+    # decode() must have been called — this is the regression guard
+    mock_tokenizer.decode.assert_called_once()
+    assert result == "Hello from Gemma"
+
+
+def test_local_llm_generate_raises_on_empty_output(monkeypatch):
+    """Empty decode output must raise RuntimeError (not NameError)."""
+    import services.llm_service as llm_mod
+
+    monkeypatch.setattr(llm_mod, "_local_llm_down_until", 0.0)
+    monkeypatch.setattr(llm_mod, "_local_llm_loaded", True)
+    monkeypatch.setattr(llm_mod, "_local_llm_load_failed", False)
+
+    mock_tokenizer = MagicMock()
+    mock_tokenizer.eos_token_id = 1
+    mock_tokenizer.decode.return_value = ""
+
+    mock_input_ids = MagicMock()
+    mock_input_ids.shape = (1, 3)
+
+    # inputs = tokenizer(...) → inputs.input_ids (attribute access)
+    mock_inputs = MagicMock()
+    mock_inputs.input_ids = mock_input_ids
+    mock_tokenizer.return_value = mock_inputs
+
+    mock_model = MagicMock()
+    mock_output = MagicMock()
+    mock_output.__getitem__ = MagicMock(return_value=MagicMock())
+    mock_model.generate.return_value = mock_output
+
+    monkeypatch.setattr(llm_mod, "_local_llm_model", mock_model)
+    monkeypatch.setattr(llm_mod, "_local_llm_tokenizer", mock_tokenizer)
+    monkeypatch.setattr(llm_mod, "_time_limit", lambda *a, **kw: contextlib.nullcontext())
+
+    with pytest.raises(RuntimeError, match="empty response"):
+        llm_mod._local_llm_generate("test prompt")
 
 
 def test_recommend_career_semantic_prompt_builds_json_schema():
