@@ -230,6 +230,9 @@ def _local_llm_generate(
                 do_sample=True,
                 pad_token_id=_local_llm_tokenizer.eos_token_id,
             )
+        generated = _local_llm_tokenizer.decode(
+            output[0][input_ids.shape[-1]:], skip_special_tokens=True
+        )
         text = generated.strip()
         if not text:
             raise RuntimeError("Local LLM produced empty response")

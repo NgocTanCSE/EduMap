@@ -60,19 +60,36 @@ COPY ai-service/requirements.txt ./
 # Reduces pip memory by limiting parallel downloads
 ENV PIP_NUM_THREADS=1
 
-# Step 1: torch (--no-deps, CPU-only — 800MB wheel, ~2.5GB peak RAM)
-# --no-deps skips dependency resolution to save ~500MB RAM.
+# Step 1: torch DEPS only (filelock, typing-extensions, etc. — lightweight ~100MB).
+# These run in parallel with frontend-builder npm ci — safe (<200MB total).
+# The actual torch wheel (~800MB) is deferred to Step 2a below, AFTER the
+# frontend build completes, so torch (~2.5GB peak with swap) never overlaps
+# with frontend npm ci (~1GB) + backend npm ci (~500MB) + other stages.
+# Without this split, all parallel stages summed to ~5.2GB physical when
+# swap was unavailable → OOMKilled exit 137 on HF Spaces free plan.
+RUN pip install --no-cache-dir filelock typing-extensions sympy networkx jinja2 fsspec mpmath MarkupSafe && \
+    echo "[ai-deps] torch deps installed"
+
+# Step 2: Dependency edge — WAIT for frontend-builder to finish (npm ci + npm run build).
+# This ensures the frontend's ~2-3GB build RAM is freed before the heaviest
+# pip install stages begin. Prevents the build-time OOM where torch (2.5GB)
+# ran in parallel with frontend npm ci (1GB) + backend npm ci (500MB) +
+# elevation/vision/osm stages, summing to 5+GB against the ~4GB build limit.
+COPY --from=frontend-builder /app/package.json /tmp/frontend-build-done
+
+# Step 2a: torch (--no-deps, CPU-only — 800MB wheel, ~2.5GB peak RAM with swap).
+# Now runs ONLY after frontend build is done — torch is alone with lightweight
+# stages (frontend-deps, elevation-builder, etc.) instead of all npm ci's too.
 RUN ( \
     (fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null) && \
     chmod 600 /swapfile && \
     (mkswap /swapfile 2>/dev/null && swapon /swapfile 2>/dev/null || echo "[ai-deps] swap unavailable") \
   ) || true ; \
     pip install --no-cache-dir --no-deps torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir filelock typing-extensions sympy networkx jinja2 fsspec mpmath MarkupSafe && \
     (swapoff /swapfile 2>/dev/null || true) && rm -f /swapfile && \
-    echo "[ai-deps] torch deps installed"
+    echo "[ai-deps] torch installed"
 
-# Step 2: Core + ML + TTS packages (everything EXCEPT chromadb).
+# Step 2b: Core + ML + TTS packages (everything EXCEPT chromadb).
 # Split from chromadb to avoid OOM — pip's resolver loads the entire
 # dependency tree (kubernetes, onnxruntime, etc.) into memory at once,
 # causing exit 137 when combined with transformers + scikit-learn.
@@ -80,13 +97,6 @@ RUN ( \
 # Further split into 7 sequential pip install calls — each resolves a
 # smaller dependency graph (<~20 transitive deps), keeping peak RAM <2GB
 # on HF Spaces free tier (2 vCPU, limited build RAM).
-#
-# BuildKit parallelism fix: Wait for frontend-builder's 'npm run build'
-# (Next.js ~2GB RAM) to finish before starting pip install (~1.5GB).
-# Without this dependency edge, both stages run in parallel → 3.5GB+
-# exceeds HF Spaces' ~4GB Docker build RAM → OOMKilled 137.
-# (torch install in Step 1 runs in parallel with frontend npm ci — safe.)
-COPY --from=frontend-builder /app/package.json /tmp/frontend-build-done
 RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests python-multipart && \
     pip install --no-cache-dir psycopg2-binary pandas numpy pypdf redis && \
     pip install --no-cache-dir posthog httpx tqdm Pillow gTTS && \
@@ -407,7 +417,16 @@ ENV GEMINI_MODEL=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-
 ENV GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 # ChromaDB telemetry is incompatible with newer posthog and spams the logs.
 ENV ANONYMIZED_TELEMETRY=False
-# ── GeoVision AI (Idea #10: satellite imagery facility detection) ────────────
+# ── Local LLM (Gemma 2B IT — offline text-gen fallback #4) ─────────────────
+# Gemma is GATED on HF Hub (scripts/cache_models.py skips it during build).
+# On the free tier it is usually a no-op anyway: without HF_TOKEN during build
+# the weights aren't baked, and even with HF_TOKEN at runtime the 4-bit load
+# costs ~1.5GB RAM for ~2-5 tokens/s on 2 vCPU. The cascade (DeepSeek →
+# Gemini → Cloudflare → template) handles the fallback. Disabling it here
+# saves 1.5 GB of runtime RAM and avoids a wasted download+load attempt that
+# always fails. The 'generated' NameError bug (fixed in llm_service.py)
+# confirmed Gemma could never produce a response even if loaded.
+ENV LOCAL_LLM_ENABLED=false
 # huggingface.co/models/{GEO_VISION_MODEL} — zero-shot object detection.
 # Runs on HF's Inference API (router.huggingface.co), NOT bundled in Docker.
 # curl uses --ipv4 --insecure for HF Spaces IPv6/TLS compatibility.
