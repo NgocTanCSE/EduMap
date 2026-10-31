@@ -87,9 +87,15 @@ export class AdminController {
   }
 
   @Get('question-gaps')
-  @ApiOperation({ summary: 'Báo cáo khoảng trống tri thức AI (Idea #17) — cluster truy vấn, xác định gaps' })
+  @ApiOperation({ summary: 'Báo cáo khoảng trống tri thức AI (Idea #17) — cluster truy vấn, xác định gaps (ưu tiên cache auto-scheduler)' })
   @ApiResponse({ status: 200, description: 'Báo cáo khoảng trống tri thức đã được phân cụm' })
   async getQuestionGaps(@Query('limit') limit?: string) {
     return this.aiService.getQuestionGaps(limit ? parseInt(limit, 10) : undefined);
+  }
+
+  @Get('auto-scheduler/health')
+  @ApiOperation({ summary: 'Trạng thái AI Auto-Scheduler (task chạy, cache, RAM)' })
+  async getAutoSchedulerHealth() {
+    return this.aiService.getAutoSchedulerHealth();
   }
 }

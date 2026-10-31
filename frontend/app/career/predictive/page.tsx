@@ -114,6 +114,9 @@ export default function PredictiveCareerPage() {
            </div>
            <div className="flex-1 text-center md:text-left">
               <h1 className="text-2xl font-bold mb-2">Phân tích từ AI</h1>
+              <p className="text-sm text-muted-foreground/65 leading-relaxed mb-6">
+                 Dựa trên lịch sử học tập, kỹ năng hiện tại và các tương tác của bạn trên hệ thống EduMap, AI đã mô phỏng các kịch bản nghề nghiệp phù hợp nhất.
+              </p>
               <div className="flex gap-4 justify-center md:justify-start">
                  <div className="flex items-center gap-2 text-[10px] text-primary font-bold uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full border border-accent/20">
                     <ShieldCheck className="w-3 h-3" /> Profile Verified

@@ -5,8 +5,7 @@ import { useBookmarks } from '@/src/hooks/useBookmarks';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 /**
- * Nút đánh dấu (tim) — dùng chung cho cả list card và trang chi tiết (context).
- * Trạng thái dựa trên cache của useBookmarks; toggle ngay (optimistic) rồi POST.
+ * Nút đánh dấu (tim) — Icon-only heart button with Orvel styling.
  */
 export function BookmarkButton({
   targetType,
@@ -38,15 +37,20 @@ export function BookmarkButton({
         }
         await toggle(targetType, targetId);
       }}
-      aria-label={on ? 'Bỏ đánh dấu' : 'Đánh dấu'}
+      aria-label={on ? 'Bỏ lưu' : 'Lưu vào mục yêu thích'}
+      title={on ? 'Bỏ lưu' : 'Lưu vào mục yêu thích'}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg border border-border bg-background/60 text-muted-foreground transition hover:bg-muted hover:text-foreground',
-        size === 'sm' ? 'h-7 px-2' : 'h-8 px-3',
+        'inline-flex items-center justify-center rounded-xl border border-border/80 bg-card text-muted-foreground shadow-xs transition-all hover:bg-secondary hover:text-foreground active:scale-95',
+        showLabel
+          ? (size === 'sm' ? 'h-8 px-3 gap-1.5' : 'h-9 px-3.5 gap-2')
+          : (size === 'sm' ? 'h-8 w-8' : 'h-9 w-9'),
+        on && 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400',
         className,
       )}
     >
-      <Heart className={cn('h-3.5 w-3.5', on && 'fill-primary text-primary')} />
-      {showLabel && <span className="ml-1 text-xs font-medium">{on ? 'Đã lưu' : 'Lưu'}</span>}
+      <Heart className={cn('h-4 w-4 transition-transform', on && 'fill-rose-500 text-rose-500 scale-110')} />
+      {showLabel && <span className="text-xs font-semibold">{on ? 'Đã lưu' : 'Lưu'}</span>}
     </button>
   );
 }
+export default BookmarkButton;

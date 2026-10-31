@@ -12,6 +12,7 @@ import FileUpload from '@/src/components/ui/FileUpload';
 import { authService } from '@/src/services/auth.service';
 import { toast } from 'sonner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import Pagination from '@/components/ui/Pagination';
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';
@@ -26,6 +27,8 @@ export default function ScholarshipPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -190,6 +193,11 @@ export default function ScholarshipPage() {
     return matchesSearch;
   });
 
+  const paginatedScholarships = filteredScholarships.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   return (
     <ContentShell>
       {/* Application Modal */}
@@ -330,96 +338,106 @@ export default function ScholarshipPage() {
           ))}
         </div>
       ) : filteredScholarships.length > 0 ? (
-        <div className="space-y-3">
-          {filteredScholarships.map(item => (
-            <Card
-              key={item.id}
-              className="p-5 flex flex-col md:flex-row gap-5 border-border hover:border-primary/30 transition-colors"
-            >
-              <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-xl font-bold text-primary-foreground shrink-0">
-                {item.provider?.charAt(0) || 'S'}
-              </div>
-
-              <div className="flex-1 space-y-2.5">
-                <div className="flex justify-between items-start gap-2 cursor-pointer group" onClick={() => setSelectedScholarshipDetail(item)}>
-                  <div>
-                    <h3 className="text-base font-semibold line-clamp-1 text-foreground group-hover:text-primary transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-primary/70 font-medium">
-                      {item.provider || 'Đang cập nhật'}
-                    </p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {paginatedScholarships.map(item => (
+              <Card
+                key={item.id}
+                className="group flex h-full flex-col justify-between rounded-[22px] border border-border/80 bg-card p-5 shadow-orvel hover:shadow-pop transition-all hover:border-primary/50"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-[14px] bg-primary/10 border border-primary/20 flex items-center justify-center text-lg font-bold text-primary shrink-0 shadow-xs">
+                        {item.provider?.charAt(0) || 'S'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-primary font-semibold truncate">
+                          {item.provider || 'Đang cập nhật'}
+                        </p>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <MapPin className="w-3 h-3 text-primary" /> Toàn quốc
+                        </span>
+                      </div>
+                    </div>
+                    <BookmarkButton targetType="scholarships" targetId={item.id} size="sm" />
                   </div>
-                  <BookmarkButton targetType="scholarships" targetId={item.id} size="sm" />
-                </div>
 
-                <p className="text-sm text-foreground/60 line-clamp-2">{item.description}</p>
-
-                <div className="flex flex-wrap gap-3 text-xs text-foreground/55">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-primary" /> Toàn quốc
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-accent" /> {Number(item.value_amount).toLocaleString()} USD
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-primary" /> Hạn nộp:{' '}
-                    {item.deadline && new Date(item.deadline).getTime() > 0
-                      ? new Date(item.deadline).toLocaleDateString('vi-VN')
-                      : 'Xem trang chính thức'}
-                  </span>
-                </div>
-
-                {eligibilityResult[item.id] && (
-                  <div
-                    className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
-                      eligibilityResult[item.id].is_eligible
-                        ? 'bg-accent/10 border-accent/20 text-accent'
-                        : 'bg-primary/10 border-primary/20 text-primary'
-                    }`}
+                  <h3
+                    onClick={() => setSelectedScholarshipDetail(item)}
+                    className="text-base font-bold line-clamp-2 text-foreground group-hover:text-primary transition-colors cursor-pointer leading-snug"
                   >
-                    {eligibilityResult[item.id].is_eligible ? (
-                      <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                    )}
-                    <span className="font-medium leading-normal">
-                      {eligibilityResult[item.id].message}
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                    {item.description}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-border/40 text-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-bold text-accent">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      {Number(item.value_amount).toLocaleString()} USD
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Clock className="w-3 h-3 text-primary" />
+                      {item.deadline && new Date(item.deadline).getTime() > 0
+                        ? new Date(item.deadline).toLocaleDateString('vi-VN')
+                        : 'Mở định kỳ'}
                     </span>
                   </div>
-                )}
-              </div>
 
-              <div className="flex flex-col gap-2.5 min-w-[170px] border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4">
-                <Button
-                  onClick={() => handleCheckEligibility(item.id)}
-                  disabled={checkingId === item.id}
-                  variant="outline"
-                  className="w-full py-3 rounded-lg text-[11px] font-bold"
-                >
-                  {checkingId === item.id ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : 'Kiểm tra phù hợp'}
-                </Button>
-                <Button
-                  onClick={() => openApplyModal(item)}
-                  className="w-full py-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold"
-                >
-                  Nộp đơn ngay
-                </Button>
-              </div>
-            </Card>
-          ))}
+                  {eligibilityResult[item.id] && (
+                    <div
+                      className={`mt-3 p-2.5 rounded-xl border text-xs flex items-start gap-2 ${
+                        eligibilityResult[item.id].is_eligible
+                          ? 'bg-accent/10 border-accent/20 text-accent'
+                          : 'bg-primary/10 border-primary/20 text-primary'
+                      }`}
+                    >
+                      {eligibilityResult[item.id].is_eligible ? (
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      )}
+                      <span className="font-medium text-[11px] leading-tight">
+                        {eligibilityResult[item.id].message}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-          {hasMore && (
-            <div className="flex justify-center pt-6">
-              <Button
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                variant="outline"
-                className="rounded-full"
-              >
-                {loadingMore ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                {loadingMore ? 'Đang tải...' : 'Tải thêm học bổng'}
-              </Button>
+                <div className="mt-5 pt-3 border-t border-border/50 grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => handleCheckEligibility(item.id)}
+                    disabled={checkingId === item.id}
+                    variant="outline"
+                    className="w-full py-2 h-9 rounded-xl text-[11px] font-bold"
+                  >
+                    {checkingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : 'Kiểm tra'}
+                  </Button>
+                  <Button
+                    onClick={() => openApplyModal(item)}
+                    className="w-full py-2 h-9 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90"
+                  >
+                    Nộp đơn
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {filteredScholarships.length > pageSize && (
+            <div className="pt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredScholarships.length / pageSize)}
+                onPageChange={(p: number) => {
+                  setCurrentPage(p);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                totalItems={filteredScholarships.length}
+                pageSize={pageSize}
+              />
             </div>
           )}
         </div>

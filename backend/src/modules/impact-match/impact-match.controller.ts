@@ -77,10 +77,17 @@ export class ImpactMatchController {
 
   // ── Rank / Match ───────────────────────────────────────────────
   @Post('rank')
-  @ApiOperation({ summary: 'Xếp hạng ghép nhu cầu ↔ nhà tài trợ bằng AI (pre-filter + LLM)' })
+  @ApiOperation({ summary: 'Xếp hạng ghép nhu cầu ↔ nhà tài trợ bằng AI (pre-filter + LLM) — on-demand refresh' })
   async rankMatches(
     @Body() params: ImpactMatchRankDto,
   ) {
     return this.impactMatchService.rankMatches(params);
+  }
+
+  // ── Cached rankings (auto-scheduler) ──
+  @Get('rankings/cached')
+  @ApiOperation({ summary: 'Lấy kết quả xếp hạng đã được auto-scheduler tính toán (GET — không chờ LLM)' })
+  async getCachedRankings(@Query('refresh') refresh?: string) {
+    return this.impactMatchService.getCachedRankings(refresh === 'true');
   }
 }

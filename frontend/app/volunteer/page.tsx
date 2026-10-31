@@ -107,6 +107,7 @@ export default function VolunteerPage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="h2-section mb-2 flex items-center gap-2"><Plus className="text-primary w-6 h-6"/> Ghi nhận giờ</h3>
+            <p className="text-sm text-muted-foreground/60 mb-6">Thêm hoạt động tình nguyện mới của bạn vào hệ thống.</p>
             
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -182,6 +183,9 @@ export default function VolunteerPage() {
           <div className="md:col-span-2 bg-card p-8 md:p-6 rounded-xl border border-border relative overflow-hidden flex flex-col justify-center">
              <div className="relative z-10">
                 <h1 className="h1-page mb-4">Sổ tay Tình nguyện</h1>
+                <p className="text-muted-foreground/60 max-w-md leading-relaxed mb-8">
+                  Mỗi giờ bạn đóng góp đều mang lại giá trị cho cộng đồng. EduMap sẽ ghi nhận và cấp chứng chỉ tự động khi bạn đạt các cột mốc.
+                </p>
                 <Button
                   onClick={() => setShowForm(true)}
                   className="bg-primary hover:bg-primary/90"

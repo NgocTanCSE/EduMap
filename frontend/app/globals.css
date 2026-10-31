@@ -6,70 +6,72 @@
    HSL format enables Tailwind opacity modifiers (bg-primary/50, etc.)
    No AI-purple, no random gradients, no emoji logos. */
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   :root {
-    /* Sidebar width — shared bởi AppLayout Sidebar và Map Hub floating panels.
-       Updated via JS (setSidebarWidthVar) when sidebar collapses/resizes. */
-    --sidebar-width: 240px;
+    /* Sidebar width — Orvel standard 252px, collapsible to 56px */
+    --sidebar-width: 252px;
     --sidebar-width-collapsed: 56px;
-    /* ── Desert Dusk ──────────────────────────────────────────────
-       A warm, earthy dark theme:
-         bg    #1A1614  → near-black, warm charcoal (page background)
-         side  #2A2421  → slightly lighter card / sidebar surface
-         text  #F5EAE0  → creamy off-white (primary text)
-         main  #E07A5F  → terracotta (primary / accent actions)
-         accent #81B29A → muted sage (secondary actions)
-       HSL form is required so Tailwind opacity modifiers
-       (bg-primary/50, border-border/60 …) keep working. ────────── */
-    --background: 20 13% 9%;            /* #1A1614 */
-    --foreground: 29 51.2% 92%;         /* #F5EAE0 */
-    --card: 20 12% 14.7%;               /* #2A2421 */
-    --card-foreground: 29 51.2% 86%;    /* text on cards, slightly softer */
-    --border: 20 12% 24%;               /* subtle line, visible on dark */
-    --input: 20 12% 24%;
-    /* Additional shadcn surface tokens (Desert Dusk derivation) — required so
-       Popover / Dialog / Toast / Dropdown window chrome is themed, not transparent */
-    --popover: 20 12% 16%;              /* floating window surface, slightly above card */
-    --popover-foreground: 29 51.2% 86%;/* text on popovers (card-foreground) */
-    --secondary: 20 12% 16%;            /* alternate muted surface */
-    --secondary-foreground: 29 51.2% 86%;
-    --sidebar: 20 12% 14.7%;            /* sidebar surface (= card) */
-    --sidebar-foreground: 29 51.2% 86%;
-    --ring: 13 67.5% 62.5%;             /* terracotta focus ring */
-    --primary: 13 67.5% 62.5%;          /* #E07A5F (main) */
-    --primary-foreground: 20 13% 10%;   /* dark text on terracotta */
-    --muted: 20 12% 17%;                /* hover / surface tint */
-    --muted-foreground: 29 51.2% 65%;  /* secondary text */
-    --accent: 151 24.1% 60.2%;          /* #81B29A (sage) */
-    --accent-foreground: 20 13% 10%;    /* dark text on sage */
-    --destructive: 0 84% 61%;
+
+    /* ── Orvel Warm Editorial (Education SaaS Edition) ─────────────
+       A warm ivory, high-end editorial palette:
+         bg        #F2EFE8 → warm ivory / cream canvas (page background)
+         surface   #FFFEFA → warm off-white surface (cards)
+         surface-2 #F6F3EB → secondary card / pill / input background
+         text      #1B1813 → deep warm charcoal (primary text)
+         muted     #57534E → stone neutral (secondary text)
+         primary   #E07A5F → warm terracotta / amber (primary actions)
+         accent    #0F6A45 → emerald forest (positive status / growth)
+         rose      #D0475E → warm rose (overdue / warning / delete)
+         border    rgba(46, 34, 12, 0.12) → subtle warm neutral border
+       ───────────────────────────────────────────────────────────── */
+    --background: 40 25% 93%;            /* #F2EFE8 */
+    --foreground: 38 17% 9%;             /* #1B1813 */
+    --card: 43 100% 98.6%;               /* #FFFEFA */
+    --card-foreground: 38 17% 9%;        /* #1B1813 */
+    --popover: 0 0% 100%;                /* #FFFFFF */
+    --popover-foreground: 38 17% 9%;
+    --secondary: 44 35% 94%;             /* #F6F3EB */
+    --secondary-foreground: 38 17% 9%;
+    --sidebar: 44 35% 94%;               /* #F6F3EB */
+    --sidebar-foreground: 38 17% 9%;
+    --border: 38 18% 85%;                /* soft warm border */
+    --input: 38 18% 85%;
+    --ring: 13 67.5% 62.5%;              /* terracotta focus ring */
+    --primary: 13 67.5% 62.5%;           /* #E07A5F */
+    --primary-foreground: 0 0% 100%;
+    --muted: 44 30% 92%;                 /* #F2EFE6 */
+    --muted-foreground: 25 5% 36%;       /* #57534E */
+    --accent: 158 54% 28%;               /* #0F6A45 (emerald) */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 350 63% 55%;          /* #D0475E (rose) */
     --destructive-foreground: 0 0% 100%;
   }
 
-  /* Light mode (inverted Desert Dusk). The app currently forces dark mode
-     (`className="dark"` on <html>), but these keep the palette coherent
-     if light mode is ever enabled. */
-  .light {
-    --background: 29 51.2% 96%;        /* creamy page background */
-    --foreground: 20 12% 14%;           /* dark text */
-    --card: 29 51.2% 93%;              /* near-background surface */
-    --card-foreground: 20 12% 22%;
-    --border: 20 12% 86%;
-    --input: 20 12% 86%;
-    /* Additional shadcn surface tokens (light mode, inverted Desert Dusk) */
-    --popover: 29 51.2% 96%;
-    --popover-foreground: 20 12% 14%;
-    --secondary: 20 12% 88%;
-    --secondary-foreground: 20 12% 22%;
-    --sidebar: 29 51.2% 93%;
-    --sidebar-foreground: 20 12% 14%;
-    --ring: 13 67.5% 62.5%;
-    --primary: 13 67.5% 62.5%;         /* #E07A5F */
-    --primary-foreground: 0 0% 100%;
-    --muted: 20 12% 88%;
-    --muted-foreground: 20 12% 45%;
-    --accent: 151 24.1% 60.2%;         /* #81B29A */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 61%;
+  /* Dark mode option (Warm Charcoal Editorial) */
+  .dark {
+    --background: 36 12% 7%;            /* #13110E */
+    --foreground: 40 22% 93%;           /* #F3EEE4 */
+    --card: 35 12% 10%;                 /* #1B1915 */
+    --card-foreground: 40 22% 90%;
+    --popover: 35 12% 12%;
+    --popover-foreground: 40 22% 90%;
+    --secondary: 35 12% 13%;
+    --secondary-foreground: 40 22% 90%;
+    --sidebar: 35 12% 10%;
+    --sidebar-foreground: 40 22% 90%;
+    --border: 35 15% 18%;
+    --input: 35 15% 18%;
+    --ring: 38 88% 54%;
+    --primary: 38 88% 54%;              /* #F5B23A */
+    --primary-foreground: 20 13% 10%;
+    --muted: 35 12% 14%;
+    --muted-foreground: 38 12% 65%;
+    --accent: 152 48% 55%;              /* #52CF92 */
+    --accent-foreground: 20 13% 10%;
+    --destructive: 350 63% 55%;
     --destructive-foreground: 0 0% 100%;
   }
 }
@@ -123,7 +125,7 @@
 
   /* Standard surface for cards, panels and list rows. */
   .card-surface {
-    @apply rounded-xl border border-border bg-card;
+    @apply rounded-[22px] border border-border/80 bg-card shadow-orvel transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-pop;
   }
 
   /* Equal-height card grid: every row's cards stretch to the tallest card. */
@@ -163,9 +165,9 @@
    that is what caused some titles to balloon while card titles were
    lost in the noise. */
 @layer utilities {
-  .h1-page {    @apply text-2xl font-semibold tracking-tight sm:text-3xl; }
-  .h2-section { @apply text-xl font-semibold tracking-tight; }
-  .h3-card {    @apply text-base font-medium; }
+  .h1-page {    @apply text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl; }
+  .h2-section { @apply text-lg font-bold tracking-tight text-foreground; }
+  .h3-card {    @apply text-base font-bold text-foreground; }
   .label-form { @apply text-xs font-semibold uppercase tracking-widest text-muted-foreground/65; }
   .label-pill { @apply text-[10px] font-bold uppercase tracking-wider; }
 }
@@ -378,4 +380,51 @@ html {
   #app-content .min-h-screen {
     min-height: calc(100dvh - 3.5rem);
   }
+}
+
+/* Orvel Signature Card, Pill & Shadow Utilities */
+@layer utilities {
+  .shadow-orvel {
+    box-shadow: 0 1px 2px rgba(46, 34, 12, 0.05), 0 14px 32px -20px rgba(46, 34, 12, 0.28);
+  }
+  .shadow-pop {
+    box-shadow: 0 26px 60px -18px rgba(46, 34, 12, 0.34), 0 2px 6px rgba(46, 34, 12, 0.08);
+  }
+  .card-orvel {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 22px;
+    box-shadow: 0 1px 2px rgba(46, 34, 12, 0.05), 0 14px 32px -20px rgba(46, 34, 12, 0.28);
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .card-orvel:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 26px 60px -18px rgba(46, 34, 12, 0.34), 0 2px 6px rgba(46, 34, 12, 0.08);
+  }
+  .pill-orvel {
+    border-radius: 9999px;
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+  }
+}
+
+/* Animated Theme Toggler View Transition Effect (Magic UI Circular Reveal) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 9999;
+}
+.dark::view-transition-old(root) {
+  z-index: 9999;
+}
+.dark::view-transition-new(root) {
+  z-index: 1;
 }

@@ -178,10 +178,7 @@ function WifiPanel({
       </div>
 
       {wifiLocations.length > 0 ? (
-        // No inner `max-h-48` cap: render all hotspots so the default state is
-        // NOT "bị cắt nội dung". Overflow is handled by the panel body's own
-        // `overflow-y-auto` (single scroll container, not a trapped scrollbox).
-        <div className="space-y-1">
+        <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
           {wifiLocations.map((w: any) => (
             <div key={w.id} className="text-xs p-2 rounded-lg border border-border hover:bg-muted/30">
               <div className="font-medium text-foreground">{w.name || w.ssid}</div>
@@ -211,20 +208,10 @@ function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[
 
   if (!locations.length) return null;
 
-  const getCoords = (loc: any): [number, number] | null => {
-    // Location entity stores GeoJSON at the TOP-LEVEL `coordinates` field:
-    //   coordinates: { type: 'Point', coordinates: [lng, lat] }
-    // (TypeORM returns the parsed object, not a string, for SQLite `json` cols.)
-    const geo = loc?.coordinates;
-    if (geo?.coordinates && Array.isArray(geo.coordinates)) {
-      return [geo.coordinates[1], geo.coordinates[0]];
-    }
-    // Legacy/alternate shape: nested location.coordinates
-    if (loc?.location?.coordinates) {
-      return [loc.location.coordinates[1], loc.location.coordinates[0]];
-    }
-    if (loc?.lat && loc?.lng) return [Number(loc.lat), Number(loc.lng)];
-    return null;
+  const getCoords = (loc: any): [number, number] => {
+    if (loc.location?.coordinates) return [loc.location.coordinates[1], loc.location.coordinates[0]];
+    if (loc.lat && loc.lng) return [loc.lat, loc.lng];
+    return [0, 0];
   };
 
   const getColor = (isFree: boolean) => isFree ? "#10b981" : "#f59e0b";
@@ -239,9 +226,8 @@ function WifiOverlay({ result }: { result: any[]; loading: boolean; points: any[
   return (
     <>
       {locations.map((loc: any) => {
-        const coords = getCoords(loc);
-        if (!coords) return null;
-        const [lat, lng] = coords;
+        if (!loc.lat && !loc.lng && !loc.location?.coordinates) return null;
+        const [lat, lng] = getCoords(loc);
         return (
           <React.Fragment key={loc.id || `${lat}-${lng}`}>
             <Marker position={[lat, lng]} icon={_wifiIcon}>

@@ -1,10 +1,10 @@
 /**
  * EduMap Edge AI Tutor — Offline Page (Idea #7)
  *
- * A PWA-enabled page for AI tutoring (explain concepts, generate practice
- * questions, get study suggestions). Answers come from the ai-service text
- * cascade (DeepSeek → Gemini → Cloudflare); when no provider is reachable the
- * service returns curated Vietnamese templates with `degraded=true`.
+ * A PWA-enabled page that lets students get AI tutoring (explain concepts,
+ * generate practice questions, get study suggestions) WITHOUT internet —
+ * the model (TinyLlama 1.1B Chat, 4-bit) runs locally inside the
+ * ai-service container on HF Spaces.
  *
  * Features:
  *  - Three modes: Explain, Practice, Suggest (action selector)
@@ -16,6 +16,7 @@
 
 'use client';
 
+import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
@@ -28,7 +29,6 @@ import {
   Timer,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { stripMarkdown } from '@/src/lib/plain-text';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ export default function OfflineTutorPage() {
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col bg-background lg:h-dvh">
       {/* Header */}
       <div className="border-b border-border bg-card px-4 py-3 shadow-sm">
-        <div className="mx-auto max-w-4xl">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -289,22 +289,22 @@ export default function OfflineTutorPage() {
                 Trợ lý ngoại tuyến
               </h1>
               <p className="text-sm text-foreground/55">
-                Gia sư AI của EduMap — trả lời tức thì, có câu trả lời mẫu dự phòng
+                Gia sư AI cục bộ — không cần internet (TinyLlama 1.1B Chat)
               </p>
             </div>
             {modelStatus && (
               <div className="text-right text-xs text-foreground/55">
                 {isModelReady ? (
                   <span className="inline-flex items-center gap-1.5 text-accent">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> AI đã sẵn sàng
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Mô hình đã sẵn sàng
                   </span>
                 ) : isModelFailed ? (
                   <span className="inline-flex items-center gap-1.5 text-primary">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Đang dùng câu trả lời mẫu
+                    <AlertTriangle className="h-3.5 w-3.5" /> Đang dùng bản sao chép mẫu
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-foreground/40">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kiểm tra AI…
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải mô hình…
                   </span>
                 )}
               </div>
@@ -315,20 +315,21 @@ export default function OfflineTutorPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-4xl space-y-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 space-y-4">
           {messages.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card">
+            <div className="relative overflow-hidden rounded-[24px] border border-border/80 bg-card p-8 sm:p-12 text-center shadow-orvel max-w-3xl mx-auto my-6">
+              <InteractiveGridPattern className="opacity-30 [mask-image:radial-gradient(400px_circle_at_center,white,transparent)]" />
+              <div className="relative z-10">
+                <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary/60 text-primary shadow-xs">
                 <BookOpen aria-hidden="true" className="h-7 w-7 text-primary" />
               </div>
               <h2 className="mb-2 text-lg font-semibold text-foreground/80">
-                Trợ lý ngoại tuyến — Gia sư AI của EduMap
+                Trợ lý ngoại tuyến — Trợ lý AI cục bộ
               </h2>
               <p className="mb-6 max-w-md text-sm text-foreground/55">
-                Hỏi về bất kỳ chủ đề học tập nào — AI trả lời theo chương
-                trình phổ thông Việt Nam. Nếu nhà cung cấp AI tạm thời không
-                phản hồi, hệ thống dùng câu trả lời mẫu có sẵn nên bạn luôn
-                nhận được nội dung.
+                Hỏi về bất kỳ chủ đề học tập nào — mô hình AI chạy trực tiếp
+                trên thiết bị, không cần kết nối internet. Hoạt động với
+                bản sao chép mẫu ngay cả khi mô hình chưa tải xong.
               </p>
 
               <div className="mb-4 flex flex-wrap justify-center gap-2">
@@ -342,6 +343,7 @@ export default function OfflineTutorPage() {
                   </button>
                 ))}
               </div>
+              </div>
             </div>
           ) : (
             messages.map((msg) => (
@@ -349,7 +351,7 @@ export default function OfflineTutorPage() {
                 {/* User message */}
                 {msg.role === 'user' && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-lg bg-primary px-4 py-2 text-primary-foreground shadow">
+                    <div className="max-w-[80%] rounded-[20px] rounded-tr-xs bg-primary/15 border border-primary/25 px-5 py-3 text-sm font-medium text-foreground shadow-xs">
                       {msg.content}
                     </div>
                   </div>
@@ -358,7 +360,7 @@ export default function OfflineTutorPage() {
                 {/* Assistant message */}
                 {msg.role === 'assistant' && (
                   <div className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-card border border-border/80 text-primary shadow-xs">
                       <BookOpen className="h-4 w-4" />
                     </div>
                     <div className="flex-1 space-y-2">
@@ -369,10 +371,10 @@ export default function OfflineTutorPage() {
                           </div>
                         ) : msg.nextStep ? (
                           <div className="whitespace-pre-wrap">
-                            {stripMarkdown(msg.content)}
+                            {msg.content}
                           </div>
                         ) : msg.content ? (
-                          <div className="whitespace-pre-wrap">{stripMarkdown(msg.content)}</div>
+                          <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.content }} />
                         ) : (
                           <span className="text-foreground/40">Đang xử lý...</span>
                         )}
@@ -399,7 +401,7 @@ export default function OfflineTutorPage() {
 
       {/* Input area */}
       <div className="border-t border-border bg-card px-4 py-4">
-        <div className="mx-auto max-w-4xl">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           {/* Action selector */}
           <div className="mb-3 flex gap-2">
             <button

@@ -10,11 +10,14 @@ import SearchInput from '@/components/ui/SearchInput';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import Pagination from '@/components/ui/Pagination';
 
 export default function HackathonListPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     fetchHackathons();
@@ -45,7 +48,7 @@ export default function HackathonListPage() {
       />
 
       {/* Highlight banner — de-generified (no blur orb / rotate-3 / giant code block) */}
-      <Card className="border-primary/20 p-6 md:p-8">
+      <div className="rounded-[22px] border border-border/80 bg-card p-6 md:p-8 shadow-orvel">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30">
@@ -71,7 +74,7 @@ export default function HackathonListPage() {
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Tìm kiếm cuộc thi..." />
 
@@ -90,12 +93,12 @@ export default function HackathonListPage() {
           </div>
         ) : filteredHackathons.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHackathons.map(hackathon => {
+            {filteredHackathons.slice((page - 1) * pageSize, page * pageSize).map(hackathon => {
               const startDate = new Date(hackathon.start_date);
               const endDate = new Date(hackathon.end_date);
               return (
                 <Link href={`/hackathon/${hackathon.id}`} key={hackathon.id} className="group">
-                  <Card className="flex flex-col h-full">
+                  <div className="flex flex-col h-full rounded-[22px] border border-border/80 bg-card shadow-orvel hover:shadow-pop transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 overflow-hidden">
                     <div className="h-1.5 w-full bg-primary rounded-t-lg" />
                     <CardHeader>
                       <span
@@ -132,7 +135,7 @@ export default function HackathonListPage() {
                         XEM CHI TIẾT <ArrowRight className="w-3 h-3" />
                       </div>
                     </CardContent>
-                  </Card>
+                  </div>
                 </Link>
               );
             })}

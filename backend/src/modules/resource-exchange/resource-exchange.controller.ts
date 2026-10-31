@@ -90,8 +90,22 @@ export class ResourceExchangeController {
 
   // ── Match (AI ranking + scheduling) ────────────────────────────────
   @Post('match')
-  @ApiOperation({ summary: 'Ghép cung–cầu bằng AI (pre-filter + LLM ranking + greedy scheduling)' })
+  @ApiOperation({ summary: 'Ghép cung–cầu bằng AI (pre-filter + LLM ranking + greedy scheduling) — on-demand refresh' })
   async matchResources(@Body() params: ResourceMatchRankDto) {
     return this.resourceMatchService.matchResources(params);
+  }
+
+  // ── Cached matches (auto-scheduler) ──
+  @Get('cached-matches')
+  @ApiOperation({ summary: 'Lấy kết quả ghép nối đã được auto-scheduler tính toán (GET — không chờ LLM)' })
+  async getCachedMatches(@Query('refresh') refresh?: string) {
+    return this.resourceMatchService.getCachedMatches(refresh === 'true');
+  }
+
+  // ── Auto-scheduler health ──
+  @Get('auto-health')
+  @ApiOperation({ summary: 'Trạng thái auto-scheduler (task nào đang chạy, cache có không)' })
+  async getAutoHealth() {
+    return this.resourceMatchService.getAutoSchedulerHealth();
   }
 }

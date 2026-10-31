@@ -218,6 +218,12 @@ class ResourceExchangeService {
       body: JSON.stringify(params || {}),
     });
   }
+
+  // ── Cached matches (auto-scheduler, GET — instant) ───────────────
+  async getCachedMatches(refresh?: boolean): Promise<any> {
+    const qs = refresh ? '?refresh=true' : '';
+    return this.fetchWithAuth(`${API_BASE_URL}/cached-matches${qs}`);
+  }
 }
 
 export const resourceExchangeService = new ResourceExchangeService();

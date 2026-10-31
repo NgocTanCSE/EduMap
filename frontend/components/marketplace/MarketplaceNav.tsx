@@ -23,7 +23,7 @@ export function MarketplaceNav({ cartCount = 0 }: { cartCount?: number }) {
   return (
     <nav
       aria-label="Khu chợ EduMap"
-      className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1.5"
+      className="inline-flex gap-1.5 overflow-x-auto rounded-2xl border border-border/80 bg-muted/60 p-1.5 shadow-xs"
     >
       {TABS.map(({ href, label, icon: Icon }) => {
         const active =

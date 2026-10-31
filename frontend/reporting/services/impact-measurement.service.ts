@@ -67,6 +67,14 @@ class ImpactMeasurementService {
     const qs = buildQuery(params);
     return this.fetchWithAuth<ImpactReport>(`${API_BASE_URL}${qs ? `?${qs}` : ''}`);
   }
+
+  /** Cached auto-scheduler report per region (GET — instant, no LLM wait). */
+  async getCachedMeasure(regionId: string, refresh?: boolean): Promise<any> {
+    const qs = refresh ? '?refresh=true' : '';
+    return this.fetchWithAuth<any>(
+      `/api/impact-measurement/auto-cached/${regionId}${qs}`
+    );
+  }
 }
 
 export const impactMeasurementService = new ImpactMeasurementService();

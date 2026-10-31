@@ -8,6 +8,7 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';
 import Thumb from '@/components/ui/Thumb';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import Pagination from '@/components/ui/Pagination';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -19,6 +20,8 @@ export default function EventsListPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     fetchEvents();
@@ -74,7 +77,7 @@ export default function EventsListPage() {
         </div>
       ) : filteredEvents.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map(event => {
+          {filteredEvents.slice((page - 1) * pageSize, page * pageSize).map(event => {
             const capacity = Math.max(1, Number(event.capacity) || 100);
             const progress = Math.min(100, Math.round(((Number(event.registered_count) || 0) / capacity) * 100));
             const startDate = new Date(event.start_date);

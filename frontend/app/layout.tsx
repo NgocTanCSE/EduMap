@@ -60,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className="dark">
+    <html lang="vi">
       <body className={`${inter.variable} font-sans flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/20 antialiased`}>
         <LanguageProvider>
           <AuthProvider>

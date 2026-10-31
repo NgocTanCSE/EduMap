@@ -436,18 +436,23 @@ export async function ensureSqliteSchema(): Promise<void> {
 
     // 8. Backfill coordinates for existing feature records that were seeded
     //    without geo data. Only fills rows where lat/lng/location_point is NULL
-    //    so manual edits are never overwritten.
+    //    so manual edits are never overwritten.  All IDs here match the
+    //    deterministic UUIDs from scripts/real_vn_data.py (D.uid) so the
+    //    backfill fires against the actual rows on a pre-migration DB.
     const backfills: Array<[string, string, number, number]> = [
       // [table, id, lat, lng]
-      // Summer campaigns
-      ['summer_campaigns', '6b826baa-d46f-4699-9170-2a2959595190', 10.9835, 106.8597],
-      ['summer_campaigns', '01ab0344-46a7-4bf5-9184-e06a30f1c22f', 10.7727, 106.6548],
-      ['summer_campaigns', '800b033b-5ab3-4f4c-95ba-04eb352c90ca', 10.957, 106.843],
-      // Green challenges
-      ['green_challenges', 'efe3440b-ceb9-41ed-a822-0dcc4121f642', 10.9482, 106.8624],
-      ['green_challenges', 'b8060056-94c1-45f0-8877-fa1ddddf329d', 10.9525, 106.8778],
-      ['green_challenges', '56b5372b-ec0b-47e0-ab5c-5e63ed57a5b3', 10.9495, 106.8208],
-      // Shared items (marketplace)
+      // Summer campaigns (Hanoi centre; Kỳ nghỉ hồng → Hạ Long)
+      ['summer_campaigns', 'fe73a715-a43f-5595-89ec-3f6ebf9435ea', 21.0285, 105.8342],
+      ['summer_campaigns', '77336d52-b759-5388-b60b-3c4681310522', 21.0285, 105.8342],
+      ['summer_campaigns', 'f0c56183-89d1-5ebb-8a77-4e20a6489be5', 20.6723, 106.6297],
+      ['summer_campaigns', 'f140afef-4492-5912-ab41-9a995069dbfa', 21.0285, 105.8342],
+      ['summer_campaigns', 'f5339758-7df8-532f-83f3-fec05bb2cb26', 21.0285, 105.8342],
+      // Green challenges (Hanoi centre)
+      ['green_challenges', 'fa0959c8-baeb-555f-80c2-5fc6caf7871a', 21.0285, 105.8342],
+      ['green_challenges', 'efd0692d-d4ff-5f10-a47b-c0cab6583584', 21.0285, 105.8342],
+      ['green_challenges', 'c84d0227-e450-5d38-81c4-253216ed33ce', 21.0285, 105.8342],
+      ['green_challenges', '7b924967-2e44-5146-bb40-7c75429082d7', 21.0285, 105.8342],
+      // Shared items (marketplace) — backfilled to Biên Hòa, Đồng Nai centre
       ['shared_items', 'sh20260001-0001-4000-8000-000000000001', 10.957, 106.843],
       ['shared_items', 'sh20260001-0001-4000-8000-000000000002', 10.957, 106.843],
       ['shared_items', 'sh20260001-0001-4000-8000-000000000003', 10.957, 106.843],
@@ -1085,12 +1090,17 @@ export async function ensureSqliteSchema(): Promise<void> {
       changes.push(`seeded ${RESOURCE_REQUESTS_SEED.length} resource_requests row(s)`);
     }
 
-    // Backfill donation_campaigns.location_point for the 4 NULL campaigns
+    // Backfill donation_campaigns.location_point for the NULL campaigns
+    // IDs match the deterministic UUIDs from scripts/real_vn_data.py (D.uid).
+    // Hà Nội centre = (21.0285, 105.8342); TP.HCM centre = (10.7727, 106.6548).
     const donationBackfills: Array<[string, number, number]> = [
-      ['8d2b5de5-f529-4e36-8bfc-8e0497717be5', 11.0136, 107.2345], // Định Quán, Đồng Nai
-      ['904e4b6f-1b33-4241-9aa1-220036f73c7e', 10.3036, 106.2892], // Tân Phú, TP.HCM
-      ['2f3baa54-6389-4834-9d3e-c00b8f755b49', 10.957, 106.843], // Trấn Biên, Biên Hòa
-      ['9e5d63a5-03f1-4706-8a42-ccba67ec7007', 11.0096, 106.9208], // Xuân Lộc, Đồng Nai
+      ['4d63e3bc-bf9d-5b8e-99f0-d01c96527ba9', 21.0285, 105.8342], // Quỹ Vì trẻ em Việt Nam — Hà Nội
+      ['dfa228fa-246d-5787-a2e6-58bdd2cac3c5', 21.0285, 105.8342], // Quỹ Tấm lòng Việt — Hà Nội
+      ['330f9558-0167-5cb2-b96b-cb9ba1954545', 10.7727, 106.6548], // Operation Smile Vietnam — TP.HCM
+      ['20f83aa8-2326-595a-b655-e55ef222db80', 10.7727, 106.6548], // Saigon Children's Charity — TP.HCM
+      ['ab360a75-cc75-5eae-ad81-8be84c7fac10', 21.0285, 105.8342], // Blue Dragon — Hà Nội
+      ['b7fe8ca0-c2c9-5207-9a54-25e81dd7acf8', 21.0285, 105.8342], // Sóng và máy tính cho em — Hà Nội (tập trung Bộ GD&ĐT)
+      ['f3ef062e-acff-5e40-96c3-64037f738702', 21.0285, 105.8342], // Quỹ Cứu trợ Trung ương — Hà Nội
     ];
     for (const [id, lat, lng] of donationBackfills) {
       const res = await run(

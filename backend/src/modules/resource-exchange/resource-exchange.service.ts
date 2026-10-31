@@ -56,6 +56,15 @@ export class ResourceMatchService {
     private readonly aiService: AIService,
   ) {}
 
+  // ── Auto-scheduler cached results (GET — instant, no LLM wait) ─────────────
+  async getCachedMatches(refresh?: boolean): Promise<any> {
+    return this.aiService.getCachedResourceExchangeMatches(refresh);
+  }
+
+  async getAutoSchedulerHealth(): Promise<any> {
+    return this.aiService.getAutoSchedulerHealth();
+  }
+
   // ── RESOURCES ─────────────────────────────────────────────────────────────────
 
   async getResources(params: {

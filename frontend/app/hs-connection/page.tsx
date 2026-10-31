@@ -69,7 +69,7 @@ export default function HSConnectionPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+        <div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
             <div className="w-full mx-auto space-y-12">
                 
                 {/* Header */}
@@ -78,6 +78,7 @@ export default function HSConnectionPage() {
                         <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Kết nối & Học hỏi</h1>
+                    <p className="text-muted-foreground/60">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -87,7 +88,7 @@ export default function HSConnectionPage() {
                         
                         {/* Pending Requests */}
                         {network?.requests && network.requests.length > 0 && (
-                            <div className="bg-card border border-border rounded-xl p-6">
+                            <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                                     <UserPlus className="w-5 h-5 text-primary" /> 
                                     Lời mời kết bạn ({network.requests.length})
@@ -144,7 +145,7 @@ export default function HSConnectionPage() {
                             {network?.friends && network.friends.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {network.friends.map(friend => (
-                                        <div key={friend.id} className="flex items-center gap-4 p-4 bg-card/30 rounded-lg border border-border hover:border-border transition-colors cursor-pointer group">
+                                        <div key={friend.id} className="flex items-center gap-4 p-4 rounded-[18px] bg-card border border-border/80 hover:border-primary/50 shadow-xs hover:shadow-orvel transition-all cursor-pointer group">
                                             <div className="relative">
                                                 <img 
                                                     src={friend.avatar_url || avatarFallback(friend.full_name)}
@@ -172,7 +173,7 @@ export default function HSConnectionPage() {
 
                     {/* Right Column: Suggestions */}
                     <div className="space-y-6">
-                        <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-xl p-6 sticky top-8">
+                        <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel sticky top-8 space-y-5">
                             <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-primary/70" /> Gợi ý kết bạn
                             </h2>

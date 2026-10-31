@@ -168,6 +168,21 @@ def main() -> int:
     ).rowcount
     print(f"  - {'jobs (fake rows)':24s} cleared {bad_jobs}")
 
+    # Remove fabricated / test POI rows from map_points — these were injected
+    # by early demo scripts and never correspond to a real school, library,
+    # or facility. Verified = 0 + type_id 2 (school) + test-style names.
+    bad_pois = con.execute(
+        """
+        DELETE FROM map_points
+        WHERE name LIKE '%Test POI%'
+           OR name LIKE '%BBF%'
+           OR name LIKE '%Final Test%'
+           OR name LIKE '%Fake%'
+           OR name LIKE '%demo%'
+        """
+    ).rowcount
+    print(f"  - {'map_points (test rows)':24s} cleared {bad_pois}")
+
     print("\n🌱 Inserting verified Vietnamese data")
 
     # ---------------------------------------------------------------- scholarships
@@ -280,12 +295,12 @@ def main() -> int:
 
     # ---------------------------------------------------------------- stem_labs
     coords = {
-        "lab-ltv": (106.8245, 10.9574),
-        "lab-lhu-robotics": (106.7965, 10.9765),
-        "lab-nguyen-trai": (106.8245, 10.9574),
-        "lab-tran-bien": (106.8245, 10.9574),
-        "lab-long-khanh": (107.2450, 10.9280),
-        "lab-dnu": (106.8245, 10.9574),
+        "lab-ltv": (106.8624, 10.9482),         # THPT Chuyên Lương Thế Vinh — matches map_points
+        "lab-lhu-robotics": (106.8085, 10.9631),  # Đại học Lạc Hồng — matches map_points
+        "lab-nguyen-trai": (106.8351, 10.9501),   # THPT Nguyễn Trãi — matches map_points
+        "lab-tran-bien": (106.8448, 10.9581),     # THCS Trấn Biên — matches map_points
+        "lab-long-khanh": (107.2450, 10.9280),    # THPT Long Khánh
+        "lab-dnu": (106.8475, 10.9423),           # Đại học Đồng Nai — matches map_points
     }
     rows = []
     for (key, name, address, desc, equipment, contact) in D.STEM_LABS:
@@ -354,10 +369,11 @@ def main() -> int:
 
     # ---------------------------------------------------------------- donation_campaigns
     rows = []
-    for (key, title, desc, target, org, address, start, end, url) in D.DONATION_CAMPAIGNS:
+    for (key, title, desc, target, org, address, start, end, url, lat, lng) in D.DONATION_CAMPAIGNS:
+        location_point = D.geo(lng, lat) if (lat is not None and lng is not None) else None
         rows.append((
             D.uid(key), title, D.with_source(desc, url), target, 0.0, None,
-            None, "active", start, end, None, NOW, NOW,
+            location_point, "active", start, end, None, NOW, NOW,
         ))
     n = insert(con, "donation_campaigns", [
         "id", "title", "description", "target_amount", "current_amount",

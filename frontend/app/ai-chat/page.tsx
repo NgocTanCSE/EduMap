@@ -5,35 +5,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff, Trash2 } from "lucide-react";
+import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff, Trash2, Sparkles, Compass, Lightbulb, GraduationCap, Atom } from "lucide-react";
 import { toast } from 'sonner';
 import { authService } from '@/src/services/auth.service';
-import { stripMarkdown } from '@/src/lib/plain-text';
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 
-const initialMessage: any = {
-  role: 'assistant',
-  content: 'Xin chào! Mình là trợ lý học tập AI của hệ thống EduMap DNTU. Mình có thể giúp bạn lên lộ trình học tập, tìm kiếm tài liệu, hoặc gợi ý mentor phù hợp.',
-  sources: [],
-};
+const SUGGESTIONS = [
+  { icon: GraduationCap, text: "Tìm học bổng toàn phần du học tại Đức hoặc Nhật Bản?" },
+  { icon: Atom, text: "Phòng thí nghiệm STEM nào đang mở cửa tại Biên Hòa?" },
+  { icon: Compass, text: "Lộ trình học Kỹ sư AI & Data Science cho sinh viên năm nhất?" },
+  { icon: Lightbulb, text: "Cách tìm mentor phù hợp và kết nối với doanh nghiệp thực tập?" }
+];
 
 export default function AIChatPage() {
-  const [messages, setMessages] = useState<any[]>([initialMessage]);
+  const [messages, setMessages] = useState<any[]>([
+    {
+      role: 'assistant',
+      content: 'Xin chào! Mình là trợ lý AI EduMap. Mình có thể giúp bạn tìm kiếm học bổng, gợi ý mentor, tra cứu phòng thí nghiệm STEM, cơ hội thực tập và định hướng học tập.',
+      sources: []
+    }
+  ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
-  // Voice-to-Geo (Idea #16): voice input button on chat page
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
   const [showVoicePopup, setShowVoicePopup] = useState(false);
   const recognitionRef = useRef<any>(null);
-  // Session ID for chat session memory (bộ nhớ phiên chat).
-  // Generated once on mount and reused across messages within this tab.
-  // On HF Spaces this ties to the in-memory SessionMemoryService.
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const [sessionId] = useState(() => {
     return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : `web_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
   });
+
+  const handleClearChat = useCallback(() => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: 'Phiên trò chuyện đã được làm mới. Hãy đặt bất kỳ câu hỏi nào về học tập, bản đồ hoặc học bổng!',
+        sources: []
+      }
+    ]);
+    toast.success('Đã làm mới phiên trò chuyện');
+  }, []);
 
   // Load history from Backend on mount
   useEffect(() => {
@@ -70,14 +85,12 @@ export default function AIChatPage() {
     fetchHistory();
   }, []);
 
-  // Sentinel pinned after the last message — drives auto-scroll-to-bottom as
-  // tokens stream in, the same behaviour users expect from other AI chats.
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ block: "end", inline: "nearest" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Voice-to-Geo (Idea #16): record voice → STT → fill chat input
+  // Voice recording toggle
   const toggleVoiceRecording = useCallback(() => {
     if (isVoiceRecording) {
       if (recognitionRef.current) {
@@ -88,10 +101,8 @@ export default function AIChatPage() {
       return;
     }
 
-    // Privacy-first: prefer client-side Web Speech API.
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      // Fallback: open voice-search popup instead of redirecting away.
       setShowVoicePopup(true);
       return;
     }
@@ -111,14 +122,14 @@ export default function AIChatPage() {
         }
       }
       if (final.trim()) {
-        setInput((prev) => prev + ' ' + final.trim());
+        setInput((prev) => (prev ? prev + ' ' + final.trim() : final.trim()));
       }
     };
 
     recognition.onerror = () => {
       setIsVoiceRecording(false);
       recognitionRef.current = null;
-      toast.error('Không thể nhận dạng giọng nói — vui lòng nhập tay hoặc dùng trang Tìm bằng giọng nói.');
+      toast.error('Không thể nhận dạng giọng nói — vui lòng nhập tay.');
     };
 
     recognition.onend = () => {
@@ -130,14 +141,14 @@ export default function AIChatPage() {
       recognition.start();
       recognitionRef.current = recognition;
       setIsVoiceRecording(true);
-      toast.success('Đang nghe…');
+      toast.success('Đang lắng nghe… Hãy nói yêu cầu của bạn.');
     } catch {
       toast.error('Trình duyệt không hỗ trợ nhận dạng giọng nói.');
     }
   }, [isVoiceRecording]);
 
-  const handleSend = async () => {
-    const trimmedInput = input.trim();
+  const sendMessageWithText = async (textToSend: string) => {
+    const trimmedInput = textToSend.trim();
     const token = authService.getAccessToken();
 
     if (!trimmedInput || isLoading) return;
@@ -155,8 +166,6 @@ export default function AIChatPage() {
     setInput('');
     setIsLoading(true);
 
-    // Add assistant placeholder message (streaming)
-    const assistantIndex = newMessages.length;
     let accumulatedContent = '';
     let sources: any[] = [];
 
@@ -182,12 +191,12 @@ export default function AIChatPage() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.detail || 'AI service returned an error');
+        throw new Error(errorData?.detail || 'Dịch vụ AI đang bận, vui lòng thử lại sau ít giây');
       }
 
       const reader = res.body?.getReader();
       if (!reader) {
-        throw new Error('No response body from streaming endpoint');
+        throw new Error('Không thể khởi tạo luồng dữ liệu trả về');
       }
 
       const decoder = new TextDecoder('utf-8');
@@ -199,9 +208,8 @@ export default function AIChatPage() {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Process SSE events (terminated by double-newline)
         const parts = buffer.split('\n\n');
-        buffer = parts.pop() || ''; // Keep incomplete part in buffer
+        buffer = parts.pop() || '';
 
         for (const part of parts) {
           const trimmedPart = part.trim();
@@ -215,7 +223,6 @@ export default function AIChatPage() {
           try {
             const data = JSON.parse(dataStr);
 
-            // Metadata chunk (sources first)
             if (data.meta === true && data.sources) {
               sources = data.sources;
               setMessages(prev => {
@@ -232,7 +239,6 @@ export default function AIChatPage() {
               });
             }
 
-            // Token chunk
             if (data.token !== undefined) {
               accumulatedContent += data.token;
               const isFinal = data.is_final || data.done;
@@ -251,7 +257,6 @@ export default function AIChatPage() {
               });
             }
 
-            // Done chunk
             if (data.done) {
               setMessages(prev => {
                 const newArr = [...prev];
@@ -272,7 +277,6 @@ export default function AIChatPage() {
         }
       }
 
-      // Final flush: ensure streaming flag is removed
       setMessages(prev => {
         const newArr = [...prev];
         if (newArr[newArr.length - 1]?.role === 'assistant' && newArr[newArr.length - 1]?.isStreaming) {
@@ -291,7 +295,7 @@ export default function AIChatPage() {
         const newArr = [...prev];
         newArr[newArr.length - 1] = { 
           role: 'assistant', 
-          content: accumulatedContent || "Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra kết nối mạng.",
+          content: accumulatedContent || "Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra kết nối mạng hoặc thử lại.",
           sources: [],
           isError: true,
           isStreaming: false,
@@ -303,74 +307,76 @@ export default function AIChatPage() {
     }
   };
 
-  // Clear chat — resets the visible conversation to the initial greeting and
-  // best-effort wipes persisted history on the backend (ignored on failure so a
-  // 404/405 from the free-tier proxy never blocks clearing the view).
-  const handleClear = () => {
-    if (!confirm("Xóa toàn bộ nội dung trò chuyện hiện tại? Lịch sử trên thiết bị sẽ được xóa.")) return;
-    setMessages([initialMessage]);
-    const token = authService.getAccessToken();
-    if (token) {
-      fetch("/api/ai/history", {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
-    }
+  const handleSend = () => {
+    sendMessageWithText(input);
   };
 
   return (
-    <div className="flex flex-col h-full w-full p-4 bg-background">
-      <div className="flex items-center justify-between mb-4 p-4 bg-card/50 rounded-lg border border-border">
-        <div className="flex items-center gap-4">
-          <div className="bg-primary/80 p-2.5 rounded-lg shadow-lg">
-            <Bot className="w-6 h-6 text-foreground" />
+    <div className="flex flex-col h-[calc(100dvh-3.5rem)] w-full p-3 sm:p-5 bg-background">
+      {/* Header Card */}
+      <div className="flex items-center justify-between mb-3 px-4 py-3 sm:px-5 sm:py-3.5 bg-card border border-border/80 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="bg-primary/10 border border-primary/25 p-2 rounded-xl">
+              <Bot className="w-5 h-5 text-primary" />
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-card" />
           </div>
           <div>
-            <h1 className="h1-page">DNTU Assistant</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-foreground">Trợ Lý AI EduMap</h1>
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent/15 text-accent">
+                Trực tuyến
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              Tra cứu học bổng, phòng lab STEM, cơ hội thực tập & giải đáp học thuật
+            </p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
-          {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+          {isFetchingHistory && <Loader2 className="w-4 h-4 animate-spin text-primary mr-1" />}
           <Button
-            onClick={handleClear}
-            disabled={isLoading}
-            variant="outline"
+            onClick={handleClearChat}
+            variant="ghost"
             size="sm"
-            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground"
-            title="Xóa trò chuyện"
+            className="h-9 px-3 rounded-xl text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Làm mới cuộc trò chuyện"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Xóa</span>
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Làm mới
           </Button>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 pr-4">
-        <div className="space-y-8">
+      {/* Messages Scroll Area */}
+      <ScrollArea className="flex-1 pr-3">
+        <div className="space-y-5 pb-4 max-w-4xl mx-auto">
           {messages.map((m, i) => (
-            <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <Avatar className={`h-10 w-10 border border-border ${m.role === 'user' ? 'bg-primary/80' : 'bg-card'}`}>
-                {m.role === 'user' ? <User className="w-5 h-5 text-foreground" /> : <Bot className="w-5 h-5 text-primary" />}
-              </Avatar>
-              <div className={`flex flex-col gap-2 max-w-[85%] ${m.role === 'user' ? 'items-end' : ''}`}>
-                <div className={`p-5 rounded-lg text-sm leading-relaxed ${
+            <div key={i} className={`flex gap-3 sm:gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in duration-200`}>
+              <div className={`h-9 w-9 rounded-full border shrink-0 flex items-center justify-center ${m.role === 'user' ? 'border-primary/40 bg-primary/20 text-primary' : 'border-border bg-card text-primary shadow-xs'}`}>
+                {m.role === 'user' ? <User className="w-4 h-4 text-primary" /> : <Bot className="w-4 h-4 text-primary" />}
+              </div>
+
+              <div className={`flex flex-col gap-1.5 max-w-[85%] sm:max-w-[78%] ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-sm ${
                   m.role === 'user' 
-                    ? 'bg-card text-foreground rounded-tr-none' 
+                    ? 'bg-primary text-primary-foreground rounded-tr-xs font-medium' 
                     : m.isError
-                      ? 'bg-destructive/15 border border-destructive/30 text-destructive rounded-tl-none'
-                      : 'bg-card border border-border text-muted-foreground/70 rounded-tl-none'
+                      ? 'bg-destructive/10 border border-destructive/30 text-destructive rounded-tl-xs'
+                      : 'bg-card border border-border/80 text-foreground rounded-tl-xs'
                 }`}>
                   {m.content === '' && m.isStreaming ? (
-                    <div className="flex gap-1.5 py-2">
-                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce"></span>
-                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                      <span className="w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                    <div className="flex items-center gap-1.5 py-1 px-1">
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-primary rounded-full animate-bounce"></span>
                     </div>
                   ) : (
                     <>
-                      <div className="whitespace-pre-wrap">{stripMarkdown(m.content)}</div>
+                      <div className="whitespace-pre-wrap">{m.content}</div>
                       {m.isStreaming && (
-                        <span className="inline-block w-1.5 h-1.5 bg-primary/100 rounded-full animate-bounce ml-0.5 [animation-delay:0.6s]"></span>
+                        <span className="inline-block w-1.5 h-3.5 bg-primary rounded-xs animate-pulse ml-1 align-middle"></span>
                       )}
                     </>
                   )}
@@ -378,71 +384,113 @@ export default function AIChatPage() {
                 
                 {/* Sources Display */}
                 {m.role === 'assistant' && m.sources && m.sources.length > 0 && !m.isStreaming && (
-                   <div className="mt-2 flex flex-col gap-2">
-                      <p className="text-[9px] uppercase font-semibold text-soft tracking-widest flex items-center gap-1 ml-2">
-                         <BookOpen size={10} /> Tài liệu tham khảo
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {m.sources.map((s: any, idx: number) => (
-                          <div key={idx} className="bg-primary/10 border border-primary/10 px-3 py-1.5 rounded-full flex items-center gap-2 group cursor-pointer hover:bg-primary/10 transition-all">
-                             <div className="w-1.5 h-1.5 rounded-full bg-primary/80" />
-                             <span className="text-[10px] font-bold text-primary/70">{s.title || "Nguồn tin cậy"}</span>
-                          </div>
-                        ))}
-                      </div>
-                   </div>
+                  <div className="mt-1 flex flex-col gap-1.5 w-full">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
+                      <BookOpen size={11} className="text-primary" /> Nguồn trích dẫn học thuật
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {m.sources.map((s: any, idx: number) => (
+                        <div key={idx} className="bg-muted/70 border border-border/70 px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-[11px] text-foreground/80 hover:border-primary/40 transition-colors">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          <span className="truncate max-w-[200px] font-medium">{s.title || "Tài liệu EduMap"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
-                <span className="text-[9px] text-soft uppercase font-semibold tracking-[0.2em] px-2">
-                  {m.role === 'assistant' ? 'EduMap AI' : 'Sinh viên'}
+                <span className="text-[10px] text-muted-foreground px-1">
+                  {m.role === 'assistant' ? 'EduMap AI' : 'Bạn'}
                 </span>
               </div>
             </div>
           ))}
+
+          {/* Quick Suggestions (Shown when initial or few messages) */}
+          {messages.length <= 1 && (
+            <div className="mt-6 pt-4 border-t border-border/60">
+              <p className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" /> Gợi ý câu hỏi phổ biến:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {SUGGESTIONS.map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => sendMessageWithText(item.text)}
+                      className="text-left p-3 rounded-xl bg-card border border-border/80 hover:border-primary/60 hover:bg-primary/5 transition-all flex items-start gap-2.5 group"
+                    >
+                      <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0 mt-0.5">
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs text-foreground/90 font-medium group-hover:text-primary transition-colors">
+                        {item.text}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      <div className="flex items-center gap-2 p-2 bg-card/80 rounded-lg border border-border">
-        <Input 
-          placeholder={isLoading ? "AI đang xử lý tri thức..." : "Hỏi mình về học bổng, mentor hoặc bản đồ..."}
-          value={input}
-          disabled={isLoading}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          className="flex-1 form-input h-10"
-        />
-        {/* Voice input button (Idea #16) */}
-        <Button
-          onClick={toggleVoiceRecording}
-          disabled={isLoading}
-          variant="ghost"
-          size="sm"
-          className={`shrink-0 h-10 px-3 ${
-            isVoiceRecording
-              ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-              : 'text-muted-foreground/60 hover:bg-muted/50'
-          }`}
-          title="Nhập bằng giọng nói (Web Speech API / Whisper fallback)"
-        >
-          {isVoiceRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </Button>
-        <Button
-          onClick={handleSend} 
-          disabled={isLoading || !input.trim()}
-          size="sm"
-          loading={isLoading}
-          icon={<Send className="w-5 h-5" />}
-          className="shrink-0 h-10 bg-primary/80 hover:bg-primary/80 text-primary-foreground shadow-lg"
-        >
-          GỬI
-        </Button>
+      {/* Input Bar */}
+      <div className="max-w-4xl w-full mx-auto mt-2">
+        <div className="flex items-center gap-2 p-2 bg-card border border-border/80 rounded-2xl shadow-sm focus-within:border-primary transition-all">
+          <Input 
+            placeholder={isLoading ? "AI đang suy nghĩ và tổng hợp kiến thức..." : "Nhập câu hỏi của bạn về trường học, học bổng hoặc hướng nghiệp..."}
+            value={input}
+            disabled={isLoading}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            className="flex-1 bg-transparent border-0 shadow-none focus-visible:ring-0 text-xs sm:text-sm h-10 px-3 placeholder:text-muted-foreground"
+          />
+
+          <Button
+            onClick={toggleVoiceRecording}
+            disabled={isLoading}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`shrink-0 h-9 w-9 p-0 rounded-xl transition-all ${
+              isVoiceRecording
+                ? 'bg-destructive text-destructive-foreground animate-pulse'
+                : 'text-muted-foreground hover:bg-muted/60'
+            }`}
+            title="Nhập bằng giọng nói"
+          >
+            {isVoiceRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </Button>
+
+          <Button
+            onClick={handleSend} 
+            disabled={isLoading || !input.trim()}
+            size="sm"
+            className="shrink-0 h-9 px-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5 shadow-sm active:scale-95 transition-all"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <span>Gửi</span>
+                <Send className="w-3.5 h-3.5" />
+              </>
+            )}
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+          EduMap AI có thể mắc sai sót nhỏ. Vui lòng xác thực lại thông tin tuyển sinh với cơ sở đào tạo.
+        </p>
       </div>
 
       <VoiceSearchPopup
         open={showVoicePopup}
         onClose={() => setShowVoicePopup(false)}
-        onResult={(text, intent) => {
+        onResult={(text) => {
           setInput((prev) => (prev ? prev + ' ' + text : text));
         }}
       />

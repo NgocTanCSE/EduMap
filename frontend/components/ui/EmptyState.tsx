@@ -31,7 +31,7 @@ export default function EmptyState({
         <p className="text-sm text-foreground/50 text-center max-w-md mb-4">{description}</p>
       )}
       {action && (
-        <Button variant="default" size="sm" onClick={action.onClick}>
+        <Button variant="default" size="sm">
           {action.label}
         </Button>
       )}

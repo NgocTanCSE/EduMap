@@ -251,6 +251,10 @@ export default function LearningSpacesPage() {
               <MapPin className="w-7 h-7 text-accent" />
               AI Gợi đề xuất nơi học
             </h1>
+            <p className="text-sm text-muted-foreground/60 mt-1">
+              Tìm không gian học tập phù hợp theo khoảng cách, giờ mở cửa,
+              Wi-Fi và độ yên tĩnh — được giải thích bởi AI.
+            </p>
           </div>
           <button
             onClick={handleGetMyLocation}

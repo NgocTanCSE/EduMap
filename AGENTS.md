@@ -883,3 +883,150 @@ The post-OOM deploy surfaced two additional runtime issues from the log:
   (3) the right-edge width-resize strip (`h-full`) overlapped the bottom-right SE corner grip —
   changed to `top-0 bottom-5` so the two resize handles no longer fight at the corner.
   Verified `tsc`=0, `npm run build`=0 (`/map` prerenders).
+- **Map click / school detail fade fix (2026-10-31):** clicking a POI marker on the
+  map opened the school popup correctly, but any subsequent click on the popup
+  content (description text, "Dẫn đường" / "Đến" buttons) bubbled up as a map
+  `click` event. Leaflet popups default to `interactive:false`, so their content
+  clicks reach the map container and triggered `MapClickHandler` →
+  `setPinningCoord` → the "Ghim vị trí mới" overlay (`bg-card/40
+  backdrop-blur-sm`) appeared, **blurring the school detail** ("bị mờ đi chứ
+  k hiện ra tab detail về trường"). Fix: (1) `MapClickHandler` in
+  `components/ui/MapComponent.tsx` now early-returns when
+  `e.originalEvent.target.closest('.leaflet-popup*, .leaflet-marker-icon,
+  .leaflet-tooltip, .leaflet-popup-pane')` — so popup/tooltip/marker clicks no
+  longer open the pin modal; (2) popup action buttons in
+  `components/ui/MapPopupContent.tsx` ("Dẫn đường", "Đến", "Đến gần") now call
+  `e.preventDefault(); e.stopPropagation()` before dispatching their handlers;
+  (3) `handleMapClick` in `app/map/page.tsx` is now `useCallback([], …)` so the
+  `MapClickHandler` effect doesn't re-register on every render (was flagged in
+  §9). Additionally, `MapPopupContent` now accepts `poiId?` and renders a
+  `BookmarkButton(targetType="poi", targetId=poiId)` so users can directly
+  "ghim"/bookmark a school from the popup without triggering the pin modal;
+  `MapComponent` passes `poiId={p.id}` for regular POI markers.
+  Verified: `npx tsc --noEmit`=0 (frontend), `npx tsc --noEmit`=0 (backend),
+  `py_compile` OK, `pytest`=451 passed.
+
+## 11. AI Auto-Scheduler (2026-10-31)
+
+AI features that previously required a manual button click are now **pre-computed
+automatically** by a daemon thread running in `ai-service/main.py`. Results are
+cached in an in-process TTL cache (`AutoCache`) and surfaced via GET-first
+endpoints end-to-end (ai-service → NestJS BFF → frontend), so pages render
+**instantly** with warm data instead of making the user wait for LLM computation.
+
+### Architecture
+
+```
+ai-service/main.py startup (daemon thread)
+  └─ AutoScheduler.run_loop()                # stagger_delay=5s between initial tasks
+       ├─ _run_chroma_seed         (every 6h,  TTL 24h)  → AutoCache["auto:chroma_seed"]
+       ├─ _run_question_gaps       (every 6h,  TTL 24h)  → AutoCache["auto:question_gaps"]
+       ├─ _run_resource_exchange   (every 6h,  TTL 24h)  → AutoCache["auto:resource_exchange"]
+       ├─ _run_impact_match        (every 12h, TTL 24h)  → AutoCache["auto:impact_match"]
+       ├─ _run_impact_measure      (every 24h, TTL 24h)  → AutoCache["auto:impact_measure"]
+       │     └── loops AUTO_REGIONS (5 VN regions)       → per-region sub-caches
+       ├─ _run_climate_risk        (every 12h, TTL 24h)  → AutoCache["auto:climate_risk"]
+       │     └── loops AUTO_REGIONS                      → per-region sub-caches
+       └─ _run_daily_insight       (every 24h, TTL 24h)  → AutoCache["auto:daily_insight"]
+```
+
+- **`AutoCache`** (`services/auto_scheduler.py`): thread-safe `dict`-backed TTL cache
+  with `get`/`set`/`is_stale`/`stats`/`clear`. Default TTL 24h. LRU semantics via
+  `_prune_stale()`.
+- **`AutoScheduler`** (`services/auto_scheduler.py`): `TASK_REGISTRY` (7 tasks),
+  `AUTO_INTERVALS` (env-tunable), `AUTO_REGIONS` (5 VN regions), `run_once(name)`,
+  `get_result(name)`, `health()`, `run_loop()` (daemon). Each task failure is
+  **non-fatal** — a degraded result is cached so GET endpoints never 502.
+- **Tasks** use the same `_generate_text_with_fallback` cascade (DeepSeek → Gemini
+  → Cloudflare → local Gemma → template). When all remote providers are down,
+  tasks degrade to template/SQLite fallbacks with `degraded=True`.
+- **`AUTO_REGIONS`**: `dong_nai`, `hcmc`, `hanoi`, `danang`, `cantho` (5
+  Vietnamese regions with exact bbox coordinates).
+
+### API chain
+
+1. **ai-service** `routers/auto.py` — 8 GET endpoints:
+   - `GET /api/ai/auto/health` — scheduler status, cache stats, task last-run
+   - `GET /api/ai/auto/regions` — list of 5 predefined regions
+   - `GET /api/ai/auto/resource-exchange/matches` — cached resource pairs
+   - `GET /api/ai/auto/impact-match/rankings` — cached needs↔sponsor matches
+   - `GET /api/ai/auto/impact-measurement/{regionId}` — cached impact metrics
+   - `GET /api/ai/auto/climate-risk/{regionId}` — cached climate heatmap
+   - `GET /api/ai/auto/question-gaps` — cached question-gap report
+   - `GET /api/ai/auto/daily-insight` — cached daily insight message
+   - Returns **200** when cache is warm, **202** with `{"status":"warming"}`
+     when cache is stale/empty (frontends show a loading spinner until first
+     computation completes).
+
+2. **Backend BFF** (`backend/src/modules/ai/ai.service.ts` + controllers) — GET
+   proxy methods mirror the ai-service endpoints:
+   - `AIService.getCachedResourceExchangeMatches()` → resource-exchange controller `GET /cached-matches` + `GET /auto-health`
+   - `AIService.getCachedImpactMatchRankings()` → impact-match controller `GET /rankings/cached`
+   - `AIService.getCachedImpactMeasure()` → impact-measurement controller `GET /auto-cached/:regionId`
+   - `AIService.getQuestionGaps()` checks auto-scheduler cache first before on-demand LLM call
+
+3. **Frontend BFF** — GET routes in `app/api/...`:
+   - `app/api/resource-exchange/cached-matches/route.ts`
+   - `app/api/impact-match/rankings/cached/route.ts`
+   - `app/api/impact-measurement/auto-cached/[regionId]/route.ts`
+   - `app/api/admin/auto-scheduler/health/route.ts`
+
+4. **Frontend pages** auto-load cached data on mount:
+   - `app/resource-exchange/page.tsx` — auto-fetches cached matches; button
+     changes to "Làm mới kết quả" (RefreshCw) when cache exists; empty state
+     shows "Đang chờ kết quả tự động"
+   - `app/impact-match/page.tsx` — same pattern with cached rankings
+   - `app/dashboard/impact/page.tsx` — tries `getCachedMeasure("dong_nai")` first
+     for the default Đồng Nai region; shows "Tự động" badge on refresh button
+     when data is from cache
+   - `app/admin/question-gaps/page.tsx` — backend `getQuestionGaps()` already
+     checks auto-scheduler cache first; shows "Tự động" badge + cache timestamp
+
+### Startup hook
+
+`_startAutoScheduler()` in `ai-service/main.py` (after line 224, following the
+KG scheduler hook) — spawns a daemon thread:
+
+```python
+@app.on_event("startup")
+def _startAutoScheduler():
+    if os.getenv("AUTO_SCHEDULER_ENABLED", "true").lower() != "false":
+        t = threading.Thread(target=auto_scheduler.run_loop, daemon=True)
+        t.start()
+        logger.info("[auto-scheduler] Daemon thread started (staggered initial run)")
+```
+
+### Env vars
+
+| Var | Default | Description |
+|-----|---------|-------------|
+| `AUTO_SCHEDULER_ENABLED` | `true` | Disable entirely (e.g. local dev) |
+| `AUTO_SCHEDULER_INITIAL_STAGGER` | `5` | Seconds between initial task launches |
+| `AUTO_SCHEDULER_CHECK_INTERVAL` | `60` | Seconds between periodic checks |
+
+Intervals are env-tunable per-task (e.g. `AUTO_INTERVAL_QUESTION_GAPS_S`):
+
+| Task | Interval | Cache TTL |
+|------|----------|-----------|
+| chroma_seed | 6h | 24h |
+| question_gaps | 6h | 24h |
+| resource_exchange | 6h | 24h |
+| impact_match | 12h | 24h |
+| impact_measure | 24h | 24h |
+| climate_risk | 12h | 24h |
+| daily_insight | 24h | 24h |
+
+### Error handling
+
+- Each task is wrapped in `try/except`; on failure, a degraded result is cached
+  with `{"degraded": True, "reason": "..."}` — never 502s.
+- SQLite query failures → degraded with empty results.
+- LLM provider failures → degrades through the same `_generate_text_with_fallback`
+  cascade → local Gemma → template fallbacks.
+- Slow external API calls (climate_guardian curl to Open-Meteo/OWM) have
+  per-call curl timeouts; the task catches `subprocess.TimeoutExpired` and
+  returns degraded results for that region.
+- **Regression tests**: `ai-service/tests/test_auto_scheduler.py` (27 tests
+  covering AutoCache, task registry, AutoScheduler, task implementations, and
+  GET endpoints via TestClient). Full suite: 478 passed.
+

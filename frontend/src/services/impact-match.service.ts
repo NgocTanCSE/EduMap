@@ -136,6 +136,12 @@ class ImpactMatchService {
       body: JSON.stringify(params || {}),
     });
   }
+
+  // ── Cached rankings (auto-scheduler, GET — instant) ─────────────
+  async getCachedRankings(refresh?: boolean): Promise<any> {
+    const qs = refresh ? '?refresh=true' : '';
+    return this.fetchWithAuth(`${API_BASE_URL}/rankings/cached${qs}`);
+  }
 }
 
 export interface CreateSponsorNeedPayload {

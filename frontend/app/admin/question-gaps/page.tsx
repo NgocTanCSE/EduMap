@@ -52,12 +52,17 @@ function QualityBar({ score }: { score: number }) {
 export default function AdminQuestionGapsPage() {
   const [report, setReport] = useState<QuestionGapReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fromCache, setFromCache] = useState(false);
 
   const fetchReport = async () => {
     setLoading(true);
     try {
       const data: QuestionGapReport = await adminService.getQuestionGaps(10000);
       setReport(data);
+      // Check if this came from the auto-scheduler cache (instant, not on-demand LLM)
+      if (data?.source === 'auto_scheduler') {
+        setFromCache(true);
+      }
       if (data?.degraded) {
         toast.warning('Báo cáo đã ở chế độ giảm tốc — một số tính năng có thể không khả dụng.');
       }

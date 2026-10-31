@@ -14,9 +14,9 @@ const TABS: Array<{
   label: string;
   icon: ComponentType<{ className?: string }>;
 }> = [
-  { id: 'activity', label: 'Hoạt động', icon: History },
-  { id: 'storage', label: 'Lưu trữ', icon: FolderOpen },
-  { id: 'certificates', label: 'Chứng chỉ', icon: Award },
+  { id: 'activity', label: 'Hoạt động & Đã lưu', icon: History },
+  { id: 'storage', label: 'Lưu trữ tài liệu', icon: FolderOpen },
+  { id: 'certificates', label: 'Chứng chỉ đạt được', icon: Award },
   { id: 'notifications', label: 'Thông báo', icon: Bell },
 ];
 
@@ -40,7 +40,7 @@ export function PersonalHub() {
   const [tab, setTab] = useState<HubTab>('activity');
   const [activityTab, setActivityTab] = useState<ActivityTab>('history');
 
-  // Deep links from the sidebar / quick actions: /dashboard#luu-tru, #da-luu, ...
+  // Deep links from sidebar / quick actions
   useEffect(() => {
     const applyHash = () => {
       const target = HASH_TO_TAB[window.location.hash];
@@ -85,37 +85,42 @@ export function PersonalHub() {
   return (
     <section
       id="ca-nhan"
-      className="scroll-mt-6 rounded-lg border border-border bg-card p-6 shadow-sm"
+      className="scroll-mt-6 rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel"
     >
-      <div className="mb-4 flex items-center gap-2">
-        <User className="h-5 w-5 text-primary" />
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Cá nhân</h2>
-          <p className="text-sm text-muted-foreground/60">
-            Hoạt động, tài liệu, chứng chỉ và thông báo của bạn.
-          </p>
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <User className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-foreground">Không gian cá nhân</h2>
+            <p className="text-xs text-muted-foreground">
+              Quản lý toàn bộ tiến trình học tập, tài liệu nghiên cứu và lịch sử hoạt động
+            </p>
+          </div>
+        </div>
+
+        {/* Orvel Style Segmented Pill Nav */}
+        <div className="flex flex-wrap gap-1.5 rounded-xl border border-border/80 bg-secondary/50 p-1">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => selectTab(id)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                tab === id
+                  ? 'bg-card text-foreground shadow-xs border border-border/60'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon className={`h-3.5 w-3.5 ${tab === id ? 'text-primary' : 'text-muted-foreground'}`} />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto border-b border-border">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => selectTab(id)}
-            className={`inline-flex items-center gap-2 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors ${
-              tab === id
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="pt-5">
+      <div className="pt-2">
         {tab === 'activity' && (
           <PersonalActivity activeTab={activityTab} onTabChange={selectActivityTab} />
         )}

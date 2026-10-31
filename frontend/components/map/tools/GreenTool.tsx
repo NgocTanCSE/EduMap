@@ -164,16 +164,9 @@ export function GreenOverlay({ result }: { result: any[]; loading: boolean; poin
   return (
     <>
       {locations.map((c: any) => {
-        // Guard against invalid coords (e.g. nationwide campaigns with no
-        // single pin, or legacy rows where lat/lng were swapped > 90). A
-        // marker with an out-of-range latitude makes Leaflet's Web Mercator
-        // projection emit NaN and silently drops the whole overlay.
-        const lat = Number(c?.lat);
-        const lng = Number(c?.lng);
-        if (!lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+        if (!c.lat || !c.lng) return null;
         return (
-          <Marker key={c.id} position={[lat, lng]} icon={_greenIcon}>
+          <Marker key={c.id} position={[c.lat, c.lng]} icon={_greenIcon}>
             <Popup>
               <div className="space-y-1">
                 <div className="font-medium text-sm">{c.title}</div>

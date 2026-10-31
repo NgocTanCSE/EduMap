@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, InternalServerErrorException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ImpactMeasurementService } from './impact-measurement.service';
 import {
@@ -76,5 +76,18 @@ export class ImpactMeasurementController {
     } catch (error: any) {
       throw new InternalServerErrorException(`Failed to compute impact report: ${error?.message || error}`);
     }
+  }
+
+  /**
+   * GET /api/impact-measurement/auto-cached/:regionId
+   *
+   * Returns the auto-scheduler's pre-computed impact report for a region
+   * (e.g. "dong_nai", "hcmc"). The scheduler runs impact_measure every 24h.
+   * Falls back to HTTP 202 + "warming" if cache is empty.
+   */
+  @Get('auto-cached/:regionId')
+  @ApiOperation({ summary: 'Báo cáo tác động AI đã được auto-scheduler tính toán (GET — không chờ LLM)' })
+  async getAutoCachedMeasure(@Param('regionId') regionId: string, @Query('refresh') refresh?: string) {
+    return this.impactMeasurementService.getAutoCachedMeasure(regionId, refresh === 'true');
   }
 }

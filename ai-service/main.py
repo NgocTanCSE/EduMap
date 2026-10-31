@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 # Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey', 'system']
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey', 'system', 'auto']
 
 for name in router_names:
     try:
@@ -222,6 +222,49 @@ def _startup_seed_knowledge_graph():
             _seed_once()
 
     threading.Thread(target=_loop, daemon=True).start()
+
+
+# ── Startup hook: AI Auto-Scheduler ──────────────────────────────────────────
+# On HF Spaces (SQLite mode, ScheduleModule disabled), there is no NestJS Cron
+# to drive background AI work. This hook starts a single daemon thread that
+# runs the AutoScheduler loop, which periodically (env-tunable intervals):
+#   • Re-seeds ChromaDB (6h) so vector DB stays fresh
+#   • Pre-computes Question Gap Reports (6h)
+#   • Pre-runs Resource Exchange matching (6h)
+#   • Pre-runs ImpactMatch ranking (12h)
+#   • Pre-computes Impact Measurement for key regions (24h)
+#   • Pre-computes Climate Risk heatmaps for key regions (12h)
+#   • Pre-generates Daily Insights (24h)
+#
+# Results are stored in the shared AutoCache (in-process TTL, 24h default).
+# GET endpoints under /api/ai/auto/* serve these cached results instantly —
+# no user button click needed. If a cache miss occurs on first request,
+# the GET handler triggers a non-blocking background refresh and returns
+# HTTP 202 with an empty payload (frontend shows empty state).
+#
+# Each task runs in its own thread so a single slow/failed task (e.g. LLM
+# timeout on DeepSeek) never blocks the scheduler or other tasks.
+@app.on_event("startup")
+def _startup_auto_scheduler():
+    """Start the AI Auto-Scheduler daemon thread."""
+    import threading
+
+    def _run():
+        from services.auto_scheduler import auto_scheduler, AUTO_ENABLED
+        if not AUTO_ENABLED:
+            print("[auto-scheduler] Scheduler DISABLED (AUTO_SCHEDULER_ENABLED=false)")
+            return
+        try:
+            from services.auto_scheduler import auto_scheduler
+            print("[auto-scheduler] Starting daemon loop (staggered initial run)...")
+            # The run_loop method handles staggered initial run + periodic checks.
+            # It blocks (runs forever in this daemon thread).
+            auto_scheduler.run_loop()
+        except Exception as e:
+            # Non-fatal: scheduler failure must NOT crash the AI service
+            print(f"[auto-scheduler] Scheduler loop failed (non-fatal): {type(e).__name__}: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 # Endpoints

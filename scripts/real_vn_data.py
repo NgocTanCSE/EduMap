@@ -949,8 +949,8 @@ SUMMER_CAMPAIGNS: list[tuple] = [
         "Toàn quốc",
         "upcoming",
         "Chiến dịch tình nguyện hè của sinh viên Việt Nam do Trung ương Đoàn TNCS Hồ Chí Minh phát động, đưa sinh viên về địa phương dạy học và xây dựng cộng đồng.",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "summer-hoa-phuong-do",
@@ -959,8 +959,8 @@ SUMMER_CAMPAIGNS: list[tuple] = [
         "Toàn quốc",
         "upcoming",
         "Chiến dịch tình nguyện hè dành cho học sinh THPT, do Đoàn TNCS Hồ Chí Minh tổ chức.",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "summer-ky-nghi-hong",
@@ -968,9 +968,9 @@ SUMMER_CAMPAIGNS: list[tuple] = [
         "2027",
         "Toàn quốc",
         "upcoming",
-        "Chiến dịch tình nguyện hè dành cho thanh niên công nhân, viên chức, lao động trẻ.",
+        "Chiến dịch tình nguyện hè dành cho thanh niên công nhân, viên chức, lao động trẻ, với điểm đến tiêu biểu tại Hạ Long, Quảng Ninh.",
+        20.6723,
         106.6297,
-        10.8231,
     ),
     (
         "summer-hanh-quan-xanh",
@@ -979,8 +979,8 @@ SUMMER_CAMPAIGNS: list[tuple] = [
         "Toàn quốc",
         "upcoming",
         "Chiến dịch tình nguyện hè của thanh niên lực lượng vũ trang, phối hợp cùng Đoàn TNCS Hồ Chí Minh.",
-        105.8342,
         21.0285,
+        105.8342,
     ),
     (
         "summer-xuan-tinh-nguyen",
@@ -989,8 +989,8 @@ SUMMER_CAMPAIGNS: list[tuple] = [
         "Toàn quốc",
         "upcoming",
         "Chương trình tình nguyện dịp Tết Nguyên đán do Trung ương Đoàn phát động, chăm lo cho người nghèo và trẻ em khó khăn.",
-        105.8342,
         21.0285,
+        105.8342,
     ),
 ]
 
@@ -998,7 +998,7 @@ SUMMER_CAMPAIGNS: list[tuple] = [
 # ---------------------------------------------------------------------------
 # Donation campaigns — real, official Vietnamese funds
 # ---------------------------------------------------------------------------
-# (key, title, description, target, organizer, address, start, end, url)
+# (key, title, description, target, organizer, address, start, end, url, lat, lng)
 DONATION_CAMPAIGNS: list[tuple] = [
     (
         "donate-quy-vi-tre-em",
@@ -1010,6 +1010,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://quyvitreem.vn/",
+        21.0285,
+        105.8342,
     ),
     (
         "donate-tam-long-viet",
@@ -1021,6 +1023,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://vtv.vn/tam-long-viet.htm",
+        21.0285,
+        105.8342,
     ),
     (
         "donate-operation-smile",
@@ -1032,6 +1036,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://operationsmile.org.vn/",
+        10.7727,
+        106.6548,
     ),
     (
         "donate-saigonchildren",
@@ -1043,6 +1049,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://saigonchildren.com/",
+        10.7727,
+        106.6548,
     ),
     (
         "donate-blue-dragon",
@@ -1054,6 +1062,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://bluedragon.org/",
+        21.0285,
+        105.8342,
     ),
     (
         "donate-song-va-may-tinh",
@@ -1065,6 +1075,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://moet.gov.vn/",
+        21.0285,
+        105.8342,
     ),
     (
         "donate-mattran",
@@ -1076,6 +1088,8 @@ DONATION_CAMPAIGNS: list[tuple] = [
         None,
         None,
         "https://mattran.org.vn/",
+        21.0285,
+        105.8342,
     ),
 ]
 

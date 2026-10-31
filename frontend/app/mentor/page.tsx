@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { Search, Star, Sparkles, UserCheck, Calendar, BrainCircuit, Loader2 } from 'lucide-react';
 import { mentorService } from '@/src/services/mentor.service';
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import Pagination from '@/components/ui/Pagination';
 import { DetailPopup } from '@/components/ui/DetailPopup';
 
 export default function MentorPage() {
@@ -16,6 +18,8 @@ export default function MentorPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tất cả');
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   const [isAiMatching, setIsAiMatching] = useState(false);
   const [aiMatches, setAiMatches] = useState<any[]>([]);
@@ -73,11 +77,15 @@ export default function MentorPage() {
   );
 
   return (
-    <div className="page-shell">
+    <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 space-y-8">
       {/* Header & AI Match */}
-      <div className="bg-card p-10 rounded-xl border border-border flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
+      <div className="bg-card p-6 sm:p-8 lg:p-10 rounded-[22px] border border-border/80 shadow-orvel flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
+        <InteractiveGridPattern className="opacity-30 [mask-image:radial-gradient(450px_circle_at_top_right,white,transparent)]" />
         <div className="relative z-10 space-y-4 max-w-xl">
           <h1 className="h1-page">Trung tâm Cố vấn EduMap</h1>
+          <p className="text-muted-foreground/60">
+            Kết nối với chuyên gia hàng đầu, nhận hướng dẫn 1-on-1 và cùng mentor phát triển sự nghiệp của bạn.
+          </p>
           <div className="pt-4">
             <Button
               onClick={handleAiMatch}
@@ -178,8 +186,8 @@ export default function MentorPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredMentors.map(mentor => (
-            <div key={mentor.user_id} className="relative p-6 rounded-xl bg-card border border-border hover:border-accent/30 hover:bg-card/50 transition-all group flex flex-col">
+          {filteredMentors.slice((page - 1) * pageSize, page * pageSize).map(mentor => (
+            <div key={mentor.user_id} className="relative p-6 rounded-[22px] border border-border/80 bg-card shadow-orvel hover:shadow-pop hover:border-primary/50 transition-all group flex flex-col">
               <BookmarkButton targetType="mentor" targetId={mentor.user_id} size="sm" className="absolute top-3 right-3 z-20" />
               <div>
                 <div className="flex gap-6 mb-6">

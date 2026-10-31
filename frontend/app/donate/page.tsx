@@ -11,10 +11,15 @@ import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Thumb from '@/components/ui/Thumb';
 import Skeleton from '@/components/ui/skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import Pagination from '@/components/ui/Pagination';
+import SearchInput from '@/components/ui/SearchInput';
 
 export default function DonationListPage() {
   const [campaigns, setCampaigns] = useState<DonationCampaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   useEffect(() => {
     fetchCampaigns();
@@ -55,7 +60,7 @@ export default function DonationListPage() {
             const progress = Math.min(100, Math.round((campaign.current_amount / campaign.target_amount) * 100)) || 0;
             return (
               <Link href={`/donate/campaign/${campaign.id}`} key={campaign.id} className="group">
-                <Card className="relative flex flex-col h-full">
+                <div className="relative flex flex-col h-full rounded-[22px] border border-border/80 bg-card shadow-orvel hover:shadow-pop transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 overflow-hidden">
                   <div className="aspect-video relative overflow-hidden rounded-t-lg">
                     {/* Branded placeholder (no Unsplash stock) */}
                     <Thumb src={undefined} alt={campaign.title} aspect="16/9" className="rounded-none" />
@@ -89,7 +94,7 @@ export default function DonationListPage() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
+                </div>
               </Link>
             );
           })}

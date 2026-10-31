@@ -81,6 +81,12 @@ export class ImpactMeasurementService {
     private readonly aiService: AIService,
   ) {}
 
+  // ── Auto-scheduler cached impact report ─────────────────────────────
+  /** Returns the pre-computed impact report for a region (auto-scheduler, 24h cache). */
+  async getAutoCachedMeasure(regionId: string, refresh?: boolean): Promise<any> {
+    return this.aiService.getCachedImpactMeasure(regionId, refresh);
+  }
+
   /**
    * T1 — pure-backend before/after diff. Loads `map_points` from SQLite/Postgres,
    * splits them into before/after cohorts by `created_at` vs. deployment_date,

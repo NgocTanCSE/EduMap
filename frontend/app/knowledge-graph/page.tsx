@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Search, Network, Info, X, ExternalLink, Target } from "lucide-react";
+import { Loader2, Search, Network, Info, X, ExternalLink, Target, Maximize2, Minimize2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,7 @@ export default function KnowledgeGraphPage() {
   const [partnerQuery, setPartnerQuery] = useState("");
   const [partnerLoading, setPartnerLoading] = useState(false);
   const [partners, setPartners] = useState<PartnerSuggestion[]>([]);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // Redirect unauthenticated users
   useEffect(() => {

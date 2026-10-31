@@ -1037,6 +1037,188 @@ export class AIService {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  //  AI AUTO-SCHEDULER: GET endpoints that return cached results computed
+  //  by the auto-scheduler daemon thread in ai-service. The scheduler runs
+  //  resource-exchange, impact-match, impact-measurement, question-gaps,
+  //  climate-risk, and daily-insight on configurable intervals (env:
+  //  AUTO_SCHEDULER_*_INTERVAL). GET returns the cached result instantly;
+  //  the frontend never waits on an LLM call.
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /** GET /api/ai/auto/resource-exchange/matches — cached LLM-ranked pairs */
+  async getCachedResourceExchangeMatches(refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/resource-exchange/matches?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler resource-exchange proxy failed: ${error.message}`);
+      return {
+        task: "resource_exchange",
+        status: "unavailable",
+        degraded: true,
+        reason: "AI service unavailable — chưa có kết quả cache.",
+        ranked_matches: [],
+        transport_plan: [],
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/impact-match/rankings — cached LLM-ranked need×sponsor pairs */
+  async getCachedImpactMatchRankings(refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/impact-match/rankings?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler impact-match proxy failed: ${error.message}`);
+      return {
+        task: "impact_match",
+        status: "unavailable",
+        degraded: true,
+        reason: "AI service unavailable — chưa có kết quả cache.",
+        ranked_matches: [],
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/impact-measurement/{region_id} — cached impact report */
+  async getCachedImpactMeasure(regionId: string, refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/impact-measurement/${regionId}?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler impact-measurement proxy failed: ${error.message}`);
+      return {
+        task: "impact_measure",
+        status: "unavailable",
+        degraded: true,
+        reason: `AI service unavailable — chưa có kết quả cache cho ${regionId}.`,
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/climate-risk/{region_id} — cached risk heatmap */
+  async getCachedClimateRisk(regionId: string, refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/climate-risk/${regionId}?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler climate-risk proxy failed: ${error.message}`);
+      return {
+        task: "climate_risk",
+        status: "unavailable",
+        degraded: true,
+        reason: `AI service unavailable — chưa có kết quả cache cho ${regionId}.`,
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/question-gaps — cached question-gap report */
+  async getCachedQuestionGaps(refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/question-gaps?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler question-gaps proxy failed: ${error.message}`);
+      return {
+        task: "question_gaps",
+        status: "unavailable",
+        degraded: true,
+        reason: "AI service unavailable — chưa có báo cáo cache.",
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/daily-insight — cached daily insight for dashboard */
+  async getCachedDailyInsight(refresh?: boolean): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (refresh) params.set("refresh", "true");
+      const response = await firstValueFrom(
+        this.httpService.get(
+          `${this.aiServiceUrl}/api/ai/auto/daily-insight?${params.toString()}`,
+          { timeout: 8000 },
+        ),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler daily-insight proxy failed: ${error.message}`);
+      return {
+        task: "daily_insight",
+        status: "unavailable",
+        degraded: true,
+        reason: "AI service unavailable — chưa có gợi ý cache.",
+        motivation_message: "Hãy khám phá tài nguyên giáo dục mới trên EduMap.",
+        suggested_action: "Xem thư viện hoặc bản đồ địa điểm gần bạn.",
+      };
+    }
+  }
+
+  /** GET /api/ai/auto/regions — predefined regions for geo-based auto-run */
+  async getAutoRegions(): Promise<any> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/auto/regions`, { timeout: 5000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn(`Auto-scheduler regions proxy failed: ${error.message}`);
+      return { regions: [], degraded: true };
+    }
+  }
+
+  /** GET /api/ai/auto/health — scheduler health status */
+  async getAutoSchedulerHealth(): Promise<any> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(`${this.aiServiceUrl}/api/ai/auto/health`, { timeout: 5000 }),
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        scheduler_enabled: false,
+        running: false,
+        error: "AI service unavailable",
+        degraded: true,
+      };
+    }
+  }
+
   /**
    * AI SCHOLARSHIP: Check if student profile matches scholarship requirements.
    * Nhận thêm transcriptData (được trích xuất từ PDF bảng điểm) để tính GPA chính xác.
@@ -1411,13 +1593,31 @@ export class AIService {
   private _questionGapsCache: Map<string, { data: any; expires: number }> = new Map();
 
   async getQuestionGaps(limit?: number): Promise<any> {
-    const cacheKey = `qg:${limit || 0}`;
+    const cacheKey = `qg:${limit || 'auto'}`;
+
+    // ── Auto-scheduler cache first ──────────────────────────────────
+    // The auto-scheduler daemon thread pre-computes the question-gaps report
+    // every 6h (AUTO_SCHEDULER_QUESTION_GAPS_INTERVAL). Try the cached result
+    // from /api/ai/auto/question-gaps first — instant return, no LLM wait.
+    if (limit === undefined || limit >= 10000) {
+      try {
+        const autoResult = await this.getCachedQuestionGaps();
+        if (autoResult && !autoResult.degraded && autoResult.task === "question_gaps" &&
+            (autoResult.total_queries !== undefined || autoResult.clusters !== undefined)) {
+          return { ...autoResult, source: "auto_scheduler" };
+        }
+      } catch {
+        // Non-fatal — fall through to on-demand computation
+      }
+    }
+
+    const cacheKeyQ = `qg:${limit || 0}`;
     const now = Date.now();
-    const cached = this._questionGapsCache.get(cacheKey);
+    const cached = this._questionGapsCache.get(cacheKeyQ);
     if (cached && cached.expires > now) {
       return { ...cached.data, cached: true };
     }
-    if (cached) this._questionGapsCache.delete(cacheKey);
+    if (cached) this._questionGapsCache.delete(cacheKeyQ);
 
     try {
       const params = new URLSearchParams();

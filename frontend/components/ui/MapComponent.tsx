@@ -265,6 +265,27 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   const map = useMap();
   useEffect(() => {
     const handleMapClick = (e: any) => {
+      // Leaflet markers default to bubblingMouseEvents:false, so a click on a
+      // marker icon does NOT propagate to the map's click handler.  However,
+      // popups/tooltips default to interactive:false, meaning clicks on popup
+      // content (descriptions, route buttons, etc.) DO bubble up and spuriously
+      // trigger the "Ghim vị trí mới" pin modal — blurring the school detail.
+      // Guard against this by skipping map-click when the original DOM target
+      // lives inside a popup, tooltip, or marker icon element.
+      const target = e.originalEvent?.target;
+      if (target && typeof target.closest === 'function') {
+        if (
+          target.closest('.leaflet-popup') ||
+          target.closest('.leaflet-popup-tip') ||
+          target.closest('.leaflet-popup-content-wrapper') ||
+          target.closest('.leaflet-popup-content') ||
+          target.closest('.leaflet-marker-icon') ||
+          target.closest('.leaflet-tooltip') ||
+          target.closest('.leaflet-popup-pane')
+        ) {
+          return;
+        }
+      }
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
       onClick(lat, lng);
@@ -931,6 +952,7 @@ export default function InteractiveMap({
                         }}
                         onRouteHere={() => routeToPoi(p)}
                         showVerified={true}
+                        poiId={p.id}
                       />
                     </Popup>
                   </Marker>

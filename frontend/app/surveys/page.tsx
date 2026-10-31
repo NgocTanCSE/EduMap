@@ -34,6 +34,9 @@ export default function SurveysPage() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
             <h1 className="text-2xl md:text-3xl font-semibold mb-4">Ý Kiến Đóng Góp</h1>
+            <p className="text-muted-foreground/60 max-w-xl leading-relaxed">
+              Lắng nghe tiếng nói của học sinh, sinh viên. Mọi ý kiến của bạn đều giúp EduMap cải thiện chất lượng giáo dục và các hoạt động cộng đồng.
+            </p>
           </div>
           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
             <ClipboardList className="w-24 h-24" />

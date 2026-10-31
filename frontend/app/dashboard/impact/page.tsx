@@ -48,13 +48,40 @@ export default function ImpactMeasurementPage() {
   const [report, setReport] = useState<ImpactReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+
+  // Check if current params target the default Đồng Nai region that the
+  // auto-scheduler pre-computes (so we can serve cached results instantly).
+  const isDefaultRegion = params.region === "Biên Hòa, Đồng Nai";
 
   const fetchReport = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      // The service talks to the BFF at /api/dashboard/impact (auth forwarded).
+      // ── Try auto-scheduler cached result first (instant, no LLM wait) ──
+      // The auto-scheduler pre-computes impact reports for key regions every
+      // 24h. If the current region matches one of the cached regions, return
+      // the cached report immediately.
+      if (isDefaultRegion) {
+        try {
+          const cached = await impactMeasurementService.getCachedMeasure("dong_nai");
+          if (cached && !cached.degraded && cached.data !== undefined) {
+            setReport(cached.data || cached);
+            setFromCache(true);
+            if (cached.degraded) {
+              toast.info(cached.reason || "Dữ liệu đang được cập nhật.");
+            }
+            return;
+          }
+          // If cache exists but degraded/empty → fall through to on-demand
+        } catch {
+          // Non-fatal — fall through to on-demand computation
+        }
+      }
+
+      // ── Fallback: on-demand computation (T1 backend diff + T2 ai-service) ──
+      setFromCache(false);
       const data = await impactMeasurementService.getMeasure(params);
       setReport(data);
       if (data?.degraded) {
@@ -67,7 +94,7 @@ export default function ImpactMeasurementPage() {
     } finally {
       setLoading(false);
     }
-  }, [params, user]);
+  }, [params, user, isDefaultRegion]);
 
   // Auto-fetch on mount + when region/date changes.
   useEffect(() => {
@@ -251,139 +278,247 @@ export default function ImpactMeasurementPage() {
   };
 
   return (
-    <div className="page-shell max-w-7xl">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-card p-6 rounded-2xl border border-border/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            Đo lường Tác động AI
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider mb-2">
+            <BarChart3 className="w-3.5 h-3.5" /> Impact Analytics AI
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Đo Lường Tác Động Triển Khai
           </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-2xl">
+            Đánh giá việc triển khai cơ sở giáo dục (wifi, thư viện, phòng lab STEM…) có cải thiện
+            tiếp cận thực tế không — so sánh trước/sau, phân tích xu hướng và khoảng tin cậy thống kê.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={fetchReport}
             disabled={loading || !user}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2.5 text-xs font-bold shadow-sm transition-all disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Làm mới báo cáo
+            {fromCache && !loading && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-accent/20 text-accent text-[9px] font-bold uppercase">
+                Tự động
+              </span>
+            )}
           </button>
           <BookmarkButton
             targetType="impact_report"
             targetId={report?.region || "bien-hoa"}
             size="sm"
             showLabel
-            className="inline-flex h-9 min-w-[6rem] items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
           />
         </div>
       </div>
 
-      {/* Region / deployment controls */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-6">
-        <input type="number" step="0.001" placeholder="min lat"
-          className="form-input text-sm py-2"
-          value={params.minLat ?? ""} onChange={e => setParams({ ...params, minLat: e.target.value ? +e.target.value : undefined })} />
-        <input type="number" step="0.001" placeholder="max lat"
-          className="form-input text-sm py-2"
-          value={params.maxLat ?? ""} onChange={e => setParams({ ...params, maxLat: e.target.value ? +e.target.value : undefined })} />
-        <input type="number" step="0.001" placeholder="min lng"
-          className="form-input text-sm py-2"
-          value={params.minLng ?? ""} onChange={e => setParams({ ...params, minLng: e.target.value ? +e.target.value : undefined })} />
-        <input type="number" step="0.001" placeholder="max lng"
-          className="form-input text-sm py-2"
-          value={params.maxLng ?? ""} onChange={e => setParams({ ...params, maxLng: e.target.value ? +e.target.value : undefined })} />
-        <input type="date"
-          className="form-input text-sm py-2"
-          value={params.deploymentDate ?? ""} onChange={e => setParams({ ...params, deploymentDate: e.target.value })} />
-        <button onClick={applyBbox} type="button"
-          className="form-button flex items-center justify-center gap-2">
-          <MapPin className="h-4 w-4" />Áp dụng Biên Hòa
-        </button>
+      {/* Region / deployment controls card */}
+      <div className="bg-card/70 p-4 sm:p-5 rounded-2xl border border-border/80 shadow-sm">
+        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Tùy biến tọa độ & thời gian khảo sát</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div>
+            <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Vĩ độ min</label>
+            <input type="number" step="0.001" placeholder="10.850"
+              className="w-full h-9 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+              value={params.minLat ?? ""} onChange={e => setParams({ ...params, minLat: e.target.value ? +e.target.value : undefined })} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Vĩ độ max</label>
+            <input type="number" step="0.001" placeholder="11.050"
+              className="w-full h-9 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+              value={params.maxLat ?? ""} onChange={e => setParams({ ...params, maxLat: e.target.value ? +e.target.value : undefined })} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Kinh độ min</label>
+            <input type="number" step="0.001" placeholder="106.750"
+              className="w-full h-9 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+              value={params.minLng ?? ""} onChange={e => setParams({ ...params, minLng: e.target.value ? +e.target.value : undefined })} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Kinh độ max</label>
+            <input type="number" step="0.001" placeholder="106.950"
+              className="w-full h-9 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+              value={params.maxLng ?? ""} onChange={e => setParams({ ...params, maxLng: e.target.value ? +e.target.value : undefined })} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-semibold block mb-1">Ngày triển khai</label>
+            <input type="date"
+              className="w-full h-9 px-3 bg-background border border-border rounded-xl text-xs focus:border-primary outline-none"
+              value={params.deploymentDate ?? ""} onChange={e => setParams({ ...params, deploymentDate: e.target.value })} />
+          </div>
+          <div className="flex items-end">
+            <button onClick={applyBbox} type="button"
+              className="w-full h-9 px-3 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold text-xs transition-all flex items-center justify-center gap-1.5 border border-primary/20">
+              <MapPin className="h-3.5 w-3.5" /> Biên Hòa mặc định
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs font-medium text-destructive">
           {error}
         </div>
       )}
 
       {loading && !report && (
-        <div className="py-12 text-center text-muted-foreground">
-          <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-          Đang tính toán báo cáo đo lường tác động…
+        <div className="py-20 text-center text-muted-foreground bg-card rounded-2xl border border-border">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-primary" />
+          <p className="text-sm font-semibold text-foreground">Đang tính toán mô hình đo lường tác động AI…</p>
+          <p className="text-xs text-muted-foreground mt-1">Đang đối chiếu dữ liệu tọa độ bán kính 5 km</p>
         </div>
       )}
 
       {!report && !loading && (
-        <div className="py-12 text-center text-muted-foreground">
-          Chọn khu vực / ngày triển khai và nhấn "Làm mới" để xem báo cáo.
+        <div className="py-16 text-center text-muted-foreground bg-card rounded-2xl border border-dashed border-border">
+          <p className="text-sm">Chọn khu vực / ngày triển khai và nhấn "Làm mới báo cáo" để khởi tạo phân tích.</p>
         </div>
       )}
 
-      {/* Charts grid — wider gaps for breathing room (Image 10) */}
+      {/* Top 3 Charts Grid */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Score gauge */}
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Điểm tác động AI</p>
-            <div className="flex justify-center">
-              <ScoreGaugeSvg />
+          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md transition-all text-center flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">Điểm tác động AI</span>
+              <div className="flex justify-center my-2">
+                <ScoreGaugeSvg />
+              </div>
             </div>
-            <p className={`text-xs mt-1 ${report.degraded ? "text-primary" : "text-accent"}`}>
-              {report.degraded ? "Tính toán giảm tốc" : "Tính toán AI"}
+            <p className={`text-xs font-semibold mt-2 ${report.degraded ? "text-primary" : "text-accent"}`}>
+              {report.degraded ? "Mô hình suy diễn dự phòng" : "Mô hình tính toán AI nâng cao"}
             </p>
           </div>
 
           {/* Before/after access-rate bars */}
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Tỉ lệ tiếp cận (5 km)</p>
-            <div className="flex justify-center">{BarChartSvg()}</div>
-            <div className="flex gap-4 justify-center mt-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><span className="block h-2 w-4 rounded bg-amber-400" /> Trước {fmtPct(b?.access_rate)}</span>
-              <span className="inline-flex items-center gap-1"><span className="block h-2 w-4 rounded bg-sky-400" /> Sau {fmtPct(a?.access_rate)}</span>
+          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-3 text-center">Tỉ lệ tiếp cận (Bán kính 5 km)</span>
+              <div className="flex justify-center my-2">{BarChartSvg()}</div>
+            </div>
+            <div className="flex gap-4 justify-center mt-3 text-xs text-muted-foreground pt-3 border-t border-border/60">
+              <span className="inline-flex items-center gap-1.5 font-medium"><span className="block h-2.5 w-2.5 rounded-full bg-amber-400" /> Trước: <strong>{fmtPct(b?.access_rate)}</strong></span>
+              <span className="inline-flex items-center gap-1.5 font-medium"><span className="block h-2.5 w-2.5 rounded-full bg-sky-400" /> Sau: <strong>{fmtPct(a?.access_rate)}</strong></span>
             </div>
           </div>
 
           {/* Coverage improvement arc */}
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Cải thiện phủ sóng</p>
-            <div className="flex justify-center">{CoverageArcSvg()}</div>
-            <p className="text-xs mt-1 text-muted-foreground">
-              {b?.synthetic_baseline && "Trước: số liệu tham chiếu"}
+          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md transition-all text-center flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">Mức độ cải thiện độ phủ</span>
+              <div className="flex justify-center my-2">{CoverageArcSvg()}</div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {b?.synthetic_baseline ? "Trước: số liệu baseline tham chiếu" : "Tính toán trên dữ liệu thực tế"}
             </p>
           </div>
         </div>
       )}
 
-      {/* Trend + people diff — wider gap (Image 10) */}
+      {/* Trend + People diff */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mt-8">
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Xu hướng triển khai</p>
-            <TrendSvg />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {`Xu hướng: `}
-              <span className={`font-medium ${report.trend.trend === "tăng" ? "text-accent" : report.trend.trend === "giảm" ? "text-destructive" : "text-muted-foreground"}`}>
-                {report.trend.trend} ({fmtPct(report.trend.growth_rate_pct)})
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Trend card */}
+          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-accent/15 text-accent">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-foreground">Xu hướng triển khai</h3>
+                  <p className="text-[11px] text-muted-foreground">Tốc độ gia tăng cơ sở qua các mốc thời gian</p>
+                </div>
+              </div>
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                report.trend.trend === "tăng"
+                  ? "bg-accent/15 text-accent border-accent/25"
+                  : report.trend.trend === "giảm"
+                  ? "bg-destructive/15 text-destructive border-destructive/25"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}>
+                {report.trend.trend === "tăng" ? "Tăng trưởng" : report.trend.trend} ({fmtPct(report.trend.growth_rate_pct)})
               </span>
+            </div>
+
+            <div className="my-2">
+              <TrendSvg />
+            </div>
+
+            <p className="mt-3 text-xs text-muted-foreground text-center">
+              Tốc độ tăng trưởng hàng kỳ đạt <strong className="text-foreground">{fmtPct(report.trend.growth_rate_pct)}</strong>
             </p>
           </div>
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Người được tiếp cận (bán kính 5 km)</p>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-2xl font-bold">{fmtNumber(report.people_in_radius?.before)}</p><p className="text-xs text-muted-foreground">Trước</p></div>
-              <div><p className="text-2xl font-bold">{fmtNumber(report.people_in_radius?.after)}</p><p className="text-xs text-muted-foreground">Sau</p></div>
-              <div className={`text-2xl font-bold ${report.people_in_radius?.delta >= 0 ? "text-accent" : "text-destructive"}`}>
-                {(report.people_in_radius?.delta >= 0 ? "+" : "") + fmtNumber(report.people_in_radius?.delta)}
-                <p className="text-xs text-muted-foreground font-normal">Chênh lệch</p>
+
+          {/* People in radius card - Premium redesign */}
+          <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-foreground">Người được tiếp cận</h3>
+                  <p className="text-[11px] text-muted-foreground">Ước tính trong bán kính 5 km</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                Bán kính 5 km
+              </span>
+            </div>
+
+            {/* 3 Metric tiles */}
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border/60 text-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Trước</span>
+                <span className="text-lg sm:text-2xl font-bold text-foreground">{fmtNumber(report.people_in_radius?.before)}</span>
+                <span className="text-[10px] text-muted-foreground block mt-0.5">người</span>
+              </div>
+              <div className="bg-muted/40 p-3.5 rounded-xl border border-border/60 text-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Sau</span>
+                <span className="text-lg sm:text-2xl font-bold text-foreground">{fmtNumber(report.people_in_radius?.after)}</span>
+                <span className="text-[10px] text-muted-foreground block mt-0.5">người</span>
+              </div>
+              <div className={`p-3.5 rounded-xl border text-center ${
+                report.people_in_radius?.delta >= 0 
+                  ? 'bg-accent/10 border-accent/30 text-accent' 
+                  : 'bg-destructive/10 border-destructive/30 text-destructive'
+              }`}>
+                <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">Chênh lệch</span>
+                <span className="text-lg sm:text-2xl font-bold">
+                  {(report.people_in_radius?.delta >= 0 ? "+" : "") + fmtNumber(report.people_in_radius?.delta)}
+                </span>
+                <span className="text-[10px] block mt-0.5">người tiếp cận</span>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground" />Cơ sở sau: <b>{a?.facility_count}</b> (trước {b?.facility_count})</div>
-              <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Thời gian: {b?.period} → {a?.period}</div>
-              <div className="flex items-center gap-2"><Award className="h-4 w-4 text-muted-foreground" />CI: [{fmtPct(ci?.lower, 0)}, {fmtPct(ci?.upper, 0)}] ({ci?.method})</div>
-              <div className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-muted-foreground" />Dân số ước tính: {fmtNumber(report.population_estimate)}</div>
+
+            {/* Context details chips */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-background border border-border/70">
+                <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-muted-foreground">Cơ sở:</span>
+                <strong className="text-foreground ml-auto">{a?.facility_count} (trước {b?.facility_count})</strong>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-background border border-border/70">
+                <Clock className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-muted-foreground">Giai đoạn:</span>
+                <strong className="text-foreground ml-auto">{b?.period} → {a?.period}</strong>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-background border border-border/70">
+                <Award className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-muted-foreground">Khoảng tin cậy:</span>
+                <strong className="text-foreground ml-auto">[{fmtPct(ci?.lower, 0)}, {fmtPct(ci?.upper, 0)}]</strong>
+              </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-background border border-border/70">
+                <TrendingUp className="h-3.5 w-3.5 text-accent shrink-0" />
+                <span className="text-muted-foreground">Dân số ước tính:</span>
+                <strong className="text-foreground ml-auto">{fmtNumber(report.population_estimate)}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -391,21 +526,30 @@ export default function ImpactMeasurementPage() {
 
       {/* Narrative + causal notes */}
       {report && (
-        <div className="mt-8 rounded-lg border bg-card p-6">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Diễn giải AI</p>
-          <p className="text-sm leading-relaxed">{report.narrative}</p>
+        <div className="rounded-2xl border border-primary/20 bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+              Nhận định AI
+            </span>
+            <h3 className="font-bold text-sm sm:text-base text-foreground">Diễn giải tác động giáo dục</h3>
+          </div>
+          <p className="text-xs sm:text-sm leading-relaxed text-foreground/90 p-4 bg-primary/5 border border-primary/15 rounded-xl">
+            {report.narrative}
+          </p>
           {report.causal_notes && report.causal_notes.length > 0 && (
-            <ul className="mt-4 space-y-2 text-sm text-muted-foreground list-disc list-inside">
+            <ul className="mt-4 space-y-2 text-xs text-muted-foreground">
               {report.causal_notes.map((note, i) => (
-                <li key={i}>{note}</li>
+                <li key={i} className="flex items-start gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-accent mt-0.5 shrink-0" />
+                  <span>{note}</span>
+                </li>
               ))}
             </ul>
           )}
-          <div className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5 mt-0.5" />
+          <div className="mt-4 pt-3 border-t border-border/70 flex items-start gap-2 text-[11px] text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
             <span>
-              Dữ liệu: cơ sở giáo dục thực từ bảng <code className="rounded bg-muted px-1">map_points</code> (wifi, thư viện, trường học, phòng lab…).
-              Không có tổ chức giả tạo.
+              Dữ liệu được đối chiếu thực từ bảng <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">map_points</code> (thư viện, wifi công cộng, phòng lab STEM, cơ sở giáo dục).
             </span>
           </div>
         </div>

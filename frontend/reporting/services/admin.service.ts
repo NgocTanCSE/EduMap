@@ -172,4 +172,5 @@ export interface QuestionGapReport {
   top_gaps: QuestionGapItem[];
   summary: string;
   cached?: boolean;
+  source?: string;
 }

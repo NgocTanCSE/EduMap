@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import { EduMapLogo } from '@/components/ui/Logo';
+import { QuickDock } from '@/components/ui/magic/QuickDock';
+import { AnimatedThemeToggler } from '@/components/ui/magic/AnimatedThemeToggler';
 
 /**
  * Full-height / full-screen experiences paint their own chrome and must NOT
@@ -76,7 +78,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           because individual pages already render their own <main>; nesting
           <main> in <main> is invalid HTML. */}
       <div className="flex flex-1 flex-col bg-background lg:ml-[var(--sidebar-width)]">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur lg:hidden">
+          <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -93,10 +96,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Edu<span className="text-primary">Map</span>
             </span>
           </Link>
+          </div>
+          <AnimatedThemeToggler size="sm" />
         </header>
 
         <div id="app-content" className="flex-1">{children}</div>
       </div>
+      <QuickDock />
     </div>
   );
 }

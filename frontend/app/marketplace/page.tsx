@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import Thumb from '@/components/ui/Thumb';
 import { avatarFallback, marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
+import Pagination from '@/components/ui/Pagination';
 
 export default function ShareMarketplacePage() {
   const [items, setItems] = useState<SharedItem[]>([]);
@@ -14,6 +15,8 @@ export default function ShareMarketplacePage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 9;
 
   // Modals
   const [showShareModal, setShowShareModal] = useState(false);
@@ -118,7 +121,7 @@ export default function ShareMarketplacePage() {
   });
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    <div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
       
       {/* Share Modal */}
       {showShareModal && (
@@ -126,6 +129,7 @@ export default function ShareMarketplacePage() {
             <div className="bg-card border border-border rounded-xl p-8 max-w-md w-full relative">
                 <button onClick={() => setShowShareModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">X</button>
                 <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Share2 className="text-primary w-6 h-6"/> Chia sẻ tài liệu</h3>
+                <p className="text-sm text-muted-foreground/60 mb-6">Đóng góp sách hoặc học cụ của bạn cho cộng đồng.</p>
                 
                 <form onSubmit={handleShareSubmit} className="space-y-4">
                     <div>
@@ -211,9 +215,12 @@ export default function ShareMarketplacePage() {
         <MarketplaceNav />
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 bg-card p-6 sm:p-8 rounded-[22px] border border-border/80 shadow-orvel relative overflow-hidden">
           <div className="relative z-10">
             <h1 className="text-2xl font-semibold mb-4">Góc Chia Sẻ & Trao Đổi</h1>
+            <p className="text-muted-foreground/60 max-w-md leading-relaxed">
+              Mua bán, trao đổi sách cũ, giáo trình và đồ dùng học tập từ cộng đồng học sinh, sinh viên EduMap.
+            </p>
           </div>
           <div className="relative z-10">
             <button 
@@ -281,8 +288,8 @@ export default function ShareMarketplacePage() {
           </div>
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map(item => (
-              <div key={item.id} className="relative p-6 rounded-xl bg-card border border-border flex flex-col h-full hover:border-primary/30 transition-colors group">
+            {filteredItems.slice((page - 1) * pageSize, page * pageSize).map(item => (
+              <div key={item.id} className="relative p-6 rounded-[22px] border border-border/80 bg-card shadow-orvel hover:shadow-pop flex flex-col h-full hover:border-primary/50 transition-all group overflow-hidden">
                 <div className="-mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl border-b border-border">
                   <Thumb
                     src={marketplaceIllustration(item.category)}

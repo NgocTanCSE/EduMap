@@ -86,6 +86,9 @@ function CareerDashboard() {
             <UserCircle size={32} className="text-primary" />
           </div>
           <h2 className="text-xl font-semibold">Kết nối để xem tiến trình sự nghiệp</h2>
+          <p className="text-sm text-muted-foreground/60 max-w-md mx-auto">
+            Đăng nhập để theo dõi kỹ năng, lộ trình học tập, đơn ứng tuyển và nhận gợi ý công việc từ AI.
+          </p>
           <button
             type="button"
             onClick={() => {
@@ -105,7 +108,7 @@ function CareerDashboard() {
           </div>
         </section>
       )}
-      <section className="bg-card p-6 rounded-lg border border-border">
+      <section className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel">
         <div className="space-y-5">
           <h1 className="text-2xl font-semibold tracking-tight">
             Khởi động <span className="text-primary">lộ trình nghề nghiệp</span> của bạn
@@ -130,7 +133,7 @@ function CareerDashboard() {
           { label: 'Mục tiêu nghề nghiệp', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
           { label: 'Hồ sơ đã nộp', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
         ].map((stat, i) => (
-          <div key={i} className="bg-card/50 border border-border p-8 rounded-xl flex items-center justify-between">
+          <div key={i} className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex items-center justify-between transition-all hover:-translate-y-0.5 hover:shadow-pop">
             <div className="space-y-1">
               <p className="text-muted-foreground font-bold text-sm uppercase tracking-widest">{stat.label}</p>
               <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
@@ -152,7 +155,7 @@ function CareerDashboard() {
               <><CardSkeleton /><CardSkeleton /></>
             ) : suggestions.length > 0 ? suggestions.map((s: any) => (
               <a key={s.career_id ?? s.title} href="/career/roadmap" className="block">
-                <div className="bg-card border border-border p-5 rounded-lg flex items-center justify-between group hover:border-primary/50 transition-all">
+                <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 flex items-center justify-between group hover:border-primary/40 hover:bg-secondary/30 transition-all shadow-xs">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary/70 font-bold border border-primary/20 text-xs">
                       {s.match_score !== undefined ? `${s.match_score}%` : 'N/A'}
@@ -184,7 +187,7 @@ function CareerDashboard() {
               <><CardSkeleton /><CardSkeleton /></>
             ) : latestJobs.length > 0 ? latestJobs.map((job: any) => (
               <a key={job.id} href={`/career/jobs/${job.id}`} className="block">
-                <div className="bg-card border border-border p-5 rounded-lg flex items-center justify-between group hover:border-primary/50 transition-all">
+                <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 flex items-center justify-between group hover:border-primary/40 hover:bg-secondary/30 transition-all shadow-xs">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
                       <Briefcase size={20} />

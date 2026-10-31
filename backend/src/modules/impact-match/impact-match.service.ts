@@ -46,6 +46,11 @@ export class ImpactMatchService {
     private readonly aiService: AIService,
   ) {}
 
+  // ── Auto-scheduler cached results (GET — instant, no LLM wait) ─────────────
+  async getCachedRankings(refresh?: boolean): Promise<any> {
+    return this.aiService.getCachedImpactMatchRankings(refresh);
+  }
+
   // ── LIST: sponsor needs ──────────────────────────────────────────────
   async getSponsorNeeds(params: {
     page?: number; limit?: number; category?: string; status?: string; location?: string; urgency?: string;

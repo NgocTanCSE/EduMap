@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Target, Search, Filter, BrainCircuit, Sparkles, DollarSign,
   MapPin, Clock, Tag, ExternalLink, TrendingUp, CheckCircle,
-  AlertCircle, Loader2, Plus, X,
+  AlertCircle, Loader2, Plus, X, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { impactMatchService, SponsorNeed, SponsorProfile, MatchResult, RankMatchesResponse } from '@/src/services/impact-match.service';
 import { authService } from '@/src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import Pagination from '@/components/ui/Pagination';
 
 const NEED_CATEGORIES = ['Tất cả', 'education_equipment', 'scholarship', 'infrastructure', 'environment', 'social_welfare'];
 const URGENCY_LABELS: Record<string, string> = {
@@ -41,11 +42,15 @@ export default function ImpactMatchPage() {
   const [regionFilter, setRegionFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Tất cả');
   const [maxCostFilter, setMaxCostFilter] = useState('');
+  const [needPage, setNeedPage] = useState(1);
+  const [sponsorPage, setSponsorPage] = useState(1);
+  const pageSize = 6;
 
   // Results
   const [rankedMatches, setRankedMatches] = useState<MatchResult[]>([]);
   const [rankResponse, setRankResponse] = useState<RankMatchesResponse | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [matchesCached, setMatchesCached] = useState(false);
 
   // Modals
   const [showNeedModal, setShowNeedModal] = useState(false);
@@ -53,9 +58,10 @@ export default function ImpactMatchPage() {
   const [needForm, setNeedForm] = useState({ title: '', description: '', category: 'education_equipment', urgency: 'medium', cost_estimate: '', location: '', tags: '', apply_url: '' });
   const [sponsorForm, setSponsorForm] = useState({ name: '', description: '', focus_areas: '', budget_amount: '', location: '', website_url: '', contact_email: '' });
 
-  // ── Fetch data on mount ──────────────────────────────────────────
+  // ── Fetch data on mount ─── (needs + sponsors + cached AI rankings) ─────────
   useEffect(() => {
     fetchData();
+    fetchCachedRankings();
   }, []);
 
   const fetchData = async () => {
@@ -72,6 +78,22 @@ export default function ImpactMatchPage() {
       toast.error('Không thể tải dữ liệu ImpactMatch');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Fetch cached AI rankings (auto-scheduler) ───────────────────
+  const fetchCachedRankings = async () => {
+    try {
+      const cached = await impactMatchService.getCachedRankings();
+      if (cached && cached.ranked_matches && cached.ranked_matches.length > 0) {
+        setRankedMatches(cached.ranked_matches);
+        setRankResponse(cached);
+        setShowResults(true);
+        setMatchesCached(true);
+      }
+    } catch (error) {
+      console.error('Error fetching cached rankings:', error);
+      // Non-fatal — page still works with manual button
     }
   };
 
@@ -177,100 +199,86 @@ export default function ImpactMatchPage() {
   );
 
   const NeedCard = ({ need }: { need: SponsorNeed }) => (
-    <Card className="border-border hover:border-primary/30 transition-colors">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-end gap-1">
-            <BookmarkButton targetType="impact_need" targetId={need.id} size="sm" />
-          </div>
-          <CardTitle className="text-lg line-clamp-1">{need.title}</CardTitle>
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm hover:shadow-md transition-all hover:border-primary/50 relative flex flex-col justify-between">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        <BookmarkButton targetType="impact_need" targetId={need.id} size="sm" />
+      </div>
+      <div>
+        <div className="flex items-center gap-2 mb-2 pr-12">
           <UrgencyBadge urgency={need.urgency} />
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {need.description && (
-          <p className="text-sm text-foreground/60 line-clamp-3 mb-3">{need.description}</p>
-        )}
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span className="px-2 py-1 bg-card/40 border border-border rounded text-xs font-semibold">
+          <span className="px-2 py-0.5 bg-muted rounded-full text-[10px] font-medium text-foreground/80 truncate max-w-[120px]">
             {need.category}
           </span>
-          {need.tags?.slice(0, 3).map(tag => (
-            <span key={tag} className="px-2 py-1 bg-card/30 border border-border rounded text-xs">
-              {tag}
-            </span>
-          ))}
         </div>
-        <div className="flex items-center justify-between text-sm text-foreground/60">
-          <div className="flex items-center gap-1">
-            <DollarSign className="w-4 h-4" />
-            <span>{formatCurrency(Number(need.cost_estimate))}</span>
-          </div>
-          {need.location && (
-            <div className="flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              <span>{need.location}</span>
-            </div>
-          )}
-        </div>
-        {need.provenance && (
-          <p className="text-[10px] text-foreground/40 mt-2 line-clamp-1">
-            {need.provenance}
-          </p>
+        <h4 className="font-bold text-sm sm:text-base text-foreground mb-1.5 line-clamp-1">{need.title}</h4>
+        {need.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{need.description}</p>
         )}
-      </CardContent>
-    </Card>
+        {need.tags && need.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {need.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="px-1.5 py-0.5 bg-card/60 border border-border rounded text-[10px] text-muted-foreground">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="pt-2.5 border-t border-border/80 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1 font-semibold text-accent">
+          <DollarSign className="w-3.5 h-3.5" />
+          <span>{formatCurrency(Number(need.cost_estimate))}</span>
+        </div>
+        {need.location && (
+          <div className="flex items-center gap-1 text-muted-foreground text-[11px] truncate max-w-[150px]">
+            <MapPin className="w-3 h-3 text-primary shrink-0" />
+            <span className="truncate">{need.location}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 
   const SponsorCard = ({ sponsor }: { sponsor: SponsorProfile }) => (
-    <Card className="border-border hover:border-primary/30 transition-colors">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-end gap-1">
-            <BookmarkButton targetType="impact_sponsor" targetId={sponsor.id} size="sm" />
-          </div>
-          <CardTitle className="text-lg line-clamp-1">{sponsor.name}</CardTitle>
+    <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm hover:shadow-md transition-all hover:border-primary/50 relative flex flex-col justify-between">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        <BookmarkButton targetType="impact_sponsor" targetId={sponsor.id} size="sm" />
+      </div>
+      <div>
+        <div className="flex items-center gap-1.5 mb-2 pr-12">
+          <h4 className="font-bold text-sm sm:text-base text-foreground line-clamp-1">{sponsor.name}</h4>
           {sponsor.is_verified && (
-            <CheckCircle className="w-5 h-5 text-accent shrink-0" />
+            <CheckCircle className="w-4 h-4 text-accent shrink-0" />
           )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
         {sponsor.description && (
-          <p className="text-sm text-foreground/60 line-clamp-3 mb-3">{sponsor.description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{sponsor.description}</p>
         )}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {sponsor.focus_areas?.slice(0, 4).map(fa => (
-            <span key={fa} className="px-2 py-1 bg-card/40 border border-border rounded text-xs font-semibold">
-              {fa}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center justify-between text-sm text-foreground/60">
-          <div className="flex items-center gap-1">
-            <DollarSign className="w-4 h-4" />
-            <span>{formatCurrency(Number(sponsor.budget_amount))} ({sponsor.budget_currency})</span>
+        {sponsor.focus_areas && sponsor.focus_areas.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {sponsor.focus_areas.slice(0, 3).map(fa => (
+              <span key={fa} className="px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md text-[10px] font-medium text-primary">
+                {fa}
+              </span>
+            ))}
           </div>
-          {sponsor.location && (
-            <div className="flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              <span>{sponsor.location}</span>
-            </div>
-          )}
-        </div>
-        {sponsor.website_url && (
-          <a
-            href={sponsor.website_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-primary/70 hover:text-primary mt-2"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Trang chính thức
-          </a>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="pt-2.5 border-t border-border/80 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1 font-semibold text-accent">
+          <DollarSign className="w-3.5 h-3.5" />
+          <span>{formatCurrency(Number(sponsor.budget_amount))}</span>
+        </div>
+        {sponsor.location && (
+          <div className="flex items-center gap-1 text-muted-foreground text-[11px] truncate max-w-[150px]">
+            <MapPin className="w-3 h-3 text-primary shrink-0" />
+            <span className="truncate">{sponsor.location}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 
   const MatchResultCard = ({ match, idx }: { match: MatchResult; idx: number }) => {
@@ -405,12 +413,18 @@ export default function ImpactMatchPage() {
         <Button
           onClick={handleRank}
           disabled={loadingRanking}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"
+          variant={matchesCached ? "outline" : "default"}
+          className={matchesCached ? "px-6 py-3 gap-2" : "bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"}
         >
           {loadingRanking ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
               Đang xếp hạng...
+            </>
+          ) : matchesCached ? (
+            <>
+              <RefreshCw className="w-4 h-4" />
+              Làm mới kết quả
             </>
           ) : (
             <>
@@ -446,6 +460,15 @@ export default function ImpactMatchPage() {
         </div>
       )}
 
+      {/* No cached results yet — waiting for auto-scheduler */}
+      {!matchesCached && !showResults && (
+        <EmptyState
+          title="Đang chờ kết quả tự động"
+          description="AI Auto-Scheduler đang tính toán ghép nối nhu cầu ↔ nhà tài trợ (chạy 12h/lần). Kết quả sẽ hiển thị tự động. Bạn cũng có thể ấn 'Xếp hạng bằng AI' để chạy ngay."
+          icon={<BrainCircuit className="w-8 h-8 text-foreground/30" />}
+        />
+      )}
+
       {/* No results after rank */}
       {showResults && !loadingRanking && rankedMatches.length === 0 && !rankResponse?.degraded && (
         <EmptyState
@@ -464,17 +487,26 @@ export default function ImpactMatchPage() {
             Nhu cầu ({needs.length})
           </h3>
           {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map(i => <Card key={i} className="border-border h-40 animate-pulse" />)}
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Card key={i} className="border-border h-28 animate-pulse rounded-2xl" />)}
             </div>
           ) : needs.length > 0 ? (
-            <div className="space-y-4">
-              {needs.map(need => <NeedCard key={need.id} need={need} />)}
-          </div>
+            <div className="space-y-3">
+              {needs.slice((needPage - 1) * pageSize, needPage * pageSize).map(need => <NeedCard key={need.id} need={need} />)}
+              {needs.length > pageSize && (
+                <div className="pt-3">
+                  <Pagination
+                    currentPage={needPage}
+                    totalPages={Math.ceil(needs.length / pageSize)}
+                    onPageChange={setNeedPage}
+                  />
+                </div>
+              )}
+            </div>
           ) : (
             <EmptyState
               title="Chưa có nhu cầu nào"
-              description="Hãy thêm nhu cầu đầu tiên để bắt đầu ghẹp nối."
+              description="Hãy thêm nhu cầu đầu tiên để bắt đầu ghép nối."
               icon={<Target className="w-8 h-8 text-foreground/30" />}
             />
           )}
@@ -487,12 +519,21 @@ export default function ImpactMatchPage() {
             Nhà tài trợ ({sponsors.length})
           </h3>
           {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map(i => <Card key={i} className="border-border h-40 animate-pulse" />)}
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => <Card key={i} className="border-border h-28 animate-pulse rounded-2xl" />)}
             </div>
           ) : sponsors.length > 0 ? (
-            <div className="space-y-4">
-              {sponsors.map(sponsor => <SponsorCard key={sponsor.id} sponsor={sponsor} />)}
+            <div className="space-y-3">
+              {sponsors.slice((sponsorPage - 1) * pageSize, sponsorPage * pageSize).map(sponsor => <SponsorCard key={sponsor.id} sponsor={sponsor} />)}
+              {sponsors.length > pageSize && (
+                <div className="pt-3">
+                  <Pagination
+                    currentPage={sponsorPage}
+                    totalPages={Math.ceil(sponsors.length / pageSize)}
+                    onPageChange={setSponsorPage}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <EmptyState

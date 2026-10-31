@@ -46,14 +46,27 @@ const config: Config = {
         lg: "0.75rem",
         xl: "1rem",
         "2xl": "1.5rem",
+        "card": "22px",
+        "tile": "14px",
       },
       animation: {
         "fade-in": "fade-in 0.3s ease-out",
         "slide-up": "slide-up 0.4s ease-out",
+        "border-beam": "border-beam calc(var(--duration)*1s) infinite linear",
+        "shimmer": "shimmer 2s linear infinite",
       },
       keyframes: {
         "fade-in": { "0%": { opacity: "0" }, "100%": { opacity: "1" } },
         "slide-up": { "0%": { opacity: "0", transform: "translateY(8px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
+        "border-beam": {
+          "100%": {
+            "offset-distance": "100%",
+          },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
       },
     },
   },

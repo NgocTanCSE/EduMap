@@ -122,6 +122,19 @@ export class MapService {
     return null;
   }
 
+  /**
+   * Defensive guard against swapped / out-of-range lat/lng values.
+   * Vietnam lives in lat 8–23, lng 102–109; anything outside
+   * [-90, 90] / [-180, 180] is a data error (e.g. swapped columns)
+   * and must never become a Leaflet pin — Leaflet silently drops
+   * NaN coordinates, leading to "ghim vô đâu" (pins in nowhere land).
+   */
+  private isValidLatLng(lat: number, lng: number): boolean {
+    return Number.isFinite(lat) && Number.isFinite(lng)
+      && lat >= -90 && lat <= 90
+      && lng >= -180 && lng <= 180;
+  }
+
   private locationToPoi(l: Location): PointOfInterest | null {
     const coords = this.parseCoords(l.coordinates);
     if (!coords) return null;
@@ -1221,7 +1234,7 @@ export class MapService {
         for (const r of greenRaw) {
           const lat = Number(r.lat);
           const lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           const pin: FeaturedPin = {
             id: `green-${r.id}`,
             name: r.name,
@@ -1242,7 +1255,7 @@ export class MapService {
         for (const r of summerRaw) {
           const lat = Number(r.lat);
           const lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           const pin: FeaturedPin = {
             id: `summer-${r.id}`,
             name: r.name,
@@ -1303,7 +1316,7 @@ export class MapService {
         for (const r of marketRaw) {
           const lat = Number(r.lat);
           const lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
           const pin: FeaturedPin = {
             id: `market-${r.id}`,
@@ -1341,7 +1354,7 @@ export class MapService {
         );
         for (const r of greenLabs) {
           const lat = Number(r.lat), lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           pins.push({
             id: `green-${r.id}`, name: r.name, category: 'green',
             lat, lng, description: r.description || '', address: r.address || '',
@@ -1355,7 +1368,7 @@ export class MapService {
         );
         for (const r of summerLabs) {
           const lat = Number(r.lat), lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           pins.push({
             id: `summer-${r.id}`, name: r.name, category: 'summer',
             lat, lng, description: r.description || '', address: r.address || r.name,
@@ -1399,7 +1412,7 @@ export class MapService {
         );
         for (const r of marketLabs) {
           const lat = Number(r.lat), lng = Number(r.lng);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          if (!this.isValidLatLng(lat, lng)) continue;
           const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
           pins.push({
             id: `market-${r.id}`, name: r.name, category: 'market',

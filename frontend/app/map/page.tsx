@@ -29,7 +29,7 @@ import {
   SIDEBAR_EXPANDED_WIDTH,
 } from "@/src/lib/layout-constants";
 import {
-  Search, MapPin, X, BrainCircuit,
+  Search, MapPin, Map as MapIcon, X, BrainCircuit,
   ThermometerSun, Layers, Save, Info, Flame,
   Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom,
   Globe, Leaf, Coffee, Star, Shield, Mic, MicOff,
@@ -220,7 +220,11 @@ function AiPanel({ open, onClose, analysis, loading }: {
               </div>
             )}
           </>
-        ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground/60">
+            Nhấn "Phân tích AI" để nhận gợi ý địa điểm học tập quanh Biên Hòa.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -264,8 +268,6 @@ function getResultCount(toolId: string, result: any): number | undefined {
   if (toolId === "geo-vision") return result?.detections?.length;
   if (toolId === "survey-planner") return result?.features?.length;
   if (toolId === "climate") return result?.risk_ranking?.length;
-  if (toolId === "wifi") return Array.isArray(result) ? result.length : undefined;
-  if (toolId === "green") return Array.isArray(result) ? result.length : undefined;
   return undefined;
 }
 
@@ -286,7 +288,7 @@ export default function MapPage() {
   const mapPanelRef = useRef<HTMLDivElement>(null);
 
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
-  const [showMapPanel, setShowMapPanel] = useState(true);
+  const [showMapPanel, setShowMapPanel] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -317,14 +319,14 @@ export default function MapPage() {
   });
 
   const { size: mapPanelSize, onResizeMouseDown: onMapPanelResizeMouseDown } = useResizable({
-    // Default to the same proportions as the Chỉ đường routing panel
-    // (width 400, height calc(100dvh - 120px)) so the panel isn't "nhỏ quá" —
-    // the user can still resize both axes from the handles below.
-    initialSize: { width: 400, height: Math.max(480, windowSize.height - 120) },
-    minWidth: 320,
-    minHeight: 420,
-    maxWidth: 700,
-    maxHeight: Math.max(480, windowSize.height - 40),
+    initialSize: {
+      width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 480 : 340,
+      height: 560,
+    },
+    minWidth: 280,
+    minHeight: 340,
+    maxWidth: 680,
+    maxHeight: windowSize.height - 40,
   });
 
   // Read ?tool=<id> from URL on mount
@@ -767,9 +769,6 @@ export default function MapPage() {
 
   const showHomeControls = activeTool === "home";
   const activeToolDef = activeTool === "home" ? null : MAP_TOOL_BY_ID[activeTool];
-  // Dynamic panel title = the active tool, so the header no longer echoes the
-  // "Bản đồ" tab label (was visually duplicated in the live panel).
-  const activeToolLabel = activeTool === "home" ? "Bản đồ chính" : (activeToolDef?.longLabel || "Bản đồ");
   const hideBase = activeToolDef?.hideBaseLayers ?? false;
 
   // Active tool overlay / panel props (must be after all useState declarations)
@@ -830,14 +829,14 @@ export default function MapPage() {
             width: mapPanelSize.width,
             height: mapPanelSize.height,
           }}
-          className="fixed z-[50] max-h-[calc(100dvh-4rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col"
+          className="fixed z-[50] max-h-[calc(100dvh-6rem)] bg-card/95 backdrop-blur-md border border-border/80 rounded-[22px] shadow-pop overflow-hidden flex flex-col"
         >
           <div
             className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none"
             onMouseDown={onMapPanelMouseDown}
           >
             <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-              <HomeIcon className="w-4 h-4 text-primary" /> {activeToolLabel}
+              <HomeIcon className="w-4 h-4 text-primary" /> Bản đồ
             </h3>
             <button
               onClick={() => setShowMapPanel(false)}
@@ -848,7 +847,7 @@ export default function MapPage() {
           </div>
           <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
             {/* Tab bar */}
-            <div className="sticky top-0 z-20 border-b border-border p-3 bg-card/95 backdrop-blur-sm overflow-x-auto scrollbar-hide">
+            <div className="border-b border-border p-3 bg-card overflow-x-auto scrollbar-hide">
           <div className="flex flex-nowrap gap-1.5 items-center" style={{ minWidth: 'max-content' }}>
             <ToolTab
               tool={{
@@ -933,9 +932,7 @@ export default function MapPage() {
                     <Users className="w-3.5 h-3.5" />
                     <span>Gần đây ({nearbyPois.length})</span>
                   </div>
-                {/* Nearby facilities — render all, no max-h-48 cap so
-                    default state isn't "bị cắt nội dung"; panel body scrolls. */}
-                  <div className="space-y-1">
+                  <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
                     {nearbyPois.map((poi) => (
                       <button
                         key={poi.id}
@@ -1007,22 +1004,9 @@ export default function MapPage() {
             )
           ) : null}
         </div>
-        {/* Right-edge width-resize strip — mirror of the Chỉ đường routing
-            panel's left-edge `cursor-col-resize` strip. The old 4×4 SE corner
-            made horizontal resize barely usable, so the user reported "chỉ có
-            tăng/giảm phần dọc, không có rộng". This prominent strip (visible
-            on hover) makes width resize easy; the SE corner below keeps height
-            resize for the left-anchored panel. */}
+        {/* Panel resize handle */}
         <div
-          className="absolute top-0 bottom-5 right-0 w-1.5 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group select-none"
-          title="Kéo để thay đổi độ rộng"
-          onMouseDown={onMapPanelResizeMouseDown}
-        >
-          <div className="absolute top-1/2 right-1/2 translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors" />
-        </div>
-        <div
-          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-primary/30 hover:bg-primary/50 rounded-tl-lg select-none transition-colors"
-          title="Kéo để thay đổi kích thước"
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-primary/20 hover:bg-primary/40 rounded-br-lg select-none"
           onMouseDown={onMapPanelResizeMouseDown}
         />
       </div>
@@ -1038,10 +1022,12 @@ export default function MapPage() {
             left: 'calc(var(--sidebar-width, 240px) + 1rem)',
             top: 16,
           }}
-          className="fixed z-[50] bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm font-medium hover:bg-primary/80 transition-colors select-none"
+          className="fixed z-[50] flex items-center justify-center w-11 h-11 bg-primary text-primary-foreground rounded-xl shadow-pop hover:bg-primary/90 transition-all active:scale-95 select-none"
           onClick={() => setShowMapPanel(true)}
+          title="Mở bảng bản đồ"
+          aria-label="Mở bảng bản đồ"
         >
-          Mở bảng bản đồ
+          <MapIcon className="w-5 h-5 shrink-0" />
         </button>
       )}
 

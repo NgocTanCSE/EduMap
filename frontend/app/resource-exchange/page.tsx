@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Phone,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -89,9 +90,13 @@ export default function ResourceExchangePage() {
   const [transportPlan, setTransportPlan] = useState<TransportSlot[]>([]);
   const [rankResponse, setRankResponse] =
     useState<MatchResourcesResponse | null>(null);
+  const [matchesCached, setMatchesCached] = useState(false);
 
   // Modals
   const [tab, setTab] = useState<Tab>("matches");
+  const [resPage, setResPage] = useState(1);
+  const [reqPage, setReqPage] = useState(1);
+  const pageSize = 6;
   const [showResourceModal, setShowResourceModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [resourceForm, setResourceForm] = useState<CreateResourcePayload>({
@@ -118,9 +123,10 @@ export default function ResourceExchangePage() {
     tags: [],
   });
 
-  // ── Fetch on mount ────────────────────────────────────────────────
+  // ── Fetch on mount ── (resources + requests + cached AI matches) ─────────────
   useEffect(() => {
     fetchData();
+    fetchCachedMatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -138,6 +144,22 @@ export default function ResourceExchangePage() {
       toast.error("Không thể tải dữ liệu Resource Exchange");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Fetch cached AI matches (auto-scheduler) ────────────────────────
+  const fetchCachedMatches = async () => {
+    try {
+      const cached = await resourceExchangeService.getCachedMatches();
+      if (cached && cached.ranked_matches && cached.ranked_matches.length > 0) {
+        setRankedMatches(cached.ranked_matches);
+        setTransportPlan(cached.transport_plan || []);
+        setRankResponse(cached);
+        setMatchesCached(true);
+      }
+    } catch (error) {
+      console.error("Error fetching cached matches:", error);
+      // Non-fatal — page still works with manual "Ghép bằng AI" button
     }
   };
 
@@ -266,7 +288,7 @@ export default function ResourceExchangePage() {
 
   // ── Render helpers ────────────────────────────────────────────────
   const ResourceCard = ({ resource }: { resource: Resource }) => (
-    <Card className="border-border hover:border-primary/30 transition-colors">
+    <div className="rounded-[22px] border border-border/80 bg-card p-5 shadow-orvel hover:shadow-pop transition-all hover:border-primary/50">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-lg line-clamp-1 flex items-center gap-2">
@@ -314,7 +336,7 @@ export default function ResourceExchangePage() {
           </div>
         )}
       </CardContent>
-    </Card>
+    </div>
   );
 
   const RequestCard = ({ request }: { request: ResourceRequest }) => {
@@ -368,116 +390,138 @@ export default function ResourceExchangePage() {
     match: MatchResult;
     idx: number;
   }) => {
-    // Find denormalised resource/request info if available
     const res =
       match.resource || resources.find((r) => r.id === match.resource_id);
     const req =
       match.request || requests.find((r) => r.id === match.request_id);
     return (
-      <Card className="border-primary/30 bg-gradient-to-b from-primary/5 to-background">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              #{idx + 1} — {res?.title || match.resource_id} ↔{" "}
-              {req?.title || match.request_id}
-            </CardTitle>
-            <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 px-3 py-1 rounded-full">
-              <TrendingUp className="w-4 h-4 text-primary" />
-              <span className="font-bold text-primary">
-                {Math.round(match.match_score)}%
+      <div className="rounded-2xl border border-primary/30 bg-card p-5 sm:p-6 shadow-sm hover:shadow-md transition-all">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/80">
+          <div>
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider mb-1.5">
+              Cặp ghép #{idx + 1}
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-foreground">
+              {res?.title || match.resource_id} <span className="text-primary font-normal">↔</span> {req?.title || match.request_id}
+            </h3>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-center bg-primary/10 border border-primary/30 px-3.5 py-1.5 rounded-full shrink-0">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            <span className="font-bold text-sm text-primary">
+              {Math.round(match.match_score)}% Phù hợp
+            </span>
+          </div>
+        </div>
+
+        {/* Dual sides */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+          {/* Supply */}
+          <div className="bg-muted/40 border border-border/70 rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-primary" /> Nguồn lực cung cấp
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold">
+                {typeLabel(res?.type)}
               </span>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                Nguồn lực (cung)
-              </h4>
-              <p className="font-semibold">{res?.title || match.resource_id}</p>
-              <p className="text-sm text-foreground/60 line-clamp-2">
-                {res?.description || ""}
-              </p>
-              <div className="flex items-center gap-4 text-xs text-foreground/50">
-                <span>Loại: {typeLabel(res?.type)}</span>
-                <span>Điều kiện: {res?.condition}/5</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase">
-                Yêu cầu (cần)
-              </h4>
-              <p className="font-semibold">{req?.title || match.request_id}</p>
-              <p className="text-sm text-foreground/60 line-clamp-2">
-                {req?.description || ""}
-              </p>
-              <div className="flex items-center gap-4 text-xs text-foreground/50">
-                <span>
-                  Khẩn cấp:{" "}
-                  {URGENCY_LABELS[req?.urgency || "medium"] || req?.urgency}
+            <p className="font-bold text-sm text-foreground">{res?.title || match.resource_id}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              {res?.description || "Không có mô tả chi tiết."}
+            </p>
+            <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs text-muted-foreground">
+              <span>Điều kiện: <strong className="text-foreground">{res?.condition || 5}/5</strong></span>
+              {res?.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-primary" /> {res.location}
                 </span>
-                <span>Khu vực: {req?.location}</span>
-              </div>
+              )}
             </div>
           </div>
 
-          {match.explanation && (
-            <div className="mb-3 p-3 bg-card/30 border border-border rounded-lg">
-              <p className="text-sm italic text-foreground/70">
-                "{match.explanation}"
-              </p>
+          {/* Need */}
+          <div className="bg-muted/40 border border-border/70 rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <PackageOpen className="w-3.5 h-3.5 text-accent" /> Yêu cầu cần hỗ trợ
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+                {URGENCY_LABELS[req?.urgency || "medium"] || req?.urgency}
+              </span>
             </div>
-          )}
-
-          {match.match_reasons && match.match_reasons.length > 0 && (
-            <div className="mb-3">
-              <h5 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">
-                Lý do phù hợp
-              </h5>
-              <ul className="space-y-1">
-                {match.match_reasons.map((r, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-foreground/70"
-                  >
-                    <CheckCircle className="w-4 h-4 text-accent mt-0.5 shrink-0" />
-                    <span>{r}</span>
-                  </li>
-                ))}
-              </ul>
+            <p className="font-bold text-sm text-foreground">{req?.title || match.request_id}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              {req?.description || "Không có mô tả chi tiết."}
+            </p>
+            <div className="flex items-center justify-between pt-2 border-t border-border/60 text-xs text-muted-foreground">
+              <span>Tối thiểu: <strong className="text-foreground">{req?.preferred_min_condition || 0}/5</strong></span>
+              {req?.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-accent" /> {req.location}
+                </span>
+              )}
             </div>
-          )}
+          </div>
+        </div>
 
-          {match.scheduled_pickup && (
-            <div className="mb-3 flex items-center gap-2 text-sm text-foreground/70">
-              <CalendarDays className="w-4 h-4 text-primary" />
-              <span>Lịch giao nhận: {formatDate(match.scheduled_pickup)}</span>
+        {/* Explanation */}
+        {match.explanation && (
+          <div className="mb-3.5 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+            <p className="text-xs italic text-foreground/80 leading-relaxed">
+              "{match.explanation}"
+            </p>
+          </div>
+        )}
+
+        {/* Reasons */}
+        {match.match_reasons && match.match_reasons.length > 0 && (
+          <div className="mb-3.5">
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+              Lý do phù hợp
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {match.match_reasons.map((r, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-foreground/80 bg-background/80 p-2 rounded-lg border border-border/60">
+                  <CheckCircle className="w-3.5 h-3.5 text-accent mt-0.5 shrink-0" />
+                  <span className="leading-snug">{r}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          <div className="flex items-center gap-3 mt-3">
+        {/* Pickup & Contacts */}
+        <div className="pt-3 border-t border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          {match.scheduled_pickup ? (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>Giao nhận dự kiến: <strong className="text-foreground">{formatDate(match.scheduled_pickup)}</strong></span>
+            </div>
+          ) : <div />}
+
+          <div className="flex items-center gap-2">
             {res?.contact_method && (
               <a
                 href={`mailto:${res.contact_method}`}
-                className="flex items-center justify-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg bg-muted/40 hover:bg-muted text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground transition-all"
                 title="Liên hệ người cung cấp"
               >
-                <Mail className="w-3.5 h-3.5" /> Liên hệ người cung cấp
+                <Mail className="w-3.5 h-3.5" /> Bên cung cấp
               </a>
             )}
             {req?.contact_method && (
               <a
                 href={`mailto:${req.contact_method}`}
-                className="flex items-center justify-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg bg-muted/40 hover:bg-muted text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold rounded-lg bg-accent/10 hover:bg-accent text-accent hover:text-accent-foreground transition-all"
                 title="Liên hệ người nhận"
               >
-                <Mail className="w-3.5 h-3.5" /> Liên hệ người nhận
+                <Mail className="w-3.5 h-3.5" /> Bên nhận
               </a>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
@@ -536,18 +580,18 @@ export default function ResourceExchangePage() {
       {/* Tab: Nguồn lực đang có */}
       {tab === "provide" && (
         <div>
-          <div className="flex flex-wrap gap-4 items-end justify-between mb-4">
-            <div className="flex gap-3 items-end flex-wrap">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase">
-                  Loại
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end justify-between mb-5 p-4 bg-card/60 border border-border/80 rounded-2xl shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-1">
+              <div className="w-full sm:w-48">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Loại nguồn lực
                 </label>
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="form-select"
+                  className="w-full h-10 px-3 py-2 bg-background border border-border rounded-xl text-xs sm:text-sm focus:border-primary outline-none"
                 >
-                  <option value="">Tất cả</option>
+                  <option value="">Tất cả loại</option>
                   {RESOURCE_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
@@ -555,21 +599,21 @@ export default function ResourceExchangePage() {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase">
+              <div className="w-full sm:w-56">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Khu vực
                 </label>
                 <input
                   type="text"
-                  placeholder="Ví dụ: Đồng Nai"
+                  placeholder="Ví dụ: Đồng Nai, Biên Hòa..."
                   value={regionFilter}
                   onChange={(e) => setRegionFilter(e.target.value)}
-                  className="form-input w-48"
+                  className="w-full h-10 px-3.5 py-2 bg-background border border-border rounded-xl text-xs sm:text-sm focus:border-primary outline-none"
                 />
               </div>
             </div>
-            <Button onClick={fetchData} variant="outline">
-              <Loader2 className="w-4 h-4 mr-1" /> Làm mới
+            <Button onClick={fetchData} variant="outline" className="h-10 rounded-xl text-xs font-bold shrink-0">
+              <Loader2 className="w-3.5 h-3.5 mr-1.5" /> Làm mới dữ liệu
             </Button>
           </div>
           {loading ? (
@@ -622,30 +666,18 @@ export default function ResourceExchangePage() {
       {/* Tab: Ghép nối AI */}
       {tab === "matches" && (
         <div>
-          <div className="flex flex-col sm:flex-row gap-4 items-end justify-between mb-4 p-4 bg-card/50 border border-border rounded-xl">
-            <div className="flex flex-col sm:flex-row gap-4 items-end flex-1">
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase">
-                  Khu vực
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Đồng Nai"
-                  value={regionFilter}
-                  onChange={(e) => setRegionFilter(e.target.value)}
-                  className="w-full sm:w-48 form-input"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground uppercase">
-                  Loại
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end justify-between mb-5 p-4 bg-card/60 border border-border/80 rounded-2xl shadow-sm">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-1">
+              <div className="w-full sm:w-48">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Loại nguồn lực
                 </label>
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="form-select"
+                  className="w-full h-10 px-3 py-2 bg-background border border-border rounded-xl text-xs sm:text-sm focus:border-primary outline-none"
                 >
-                  <option value="">Tất cả</option>
+                  <option value="">Tất cả loại</option>
                   {RESOURCE_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
@@ -653,22 +685,36 @@ export default function ResourceExchangePage() {
                   ))}
                 </select>
               </div>
+              <div className="w-full sm:w-56">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Khu vực
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Đồng Nai, Biên Hòa..."
+                  value={regionFilter}
+                  onChange={(e) => setRegionFilter(e.target.value)}
+                  className="w-full h-10 px-3.5 py-2 bg-background border border-border rounded-xl text-xs sm:text-sm focus:border-primary outline-none"
+                />
+              </div>
             </div>
             <Button
               onClick={handleRank}
               disabled={loadingRank}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"
+              variant={matchesCached ? "outline" : "default"}
+              className={matchesCached ? "h-10 px-6 rounded-xl" : "h-10 px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-2 shadow-sm shrink-0"}
             >
               {loadingRank ? (
                 <>
-                  {" "}
-                  <Loader2 className="w-4 h-4 animate-spin" /> Đang xếp
-                  hạng...{" "}
+                  <Loader2 className="w-4 h-4 animate-spin" /> Đang xếp hạng...
+                </>
+              ) : matchesCached ? (
+                <>
+                  <RefreshCw className="w-4 h-4" /> Làm mới kết quả
                 </>
               ) : (
                 <>
-                  {" "}
-                  <BrainCircuit className="w-4 h-4" /> Ghép bằng AI{" "}
+                  <BrainCircuit className="w-4 h-4" /> Ghép bằng AI
                 </>
               )}
             </Button>
@@ -743,10 +789,17 @@ export default function ResourceExchangePage() {
             </div>
           )}
 
-          {rankResponse && !loadingRank && rankedMatches.length === 0 && (
+          {!matchesCached && !loadingRank && rankedMatches.length === 0 && (
+            <EmptyState
+              title="Đang chờ kết quả tự động"
+              description="AI Auto-Scheduler đang tính toán ghép nối. Kết quả sẽ hiển thị tự động sau lần đầu chạy (6h/lần). Bạn cũng có thể ấn 'Ghép bằng AI' để chạy ngay."
+              icon={<BrainCircuit className="w-8 h-8 text-foreground/30" />}
+            />
+          )}
+          {matchesCached && !loadingRank && rankedMatches.length === 0 && (
             <EmptyState
               title="Chưa tìm thấy cặp ghép"
-              description="AI chưa tìm thấy cặp cung–cầu phù hợp. Hãy thử thêm nguồn lực/yêu cầu mới hoặc điều chỉnh bộ lọc."
+              description="AI đã phân tích nhưng chưa tìm thấy cặp cung–cầu phù hợp. Hãy thử thêm nguồn lực/yêu cầu mới hoặc điều chỉnh bộ lọc."
               icon={<Package className="w-8 h-8 text-foreground/30" />}
             />
           )}

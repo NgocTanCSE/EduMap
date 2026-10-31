@@ -7,6 +7,7 @@ import {
 import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { toast } from 'sonner';
+import Pagination from '@/components/ui/Pagination';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 export default function LeaderboardPage() {
@@ -14,6 +15,9 @@ export default function LeaderboardPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [leaderboardError, setLeaderboardError] = useState(false);
+  const [scopeTab, setScopeTab] = useState<'province' | 'school' | 'friends'>('province');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const currentUser = authService.getUser();
 
@@ -79,7 +83,7 @@ export default function LeaderboardPage() {
   const others = users.slice(3);
 
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    <div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
       <div className="w-full mx-auto space-y-12">
         
         {/* Header */}
@@ -88,11 +92,15 @@ export default function LeaderboardPage() {
             <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Vinh danh những nỗ lực</h1>
+          <p className="text-muted-foreground/60 max-w-2xl mx-auto">
+            Càng học tập, quyên góp và tham gia hoạt động cộng đồng, thứ hạng của bạn càng cao.
+            Hãy cùng nhau xây dựng cộng đồng học tập tích cực!
+          </p>
         </div>
 
         {/* My Progress Card (If logged in) */}
         {progress && currentUser && (
-          <div className="bg-card border border-border rounded-lg p-8 flex flex-col md:flex-row items-center gap-8">
+          <div className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
                 <div className="w-24 h-24 rounded-full border-4 border-primary/30 overflow-hidden bg-card/40 shrink-0">
                     {currentUser.avatar_url ? (
@@ -203,7 +211,7 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Others List */}
-        <div className="bg-card border border-border rounded-lg overflow-hidden w-full mx-auto">
+        <div className="rounded-[22px] border border-border/80 bg-card overflow-hidden shadow-orvel w-full mx-auto">
             <div className="p-6 border-b border-border flex justify-between items-center bg-card/20">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">Bảng xếp hạng chi tiết</span>
                 <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
@@ -216,10 +224,10 @@ export default function LeaderboardPage() {
                 </div>
             ) : (
             <div className="divide-y divide-white/5">
-                {others.map((user, index) => (
+                {others.slice((page - 1) * pageSize, page * pageSize).map((user, index) => (
                     <div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-card/20 group ${user.id === currentUser?.id ? 'bg-primary/10' : ''}`}>
                         <div className="w-8 text-center font-mono font-bold text-muted-foreground/20 group-hover:text-muted-foreground/60">
-                            {index + 4}
+                            {(page - 1) * pageSize + index + 4}
                         </div>
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-card shrink-0">
                             <img src={user.avatar_url || avatarFallback(user.full_name)} onError={onImageError(avatarFallback(user.full_name))} alt="" className="w-full h-full object-cover" />

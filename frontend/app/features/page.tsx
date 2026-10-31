@@ -1,5 +1,6 @@
 "use client";
 
+import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Layers, Search, X } from "lucide-react";
@@ -55,20 +56,23 @@ export default function FeaturesHubPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-      <SectionHeader
-        icon={Layers}
-        title="Tất cả tính năng"
-        subtitle="Một danh mục duy nhất cho toàn bộ EduMap — tìm theo tên, mô tả hoặc nhóm."
-        right={
-          <span className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground/70">
-            {FEATURES.length} tính năng
-          </span>
-        }
-      />
+    <main className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+      <div className="relative overflow-hidden rounded-[24px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel space-y-6">
+        <InteractiveGridPattern className="opacity-30 [mask-image:radial-gradient(500px_circle_at_top,white,transparent)]" />
+        <div className="relative z-10 space-y-6">
+          <SectionHeader
+            icon={Layers}
+            title="Tất cả tính năng"
+            subtitle="Một danh mục duy nhất cho toàn bộ EduMap — tìm theo tên, mô tả hoặc nhóm."
+            right={
+              <span className="inline-flex items-center rounded-full border border-border bg-secondary/80 px-3 py-1 text-xs font-semibold text-foreground/80">
+                {FEATURES.length} tính năng
+              </span>
+            }
+          />
 
-      {/* Search + group filter — one control row, aligned to the grid below */}
-      <div className="space-y-3">
+          {/* Search + group filter — one control row, aligned to the grid below */}
+          <div className="space-y-3">
         <div className="relative">
           <Search
             aria-hidden="true"
@@ -80,7 +84,7 @@ export default function FeaturesHubPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tìm tính năng: học bổng, wifi, bản đồ, dịch thuật…"
             aria-label="Tìm tính năng"
-            className="w-full rounded-lg border border-input bg-card py-2.5 pl-10 pr-10 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-2xl border border-border/80 bg-card py-3 pl-10 pr-10 text-sm text-foreground placeholder:text-foreground/40 shadow-sm focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           />
           {query && (
             <button
@@ -130,6 +134,8 @@ export default function FeaturesHubPage() {
           })}
         </div>
       </div>
+        </div>
+      </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card/40">
@@ -166,17 +172,17 @@ export default function FeaturesHubPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {group.items.map((feature) => {
                     const Icon = feature.icon;
                     return (
                       <Link
                         key={feature.id}
                         href={feature.href}
-                        className="group flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                        className="group flex h-full flex-col rounded-[20px] border border-border/80 bg-card p-5 shadow-orvel transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-pop focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         <div className="flex items-start gap-3">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-border/70 bg-background/80 text-primary shadow-xs transition-colors group-hover:bg-primary/10">
                             <Icon className="h-4 w-4" />
                           </span>
                           <h3 className="min-w-0 flex-1 pt-1.5 text-sm font-semibold leading-tight text-foreground transition-colors group-hover:text-primary">

@@ -23,6 +23,7 @@
  */
 import React from "react";
 import { ShieldCheck, Star } from "lucide-react";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
 
 export interface PoiAmenity {
   icon: string;
@@ -63,6 +64,9 @@ export interface MapPopupContentProps {
   featureLink?: string;
   /** Custom icon for a nearby facility when the caller resolved one */
   facilityIcons?: Record<string, React.ComponentType<{ className?: string }>>;
+  /** POI id — when provided, shows a BookmarkButton so the user can "ghim"
+      this school/facility directly from the popup (targetType="poi"). */
+  poiId?: string;
 }
 
 function AmenityLabel({ icon, label }: { icon: string; label: string }) {
@@ -87,6 +91,7 @@ export function MapPopupContent({
   categoryTag,
   featureLink,
   facilityIcons,
+  poiId,
 }: MapPopupContentProps) {
   const hasNearby = showNearby && nearbyPoints && nearbyPoints.length > 0;
   const hasActions = onRouteHere || (featureLink && categoryTag);
@@ -139,7 +144,7 @@ export function MapPopupContent({
                   </span>
                   {onRouteNearby && (
                     <button
-                      onClick={() => onRouteNearby(f)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteNearby(f); }}
                       className="underline text-xs font-bold text-accent hover:text-accent/80"
                     >
                       Đến
@@ -167,9 +172,17 @@ export function MapPopupContent({
             </span>
           )}
           <div className="flex items-center gap-2">
+            {poiId && (
+              <BookmarkButton
+                targetType="poi"
+                targetId={poiId}
+                size="sm"
+                className="h-6 w-6 p-0"
+              />
+            )}
             {onRouteHere && (
               <button
-                onClick={onRouteHere}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteHere(); }}
                 className="bg-card text-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/20 transition-colors"
               >
                 Dẫn đường
@@ -177,7 +190,7 @@ export function MapPopupContent({
             )}
             {featureLink && (
               <button
-                onClick={() => (window.location.href = featureLink)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = featureLink; }}
                 className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
               >
                 <Star className="w-3 h-3 fill-current" />

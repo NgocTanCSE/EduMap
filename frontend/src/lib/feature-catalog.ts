@@ -436,12 +436,12 @@ export const FEATURES: Feature[] = [
   {
     id: "green",
     label: "Thử thách xanh",
-    href: "/green",
+    href: "/map?tool=green",
     icon: Leaf,
-    description: "Danh sách thử thách sống xanh: trồng cây, tắt đèn, dọn rác. Xem trên bản đồ /map?tool=green.",
+    description: "Hoạt động sống xanh, minh chứng và điểm thưởng.",
     group: "community",
     sidebar: true,
-    keywords: ["xanh", "môi trường", "green", "carbon", "thử thách"],
+    keywords: ["xanh", "môi trường", "green", "carbon"],
   },
   {
     id: "summer",
@@ -456,12 +456,12 @@ export const FEATURES: Feature[] = [
   {
     id: "wifi",
     label: "Trạm Wifi",
-    href: "/wifi",
+    href: "/map?tool=wifi",
     icon: Wifi,
-    description: "Danh sách trạm Wifi miễn phí/trả tiền. Xem trên bản đồ /map?tool=wifi.",
+    description: "Bản đồ điểm Wifi miễn phí và đo tốc độ thực tế.",
     group: "community",
     sidebar: true,
-    keywords: ["wifi", "internet", "tốc độ", "miễn phí"],
+    keywords: ["wifi", "internet", "tốc độ"],
   },
   {
     id: "surveys",

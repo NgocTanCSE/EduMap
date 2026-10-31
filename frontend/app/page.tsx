@@ -1,37 +1,40 @@
-'use client';
+import type { Metadata } from 'next';
+import HomeGate from '@/components/landing/HomeGate';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
-import { EduMapLogo } from '@/components/ui/Logo';
+export const metadata: Metadata = {
+  title: 'EduMap — Khám phá tri thức. Định hướng tương lai.',
+  description:
+    'EduMap kết nối bản đồ giáo dục, khám phá nghề nghiệp và trí tuệ nhân tạo, giúp bạn tiếp cận thông tin và tìm ra hướng đi phù hợp trên cùng một nền tảng.',
+  keywords: [
+    'EduMap',
+    'bản đồ giáo dục',
+    'Biên Hòa',
+    'Đồng Nai',
+    'hướng nghiệp',
+    'trợ lý AI',
+    'học bổng',
+    'việc làm',
+  ],
+  openGraph: {
+    type: 'website',
+    locale: 'vi_VN',
+    url: 'https://edumap.vn',
+    siteName: 'EduMap',
+    title: 'EduMap — Khám phá tri thức. Định hướng tương lai.',
+    description:
+      'Bản đồ giáo dục, khám phá nghề nghiệp và trợ lý AI trong cùng một nền tảng dành cho học sinh, sinh viên và nhà giáo dục.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'EduMap — Khám phá tri thức. Định hướng tương lai.',
+    description:
+      'Bản đồ giáo dục, khám phá nghề nghiệp và trợ lý AI trong cùng một nền tảng.',
+  },
+  alternates: {
+    canonical: 'https://edumap.vn',
+  },
+};
 
-/**
- * Trang gốc `/`.
- * Trước đây là một trang "storefront" giới thiệu 18 tính năng — không đi vào
- * đâu và làm người dùng mất thời gian. Giờ đây `/` chỉ là cổng chuyển hướng:
- *   - Đã đăng nhập  -> /map (bản đồ làm giao diện chính, ngay khi mở app)
- *   - Chưa đăng nhập -> /auth/login (Google-only)
- */
-export default function HomeGate() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (loading) return;
-    router.replace(user ? '/map' : '/auth/login');
-  }, [user, loading, router]);
-
-  return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
-      <div className="flex items-center gap-3 text-2xl font-semibold">
-        <EduMapLogo className="h-7 w-7 text-primary" />
-        <span className="font-bold">Edu<span className="text-primary">Map</span></span>
-      </div>
-      <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-        <span>Đang chuyển hướng bạn tới bản đồ…</span>
-      </div>
-    </div>
-  );
+export default function HomePage() {
+  return <HomeGate />;
 }
