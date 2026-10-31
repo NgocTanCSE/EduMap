@@ -330,13 +330,17 @@ RUN mkdir -p /usr/local/osrm-lib && \
     # Result: ALL native modules crash (sqlite3, scipy, torch) → backend +
     # AI service can't start → 0 features work.
     #
-    # Fix: remove libc/libstdc++/libprotobuf/libtbb/libgomp/libz etc. — ALL
+    # Fix: remove libc/libstdc++/libprotobuf/libgomp/libz etc. — ALL
     # these are available via apt in the runtime stage (Debian 12, newer).
-    # System libs are backward-compatible with osrm-routed. Only OSRM-specific
-    # libs (libosrm.so, etc.) AND boost libs (different soname: 1.62 vs 1.74)
-    # remain in /usr/local/osrm-lib. Boost is NOT removed because osrm-routed
-    # links against the specific 1.62 ABI and the system's 1.74 soname won't
-    # satisfy it — different sonames mean no conflict for other programs.
+    # System libs are backward-compatible with osrm-routed.
+    #
+    # NOTE: libtbb is NOT removed! osrm-routed needs libtbb.so.2 (TBB ~2018),
+    # but Debian 12's libtbb12 only provides libtbb.so.12 (different soname).
+    # Since libtbb*.so.2 ≠ libtbb*.so.12, no conflict — osrm-routed uses its
+    # bundled .so.2 from osrm-lib, other programs use the system .so.12.
+    # Removing it (as previously done) causes:
+    #   "osrm-routed: error while loading shared libraries: libtbb.so.2:
+    #    cannot open shared object file" → OSRM FATAL, routing broken.
     rm -f /usr/local/osrm-lib/libc.so.6 /usr/local/osrm-lib/libm.so.6 \
         /usr/local/osrm-lib/libpthread.so.0 /usr/local/osrm-lib/libdl.so.2 \
         /usr/local/osrm-lib/librt.so.1 /usr/local/osrm-lib/ld-linux-*.so* \
@@ -345,7 +349,6 @@ RUN mkdir -p /usr/local/osrm-lib && \
         /usr/local/osrm-lib/libgcc_s.so.1 /usr/local/osrm-lib/libatomic.so.1 \
         /usr/local/osrm-lib/libgomp.so.1 \
         /usr/local/osrm-lib/libprotobuf.so* /usr/local/osrm-lib/libprotoc.so* \
-        /usr/local/osrm-lib/libtbb*.so* \
         /usr/local/osrm-lib/libz.so* /usr/local/osrm-lib/libzstd.so* \
         /usr/local/osrm-lib/libbz2.so* \
         2>/dev/null; \
@@ -452,6 +455,11 @@ ENV GEN_TIMEOUT_SECONDS=8
 # Space revision (whose *.bin files may have been partially excluded by upload
 # ignore_patterns) can never block or crash the AI service at startup.
 ENV CHROMA_DB_PATH=/tmp/chroma_db
+# ChromaDB init on cold boot (ephemeral /tmp, 2 vCPU): 30s default is too tight.
+# Increase to 60s so the first init attempt has a real chance, and reduce retry
+# to 30s so a slow-boot recovery kicks in sooner (seeding is non-fatal).
+ENV CHROMA_INIT_TIMEOUT_SECONDS=60
+ENV CHROMA_RETRY_SECONDS=30
 # Ensure Python packages copied from the python:3.11 image are discoverable
 # by the system python3 (Debian installs to /usr/lib, not /usr/local)
 ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages

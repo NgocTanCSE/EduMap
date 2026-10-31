@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import threading
 import hashlib
 import subprocess
 import urllib.request
@@ -50,6 +51,13 @@ class VectorStoreService:
     - Embedding -> Google Gemini       : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
     On HF Spaces Cloudflare is blackholed so Gemini is the primary path.
     """
+
+    # Mutex to prevent the seeding thread and the staggered-warmup thread
+    # from double-loading the ~600MB embedding model + ~100MB reranker
+    # simultaneously (which would spike RAM and OOM on the 2-vCPU free tier).
+    # Class-level (not instance-level) so it's always available even when
+    # __init__ is bypassed in tests (object.__new__ pattern).
+    _model_load_lock: threading.Lock = threading.Lock()
 
     def __init__(self):
         # --- Cloudflare Embedding config (always set; independent of ChromaDB) ---
@@ -175,6 +183,10 @@ class VectorStoreService:
         self.collection = None
         self._collection_next_retry = 0.0
         self._collection_init_attempts = 0
+        # Mutex to prevent the seeding thread and the staggered-warmup thread
+        # from double-loading the ~600MB embedding model + ~100MB reranker
+        # simultaneously. Defined as a class attribute above; not re-set here
+        # so that `object.__new__` test instances inherit the class-level lock.
         self._init_collection()
 
     # ChromaDB init knobs (HF Spaces free tier boot can be slow: chromadb import
@@ -710,9 +722,12 @@ class VectorStoreService:
         Returns the model instance or None if loading fails. On failure, sets
         ``_local_embedder_failed`` so subsequent calls skip the expensive retry.
         Uses getattr() for resilience with partially-constructed mock objects.
+        Thread-safe via ``_model_load_lock`` — prevents the seeding thread and
+        the staggered-warmup thread from loading the same ~600 MB model twice.
         """
-        if self._local_embedder is not None:
-            return self._local_embedder
+        with self._model_load_lock:
+            if self._local_embedder is not None:
+                return self._local_embedder
         if getattr(self, "_local_embedder_failed", False):
             return None
         if getattr(self, "local_embedding_disabled", False):
@@ -783,9 +798,11 @@ class VectorStoreService:
         Returns the model instance or None if loading fails/disabled.
         RAM: ~100MB. Download: ~80MB (cached by huggingface_hub on disk).
         Uses getattr() for resilience with partially-constructed mock objects.
+        Thread-safe via ``_model_load_lock``.
         """
-        if self._local_reranker is not None:
-            return self._local_reranker
+        with self._model_load_lock:
+            if self._local_reranker is not None:
+                return self._local_reranker
         if getattr(self, "_local_reranker_failed", False):
             return None
         if getattr(self, "local_reranker_disabled", False):

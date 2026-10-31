@@ -767,6 +767,9 @@ export default function MapPage() {
 
   const showHomeControls = activeTool === "home";
   const activeToolDef = activeTool === "home" ? null : MAP_TOOL_BY_ID[activeTool];
+  // Dynamic panel title = the active tool, so the header no longer echoes the
+  // "Bản đồ" tab label (was visually duplicated in the live panel).
+  const activeToolLabel = activeTool === "home" ? "Bản đồ chính" : (activeToolDef?.longLabel || "Bản đồ");
   const hideBase = activeToolDef?.hideBaseLayers ?? false;
 
   // Active tool overlay / panel props (must be after all useState declarations)
@@ -834,7 +837,7 @@ export default function MapPage() {
             onMouseDown={onMapPanelMouseDown}
           >
             <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-              <HomeIcon className="w-4 h-4 text-primary" /> Bản đồ
+              <HomeIcon className="w-4 h-4 text-primary" /> {activeToolLabel}
             </h3>
             <button
               onClick={() => setShowMapPanel(false)}
@@ -845,7 +848,7 @@ export default function MapPage() {
           </div>
           <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
             {/* Tab bar */}
-            <div className="border-b border-border p-3 bg-card overflow-x-auto scrollbar-hide">
+            <div className="sticky top-0 z-20 border-b border-border p-3 bg-card/95 backdrop-blur-sm overflow-x-auto scrollbar-hide">
           <div className="flex flex-nowrap gap-1.5 items-center" style={{ minWidth: 'max-content' }}>
             <ToolTab
               tool={{
@@ -1011,7 +1014,7 @@ export default function MapPage() {
             on hover) makes width resize easy; the SE corner below keeps height
             resize for the left-anchored panel. */}
         <div
-          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group select-none"
+          className="absolute top-0 bottom-5 right-0 w-1.5 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group select-none"
           title="Kéo để thay đổi độ rộng"
           onMouseDown={onMapPanelResizeMouseDown}
         >

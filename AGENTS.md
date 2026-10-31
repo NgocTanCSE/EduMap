@@ -822,6 +822,16 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
 - `GET /api/v1/config`, `/api/.env`, `/api/settings`, `POST /api/predict`
   (`"not json"`): internet scanner traffic, not our routes. Harmless noise.
 
+### Production log fixes (2026-10-31 — post-OOM deploy)
+
+The post-OOM deploy surfaced two additional runtime issues from the log:
+
+| Issue | Symptom | Root cause | Fix |
+|---|---|---|---|
+| **OSRM libtbb missing** | `osrm-routed: error while loading shared libraries: libtbb.so.2: cannot open shared object file` → OSRM FATAL → `exit status 127` → routing endpoint returns 500 | Dockerfile runtime stage deleted `libtbb*.so*` from `/usr/local/osrm-lib/` (line 348) to avoid GLIBCXX conflicts. But Debian 12's `libtbb12` provides `libtbb.so.12`, **not** `libtbb.so.2` that `osrm-routed` links against. Removing it left OSRM with no TBB library. | Removed `libtbb` from the deletion list — `libtbb.so.2` (osrm-lib) and `libtbb.so.12` (system) have **different sonames**, so no GLIBCXX conflict. Other programs use `.so.12`, OSRM uses `.so.2`. |
+| **ChromaDB init timeout** | `Vector store collection chưa được khởi tạo` → seed_data status=error, 0 docs → RAG empty | `CHROMA_INIT_TIMEOUT_SECONDS` default 30s is too tight for a cold 2-vCPU boot (chromadb import + PersistentClient + collection creation). Retry at 60s is too slow. | Added `ENV CHROMA_INIT_TIMEOUT_SECONDS=60 CHROMA_RETRY_SECONDS=30` to Dockerfile runtime stage. |
+| **Embedding double-load race** | Potential RAM spike if seed thread + warmup thread both load `multilingual-e5-small` (~600MB) simultaneously | No mutex lock existed — the `with self._local_embedder is not None` check is not thread-safe | Added class-level `threading.Lock` (`_model_load_lock`) in `VectorStoreService` guarded by `with self._model_load_lock:` in `_load_local_embedder`/`_load_local_reranker`. |
+
 ## 10. UI cleanup pass (2026-10-31)
 
 - **Sidebar collapse is now wired (was broken):** `NavGroup` already had icon-only
@@ -863,3 +873,13 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
   (guarded by `authService.getAccessToken()`, `.catch(() => {})` so a 404/405 on the
   HF free tier never blocks clearing the view). `Button` already imported; disabled
   while `isLoading` to avoid a mid-stream clear.
+- **/map left panel (Bản đồ panel) optimisation (2026-10-31):** two friction points fixed.
+  (1) "trùng" — the draggable header always read the static `<h3>Bản đồ</h3>` while the first
+  tool-tab is also "Bản đồ" (HomeIcon), so the label/icon doubled. Header title is now dynamic
+  = `activeTool === "home" ? "Bản đồ chính" : MAP_TOOL_BY_ID[activeTool].longLabel`.
+  (2) "khó thao tác" — the 11-tool tab bar sat inside the `flex-1 overflow-y-auto` body, so it
+  scrolled out of view when browsing search/category/stats; made it `sticky top-0 z-20 bg-card/95
+  backdrop-blur-sm` so the tabs stay pinned while the body scrolls.
+  (3) the right-edge width-resize strip (`h-full`) overlapped the bottom-right SE corner grip —
+  changed to `top-0 bottom-5` so the two resize handles no longer fight at the corner.
+  Verified `tsc`=0, `npm run build`=0 (`/map` prerenders).
