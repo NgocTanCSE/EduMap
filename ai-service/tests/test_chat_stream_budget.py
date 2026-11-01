@@ -181,3 +181,37 @@ def test_chat_with_rag_strips_markdown(monkeypatch):
 
     res = asyncio.run(_run())
     assert res["reply"] == "Đậm và nghiêng với code"
+
+
+def test_stream_template_fallback_strips_markdown_when_no_provider(monkeypatch):
+    """No provider configured (HF free tier) → the streaming template fallback
+    must still be plain text.
+
+    Regression: ``chat_with_rag_stream`` had an early-exit branch for
+    ``not self.is_ready`` that streamed ``_chat_fallback_reply()`` directly.
+    That template contains ``**Câu hỏi của bạn:**`` and ``**<title>**``, so with
+    zero API keys every chat reply showed literal asterisks in the bubble. The
+    provider path stripped markdown; this branch did not.
+    """
+    svc = LLMService()
+    svc.is_ready = False
+
+    def _markdown_reply(message, sources, context):
+        return "**Câu hỏi của bạn:** xin chào\n1. **Trường A**: mô tả"
+
+    monkeypatch.setattr(svc, "_chat_fallback_reply", _markdown_reply)
+
+    async def _collect():
+        with patch("services.vector_store.vector_store") as mock_vs, \
+             patch.object(llm_module.cache_service, "get", return_value=None), \
+             patch.object(llm_module.cache_service, "set"):
+            mock_vs.query.return_value = {"documents": [[]], "metadatas": [[]], "ids": [[]]}
+            return [chunk async for chunk in svc.chat_with_rag_stream("xin chào")]
+
+    chunks = asyncio.run(_collect())
+    body = "".join(chunks)
+    assert '"token"' in body, "the fallback reply must be streamed"
+    assert "**" not in body, "markdown asterisks leaked into the chat bubble"
+    text = _plain_text(chunks)
+    assert "Câu hỏi của bạn:" in text
+    assert "Trường A" in text

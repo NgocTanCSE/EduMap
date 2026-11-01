@@ -1517,7 +1517,11 @@ class LLMService:
         # would surface as a 503 with an empty chat bubble.
         if not self.is_ready:
             print("[stream] No LLM providers configured — using template fallback directly")
-            reply_text = self._chat_fallback_reply(message, sources, context)
+            # _chat_fallback_reply() emits light markdown (**bold** for the
+            # question and each source title). Strip it here too: this is the
+            # ONLY path that runs when no provider key is configured (the HF
+            # free tier), and it used to stream raw "**" into the chat bubble.
+            reply_text = _strip_markdown(self._chat_fallback_reply(message, sources, context))
             async for chunk in self._stream_word_by_word(
                 reply_text, sources=sources, is_final=True,
                 max_duration=max(0.5, float(os.getenv("STREAM_PROXY_DEADLINE_SECONDS", "10"))

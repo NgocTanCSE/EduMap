@@ -35,8 +35,10 @@ interface WifiLocation {
   speedLabel?: string;
   lat?: number;
   lng?: number;
-  location?: { type: string; coordinates: [number, number] };
-  coordinates?: [number, number];
+  /** Legacy nested GeoJSON (not returned by the current API). */
+  location?: { type: string; coordinates: [number, number] } | [number, number];
+  /** GeoJSON Point from the `locations` entity — what /api/wifi really returns. */
+  coordinates?: { type: string; coordinates: [number, number] } | [number, number];
 }
 
 /**
@@ -261,17 +263,46 @@ function WifiOverlay({ result }: ToolOverlayProps) {
 
   if (!locations.length) return null;
 
-  /** Coords are already pre-resolved by withWifiMeta in the panel. */
+  /** Resolve [lat, lng] from whatever shape /api/wifi returns.
+   *
+   *  `withWifiMeta()` only adds `is_free` / `speedLabel` — it does NOT resolve
+   *  coordinates. The `locations` entity exposes a single GeoJSON column,
+   *  `coordinates: { type: 'Point', coordinates: [lng, lat] }` (see
+   *  backend/src/modules/map/entities/location.entity.ts), and there are no
+   *  `lat` / `lng` columns at all. Reading only `loc.lat` / `loc.lng` (or a
+   *  nested `loc.location`) made every hotspot resolve to null, so the overlay
+   *  rendered zero markers. */
   const getCoords = (loc: WifiLocation): [number, number] | null => {
-    // Primary: pre-resolved lat/lng
-    if (Number.isFinite(Number(loc.lat)) && Number.isFinite(Number(loc.lng))) {
-      return [Number(loc.lat), Number(loc.lng)];
+    const isValid = (lat: number, lng: number) =>
+      Number.isFinite(lat) && Number.isFinite(lng) &&
+      Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+    // 1) Pre-resolved lat/lng, if a caller already flattened them.
+    const flatLat = Number(loc.lat);
+    const flatLng = Number(loc.lng);
+    if (isValid(flatLat, flatLng)) return [flatLat, flatLng];
+
+    // 2) GeoJSON Point — top-level `coordinates` (the real payload).
+    let geo: any = (loc as any).coordinates ?? (loc as any).location ?? null;
+    if (typeof geo === "string") {
+      try {
+        geo = JSON.parse(geo);
+      } catch {
+        geo = null;
+      }
     }
-    // Fallback: GeoJSON location (top-level coordinates [lng, lat])
-    if (loc.location?.coordinates) {
-      return [loc.location.coordinates[1], loc.location.coordinates[0]];
+    // 2a) Raw [lng, lat] array (SQLite may hand back a plain array/JSON text).
+    if (Array.isArray(geo) && geo.length >= 2) {
+      const lng = Number(geo[0]);
+      const lat = Number(geo[1]);
+      return isValid(lat, lng) ? [lat, lng] : null;
     }
-    // Legacy: loc.lat/lng (already covered above)
+    // 2b) GeoJSON object { type: 'Point', coordinates: [lng, lat] }.
+    if (geo && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
+      const lng = Number(geo.coordinates[0]);
+      const lat = Number(geo.coordinates[1]);
+      return isValid(lat, lng) ? [lat, lng] : null;
+    }
     return null;
   };
 

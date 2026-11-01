@@ -340,6 +340,33 @@ def test_gap_forecast_degraded_when_sparse():
     print(f"✓ degraded gracefully for sparse region: {meta['reason']}")
 
 
+def test_cluster_polygon_returns_polygon_for_three_plus_points():
+    """Regression: `_cluster_polygon` used `np` while numpy was imported only
+    inside `predict_educational_gaps()`, so the DBSCAN hub geometry raised
+    NameError -> swallowed by `except Exception: pass` -> hubs were ALWAYS a
+    Point, never a Polygon."""
+    members = [
+        {"lat": 10.95, "lng": 106.84},
+        {"lat": 10.96, "lng": 106.85},
+        {"lat": 10.94, "lng": 106.86},
+        {"lat": 10.97, "lng": 106.83},
+    ]
+    geom = predictive_service._cluster_polygon(members)
+    assert geom["type"] == "Polygon", f"expected Polygon, got {geom['type']}"
+    ring = geom["coordinates"][0]
+    assert len(ring) >= 4  # closed ring: N hull vertices + the repeated first
+    assert ring[0] == ring[-1], "GeoJSON rings must be closed"
+    # RFC 7946 order is [lng, lat] — a swap would put a value > 90 first.
+    assert all(abs(pt[0]) <= 180 and abs(pt[1]) <= 90 for pt in ring)
+
+
+def test_cluster_polygon_falls_back_to_point_for_two_points():
+    members = [{"lat": 10.95, "lng": 106.84}, {"lat": 10.96, "lng": 106.85}]
+    geom = predictive_service._cluster_polygon(members)
+    assert geom["type"] == "Point"
+    assert len(geom["coordinates"]) == 2
+
+
 if __name__ == "__main__":
     test_get_market_trends_returns_structured_data_not_empty()
     test_get_market_trends_uses_holt_method()
@@ -360,4 +387,6 @@ if __name__ == "__main__":
     test_gap_forecast_respects_steps_ahead()
     test_gap_forecast_dbscan_prefilter_capped()
     test_gap_forecast_degraded_when_sparse()
+    test_cluster_polygon_returns_polygon_for_three_plus_points()
+    test_cluster_polygon_falls_back_to_point_for_two_points()
     print("\n✅ All predictive service tests passed!")

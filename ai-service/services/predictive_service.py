@@ -14,6 +14,16 @@ from datetime import date as _date
 from typing import List, Dict, Any, Optional
 from collections import Counter, defaultdict
 
+# Module-level numpy: `_cluster_polygon()` (convex-hull polygons for DBSCAN
+# hubs) used `np` while numpy was only imported inside
+# `predict_educational_gaps()`. That raised `NameError: np is not defined`,
+# which the surrounding `except Exception: pass` swallowed — so hub geometry
+# was ALWAYS a Point and never a Polygon. Keep the import here, at module level.
+try:
+    import numpy as np  # type: ignore
+except Exception:  # pragma: no cover - numpy is a hard requirement of the service
+    np = None  # type: ignore
+
 class PredictiveService:
     def __init__(self):
         self.db_host = os.getenv("DB_HOST", "localhost")
@@ -826,6 +836,8 @@ class PredictiveService:
         Point at the centroid when < 3 / collinear points."""
         try:
             from scipy.spatial import ConvexHull  # type: ignore
+            if np is None:  # numpy unavailable → fall back to the centroid
+                raise RuntimeError("numpy unavailable")
             pts = np.array([[m["lat"], m["lng"]] for m in members], dtype=float)
             if len(pts) >= 3:
                 hull = ConvexHull(pts)

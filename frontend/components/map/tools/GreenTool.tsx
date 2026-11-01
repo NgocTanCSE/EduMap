@@ -225,7 +225,13 @@ export function GreenOverlay({ result, loading, points, viewport }: ToolOverlayP
       {challenges.map((c) => {
         const lat = Number(c.lat);
         const lng = Number(c.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        // Defensive range guard: a swapped lat/lng pair (e.g. lat=105.83)
+        // made Leaflet's Web-Mercator project to NaN and silently dropped the
+        // marker. Skip anything that cannot be a real coordinate.
+        if (
+          !Number.isFinite(lat) || !Number.isFinite(lng) ||
+          Math.abs(lat) > 90 || Math.abs(lng) > 180
+        ) return null;
         const halo = STATUS_HALO_COLOR[c.status] || STATUS_HALO_COLOR.active;
         const icon = createPinIcon("green", greenBadge(c));
 
