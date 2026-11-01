@@ -54,6 +54,44 @@ backend/src/services/google-ai.service.ts
 backend/backup_modules/
 ai-service/app/
 aggressive_fix.py
+
+# Frontend orphans: files deleted from git that still exist on the Space.
+# Next.js type-checks EVERY file matched by tsconfig's include "**/*.ts(x)",
+# so one orphan importing a removed package fails the build even though
+# nothing imports it (2026-11-01: components/AgentationToolbar.tsx →
+# "Cannot find module 'agentation'"). `frontend/scripts/strip-stale-sources.js`
+# (npm `prebuild`) also deletes these inside the image — this is layer 2.
+frontend/components/AgentationToolbar.tsx
+frontend/components/Header.tsx
+frontend/components/Footer.tsx
+frontend/components/MobileNav.tsx
+frontend/components/TopBar.tsx
+frontend/lib/theme.ts
+frontend/src/lib/plain-text.ts
+frontend/src/services/admin.service.ts
+frontend/src/services/analytics.service.ts
+frontend/src/services/dashboard.service.ts
+frontend/src/services/gamification.service.ts
+frontend/src/services/mobile-unit.service.ts
+frontend/src/services/moderator.service.ts
+frontend/src/services/notification.service.ts
+frontend/app/certificates/page.tsx
+frontend/app/dashboard/saved/page.tsx
+frontend/app/marketplace/books/page.tsx
+frontend/app/notifications/page.tsx
+frontend/app/storage/page.tsx
+frontend/app/moderator/page.tsx
+frontend/app/mobile-unit/page.tsx
+frontend/app/career/quiz/page.tsx
+frontend/app/map/data-hunter/DataHunterMap.tsx
+frontend/app/map/gap-predictor/GapPredictorMap.tsx
+frontend/app/map/geo-vision/GeoVisionMap.tsx
+frontend/app/map/resource-optimizer/ResourceMap.tsx
+frontend/app/map/survey-planner/SurveyPlannerMap.tsx
+frontend/components/climate-guardian/ClimateGuardianMap.tsx
+frontend/next.config.mjs
+frontend/test-app/
+frontend/test-results/
 # Stale ChromaDB data from earlier uploads — *.bin files were excluded by
 # upload_folder ignore_patterns but older .bin files linger on HF Space.
 # A fresh chromadb (cache invalidated) can't read stale data → init hangs.
