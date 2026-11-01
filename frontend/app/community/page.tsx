@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { communityService } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Input } from '@/components/ui/input';

@@ -36,7 +36,7 @@ import {
   Home as HomeIcon, RefreshCw, AlertCircle,
   ChevronLeft, ChevronRight, Heart, ShoppingCart,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { authService } from "@/src/services/auth.service";
 import { useRequireAuth } from "@/src/lib/require-auth";

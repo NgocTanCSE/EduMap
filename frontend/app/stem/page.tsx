@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Atom, Microscope, MapPin, CheckCircle2, MonitorSmartphone, Calendar, Clock, Loader2, Search, ArrowRight, ShieldCheck, Cpu } from 'lucide-react';
 import { stemService, StemLab } from '@/src/services/stem.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';

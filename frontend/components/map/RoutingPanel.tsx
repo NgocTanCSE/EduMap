@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from 'react';
 import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useResizable } from '@/src/hooks/useResizable';

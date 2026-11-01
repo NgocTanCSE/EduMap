@@ -5,7 +5,7 @@ import {
   MapPin, Navigation, Wifi, Star, Clock, Users, Filter, Wind,
   Search, Loader2, SlidersHorizontal, Info, RefreshCw,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import {
   learningSpaceService,

@@ -14,7 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { Leaf, Trophy, Users, MapPin, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { greenService, GreenChallenge } from '@/src/services/green.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';

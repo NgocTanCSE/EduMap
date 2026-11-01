@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, X, Search, MapPin } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 interface VoiceSearchPopupProps {
   open: boolean;

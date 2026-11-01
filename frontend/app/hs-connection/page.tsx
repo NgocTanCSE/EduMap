@@ -4,7 +4,7 @@ import {
     Users, UserPlus, Check, X, Search, MapPin, Loader2, Sparkles, UserCheck
 } from 'lucide-react';
 import { hsConnectionService, NetworkResponse, HSUser } from '@/src/services/hs-connection.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 
 export default function HSConnectionPage() {

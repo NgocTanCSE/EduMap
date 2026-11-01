@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { HeartHandshake, Clock, ShieldCheck, Plus, Calendar, FileText, Loader2, CheckCircle2, Award, X } from 'lucide-react';
 import { volunteerService, VolunteerActivity } from '@/src/services/volunteer.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';

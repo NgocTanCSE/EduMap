@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { ClipboardList, ArrowRight, Loader2, Calendar, FileText } from 'lucide-react';
 import { surveyService, Survey } from '@/src/services/survey.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 
 export default function SurveysPage() {

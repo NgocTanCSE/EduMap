@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
 import FileUpload from '@/src/components/ui/FileUpload';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';
 import ContentShell from '@/components/ui/ContentShell';

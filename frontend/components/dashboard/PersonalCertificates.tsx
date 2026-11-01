@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Award, Download, Hash, ShieldCheck, RefreshCw } from 'lucide-react';
 import { certificateService } from '@/src/services/certificate.service';
 import { CardSkeleton } from '@/src/components/ui/Skeleton';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 type Certificate = {
   id: string;

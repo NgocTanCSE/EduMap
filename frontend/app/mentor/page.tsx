@@ -6,7 +6,7 @@ import { Search, Star, Sparkles, UserCheck, Calendar, BrainCircuit, Loader2 } fr
 import { mentorService } from '@/src/services/mentor.service';
 import { authService } from '@/src/services/auth.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';

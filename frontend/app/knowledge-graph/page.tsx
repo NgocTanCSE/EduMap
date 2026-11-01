@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { authService } from "@/src/services/auth.service";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {

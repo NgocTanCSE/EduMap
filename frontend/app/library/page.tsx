@@ -17,7 +17,7 @@ import {
 import Link from 'next/link';
 import { libraryService } from '@/src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';

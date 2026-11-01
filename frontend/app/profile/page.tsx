@@ -10,7 +10,7 @@ import { authService, CurrentUser } from '@/src/services/auth.service';
 import { gamificationService, UserProgress, LeaderboardUser } from '@/reporting/services/gamification.service';
 import { storageService } from '@/src/services/storage.service';
 import FileUpload from '@/src/components/ui/FileUpload';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 

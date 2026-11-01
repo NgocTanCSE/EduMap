@@ -30,7 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
 import EmptyState from "@/components/ui/EmptyState";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import {
   resourceExchangeService,

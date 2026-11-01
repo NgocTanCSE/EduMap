@@ -7,7 +7,7 @@ import {
   type Notification,
 } from '@/reporting/services/notification.service';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 export function PersonalNotifications() {
   const { isLoggedIn, loading: authLoading } = useAuth();

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
 import { authService, CurrentUser } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Pagination from '@/components/ui/Pagination';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 

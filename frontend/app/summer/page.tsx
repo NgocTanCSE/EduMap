@@ -10,7 +10,7 @@ import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 export default function SummerCampaignsPage() {
   const [campaigns, setCampaigns] = useState<SummerCampaign[]>([]);

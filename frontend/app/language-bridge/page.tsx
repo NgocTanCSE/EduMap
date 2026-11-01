@@ -6,7 +6,7 @@ import {
   Send, Sparkles, AlertCircle, RefreshCw, Download, ExternalLink,
   Languages, FileText, Info, Check, X, Copy, RotateCcw, VolumeX
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { logger } from '@/lib/logger';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { useRequireAuth } from '@/src/lib/require-auth';

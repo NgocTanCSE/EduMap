@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff, Trash2, Sparkles, Compass, Lightbulb, GraduationCap, Atom } from "lucide-react";
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { authService } from '@/src/services/auth.service';
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 

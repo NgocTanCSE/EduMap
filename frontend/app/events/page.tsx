@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, MapPin, Users, ArrowRight, Plus, ExternalLink } from 'lucide-react';
 import { eventsService, Event } from '@/src/services/events.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';

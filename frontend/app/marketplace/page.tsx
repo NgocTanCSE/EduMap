@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Search, Loader2, Share2, Plus, MessageSquare, Box } from 'lucide-react';
 import { shareService, SharedItem } from '@/src/services/share.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';
 import { avatarFallback, marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';

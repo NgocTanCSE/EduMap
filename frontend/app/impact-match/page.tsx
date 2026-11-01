@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { impactMatchService, SponsorNeed, SponsorProfile, MatchResult, RankMatchesResponse } from '@/src/services/impact-match.service';
 import { authService } from '@/src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';

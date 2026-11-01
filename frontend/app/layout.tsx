@@ -64,7 +64,13 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/20 antialiased`}>
         <LanguageProvider>
           <AuthProvider>
-            <Toaster richColors position="top-right" closeButton />
+            {/* Notifications are OFF project-wide (2026-11-01). Flip
+                NEXT_PUBLIC_TOASTS_ENABLED=true (HF Space → Settings →
+                Variables) to bring the popups back — see src/lib/toast.ts,
+                which is where every toast call is routed. */}
+            {process.env.NEXT_PUBLIC_TOASTS_ENABLED === 'true' && (
+              <Toaster richColors position="top-right" closeButton />
+            )}
             {/* ClientProviders boots the socket.io realtime client (notifications)
                 so it is connected for the lifetime of the app shell. */}
             <ClientProviders>

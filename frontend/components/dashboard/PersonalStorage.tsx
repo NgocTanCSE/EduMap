@@ -14,7 +14,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { storageService, type UserFile } from '@/src/services/storage.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 function formatSize(sizeKb: number): string {
   if (!Number.isFinite(sizeKb) || sizeKb <= 0) return '0 KB';

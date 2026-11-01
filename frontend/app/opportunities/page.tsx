@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Target, Search, MapPin, Calendar, Users, ArrowRight, Loader2, Compass } from 'lucide-react';
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

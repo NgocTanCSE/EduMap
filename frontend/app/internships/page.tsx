@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { internshipService, Internship } from '@/src/services/internship.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import SearchInput from '@/components/ui/SearchInput';
