@@ -1115,3 +1115,39 @@ Intervals are env-tunable per-task (e.g. `AUTO_INTERVAL_QUESTION_GAPS_S`):
   covering AutoCache, task registry, AutoScheduler, task implementations, and
   GET endpoints via TestClient). Full suite: 478 passed.
 
+
+## 13. Chat streaming never answers 503 (2026-11-01)
+
+Production log (first request after a Space rebuild):
+
+```
+WARN  [AIService] AI service not ready (attempt 1/7), retrying in 3s...
+...
+ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
+```
+
+- **Cause.** `AIService.chatStream()` retried the ai-service 7 times × 3 s.
+  The ai-service was not listening yet (container just restarted), so every
+  attempt failed instantly with `ECONNREFUSED` and the request sat silent for
+  ~18 s before returning `503 {"message":"AI streaming service is unavailable."}`.
+  The browser then showed an empty chat bubble + an error toast — the exact
+  outcome the "never 502/503" rule forbids.
+- **Fix (backend only, no frontend change).**
+  - The retry window is now env-tunable and much shorter:
+    `AI_STREAM_RETRY_ATTEMPTS` (default **3**) × `AI_STREAM_RETRY_DELAY_MS`
+    (default **2000**) ≈ 6 s worst case.
+  - When the window is exhausted, `_writeDegradedStream()` answers **HTTP 200
+    + a complete SSE conversation** (`{meta,sources}` → `{token,is_final}` →
+    `{done:true}`) built from `_degradedStreamReply()`: an honest Vietnamese
+    message that says the AI container is starting (HF free tier needs ~30–60 s
+    after a reload) and asks the user to retry in a minute.
+  - The degraded turn is persisted to `chat_histories` (fire-and-forget) with
+    `context.degraded = true`, so the next successful request still has context.
+  - `agentChatStream()` (`/api/ai/agent/chat-stream`) uses the same helper and
+    the same SSE contract; it previously also ended in a 503.
+- **Regression test**: `backend/src/modules/ai/ai.service.spec.ts` →
+  "should degrade to a template SSE reply (never 503)" asserts `res.status(200)`,
+  no `res.json()`, reassembled tokens contain the Vietnamese guidance, and the
+  degraded history row is saved. Backend `tsc --noEmit` = 0.
+- A first request during a cold start now renders a normal assistant bubble
+  with an explanation instead of an error after a long silence.

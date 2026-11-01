@@ -248,25 +248,60 @@ describe('AIService', () => {
       );
     });
 
-    // With the increased retry count (7 attempts × 3s backoff), a fully
-    // unreachable ai-service takes ~18s before giving up with 503.
-    // Jest's default 5s timeout is insufficient — use 30s to accommodate
-    // the retry-with-backoff logic tuned for HF Spaces cold-start scenarios.
-    it('should return 503 when the ai-service is unreachable', async () => {
+    // Cold start: the retry window is now short (3 × 2s by default) and the
+    // request degrades to a template SSE reply instead of a 503, so this test
+    // finishes in seconds rather than waiting on 7 × 3s of backoff.
+    it('should degrade to a template SSE reply (never 503) when the ai-service is unreachable', async () => {
+      const previousAttempts = process.env.AI_STREAM_RETRY_ATTEMPTS;
+      const previousDelay = process.env.AI_STREAM_RETRY_DELAY_MS;
+      process.env.AI_STREAM_RETRY_ATTEMPTS = '1';
+      process.env.AI_STREAM_RETRY_DELAY_MS = '0';
       (httpService.axiosRef.post as jest.Mock).mockRejectedValue(
         new Error('connect ECONNREFUSED 127.0.0.1:8000'),
       );
+
+      const mockHistoryRepo = {
+        create: jest.fn().mockReturnValue({}),
+        save: jest.fn().mockResolvedValue({}),
+      };
+      (service as any).historyRepo = mockHistoryRepo;
 
       const mockRes = createMockRes();
 
       await service.chatStream('test', [], {}, 'user-123', mockRes);
 
-      expect(mockRes.status).toHaveBeenCalledWith(503);
-      expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'AI streaming service is unavailable.',
-        }),
-      );
+      // No error status: the browser must see a normal 200 SSE conversation.
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).not.toHaveBeenCalled();
+
+      const written = (mockRes.write as jest.Mock).mock.calls.map((c) => c[0]).join('');
+      expect(written).toContain('"meta":true');
+      expect(written).toContain('"done":true');
+      expect(written).toContain('"token"');
+      // Tokens are streamed word-by-word, so reassemble them before asserting.
+      const text = written
+        .split('\n\n')
+        .map((event) => event.replace(/^data: /, '').trim())
+        .filter(Boolean)
+        .map((json) => {
+          try {
+            return JSON.parse(json).token || '';
+          } catch {
+            return '';
+          }
+        })
+        .join('');
+      // The user gets an actionable Vietnamese message, not an empty bubble.
+      expect(text).toContain('thử lại sau khoảng 1 phút');
+      expect(text).toContain('Xin lỗi');
+      expect(mockRes.end).toHaveBeenCalled();
+      // The degraded turn is persisted so the session keeps its context.
+      expect(mockHistoryRepo.save).toHaveBeenCalledTimes(1);
+
+      if (previousAttempts === undefined) delete process.env.AI_STREAM_RETRY_ATTEMPTS;
+      else process.env.AI_STREAM_RETRY_ATTEMPTS = previousAttempts;
+      if (previousDelay === undefined) delete process.env.AI_STREAM_RETRY_DELAY_MS;
+      else process.env.AI_STREAM_RETRY_DELAY_MS = previousDelay;
     }, 30000);
 
     it('should NOT save history when userId is empty', async () => {

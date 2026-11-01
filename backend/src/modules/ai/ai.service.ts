@@ -308,6 +308,128 @@ export class AIService {
   }
 
   /**
+   * Cold-start retry budget for the streaming proxies.
+   *
+   * The previous hard-coded 7 attempts × 3s backoff meant a request that hit a
+   * restarting ai-service sat silent for ~18s and then answered
+   * `503 {"message":"AI streaming service is unavailable."}` — an empty chat
+   * bubble plus an error toast, which is exactly what the project forbids.
+   *
+   * The window is now ~6s (3 × 2s) and, once it is exhausted, the proxy
+   * answers with a normal SSE stream carrying a template reply (HTTP 200)
+   * instead of an error. Both values are env-tunable so the window can be
+   * widened without a code change if HF cold starts get slower.
+   */
+  private _streamRetryConfig(): { attempts: number; delayMs: number } {
+    const attempts = Number(process.env.AI_STREAM_RETRY_ATTEMPTS ?? 3);
+    const delayMs = Number(process.env.AI_STREAM_RETRY_DELAY_MS ?? 2000);
+    return {
+      attempts: Number.isFinite(attempts) && attempts >= 1 ? Math.floor(attempts) : 3,
+      delayMs: Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 2000,
+    };
+  }
+
+  /**
+   * Plain-text (no markdown) degraded reply used when the ai-service cannot be
+   * reached at all. Kept in the backend so the user still receives an answer
+   * when FastAPI is down / restarting — the whole point of the "never 502/503"
+   * rule. The wording tells the user what happened and what to do next.
+   */
+  private _degradedStreamReply(message: string, reason: string, agent = false): string {
+    const question = (message || '').trim();
+    const shortQuestion =
+      question.length > 140 ? `${question.slice(0, 140)}…` : question;
+    const isColdStart =
+      /ECONNREFUSED|ECONNRESET|EAI_AGAIN|socket hang up|connect /i.test(reason);
+    const cause = isColdStart
+      ? 'Máy chủ AI đang khởi động lại (Hugging Face free tier cần khoảng 30–60 giây sau mỗi lần nạp lại).'
+      : 'Dịch vụ AI đang tạm thời quá tải.';
+
+    if (agent) {
+      return [
+        `Xin lỗi, trợ lý bản đồ AI hiện chưa phản hồi được. ${cause}`,
+        '',
+        shortQuestion ? `Câu hỏi đã ghi nhận: "${shortQuestion}"` : '',
+        'Bạn thử lại sau khoảng 1 phút. Trong lúc chờ, lớp dữ liệu trên bản đồ vẫn tra cứu được bình thường.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    return [
+      `Xin lỗi, trợ lý AI hiện chưa phản hồi được. ${cause}`,
+      '',
+      shortQuestion ? `Câu hỏi đã ghi nhận: "${shortQuestion}"` : '',
+      'Bạn vui lòng thử lại sau khoảng 1 phút. Trong lúc chờ, bạn vẫn dùng được các mục: Bản đồ, Học bổng, Việc làm – Thực tập, Tài liệu học tập.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  /**
+   * Emit a complete SSE conversation (metadata → tokens → done) from the
+   * backend itself, so the browser renders a normal assistant bubble when the
+   * ai-service is unreachable instead of surfacing HTTP 503.
+   *
+   * The SSE shape is identical to the ai-service one
+   * (`{meta, sources}`, `{token, is_final}`, `{done: true}`) so the existing
+   * frontend parser needs no change.
+   */
+  private _writeDegradedStream(
+    res: any,
+    reply: string,
+    opts: { sources?: any[]; userId?: string; message?: string; context?: any; sessionId?: string } = {},
+  ): void {
+    const { sources = [], userId, message, context, sessionId } = opts;
+    try {
+      // 200 + text/event-stream: the controller already set the SSE headers,
+      // this only makes sure nothing downstream overrides them with an error
+      // status (headers are not sent until the first write).
+      if (typeof res.status === 'function') res.status(200);
+      if (!res.headersSent) {
+        res.setHeader?.('Content-Type', 'text/event-stream');
+        res.setHeader?.('Cache-Control', 'no-cache');
+        res.setHeader?.('Connection', 'keep-alive');
+        res.setHeader?.('X-Accel-Buffering', 'no');
+      }
+
+      res.write(`data: ${JSON.stringify({ sources, meta: true })}\n\n`);
+      const tokens = reply.match(/\S+\s*/g) || [reply];
+      for (const token of tokens) {
+        res.write(`data: ${JSON.stringify({ token, is_final: false })}\n\n`);
+      }
+      res.write(`data: ${JSON.stringify({ token: '', is_final: true, done: true })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    } catch (writeError: any) {
+      this.logger.warn(`Unable to write degraded SSE reply: ${writeError?.message}`);
+    } finally {
+      try {
+        res.end();
+      } catch {
+        /* response already closed */
+      }
+    }
+
+    // Persist the degraded turn so the conversation does not lose context on
+    // the next (successful) request. Fire-and-forget, like the happy path.
+    if (userId && message && reply) {
+      this.historyRepo
+        .save(
+          this.historyRepo.create({
+            userId,
+            message,
+            response: reply,
+            context: { ...(context || {}), sources, degraded: true, session_id: sessionId },
+          }),
+        )
+        .catch((saveError: any) =>
+          this.logger.error(`Error saving degraded chat history: ${saveError.message}`),
+        );
+      if (sessionId) this.sessionMemory.addTurn(sessionId, message, reply);
+    }
+  }
+
+  /**
    * SSE streaming proxy — pipes the ai-service /chat/stream response directly
    * to the NestJS response object so tokens arrive real-time on the frontend.
    *
@@ -361,9 +483,12 @@ export class AIService {
     // Retry loop: ai-service may be restarting after an HF Spaces secret change
     // (Space restart causes ~30-60s downtime) or may still be initializing
     // (Python imports + ChromaDB seeding + LLM provider preflight can take
-    // 10-15s on a cold start). Retry up to 7 times with 3s backoff before
-    // giving up with 503 — the previous 3×2s (6s) was too short for HF Spaces
-    // cold starts, causing spurious 503s on first user request after deploy.
+    // 10-15s on a cold start).
+    //
+    // The budget is deliberately SHORT now (default 3 attempts × 2s ≈ 6s):
+    // waiting longer does not help a 30-60s cold start and it used to end in a
+    // 503 anyway. Once the window is exhausted the request is answered with a
+    // degraded SSE template reply (HTTP 200) — see _writeDegradedStream().
     let lastError: any;
     let response: any;
 
@@ -375,13 +500,12 @@ export class AIService {
     const streamPaths = ['/api/ai/chat/stream', '/chat/stream'];
     let pathIndex = 0;
 
-    const maxRetries = 7;
+    const { attempts: maxRetries, delayMs: retryDelayMs } = this._streamRetryConfig();
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const streamPath = streamPaths[pathIndex];
       try {
         // Per-attempt timeout: 10s (was 15s). A hung ai-service should not
-        // block the stream for 15s per retry; 10s × 7 ≈ 70s ceiling which
-        // still fits within typical reverse-proxy timeouts.
+        // block the stream for 15s per retry.
         response = await this.httpService.axiosRef.post(
           `${this.aiServiceUrl}${streamPath}`,
           { message, history, context: systemContext, user_id: userId },
@@ -421,22 +545,37 @@ export class AIService {
 
         if (attempt < maxRetries && isRetryable) {
           this.logger.warn(
-            `AI service not ready (attempt ${attempt}/${maxRetries}), retrying in 3s...`,
+            `AI service not ready (attempt ${attempt}/${maxRetries}), retrying in ${retryDelayMs}ms...`,
           );
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, retryDelayMs));
           continue;
         }
-        // Non-retryable error or exhausted retries
+        // Non-retryable error or exhausted retries → degrade instead of 503.
+        // The browser gets a full SSE conversation ending with done:true, so
+        // the chat bubble shows an honest Vietnamese explanation rather than
+        // an error toast (project rule: never surface 502/503 to the user).
+        const detail =
+          lastError.response?.data?.detail ||
+          lastError.response?.data?.message ||
+          lastError.message ||
+          'Connection refused — ai-service may be restarting.';
+        this.logger.warn(
+          `AI streaming unavailable after ${maxRetries} attempt(s) — sending degraded reply: ${detail}`,
+        );
         if (!res.headersSent) {
-          const detail =
-            lastError.response?.data?.detail ||
-            lastError.response?.data?.message ||
-            lastError.message ||
-            'Connection refused — ai-service may be restarting.';
-          res.status(503).json({
-            message: 'AI streaming service is unavailable.',
-            detail: detail,
+          this._writeDegradedStream(res, this._degradedStreamReply(message, String(detail)), {
+            sources: [],
+            userId,
+            message,
+            context: systemContext,
+            sessionId: sid,
           });
+        } else {
+          try {
+            res.end();
+          } catch {
+            /* already closed */
+          }
         }
         return;
       }
@@ -638,7 +777,7 @@ export class AIService {
 
     let response: any;
     let lastError: any;
-    const maxRetries = 7;
+    const { attempts: maxRetries, delayMs: retryDelayMs } = this._streamRetryConfig();
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         response = await this.httpService.axiosRef.post(
@@ -659,21 +798,33 @@ export class AIService {
 
         if (attempt < maxRetries && isRetryable) {
           this.logger.warn(
-            `AI agent streaming not ready (attempt ${attempt}/${maxRetries}), retrying in 3s...`,
+            `AI agent streaming not ready (attempt ${attempt}/${maxRetries}), retrying in ${retryDelayMs}ms...`,
           );
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, retryDelayMs));
           continue;
         }
+        // Degrade to a local SSE reply instead of a 503 (same contract as
+        // chatStream — the agent panel parses {token, is_final, done}).
+        const detail =
+          lastError.response?.data?.detail ||
+          lastError.response?.data?.message ||
+          lastError.message ||
+          'AI agent streaming service is currently unavailable.';
+        this.logger.warn(
+          `AI agent streaming unavailable after ${maxRetries} attempt(s) — sending degraded reply: ${detail}`,
+        );
         if (!res.headersSent) {
-          const detail =
-            lastError.response?.data?.detail ||
-            lastError.response?.data?.message ||
-            lastError.message ||
-            'AI agent streaming service is currently unavailable.';
-          res.status(503).json({
-            message: 'AI agent streaming service is unavailable.',
-            detail,
-          });
+          this._writeDegradedStream(
+            res,
+            this._degradedStreamReply(message, String(detail), true),
+            { sources: [], userId, message, context: systemContext, sessionId: sid },
+          );
+        } else {
+          try {
+            res.end();
+          } catch {
+            /* already closed */
+          }
         }
         return;
       }
