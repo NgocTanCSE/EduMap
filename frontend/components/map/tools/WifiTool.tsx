@@ -15,7 +15,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Wifi, MapPin, Navigation, Eye, EyeOff, RefreshCw, AlertCircle, CheckCircle2, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";

@@ -20,7 +20,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/src/components/ui/Skeleton";

@@ -26,7 +26,7 @@ const Popup: any = nextDynamic(
 );
 import 'leaflet/dist/leaflet.css';
 import { adminService, Anomaly, DataQualityReport } from '@/reporting/services/admin.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 // ── Category filter options ────────────────────────────────────────────────
 const CATEGORY_OPTIONS: Array<{ value: string; label: string }> = [

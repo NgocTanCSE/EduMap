@@ -13,7 +13,7 @@ import {
   Loader2,
   Sparkles
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { authService } from '@/src/services/auth.service';
 import { CareerTabBar } from '@/components/career/CareerTabBar';
 

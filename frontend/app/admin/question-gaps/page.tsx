@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { adminService, QuestionGapReport, QuestionGapCluster, QuestionGapItem } from '@/reporting/services/admin.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import {
   BrainCircuit, RefreshCw, Search, BarChart3, AlertTriangle,
   FileText, Tag, TrendingUp, Database, Clock, CheckCircle,

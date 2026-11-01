@@ -14,7 +14,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function JobDetailPage() {

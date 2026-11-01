@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { certificateService } from '@/src/services/certificate.service';
 import { ShieldCheck, Printer, Download, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 export default function VerifyCertificatePage() {
   const params = useParams();

@@ -12,7 +12,7 @@ import {
   ShoppingCart,
   Tag,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import {
   AuthRequiredError,
   businessService,

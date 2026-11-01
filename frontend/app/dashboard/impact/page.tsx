@@ -5,7 +5,7 @@ import {
   BarChart3, RefreshCw, Download, CheckCircle2, TrendingUp,
   MapPin, Users, Clock, Award,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { useRequireAuth } from "@/src/lib/require-auth";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";

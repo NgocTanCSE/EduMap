@@ -12,7 +12,7 @@ import {
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
 import {
   AuthRequiredError,

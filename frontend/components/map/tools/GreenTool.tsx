@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Leaf, CheckCircle2, Clock, Users, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";

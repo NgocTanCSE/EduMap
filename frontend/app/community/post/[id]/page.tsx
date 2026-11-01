@@ -8,7 +8,7 @@ import {
 import Link from 'next/link';
 import { communityService, Post, Comment } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 
 export default function PostDetailPage({ params }: { params: { id: string } }) {

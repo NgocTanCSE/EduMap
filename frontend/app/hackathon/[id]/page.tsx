@@ -4,7 +4,7 @@ import { Code, Users, Calendar, Trophy, ArrowLeft, Loader2, CheckCircle2, FileCo
 import Link from 'next/link';
 import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 

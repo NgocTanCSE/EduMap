@@ -4,7 +4,7 @@ import { Target, MapPin, Calendar, Users, ArrowLeft, Loader2, Share2, Compass, T
 import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
 import { authService } from '@/src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 import Thumb from '@/components/ui/Thumb';
 import { opportunityIllustration } from '@/src/lib/illustrations';

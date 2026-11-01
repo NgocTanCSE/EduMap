@@ -14,7 +14,7 @@ import {
   BrainCircuit, RefreshCw, AlertCircle, Info, ExternalLink,
   CheckCircle2, Flame, BarChart3, MapPin,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";

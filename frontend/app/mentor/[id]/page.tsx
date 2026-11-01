@@ -6,7 +6,7 @@ import { mentorService } from '@/src/services/mentor.service';
 import { authService } from '@/src/services/auth.service';
 import { Star, Calendar, Clock, Award, Briefcase, ArrowLeft, CheckCircle2, X, Video } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Button } from '@/components/ui/button';
 

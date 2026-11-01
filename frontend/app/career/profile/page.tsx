@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
 import { BrainCircuit, Loader2, Plus, Target, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
 

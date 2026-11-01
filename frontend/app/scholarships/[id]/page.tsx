@@ -8,7 +8,7 @@ import {
 import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
 import { authService } from '@/src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card } from '@/components/ui/card';

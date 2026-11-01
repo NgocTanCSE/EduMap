@@ -4,7 +4,7 @@ import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { Users, Calendar, Share2, ShieldCheck, ArrowRight, MessageCircle, Loader2 } from 'lucide-react';
 import { donateService, DonationCampaign } from '@/src/services/donate.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

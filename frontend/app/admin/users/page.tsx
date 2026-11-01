@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { adminService, User } from '@/reporting/services/admin.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { 
   Users, Search, MoreVertical, CheckCircle, XCircle, 
   AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter

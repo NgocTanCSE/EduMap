@@ -15,7 +15,7 @@ import React, { useState, useCallback, useRef } from "react";
 import {
   Mic, MicOff, Send, MapPin, Clock, Loader2, AlertCircle, Info,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";
 import { Marker, Popup } from "react-leaflet";

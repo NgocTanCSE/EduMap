@@ -6,7 +6,7 @@ import {
 import Link from 'next/link';
 import { internshipService, Internship } from '@/src/services/internship.service';
 import { authService } from '@/src/services/auth.service';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 

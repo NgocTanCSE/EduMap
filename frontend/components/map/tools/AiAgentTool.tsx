@@ -12,7 +12,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Bot, Send, Wrench, FileText, Loader2, MapPin, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { Marker, Popup } from "react-leaflet";

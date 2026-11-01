@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { eventsService, Event, EventRegistrationResponse } from '@/src/services/events.service';
 import { authService } from '@/src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';
 import { eventIllustration } from '@/src/lib/illustrations';
 import { Card, CardContent } from '@/components/ui/card';

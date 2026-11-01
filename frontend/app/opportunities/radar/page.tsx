@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { authService } from '@/src/services/auth.service';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';

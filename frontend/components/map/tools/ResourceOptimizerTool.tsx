@@ -14,7 +14,7 @@ import {
   BrainCircuit, Banknote, RefreshCw, AlertCircle, Info,
   MapPin, CheckCircle2, BarChart3, Layers, ThermometerSun,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/src/lib/toast";
 import { logger } from "@/lib/logger";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";

@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from "@/src/lib/toast";
 
 /**
  * Share a page through the native share sheet when available, otherwise copy
