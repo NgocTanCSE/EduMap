@@ -16,6 +16,13 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   disable: process.env.NODE_ENV === "development",
   workboxOptions: {
     disableDevLogs: true,
+    // Take the new service worker over immediately. Without this, a browser
+    // that already has the previous SW keeps serving the OLD JS bundle for the
+    // whole session (that is why a fixed UI still looked broken after a
+    // deploy), and the outdated precache entries are never evicted.
+    skipWaiting: true,
+    clientsClaim: true,
+    cleanupOutdatedCaches: true,
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/.*/i,
