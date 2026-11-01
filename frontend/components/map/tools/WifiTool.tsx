@@ -22,7 +22,7 @@ import { unwrapApiResponse } from "@/src/lib/api-utils";
 import { Marker, Popup, Circle, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
-import { createPinIcon, type PinBadge } from "./PinTheme";
+import { createPinIcon, type PinBadge } from "../PinTheme";
 
 interface WifiLocation {
   id: string;
@@ -95,7 +95,7 @@ const getFreeColor = (isFree: boolean): string => isFree ? "#10b981" : "#f59e0b"
 
 // ─── Panel ──────────────────────────────────────────────────────────────────
 
-export function WifiPanel({
+function WifiPanel({
   viewport, result, onResult, loading, setLoading, error, setError,
   active, user,
 }: ToolPanelProps) {

@@ -16,7 +16,7 @@
 "use client";
 
 import React from "react";
-import { Marker, Popup, Tooltip } from "react-leaflet";
+import { Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import {
   Star, MapPin, Atom, Leaf, GraduationCap, Wifi, Heart, ShoppingCart,
@@ -150,7 +150,7 @@ export function FeaturedPinsLayer({
     <MarkerClusterGroup
       chunkedLoading
       disableClusteringAtZoom={16}
-      iconCreateFunction={(cluster) => {
+      iconCreateFunction={(cluster: { getChildCount: () => number }) => {
         const count = cluster.getChildCount();
         return createClusterIcon(count);
       }}

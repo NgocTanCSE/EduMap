@@ -179,7 +179,7 @@ function renderIconComponentToHtml(Component: LucideIcon, className = "w-3 h-3")
 
 // ── divIcon construction ────────────────────────────────────────────────────
 
-const _divIconCache = new Map<string, L.divIcon>();
+const _divIconCache = new Map<string, L.DivIcon>();
 
 /**
  * Build (or retrieve from cache) a Leaflet `L.divIcon` for a given pin theme.
@@ -192,7 +192,7 @@ export function createPinIcon(
   category: string,
   badge?: PinBadge,
   size?: PinSize,
-): L.divIcon {
+): L.DivIcon {
   const theme = getPinTheme(category);
   const sz = size || theme.size;
   const px = PIN_SIZE_PX[sz];
@@ -231,13 +231,13 @@ export function createPinIcon(
 
 // ── Cluster icon ─────────────────────────────────────────────────────────────
 
-const _clusterIconCache = new Map<string, L.divIcon>();
+const _clusterIconCache = new Map<string, L.DivIcon>();
 
 /**
  * Create a cluster icon with a count badge, using the project's colour theme.
  * Returns a cached divIcon per count-threshold bucket.
  */
-export function createClusterIcon(count: number): L.divIcon {
+export function createClusterIcon(count: number): L.DivIcon {
   const tier = count < 10 ? "sm" : count < 100 ? "md" : "lg";
   const key = `cluster-${tier}-${count}`;
   const cached = _clusterIconCache.get(key);

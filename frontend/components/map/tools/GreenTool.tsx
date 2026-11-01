@@ -20,7 +20,7 @@ import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { Marker, Popup, Tooltip, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
-import { createPinIcon, createClusterIcon, type PinBadge } from "./PinTheme";
+import { createPinIcon, createClusterIcon, type PinBadge } from "../PinTheme";
 
 interface GreenChallenge {
   id: string;
@@ -187,7 +187,7 @@ export function GreenPanel({
                   <Users className="w-3 h-3" /> {c.participants_count} người
                 </div>
               )}
-              {c.points > 0 && (
+              {(c.points ?? 0) > 0 && (
                 <p className="text-muted-foreground/60 mt-0.5">
                   • {c.points} điểm
                 </p>
@@ -272,7 +272,7 @@ export function GreenOverlay({ result, loading, points, viewport }: ToolOverlayP
                       {c.participants_count} người tham gia
                     </div>
                   )}
-                  {c.points > 0 && (
+                  {(c.points ?? 0) > 0 && (
                     <div className="text-xs text-muted-foreground/70">
                       • {c.points} điểm
                     </div>

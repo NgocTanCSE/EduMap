@@ -139,9 +139,9 @@ export function FeaturedPinPopup({
               </div>
             </div>
           )}
-          {pin.speedLabel && (
+          {pin.speed_label && (
             <div className="p-2.5 rounded-lg bg-blue-50/20 border border-blue-600/20">
-              <div className="font-bold text-blue-600">{pin.speedLabel}</div>
+              <div className="font-bold text-blue-600">{pin.speed_label}</div>
               <div className="text-xs text-muted-foreground/70">
                 {pin.is_free ? "Miễn phí" : "Trả tiền"}
               </div>
