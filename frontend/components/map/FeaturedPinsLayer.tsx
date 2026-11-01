@@ -16,14 +16,13 @@
 "use client";
 
 import React from "react";
-import { Marker, Popup, Tooltip, useMap } from "react-leaflet";
+import { Marker, Tooltip, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import {
   Star, MapPin, Atom, Leaf, GraduationCap, Wifi, Heart, ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import { createPinIcon, createClusterIcon, type PinBadge } from "./PinTheme";
-import { MapPopupContent } from "@/components/ui/MapPopupContent";
 
 export interface FeaturedPin {
   id: string;
@@ -167,7 +166,11 @@ export function FeaturedPinsLayer({
             position={[lat, lng]}
             icon={icon}
             eventHandlers={{
-              click: () => {
+              click: (e) => {
+                // Stop the DOM event reaching the map container: otherwise
+                // MapClickHandler fires too and the "Ghim vị trí mới" modal
+                // opens behind FeaturedPinPopup (double overlay = blurred UI).
+                e.originalEvent?.stopPropagation?.();
                 if (onPinClick) onPinClick(pin);
                 // Center the map on the pin for a smooth UX.
                 map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true });
@@ -179,25 +182,10 @@ export function FeaturedPinsLayer({
                 <span className="font-bold text-xs text-foreground">{pin.name}</span>
               </Tooltip>
             )}
-            <Popup>
-              <MapPopupContent
-                title={pin.name}
-                address={pin.address}
-                description={pin.description}
-                categoryTag={pin.category}
-                featureLink={pin.featureLink}
-                showVerified={pin.is_verified}
-                poiId={pin.id}
-                // Pass extra data fields for richer popups
-                {...(pin.carbon_saved_kg !== undefined && { carbonSaved: pin.carbon_saved_kg })}
-                {...(pin.participants_count !== undefined && { participants: pin.participants_count })}
-                {...(pin.points !== undefined && { points: pin.points })}
-                {...(pin.current_amount !== undefined && pin.target_amount !== undefined && {
-                  currentAmount: pin.current_amount,
-                  targetAmount: pin.target_amount,
-                })}
-              />
-            </Popup>
+            {/* No in-map <Popup> for featured pins: the click already opens
+                FeaturedPinPopup (richer: provenance, bookmark, metrics).
+                Rendering both left a second dialog stacked behind the modal,
+                which is what looked "mờ" on /map. */}
           </Marker>
         );
       })}

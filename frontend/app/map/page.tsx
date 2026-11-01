@@ -702,13 +702,16 @@ export default function MapPage() {
   );
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
+    // A featured-pin dialog is open — a stray map click must not stack the
+    // "Ghim vị trí mới" modal on top of it (that produced the blurred screen).
+    if (selectedFeaturedPin) return;
     if (!authService.isLoggedIn()) {
       toast("Vui lòng đăng nhập để ghim vị trí mới", { description: "Chuyển hướng đến trang đăng nhập Google" });
       return;
     }
     setPinningCoord({ lat, lng });
     setPinForm({ name: "", category: "school", description: "", address: "" });
-  }, []);
+  }, [selectedFeaturedPin]);
 
   const handleSelectFixedLocation = (loc: Location) => {
     setPinningCoord({ lat: loc.lat, lng: loc.lng });

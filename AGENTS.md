@@ -937,6 +937,24 @@ Verification: `python3 -m py_compile` OK on all modified files;
   Verified: `npx tsc --noEmit`=0 (frontend), `npx tsc --noEmit`=0 (backend),
   `py_compile` OK, `pytest`=451 passed.
 
+- **Featured (star) pin blur fix (2026-11-01):** clicking a featured "ghim" (e.g.
+  "Trường Đại học Công nghệ Đồng Nai (DNTU)") made the whole map/UI look
+  "mờ" (blurred). Two layers were painting at once:
+  1. `FeaturedPinsLayer` rendered an in-map Leaflet `<Popup>` (MapPopupContent)
+     for every star pin **and** `onPinClick` opened `FeaturedPinPopup`;
+  2. `FeaturedPinPopup`'s overlay was `bg-black/60 **backdrop-blur-sm**` — a
+     full-viewport backdrop blur that blurred the map and the second dialog
+     behind it.
+  Fixes: (a) featured markers no longer render the in-map `<Popup>` (the modal
+  is the detail view; the hover `<Tooltip>` still labels the pin); (b) the
+  overlay is now `bg-black/50` with **no backdrop-blur**; (c)
+  `FeaturedPinsLayer`'s marker `click` calls
+  `e.originalEvent.stopPropagation()` so `MapClickHandler` cannot also open the
+  "Ghim vị trí mới" form; (d) `handleMapClick` in `app/map/page.tsx` early
+  returns while `selectedFeaturedPin` is set (belt-and-braces against stacked
+  modals). `MapPopupContent` remains for regular POI markers only.
+  Verified: `npx tsc --noEmit` = 0.
+
 ### UX consistency: apply forms as popups (2026-11-01)
 
 Following the `/scholarships/[id]` popup pattern, the inline apply forms on two

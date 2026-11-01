@@ -65,7 +65,10 @@ export function FeaturedPinPopup({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      {/* No backdrop-blur here on purpose: blurring the whole map made the
+          school detail behind the dialog unreadable ("bị mờ"), and it also
+          blurred the in-map popup while both were open. */}
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div
         className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 mx-4 animate-in slide-in-from-top fade-in duration-300"
         onClick={(e) => e.stopPropagation()}
