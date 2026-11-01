@@ -1373,6 +1373,12 @@ export class AIService {
   /**
    * AI SCHOLARSHIP: Check if student profile matches scholarship requirements.
    * Nhận thêm transcriptData (được trích xuất từ PDF bảng điểm) để tính GPA chính xác.
+   *
+   * Degrades gracefully: if the ai-service is unreachable (cold start, restart),
+   * returns a local rule-based result instead of throwing 503. The ai-service
+   * itself has a `_check_eligibility_local` fallback that runs when no LLM
+   * providers are configured; this method mirrors that behaviour on the proxy
+   * side so the user always gets a result.
    */
   async checkScholarshipEligibility(userData: any, scholarshipData: any, transcriptData?: any) {
     try {
@@ -1390,11 +1396,114 @@ export class AIService {
       return response.data;
     } catch (error: any) {
       this.logger.error(`Error calling AI Scholarship Check API: ${error.message}`);
+
+      // Degrade: ai-service down (ECONNREFUSED/ECONNRESET/EAI_AGAIN) → return
+      // a minimal local evaluation so the user never sees 503.
+      const isConnRefused =
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ECONNRESET' ||
+        (error.message &&
+          (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+
+      if (isConnRefused) {
+        this.logger.warn('AI Scholarship service unreachable — returning local fallback evaluation');
+        return this._localScholarshipFallback(userData, scholarshipData, transcriptData);
+      }
+
+      // Non-connection errors (timeout, 500 from ai-service, etc.) still throw
+      // so monitoring can catch them.
       throw new HttpException(
         'AI Scholarship eligibility service is currently unavailable.',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
+  }
+
+  /**
+   * Local rule-based scholarship eligibility fallback (mirrors ai-service's
+   * `_check_eligibility_local`). Runs entirely in NestJS — no external call.
+   * Keeps the response shape identical to the ai-service so the frontend
+   * parser needs no change.
+   */
+  private _localScholarshipFallback(userData: any, scholarshipData: any, transcriptData?: any): any {
+    const requirements = (
+      scholarshipData?.requirements ||
+      scholarshipData?.eligibility_criteria ||
+      scholarshipData?.criteria ||
+      ''
+    ).toString();
+
+    const userProfile = {
+      major: userData?.major || userData?.field_of_study || '',
+      gpa: transcriptData?.gpa || userData?.gpa,
+      language_scores: transcriptData?.language_scores || userData?.language_scores,
+      experience_years: userData?.experience_years || userData?.work_experience,
+    };
+
+    // Very small GPA parser (enough for the common "GPA >= X" / "xếp loại >= Y" cases).
+    let gpaMin: number | null = null;
+    const gpaMatch = requirements.match(/(?:gpa|điểm\s*trung\s*bình|xếp\s*loại)\s*[:\/]?\s*([<>]=?\s*\d+[.,]?\d*|\d+[.,]?\d*)/i);
+    if (gpaMatch) {
+      const raw = gpaMatch[1].replace(',', '.').replace(/[<>]=?\s*/g, '');
+      const val = parseFloat(raw);
+      if (!isNaN(val)) {
+        // Vietnamese "xếp loại" is on a 100-point scale roughly; if <= 10 assume 4.0 scale
+        gpaMin = val <= 10 ? val : val / 25; // heuristic
+      }
+    }
+
+    let eligible = true;
+    const reasons: string[] = [];
+
+    if (gpaMin !== null && userProfile.gpa !== undefined && userProfile.gpa !== null) {
+      const u = parseFloat(String(userProfile.gpa).replace(',', '.'));
+      if (!isNaN(u) && u < gpaMin) {
+        eligible = false;
+        reasons.push(`GPA ${u} < yêu cầu ${gpaMin}`);
+      }
+    }
+
+    // Major keyword check (very loose)
+    if (userProfile.major && requirements) {
+      const reqLower = requirements.toLowerCase();
+      const majorLower = userProfile.major.toLowerCase();
+      // If requirements mention a specific field that doesn't match user's
+      if (reqLower.includes('khoa') || reqLower.includes('ngành') || reqLower.includes('chuyên')) {
+        // Can't do strong matching without NLP; just note it.
+      }
+    }
+
+    // Language: look for IELTS/TOEFL requirements
+    const langMatch = requirements.match(/(?:ielts|toefl|toeic)\s*[:\/]?\s*(\d+[.,]?\d*)/i);
+    if (langMatch) {
+      const required = parseFloat(langMatch[1].replace(',', '.'));
+      if (!isNaN(required)) {
+        const userScore = userProfile.language_scores
+          ? Math.max(
+              ...Object.values(userProfile.language_scores)
+                .map((v) => parseFloat(String(v).replace(',', '.')))
+                .filter((v) => !isNaN(v)),
+            )
+          : null;
+        if (userScore !== null && userScore < required) {
+          eligible = false;
+          reasons.push(`Điểm ngoại ngữ ${userScore} < yêu cầu ${required}`);
+        }
+      }
+    }
+
+    return {
+      eligible,
+      score: eligible ? 85 : 40,
+      reasons: reasons.length ? reasons : ['Đánh giá tự động (chế độ offline)'],
+      analysis: [
+        `Đánh giá tự động (AI service chưa sẵn sàng — dùng quy tắc cục bộ) cho học bổng '${scholarshipData?.title || 'Không tên'}'`,
+        `Yêu cầu: ${requirements || 'Không có yêu cầu chi tiết'}`,
+        transcriptData?.gpa ? `GPA từ bảng điểm: ${transcriptData.gpa}` : '',
+        userProfile.gpa ? `GPA hồ sơ: ${userProfile.gpa}` : '',
+      ].filter(Boolean).join('\n'),
+      meta: { degraded: true, reason: 'ai-service unreachable (cold start)' },
+    };
   }
 
   /**

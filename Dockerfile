@@ -437,7 +437,11 @@ ENV GEO_VISION_MODEL=google/owlv2-base-patch16-ensemble
 ENV GEO_VISION_TIMEOUT_SECONDS=25
 # ── Local vision model (GeoVision fallback when HF_TOKEN absent) ─────────────
 ENV LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble
-ENV LOCAL_VISION_ENABLED=true
+# Disable local vision model by default on HF free tier to save ~600MB RAM.
+# The GeoVision tool falls back to HF Inference API (requires HF_TOKEN) or
+# template fallback (degraded=true, no crash). Set LOCAL_VISION_ENABLED=true
+# in HF Space Variables if you have headroom and want local vision.
+ENV LOCAL_VISION_ENABLED=false
 # Bing Maps tiles (optional aerial source). Empty = OSM tiles used.
 ENV BING_MAPS_API_KEY=""
 # Embedding time budget: total chain + per-provider cap. Together these keep

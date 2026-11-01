@@ -101,6 +101,20 @@ def _startup_seed_vector_db():
     import threading
 
     def _seed():
+        # Memory guard: if RAM is tight, skip seeding to avoid OOM.
+        # RAG will degrade gracefully (LLM-only answers) until the first
+        # request triggers lazy seeding or the auto-scheduler re-seeds.
+        from utils.memory_guard import check_oom
+        if not check_oom():
+            ram = check_oom()
+            print(
+                f"=== Startup: SKIPPING vector DB seed — RAM too tight "
+                f"(available={ram['available_gb']:.1f}GB, "
+                f"threshold={ram['threshold_gb']:.1f}GB). "
+                f"Will lazy-seed on first request. ==="
+            )
+            return
+
         try:
             from seed_vector_db import seed_data
             print("=== Startup: seeding vector DB (ChromaDB)... ===")
@@ -131,13 +145,19 @@ def _startup_seed_vector_db():
 def _startup_stagger_local_models():
     """Staggered pre-load of local models to smooth the RAM curve on startup.
 
-    Each model loads 15 seconds after the previous — avoiding the scenario
+    Each model loads 30 seconds after the previous — avoiding the scenario
     where seed_vector_db (embeddings) + vision + LLM all load at once and
     OOM-kill the container. Models still lazy-load on first request if the
     warmup thread hasn't reached them yet.
     """
     import threading
     import time
+    import os
+
+    # Configurable stagger delay (default 30s, was 15s). Can be tuned via
+    # HF Space variable MODEL_LOAD_STAGGER_SECONDS if cold starts need more
+    # breathing room.
+    stagger_seconds = int(os.getenv("MODEL_LOAD_STAGGER_SECONDS", "30"))
 
     model_load_order = [
         ("embeddings", "vector_store"),
@@ -147,9 +167,26 @@ def _startup_stagger_local_models():
     ]
 
     def _warmup():
+        from utils.memory_guard import check_oom
+
         for name, module_name in model_load_order:
             # Stagger: wait between model loads to let RAM settle
-            time.sleep(15)  # 15s stagger between each model
+            time.sleep(stagger_seconds)
+
+            # Pre-flight RAM check: skip this model if memory is too tight.
+            # This prevents a model load from tipping the container over the
+            # 16GB limit when other processes (Next.js, NestJS, OSRM) are
+            # already running.
+            if not check_oom():
+                ram = check_oom()
+                print(
+                    f"[staggered-warmup] {name} SKIPPED — RAM too tight "
+                    f"(available={ram['available_gb']:.1f}GB, "
+                    f"threshold={ram['threshold_gb']:.1f}GB). "
+                    f"Will lazy-load on first request if needed."
+                )
+                continue
+
             try:
                 if name == "embeddings":
                     from services.vector_store import vector_store
@@ -160,10 +197,18 @@ def _startup_stagger_local_models():
                     ok = vector_store._warmup_local_reranker()
                     print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "vision":
+                    # Respect LOCAL_VISION_ENABLED env var
+                    if os.getenv("LOCAL_VISION_ENABLED", "false").lower() != "true":
+                        print(f"[staggered-warmup] {name} SKIPPED — LOCAL_VISION_ENABLED=false")
+                        continue
                     from routers.geo import _load_local_vision_model
                     ok = _load_local_vision_model()
                     print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load FAILED — GeoVision will use HF Inference API / template fallback'}")
                 elif name == "llm":
+                    # Respect LOCAL_LLM_ENABLED env var (already false in Dockerfile)
+                    if os.getenv("LOCAL_LLM_ENABLED", "false").lower() != "true":
+                        print(f"[staggered-warmup] {name} SKIPPED — LOCAL_LLM_ENABLED=false")
+                        continue
                     from services.llm_service import _load_local_llm
                     ok = _load_local_llm()
                     if ok:
@@ -203,6 +248,15 @@ def _startup_seed_knowledge_graph():
     sync_interval = int(os.getenv("KNOWLEDGE_GRAPH_SYNC_INTERVAL", "3600"))
 
     def _seed_once():
+        # Memory guard: skip if RAM is tight
+        from utils.memory_guard import check_oom
+        if not check_oom():
+            ram = check_oom()
+            print(
+                f"=== Knowledge graph seed SKIPPED — RAM too tight "
+                f"(available={ram['available_gb']:.1f}GB) ==="
+            )
+            return
         try:
             from services.knowledge_graph import KnowledgeGraphService
             svc = KnowledgeGraphService()
@@ -250,6 +304,19 @@ def _startup_auto_scheduler():
     import threading
 
     def _run():
+        # Memory guard: if RAM is tight at startup, delay scheduler start
+        # until first auto-scheduler API call triggers it. This avoids
+        # running heavy pre-computation tasks during the initial RAM spike.
+        from utils.memory_guard import check_oom
+        if not check_oom():
+            ram = check_oom()
+            print(
+                f"[auto-scheduler] Startup SKIPPED — RAM too tight "
+                f"(available={ram['available_gb']:.1f}GB). "
+                f"Will start on first /api/ai/auto/* request."
+            )
+            return
+
         from services.auto_scheduler import auto_scheduler, AUTO_ENABLED
         if not AUTO_ENABLED:
             print("[auto-scheduler] Scheduler DISABLED (AUTO_SCHEDULER_ENABLED=false)")
