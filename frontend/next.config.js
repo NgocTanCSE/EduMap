@@ -138,18 +138,27 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(
-  withPWA(nextConfig),
-  {
-    silent: true,
-    org: "edumap",
-    project: "frontend",
-  },
-  {
-    widenClientFileUpload: true,
-    transpileClientSDK: true,
-    tunnelRoute: "/monitoring",
-    hideSourceMaps: true,
-    disableLogger: true,
-  }
-);
+const baseConfig = withPWA(nextConfig);
+
+// Sentry is only wired when a DSN is actually configured. Without a DSN the
+// SDK is inert, yet `@sentry/nextjs` v10 still prints build warnings about the
+// legacy `sentry.client.config.ts` entry point (this project is on Next 14.1,
+// which does not support the `instrumentation-client.ts` convention). Skipping
+// the wrapper on HF keeps the build log clean and saves the source-map work.
+module.exports = process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(
+      baseConfig,
+      {
+        silent: true,
+        org: "edumap",
+        project: "frontend",
+      },
+      {
+        widenClientFileUpload: true,
+        transpileClientSDK: true,
+        tunnelRoute: "/monitoring",
+        hideSourceMaps: true,
+        disableLogger: true,
+      }
+    )
+  : baseConfig;
