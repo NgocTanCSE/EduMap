@@ -87,14 +87,17 @@ describe('AIService', () => {
       );
     });
 
-    it('should use generic message only when the AI service sends no detail', async () => {
+    it('should return degraded fallback (allowed=true) on connection refused (cold start)', async () => {
       httpService.post.mockReturnValue(
-        throwError(() => ({ message: 'connect ECONNREFUSED 127.0.0.1:8000' })),
+        throwError(() => ({ code: 'ECONNREFUSED', message: 'connect ECONNREFUSED 127.0.0.1:8000' })),
       );
 
-      await expect(service.moderateContent('user-1', 'test')).rejects.toThrow(
-        /connect ECONNREFUSED/,
-      );
+      const result = await service.moderateContent('user-1', 'test');
+      expect(result).toEqual(expect.objectContaining({
+        allowed: true,
+        degraded: true,
+        reason: 'ai-service unreachable',
+      }));
     });
   });
 

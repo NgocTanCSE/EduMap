@@ -725,6 +725,19 @@ export class AIService {
           error?.response?.data?.message ||
           error?.message ||
           'AI agent service is currently unavailable.';
+
+        // Degrade gracefully on connection issues (cold start)
+        // Note: isConnRefused was already declared above for retry logic
+        if (isConnRefused) {
+          this.logger.warn('AI Agent service unreachable — returning local fallback');
+          return {
+            answer: 'Xin lỗi, trợ lý bản đồ AI hiện chưa phản hồi được. Máy chủ AI đang khởi động lại. Bạn thử lại sau 1 phút nhé.',
+            sources: [],
+            degraded: true,
+            reason: 'ai-service unreachable (cold start)',
+          };
+        }
+
         throw new HttpException(detail, status);
       }
     }
@@ -913,6 +926,19 @@ export class AIService {
       return response.data;
     } catch (error: any) {
       this.logger.error(`Error calling AI Trends API: ${error.message}`);
+
+      // Degrade gracefully on connection issues (cold start)
+      const isConnRefused =
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ECONNRESET' ||
+        (error.message &&
+          (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+
+      if (isConnRefused) {
+        this.logger.warn('AI Trends service unreachable — returning empty trends');
+        return { success: true, data: { trends: [], degraded: true, reason: 'ai-service unreachable' } };
+      }
+
       throw new HttpException(
         'AI Market trends service is currently unavailable.',
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -938,6 +964,19 @@ export class AIService {
         error?.message ||
         'AI Data Quality service is currently unavailable.';
       this.logger.error(`Error calling AI Data Quality API: ${detail}`);
+
+      // Degrade gracefully on connection issues (cold start)
+      const isConnRefused =
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ECONNRESET' ||
+        (error.message &&
+          (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+
+      if (isConnRefused) {
+        this.logger.warn('AI Data Quality service unreachable — returning empty report');
+        return { success: true, data: { anomalies: [], degraded: true, reason: 'ai-service unreachable' } };
+      }
+
       throw new HttpException(
         'Dịch vụ phân tích chất lượng dữ liệu AI đang tạm thời gián đoạn.',
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -1184,6 +1223,19 @@ export class AIService {
         error?.message ||
         'AI Content moderation service is currently unavailable.';
       this.logger.error(`Error calling AI Moderation API: ${detail}`);
+
+      // Degrade gracefully on connection issues (cold start)
+      const isConnRefused =
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ECONNRESET' ||
+        (error.message &&
+          (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+
+      if (isConnRefused) {
+        this.logger.warn('AI Moderation service unreachable — returning local fallback (allow)');
+        return { allowed: true, categories: [], degraded: true, reason: 'ai-service unreachable' };
+      }
+
       throw new HttpException(detail, HttpStatus.SERVICE_UNAVAILABLE);
     }
   }
@@ -1507,6 +1559,31 @@ export class AIService {
   }
 
   /**
+   * Local rule-based chat fallback (mirrors ai-service's _chat_fallback_reply).
+   * Runs entirely in NestJS — no external call. Returns a response object
+   * with the same shape as the ai-service chat endpoint so the frontend
+   * needs no change.
+   */
+  private _localChatFallback(message: string, context: any): { reply: string; sources: any[] } {
+    const question = (message || '').trim();
+    const shortQuestion = question.length > 140 ? `${question.slice(0, 140)}…` : question;
+
+    const reply = [
+      'Xin lỗi, trợ lý AI hiện chưa phản hồi được. Máy chủ AI đang khởi động lại (Hugging Face free tier cần khoảng 30–60 giây sau mỗi lần nạp lại).',
+      '',
+      shortQuestion ? `Câu hỏi đã ghi nhận: "${shortQuestion}"` : '',
+      'Bạn vui lòng thử lại sau khoảng 1 phút. Trong lúc chờ, bạn vẫn dùng được các mục: Bản đồ, Học bổng, Việc làm – Thực tập, Tài liệu học tập.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return {
+      reply,
+      sources: [],
+    };
+  }
+
+  /**
    * AI OPPORTUNITY RADAR (T2): NLP criteria extraction + semantic matching.
    *
    * Proxies the pre-filtered opportunity candidates + user profile to the
@@ -1529,6 +1606,19 @@ export class AIService {
       return response.data;
     } catch (error: any) {
       this.logger.error(`Error calling AI Opportunity Match API: ${error.message}`);
+
+      // Degrade gracefully on connection issues (cold start)
+      const isConnRefused =
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ECONNRESET' ||
+        (error.message &&
+          (error.message.includes('ECONNREFUSED') || error.message.includes('EAI_AGAIN')));
+
+      if (isConnRefused) {
+        this.logger.warn('AI Opportunity Match service unreachable — returning empty matches');
+        return { success: true, data: { matches: [], degraded: true, reason: 'ai-service unreachable' } };
+      }
+
       throw new HttpException(
         'AI Opportunity Radar service is currently unavailable.',
         HttpStatus.SERVICE_UNAVAILABLE,
@@ -1665,22 +1755,38 @@ export class AIService {
           continue;
         }
 
-        // Exhausted retries or non-retryable error — fall through to throw
-        const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
+        // Exhausted retries or non-retryable error — degrade to local fallback
+        // instead of throwing 503 (project rule: never surface 502/503 to user).
         const detail =
           error?.response?.data?.detail || error?.response?.data?.message || error?.message;
 
-        this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);
-
-        if (error?.response?.data?.detail) {
-          throw new HttpException(error.response.data.detail, status);
+        // Note: isConnRefused was already declared above for retry logic
+        if (isConnRefused) {
+          this.logger.warn('AI Chat service unreachable — returning local fallback reply');
+          const fallback = this._localChatFallback(message, systemContext);
+          // Persist the fallback turn so session context is preserved
+          if (userId) {
+            try {
+              const newChat = this.historyRepo.create({
+                userId: userId,
+                message: message,
+                response: fallback.reply,
+                context: { ...systemContext, sources: [], degraded: true },
+              });
+              await this.historyRepo.save(newChat);
+            } catch (saveError: any) {
+              this.logger.error(`Error saving fallback chat history: ${saveError.message}`);
+            }
+            if (sid) this.sessionMemory.addTurn(sid, message, fallback.reply);
+          }
+          return fallback;
         }
 
-        throw new HttpException(
-          detail ||
-            'AI Chat service is currently unavailable. Please ensure AI_SERVICE_URL and CLOUDFLARE_API_TOKEN are configured correctly.',
-          status,
-        );
+        // Non-connection errors (timeout, 500 from ai-service, etc.) still throw
+        // so monitoring can catch them.
+        const status = error?.response?.status || HttpStatus.SERVICE_UNAVAILABLE;
+        this.logger.error(`Error in AI Chat [status ${status}]: ${detail}`);
+        throw new HttpException(detail, status);
       }
     }
 
