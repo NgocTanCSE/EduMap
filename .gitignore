@@ -109,3 +109,4 @@ frontend/public/workbox-*.js.map
 frontend/public/swe-worker-*.js
 frontend/public/swe-worker-*.js.map
 
+plantuml.jar
