@@ -85,9 +85,7 @@ export function ClimateGuardianPanel({
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       onResult({ ...data, alternatives: altResult });
-      if (data?.metadata?.degraded) {
-        toast.warning(data.metadata.reason || "Dữ liệu khí hậu đang trong chế độ giảm tốc.");
-      }
+      // Degraded results show an inline banner in the panel (see `meta.degraded`).
     } catch (err: any) {
       logger.error("Climate risk error", err);
       setError(err?.message || "Không thể tải bản đồ rủi ro khí hậu.");
@@ -117,9 +115,7 @@ export function ClimateGuardianPanel({
       const data = unwrapApiResponse<any>(json);
       setAltResult(data);
       onResult((prev: any) => ({ ...(prev || {}), alternatives: data }));
-      if (data?.metadata?.degraded) {
-        toast.warning("Chế độ giảm tốc cho phương án thay thế.");
-      }
+      // Alternatives degrade silently — the panel banner covers it.
     } catch (err: any) {
       logger.error("Climate alternatives error", err);
       toast.error("Tải phương án thay thế thất bại.");

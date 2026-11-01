@@ -95,9 +95,8 @@ export function GeoVisionPanel({
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       onResult(data);
-      if (data?.degraded) {
-        toast.warning(data.error || "Không thể phát hiện — đang dùng dữ liệu dự phòng.");
-      } else {
+      // Degraded results show an inline banner in the panel (see `result.degraded`).
+      if (!data?.degraded) {
         toast.success(`Phát hiện ${data?.detections?.length || 0} đối tượng.`);
       }
     } catch (err: any) {

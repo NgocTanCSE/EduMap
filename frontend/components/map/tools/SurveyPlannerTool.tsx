@@ -73,9 +73,8 @@ export function SurveyPlannerPanel({
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       onResult(data);
-      if (data?.metadata?.degraded) {
-        toast.warning(data.metadata.reason || "Dữ liệu hiếm — đang dùng ứng cử viên tĩnh.");
-      } else {
+      // Degraded results show an inline banner in the panel (see `meta.degraded`).
+      if (!data?.metadata?.degraded) {
         toast.success(`Tìm thấy ${data?.summary?.poi_count || 0} điểm khảo sát.`);
       }
     } catch (err: any) {

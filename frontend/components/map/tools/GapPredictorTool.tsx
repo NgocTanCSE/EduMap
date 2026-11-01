@@ -71,9 +71,8 @@ export function GapPredictorPanel({
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       onResult(data);
-      if (data?.metadata?.degraded) {
-        toast.warning(data.metadata.reason || "Dữ liệu đang trong chế độ giảm tốc.");
-      }
+      // Degraded results already show an inline banner in the panel
+      // (see `meta.degraded` below) — no toast, it only interrupted the user.
     } catch (err: any) {
       logger.error("Gap forecast error", err);
       setError(err?.message || "Không thể tải dự báo khoảng trống.");

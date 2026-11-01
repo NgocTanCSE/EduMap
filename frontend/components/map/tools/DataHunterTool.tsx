@@ -73,9 +73,9 @@ export function DataHunterPanel({
       const json = await res.json();
       const data = unwrapApiResponse<any>(json);
       onResult(data);
-      if (data?.metadata?.degraded) {
-        toast.warning(data.metadata.reason || "Dữ liệu đang trong chế độ giảm tốc.");
-      } else {
+      // Degraded results show an inline banner in the panel (see `meta.degraded`)
+      // — a toast on top of it only interrupted the user.
+      if (!data?.metadata?.degraded) {
         toast.success(`Phân tích ${data?.summary?.gap_cells || 0} ô chưa có dữ liệu.`);
       }
     } catch (err: any) {
