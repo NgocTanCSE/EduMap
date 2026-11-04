@@ -85,7 +85,7 @@ function GoogleLoginContent() {
   const [googleReady, setGoogleReady] = useState(false);
   const [isEmbedded, setIsEmbedded] = useState(false);
   // Tạm thời bỏ qua Google OAuth: nút đăng nhập chỉ chuyển hướng vào màn hình chính.
-  const skipGoogle = true;
+  const skipGoogle = false;
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -366,7 +366,7 @@ function GoogleLoginContent() {
           <div className="space-y-4 pt-2 border-t border-border">
 
 
-            {!googleReady && !skipGoogle && (
+            {!googleReady && (
               <p className="text-center text-xs text-muted-foreground">
                 {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
               </p>
@@ -384,10 +384,38 @@ function GoogleLoginContent() {
               <span className="text-primary font-medium">{selectedRoleObj.label}</span>
             </p>
 
-            {errorMessage && !googleReady && !skipGoogle && (
+            {errorMessage && !googleReady && (
               <div className="text-center text-[11px] text-muted-foreground">
                 Kiểm tra secret <code className="bg-muted/50 px-1.5 py-0.5 rounded">GOOGLE_CLIENT_ID</code>{' '}
                 trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
+              </div>
+            )}
+
+            {/* Google renders its own button here */}
+            <div
+              ref={googleButtonRef}
+              id="google-signin-button"
+              className="w-full min-h-[44px] flex items-center justify-center"
+            />
+
+            {isEmbedded && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                <p className="text-sm font-semibold text-foreground">
+                  Tab mới sẽ tự mở khi bạn bấm vào trang
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Khung nhúng của Hugging Face chặn cửa sổ popup của Google, nên nút Google
+                  có thể không phản hồi ở đây. Tab EduMap vừa mở chính là phiên bản đăng
+                  nhập bình thường.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openTopLevelTab(true)}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Mở EduMap trong tab mới
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
 
