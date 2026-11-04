@@ -364,38 +364,7 @@ function GoogleLoginContent() {
 
           {/* Step 2: Google Login Button */}
           <div className="space-y-4 pt-2 border-t border-border">
-            {/* Google renders its own button here on click it ALWAYS opens the
-                account chooser, unlike One Tap prompt() which fails silently.
-                It is the primary affordance in every context (tab or embed). */}
-            <button
-              type="button"
-              onClick={() => router.replace(redirectUrl)}
-              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm active:scale-[0.98]"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>Vào màn hình chính</span>
-            </button>
 
-            {isEmbedded && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-                <p className="text-sm font-semibold text-foreground">
-                  Tab mới sẽ tự mở khi bạn bấm vào trang
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Khung nhúng của Hugging Face chặn cửa sổ popup của Google, nên nút Google
-                  có thể không phản hồi ở đây. Tab EduMap vừa mở chính là phiên bản đăng
-                  nhập bình thường.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openTopLevelTab(true)}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-primary/90"
-                >
-                  Mở EduMap trong tab mới
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
 
             {!googleReady && !skipGoogle && (
               <p className="text-center text-xs text-muted-foreground">
@@ -406,7 +375,7 @@ function GoogleLoginContent() {
             {loading && (
               <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Đang kết nối tài khoản Google…
+                Đang đăng nhập…
               </p>
             )}
 
@@ -421,6 +390,22 @@ function GoogleLoginContent() {
                 trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
               </div>
             )}
+
+            <div className="border-t border-border pt-4 mt-2">
+              <button
+                type="button"
+                onClick={handleDevLogin}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm active:scale-[0.98] disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" />
+                )}
+                <span>Đăng nhập</span>
+              </button>
+            </div>
           </div>
 
         </div>
