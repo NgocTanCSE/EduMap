@@ -98,11 +98,11 @@ RUN ( \
 # smaller dependency graph (<~20 transitive deps), keeping peak RAM <2GB
 # on HF Spaces free tier (2 vCPU, limited build RAM).
 RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests python-multipart && \
-    pip install --no-cache-dir psycopg2-binary pandas numpy pypdf redis && \
+    pip install --no-cache-dir psycopg2-binary pandas numpy==1.26.4 pypdf redis && \
     pip install --no-cache-dir posthog httpx tqdm Pillow gTTS && \
     pip install --no-cache-dir huggingface_hub accelerate sentencepiece && \
     pip install --no-cache-dir transformers && \
-    pip install --no-cache-dir sentence-transformers scikit-learn scipy && \
+    pip install --no-cache-dir sentence-transformers scikit-learn==1.4.2 scipy==1.13.1 && \
     pip install --no-cache-dir edge-tts && \
     echo "[ai-deps] core + ML + TTS packages installed"
 
