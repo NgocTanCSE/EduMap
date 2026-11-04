@@ -9,7 +9,6 @@ import {
   Shield,
   Heart,
   Loader2,
-  Sparkles,
   ArrowRight,
   Check,
 } from 'lucide-react';
@@ -420,31 +419,6 @@ function GoogleLoginContent() {
               <div className="text-center text-[11px] text-muted-foreground">
                 Kiểm tra secret <code className="bg-muted/50 px-1.5 py-0.5 rounded">GOOGLE_CLIENT_ID</code>{' '}
                 trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
-              </div>
-            )}
-
-            {/* Dev Login — fallback for when Google OAuth is NOT configured or
-                not available (e.g. HF Spaces free plan where GOOGLE_CLIENT_ID
-                secret is often unset). Visible in production too because the
-                dev user is seeded into edumap.db and survives container restarts. */}
-            {(process.env.NODE_ENV !== 'production' || !googleReady) && (
-              <div className="border-t border-border pt-4 mt-2">
-                <button
-                  type="button"
-                  onClick={handleDevLogin}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-primary/15 hover:bg-primary/25 text-primary font-medium py-2.5 px-4 rounded-xl text-sm transition-all border border-primary/30 disabled:opacity-50"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4" />
-                  )}
-                  <span>Dev Login (bypass Google OAuth)</span>
-                </button>
-                <p className="text-[10px] text-muted-foreground/60 text-center mt-1.5">
-                  Dành cho môi trường phát triển — tạo JWT hợp lệ để test toàn bộ tính năng.
-                </p>
               </div>
             )}
           </div>
