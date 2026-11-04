@@ -384,7 +384,7 @@ function GoogleLoginContent() {
               <span className="text-primary font-medium">{selectedRoleObj.label}</span>
             </p>
 
-            {errorMessage && !googleReady && (
+            {errorMessage && !googleReady && !skipGoogle && (
               <div className="text-center text-[11px] text-muted-foreground">
                 Kiểm tra secret <code className="bg-muted/50 px-1.5 py-0.5 rounded">GOOGLE_CLIENT_ID</code>{' '}
                 trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
