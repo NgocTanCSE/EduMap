@@ -234,14 +234,19 @@ _PLACEHOLDER = "?" if _IS_SQLITE else "%s"
 # Timestamp expression: SQLite has no NOW(); use datetime('now').
 _NOW_EXPR = "datetime('now')" if _IS_SQLITE else "NOW()"
 
+_DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_CFG = {
-    "host": os.getenv("DB_HOST", "localhost"),
+    "host": _DB_HOST,
     "port": int(os.getenv("DB_PORT", "5433")),
     "dbname": os.getenv("DB_DATABASE", "edumap_db"),
     "user": os.getenv("DB_USERNAME", "edumap"),
     "password": os.getenv("DB_PASSWORD", ""),
     "connect_timeout": 15,
 }
+# Supabase (and most managed Postgres) require TLS. Enable sslmode for any
+# non-localhost host so local docker-compose (plain) keeps working.
+if _DB_HOST and _DB_HOST not in ("localhost", "127.0.0.1"):
+    DB_CFG["sslmode"] = os.getenv("DB_SSLMODE", "require")
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",

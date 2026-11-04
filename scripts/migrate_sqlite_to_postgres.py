@@ -28,13 +28,19 @@ SKIP_TABLES = {"sqlite_sequence", "sqlite_master", "sqlite_stat1"}
 
 
 def pg_conn():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
+    host = os.getenv("DB_HOST", "localhost")
+    kwargs = dict(
+        host=host,
         port=int(os.getenv("DB_PORT", "5432")),
         user=os.getenv("DB_USERNAME", "postgres"),
         password=os.getenv("DB_PASSWORD", ""),
         dbname=os.getenv("DB_DATABASE", "postgres"),
     )
+    # Supabase (and most managed Postgres) require TLS. Enable sslmode=require
+    # for any non-localhost host so local docker-compose (plain) keeps working.
+    if host and host != "localhost" and host != "127.0.0.1":
+        kwargs["sslmode"] = os.getenv("DB_SSLMODE", "require")
+    return psycopg2.connect(**kwargs)
 
 
 def pg_tables(cur):
