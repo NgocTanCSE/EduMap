@@ -105,12 +105,12 @@ def _startup_seed_vector_db():
         # RAG will degrade gracefully (LLM-only answers) until the first
         # request triggers lazy seeding or the auto-scheduler re-seeds.
         from utils.memory_guard import check_oom
-        if not check_oom():
-            ram = check_oom()
+        oom = check_oom()
+        if not oom["safe_to_load_models"]:
             print(
                 f"=== Startup: SKIPPING vector DB seed — RAM too tight "
-                f"(available={ram['available_gb']:.1f}GB, "
-                f"threshold={ram['threshold_gb']:.1f}GB). "
+                f"(available={oom['ram']['available_gb']:.1f}GB, "
+                f"threshold={oom['threshold_gb']:.1f}GB). "
                 f"Will lazy-seed on first request. ==="
             )
             return
@@ -177,12 +177,12 @@ def _startup_stagger_local_models():
             # This prevents a model load from tipping the container over the
             # 16GB limit when other processes (Next.js, NestJS, OSRM) are
             # already running.
-            if not check_oom():
-                ram = check_oom()
+            oom = check_oom()
+            if not oom["safe_to_load_models"]:
                 print(
                     f"[staggered-warmup] {name} SKIPPED — RAM too tight "
-                    f"(available={ram['available_gb']:.1f}GB, "
-                    f"threshold={ram['threshold_gb']:.1f}GB). "
+                    f"(available={oom['ram']['available_gb']:.1f}GB, "
+                    f"threshold={oom['threshold_gb']:.1f}GB). "
                     f"Will lazy-load on first request if needed."
                 )
                 continue
@@ -250,11 +250,11 @@ def _startup_seed_knowledge_graph():
     def _seed_once():
         # Memory guard: skip if RAM is tight
         from utils.memory_guard import check_oom
-        if not check_oom():
-            ram = check_oom()
+        oom = check_oom()
+        if not oom["safe_to_load_models"]:
             print(
                 f"=== Knowledge graph seed SKIPPED — RAM too tight "
-                f"(available={ram['available_gb']:.1f}GB) ==="
+                f"(available={oom['ram']['available_gb']:.1f}GB) ==="
             )
             return
         try:
@@ -308,11 +308,11 @@ def _startup_auto_scheduler():
         # until first auto-scheduler API call triggers it. This avoids
         # running heavy pre-computation tasks during the initial RAM spike.
         from utils.memory_guard import check_oom
-        if not check_oom():
-            ram = check_oom()
+        oom = check_oom()
+        if not oom["safe_to_load_models"]:
             print(
                 f"[auto-scheduler] Startup SKIPPED — RAM too tight "
-                f"(available={ram['available_gb']:.1f}GB). "
+                f"(available={oom['ram']['available_gb']:.1f}GB). "
                 f"Will start on first /api/ai/auto/* request."
             )
             return

@@ -1151,3 +1151,39 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
   degraded history row is saved. Backend `tsc --noEmit` = 0.
 - A first request during a cold start now renders a normal assistant bubble
   with an explanation instead of an error after a long silence.
+
+## 14. Chat degraded reply root cause (2026-11-04)
+
+Symptom: `/ai-chat` always answered with the §13 degraded template
+("Xin lỗi, trợ lý AI hiện chưa phản hồi được. Máy chủ AI đang khởi động lại…")
+for every question, including the seeded suggestion
+"Tìm học bổng toàn phần du học tại Đức hoặc Nhật Bản?".
+
+- **Root cause:** `ai-service/start.sh` did not parse. Commit `7fc9bb0`
+  (Tavily crawlers) dropped the closing `"` of `SECRET_VARS` **and** the
+  `for var in $SECRET_VARS; do` line. `bash -n ai-service/start.sh` exited 2
+  (`syntax error near unexpected token '('`), so `supervisord`'s
+  `[program:ai-service]` never launched uvicorn. Every
+  `POST /api/ai/chat/stream` from NestJS therefore failed with `ECONNREFUSED`;
+  after 3 retries the proxy emitted the degraded SSE reply (HTTP 200) — which
+  is why the UI showed the "Máy chủ AI đang khởi động lại" text instead of an
+  error, and why *nothing* that depends on FastAPI worked.
+- **Fix:** restored the closing quote + `for var in $SECRET_VARS; do` loop.
+  `bash -n ai-service/start.sh` now exits 0.
+- **Latent bug fixed at the same time:** `utils/memory_guard.check_oom()`
+  returns a **dict**, but `main.py`'s four startup hooks used
+  `if not check_oom():` (always False, since a non-empty dict is truthy) and
+  then indexed `ram['available_gb']` (which only exists at
+  `check_oom()['ram']['available_gb']`). The RAM guards were dead code and
+  would have raised `KeyError` if they ever fired. All four now read
+  `oom = check_oom()` and branch on `oom["safe_to_load_models"]`.
+- **Regression tests:** `ai-service/tests/test_start_script.py` (3 tests) —
+  `bash -n` on `start.sh`, the restored `SECRET_VARS` loop, and a guard
+  against reintroducing `if not check_oom():` in `main.py`.
+- **Deploy reminder (unchanged):** runtime is HF Spaces free tier only
+  (`https://tancse2005-edumap.hf.space`); local is edit + Python tests only —
+  no `npm`/`docker`/dev servers. The user deploys (`HF_TOKEN=… ./deploy-hf.sh`);
+  the agent has no token. After deploy, the Space log must show
+  `AI SERVICE READY` for the `ai-service` program (and no
+  `syntax error near unexpected token`), and one real question on `/ai-chat`
+  must answer normally instead of returning the §13 degraded template.
