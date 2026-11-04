@@ -60,7 +60,12 @@ def pg_columns(cur, table):
     return [r[0] for r in cur.fetchall()]
 
 
+_PG_COL_TYPE_CACHE = {}
+
 def pg_col_type(cur, table, col):
+    key = (table, col)
+    if key in _PG_COL_TYPE_CACHE:
+        return _PG_COL_TYPE_CACHE[key]
     cur.execute(
         "SELECT data_type, udt_name FROM information_schema.columns "
         "WHERE table_schema='public' AND table_name=%s AND column_name=%s",
@@ -68,12 +73,13 @@ def pg_col_type(cur, table, col):
     )
     r = cur.fetchone()
     if not r:
+        _PG_COL_TYPE_CACHE[key] = None
         return None
     # For USER-DEFINED types (geometry, etc.), return the udt_name so callers
     # can branch on the concrete type.
-    if r[0] == "USER-DEFINED":
-        return r[1]
-    return r[0]
+    val = r[1] if r[0] == "USER-DEFINED" else r[0]
+    _PG_COL_TYPE_CACHE[key] = val
+    return val
 
 
 def pg_pk(cur, table):
