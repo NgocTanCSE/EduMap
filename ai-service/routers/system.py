@@ -63,8 +63,8 @@ async def system_status() -> Dict[str, Any]:
         },
     }
 
-    # OOM guard status
-    oom_check = check_oom()
+    # OOM guard status (RAM threshold comparison only; no need to re-invoke
+    # check_oom() here — it is already reflected via the OOM_STATUS counters)
     oom_risk = "LOW" if ram["available_gb"] > RAM_THRESHOLD_GB else "HIGH"
 
     return {
