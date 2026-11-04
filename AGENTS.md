@@ -65,12 +65,16 @@
 
 ```
 HF Spaces Docker container (public port 7680)
-├─ frontend   Next.js 14      :7680  ← public
+├─ hf-proxy   Node reverse proxy :7680  ← public (replaces Next.js; routes /api/*)
 ├─ backend    NestJS          :3000  ← internal
 ├─ ai-service FastAPI          :8000  ← internal
+├─ osrm       osrm-routed     :5000  ← internal
 ├─ crawler    Python (cron)          ← daily
-├─ SQLite     frontend/public/edumap.db
+├─ SQLite     /app/data/edumap.db
 └─ ChromaDB   /tmp/chroma_db (ephemeral)
+
+Frontend (Next.js 14) is hosted on Vercel and calls the HF proxy via
+BACKEND_URL / AI_SERVICE_URL = https://tancse2005-edumap.hf.space.
 ```
 
 - Process manager: `supervisord.conf`.

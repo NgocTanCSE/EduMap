@@ -18,7 +18,7 @@ set -a; . ./.env 2>/dev/null || . /app/.env 2>/dev/null; set +a
 
 # Default to SQLite for HF Spaces (no PostgreSQL server available).
 export DB_TYPE="${DB_TYPE:-sqlite}"
-export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/frontend/public/edumap.db}"
+export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/data/edumap.db}"
 
 # Crawl year window — 2 consecutive years (e.g. EDUMAP_CRAWL_YEAR=2027 → [2026,2027]).
 # Defaults to the current UTC year when unset.  crawl_pois_vietnam.py reads this

@@ -10,7 +10,7 @@ set -euo pipefail
 
 # Default to SQLite for HF Spaces (no PostgreSQL server available).
 export DB_TYPE="${DB_TYPE:-sqlite}"
-export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/frontend/public/edumap.db}"
+export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/data/edumap.db}"
 
 DB_PATH="${DB_SQLITE_PATH}"
 CRAWLERS_DIR="/app/crawlers"

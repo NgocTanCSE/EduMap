@@ -7,7 +7,9 @@
 #   3. FastAPI AI svc    — port 8000 (internal)
 # ═══════════════════════════════════════════════════════════════════
 
-# === Stage 1: Build Frontend ===
+# (Frontend is still built here for the build-graph barrier / cache; its output
+#  is NOT copied into the runtime image anymore — UI is hosted on Vercel.)
+# === Stage 1: Build Frontend (build only, not shipped) ===
 FROM node:20-slim AS frontend-builder
 WORKDIR /app
 COPY frontend/package*.json ./
@@ -244,14 +246,8 @@ RUN apt-get update -qq && \
       zlib1g libbz2-1.0 \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Frontend ---
-WORKDIR /app/frontend
-COPY --from=frontend-builder /app/.next ./.next
-COPY --from=frontend-builder /app/public ./public
-COPY --from=frontend-deps /app/node_modules ./node_modules
-COPY frontend/package*.json ./
-COPY frontend/next.config.js ./
-COPY frontend/tsconfig.json ./
+# --- HF reverse proxy (replaces Next.js on the public port) ---
+WORKDIR /app
 # Copy scripts dir EARLY — verify_db.py is needed before edumap.db verification
 COPY scripts/ /app/scripts/
 # Copy the crawler package — required by run_feature_crawlers.sh + run_overpass_seed.sh
@@ -262,7 +258,7 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py && \
     chmod 0644 /etc/cron.d/edumap-crawlers && \
     crontab /etc/cron.d/edumap-crawlers
 
-COPY frontend/public/edumap.db ./public/edumap.db
+COPY frontend/public/edumap.db /app/data/edumap.db
 # Verify edumap.db is a valid SQLite database.
 # If the file is corrupted (e.g., 132-byte git-lfs pointer from HF Spaces upload),
 # automatically download the correct 1.3MB file from GitHub (repo is public).
@@ -304,7 +300,7 @@ RUN touch services/__init__.py routers/__init__.py && \
 # --- Shared config ---
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN mkdir -p /app/uploads /app/frontend/public /app/ai-service/models \
+RUN mkdir -p /app/uploads /app/data /app/ai-service/models \
     /app/uploads/offline-models /app/osrm-data
 
 # Copy pre-processed OSRM graph (built in osrm-builder stage) — survives
@@ -377,7 +373,7 @@ ARG CACHEBUST=20261030_osrm-boost-chroma-fix
 
 ENV NODE_ENV=production
 ENV DB_TYPE=sqlite
-ENV DB_SQLITE_PATH=/app/frontend/public/edumap.db
+ENV DB_SQLITE_PATH=/app/data/edumap.db
 ENV DB_SYNC=false
 # Enable dev-login on HF Spaces so users always have a working auth path.
 # On the free tier the SQLite file reverts to the image on restart; the dev
@@ -386,7 +382,6 @@ ENV DB_SYNC=false
 ENV ENABLE_DEV_LOGIN=true
 ENV PORT=3000
 ENV BACKEND_URL=http://127.0.0.1:3000
-ENV NEXT_PUBLIC_API_URL=/api
 ENV AI_SERVICE_URL=http://127.0.0.1:8000
 # ── Edge AI Tutor (Idea #7) ──────────────────────────────────────────────
 # No local tutor model is bundled any more: TinyLlama 1.1B was removed on

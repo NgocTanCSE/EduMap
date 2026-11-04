@@ -131,7 +131,7 @@ def fetch_tile(scope_label: str, layer_label: str, category: str,
 # --------------------------------------------------------------------------- #
 # DB UPSERT (SQLite — AGENTS.md §7: no PostGIS on SQLite)                     #
 # --------------------------------------------------------------------------- #
-DB_PATH = os.getenv("DB_SQLITE_PATH", os.getenv("DB_PATH", "/app/frontend/public/edumap.db"))
+DB_PATH = os.getenv("DB_SQLITE_PATH", os.getenv("DB_PATH", "/app/data/edumap.db"))
 
 
 def upsert_sqlite(conn, pois: list[dict]) -> tuple[int, int]:

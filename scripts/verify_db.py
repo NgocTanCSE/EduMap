@@ -13,7 +13,7 @@ import os
 import sys
 import urllib.request
 
-DB_PATH = './public/edumap.db'
+DB_PATH = './data/edumap.db'
 GITHUB_URL = 'https://raw.githubusercontent.com/NgocTanCSE/EduMap/main/frontend/public/edumap.db'
 MIN_SIZE = 1_000_000  # 1 MB minimum for a valid SQLite DB
 
