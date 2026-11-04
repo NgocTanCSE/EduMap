@@ -10,7 +10,7 @@ export class Internship {
   @JoinColumn({ name: 'company_id' })
   company: User;
 
-  @Column()
+  @Column({ nullable: true })
   company_id: string;
 
   @Column()

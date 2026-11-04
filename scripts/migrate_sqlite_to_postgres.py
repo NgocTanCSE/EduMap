@@ -60,6 +60,22 @@ def pg_columns(cur, table):
     return [r[0] for r in cur.fetchall()]
 
 
+def pg_col_type(cur, table, col):
+    cur.execute(
+        "SELECT data_type, udt_name FROM information_schema.columns "
+        "WHERE table_schema='public' AND table_name=%s AND column_name=%s",
+        (table, col),
+    )
+    r = cur.fetchone()
+    if not r:
+        return None
+    # For USER-DEFINED types (geometry, etc.), return the udt_name so callers
+    # can branch on the concrete type.
+    if r[0] == "USER-DEFINED":
+        return r[1]
+    return r[0]
+
+
 def pg_pk(cur, table):
     cur.execute(
         """
@@ -92,8 +108,42 @@ def migrate(sqlite_path):
         ).fetchall()
     ]
 
+    # Topological sort: migrate parent tables before child tables so FK
+    # constraints are satisfied (comments -> posts, jobs -> career_paths, ...).
+    fk_deps = {}
+    for t in sqlite_tbls:
+        if t not in pg_tbls:
+            continue
+        pcur.execute(
+            "SELECT ccu.table_name FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu "
+            "  ON tc.constraint_name = kcu.constraint_name "
+            "JOIN information_schema.constraint_column_usage ccu "
+            "  ON ccu.constraint_name = tc.constraint_name "
+            "WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = %s",
+            (t,),
+        )
+        deps = {r[0] for r in pcur.fetchall() if r[0] in sqlite_tbls and r[0] != t}
+        fk_deps[t] = deps
+
+    ordered = []
+    remaining = set(t for t in sqlite_tbls if t in pg_tbls)
+    while remaining:
+        progressed = False
+        for t in sorted(remaining):
+            if fk_deps.get(t, set()).issubset(set(ordered)):
+                ordered.append(t)
+                remaining.discard(t)
+                progressed = True
+        if not progressed:
+            # Cycle or unresolved dep — append the rest as-is.
+            ordered.extend(sorted(remaining))
+            break
+    sqlite_tbls = ordered + [t for t in sqlite_tbls if t not in pg_tbls]
+
     total_rows = 0
     for table in sqlite_tbls:
+        print(f"  processing {table}...", flush=True)
         if table in SKIP_TABLES:
             continue
         if table not in pg_tbls:
@@ -105,12 +155,21 @@ def migrate(sqlite_path):
 
         # SQLite columns for this table
         s_cols = [r[1] for r in sconn.execute(f"PRAGMA table_info({table})").fetchall()]
+        s_col_types = {r[1]: r[2].upper() for r in sconn.execute(f"PRAGMA table_info({table})").fetchall()}
+
         # intersect, preserving PG column order
         common = [c for c in cols if c in s_cols]
         if not common:
             print(f"  SKIP (no common columns): {table}")
             continue
 
+        # If the PK is uuid in Postgres but integer/text in SQLite, drop it from
+        # the insert so Postgres generates a fresh uuid (avoids type mismatch).
+        if pk and pk in common:
+            if pg_col_type(pcur, table, pk) == "uuid" and s_col_types.get(pk) in ("INTEGER", "INT", None):
+                common = [c for c in common if c != pk]
+
+        print(f"  fetching {table}...", flush=True)
         rows = sconn.execute(
             f"SELECT {', '.join(common)} FROM {table}"
         ).fetchall()
@@ -118,7 +177,121 @@ def migrate(sqlite_path):
             print(f"  {table}: 0 rows (empty)")
             continue
 
-        values = [tuple(r[c] for c in common) for r in rows]
+        # Drop columns that are entirely NULL in SQLite (let Postgres apply its
+        # NOT NULL defaults, e.g. created_at/updated_at, instead of failing).
+        all_null = {c for c in common if all(r[c] is None for r in rows)}
+        if all_null:
+            common = [c for c in common if c not in all_null]
+            if not common:
+                print(f"  SKIP (all columns null): {table}")
+                continue
+            rows = sconn.execute(
+                f"SELECT {', '.join(common)} FROM {table}"
+            ).fetchall()
+
+        # Discover FK constraints for this table (child_col -> parent_table/parent_col).
+        pcur.execute(
+            "SELECT kcu.column_name, ccu.table_name, ccu.column_name "
+            "FROM information_schema.table_constraints tc "
+            "JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name "
+            "JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name "
+            "WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = %s",
+            (table,),
+        )
+        fks = pcur.fetchall()
+
+        # Pre-load valid parent id sets for orphan nulling.
+        parent_ids = {}
+        for _, ptable, pcol in fks:
+            if ptable not in parent_ids:
+                try:
+                    pcur.execute(f'SELECT "{pcol}" FROM "{ptable}"')
+                    parent_ids[ptable] = {str(r[0]) for r in pcur.fetchall() if r[0] is not None}
+                except Exception:
+                    parent_ids[ptable] = set()
+
+        # Null out orphan FK values so inserts don't violate constraints.
+        if fks:
+            fk_map = {child: (ptable, pcol) for child, ptable, pcol in fks}
+            cleaned = []
+            for r in rows:
+                r = dict(r)
+                for child, (ptable, pcol) in fk_map.items():
+                    if child in r and r[child] is not None:
+                        if str(r[child]) not in parent_ids.get(ptable, set()):
+                            r[child] = None
+                cleaned.append(r)
+            rows = cleaned
+
+        # Coerce values whose PG column is uuid but SQLite value is not a uuid.
+        def coerce(col, val):
+            if val is None:
+                return None
+            pt = pg_col_type(pcur, table, col)
+            if pt == "uuid":
+                s = str(val).strip()
+                # accept only canonical uuid strings; otherwise null (FK-safe)
+                if len(s) == 36 and s.count("-") == 4:
+                    return s
+                return None
+            if pt in ("geometry", "geography"):
+                # SQLite stores geometry either as a GeoJSON object string
+                # ({"type":"Point","coordinates":[...]}) or as raw coord arrays.
+                # Convert to a PostGIS geometry via ST_GeomFromGeoJSON.
+                import json as _j
+                try:
+                    parsed = val if not isinstance(val, str) else _j.loads(val)
+                except Exception:
+                    return None
+                if isinstance(parsed, dict) and "type" in parsed and "coordinates" in parsed:
+                    geojson = parsed
+                elif isinstance(parsed, list):
+                    # Determine geometry type by nesting depth.
+                    if parsed and isinstance(parsed[0], (int, float)):
+                        geojson = {"type": "Point", "coordinates": parsed}
+                    elif parsed and isinstance(parsed[0], list) and parsed[0] and isinstance(parsed[0][0], (int, float)):
+                        geojson = {"type": "LineString", "coordinates": parsed}
+                    elif parsed and isinstance(parsed[0], list) and parsed[0] and isinstance(parsed[0][0], list):
+                        geojson = {"type": "Polygon", "coordinates": parsed}
+                    else:
+                        return None
+                else:
+                    return None
+                geojson_str = _j.dumps(geojson)
+                from psycopg2.extensions import AsIs
+                cast = "::geography" if pt == "geography" else ""
+                return AsIs(f"ST_GeomFromGeoJSON('{geojson_str.replace(chr(39), chr(39)+chr(39))}'){cast}")
+            if pt == "boolean":
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, (int, float)):
+                    return bool(val)
+                if isinstance(val, str):
+                    low = val.strip().lower()
+                    if low in ("1", "true", "t", "yes"):
+                        return True
+                    if low in ("0", "false", "f", "no", ""):
+                        return False
+                return None
+            if pt in ("json", "jsonb") and isinstance(val, str):
+                try:
+                    import json as _j
+                    _j.loads(val)
+                    return val
+                except Exception:
+                    return None
+            if pt == "ARRAY" and isinstance(val, str):
+                try:
+                    import json as _j
+                    parsed = _j.loads(val)
+                    if isinstance(parsed, list):
+                        return parsed
+                except Exception:
+                    # fall back: try comma-split for simple arrays
+                    return [x.strip() for x in val.strip("[]").split(",") if x.strip()]
+            return val
+
+        values = [tuple(coerce(c, r[c]) for c in common) for r in rows]
         col_sql = ", ".join(f'"{c}"' for c in common)
 
         if pk and pk in common:
@@ -127,10 +300,16 @@ def migrate(sqlite_path):
             conflict = ""
 
         sql = f'INSERT INTO "{table}" ({col_sql}) VALUES %s{conflict}'
-        execute_values(pcur, sql, values, page_size=500)
-        pconn.commit()
+        # Chunk large tables to avoid oversized statements / pooler timeouts.
+        chunk_size = 200
+        for i in range(0, len(values), chunk_size):
+            chunk = values[i:i + chunk_size]
+            print(f"    {table}: inserting chunk {i//chunk_size + 1}...", flush=True)
+            execute_values(pcur, sql, chunk, page_size=100)
+            pconn.commit()
+            print(f"    {table}: chunk {i//chunk_size + 1} done ({min(i+chunk_size, len(values))}/{len(values)})", flush=True)
         total_rows += len(values)
-        print(f"  {table}: {len(values)} rows migrated")
+        print(f"  {table}: {len(values)} rows migrated", flush=True)
 
     pcur.close()
     pconn.close()

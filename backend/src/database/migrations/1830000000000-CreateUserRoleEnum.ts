@@ -81,13 +81,13 @@ export class CreateUserRoleEnum1830000000000 implements MigrationInterface {
                 WHEN 13 THEN 'parent'
                 WHEN 14 THEN 'support_staff'
                 WHEN 15 THEN 'partner'
-            END
+            END::user_role_enum
             FROM roles r
             WHERE u.role_id = r.id
         `);
 
         // 4. Default for new users (no more magic 11).
-        await queryRunner.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'student'`);
+        await queryRunner.query(`ALTER TABLE users ALTER COLUMN role SET DEFAULT 'student'::user_role_enum`);
 
         // 5. NOT NULL gate — any row still NULL here was an orphan; surface it.
         await queryRunner.query(`ALTER TABLE users ALTER COLUMN role SET NOT NULL`);

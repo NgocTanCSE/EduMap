@@ -46,7 +46,7 @@ export class Donation {
   @JoinColumn({ name: 'campaign_id' })
   campaign: DonationCampaign;
 
-  @Column()
+  @Column({ nullable: true })
   campaign_id: string;
 
   @ManyToOne(() => User, { nullable: true })

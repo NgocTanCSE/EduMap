@@ -31,7 +31,7 @@ export class GreenChallenge {
   @JoinColumn({ name: 'created_by' })
   creator: User;
 
-  @Column()
+  @Column({ nullable: true })
   created_by: string;
 
   @CreateDateColumn()

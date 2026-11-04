@@ -66,7 +66,7 @@ export class Resource {
   lng: number;
 
   /** Thời gian có sẵn (ISO). Đối với volunteer_hours, thời gian rảnh. */
-  @Column({ ...enumColumn(), default: null })
+  @Column({ type: 'text', nullable: true, default: null })
   available_from: string | null;
 
   /** Chi phí (0 nếu cho đi miễn phí; >0 nếu cần chi phí vận chuyển/thuê). */

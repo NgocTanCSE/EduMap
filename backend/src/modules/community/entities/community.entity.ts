@@ -19,7 +19,7 @@ export class Group {
   @JoinColumn({ name: 'owner_id' })
   owner: User;
 
-  @Column()
+  @Column({ nullable: true })
   owner_id: string;
 
   @CreateDateColumn()
