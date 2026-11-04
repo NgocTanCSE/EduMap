@@ -85,6 +85,8 @@ function GoogleLoginContent() {
   const [checking, setChecking] = useState(true);
   const [googleReady, setGoogleReady] = useState(false);
   const [isEmbedded, setIsEmbedded] = useState(false);
+  // Tạm thời bỏ qua Google OAuth: nút đăng nhập chỉ chuyển hướng vào màn hình chính.
+  const skipGoogle = true;
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -137,6 +139,7 @@ function GoogleLoginContent() {
   // even though NEXT_PUBLIC_* values are inlined at build time.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (skipGoogle) return;
 
     // NOTE: GIS is intentionally loaded even when this page is embedded in an
     // iframe (Hugging Face Space view). The popup itself cannot post the
@@ -365,11 +368,14 @@ function GoogleLoginContent() {
             {/* Google renders its own button here on click it ALWAYS opens the
                 account chooser, unlike One Tap prompt() which fails silently.
                 It is the primary affordance in every context (tab or embed). */}
-            <div
-              ref={googleButtonRef}
-              id="google-signin-button"
-              className="w-full min-h-[44px] flex items-center justify-center"
-            />
+            <button
+              type="button"
+              onClick={() => router.replace(redirectUrl)}
+              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-sm active:scale-[0.98]"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span>Vào màn hình chính</span>
+            </button>
 
             {isEmbedded && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
@@ -392,7 +398,7 @@ function GoogleLoginContent() {
               </div>
             )}
 
-            {!googleReady && (
+            {!googleReady && !skipGoogle && (
               <p className="text-center text-xs text-muted-foreground">
                 {errorMessage ? 'Google chưa sẵn sàng.' : 'Đang tải nút đăng nhập Google…'}
               </p>
