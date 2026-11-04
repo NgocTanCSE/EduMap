@@ -258,11 +258,7 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py && \
     chmod 0644 /etc/cron.d/edumap-crawlers && \
     crontab /etc/cron.d/edumap-crawlers
 
-COPY frontend/public/edumap.db /app/data/edumap.db
-# Verify edumap.db is a valid SQLite database.
-# If the file is corrupted (e.g., 132-byte git-lfs pointer from HF Spaces upload),
-# automatically download the correct 1.3MB file from GitHub (repo is public).
-RUN python3 /app/scripts/verify_db.py
+# (SQLite file no longer shipped — DB is Supabase Postgres.)
 
 # --- Backend (uses full node_modules from builder for native sqlite3) ---
 WORKDIR /app/backend
@@ -373,8 +369,7 @@ ARG CACHEBUST=20261030_osrm-boost-chroma-fix
 
 ENV NODE_ENV=production
 ENV DB_TYPE=postgres
-# DB_SQLITE_PATH kept as fallback for legacy crawlers / local dev.
-ENV DB_SQLITE_PATH=/app/data/edumap.db
+# (DB_SQLITE_PATH removed — Postgres only.)
 ENV DB_SYNC=false
 # Enable dev-login on HF Spaces so users always have a working auth path.
 # On the free tier the SQLite file reverts to the image on restart; the dev

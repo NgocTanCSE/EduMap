@@ -69,7 +69,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
     ConfigModule.forRoot({ isGlobal: true }),
     // ScheduleModule (cron jobs) is only needed in PostgreSQL mode —
     // HF Spaces uses pre-seeded SQLite, no periodic crawling needed.
-    ...(process.env.DB_TYPE === 'sqlite' ? [] : [ScheduleModule.forRoot()]),
+    ScheduleModule.forRoot(),
     // Cache falls back to an in-memory store if Redis is unavailable instead of
     // crashing the whole application at bootstrap (mirrors the graceful
     // degradation already used by RedisIoAdapter for the socket layer).
@@ -77,7 +77,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
       isGlobal: true,
       useFactory: async () => {
         // HF Spaces mode: skip Redis entirely, use in-memory LRU cache
-        if (process.env.DB_TYPE === 'sqlite') {
+        if (false) {
           console.log(
             '[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)',
           );
@@ -101,37 +101,26 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
         }
       },
     }),
-    // Bull queues are disabled in SQLite/HF Spaces mode (no Redis)
-    ...(process.env.DB_TYPE === 'sqlite'
-      ? []
-      : [
-          BullModule.forRoot({
-            redis: {
-              host: process.env.REDIS_HOST || 'localhost',
-              port: Number(process.env.REDIS_PORT) || 6379,
-            },
-          }),
-        ]),
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: Number(process.env.REDIS_PORT) || 6379,
+      },
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
-      type: process.env.DB_TYPE === 'postgres' ? 'postgres' : 'sqlite',
-      ...(process.env.DB_TYPE === 'postgres'
-        ? {
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT) || 5432,
-            username: process.env.DB_USERNAME || 'admin',
-            password: process.env.DB_PASSWORD
-              ? process.env.DB_PASSWORD
-              : process.env.NODE_ENV === 'production'
-                ? (() => {
-                    throw new Error('DB_PASSWORD environment variable is required in production.');
-                  })()
-                : 'password123',
-            database: process.env.DB_DATABASE || 'edumap_db',
-          }
-        : {
-            database: process.env.DB_SQLITE_PATH || ':memory:',
-          }),
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT) || 5432,
+      username: process.env.DB_USERNAME || 'admin',
+      password: process.env.DB_PASSWORD
+        ? process.env.DB_PASSWORD
+        : process.env.NODE_ENV === 'production'
+          ? (() => {
+              throw new Error('DB_PASSWORD environment variable is required in production.');
+            })()
+          : 'password123',
+      database: process.env.DB_DATABASE || 'edumap_db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.DB_SYNC === 'true',
     }),
@@ -193,8 +182,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
     ModuleModule,
     FeatureModule,
     RoleModule,
-    // CrawlerModule disabled in SQLite/HF Spaces mode (data pre-seeded)
-    ...(process.env.DB_TYPE === 'sqlite' ? [] : [CrawlerModule]),
+    CrawlerModule,
     AnalyticsModule,
     PaymentModule,
     PinModule,

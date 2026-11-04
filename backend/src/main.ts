@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { ensureSqliteSchema } from './database/sqlite-bootstrap';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/nestjs';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
@@ -12,11 +11,6 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-
-  // HF Spaces serves a pre-built SQLite file and TypeORM runs with
-  // DB_SYNC=false. Heal legacy drift (role_id / camelCase columns) before
-  // TypeORM validates the entity metadata, otherwise boot fails.
-  await ensureSqliteSchema();
 
   // Khởi tạo Sentry trước khi khởi tạo Nest App
   Sentry.init({

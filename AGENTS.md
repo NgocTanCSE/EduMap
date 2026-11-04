@@ -1156,6 +1156,21 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
 - A first request during a cold start now renders a normal assistant bubble
   with an explanation instead of an error after a long silence.
 
+## 16. SQLite removed — Postgres (Supabase) only (2026-11-04)
+
+- `DB_TYPE` defaults to `postgres`; SQLite code paths removed:
+  - `backend/src/common/utils/db-column.utils.ts`: `isPostgresNow()` always `true`.
+  - `backend/src/app.module.ts`: Postgres-only TypeORM config; BullModule/ScheduleModule/CrawlerModule always on.
+  - `backend/src/main.ts`: `ensureSqliteSchema()` call removed.
+  - `backend/src/modules/{map,geo,impact-measurement,wifi}`: `isSqlite` forced `false`.
+- `crawlers/db_utils.py`: default `_IS_SQLITE = false` (Postgres via psycopg2).
+- Dockerfile: `ENV DB_TYPE=postgres`; SQLite file + verify_db no longer shipped.
+- `.env.example`: `DB_SQLITE_PATH` removed.
+- Data migrate: `scripts/migrate_sqlite_to_postgres.py` (idempotent).
+- HF Secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
+- `DB_SYNC=false` vẫn bắt buộc; schema qua migrations.
+- ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral).
+
 ## 15. Supabase migration (planned)
 
 - DB: SQLite (1.8 MB) → Supabase Postgres (free tier 500 MB). Dung lượng đủ.

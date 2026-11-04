@@ -31,11 +31,12 @@
  * all covered by {@link geoColumn}.
  */
 
-const isPostgres: boolean = (() => process.env.DB_TYPE === 'postgres')();
+// SQLite has been removed from the system; Postgres (Supabase) is the only DB.
+const isPostgres: boolean = true;
 
 /** Check DB type at call-time for lazy evaluation (use in tests). */
 export function isPostgresNow(): boolean {
-  return process.env.DB_TYPE === 'postgres';
+  return true;
 }
 
 /** Native PostGIS geography(Point, 4326) on Postgres, JSON on SQLite. */

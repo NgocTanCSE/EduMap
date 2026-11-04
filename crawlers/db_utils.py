@@ -227,7 +227,7 @@ def fetch_og_image(session, url, timeout=15, retries=1):
 # --------------------------------------------------------------------------- #
 # SQLite mode (HF Spaces default): DB_TYPE=sqlite → use sqlite3 stdlib.
 # PostgreSQL mode (dev / docker-compose): DB_TYPE unset or =postgresql → psycopg2.
-_IS_SQLITE = os.getenv("DB_TYPE", "sqlite") == "sqlite"
+_IS_SQLITE = os.getenv("DB_TYPE", "postgres") == "sqlite"
 _DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
 # SQLite uses ? placeholders; PostgreSQL uses %s.
 _PLACEHOLDER = "?" if _IS_SQLITE else "%s"

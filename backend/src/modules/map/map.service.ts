@@ -64,7 +64,7 @@ export class MapService {
     private readonly cloudflareAI: CloudflareAIService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
-    this.isSqlite = process.env.DB_TYPE === 'sqlite';
+    this.isSqlite = false;
     this.logger.log(`MapService initialized. isSqlite=${this.isSqlite}, DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 

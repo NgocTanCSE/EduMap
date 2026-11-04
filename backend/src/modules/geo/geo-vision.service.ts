@@ -114,7 +114,7 @@ export class GeoVisionService {
     private readonly mapPointRepo: Repository<MapPoint>,
     private readonly httpService: HttpService,
   ) {
-    this.isSqlite = process.env.DB_TYPE === 'sqlite';
+    this.isSqlite = false;
     this.aiServiceUrl =
       process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
     this.bingKey = process.env.BING_MAPS_API_KEY || undefined;

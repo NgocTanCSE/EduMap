@@ -364,7 +364,7 @@ export class ImpactMeasurementService {
   // ─── Facility loading (raw SQL on SQLite for speed, mirrors map.service.ts) ─
   private async _loadFacilities(bbox: [number, number, number, number], accessTypes: Set<string>): Promise<Facility[]> {
     const [minLat, maxLat, minLng, maxLng] = bbox;
-    const isSqlite = process.env.DB_TYPE === 'sqlite';
+    const isSqlite = false;
     if (isSqlite) {
       const raw = await this.mapPointRepo.query(
         'SELECT id, name, type_id, location, created_at, status FROM map_points LIMIT 5000'
