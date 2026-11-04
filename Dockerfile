@@ -372,7 +372,8 @@ COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface
 ARG CACHEBUST=20261030_osrm-boost-chroma-fix
 
 ENV NODE_ENV=production
-ENV DB_TYPE=sqlite
+ENV DB_TYPE=postgres
+# DB_SQLITE_PATH kept as fallback for legacy crawlers / local dev.
 ENV DB_SQLITE_PATH=/app/data/edumap.db
 ENV DB_SYNC=false
 # Enable dev-login on HF Spaces so users always have a working auth path.

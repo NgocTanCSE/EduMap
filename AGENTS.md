@@ -1156,6 +1156,17 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
 - A first request during a cold start now renders a normal assistant bubble
   with an explanation instead of an error after a long silence.
 
+## 15. Supabase migration (planned)
+
+- DB: SQLite (1.8 MB) → Supabase Postgres (free tier 500 MB). Dung lượng đủ.
+- Backend đã hỗ trợ Postgres (`DB_TYPE=postgres`); `ensureSqliteSchema()` no-op khi Postgres.
+- Schema qua TypeORM migrations (`npm run migration:run`), `DB_SYNC=false`.
+- Dữ liệu migrate qua `scripts/migrate_sqlite_to_postgres.py` (idempotent).
+- Crawlers hiện ghi SQLite; tạm giữ SQLite + nightly sync (lựa chọn A) hoặc refactor sang Postgres (B).
+- Env HF Secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
+- Dockerfile đã đổi `ENV DB_TYPE=postgres`; DB env vars recover qua `start.sh`.
+- ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral) — không thuộc Supabase.
+
 ## 14. Chat degraded reply root cause (2026-11-04)
 
 Symptom: `/ai-chat` always answered with the §13 degraded template
