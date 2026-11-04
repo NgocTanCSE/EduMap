@@ -27,8 +27,15 @@ function targetFor(path) {
 const server = http.createServer((req, res) => {
   const url = req.url || '/';
 
-  if (url === '/health' || url === '/healthz') {
-    const body = JSON.stringify({ status: 'ok', service: 'hf-proxy' });
+  // HF Spaces health check / build-log viewer hits the root path. Return 200 so
+  // the Space is reported as running (the UI itself lives on Vercel now).
+  const pathname = url.split('?')[0];
+  if (pathname === '/' || pathname === '/health' || pathname === '/healthz') {
+    const body = JSON.stringify({
+      status: 'ok',
+      service: 'hf-proxy',
+      note: 'Frontend is hosted on Vercel; this Space serves /api/* only.',
+    });
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
     res.end(body);
     return;
