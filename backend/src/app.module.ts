@@ -131,7 +131,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
       // "no tenant identifier provided (external_id or sni_hostname required)".
       ssl:
         process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
-          ? { rejectUnauthorized: false, servername: process.env.DB_HOST }
+          ? ({ rejectUnauthorized: false, servername: process.env.DB_HOST } as any)
           : false,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.DB_SYNC === 'true',
