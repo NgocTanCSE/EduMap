@@ -126,9 +126,12 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
       database: process.env.DB_DATABASE || 'edumap_db',
       // Supabase (and most managed Postgres) require TLS. Enable SSL for any
       // non-localhost host so local docker-compose (plain) keeps working.
+      // `servername` is required by the Supabase transaction pooler to route
+      // to the correct tenant (SNI) — without it the pooler returns
+      // "no tenant identifier provided (external_id or sni_hostname required)".
       ssl:
         process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
-          ? { rejectUnauthorized: false }
+          ? { rejectUnauthorized: false, servername: process.env.DB_HOST }
           : false,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.DB_SYNC === 'true',
