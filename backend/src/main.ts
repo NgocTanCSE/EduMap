@@ -23,6 +23,9 @@ async function bootstrap() {
     environment: process.env.NODE_ENV || 'development',
   });
 
+  const _dbUser = process.env.DB_USERNAME || 'admin';
+  const _dbHost = process.env.DB_HOST || 'localhost';
+  console.log(`[DB-DEBUG] DB_TYPE=${process.env.DB_TYPE} HOST=${_dbHost} PORT=${process.env.DB_PORT} USER=${_dbUser} DB=${process.env.DB_DATABASE}`);
   const app = await NestFactory.create(AppModule);
 
   // 🛡️ SECURITY: Helmet bảo mật HTTP Header
