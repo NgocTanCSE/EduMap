@@ -42,7 +42,7 @@ def test_start_script_recovers_secrets_in_a_loop():
 
     # The list must be a closed string and the loop must exist, otherwise bash
     # swallows the following lines into the string literal.
-    assert 'TAVILY_CIRCUIT_BREAKER_TTL"\n    for var in $SECRET_VARS; do' in text
+    assert 'DB_SYNC"\n    for var in $SECRET_VARS; do' in text
     assert "uvicorn main:app" in text
 
 
