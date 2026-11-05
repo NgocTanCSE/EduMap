@@ -7,6 +7,7 @@ psycopg2-binary
 pandas
 chromadb>=0.4.0,<0.6.0
 overrides>=7.4.0
+tenacity>=8.2.0
 # chromadb 0.5.x calls posthog.capture(distinct_id, event, props) positionally.
 # posthog>=6 changed the signature to capture(event, **kwargs), which raises
 # "capture() takes 1 positional argument but 3 were given" on every Chroma

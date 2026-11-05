@@ -114,6 +114,21 @@ def extract_deadline(text: str) -> Optional[str]:
     return None
 
 
+def parse_date_or_default(text: str, default: Optional[str] = None) -> str:
+    """Extract a date from text, falling back to ``default`` when none found.
+
+    Wraps :func:`extract_deadline`.  Returns an ISO date string (YYYY-MM-DD);
+    when no date can be parsed and ``default`` is None, returns today's date.
+    """
+    d = extract_deadline(text)
+    if d:
+        return d
+    if default:
+        return default
+    from datetime import date
+    return date.today().isoformat()
+
+
 def extract_company(text: str) -> Optional[str]:
     """Extract a company name from text.  Heuristic: look for patterns
     like 'công ty ABC', 'Công ty TNHH XYZ', 'ABC tuyển dụng', etc."""
