@@ -97,22 +97,22 @@ export class DashboardService {
       SELECT * FROM (
         SELECT 'application' AS type, j.title AS title, a.status, a.created_at
           FROM applications a JOIN jobs j ON CAST(j.id AS TEXT) = CAST(a.job_id AS TEXT)
-          WHERE a.user_id = $1
+          WHERE a.user_id = $1::uuid
         UNION ALL
         SELECT 'registration' AS type, e.title, er.status, er.created_at
           FROM event_registrations er JOIN events e ON CAST(e.id AS TEXT) = CAST(er.event_id AS TEXT)
-          WHERE er.user_id = $1
+          WHERE er.user_id = $1::uuid
         UNION ALL
         SELECT 'intern_application' AS type, i.title, ia.status, ia.created_at
           FROM internship_applications ia JOIN internships i ON CAST(i.id AS TEXT) = CAST(ia.internship_id AS TEXT)
-          WHERE ia.user_id = $1
+          WHERE ia.user_id = $1::uuid
         UNION ALL
         SELECT 'scholar_application' AS type, s.title, sa.status, sa.created_at
           FROM scholarship_applications sa JOIN scholarships s ON CAST(s.id AS TEXT) = CAST(sa.scholarship_id AS TEXT)
-          WHERE sa.student_id = $1
+          WHERE sa.student_id = $1::uuid
         UNION ALL
         SELECT 'summer_registration' AS type, CAST(cr.campaign_id AS TEXT) AS title, cr.status, cr.created_at
-          FROM summer_registrations cr WHERE cr.user_id = $1
+          FROM summer_registrations cr WHERE cr.user_id = $1::uuid
       ) t ORDER BY created_at DESC
     `;
     try {

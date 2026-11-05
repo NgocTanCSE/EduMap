@@ -111,7 +111,7 @@ RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests p
 # Step 3: chromadb deps FIRST (kubernetes, onnxruntime — large graph),
 # then chromadb itself with --no-deps so pip doesn't re-resolve everything.
 # This isolates chromadb's huge dependency tree from the rest.
-RUN pip install --no-cache-dir kubernetes onnxruntime mmh3 click graphene grpcio pybase64 pypika schema brotli datasketch deprecated overrides tenacity && \
+RUN pip install --no-cache-dir kubernetes onnxruntime mmh3 click graphene grpcio pybase64 pypika schema brotli datasketch deprecated overrides tenacity opentelemetry-api opentelemetry-sdk && \
     pip install --no-cache-dir --no-deps "chromadb>=0.4.0,<0.6.0" && \
     echo "[ai-deps] chromadb + deps installed"
 
