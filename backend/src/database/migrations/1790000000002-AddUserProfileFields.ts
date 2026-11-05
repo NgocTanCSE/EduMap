@@ -4,9 +4,11 @@ export class AddUserProfileFields1790000000002 implements MigrationInterface {
     name = 'AddUserProfileFields1790000000002'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Thêm date_of_birth và major vào bảng users
+        // Thêm date_of_birth, major, location, email_verified vào bảng users
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "date_of_birth" DATE`);
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "major" character varying(255)`);
+        await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "location" character varying(255)`);
+        await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verified" boolean NOT NULL DEFAULT false`);
 
         // Bảng user_preferences có thể chưa tồn tại (chưa có migration tạo nó).
         // Tạo nếu thiếu để migration không fail trên Postgres fresh.
