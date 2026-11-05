@@ -239,7 +239,7 @@ WORKDIR /app
 RUN apt-get update -qq && \
     apt-get install -y -qq --no-install-recommends \
       python3 python3-pip supervisor curl ca-certificates cron \
-      libprotobuf32 libtbb12 libgomp1 \
+      libprotobuf32 libtbb12 libgomp1 libatomic1 \
       libboost-filesystem1.74.0 libboost-iostreams1.74.0 \
       libboost-system1.74.0 libboost-thread1.74.0 \
       libboost-program-options1.74.0 \

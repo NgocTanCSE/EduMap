@@ -8,8 +8,8 @@
 # feature crawlers still run even if cron fails to start.
 set -euo pipefail
 
-# Default to SQLite for HF Spaces (no PostgreSQL server available).
-export DB_TYPE="${DB_TYPE:-sqlite}"
+# Postgres (Supabase) is the primary DB now. SQLite is only a legacy fallback.
+export DB_TYPE="${DB_TYPE:-postgres}"
 export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/data/edumap.db}"
 
 DB_PATH="${DB_SQLITE_PATH}"
@@ -22,7 +22,7 @@ export EDUMAP_CRAWL_YEAR="${EDUMAP_CRAWL_YEAR:-$(date -u +%Y)}"
 sleep_time="${CRAWL_INTERVAL_SECONDS:-86400}"  # 24h default
 
 while true; do
-  if [ -f "$DB_PATH" ]; then
+  if [ "$DB_TYPE" = "postgres" ] || [ -f "$DB_PATH" ]; then
     # --- Jobs (SQLite, primary HF path) ---
     python3 /app/scripts/crawl_jobs.py --db "$DB_PATH" 2>&1 || \
       echo "[crawler] crawl_jobs.py failed (graceful — continue)" >&2
