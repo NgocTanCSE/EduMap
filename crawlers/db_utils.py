@@ -237,7 +237,7 @@ _NOW_EXPR = "datetime('now')" if _IS_SQLITE else "NOW()"
 _DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_CFG = {
     "host": _DB_HOST,
-    "port": int(os.getenv("DB_PORT", "5433")),
+    "port": int(os.getenv("DB_PORT", "6543" if "supabase" in os.getenv("DB_HOST", "") else "5432"))),
     "dbname": os.getenv("DB_DATABASE", "edumap_db"),
     "user": os.getenv("DB_USERNAME", "edumap"),
     "password": os.getenv("DB_PASSWORD", ""),

@@ -111,7 +111,10 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
+      // Supabase direct connection (5432) is IPv6-only; default to the
+      // IPv4-capable transaction pooler (6543) when targeting Supabase and
+      // DB_PORT is not explicitly set.
+      port: parseInt(process.env.DB_PORT) || ((process.env.DB_HOST || '').includes('supabase') ? 6543 : 5432),
       username: process.env.DB_USERNAME || 'admin',
       password: process.env.DB_PASSWORD
         ? process.env.DB_PASSWORD

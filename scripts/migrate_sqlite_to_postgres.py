@@ -31,7 +31,7 @@ def pg_conn():
     host = os.getenv("DB_HOST", "localhost")
     kwargs = dict(
         host=host,
-        port=int(os.getenv("DB_PORT", "5432")),
+        port=int(os.getenv("DB_PORT", "6543" if "supabase" in host else "5432")),
         user=os.getenv("DB_USERNAME", "postgres"),
         password=os.getenv("DB_PASSWORD", ""),
         dbname=os.getenv("DB_DATABASE", "postgres"),
