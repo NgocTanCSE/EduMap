@@ -41,7 +41,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)\
+        urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)/i,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'api-cache',
@@ -52,7 +52,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
       {
 
 
-        urlPattern: /\/api\/offline\/tutor\
+        urlPattern: /\/api\/offline\/tutor/i,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'offline-tutor-cache',

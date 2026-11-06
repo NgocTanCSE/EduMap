@@ -38,7 +38,24 @@
 ### 1.4 Đánh dấu demo
 - `payment.service.ts` (3 response) + `blockchain.service.ts` (2 response) → gắn `demo: true`.
 
-## 2. Các GMerge được ĐÁNH GIÁ, KHÔNG thực thi
+## 1.5 Build error trên HF Spaces (vừa sửa)
+
+**Triệu chứng:** `next build` → `SyntaxError: Invalid regular expression: missing /` tại `next.config.js:44`, blok toàn bộ deploy.
+
+**Root cause:** Pass comment-stripping đã cắt đuôi `/i` của 2 regex literal trong `next.config.js` (bộ naive誤以為 là comment):
+
+```js
+urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)\   → thiếu /i
+urlPattern: /\/api\/offline\/tutor\                                → thiếu /i
+```
+
+**Sửa:** khôi phục `/i` cho cả hai. `node -e "require('./next.config.js')"` → OK.
+
+**Verified:** quét toàn bộ frontend JS/JSX/TS/TSX/MJS/CJS — 0 regex literal bị cắt; `npx tsc` frontend/backend = 0.
+
+**Lỗi `scripts/test_hf_ai*.js`, `hf_proxy.js` (SyntaxError):** là **tiền tồn trong HEAD** — `node --check` trên bản pristine của 2 file này cũng fail. Next không compile thư mục `scripts/` nên không blok build. Giữ nguyên (thuộc phase code review).
+
+## 2. Các Gộp được ĐÁNH GIÁ, KHÔNG thực thi
 
 | Kandidat | Đánh giá |
 |---|---|
@@ -51,14 +68,14 @@
 
 → **Tất cả đều là tính năng LIVE, không phải code chết.** Gộp chúng là thiết kế lại, không phải dọn dẹp. Không thực thi trừ khi bạn yêu cầu rõ.
 
-## 3. Item chưa làm (cần quyết định)
+## 3. Chưa làm (cần quyết định)
 
 1. **Drop bảng `features`, `modules`, `model_3d`** — không còn code nào dùng, nhưng cần migration TypeORM mới (chưa viết).
 2. **`payment` gateway thật** (VNPay/Momo) hoặc ẩn module demo.
 3. **`blockchain` chain thật** hoặc ẩn.
 4. **`npm test -- --runInBand` backend** — chưa chạy vì AGENTS.md §4 chỉ cho phép `tsc --noEmit` trừ khi bạn yêu cầu. Đã chạy `tsc` = 0 lỗi.
 
-## 4. Verification
+## 4. Xác minh
 
 ```
 ai-service   python3 -m pytest tests -q      → 525 passed
@@ -69,13 +86,13 @@ frontend     npx tsc --noEmit --incremental false → 0 lỗi
 
 > Lưu ý: 2 test `tests/test_data_quality.py` từng fail với `sqlite3.OperationalError: disk I/O error` do `/tmp` đầy (từ một bản copy lớn). Dọn `/tmp` → 2 test đều passent. Không phải hồi quy code.
 
-## 5. File báo cáo
+## 5. Báo cáo
 
 - `BE_STATUS_REPORT.md` — trạng thái module-by-module backend (cập nhật).
 - `CLEANUP_REPORT.md` — báo cáo dọn dẹp này.
 - `COMPLETION_REPORT.md`, `REFACTOR_TODO.md` — báo cáo phase 1 (giữ nguyên).
 
-## 6. Thực trạng working tree
+## 6. Working tree
 
 - 999 file thay đổi, **chưa commit, chưa push**. Bạn deploy.
 - 4 file frontend untracked (`app/api/donations/route.ts`, `src/services/{ai,config,offline-tutor}.service.ts`) là file legit được import từ các page tracked — không xóa.
