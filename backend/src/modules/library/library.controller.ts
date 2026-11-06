@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, NotFoundException, InternalServerErrorException, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { LibraryService } from './library.service';
 import { AIService } from '../ai/ai.service';
 
@@ -17,6 +18,8 @@ export class LibraryController {
   ) {}
 
   @Get('resources')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,

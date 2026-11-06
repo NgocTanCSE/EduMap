@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, Req, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, Query, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('analytics')
@@ -13,6 +14,8 @@ export class AnalyticsController {
   }
 
   @Get('stats')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   async getStats() {
     return await this.analyticsService.getGlobalStats();
   }

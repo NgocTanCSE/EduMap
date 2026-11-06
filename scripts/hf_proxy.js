@@ -7,11 +7,14 @@
 //   /health    -> 200 {"status":"ok"}
 //   anything else -> 404
 //
+// Handles both plain HTTP and WebSocket upgrades (Socket.IO realtime).
+//
 // Node stdlib only — no npm dependency. Keeps the HF image small and the
 // proxy's own memory footprint negligible (~30 MB).
 'use strict';
 
 const http = require('http');
+const net = require('net');
 
 const PORT = Number(process.env.HF_PROXY_PORT || 7680);
 const BACKEND = { host: '127.0.0.1', port: Number(process.env.BACKEND_PORT || 3000) };
@@ -24,12 +27,53 @@ function targetFor(path) {
   return undefined; // 404
 }
 
+// Rewrite the public socket.io path (/api/socket.io) to the backend's
+// default Engine.IO path (/socket.io).
+function rewritePath(url) {
+  if (url.startsWith('/api/socket.io')) {
+    return url.replace(/^\/api\/socket\.io/, '/socket.io');
+  }
+  return url;
+}
+
+function pipeUpgrade(req, socket, head, target) {
+  const path = rewritePath(req.url || '/');
+  const headers = Object.assign({}, req.headers, { host: `${target.host}:${target.port}` });
+  const proxyReq = http.request({
+    host: target.host,
+    port: target.port,
+    path,
+    method: req.method,
+    headers,
+  });
+  proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+    // Write the 101 response back to the client.
+    let raw = `HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n`;
+    for (let i = 0; i < proxyRes.rawHeaders.length; i += 2) {
+      raw += `${proxyRes.rawHeaders[i]}: ${proxyRes.rawHeaders[i + 1]}\r\n`;
+    }
+    raw += '\r\n';
+    socket.write(raw);
+    if (proxyHead && proxyHead.length) socket.write(proxyHead);
+    if (head && head.length) proxySocket.write(head);
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+    proxySocket.on('error', () => { try { socket.destroy(); } catch (e) {} });
+    socket.on('error', () => { try { proxySocket.destroy(); } catch (e) {} });
+    socket.on('close', () => { try { proxySocket.destroy(); } catch (e) {} });
+    proxySocket.on('close', () => { try { socket.destroy(); } catch (e) {} });
+  });
+  proxyReq.on('error', (err) => {
+    try { socket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n'); } catch (e) {}
+    try { socket.destroy(); } catch (e) {}
+  });
+  proxyReq.end();
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url || '/';
-
-  // HF Spaces health check / build-log viewer hits the root path. Return 200 so
-  // the Space is reported as running (the UI itself lives on Vercel now).
   const pathname = url.split('?')[0];
+
   if (pathname === '/' || pathname === '/health' || pathname === '/healthz') {
     const body = JSON.stringify({
       status: 'ok',
@@ -49,10 +93,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const path = rewritePath(url);
   const opts = {
     host: target.host,
     port: target.port,
-    path: url,
+    path,
     method: req.method,
     headers: Object.assign({}, req.headers, { host: `${target.host}:${target.port}` }),
   };
@@ -73,6 +118,17 @@ const server = http.createServer((req, res) => {
   });
 
   req.pipe(proxyReq, { end: true });
+});
+
+server.on('upgrade', (req, socket, head) => {
+  const url = req.url || '/';
+  const target = targetFor(url);
+  if (!target) {
+    try { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); } catch (e) {}
+    try { socket.destroy(); } catch (e) {}
+    return;
+  }
+  pipeUpgrade(req, socket, head, target);
 });
 
 server.on('error', (err) => {

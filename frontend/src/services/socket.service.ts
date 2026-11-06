@@ -7,10 +7,20 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return;
 
+    // Resolve the backend base URL. On Vercel the frontend is served from a
+    // different origin than the HF Space backend, so we must connect directly
+    // to the HF Space (or an override) instead of the relative origin.
+    const socketBase =
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ||
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SOCKET_URL) ||
+      (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
+        ? 'https://tancse2005-edumap.hf.space'
+        : '');
+
     // Connect to the realtime namespace
-    this.socket = io('/realtime', {
-      path: '/api/socket.io', // Nginx will proxy this
-      transports: ['websocket'],
+    this.socket = io(`${socketBase}/realtime`, {
+      path: '/api/socket.io', // hf-proxy rewrites to /socket.io on the backend
+      transports: ['websocket', 'polling'],
     });
 
     this.socket.on('connect', () => {

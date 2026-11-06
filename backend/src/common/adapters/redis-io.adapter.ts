@@ -13,6 +13,10 @@ export class RedisIoAdapter extends IoAdapter {
   }
 
   async connectToRedis(): Promise<void> {
+    if (!process.env.REDIS_HOST) {
+      this.logger.warn('REDIS_HOST not set — skipping Redis Socket.IO adapter (HF Spaces mode).');
+      return;
+    }
     try {
       const pubClient = createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379',

@@ -1,4 +1,5 @@
-import { Controller, Post, Put, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, Param, UseGuards, Request, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,6 +11,8 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
   @Get()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   @ApiOperation({ summary: 'Lấy danh sách tất cả các workshop/sự kiện' })
   async getEvents() {
     return this.eventsService.getEvents();

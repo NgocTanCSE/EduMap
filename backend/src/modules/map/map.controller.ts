@@ -4,6 +4,8 @@ import { SkipThrottle } from '@nestjs/throttler';
 
 import { MapService } from './map.service';
 import { RoutingService, SafeRoutePreferences } from './routing.service';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { UseInterceptors } from '@nestjs/common';
 
 import { AiAnalysisDto } from './dto/ai-analysis.dto';
 
@@ -79,6 +81,10 @@ export class MapController {
 
   @SkipThrottle()
 
+  @UseInterceptors(CacheInterceptor)
+
+  @CacheTTL(300000)
+
   async getAllPois(
 
     @Query('category') category?: string,
@@ -141,6 +147,10 @@ export class MapController {
 
   @SkipThrottle()
 
+  @UseInterceptors(CacheInterceptor)
+
+  @CacheTTL(300000)
+
   async getLocations(
 
     @Query('minLat') minLat?: string,
@@ -192,6 +202,10 @@ export class MapController {
   @Get('categories')
 
   @SkipThrottle()
+
+  @UseInterceptors(CacheInterceptor)
+
+  @CacheTTL(3600000)
 
   async getCategories() {
 
@@ -272,6 +286,10 @@ export class MapController {
   @Get('stats')
 
   @SkipThrottle()
+
+  @UseInterceptors(CacheInterceptor)
+
+  @CacheTTL(300000)
 
   async getStats() {
 
@@ -439,6 +457,8 @@ export class MapController {
 
   @Get('featured-pins')
   @SkipThrottle()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   async getFeaturedPins(
     @Query('minLat') minLat?: string,
     @Query('maxLat') maxLat?: string,

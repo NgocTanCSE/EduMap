@@ -77,7 +77,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
       isGlobal: true,
       useFactory: async () => {
         // HF Spaces mode: skip Redis entirely, use in-memory LRU cache
-        if (false) {
+        if (!process.env.REDIS_HOST) {
           console.log(
             '[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)',
           );
@@ -101,12 +101,14 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
         }
       },
     }),
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: Number(process.env.REDIS_PORT) || 6379,
-      },
-    }),
+    ...(process.env.REDIS_HOST
+      ? [BullModule.forRoot({
+          redis: {
+            host: process.env.REDIS_HOST,
+            port: Number(process.env.REDIS_PORT) || 6379,
+          },
+        })]
+      : []),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -134,6 +136,8 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
           ? ({ rejectUnauthorized: false, servername: process.env.DB_HOST } as any)
           : false,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+      migrationsRun: true,
       synchronize: process.env.DB_SYNC === 'true',
     }),
     HttpModule,

@@ -83,6 +83,15 @@ export class MapService {
   private static readonly GAP_FORECAST_CACHE_MAX = 60;
   private readonly _gapForecastCache = new Map<string, { data: any; expires: number }>();
 
+  // ─── POI read cache: in-process TTL (HF Spaces has no Redis) ──────────────
+  // findAllPois / findPoisByCategory hit Postgres (locations + map_points) on
+  // every map view and are the dominant cost of "data loading" (~3s). POIs
+  // change rarely (only on createPoi), so a short TTL cache removes the
+  // repeated DB round-trips. Invalidated on createPoi.
+  private static readonly POI_CACHE_TTL_MS = 300 * 1000;
+  private static readonly POI_CACHE_MAX = 80;
+  private readonly _poiCache = new Map<string, { data: any; expires: number }>();
+
   /**
    * Parse a geography value that may arrive in one of several formats:
    *  - PostGIS (TypeORM): GeoJSON { type:'Point', coordinates:[lng,lat] }
@@ -353,6 +362,14 @@ export class MapService {
   }
 
   async findAllPois(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
+    const key = `all:${bounds ? `${bounds.minLat},${bounds.maxLat},${bounds.minLng},${bounds.maxLng}` : 'none'}`;
+    const now = Date.now();
+    const cached = this._poiCache.get(key);
+    if (cached && cached.expires > now) {
+      return cached.data;
+    }
+    if (cached) this._poiCache.delete(key);
+
     // Fetch from both map_points and locations tables for proper data sync
     const [mapPoints, locations] = await Promise.all([
       this.fetchMapPoints(bounds),
@@ -364,7 +381,15 @@ export class MapService {
     // so a given id never resolves to two different coordinates across renders.
     // map_points (verified) are sorted first so their coordinates win.
     const allPois = [...mapPoints, ...locations];
-    return this.mergeDuplicateIds(this.deduplicatePois(allPois));
+    const result = this.mergeDuplicateIds(this.deduplicatePois(allPois));
+
+    // LRU-style eviction
+    if (this._poiCache.size >= MapService.POI_CACHE_MAX) {
+      const oldestKey = this._poiCache.keys().next().value;
+      if (oldestKey) this._poiCache.delete(oldestKey);
+    }
+    this._poiCache.set(key, { data: result, expires: now + MapService.POI_CACHE_TTL_MS });
+    return result;
   }
 
   private isSqlite: boolean;
@@ -426,6 +451,14 @@ export class MapService {
   }
 
   async findPoisByCategory(category: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
+    const key = `cat:${category.toLowerCase()}:${bounds ? `${bounds.minLat},${bounds.maxLat},${bounds.minLng},${bounds.maxLng}` : 'none'}`;
+    const now = Date.now();
+    const cached = this._poiCache.get(key);
+    if (cached && cached.expires > now) {
+      return cached.data;
+    }
+    if (cached) this._poiCache.delete(key);
+
     const typeIdsMap: { [key: string]: number } = {
       'university': 1,
       'school': 2,
@@ -452,7 +485,14 @@ export class MapService {
     
     // Merge and deduplicate by id AND name+proximity (map_points verified first)
     const allPois = [...mapPoints, ...locations];
-    return this.deduplicatePois(allPois);
+    const result = this.deduplicatePois(allPois);
+
+    if (this._poiCache.size >= MapService.POI_CACHE_MAX) {
+      const oldestKey = this._poiCache.keys().next().value;
+      if (oldestKey) this._poiCache.delete(oldestKey);
+    }
+    this._poiCache.set(key, { data: result, expires: now + MapService.POI_CACHE_TTL_MS });
+    return result;
   }
 
   private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
@@ -593,6 +633,7 @@ export class MapService {
       // Không làm gián đoạn luồng tạo — chỉ log cảnh báo
       this.logger.warn(`Auto-embed POI failed (non-fatal): ${e}`);
     }
+    this._poiCache.clear();
     return this.mapPointToPoi(saved)!;
   }
 

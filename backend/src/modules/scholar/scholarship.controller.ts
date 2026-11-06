@@ -1,4 +1,5 @@
-import { Controller, Post, Put, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
+import { Controller, Post, Put, Body, Param, UseGuards, Request, Get, Query, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ScholarshipService } from './scholarship.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,6 +11,8 @@ export class ScholarshipController {
   constructor(private readonly scholarService: ScholarshipService) { }
 
   @Get()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   @ApiOperation({ summary: 'Lấy tất cả danh sách học bổng' })
   async findAll(
     @Query('page') page?: string,

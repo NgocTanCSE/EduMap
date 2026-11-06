@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, ParseIntPipe, DefaultValuePipe, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,6 +12,8 @@ export class CommunityController {
   constructor(private readonly communityService: CommunityService) {}
 
   @Get('posts')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(120000)
   @ApiOperation({ summary: 'Lấy danh sách các bài viết thảo luận' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -68,6 +71,8 @@ export class CommunityController {
   }
 
   @Get('groups')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(300000)
   @ApiOperation({ summary: 'Lấy danh sách các nhóm học tập công cộng' })
   async getGroups() {
     return this.communityService.getGroups();
