@@ -1269,3 +1269,23 @@ Verified locally: `cd frontend && npx tsc --noEmit` = 0 errors; a resolver scan
 over `app/`, `components/`, `src/` reports 0 unresolved relative imports; a dry
 run of the fixed prebuild script deletes only `tsconfig.tsbuildinfo`.
 Runtime truth remains the Vercel build + HF Space deploy.
+### Same commit broke CSS (found on retry, 2026-11-07)
+
+The next Vercel build failed at `app/globals.css:332 Syntax error: Unexpected }`.
+The earlier comment-strip commit (`5888723`) had removed CSS comments **and the
+selector lines that followed them**, so blocks became orphan declarations:
+
+```css
+@media (max-width: 1023px) {
+    min-height: calc(100dvh - 3.5rem);   /* selector #app-content .min-h-screen was deleted */
+  }
+}
+```
+
+Only two CSS files exist in the repo and both were damaged
+(`app/globals.css`, `components/landing/landing.module.css`). Fixed by restoring
+both from the last good commit (`e304e65`) and re-stripping **only** `/* ... */`
+comments with a string-aware scanner (selectors and declarations untouched).
+Verified with PostCSS: 2 files parsed, 0 errors; `npx tsc --noEmit` = 0 errors.
+Rule going forward: CSS comment removal must use a real CSS parser/scanner, never
+line-based deletion.
