@@ -137,7 +137,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
           : false,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-      migrationsRun: true,
+      migrationsRun: false,
       synchronize: process.env.DB_SYNC !== 'false',
     }),
     HttpModule,
