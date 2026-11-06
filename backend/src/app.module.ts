@@ -138,7 +138,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
       migrationsRun: true,
-      synchronize: process.env.DB_SYNC === 'true',
+      synchronize: process.env.DB_SYNC !== 'false',
     }),
     HttpModule,
     MailerModule.forRoot({
