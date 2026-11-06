@@ -1240,3 +1240,32 @@ for every question, including the seeded suggestion
 - **Unsuitable/stale items (reported)**: `module`/`feature` backend folders already absent (stale report entries), build artifacts (`backend/dist`, `frontend/.next`) not tracked, `.env.example` corrected, lockfile `agentation` residue.
 - **P1 public-timeline extension** (after the initial guard sweep): endpoints whose product intent is genuinely public were annotated explicitly rather than left accidentally open — `resource-exchange/match`, `map/climate/alternatives`, `analytics/track` all got `@Public()`, and `ai/speech/to-text` already had it.
 - Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = HF Spaces free tier after user deploy.
+
+## 18. Vercel build fix — strip-stale-sources deleted used services (2026-11-07)
+
+Symptom: Vercel `next build` failed with
+`Module not found: Can't resolve '@/src/services/admin.service'` (and the same
+for `analytics`, `dashboard`, `gamification`, `notification` services).
+
+Root cause: `frontend/scripts/strip-stale-sources.js` (runs in `prebuild`) listed
+five service files as "stale" and deleted them before webpack resolved imports.
+The files were still imported by `app/admin/*`, `app/analytics/trends`,
+`app/dashboard`, `app/leaderboard`, `app/profile` and
+`components/dashboard/*`, so the build always failed regardless of alias vs
+relative paths.
+
+Fix:
+- Removed the five live entries from `STALE_FILES`
+  (`admin`, `analytics`, `dashboard`, `gamification`, `notification` services).
+- Added an `isReferenced()` guard in the same script: a listed file is only
+  deleted when no source under `app/`, `components/`, `src/`, `lib/` imports it
+  (logs `kept <file> (still imported)` otherwise). Missing entries stay harmless
+  no-ops.
+- Normalised `frontend/app` service imports to explicit relative paths
+  (`../../src/services/...`) so resolution no longer depends on the `@/*`
+  tsconfig/webpack alias.
+
+Verified locally: `cd frontend && npx tsc --noEmit` = 0 errors; a resolver scan
+over `app/`, `components/`, `src/` reports 0 unresolved relative imports; a dry
+run of the fixed prebuild script deletes only `tsconfig.tsbuildinfo`.
+Runtime truth remains the Vercel build + HF Space deploy.

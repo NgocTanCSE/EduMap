@@ -55,13 +55,8 @@ const STALE_FILES = [
 
 
   "src/lib/plain-text.ts",
-  "src/services/admin.service.ts",
-  "src/services/analytics.service.ts",
-  "src/services/dashboard.service.ts",
-  "src/services/gamification.service.ts",
   "src/services/mobile-unit.service.ts",
   "src/services/moderator.service.ts",
-  "src/services/notification.service.ts",
 
 
 
@@ -100,12 +95,52 @@ const STALE_FILES = [
 
 const STALE_DIRS = ["test-app", "test-results"];
 
+function isReferenced(absFile) {
+  const stem = path.basename(absFile);
+  const name = stem.replace(/\.[^.]+$/, "");
+  if (!/\.(ts|tsx|js|jsx|mjs)$/.test(stem)) return false;
+  const pattern = new RegExp("[\"'`][^\"'`]*(/|^)" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\.[a-z]+)?[\"'`]");
+  const scanRoots = ["app", "components", "src", "lib"];
+  const stack = scanRoots.map((r) => path.join(ROOT, r));
+  while (stack.length) {
+    const dir = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        stack.push(full);
+        continue;
+      }
+      if (!/\.(ts|tsx|js|jsx|mjs)$/.test(e.name)) continue;
+      if (path.resolve(full) === path.resolve(absFile)) continue;
+      let text;
+      try {
+        text = fs.readFileSync(full, "utf8");
+      } catch {
+        continue;
+      }
+      if (pattern.test(text)) return true;
+    }
+  }
+  return false;
+}
+
 let removed = 0;
 
 for (const rel of STALE_FILES) {
   const abs = path.join(ROOT, rel);
   try {
     if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      if (isReferenced(abs)) {
+        console.log(`[strip-stale] kept ${rel} (still imported)`);
+        continue;
+      }
       fs.unlinkSync(abs);
       removed += 1;
     }
