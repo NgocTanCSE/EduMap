@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Job Crawler — Vietnamese job boards via Tavily AI search/extract → SQLite 'jobs' table.
 
@@ -50,17 +49,15 @@ import re
 import html as _html
 from datetime import datetime
 
-# Shared crawl scope (years + location layers).
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
-from crawl_scope import (  # noqa: E402
+from crawl_scope import (  
     crawl_year, crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, DONG_NAI_BBOX, DONG_NAI_KEYWORDS, VIETNAM_BBOX,
     location_matches,
 )
 
-# Tavily client + structured parsers (replaces all HTTP-based sources).
-from tavily_client import TavilyClient, tavily_search_and_extract  # noqa: E402
-from tavily_parse import (  # noqa: E402
+from tavily_client import TavilyClient, tavily_search_and_extract  
+from tavily_parse import (  
     parse_tavily_jobs, clean_text,
 )
 
@@ -69,9 +66,6 @@ PAGE_SIZE = 20
 MAX_PAGES = int(os.getenv("MAX_PAGES", "3"))
 
 
-# --------------------------------------------------------------------------- #
-# Generic URL fetcher (kept for potential diagnostics; Tavily replaces all crawls)
-# --------------------------------------------------------------------------- #
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 
 
@@ -90,29 +84,19 @@ def fetch_url(url, timeout=15):
         return None
 
 
-# --------------------------------------------------------------------------- #
-# Tavily-based job crawler                                                     #
-# --------------------------------------------------------------------------- #
 
-# Search queries — one per location layer, in expansion priority order.
-# Vietnamese-language queries so Tavily returns Vietnamese job boards.
 _TAVILY_JOB_QUERIES = [
-    # Đồng Nai (highest priority)
     "tuyển dụng lập trình viên phần mềm Đồng Nai 2025",
     "tuyển dụng IT kĩ thuật viên Bình Dương miền Nam",
     "tuyển dụng lập trình viên Biên Hòa Đồng Nai",
-    # miền Nam
     "tuyển dụng developer TP Hồ Chí Minh 2025",
     "tuyển dụng lập trình viên Cần Thơ 2025",
-    # Việt Nam (national)
     "tuyển dụng lập trình viên Hà Nội 2025",
     "tuyển dụng kỹ sư phần mềm Việt Nam 2025",
-    # Đông Nam Á (regional context)
     "tuyển dụng developer Singapore Vietnam remote",
     "tuyển dụng IT remote Việt Nam",
 ]
 
-# Additional keyword-focused queries to capture specific roles.
 _TAVILY_JOB_KEYWORD_QUERIES = [
     "tuyển dụng data analyst Việt Nam 2025",
     "tuyển dụng designer giáo dục Việt Nam",
@@ -135,10 +119,8 @@ def _crawl_tavily_jobs():
     client = TavilyClient()
     if not client.is_configured():
         print("  ⚠️  TAVILY_API_KEY không được cài đặt — crawl Tavily trả về 0 dòng (giảm dần)")
-        # Attempt keyless mode (Tavily supports limited keyless search).
         print("  ℹ️  Thử chế độ keyless của Tavily...")
 
-    # Build the full query list (main + keyword-focussed).
     queries = list(_TAVILY_JOB_QUERIES) + list(_TAVILY_JOB_KEYWORD_QUERIES)
 
     all_results = []
@@ -153,15 +135,13 @@ def _crawl_tavily_jobs():
             )
             all_results.extend(results)
             print(f"  [tavily] query '{q[:50]}...' → {len(results)} results")
-            time.sleep(0.5)  # Gentle rate-limiting.
+            time.sleep(0.5)  
         except Exception as e:
             print(f"  [warn] Tavily query failed '{q[:50]}...': {e}")
             continue
 
-    # Parse Tavily results into job row dicts.
     parsed_jobs = parse_tavily_jobs(all_results, source_name="tavily")
 
-    # Convert parsed dicts to _base_job() rows (normalises scope/deadline/crawl_year).
     rows = []
     for j in parsed_jobs:
         row = _base_job(
@@ -182,15 +162,9 @@ def _crawl_tavily_jobs():
     return rows
 
 
-# --------------------------------------------------------------------------- #
-# Row builder / DB helpers (unchanged from original)                         #
-# --------------------------------------------------------------------------- #
 
-# Crawl year window — 2 consecutive years (e.g. 2026 -> [2025, 2026]).
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-# Default deadline for items that arrive without an explicit date: end of the
-# crawl year, so the job stays "current" throughout the 2-year window.
 _DEFAULT_DEADLINE = datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
 
@@ -260,7 +234,7 @@ def _base_job(title, company, location, salary, description, job_type, skills, s
         'status': 'active',
         'posted_by_user_id': None,
         'career_path_id': None,
-        'updated_at': None,  # set by caller; placeholder
+        'updated_at': None,  
     }
 
 
@@ -275,9 +249,7 @@ def clean_text(text):
     if text is None:
         return ''
     text = _html.unescape(str(text))
-    # Drop HTML tags that sometimes leak into JSON/HTML scrapes.
     text = re.sub(r'<[^>]{1,200}>', ' ', text)
-    # Remove control chars except tab/newline, then collapse whitespace.
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
     return re.sub(r'\s+', ' ', text).strip()
 
@@ -285,7 +257,6 @@ def clean_text(text):
 def generate_uuid_from_seed(seed_str):
     """Generate a deterministic UUID-like string from a seed."""
     hex_hash = hashlib.md5(seed_str.encode('utf-8')).hexdigest()
-    # Format as UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     return f"{hex_hash[:8]}-{hex_hash[8:12]}-{hex_hash[12:16]}-{hex_hash[16:20]}-{hex_hash[20:32]}"
 
 
@@ -296,7 +267,6 @@ def insert_job(cursor, job_data):
     ``crawl_year``) alongside the original fields.  ``ensure_column`` in main()
     guarantees the columns exist on older DBs.
     """
-    # Generate deterministic ID from title+company
     seed = f"{job_data.get('title', '')}|{job_data.get('company_name', '')}|{job_data.get('source_url', '')}"
     job_id = generate_uuid_from_seed(seed)
 
@@ -322,13 +292,13 @@ def insert_job(cursor, job_data):
         job_data.get('required_skills', json.dumps([])),
         clean_text(job_data.get('experience_level', '')),
         job_data.get('application_deadline'),
-        0,     # views
+        0,     
         'active',
-        None,  # posted_by_user_id
-        None,  # career_path_id
+        None,  
+        None,  
         job_data.get('image_url'),
-        now,   # created_at
-        now,   # updated_at
+        now,   
+        now,   
         job_data.get('crawl_year', _CRAWL_YEARS[0]),
     ))
     return cursor.rowcount
@@ -365,7 +335,6 @@ def main():
 
     print(f"🚀 Starting job crawler (Tavily) → {args.db}")
 
-    # Verify DB exists and has jobs table
     if not os.path.exists(args.db):
         print(f"  [error] Database not found: {args.db}")
         sys.exit(1)
@@ -373,14 +342,12 @@ def main():
     conn = sqlite3.connect(args.db)
     cursor = conn.cursor()
 
-    # Verify jobs table exists
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
     if not cursor.fetchone():
         print("  [error] 'jobs' table not found in database")
         conn.close()
         sys.exit(1)
 
-    # Ensure image_url + scope columns exist (may be missing on older DBs)
     ensure_column(conn, "jobs", "image_url", "TEXT")
     ensure_column(conn, "jobs", "location_scope", "TEXT")
     ensure_column(conn, "jobs", "application_deadline", "TEXT")
@@ -394,9 +361,6 @@ def main():
     layer_counts: dict[str, int] = {l["label"]: 0 for l in LOCATION_LAYERS}
     layer_counts["unscoped"] = 0
 
-    # --- Tavily-based job crawl ---
-    # Replaces all HTTP-based sources (ITviec, TopCV, VietnamWorks, RemoteOK,
-    # Remotive, Adzuna) which are blocked on HF Spaces egress.
     print("\n📍 Crawling Vietnamese jobs via Tavily AI search...")
     print("    (Đồng Nai → miền Nam → VN → ĐNA, kèm từ khóa chuyên ngành)")
 
@@ -411,7 +375,6 @@ def main():
     conn.commit()
     print(f"  Tavily: {len(jobs)} jobs found")
 
-    # --- Summary ---
     cursor.execute("SELECT COUNT(*) FROM jobs WHERE status='active'")
     total_jobs = cursor.fetchone()[0]
     cursor.close()

@@ -1,122 +1,100 @@
 import { authService } from './auth.service';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-
 export interface GreenChallenge {
-  id: string;
-  title: string;
-  description: string;
-  points: number;
-  carbon_saved_kg: number;
-  image_url: string;
-  status: string;
-  participants_count: number;
-  lat?: number;
-  lng?: number;
-  address?: string;
+    id: string;
+    title: string;
+    description: string;
+    points: number;
+    carbon_saved_kg: number;
+    image_url: string;
+    status: string;
+    participants_count: number;
+    lat?: number;
+    lng?: number;
+    address?: string;
 }
-
 export interface GreenActivityLog {
-  id: string;
-  user_id: string;
-  challenge_id: string;
-  carbon_saved_kg: number;
-  points_earned: number;
-  created_at: string;
+    id: string;
+    user_id: string;
+    challenge_id: string;
+    carbon_saved_kg: number;
+    points_earned: number;
+    created_at: string;
 }
-
 class GreenService {
-  private readonly API_URL = '/api/green';
-  private readonly GAMIFICATION_URL = '/api/gamification';
-
-  /**
-   * Lấy danh sách thử thách sống xanh
-   */
-  async getChallenges(): Promise<GreenChallenge[]> {
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}/challenges`);
-      if (!response.ok) {
-        throw new Error('Không thể tải danh sách thử thách');
-      }
-      const data = await response.json();
-      return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-    } catch (error) {
-      console.error("GreenService.getChallenges Error:", error);
-      throw error;
+    private readonly API_URL = '/api/green';
+    private readonly GAMIFICATION_URL = '/api/gamification';
+    async getChallenges(): Promise<GreenChallenge[]> {
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}/challenges`);
+            if (!response.ok) {
+                throw new Error('Không thể tải danh sách thử thách');
+            }
+            const data = await response.json();
+            return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        }
+        catch (error) {
+            console.error("GreenService.getChallenges Error:", error);
+            throw error;
+        }
     }
-  }
-
-  /**
-   * Ghi nhận hoạt động tham gia thử thách sống xanh
-   * Ánh xạ theo bảng 6.2 — STT 24: POST /api/green/activities (logActivity)
-   */
-  async logActivity(challengeId: string, carbonSavedKg: number = 0): Promise<GreenActivityLog> {
-    const token = authService.getAccessToken();
-    if (!token) {
-      throw new Error('Vui lòng đăng nhập để ghi nhận hoạt động');
+    async logActivity(challengeId: string, carbonSavedKg: number = 0): Promise<GreenActivityLog> {
+        const token = authService.getAccessToken();
+        if (!token) {
+            throw new Error('Vui lòng đăng nhập để ghi nhận hoạt động');
+        }
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}/activities`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ challengeId, carbonSavedKg }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Ghi nhận hoạt động thất bại');
+            }
+            return unwrapApiResponse(data);
+        }
+        catch (error) {
+            console.error("GreenService.logActivity Error:", error);
+            throw error;
+        }
     }
-
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}/activities`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ challengeId, carbonSavedKg }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Ghi nhận hoạt động thất bại');
-      }
-      return unwrapApiResponse(data);
-    } catch (error) {
-      console.error("GreenService.logActivity Error:", error);
-      throw error;
+    async submitProof(activityType: string, description: string, proofUrl: string): Promise<any> {
+        const token = authService.getAccessToken();
+        if (!token) {
+            throw new Error('Vui lòng đăng nhập để nộp báo cáo');
+        }
+        if (!activityType || !proofUrl) {
+            throw new Error('Vui lòng cung cấp đầy đủ thông tin loại hoạt động và hình ảnh minh chứng');
+        }
+        try {
+            const response = await fetchWithRetry(`${this.GAMIFICATION_URL}/submit-activity`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    activityType: activityType,
+                    description: description,
+                    proofUrl: proofUrl
+                }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Nộp báo cáo thất bại');
+            }
+            return data;
+        }
+        catch (error) {
+            console.error("GreenService.submitProof Error:", error);
+            throw error;
+        }
     }
-  }
-
-  /**
-   * Nộp minh chứng hoạt động xanh cho AI duyệt
-   */
-  async submitProof(activityType: string, description: string, proofUrl: string): Promise<any> {
-    const token = authService.getAccessToken();
-    if (!token) {
-      throw new Error('Vui lòng đăng nhập để nộp báo cáo');
-    }
-
-    // Defensive: Validate inputs
-    if (!activityType || !proofUrl) {
-      throw new Error('Vui lòng cung cấp đầy đủ thông tin loại hoạt động và hình ảnh minh chứng');
-    }
-
-    try {
-      const response = await fetchWithRetry(`${this.GAMIFICATION_URL}/submit-activity`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          activityType: activityType,
-          description: description,
-          proofUrl: proofUrl
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Nộp báo cáo thất bại');
-      }
-
-      return data;
-    } catch (error) {
-      console.error("GreenService.submitProof Error:", error);
-      throw error;
-    }
-  }
 }
-
 export const greenService = new GreenService();

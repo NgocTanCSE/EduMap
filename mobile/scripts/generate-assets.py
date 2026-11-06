@@ -10,11 +10,11 @@ def font(sz, bold=True):
     return ImageFont.load_default()
 ACCENT=(37,99,247); DARK=(15,23,42); WHITE=(255,255,255)
 os.makedirs("assets", exist_ok=True)
-# icon
+
 img=Image.new("RGB",(512,512),DARK); d=ImageDraw.Draw(img)
 f=font(230); tw,th=d.textbbox((0,0),"E",font=f)[2:]
 d.text(((512-tw)/2,(512-th)/2-10),"E",fill=ACCENT,font=f); img.save("assets/icon.png")
-# splash
+
 img=Image.new("RGB",(1280,720),DARK); d=ImageDraw.Draw(img)
 f=font(110); tw,th=d.textbbox((0,0),"EduMap",font=f)[2:]
 x=(1280-tw)/2; d.text((x,720/2-120),"EduMap",fill=WHITE,font=f)

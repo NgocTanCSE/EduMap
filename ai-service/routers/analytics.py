@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List, Tuple
 from collections import Counter, defaultdict
@@ -98,40 +98,40 @@ def _parse_skills(raw: Any) -> List[str]:
                 return [str(s).strip() for s in parsed if str(s).strip()]
         except Exception:
             pass
-        # Some legacy rows store comma-separated skills.
+
         if raw.strip():
             return [s.strip() for s in raw.split(",") if s.strip()]
     return []
 
 
-# ──────────────────────── Hot-skill extraction ────────────────────────
-#
-# Skill taxonomy used to mine in-demand ("hot") skills out of job postings.
-# Mirrors the keyword set in frontend/app/api/career/jobs/route.ts so the
-# "hot skills" surfaced on the Market Trends page are consistent with the
-# skills the Jobs page already extracts from Adzuna results.
-#
-# Adzuna API reference (Vietnam job search):
-#   GET https://api.adzuna.com/v1/api/jobs/{country}/search/{page}
-#   params: app_id, app_key, results_per_page, what, latitude, longitude, radius
-#   response: { count, results: [ { title, company.display_name, category.label,
-#                                    location.display_name, salary_min, salary_max,
-#                                    description, ... } ] }
-# Source: https://developer.adzuna.com/  (in-repo implementation verified in
-#   frontend/app/api/career/jobs/route.ts and llm_service._fetch_adzuna_jobs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 _SKILL_KEYWORDS: List[str] = [
-    # Languages & runtimes
+
     'react', 'vue', 'angular', 'node', 'nodejs', 'python', 'java', 'go', 'rust',
     'typescript', 'javascript', 'php', 'dart', 'flutter', 'android', 'ios',
     'swift', 'kotlin', 'c++', 'c#', 'laravel', 'django', 'nestjs',
-    # Cloud & infra / DevOps
+
     'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'redis', 'nginx', 'jenkins',
     'git', 'devops', 'ci/cd', 'microservices', 'rest api', 'linux',
-    # Data
+
     'sql', 'postgresql', 'postgres', 'mongodb', 'mysql', 'graphql',
     'data analysis', 'data science', 'machine learning', 'deep learning',
     'tensorflow', 'pytorch', 'nlp', 'bigquery', 'snowflake',
-    # Design / soft
+
     'figma', 'photoshop', 'seo', 'agile', 'scrum', 'product management',
 ]
 
@@ -141,7 +141,7 @@ def _extract_skills_from_text(text: str) -> List[str]:
 
     Alphanumeric keywords are matched with word boundaries (so ``react`` does
     not match ``reactive``); keywords containing special chars (``c++``,
-    ``c#``, ``ci/cd``) use a case-insensitive substring match because they are
+    ``c
     distinctive enough that a substring hit is a true positive.
     """
     lower = (text or "").lower()
@@ -193,9 +193,9 @@ def _fetch_adzuna_hot_skills(
             f"&results_per_page={int(results_per_page)}"
             f"&what={urllib.parse.quote('it')}"
         )
-        # curl (OpenSSL TLS) — bypasses the Python ssl/urllib IPv6 blackhole
-        # on HF Spaces; --ipv4 forces IPv4, --insecure tolerates the
-        # Space's optional MITM proxy with a custom CA.
+
+
+
         proc = subprocess.run(
             [
                 "curl", "--ipv4", "--insecure", "-sS", "-X", "GET",
@@ -266,12 +266,12 @@ def _load_trending_skills(limit: int = 5) -> Tuple[List[Dict[str, Any]], str]:
     ("adzuna" vs "local db") and stop calling the result "sample data" when it
     is backed by real market postings.
     """
-    # 1) Real market data first.
+
     adzuna_skills = _fetch_adzuna_hot_skills(limit_skills=limit)
     if adzuna_skills:
         return adzuna_skills, "adzuna"
 
-    # 2) Graceful fallback to the local (seeded + crawler-populated) jobs table.
+
     jobs: List[Dict[str, Any]] = []
     try:
         from services.db_service import db_service
@@ -323,7 +323,7 @@ def _load_trending_skills(limit: int = 5) -> Tuple[List[Dict[str, Any]], str]:
 def _to_float(value: Any) -> Optional[float]:
     try:
         number = float(value)
-        return number if number == number else None  # reject NaN
+        return number if number == number else None
     except (TypeError, ValueError):
         return None
 
@@ -368,12 +368,12 @@ def _build_sectors(stats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         last_value = points[-1]["metric_value"]
         growth = 0.0
         if len(points) >= 2 and first_value > 0 and last_value > 0:
-            # Compound annual growth rate across the observed years.
+
             years_span = max(1, points[-1]["year"] - points[0]["year"])
             growth = ((last_value / first_value) ** (1 / years_span) - 1) * 100
 
-        # Use Holt's linear exponential smoothing for prediction.
-        # Falls back to CAGR-based extrapolation when insufficient data points.
+
+
         hist_years = [p["year"] for p in points]
         hist_values = [p["metric_value"] for p in points]
         target_year = 2025
@@ -406,7 +406,7 @@ def _holt_linear_forecast(years: List[int], values: List[float],
     import numpy as np
 
     if len(values) < 2:
-        # Không đủ dữ liệu để smoothing — dùng linear extrapolation đơn giản
+
         if len(values) == 1:
             return [values[0]] * steps_ahead
         return [0.0] * steps_ahead
@@ -414,7 +414,7 @@ def _holt_linear_forecast(years: List[int], values: List[float],
     y = np.array(values, dtype=float)
     n = len(y)
 
-    # Khởi tạo level và trend
+
     level = y[0]
     trend = y[1] - y[0]
 
@@ -426,7 +426,7 @@ def _holt_linear_forecast(years: List[int], values: List[float],
     forecasts = []
     for h in range(1, steps_ahead + 1):
         forecast = level + h * trend
-        # Đảm bảo giá trị không âm (đây là số liệu thống kê sinh viên)
+
         forecasts.append(max(0.0, float(forecast)))
 
     return forecasts
@@ -435,10 +435,10 @@ def _holt_linear_forecast(years: List[int], values: List[float],
 @router.post("/daily-insight")
 async def get_daily_insight(request_data: DashboardInsightRequest):
     from services.llm_service import llm_service
-    # On HF Spaces free plan (no API keys), generate_daily_insight itself
-    # handles the is_ready=False case via _daily_insight_fallback — so we
-    # never return 503 from the router. The method always produces a valid
-    # insight dict.
+
+
+
+
     try:
         insight = await llm_service.generate_daily_insight(request_data.dashboard_data or {})
         return insight
@@ -450,11 +450,11 @@ async def get_daily_insight(request_data: DashboardInsightRequest):
 
 @router.get("/stats")
 async def get_stats():
-    # The loaders are synchronous. Run each in a worker thread so a locked DB
-    # (the NestJS backend writes analytics events) or a slow disk can never
-    # block the event loop for other AI requests. Keep them sequential: in
-    # PostgreSQL mode all three share one psycopg2 connection, which is not
-    # safe for concurrent use.
+
+
+
+
+
     stats_data = await asyncio.to_thread(_load_education_stats)
     events = await asyncio.to_thread(_load_user_events, 500)
     trending_skills, skills_source = await asyncio.to_thread(_load_trending_skills)
@@ -465,9 +465,9 @@ async def get_stats():
 
     sectors = _build_sectors(stats_data)
 
-    # Overall historical series = the fastest-growing sector, falling back to
-    # an empty list. Never raise on missing data: the trends page should still
-    # render (with an empty-state message) instead of showing a network error.
+
+
+
     historical = sectors[0]["historical"] if sectors else []
 
     avg_growth = (
@@ -511,8 +511,8 @@ async def get_stats():
         "historical_data": historical,
         "sectors": sectors,
         "trending_skills": trending_skills,
-        # Provenance flag so the frontend can stop labeling the result as
-        # "sample data" when the skills actually came from live Adzuna jobs.
+
+
         "trending_skills_source": skills_source,
         "trending_skills_available": skills_source == "adzuna" or len(trending_skills) > 0,
         "insights": {
@@ -575,3 +575,33 @@ async def get_forecast(steps: int = 3):
     except Exception as e:
         logger.error(f"Error in get_forecast: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Lỗi dự báo: {str(e)}")
+
+
+from datetime import date as _date_qg
+
+
+@router.get("/question-gaps", tags=["17. AI Question Gap Report"], response_model=None)
+async def get_question_gaps(
+    limit: Optional[int] = Query(
+        default=None, ge=1, le=10000,
+        description="Số lượng truy vấn tối đa phân tích (tối đa 10000, mặc định 10000)",
+    ),
+):
+    try:
+        from services.question_gap_analyzer import question_gap_analyzer
+        result = await asyncio.to_thread(question_gap_analyzer.analyze_gaps, limit)
+        return result
+    except Exception as e:
+        logger.exception(f"question-gaps endpoint error: {e}")
+        return {
+            "status": "degraded",
+            "degraded": True,
+            "reason": str(e)[:200],
+            "generated_at": _date_qg.today().isoformat(),
+            "total_queries": 0,
+            "date_range": {"start": None, "end": None},
+            "limit_applied": 10000,
+            "clusters": [],
+            "top_gaps": [],
+            "summary": "Dịch vụ báo cáo khoảng trống tri thức tạm thời không khả dụng. Vui lòng thử lại sau.",
+        }

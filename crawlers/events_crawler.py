@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Events crawler -> `events` table (title UNIQUE).
 
@@ -34,26 +33,19 @@ from tavily_client import TavilyClient, tavily_search_and_extract
 from tavily_parse import clean_text
 
 NOW = datetime.datetime.utcnow()
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
-# VN → ĐNA) plus keyword-focussed.
 _TAVILY_EVENT_QUERIES = [
-    # Đồng Nai
     "sự kiện công nghệ thông tin Đồng Nai 2025",
     "workshop giáo dục Biên Hòa",
     "hội thảo khoa học Đồng Nai",
-    # miền Nam
     "sự kiện startup TP Hồ Chí Minh",
     "tech meetup Đà Nẵng 2025",
     "hội thảo giáo dục miền Nam",
-    # Việt Nam
     "sự kiện giáo dục Việt Nam 2025",
     "conference công nghệ thông tin Việt Nam",
     "seminar y tế giáo dục VN",
-    # keyword-focussed
     "sự kiện sinh viên đại học Việt Nam",
     "workshop phần mềm miễn phí",
     "hội thảo học thuật Việt Nam",
@@ -61,7 +53,7 @@ _TAVILY_EVENT_QUERIES = [
     "webinar học tập trực tuyến",
 ]
 
-TARGET = 300  # soft cap on distinct events
+TARGET = 300  
 
 
 def parse_date(s):
@@ -152,7 +144,7 @@ def crawl():
                     title=title,
                     description=r.get("raw_content", "") or r.get("content", ""),
                     address="Việt Nam",
-                    start_date=None,  # date inferred from raw content
+                    start_date=None,  
                     query=q,
                 )
                 if row and title not in by_title:

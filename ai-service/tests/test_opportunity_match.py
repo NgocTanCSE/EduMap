@@ -14,7 +14,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
@@ -56,7 +56,7 @@ def _sample_request():
             type="internship", organization="Momo",
             requirements="Python, Django", url="",
             field_tags=["Python"], region="Hà Nội",
-            deadline="2020-01-01",  # expired — must be filtered
+            deadline="2020-01-01",
             status="active",
         ),
     ]
@@ -73,7 +73,7 @@ def test_match_opportunities_degraded_fallback():
     result = asyncio.run(svc.match_opportunities(req))
 
     assert isinstance(result, dict)
-    # Response structure
+
     assert "user_id" in result
     assert result["user_id"] == "test-student"
     assert "matches" in result
@@ -84,7 +84,7 @@ def test_match_opportunities_degraded_fallback():
     assert result["degraded"] is True
     assert result["reason"] is not None and len(result["reason"]) > 0
 
-    # Expired opportunity filtered out
+
     assert result["filtered_count"] == 1
     assert result["total"] == 1
 
@@ -97,10 +97,10 @@ def test_match_opportunities_degraded_fallback():
     assert m["id"] == "sch-1"
     assert m["match_score"] >= 0
     assert 0.0 <= m["confidence"] <= 1.0
-    # Keyword fallback caps confidence low
+
     assert m["confidence"] == 0.3
     assert m["confidence_level"] == "low"
-    # Checklist has at least the CV base item
+
     assert len(m["checklist"]) >= 1
     print("✓ test_match_opportunities_degraded_fallback")
 
@@ -125,7 +125,7 @@ def test_match_opportunities_filters_expired_deadline():
     svc = _fresh_service()
     req = _sample_request()
     result = asyncio.run(svc.match_opportunities(req))
-    # The only live candidate is 'sch-1'
+
     assert all(m["deadline"] != "2020-01-01" for m in result["matches"])
     titles = [m["title"] for m in result["matches"]]
     assert "Học bổng Australia Awards" in titles
@@ -135,10 +135,10 @@ def test_match_opportunities_filters_expired_deadline():
 def test_match_opportunities_matches_profile_terms():
     """The keyword fallback should boost opportunities sharing profile terms."""
     svc = _fresh_service()
-    req = _sample_request()  # major=CNTT, skills=Python,React, interests=AI, location=HCM
+    req = _sample_request()
     result = asyncio.run(svc.match_opportunities(req))
     m = result["matches"][0]
-    # 'CNTT' and 'AI' both appear in field_tags → score should reflect hits
+
     assert m["match_score"] > 0
     assert any("Khớp" in r or "Khu vực" in r for r in m["match_reasons"])
     print("✓ test_match_opportunities_matches_profile_terms")

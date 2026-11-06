@@ -40,7 +40,7 @@ async def match_mentor(data: MatchRequest):
             try:
                 top_matches.append(MatchResult(**m))
             except Exception:
-                pass  # skip items that don't match the schema (e.g. fallback placeholders)
+                pass
         return MentorMatchResponse(
             student_id=data.student_id,
             top_matches=top_matches,

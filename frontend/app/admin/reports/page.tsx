@@ -1,54 +1,43 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService } from '@/reporting/services/admin.service';
-import { 
-  FileText, Calendar, User, Activity, 
-  ChevronLeft, ChevronRight, Clock, Database
-} from 'lucide-react';
-
+import { adminService } from '@/src/services/admin.service';
+import { FileText, Calendar, User, Activity, ChevronLeft, ChevronRight, Clock, Database } from 'lucide-react';
 export default function AdminAuditLogsPage() {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
-
-  const fetchLogs = async (page = 1) => {
-    setLoading(true);
-    try {
-      const response = await adminService.getAuditLogs({ page, limit: 10 });
-      setLogs(response.items);
-      setMeta(response.meta);
-    } catch (error) {
-      console.error('Error fetching audit logs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs(meta.page);
-  }, [meta.page]);
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    const [logs, setLogs] = useState<any[]>([]);
+    const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+    const [loading, setLoading] = useState(true);
+    const fetchLogs = async (page = 1) => {
+        setLoading(true);
+        try {
+            const response = await adminService.getAuditLogs({ page, limit: 10 });
+            setLogs(response.items);
+            setMeta(response.meta);
+        }
+        catch (error) {
+            console.error('Error fetching audit logs:', error);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    useEffect(() => {
+        fetchLogs(meta.page);
+    }, [meta.page]);
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header */}
+
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3 text-primary">
-              <Activity className="w-8 h-8" />
+              <Activity className="w-8 h-8"/>
               Nhật ký Hoạt động
             </h1>
             <p className="text-muted-foreground/60 text-sm mt-1">Theo dõi các thay đổi quan trọng trong hệ thống.</p>
           </div>
         </div>
 
-        {/* Logs Table */}
         <div className="rounded-xl overflow-hidden border border-border bg-card/30">
-          {loading ? (
-            <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>
-          ) : (
-            <>
+          {loading ? (<div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>) : (<>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-card/50">
@@ -60,11 +49,10 @@ export default function AdminAuditLogsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {logs.map(log => (
-                    <tr key={log.id} className="hover:bg-card/20 transition-colors text-sm">
+                  {logs.map(log => (<tr key={log.id} className="hover:bg-card/20 transition-colors text-sm">
                       <td className="p-6">
                         <div className="flex items-center gap-2 text-muted-foreground/60">
-                          <Clock className="w-3.5 h-3.5" />
+                          <Clock className="w-3.5 h-3.5"/>
                           {new Date(log.created_at).toLocaleString('vi-VN')}
                         </div>
                       </td>
@@ -86,45 +74,33 @@ export default function AdminAuditLogsPage() {
                       </td>
                       <td className="p-6">
                         <div className="flex items-center gap-2">
-                           <Database className="w-3.5 h-3.5 text-muted-foreground/20" />
+                           <Database className="w-3.5 h-3.5 text-muted-foreground/20"/>
                            <span className="text-muted-foreground/60 uppercase text-[10px] font-bold">{log.resource}</span>
                         </div>
                       </td>
                       <td className="p-6 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground/60 italic">
                         {JSON.stringify(log.new_data)}
                       </td>
-                    </tr>
-                  ))}
+                    </tr>))}
                 </tbody>
               </table>
 
-              {/* Pagination */}
               <div className="p-6 border-t border-border flex justify-between items-center">
                 <p className="text-xs text-muted-foreground/60">
                   Hiển thị {logs.length} trên {meta.total} bản ghi
                 </p>
                 <div className="flex gap-2">
-                  <button 
-                    disabled={meta.page <= 1}
-                    onClick={() => setMeta({...meta, page: meta.page - 1})}
-                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
+                  <button disabled={meta.page <= 1} onClick={() => setMeta({ ...meta, page: meta.page - 1 })} className="p-2 rounded-xl bg-card border border-border disabled:opacity-30">
+                    <ChevronLeft className="w-5 h-5"/>
                   </button>
-                  <button 
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => setMeta({...meta, page: meta.page + 1})}
-                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
-                  >
-                    <ChevronRight className="w-5 h-5" />
+                  <button disabled={meta.page >= meta.totalPages} onClick={() => setMeta({ ...meta, page: meta.page + 1 })} className="p-2 rounded-xl bg-card border border-border disabled:opacity-30">
+                    <ChevronRight className="w-5 h-5"/>
                   </button>
                 </div>
               </div>
-            </>
-          )}
+            </>)}
         </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

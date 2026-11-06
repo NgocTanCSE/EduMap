@@ -8,7 +8,6 @@ new_lines = []
 for i, line in enumerate(lines):
     new_lines.append(line)
     if line.strip() == "}":
-        # Check if the next line is 198
         if i >= 190 and "export default" not in "".join(lines[i:]):
             break
 

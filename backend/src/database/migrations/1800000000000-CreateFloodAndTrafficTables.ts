@@ -1,11 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
-
 export class CreateFloodAndTrafficTables1800000000000 implements MigrationInterface {
-    name = 'CreateFloodAndTrafficTables1800000000000'
-
+    name = 'CreateFloodAndTrafficTables1800000000000';
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // ── flood_zones table ──────────────────────────────────────────────
-        // Matches FloodZone entity (flood-zone.entity.ts)
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "flood_zones" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -20,9 +16,6 @@ export class CreateFloodAndTrafficTables1800000000000 implements MigrationInterf
             )
         `);
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_flood_zones_coordinates" ON "flood_zones" USING GIST ("coordinates")`);
-
-        // ── traffic_segments table ─────────────────────────────────────────
-        // Matches TrafficSegment entity (traffic-segment.entity.ts)
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "traffic_segments" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -40,10 +33,6 @@ export class CreateFloodAndTrafficTables1800000000000 implements MigrationInterf
             )
         `);
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_traffic_segments_coordinates" ON "traffic_segments" USING GIST ("coordinates")`);
-
-        // ── Seed: flood zones around Đồng Nai river in Biên Hòa ──────────
-        // These polygons cover known flood-prone areas (riverbanks, low-lying
-        // streets). Coordinates are [lng, lat] per GeoJSON spec.
         await queryRunner.query(`
             INSERT INTO "flood_zones" ("id", "name", "description", "coordinates", "riskLevel", "metadata", "createdAt", "updatedAt")
             VALUES
@@ -75,13 +64,8 @@ export class CreateFloodAndTrafficTables1800000000000 implements MigrationInterf
                 now(), now()
             )
         `);
-
-        // ── Seed: traffic segments for major Biên Hòa roads ────────────────
-        // LineStrings representing main arteries; congestion profile uses the
-        // same 24-element hourly speed-factor array as the heuristic profiles.
-        const motorwayProfile = JSON.stringify([0.95,0.95,0.95,0.95,0.95,0.9,0.7,0.6,0.7,0.85,0.9,0.95,0.95,0.95,0.95,0.95,0.9,0.7,0.6,0.7,0.8,0.9,0.95,0.95]);
-        const primaryProfile = JSON.stringify([0.9,0.9,0.9,0.9,0.9,0.85,0.6,0.5,0.6,0.75,0.8,0.85,0.85,0.85,0.85,0.85,0.8,0.6,0.5,0.6,0.7,0.8,0.85,0.9]);
-
+        const motorwayProfile = JSON.stringify([0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.7, 0.6, 0.7, 0.85, 0.9, 0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.7, 0.6, 0.7, 0.8, 0.9, 0.95, 0.95]);
+        const primaryProfile = JSON.stringify([0.9, 0.9, 0.9, 0.9, 0.9, 0.85, 0.6, 0.5, 0.6, 0.75, 0.8, 0.85, 0.85, 0.85, 0.85, 0.85, 0.8, 0.6, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9]);
         await queryRunner.query(`
             INSERT INTO "traffic_segments" ("id", "roadName", "roadType", "coordinates", "freeFlowSpeed", "congestionProfile", "congestionLevel", "lastObserved", "dataSource", "createdAt", "updatedAt")
             VALUES
@@ -147,7 +131,6 @@ export class CreateFloodAndTrafficTables1800000000000 implements MigrationInterf
             )
         `);
     }
-
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`DELETE FROM "flood_zones" WHERE "id" IN ('a1f1b2c3-0001-4aaa-8bbb-000000000001', 'a1f1b2c3-0002-4aaa-8bbb-000000000002', 'a1f1b2c3-0003-4aaa-8bbb-000000000003')`);
         await queryRunner.query(`DELETE FROM "traffic_segments" WHERE "id" IN ('b2c3d4e5-0001-4bbb-9ccc-111111111111', 'b2c3d4e5-0002-4bbb-9ccc-222222222222', 'b2c3d4e5-0003-4bbb-9ccc-333333333333', 'b2c3d4e5-0004-4bbb-9ccc-444444444444', 'b2c3d4e5-0005-4bbb-9ccc-555555555555')`);

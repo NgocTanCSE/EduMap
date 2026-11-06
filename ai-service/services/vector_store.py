@@ -9,18 +9,18 @@ import urllib.error
 import urllib.parse
 from typing import List, Dict, Optional, Any
 
-# ChromaDB's PostHog telemetry is incompatible with newer posthog releases and
-# logs a noisy "capture() takes 1 positional argument but 3 were given" error
-# on every collection query. Telemetry is not needed for EduMap — disable it
-# before chromadb reads its Settings.
+
+
+
+
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 os.environ.setdefault("CHROMA_TELEMETRY_ENABLED", "False")
 
-# Belt-and-suspenders: chromadb 0.5.x still CALLS posthog.capture(...) even when
-# anonymized_telemetry is False (it only sets posthog.disabled, which is checked
-# after the argument binding). With posthog>=6 the call itself raises, so the
-# error survives the setting. Replace capture with a no-op before chromadb
-# imports it. requirements.txt also pins posthog<6.
+
+
+
+
+
 try:
     import posthog as _posthog
 
@@ -52,34 +52,34 @@ class VectorStoreService:
     On HF Spaces Cloudflare is blackholed so Gemini is the primary path.
     """
 
-    # Mutex to prevent the seeding thread and the staggered-warmup thread
-    # from double-loading the ~600MB embedding model + ~100MB reranker
-    # simultaneously (which would spike RAM and OOM on the 2-vCPU free tier).
-    # Class-level (not instance-level) so it's always available even when
-    # __init__ is bypassed in tests (object.__new__ pattern).
+
+
+
+
+
     _model_load_lock: threading.Lock = threading.Lock()
 
     def __init__(self):
-        # --- Cloudflare Embedding config (always set; independent of ChromaDB) ---
+
         self.cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-        # AI Gateway (tuỳ chọn): nếu bật, gọi qua gateway thay vì trực tiếp Workers AI.
+
         self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
         self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
         self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
         self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-base-en-v1.5"
         self.has_cf_api = bool(self.cf_api_token) and bool(self.cf_account_id)
-        # Circuit breaker: skip Cloudflare for 5 min after a network failure.
+
         self._cf_embed_down_until = 0.0
-        # --- Google Gemini embeddings (primary on HF Spaces) ---
-        # One GEMINI_API_KEY covers chat and embeddings. Gemini is reachable
-        # from HF Spaces, unlike api.cloudflare.com (TLS handshake blackholed).
+
+
+
         self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         self.gemini_embedding_models = [
             m.strip()
             for m in os.getenv(
                 "GEMINI_EMBEDDING_MODEL",
-                # text-embedding-004 was shut down on 2026-01-14.
+
                 "gemini-embedding-001",
             ).split(",")
             if m.strip()
@@ -87,28 +87,28 @@ class VectorStoreService:
         self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
         self.has_gemini_api = bool(self.gemini_key)
         self._gemini_embed_down_until = 0.0
-        # --- Embedding timeouts (seconds) — must stay below NestJS 10s stream ---
+
         self.embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
         self.embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
-        # --- Embedding provider summary ---
-        # Cloudflare Workers AI and Google Gemini are the primary two embedding
-        # providers. On HF Spaces Cloudflare is blackholed so Gemini is the
-        # primary path; locally both are available.
-        # has_api = True if at least one embedding provider is configured
+
+
+
+
+
         self.has_api = self.has_gemini_api or self.has_cf_api
-        # Pin the embedding dimension to the first model that successfully embeds.
-        # Prevents silently falling back to a different-dim model, which would
-        # crash the existing ChromaDB collection with a dimension mismatch.
+
+
+
         self._embed_dim = None
-        # --- Local embedding model (100% offline fallback) ---
-        # intfloat/multilingual-e5-small runs locally on CPU. This is the
-        # GUARANTEED fallback — when Cloudflare AND Gemini are both unreachable
-        # (no API keys, HF Spaces network blackhole, quota exhausted), the
-        # local SentenceTransformer model takes over so RAG never returns empty.
-        # Lazy-loaded on first use via _load_local_embedder().
-        # Env-tunable: LOCAL_EMBEDDING_MODEL (default: intfloat/multilingual-e5-small)
-        #            : LOCAL_EMBEDDING_DISABLED=true to skip local embedder
-        #            : LOCAL_EMBEDDING_THREADS=1 (limit CPU threads on HF 2-vCPU)
+
+
+
+
+
+
+
+
+
         self.local_embed_model_name = os.getenv(
             "LOCAL_EMBEDDING_MODEL", "intfloat/multilingual-e5-small"
         )
@@ -116,28 +116,28 @@ class VectorStoreService:
             "LOCAL_EMBEDDING_DISABLED", "false"
         ).lower() in ("1", "true", "yes", "on")
         self.local_embed_threads = int(os.getenv("LOCAL_EMBEDDING_THREADS", "1"))
-        self._local_embedder = None  # lazy-loaded singleton
+        self._local_embedder = None
         self._local_embedder_loaded = False
         self._local_embedder_failed = False
-        # The local model always produces 768-dim vectors (multilingual-e5-small).
-        # If the collection is already seeded with a different dimension from
-        # Gemini/Cloudflare, we pad/truncate to match at the call site.
+
+
+
         self.local_embed_dim = 768
-        # LRU + TTL cache for embeddings: avoid re-computing the (slow) curl/subprocess
-        # embedding call for identical queries. Repeated chat questions like
-        # "tìm học bổng" or "lộ trình học AI" would otherwise burn 5-20s on
-        # every turn. Keys are md5(text); values are (vector, timestamp) tuples.
+
+
+
+
         self._embed_cache: Dict[str, List[float]] = {}
-        self._embed_cache_meta: Dict[str, float] = {}  # cache_key -> insert timestamp
-        # Expanded from 128 → 1024 to leverage the ~10GB free RAM on HF Spaces.
-        # 1024 entries × 768 dims × 4 bytes ≈ 3 MB — negligible RAM cost.
+        self._embed_cache_meta: Dict[str, float] = {}
+
+
         self._embed_cache_max = int(os.getenv("EMBED_CACHE_MAX", "1024"))
-        # TTL in seconds: cached embeddings expire after 30 minutes to prevent
-        # stale vectors from dominating long-running chat sessions. The LRU
-        # eviction (FIFO by insertion order) remains as the secondary guard.
+
+
+
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
         if not self.has_api and not self.local_embedding_disabled:
-            # Even with no external API, the local model keeps RAG functional.
+
             print("INFO: No external embedding API configured — will use local SentenceTransformer model as fallback.")
         elif not self.has_api and self.local_embedding_disabled:
             print("WARNING: Vector store without any embeddings (no API keys + local disabled). Set GEMINI_API_KEY or enable LOCAL_EMBEDDING_DISABLED=false.")
@@ -158,14 +158,14 @@ class VectorStoreService:
             f"dim={self.local_embed_dim}"
         )
 
-        # --- Local reranker (cross-encoder, CPU, 100% offline) ---
-        # cross-encoder/ms-marco-MiniLM-L6-v2 (~80MB, ~100MB RAM on CPU).
-        # Improves RAG relevance by 15-30% when cosine-similarity results from
-        # ChromaDB are returned in a suboptimal order (common with local
-        # embeddings that have slightly different distributions than Gemini).
-        # Lazily loaded like the embedding model; skipped if loading fails.
-        # Env-tunable: LOCAL_RERANKER_MODEL, LOCAL_RERANKER_DISABLED,
-        # LOCAL_RERANKER_THRESHOLD (min score to keep; default 0.0 = keep all)
+
+
+
+
+
+
+
+
         self.local_reranker_model_name = os.getenv(
             "LOCAL_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L6-v2"
         )
@@ -179,18 +179,18 @@ class VectorStoreService:
         self._local_reranker_loaded = False
         self._local_reranker_failed = False
 
-        # --- ChromaDB collection (optional; not required for get_embedding) ---
+
         self.collection = None
         self._collection_next_retry = 0.0
         self._collection_init_attempts = 0
-        # Mutex to prevent the seeding thread and the staggered-warmup thread
-        # from double-loading the ~600MB embedding model + ~100MB reranker
-        # simultaneously. Defined as a class attribute above; not re-set here
-        # so that `object.__new__` test instances inherit the class-level lock.
+
+
+
+
         self._init_collection()
 
-    # ChromaDB init knobs (HF Spaces free tier boot can be slow: chromadb import
-    # + persistent client + collection creation on 2 vCPU).
+
+
     CHROMA_INIT_TIMEOUT_SECONDS = float(os.getenv("CHROMA_INIT_TIMEOUT_SECONDS", "30"))
     CHROMA_RETRY_SECONDS = float(os.getenv("CHROMA_RETRY_SECONDS", "60"))
 
@@ -217,18 +217,18 @@ class VectorStoreService:
             return False
 
         self._collection_init_attempts += 1
-        # Cooldown: never retry more often than CHROMA_RETRY_SECONDS (a retry
-        # under load is what the SIGALRM guard exists to prevent).
+
+
         self._collection_next_retry = time.monotonic() + self.CHROMA_RETRY_SECONDS
 
         try:
             import signal as _signal
             import threading
 
-            # signal.SIGALRM only works in the main thread. When the AI service
-            # is imported from a worker thread (tests, scripts), installing the
-            # handler raises ValueError and used to abort initialization — so
-            # only arm the alarm in the main thread.
+
+
+
+
             use_alarm = threading.current_thread() is threading.main_thread()
             if use_alarm:
                 def _chroma_timeout_handler(signum, frame):
@@ -252,8 +252,8 @@ class VectorStoreService:
                     self.client = chromadb.PersistentClient(path=db_path)
                 self.collection = self.client.get_or_create_collection(name="edumap_docs")
                 print(f"Vector store initialized at {db_path}")
-                # Pin the embedding dimension from the already-seeded collection (if any)
-                # so that get_embedding never returns a mismatched dim on the first query.
+
+
                 try:
                     if self.collection and self.collection.count() > 0:
                         get_res = self.collection.get(limit=1, include=["embeddings"])
@@ -352,8 +352,8 @@ class VectorStoreService:
                 "model": f"models/{model}",
                 "content": {"parts": [{"text": text}]},
             }
-            # gemini-embedding-001 defaults to 3072 dims, which would not match
-            # the existing 768-dim Chroma collection. Ask for the pinned dim.
+
+
             if model.startswith("gemini-embedding-001"):
                 payload["outputDimensionality"] = int(self._embed_dim or 768)
             body_json = json.dumps(payload)
@@ -380,8 +380,8 @@ class VectorStoreService:
 
             if proc.returncode != 0:
                 err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-                # Try parsing partial stdout for auth/rate-limit error details
-                # (curl exit 28 can still receive a small JSON error body).
+
+
                 _stdout = (proc.stdout or "").strip()
                 if _stdout:
                     try:
@@ -458,15 +458,15 @@ class VectorStoreService:
 
         if not (vec and isinstance(vec, list)):
             return
-        # Lazily evict expired entries before inserting (cheap: single time call)
+
         if len(self._embed_cache) >= self._embed_cache_max:
             now = time.monotonic()
-            # Purge expired entries first — this keeps the cache lean under load
+
             expired = [k for k, ts in self._embed_cache_meta.items() if now - ts > self._embed_cache_ttl]
             for k in expired:
                 self._embed_cache.pop(k, None)
                 self._embed_cache_meta.pop(k, None)
-            # If still over capacity after TTL purge, evict oldest (FIFO)
+
             while len(self._embed_cache) >= self._embed_cache_max:
                 oldest = next(iter(self._embed_cache))
                 self._embed_cache.pop(oldest, None)
@@ -479,21 +479,21 @@ class VectorStoreService:
         if not text:
             return []
 
-        # If NO embedding path is available at all (no external API + local
-        # disabled or failed), raise with a clear message. Note: the local
-        # SentenceTransformer fallback is handled later in this method, so
-        # we only raise here when has_embedding (external OR local) is False.
+
+
+
+
         if not self.has_embedding:
             raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary), CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc bật local embedding (LOCAL_EMBEDDING_DISABLED=false).")
         if not text:
             return []
 
-        # Fast path: return cached embedding for identical queries.
-        # This is the single biggest ChromaDB/LLM optimization for chat —
-        # the embedding call is a blocking curl subprocess (5-20s) and
-        # the same question is frequently repeated within a session.
-        # TTL check ensures stale embeddings (expired after _embed_cache_ttl)
-        # are recomputed so we never serve a vector that's potentially outdated.
+
+
+
+
+
+
         import time as _embed_time
         _cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
         _cached = self._embed_cache.get(_cache_key)
@@ -502,20 +502,20 @@ class VectorStoreService:
             if _embed_time.monotonic() - _cached_ts <= self._embed_cache_ttl:
                 return _cached
             else:
-                # Expired — remove stale entry so the provider is re-queried
+
                 self._embed_cache.pop(_cache_key, None)
                 self._embed_cache_meta.pop(_cache_key, None)
 
         import time
         _embed_start = time.monotonic()
-        # Budget for the whole embedding chain. Configurable via env so it can
-        # be tuned on HF Spaces without a rebuild. Keep this comfortably below
-        # the downstream RAG/HTTP timeouts so chat degrades instead of hanging.
+
+
+
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
         cf_last_err = None
         gemini_last_err = None
 
-        # --- Cloudflare Workers AI embeddings (primary) ---
+
         if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
             cf_last_err = None
             cf_network_down = False
@@ -524,19 +524,19 @@ class VectorStoreService:
                 print(f"[Embed] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
             else:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
-            per_model_retries = 0  # no retry — connection errors on HF Spaces are consistent, retrying wastes time
-            # Embedding calls are small/fast; use the shared per-provider budget
-            # so each model attempt fails within the global budget, leaving room
-            # for Gemini fallback. Mirrors llm_service._cloudflare_generate.
+            per_model_retries = 0
+
+
+
             _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
 
             for model in self.embed_models:
                 if self._embed_remaining(_embed_start) <= 0.5:
                     print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, stopping Cloudflare embed attempts"); break
                 _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
-                # URL-encode @ prefix but PRESERVE / so Cloudflare sees the full
-                # model path (@cf/baai/bge-base-en-v1.5). Encoding / as %2F
-                # flattens the path → Cloudflare returns "No route for that URI" (code 7000).
+
+
+
                 encoded_model = urllib.parse.quote(model, safe='/')
                 url = f"{base_url}/{encoded_model}"
                 payload = json.dumps({"text": text}).encode("utf-8")
@@ -545,11 +545,11 @@ class VectorStoreService:
                     attempt += 1
                     data = None
                     try:
-                        # Use curl (OpenSSL TLS) — bypasses Python ssl/urllib IPv6
-                        # blackhole on HF Spaces. --ipv4 avoids IPv6 blackhole;
-                        # --insecure skips cert verification (HF Spaces may have a
-                        # MITM proxy with custom CA). Already proven in
-                        # llm_service.py._cloudflare_generate text-generation path.
+
+
+
+
+
                         _curl = subprocess.run(
                             ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
                              "-H", f"Authorization: Bearer {self.cf_api_token}",
@@ -620,9 +620,9 @@ class VectorStoreService:
                         cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, tam ngung Cloudflare 5 phut.")
                         self._cf_embed_down_until = time.monotonic() + 300
                         cf_network_down = True
-                        break  # network is down for all models
+                        break
 
-                    # Success path: parse Cloudflare embedding response
+
                     if isinstance(data, dict) and data.get("success") is False:
                         errors = data.get("errors", [])
                         if isinstance(errors, list) and len(errors) > 0:
@@ -652,8 +652,8 @@ class VectorStoreService:
 
                     if vec:
                         vec = [float(x) for x in vec]
-                        # Dimension guard: never return a vector whose dim differs from
-                        # the dimension pinned when the collection was first populated.
+
+
                         if self._embed_dim and len(vec) != self._embed_dim:
                             cf_last_err = f"{model}: dim {len(vec)} != da pin {self._embed_dim}"
                             print(f"Cloudflare embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break
@@ -662,13 +662,13 @@ class VectorStoreService:
                         return vec
                     cf_last_err = f"{model}: response khong co gia tri embedding"
                     break
-                # end while True (per-model)
+
                 if cf_network_down:
                     print("  [embed] Cloudflare network unreachable, skipping remaining models")
                     break
-            # end for model in embed_models
 
-        # --- Google Gemini embeddings (fallback — reachable from HF Spaces) ---
+
+
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
             if self._embed_remaining(_embed_start) <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
@@ -690,13 +690,13 @@ class VectorStoreService:
                     gemini_last_err = str(e)
                     print(f"Gemini embedding failed: {e}")
 
-        # --- Local embedding fallback (SentenceTransformer, 100% offline) ---
-        # This is the GUARANTEED backup: runs on CPU with no API key. When both
-        # Cloudflare and Gemini are unreachable (common on HF Spaces free tier
-        # without secrets, or during outages), this keeps RAG semantic search
-        # alive. Model is lazy-loaded on first use (~30s one-time cost + ~300MB RAM).
-        # Uses getattr for resilience with partially-constructed mock objects
-        # (e.g. in tests that exercise only the provider cascade).
+
+
+
+
+
+
+
         if not getattr(self, "local_embedding_disabled", False):
             local_vec = self._local_get_embedding(text, _cache_key)
             if local_vec is not None:
@@ -709,12 +709,12 @@ class VectorStoreService:
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}"
         )
 
-    # ── Local embedding fallback (100% offline, no API key needed) ─────────
-    # intfloat/multilingual-e5-small runs on CPU. Lazy-loaded once and cached
-    # as a singleton so the ~30s model load + ~300MB RAM only happens on the
-    # first fallback, not at every request. This guarantees embeddings work
-    # even when ALL external APIs (Cloudflare + Gemini) are unreachable on
-    # HF Spaces — RAG never returns empty, per AGENTS.md "never 502s" rule.
+
+
+
+
+
+
 
     def _load_local_embedder(self):
         """Lazily load and cache the SentenceTransformer model (singleton).
@@ -735,8 +735,8 @@ class VectorStoreService:
         try:
             from sentence_transformers import SentenceTransformer
             import torch as _torch
-            # Limit CPU threads to avoid starving the FastAPI/NestJS processes.
-            # HF Spaces free plan = 2 vCPU; reserve 1 for web serving.
+
+
             _torch.set_num_threads(self.local_embed_threads)
             print(f"  [embed] Loading local model {self.local_embed_model_name} ...")
             self._local_embedder = SentenceTransformer(self.local_embed_model_name)
@@ -763,14 +763,14 @@ class VectorStoreService:
             return None
 
         try:
-            # SentenceTransformer returns np.ndarray; convert to list[float].
-            # normalize_embeddings=True for cosine-similarity compatibility with
-            # the ChromaDB collection that was seeded by Gemini (gemini-embedding-001
-            # returns L2-normalized vectors by default).
+
+
+
+
             vec = model.encode(text, normalize_embeddings=True)
             vec = [float(x) for x in vec]
 
-            # Dimension guard: pad/truncate to match the collection's pinned dim.
+
             if self._embed_dim and len(vec) != self._embed_dim:
                 if len(vec) > self._embed_dim:
                     vec = vec[:self._embed_dim]
@@ -778,7 +778,7 @@ class VectorStoreService:
                     vec = vec + [0.0] * (self._embed_dim - len(vec))
             self._embed_dim = self._embed_dim or len(vec)
 
-            # Cache this result (TTL + LRU eviction via _store_embed_cache)
+
             self._store_embed_cache(cache_key, vec)
             print(f"  -> Local embedding OK (dim={len(vec)}, source=local_model)")
             return vec
@@ -786,11 +786,11 @@ class VectorStoreService:
             print(f"  [embed] Local model inference failed: {type(e).__name__}: {e}")
             return None
 
-    # ── Local reranker (cross-encoder, CPU, 100% offline) ──────────────────
-    # cross-encoder/ms-marco-MiniLM-L6-v2 re-ranks top-k ChromaDB results by
-    # computing a cross-attention relevance score between [query × doc]. This
-    # improves precision by 15-30% over pure cosine similarity, especially when
-    # using local embeddings whose distribution differs from Gemini's.
+
+
+
+
+
 
     def _load_local_reranker(self):
         """Lazily load and cache the cross-encoder reranker (singleton).
@@ -863,25 +863,25 @@ class VectorStoreService:
 
         docs = docs_list[0]
         if len(docs) <= 1:
-            return results  # nothing to re-rank
+            return results
 
         reranker = self._load_local_reranker()
         if reranker is None:
-            return results  # graceful: return original order
+            return results
 
         try:
-            # Cross-encoder scores: [(doc, score), ...]
-            pairs = [(query, doc) for doc in docs]
-            scores = reranker.predict(pairs)  # list of floats
 
-            # Build (index, score) tuples, sort descending, take top_k
+            pairs = [(query, doc) for doc in docs]
+            scores = reranker.predict(pairs)
+
+
             ranked = sorted(
                 enumerate(scores), key=lambda x: float(x[1]), reverse=True
             )[:top_k]
 
-            # Reconstruct the result dict with re-ordered entries.
-            # ChromaDB returns ids/documents/metadatas as list-of-lists (one
-            # inner list per query), but we also handle flat lists for robustness.
+
+
+
             ranked_indices = [i for i, _ in ranked]
             docs = docs_list[0]
             new_docs = [[docs[i] for i in ranked_indices]]
@@ -900,7 +900,7 @@ class VectorStoreService:
                 _ids_flat = _ids_raw
             new_ids = [_ids_flat[i] for i in ranked_indices] if _ids_flat else []
 
-            new_dist = [float(s) for _, s in ranked]  # reranker score as new distance
+            new_dist = [float(s) for _, s in ranked]
 
             return {
                 "documents": new_docs,
@@ -910,7 +910,7 @@ class VectorStoreService:
             }
         except Exception as e:
             print(f"  [rerank] Failed to re-rank: {type(e).__name__}: {e}")
-            return results  # graceful: return original order
+            return results
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
         """Upsert documents into ChromaDB, tolerating per-document failures.
@@ -944,7 +944,7 @@ class VectorStoreService:
                     ok_docs.append(doc)
                     ok_meta.append(meta)
                     ok_ids.append(doc_id)
-                except Exception as doc_err:  # noqa: BLE001 - per-document isolation
+                except Exception as doc_err:
                     failures.append(f"{doc_id}: {doc_err}")
                     print(f"[add_documents] skipped '{doc_id}': {doc_err}")
 
@@ -979,15 +979,15 @@ class VectorStoreService:
                 print("[embed_document] Vector store collection is None — skipping (graceful degradation).")
                 return False
             if not self.has_embedding:
-                # No embedding provider configured — upsert without embeddings
-                # so the document is at least present for keyword fallback.
+
+
                 self.collection.upsert(documents=[text], metadatas=[metadata], ids=[doc_id])
                 print(f"[embed_document] Upserted '{doc_id}' WITHOUT embeddings (no API key).")
                 return True
 
             embedding = self.get_embedding(text)
-            # Dimension guard: pad/truncate to match the collection's pinned dim
-            # (set during seed_data or the first successful embed).
+
+
             if self._embed_dim and len(embedding) != self._embed_dim:
                 print(f"[embed_document] dim {len(embedding)} != collection {self._embed_dim}, adjusting...")
                 if len(embedding) > self._embed_dim:
@@ -1044,26 +1044,26 @@ class VectorStoreService:
         """
         try:
             if not self.collection and not self._ensure_collection():
-                # ChromaDB still not initialized (cold-boot timeout, corrupt
-                # /tmp state, chromadb missing). Return empty results so RAG
-                # degrades gracefully instead of crashing the chat endpoint —
-                # the LLM will answer from its own knowledge + conversation
-                # history. `_ensure_collection()` retries at most once per
-                # CHROMA_RETRY_SECONDS so a slow boot can recover.
+
+
+
+
+
+
                 print("Vector store collection is None — returning empty RAG results (graceful degradation).")
                 return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
 
-            # --- Adaptive n_results: short/ambiguous queries need more candidates ---
+
             if n_results is None or n_results <= 0:
                 text_len = len(query_text.strip()) if query_text else 0
                 if text_len < 10:
-                    n_results = 5   # e.g. "tìm học bổng"
+                    n_results = 5
                 elif text_len < 30:
                     n_results = 4
                 else:
-                    n_results = 3   # long, specific query
+                    n_results = 3
 
-            # Cap at collection size to avoid ChromaDB ValueError
+
             try:
                 _total = self.collection.count()
                 if n_results > _total:
@@ -1071,7 +1071,7 @@ class VectorStoreService:
             except Exception:
                 pass
 
-            # --- Keyword-only search when no embedding provider is available ---
+
             if not self.has_embedding:
                 return self.collection.query(
                     query_texts=[query_text], n_results=n_results,
@@ -1081,11 +1081,11 @@ class VectorStoreService:
 
             query_embedding = self.get_embedding(query_text)
 
-            # --- Hybrid search: keyword + semantic, merged by alpha weight ---
+
             if hybrid:
-                # ChromaDB supports query_embeddings + query_texts simultaneously
-                # (HYBRID search, chromadb>=0.5.0). If the installed version
-                # rejects the combined call, we fall back to vector-only below.
+
+
+
                 try:
                     _results = self.collection.query(
                         query_embeddings=[query_embedding],
@@ -1093,39 +1093,39 @@ class VectorStoreService:
                         n_results=n_results,
                         include=["documents", "metadatas", "distances"],
                         where=where,
-                        # hybrid_compose is the chroma>=0.5.0 parameter that
-                        # signals "merge results from both query paths".
+
+
                         hybrid_compose=hybrid_alpha,
                     )
                 except TypeError:
-                    # Older chroma version — fall back to vector-only query.
+
                     _results = self.collection.query(
                         query_embeddings=[query_embedding], n_results=n_results,
                         include=["documents", "metadatas", "distances"],
                         where=where,
                     )
 
-                # Local reranker (cross-encoder) for hybrid results too
+
                 if not getattr(self, "local_reranker_disabled", False):
                     _results = self.rerank_results(query_text, _results, top_k=n_results)
 
                 return _results
 
-            # --- Pure semantic search (default) ---
-            # Exclude embedding vectors from the result set to halve the
-            # ChromaDB→Python payload on every chat turn. Each result
-            # embedding is a 384-3072-dim float array — never needed by
-            # callers (they only read documents, metadatas, distances).
-            # `ids` is always returned by ChromaDB regardless of `include`.
+
+
+
+
+
+
             _results = self.collection.query(
                 query_embeddings=[query_embedding], n_results=n_results,
                 include=["documents", "metadatas", "distances"],
                 where=where,
             )
 
-            # --- Local reranker (cross-encoder, CPU, 100% offline) ---
-            # Re-ranks the semantic results to improve precision by 15-30%.
-            # Skips entirely if the reranker model fails to load (graceful).
+
+
+
             if not getattr(self, "local_reranker_disabled", False):
                 _results = self.rerank_results(query_text, _results, top_k=n_results)
 
@@ -1147,7 +1147,7 @@ class VectorStoreService:
             print("Vector store collection is None — semantic search disabled.")
             return []
         if not self.has_embedding:
-            # ChromaDB can still do keyword query without an embedding provider
+
             query_text = " ".join(skills) if skills else ""
         else:
             query_text = " ".join(skills) if skills else ""
@@ -1155,9 +1155,9 @@ class VectorStoreService:
             return []
 
         try:
-            # Push the category filter into ChromaDB's `where` clause so the
-            # server prunes non-career documents BEFORE ranking — avoids
-            # embedding/scanning irrelevant rows (scholarships, wifi, etc.).
+
+
+
             results = self.query(
                 query_text,
                 n_results=max(n_results, 5),
@@ -1174,11 +1174,11 @@ class VectorStoreService:
             careers = []
             for i, doc in enumerate(docs):
                 meta = metas[i] if i < len(metas) else {}
-                # Only include career-path documents
+
                 if meta.get('category') != 'career':
                     continue
 
-                # Parse skills_required from metadata (JSON string or comma-separated)
+
                 skills_required = []
                 raw_skills = meta.get('skills_required', '')
                 if isinstance(raw_skills, str):
@@ -1196,13 +1196,13 @@ class VectorStoreService:
                 matched = [s for s in skills_required if s.lower() in user_skills_lower]
                 missing = [s for s in skills_required if s.lower() not in user_skills_lower]
 
-                # Convert ChromaDB distance to a 0-100 match score.
-                # Smaller distance = more similar. Using a sigmoid-like transform.
+
+
                 dist = distances[i] if i < len(distances) and distances[i] is not None else 0.0
                 sim = max(0.0, min(1.0, 1.0 / (1.0 + float(dist)))) if dist > 0 else 0.8
                 match_score = int(round(sim * 100))
 
-                # Ensure at least the skill-overlap ratio influences the score
+
                 if skills_required:
                     overlap_ratio = len(matched) / len(skills_required)
                     match_score = int(round(match_score * 0.6 + overlap_ratio * 100 * 0.4))

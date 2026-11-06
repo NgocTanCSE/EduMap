@@ -1,5 +1,5 @@
 """
-Voice-to-Geo AI — server-side Speech-to-Text service (Idea #16, Task 2).
+Voice-to-Geo AI — server-side Speech-to-Text service (Idea
 
 This module is the Whisper fallback used when the client-side Web Speech API
 cannot recognise Vietnamese reliably.
@@ -26,13 +26,13 @@ from __future__ import annotations
 import os
 import time
 
-# ── Configuration ─────────────────────────────────────────────────────────
-# No server-side STT provider is configured. The service always degrades to
-# client-side Web Speech API. If a provider is added later, set the key/model
-# env vars and remove the always-degrade guard in ``transcribe()``.
+
+
+
+
 _STT_TIMEOUT_SECONDS = float(os.getenv("STT_TIMEOUT_SECONDS", "25"))
 
-# Per-provider circuit-breaker cooldown (seconds) — matches llm_service.py.
+
 _CB_SECONDS = 300.0
 
 
@@ -47,10 +47,10 @@ class SpeechService:
     are class-level so they persist across concurrent requests.
     """
 
-    # Circuit breaker: timestamp until which the provider is skipped.
+
     _down_until: float = 0.0
 
-    # ── Public API ───────────────────────────────────────────────────
+
 
     def transcribe(
         self,
@@ -69,20 +69,20 @@ class SpeechService:
         ``text`` and a human-readable ``error`` so the caller can surface a
         hint and fall back to the client-side Web Speech API.
         """
-        # Strip a data-URI prefix if the frontend accidentally included one
-        # (e.g. "data:audio/wav;base64,AAAA...").
+
+
         data = self._strip_data_uri(audio_base64)
         if not data:
             return self._degraded("audio_base64 is empty or missing")
 
-        # No server-side STT provider is configured. Always degrade so the
-        # frontend can use the client-side Web Speech API.
+
+
         return self._degraded(
             "Không có provider STT phía server. Sử dụng Web Speech API "
             "phía client (ghi âm trong trình duyệt, không gửi lên server)."
         )
 
-    # ── Internal helpers ─────────────────────────────────────────────
+
 
     @staticmethod
     def _strip_data_uri(b64: str) -> str:
@@ -106,5 +106,5 @@ class SpeechService:
         }
 
 
-# Singleton — mirrors the pattern in climate_guardian.py / llm_service.py.
+
 speech_service = SpeechService()

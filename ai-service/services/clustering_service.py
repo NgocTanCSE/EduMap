@@ -32,17 +32,17 @@ def _cluster_polygon(cluster_df: pd.DataFrame) -> Dict:
         pts = cluster_df[['lat', 'lng']].to_numpy()
         if len(pts) >= 3:
             hull = ConvexHull(pts)
-            # ConvexHull.vertices are counterclockwise hull vertex indices.
-            # Close the ring by repeating the first vertex (RFC 7946 3.1.6).
+
+
             ring = [[float(pts[i, 1]), float(pts[i, 0])] for i in hull.vertices]
             ring.append(ring[0])
             return {"type": "Polygon", "coordinates": [ring]}
-        # 1-2 points: emit a Point at the centroid so the hub is still visible.
+
         lat = float(cluster_df['lat'].mean())
         lng = float(cluster_df['lng'].mean())
         return {"type": "Point", "coordinates": [lng, lat]}
     except Exception:
-        # Collinear / degenerate input -> Point at the centroid.
+
         lat = float(cluster_df['lat'].mean())
         lng = float(cluster_df['lng'].mean())
         return {"type": "Point", "coordinates": [lng, lat]}
@@ -53,7 +53,7 @@ class ClusteringService:
         """Cluster education POIs with DBSCAN and return a GeoJSON
         ``FeatureCollection``.
 
-        Issue #7 (GeoAI → GeoJSON): previously this returned a flat list of hub
+        Issue
         metadata dicts ({hub_id, center, point_count, categories}) which could
         NOT be drawn as boundaries on a map. It now serializes every cluster as
         a GeoJSON ``Feature`` whose ``geometry`` is the cluster's convex-hull
@@ -72,7 +72,7 @@ class ClusteringService:
 
         try:
             df = pd.DataFrame(points)
-            # Ensure required columns exist; tolerate missing 'category'.
+
             if 'category' not in df.columns:
                 df['category'] = 'unknown'
 
@@ -84,7 +84,7 @@ class ClusteringService:
             features = []
             for cluster_id in set(db.labels_):
                 if cluster_id == -1:
-                    continue  # noise points are not hubs
+                    continue
                 cluster_points = df[df['cluster'] == cluster_id]
                 point_count = len(cluster_points)
                 center_lat = float(cluster_points['lat'].mean())
@@ -99,13 +99,13 @@ class ClusteringService:
                         "center": {"lat": center_lat, "lng": center_lng},
                         "point_count": point_count,
                         "categories": categories,
-                        # Relative density: share of all points this hub concentrates.
+
                         "density_score": round(point_count / max(total_points, 1) * 100, 1),
                         "name": f"Cụm giáo dục #{int(cluster_id)}",
                     },
                 })
 
-            # Sort by point_count desc (most significant hubs first).
+
             features.sort(key=lambda f: f["properties"]["point_count"], reverse=True)
             return {"type": "FeatureCollection", "features": features}
         except Exception as e:
@@ -233,9 +233,9 @@ class ClusteringService:
             }
 
         try:
-            # ── 1. Normalise points (clamp grid_size_km, parse lat/lng) ──────
+
             grid_size_km = max(0.1, min(50.0, float(grid_size_km)))
-            grid_deg = grid_size_km / 111.0  # degrees ≈ km (equirectangular approx)
+            grid_deg = grid_size_km / 111.0
 
             valid_pts: List[Dict[str, Any]] = []
             for p in points:
@@ -263,21 +263,21 @@ class ClusteringService:
                     },
                 }
 
-            # ── 2. Build grid over the bounding box ──────────────────────────
+
             lats = [p["lat"] for p in valid_pts]
             lngs = [p["lng"] for p in valid_pts]
             lat_min, lat_max = min(lats), max(lats)
             lng_min, lng_max = min(lngs), max(lngs)
 
-            # Extend the bbox by one cell on each side so the boundary cells
-            # are full squares (not clipped halves).
+
+
             lat_min -= grid_deg
             lat_max += grid_deg
             lng_min -= grid_deg
             lng_max += grid_deg
 
-            # ── 3. Spatial index: assign each point to a grid cell ───────────
-            # cell index (row, col) → points
+
+
             def _cell_index(lat: float, lng: float) -> Tuple[int, int]:
                 row = int((lat - lat_min) // grid_deg) if grid_deg > 0 else 0
                 col = int((lng - lng_min) // grid_deg) if grid_deg > 0 else 0
@@ -292,11 +292,11 @@ class ClusteringService:
             n_cols = int((lng_max - lng_min) // grid_deg) + 1
             total_cells = n_rows * n_cols
 
-            # ── 4. Identify gap cells (zero POI count) ────────────────────────
+
             features: List[Dict[str, Any]] = []
             gap_cells = 0
 
-            # Pre-compute point arrays for vectorised nearest-distance.
+
             pt_lats = np.array([p["lat"] for p in valid_pts])
             pt_lngs = np.array([p["lng"] for p in valid_pts])
 
@@ -313,7 +313,7 @@ class ClusteringService:
                     center_lng = (cell_lng_min + cell_lng_max) / 2.0
 
                     if count == 0:
-                        # Spatial gap — compute distance to nearest POI.
+
                         dists = self._haversine_vectorized(
                             center_lat, center_lng, pt_lats, pt_lngs
                         )
@@ -326,7 +326,7 @@ class ClusteringService:
                             [cell_lng_max, cell_lat_min],
                             [cell_lng_max, cell_lat_max],
                             [cell_lng_min, cell_lat_max],
-                            [cell_lng_min, cell_lat_min],  # closed ring (RFC 7946 3.1.6)
+                            [cell_lng_min, cell_lat_min],
                         ]
                         features.append({
                             "type": "Feature",
@@ -344,10 +344,10 @@ class ClusteringService:
                             },
                         })
 
-            # Sort spatial gaps by gap_score descending.
+
             features.sort(key=lambda f: f["properties"]["gap_score"], reverse=True)
 
-            # ── 5. Attribute gap detection (global aggregate) ────────────────
+
             attribute_gaps = self._detect_attribute_gaps(valid_pts)
 
             summary = {
@@ -400,8 +400,8 @@ class ClusteringService:
         if not points:
             return {}
         total = len(points)
-        # Attributes to inspect for gaps — ordered by importance for the
-        # survey-priority list.
+
+
         attrs = ["name", "address", "city", "district", "description",
                  "category", "rating_avg", "website", "hours",
                  "verified", "updated_at"]
@@ -418,7 +418,7 @@ class ClusteringService:
                     "total": total,
                     "pct": round(missing / total * 100, 1),
                 }
-        # Sort by pct desc for the priority list.
+
         result = dict(sorted(result.items(), key=lambda x: x[1]["pct"], reverse=True))
         return result
 
@@ -443,7 +443,7 @@ class ClusteringService:
         """Coerce a value to float, returning None on failure / NaN."""
         try:
             f = float(v)
-            if f != f:  # NaN check
+            if f != f:
                 return None
             return f
         except (TypeError, ValueError, OverflowError):

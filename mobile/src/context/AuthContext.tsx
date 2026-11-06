@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
   useEffect(() => {
-    // Hydrate persisted session from SecureStore on cold start.
+
     (async () => {
       setIsLoading(true);
       try {

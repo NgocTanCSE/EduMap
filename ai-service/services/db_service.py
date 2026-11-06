@@ -58,11 +58,11 @@ class DBService:
                     time.sleep(delay)
         print("DB connection FAILED after all retries")
 
-    # Mapping type_id (DB column) -> type label (entity getter semantics).
-    # map_points stores the category as the integer column `type_id`; the
-    # TypeORM entity exposes a `type` getter derived from it. Raw SQL in this
-    # service must use the physical column `type_id` (and `verified`, not
-    # `is_verified`) to match the actual schema.
+
+
+
+
+
     TYPE_NAME_MAP = {
         1: 'university', 2: 'school', 3: 'library', 4: 'bookstore',
         5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant',
@@ -90,7 +90,7 @@ class DBService:
         for tid, name in self.TYPE_NAME_MAP.items():
             if key == name:
                 return tid
-        # Numeric category passed directly?
+
         try:
             val = int(key)
             return val if val in self.TYPE_NAME_MAP else None
@@ -138,7 +138,7 @@ class DBService:
                     SELECT id, name, description, type_id, address, city, district,
                            ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat,
                            rating_avg, rating_count, verified
-                    FROM map_points 
+                    FROM map_points
                     WHERE ST_DWithin(location, ST_MakePoint(%s, %s)::geography, %s)
                 """
                 params = [lng, lat, radius_km * 1000]
@@ -153,8 +153,8 @@ class DBService:
 
                 cur.execute(query, params)
                 rows = cur.fetchall()
-                # Expose the legacy keys the routers read (type / category_id /
-                # is_verified) so callers don't break after the schema fix.
+
+
                 for row in rows:
                     row['type'] = self.TYPE_NAME_MAP.get(row.get('type_id'), 'other')
                     row['category_id'] = row.get('type_id')
@@ -170,9 +170,9 @@ class DBService:
         try:
             with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("""
-                    SELECT id, name, type_id as type, 
+                    SELECT id, name, type_id as type,
                            ST_X(location) as lng, ST_Y(location) as lat
-                    FROM map_points 
+                    FROM map_points
                     WHERE location IS NOT NULL
                 """)
                 return cur.fetchall()
@@ -218,13 +218,13 @@ class DBService:
             return []
 
 if __name__ == '__main__':
-    pass  # module entry point
+    pass
 
-# In HF Spaces mode (SQLite), the AI service does NOT connect to PostgreSQL.
-# Data access (POIs, materials, chat history) is handled by the NestJS backend
-# which uses SQLite. The AI service's db_service is only needed for direct DB
-# queries (geo analysis, analytics, chat history) which require PostGIS.
-# Setting conn=None makes every method gracefully return []/None.
+
+
+
+
+
 if HAS_PSYCOPG2 and os.getenv("DB_TYPE", "postgres").lower() != "sqlite":
     db_service = DBService()
 else:

@@ -2,19 +2,15 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
-    "./frontend/**/*.{js,ts,jsx,tsx,mdx}",
-    "./reporting/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages*.{js,ts,jsx,tsx,mdx}",
+    "./components*.{js,ts,jsx,tsx,mdx}",
+    "./app*.{js,ts,jsx,tsx,mdx}",
+    "./src*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       colors: {
-        /* EduMap Design System — Desert Dusk
-           Semantic HSL tokens defined in app/globals.css; opacity modifiers (e.g. /10)
-           resolve through hsl() so all colors stay palette-consistent. */
+
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: "hsl(var(--card))",
@@ -36,10 +32,9 @@ const config: Config = {
         sidebar: "hsl(var(--sidebar))",
         "sidebar-foreground": "hsl(var(--sidebar-foreground))",
         ring: "hsl(var(--ring))",
-        /* Only semantic Desert Dusk tokens are used in source — no raw color
-           palettes (amber/zinc/etc.) are needed. */
+
       },
-      /* Consistent border radius scale */
+
       borderRadius: {
         sm: "0.375rem",
         md: "0.5rem",

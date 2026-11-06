@@ -14,7 +14,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real API providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
@@ -35,7 +35,7 @@ def _fresh_service():
     return LLMService()
 
 
-# ── LLM service fallback ──────────────────────────────────────────────
+
 
 def test_explain_fallback_returns_valid_structure():
     """When all providers are down, the fallback returns a usable explanation."""
@@ -59,7 +59,7 @@ def test_explain_fallback_returns_valid_structure():
     assert "explanation" in result
     assert isinstance(result["explanation"], str)
     assert len(result["explanation"]) > 10
-    # Fallback should be marked degraded
+
     assert result.get("degraded") is True or result.get("_degraded") is True
     print("✓ test_explain_fallback_returns_valid_structure")
 
@@ -100,7 +100,7 @@ def test_explain_fallback_no_reasons_still_returns_explanation():
     print("✓ test_explain_fallback_no_reasons_still_returns_explanation")
 
 
-# ── Router endpoint ───────────────────────────────────────────────────
+
 
 def test_explain_endpoint_returns_200():
     """POST /api/ai/learning-space/explain → 200 with explanation field."""
@@ -162,7 +162,7 @@ def test_explain_endpoint_accepts_minimal_spot():
     print("✓ test_explain_endpoint_accepts_minimal_spot")
 
 
-# ── Cache key determinism ─────────────────────────────────────────────
+
 
 def test_cache_key_deterministic():
     """Same spot + preferences → same cache key (so responses are cached)."""

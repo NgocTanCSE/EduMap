@@ -5,7 +5,6 @@ import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 DB_CONFIG = {
@@ -32,7 +31,7 @@ def seed_scholarships(cur):
         ("Học bổng Thạc sĩ Erasmus+", "Cơ hội học tập tại các trường đại học hàng đầu Châu Âu.", "European Union", 35000.0, datetime.now() + timedelta(days=120)),
         ("Quỹ Khuyến học Vingroup", "Dành cho sinh viên có hoàn cảnh khó khăn đạt thành tích cao.", "Vingroup", 1500.0, datetime.now() + timedelta(days=30))
     ]
-    
+
     for title, desc, provider, val, deadline in scholarships:
         cur.execute("""
             INSERT INTO scholarships (id, title, description, provider, value_amount, deadline, created_at, updated_at)
@@ -48,7 +47,7 @@ def seed_events(cur):
         ("Trại hè STEM cho Học sinh Cấp 3", "Khám phá khoa học qua các thí nghiệm thực tế.", "camp", "Cơ sở EduMap Thủ Đức", 106.80, 10.90, datetime.now() + timedelta(days=30), datetime.now() + timedelta(days=35), 50),
         ("Triển lãm Du học Quốc tế", "Gặp gỡ đại diện hơn 50 trường đại học toàn cầu.", "seminar", "Khách sạn Sheraton", 106.79, 10.89, datetime.now() + timedelta(days=20), datetime.now() + timedelta(days=20, hours=8), 1000)
     ]
-    
+
     for title, desc, etype, addr, lng, lat, start, end, cap in events:
         cur.execute("""
             INSERT INTO events (id, title, description, type, address, location_point, start_date, end_date, capacity, registered_count, status, created_at, updated_at)
@@ -62,7 +61,7 @@ def seed_donations(cur):
         ("Quỹ Tiếp sức Đến trường 2026", "Hỗ trợ học phí và dụng cụ học tập cho học sinh có hoàn cảnh đặc biệt.", 200000000.0, 85000000.0, datetime.now() + timedelta(days=60)),
         ("Trồng cây xanh Campus EduMap", "Chung tay vì một môi trường học tập xanh - sạch - đẹp.", 50000000.0, 42000000.0, datetime.now() + timedelta(days=30))
     ]
-    
+
     for title, desc, target, current, end in campaigns:
         cur.execute("""
             INSERT INTO donation_campaigns (id, title, description, target_amount, current_amount, end_date, status, created_at, updated_at)
@@ -77,12 +76,11 @@ def seed_internships(cur):
         ("Thực tập sinh Marketing & Community", "Xây dựng chiến dịch truyền thông và quản lý cộng đồng sinh viên.", "Kinh doanh/Marketing", "Cơ sở EduMap Thủ Đức", datetime.now() + timedelta(days=20), "5.000.000 VNĐ"),
         ("Thực tập sinh Backend (NestJS/PostgreSQL)", "Xử lý logic nghiệp vụ và tối ưu hóa truy vấn cơ sở dữ liệu.", "Công nghệ phần mềm", "Làm việc từ xa (Remote)", datetime.now() + timedelta(days=60), "10.000.000 VNĐ")
     ]
-    
-    # Get a valid company_id (admin user)
+
     cur.execute("SELECT id FROM users WHERE role_id = 1 LIMIT 1")
     admin_id = cur.fetchone()
     if not admin_id: return
-    
+
     for title, desc, field, loc, deadline, salary in internships:
         cur.execute("""
             INSERT INTO internships (id, title, description, field, location_point, salary_range, deadline, company_id, status, created_at, updated_at)
@@ -91,10 +89,6 @@ def seed_internships(cur):
         """, (str(uuid.uuid4()), title, desc, field, salary, deadline, admin_id[0], 'open', datetime.now(), datetime.now()))
 
 def main():
-    # DEMO-ONLY SCRIPT (PostgreSQL). The production deployment is SQLite on
-    # Hugging Face Spaces and uses scripts/real_vn_data.py instead. This file
-    # contains fabricated organisations (EduMap Foundation, EduMap Academy, …)
-    # and must not run by accident.
     import os as _os
     if _os.getenv("ALLOW_DEMO_SEED", "0") not in ("1", "true", "True"):
         print(
@@ -107,7 +101,7 @@ def main():
     conn = get_db_connection()
     if not conn:
         return
-    
+
     cur = conn.cursor()
     try:
         print("Seeding Scholarships...")

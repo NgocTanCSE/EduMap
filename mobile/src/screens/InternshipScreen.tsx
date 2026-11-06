@@ -8,8 +8,8 @@ export default function InternshipScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  // Pagination
+
+
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -61,7 +61,7 @@ export default function InternshipScreen() {
            </Text>
         </View>
       </View>
-      
+
       <View style={styles.companyRow}>
         <Building2 size={14} color="#eab308" />
         <Text style={styles.companyText}>{item.company?.full_name || 'Doanh nghiệp ẩn danh'}</Text>

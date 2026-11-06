@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Unified Data Processing for EduMap
 Combines crawled data and seeds both database and vector DB
@@ -12,7 +10,6 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-# Assuming crawlers are in the same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def compile_all_crawled_data():
@@ -29,26 +26,22 @@ def compile_all_crawled_data():
 
     print("🔄 Compiling all crawled data...\n")
 
-    # WiFi
     print("📍 Processing WiFi data...")
     wifi = WiFiCrawler()
     wifi_data = wifi.crawl_all_wifi()
     print(f"   ✓ {wifi_data['total']} WiFi locations")
 
-    # Green spaces
     print("🌳 Processing green spaces...")
     green = GreenSpacesCrawler()
     green_data = green.crawl_all_green_spaces()
     print(f"   ✓ {green_data['total']} green space locations")
 
-    # Books and libraries
     print("📚 Processing books and libraries...")
     books = BooksCrawler()
     books_data = books.crawl_all_books()
     print(f"   ✓ {books_data['total_books']} books")
     print(f"   ✓ {len(books_data['libraries'])} libraries")
 
-    # Schools
     print("🏫 Processing schools...")
     schools = SchoolsCrawler()
     schools_data = schools.crawl_all_schools()
@@ -74,7 +67,6 @@ def generate_combined_sql(all_data) -> str:
 -- ============================================
 """
 
-    # WiFi locations
     for loc in all_data['wifi']['data']['locations']:
         name = loc.get('name', '').replace("'", "''")
         lat = loc.get('lat', 0)
@@ -88,7 +80,6 @@ def generate_combined_sql(all_data) -> str:
     sql += f"-- Green Spaces\n"
     sql += f"-- ============================================\n"
 
-    # Green spaces
     for loc in all_data['green']['data']['locations']:
         name = loc.get('name', '').replace("'", "''")
         lat = loc.get('lat', 0)
@@ -102,7 +93,6 @@ def generate_combined_sql(all_data) -> str:
     sql += f"-- Libraries\n"
     sql += f"-- ============================================\n"
 
-    # Libraries
     for lib in all_data['books']['data']['libraries']:
         name = lib.get('name', '').replace("'", "''")
         lat = lib.get('lat', 0)
@@ -115,7 +105,6 @@ def generate_combined_sql(all_data) -> str:
     sql += f"-- Schools & Educational Institutions\n"
     sql += f"-- ============================================\n"
 
-    # Schools
     for school in all_data['schools']['data']['locations']:
         name = school.get('name', '').replace("'", "''")
         lat = school.get('lat', 0)
@@ -129,10 +118,9 @@ def generate_combined_sql(all_data) -> str:
     sql += f"-- Learning Materials (Books)\n"
     sql += f"-- ============================================\n"
 
-    # Books
     books_sqls = all_data['books']['crawler'].to_learning_materials_sql(all_data['books']['data']['books'])
     for book_sql in books_sqls:
-        if not book_sql.startswith('--'):  # Skip comments
+        if not book_sql.startswith('--'):  
             sql += book_sql + "\n"
 
     return sql
@@ -143,18 +131,15 @@ def main():
     print("EduMap Data Processing & Seeding")
     print("="*60 + "\n")
 
-    # Compile all data
     all_data = compile_all_crawled_data()
 
     if not all_data:
         print("❌ Failed to compile data")
         return False
 
-    # Generate SQL
     print("\n💾 Generating SQL seed file...")
     sql_content = generate_combined_sql(all_data)
 
-    # Save to project root
     output_path = os.path.join(os.path.dirname(__file__), '..', 'seed_crawled_data_new.sql')
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -164,7 +149,6 @@ def main():
     file_size = os.path.getsize(output_path) / 1024
     print(f"✓ Saved: {output_path} ({file_size:.1f} KB)")
 
-    # Generate summary
     print("\n📊 Data Summary:")
     print(f"  WiFi: {all_data['wifi']['data']['total']}")
     print(f"  Green Spaces: {all_data['green']['data']['total']}")

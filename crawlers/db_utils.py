@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Shared DB + HTTP helpers for EduMap feature crawlers (B).
 
@@ -19,9 +18,6 @@ import json
 import sqlite3
 import contextlib
 
-# HF Spaces runs SQLite only (no PostgreSQL server). psycopg2 is optional —
-# only needed when DB_TYPE=postgresql (dev / docker-compose). Crawlers on
-# HF Spaces use sqlite3 (stdlib) to upsert into edumap.db.
 try:
     import requests
 except ImportError:
@@ -33,7 +29,7 @@ try:
     from psycopg2.extras import RealDictCursor
     try:
         from psycopg2.extras import Jsonb as _NativeJsonb
-    except ImportError:  # pragma: no cover
+    except ImportError:  
         from psycopg2.extras import Json as _NativeJsonb
     _HAS_PSYCOPG = True
 except ImportError:
@@ -54,9 +50,6 @@ def Jsonb(obj):
     return _NativeJsonb(obj)
 
 
-# --------------------------------------------------------------------------- #
-# Schema helpers
-# --------------------------------------------------------------------------- #
 
 def ensure_column(conn, table, column, col_type="TEXT"):
     """Add a column to a table if it doesn't already exist.
@@ -72,16 +65,13 @@ def ensure_column(conn, table, column, col_type="TEXT"):
         with _cursor(conn) as cur:
             cur.execute(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {col_type}')
         conn.commit()
-        _TABLE_COLS_CACHE.pop(table, None)  # invalidate cached columns
+        _TABLE_COLS_CACHE.pop(table, None)  
         print(f"  [ensure_column {table}] added column '{column}' ({col_type})")
     except Exception as e:
         conn.rollback()
         print(f"  [ensure_column {table}] cannot add '{column}': {e}")
 
 
-# --------------------------------------------------------------------------- #
-# Image extraction helpers
-# --------------------------------------------------------------------------- #
 
 def extract_card_image(card_html, source_domain=None):
     """Extract the FIRST relevant <img> src from a single card's HTML block.
@@ -104,11 +94,9 @@ def extract_card_image(card_html, source_domain=None):
     """
     if not card_html:
         return None
-    # Find full <img> tags (with attributes) within this card block only
     img_tags = re.findall(r'<img\s+[^>]*>', card_html, re.IGNORECASE | re.DOTALL)
     if not img_tags:
         return None
-    # Filter out tracking pixels, 1×1 spacers, and obvious non-content images
     content_imgs = []
     for tag in img_tags:
         src_match = re.search(r'src="([^"]+)"', tag, re.IGNORECASE)
@@ -116,16 +104,13 @@ def extract_card_image(card_html, source_domain=None):
             continue
         src = src_match.group(1)
         low = src.lower()
-        # Skip by URL pattern
         if any(x in low for x in ("pixel", "track", "spacer", "loading", "1x1", ".gif")):
             continue
-        # Skip by width/height = 1 (tracking pixel)
         w_match = re.search(r'width\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
         h_match = re.search(r'height\s*=\s*["\']?1["\']?', tag, re.IGNORECASE)
         if w_match or h_match:
             continue
         content_imgs.append(src)
-    # Prefer source_domain images if specified
     if source_domain:
         domain_imgs = [i for i in content_imgs if source_domain in i.lower()]
         if domain_imgs:
@@ -145,13 +130,10 @@ def extract_eventbrite_cards(html):
       that block* is the card's image — **accurate 1-to-1 mapping**.
     """
     items = []
-    # Match each card anchor: href="/e/...ticket-N"> ... </a>
-    # We slice the HTML between consecutive card anchors to get per-card blocks.
     card_anchors = list(re.finditer(r'href="(/e/[^"]+?ticket-\d+)"', html))
     for i, m in enumerate(card_anchors):
         href = m.group(1)
         start = m.start()
-        # End of this card = start of next card anchor (or end of HTML)
         end = card_anchors[i + 1].start() if i + 1 < len(card_anchors) else len(html)
         card_block = html[start:end]
 
@@ -163,7 +145,6 @@ def extract_eventbrite_cards(html):
         date_match = re.search(r'<time[^>]*datetime="([^"]+)"', card_block)
         date = date_match.group(1) if date_match else None
 
-        # Per-card image extraction (NOT global index)
         img = extract_card_image(card_block, source_domain="eventbrite")
 
         items.append({
@@ -173,7 +154,6 @@ def extract_eventbrite_cards(html):
             "img": img,
             "raw_block": card_block,
         })
-    # Fallback: if no structured cards found, try <h3>-only extraction
     if not items:
         h3_matches = list(re.finditer(r'<h3[^>]*>([^<]{6,90})</h3>', html))
         for i, m in enumerate(h3_matches):
@@ -209,29 +189,20 @@ def fetch_og_image(session, url, timeout=15, retries=1):
         r = session.get(url, timeout=timeout, allow_redirects=True)
         if r.status_code != 200:
             return None
-        # og:image meta tag
         og = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', r.text, re.IGNORECASE)
         if og:
             img = og.group(1).strip()
             if img.startswith("//"):
                 img = "https:" + img
             return img
-        # Fallback: first non-tracking <img> on the page
         return extract_card_image(r.text)
     except Exception:
         return None
 
 
-# --------------------------------------------------------------------------- #
-# Config
-# --------------------------------------------------------------------------- #
-# SQLite mode (HF Spaces default): DB_TYPE=sqlite → use sqlite3 stdlib.
-# PostgreSQL mode (dev / docker-compose): DB_TYPE unset or =postgresql → psycopg2.
 _IS_SQLITE = os.getenv("DB_TYPE", "postgres") == "sqlite"
 _DB_SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
-# SQLite uses ? placeholders; PostgreSQL uses %s.
 _PLACEHOLDER = "?" if _IS_SQLITE else "%s"
-# Timestamp expression: SQLite has no NOW(); use datetime('now').
 _NOW_EXPR = "datetime('now')" if _IS_SQLITE else "NOW()"
 
 _DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -244,8 +215,6 @@ DB_CFG = {
     "password": os.getenv("DB_PASSWORD", ""),
     "connect_timeout": 15,
 }
-# Supabase (and most managed Postgres) require TLS. Enable sslmode for any
-# non-localhost host so local docker-compose (plain) keeps working.
 if _DB_HOST and _DB_HOST not in ("localhost", "127.0.0.1"):
     DB_CFG["sslmode"] = os.getenv("DB_SSLMODE", "require")
 
@@ -421,10 +390,8 @@ def extract_topcv_jobs(html):
     if not html:
         return items
 
-    # Job-card anchors: href pointing at a /viec-lam-<id> (relative or absolute).
     anchors = [m for m in re.finditer(r'<a[^>]*href="([^"]*)"[^>]*>', html, re.IGNORECASE)
                if "viec-lam" in (m.group(1) or "")]
-    # Fallback: anchors whose block contains a job-title element.
     if not anchors:
         for m in re.finditer(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL):
             blk = m.group(2)
@@ -439,7 +406,6 @@ def extract_topcv_jobs(html):
         end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html)
         block = html[start:end]
 
-        # Title: title attr -> h3 -> strong -> .title/.job-title class text.
         t = re.search(r'title="([^"]{3,120})"', m.group(0), re.IGNORECASE)
         if not t:
             t = re.search(r'<h3[^>]*>([^<]+)</h3>', block, re.IGNORECASE)
@@ -511,7 +477,6 @@ def crawl_pages(session, make_url, fetcher, parser, key=None, max_pages=50,
     for page in range(1, max_pages + 1):
         url = make_url(page)
         try:
-            # fetch_json / fetch_html take (session, url, ...).
             raw = fetcher(session, url)
         except Exception as e:
             print(f"  [{label}] page {page} fetch error: {e}")
@@ -523,8 +488,6 @@ def crawl_pages(session, make_url, fetcher, parser, key=None, max_pages=50,
                 break
             continue
 
-        # Materialize parser output (parsers may be generator funcs -> len()
-        # and truthiness checks below need a real list).
         items = list(parser(raw)) if parser else (raw if isinstance(raw, list) else [raw])
         if not items and stop_when_empty:
             print(f"  [{label}] page {page} no items -> stop")
@@ -542,10 +505,8 @@ def crawl_pages(session, make_url, fetcher, parser, key=None, max_pages=50,
             if max_total is not None and len(out) >= max_total:
                 return out
 
-        # Last/partial page -> we've reached the end of the source.
         if fewer is not None and len(items) < fewer:
             break
-        # Every item on this page was a duplicate -> assume nothing new remains.
         if key_fn and page_added == 0 and page > 1:
             break
         if sleep:
@@ -598,7 +559,7 @@ def upsert_row(conn, table, row, key_cols):
                     f"UPDATE {table} SET {set_clause} WHERE id = {_PLACEHOLDER}",
                     [row[c] for c in set_cols] + [existing[0]],
                 )
-            return False  # updated, not new
+            return False  
         col_list = ", ".join(cols)
         cur.execute(f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", vals)
         return True

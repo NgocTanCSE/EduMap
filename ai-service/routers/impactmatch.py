@@ -30,7 +30,7 @@ async def rank_matches(data: ImpactMatchRequest):
     try:
         result = await llm_service.rank_impact_matches(data)
 
-        # result is a dict with keys: ranked_matches, degraded, reason
+
         raw_matches = result.get("ranked_matches", []) if isinstance(result, dict) else []
         degraded = bool(result.get("degraded", False)) if isinstance(result, dict) else False
         reason = result.get("reason") if isinstance(result, dict) else None
@@ -42,7 +42,7 @@ async def rank_matches(data: ImpactMatchRequest):
             try:
                 clean.append(RankedMatch(**m))
             except Exception:
-                # Skip malformed entries (e.g. fallback placeholders)
+
                 pass
 
         return ImpactMatchResponse(

@@ -39,7 +39,7 @@ const layers = [
     };
     const out = {};
     for (const [name, sel] of layers) out[name] = g(sel);
-    // also find any element whose bottom > viewport, excluding fixed/absolutely positioned
+    
     const overflowers = [];
     for (const el of document.querySelectorAll('*')) {
       const cs = getComputedStyle(el);

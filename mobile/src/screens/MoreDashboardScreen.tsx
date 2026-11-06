@@ -11,8 +11,8 @@ interface Feature {
   label: string;
   icon: React.ComponentType<any>;
   color: string;
-  screen?: string; // route within MoreStack
-  tab?: 'Home' | 'Map' | 'Career' | 'More'; // switch bottom-tab
+  screen?: string;
+  tab?: 'Home' | 'Map' | 'Career' | 'More';
 }
 
 const features: Feature[] = [

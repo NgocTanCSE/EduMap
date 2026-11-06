@@ -19,7 +19,7 @@ export const AiSearchScreen: React.FC<Props> = () => {
       const res = await apiService.aiSearch(q, 10);
       setResults(res?.data || res || []);
     } catch (e: any) {
-      // ignore
+
     } finally {
       setLoading(false);
     }

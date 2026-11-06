@@ -2,7 +2,7 @@ const https = require('https');
 const crypto = require('crypto');
 const BASE = 'https://tancse2005-edumap.hf.space';
 const JWT_SECRET = 'edumap-local-dev-secret';
-function b64url(buf) { return buf.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64url(buf) { return buf.toString('base64').replace(/\+/g,'-').replace(/\
 const h = b64url(Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})));
 const p = b64url(Buffer.from(JSON.stringify({sub:'test-user-123',role:'student',email:'test@test.com',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+3600})));
 const s = crypto.createHmac('sha256',JWT_SECRET).update(h+'.'+p).digest();

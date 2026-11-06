@@ -21,7 +21,7 @@ from models.route_models import (
 router = APIRouter(prefix="/api/ai/route", tags=["5. SafeRoute AI Explain"])
 
 
-# ── Lazy service loading (same pattern as routers/talk2map.py) ──────────
+
 _services_loaded = False
 _llm_service = None
 
@@ -39,7 +39,7 @@ def _get_llm_service():
     return _llm_service
 
 
-# ── Fallback (no LLM needed) ────────────────────────────────────────────
+
 
 def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
     """Data-driven route explanation using real safety scores (no LLM needed).
@@ -62,7 +62,7 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
     else:
         best_str = "Không có lộ trình khả dụng."
 
-    # Find the safest and shortest routes for comparison
+
     if len(routes) > 1:
         sorted_by_flood = sorted(routes, key=lambda r: r.safetyFactors.floodRisk)
         sorted_by_dist = sorted(routes, key=lambda r: r.distance)
@@ -81,7 +81,7 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
         f"Dựa trên phân tích an toàn thời gian thực (chế độ offline):\n"
         f"{best_str}\n\n{comparison}\n\n"
         f"Lưu ý: Đây là phân tích dựa trên điểm số an toàn SQLite. "
-        f"Để nhận giải thích chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY."
+        f"Để nhận giải thích chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY, GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN."
     )
 
     route_reasons = []
@@ -112,7 +112,7 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
     }
 
 
-# ── Main endpoint ──────────────────────────────────────────────────────
+
 
 @router.post("/explain", response_model=RouteExplainResponse)
 async def explain_route(data: RouteExplainRequest):
@@ -181,7 +181,7 @@ Trả về JSON với cấu trúc sau (không thêm văn bản khác):
     try:
         svc = _get_llm_service()
         if svc is None or not getattr(svc, "is_ready", False):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY (primary), GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN.")
 
         response = await asyncio.to_thread(
             svc._generate_text_with_fallback,
@@ -194,7 +194,7 @@ Trả về JSON với cấu trúc sau (không thêm văn bản khác):
         if result is None:
             raise RuntimeError("AI trả về JSON không hợp lệ cho route explain.")
 
-        # Validate required keys
+
         if "explanation" not in result or "route_reasons" not in result:
             raise RuntimeError("AI response missing required keys (explanation, route_reasons).")
 

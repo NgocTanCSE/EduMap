@@ -6,10 +6,8 @@ import uuid
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# --- Database Configuration ---
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": os.getenv("DB_PORT", "5432"),
@@ -23,8 +21,7 @@ def seed_business_and_intern():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
-        
-        # 1. Seed Business Profiles (KCN Amata & Bien Hoa)
+
         print("Seeding Business Profiles around DNTU...")
         business_data = [
             ("Tập đoàn Amata City Biên Hòa", "Đơn vị quản lý KCN Amata, đối tác chiến lược của DNTU.", "Công nghiệp / Quản lý", "KCN Amata, Long Bình, Biên Hòa", "https://www.amata.com", "amata@example.com"),
@@ -33,10 +30,9 @@ def seed_business_and_intern():
             ("Bayer Việt Nam", "Tập đoàn đa quốc gia trong lĩnh vực Chăm sóc sức khỏe và Nông nghiệp.", "Hóa học / Y tế", "KCN Amata, Long Bình, Biên Hòa", "https://www.bayer.com.vn", "bayer@example.com"),
             ("Kao Việt Nam", "Công ty sản xuất hàng tiêu dùng nổi tiếng từ Nhật Bản.", "Sản xuất / Marketing", "Đường số 10, KCN Amata, Biên Hòa", "https://www.kao.com/vn", "kao@example.com"),
         ]
-        
+
         business_ids = []
         for name, desc, industry_val, addr, web, email in business_data:
-            # 🛠️ FIX: Create or get a unique user for each business
             cur.execute("""
                 INSERT INTO users (id, email, password_hash, full_name, role_id, status)
                 VALUES (%s, %s, %s, %s, 6, 'active')
@@ -45,7 +41,6 @@ def seed_business_and_intern():
             """, (str(uuid.uuid4()), email, '$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO', name))
             actual_user_id = cur.fetchone()[0]
 
-            # 🛠️ FIX: Use ON CONFLICT (name) or (user_id) to avoid duplicates
             cur.execute("""
                 INSERT INTO business_profiles (id, user_id, name, description, industry, address, website, is_verified)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -54,7 +49,6 @@ def seed_business_and_intern():
             """, (str(uuid.uuid4()), actual_user_id, name, desc, industry_val, addr, web, True))
             business_ids.append(cur.fetchone()[0])
 
-        # 2. Seed Internships
         print("Seeding Internship Opportunities for DNTU students...")
         intern_data = [
             (business_ids[0], "Thực tập sinh Quản lý Hạ tầng KCN", "Hỗ trợ giám sát vận hành hệ thống kỹ thuật tại KCN Amata.", "Engineering", ["CAD", "Project Management"]),
@@ -62,7 +56,7 @@ def seed_business_and_intern():
             (business_ids[2], "Thực tập sinh Kỹ thuật Điện - Điện tử", "Tham gia bảo trì và vận hành dây chuyền sản xuất máy in.", "IT / Engineering", ["Electronic", "IoT"]),
             (business_ids[3], "Thực tập sinh Nghiên cứu Nông nghiệp", "Hỗ trợ thí nghiệm và phân tích dữ liệu nông nghiệp tại Lab.", "Science", ["Biology", "Data Analysis"]),
         ]
-        
+
         expiry = datetime.now() + timedelta(days=60)
         for b_id, title, desc, category, skills in intern_data:
             cur.execute("""
@@ -71,7 +65,6 @@ def seed_business_and_intern():
                 ON CONFLICT DO NOTHING;
             """, (str(uuid.uuid4()), b_id, title, desc, category, ", ".join(skills), expiry, "open"))
 
-        # 3. Seed Events
         print("Seeding DNTU Campus Events...")
         event_data = [
             ("DNTU Robotics Championship 2026", "Cuộc thi sáng tạo Robot dành cho sinh viên khối ngành kỹ thuật.", "Competition", "Nhà thi đấu DNTU"),
@@ -79,7 +72,7 @@ def seed_business_and_intern():
             ("Chiến dịch Mùa hè xanh 2026", "Hoạt động tình nguyện tại các xã vùng sâu vùng xa tỉnh Đồng Nai.", "Volunteer", "Tỉnh Đồng Nai"),
             ("Workshop: Kỹ năng viết CV và Phỏng vấn", "Hỗ trợ sinh viên cuối khóa chuẩn bị hành trang lập nghiệp.", "Workshop", "Hội trường G - DNTU"),
         ]
-        
+
         event_start = datetime.now() + timedelta(days=15)
         for title, desc, e_type, loc in event_data:
             cur.execute("""
@@ -90,7 +83,7 @@ def seed_business_and_intern():
 
         conn.commit()
         print("DNTU Business, Internships and Events data seeded successfully!")
-        
+
     except Exception as e:
         print(f"Error seeding data: {e}")
         if conn:

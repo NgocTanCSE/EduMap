@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 PostgreSQL → SQLite migration for EduMap HF Spaces deployment.
 Simplified, robust version using information_schema.
@@ -29,19 +28,17 @@ def decode_wkb(wkb_hex):
         fmt = '<' if byte_order == 1 else '>'
         geom_type = struct.unpack(f'{fmt}I', raw[1:5])[0]
 
-        # PostGIS EWKB flags: 0x20000000 = SRID, 0x80000000 = Z
         has_srid = bool(geom_type & 0x20000000)
         has_z = bool(geom_type & 0x80000000)
-        geom_clean = geom_type & 0xFF  # lower 8 bits = geometry type
+        geom_clean = geom_type & 0xFF  
 
         off = 5
         if has_srid:
-            off += 4  # skip 4-byte SRID
-        # Skip bounding box if present (EWKB bbox flag 0x100)
+            off += 4  
         if geom_type & 0x100:
-            off += 32  # skip bbox (2 doubles)
+            off += 32  
 
-        if geom_clean == 1:  # Point
+        if geom_clean == 1:  
             x, y = struct.unpack(f'{fmt}dd', raw[off:off+16])
             return {"type": "Point", "coordinates": [round(x, 7), round(y, 7)]}
         return None
@@ -107,7 +104,6 @@ def main():
     p.add_argument('--pg-password', default='edumap_password')
     args = p.parse_args()
 
-    # Connect to PostgreSQL
     for host in ['postgres', 'localhost']:
         try:
             pg = psycopg2.connect(
@@ -122,7 +118,6 @@ def main():
 
     cur = pg.cursor()
 
-    # Get tables
     cur.execute("""
         SELECT tablename FROM pg_tables
         WHERE schemaname = 'public'
@@ -137,7 +132,6 @@ def main():
     tables = [t for t in all_tables if t not in SKIP_TABLES]
     print(f"📊 {len(tables)} tables to migrate (skipped {len(all_tables)-len(tables)})")
 
-    # Create SQLite
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     if os.path.exists(args.output):
         os.remove(args.output)
@@ -149,7 +143,6 @@ def main():
 
     for table in tables:
         try:
-            # Get column info from information_schema (include udt_name for geography)
             cur.execute("""
                 SELECT column_name, data_type, udt_name, is_nullable, column_default
                 FROM information_schema.columns
@@ -161,7 +154,6 @@ def main():
                 print(f"  ⚠️ {table}: no columns")
                 continue
 
-            # Get PK columns
             cur.execute("""
                 SELECT a.attname
                 FROM pg_index i
@@ -171,11 +163,10 @@ def main():
             """, (table,))
             pk_cols = set(r[0] for r in cur.fetchall())
 
-            # Build CREATE TABLE
             col_defs = []
             for col_name, data_type, udt_name, is_nullable, col_default in col_info:
                 is_serial = col_default and 'nextval' in str(col_default)
-                col_type = udt_name or data_type  # udt_name has the real type (geography, uuid, jsonb)
+                col_type = udt_name or data_type  
                 if is_serial:
                     sqlite_type = 'INTEGER'
                 elif col_type in ('geography', 'geometry'):
@@ -193,18 +184,15 @@ def main():
             scur.execute(f'DROP TABLE IF EXISTS "{table}"')
             scur.execute(f'CREATE TABLE "{table}" ({", ".join(col_defs)})')
 
-            # Get data
             cur.execute(f'SELECT * FROM "{table}"')
             rows = cur.fetchall()
             col_names = [d[0] for d in cur.description]
-            # Use udt_name for type detection (geography, uuid, jsonb)
             col_types = [info[2] or info[1] for info in col_info]
 
             if not rows:
                 print(f"  {table}: 0 rows")
                 continue
 
-            # Convert and insert
             placeholders = ','.join(['?'] * len(col_names))
             cols_quoted = ', '.join(f'"{c}"' for c in col_names)
             insert_sql = f'INSERT INTO "{table}" ({cols_quoted}) VALUES ({placeholders})'

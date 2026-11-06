@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-# --- INPUT STRUCTURE ---
+
 class CareerAnalysisRequest(BaseModel):
     user_id: str = Field(..., description="ID of the user")
     full_name: Optional[str] = Field(None, description="User's full name")
@@ -11,7 +11,7 @@ class CareerAnalysisRequest(BaseModel):
     recent_keywords: Optional[str] = Field(None, description="Recent search keywords related to career")
     holland_code: Optional[str] = Field(None, description="Holland code results (e.g., RIA, SEC)")
 
-# --- OUTPUT STRUCTURE ---
+
 class RecommendedCareer(BaseModel):
     title: str = Field(..., description="Job title or career path name")
     match_score: int = Field(..., description="Suitability score (0-100%)")

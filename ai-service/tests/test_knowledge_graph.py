@@ -30,8 +30,8 @@ from services.knowledge_graph import KnowledgeGraphService
 
 TEST_DB = os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 
-# Override env var (not setdefault) so prior tests that changed DB_SQLITE_PATH
-# (e.g. test_data_quality → /tmp/test_edumap_dq.db) don't poison our path.
+
+
 os.environ["DB_SQLITE_PATH"] = TEST_DB
 
 
@@ -185,7 +185,7 @@ def test_suggest_partners():
         assert "name" in r
         assert "match_score" in r
         assert 0 <= r["match_score"] <= 1
-    # Results sorted by score descending
+
     if len(results) > 1:
         scores = [r["match_score"] for r in results]
         assert scores == sorted(scores, reverse=True), "Results not sorted by score desc"
@@ -222,7 +222,7 @@ def test_extract_entities_rule_based_fallback():
     svc = _svc()
     svc.seed_graph()
 
-    # Test rule-based extraction directly (bypasses LLM)
+
     result = svc._rule_based_extract(
         "học bổng hàn quốc tại trường Đại học Bách khoa Hà Nội"
     )
@@ -238,13 +238,13 @@ def test_extract_entities_queues_review():
     svc = _svc()
     svc.seed_graph()
 
-    # Low confidence scenario — use gibberish text that won't match
+
     result = svc.extract_entities(
         "xyzqwer123 random text that does not match any known entity ajhsdkfjasdf"
     )
     assert "entities" in result
 
-    # Check review queue has been updated
+
     reviews = svc.get_extraction_reviews(status="pending", limit=50)
     assert isinstance(reviews, list)
     print(f"✓ Extraction review queue: {len(reviews)} pending reviews.")
@@ -255,7 +255,7 @@ def test_get_extraction_reviews():
     svc = _svc()
     svc.seed_graph()
 
-    # Trigger an extraction that likely gets queued
+
     svc.extract_entities("xyzqwer123 test entity that should be low confidence")
 
     reviews = svc.get_extraction_reviews(status="pending", limit=20)
@@ -270,7 +270,7 @@ def test_approve_extraction():
     svc = _svc()
     svc.seed_graph()
 
-    # Create a review entry by extracting gibberish
+
     svc.extract_entities("gibberish_text_for_review_test_12345")
 
     reviews = svc.get_extraction_reviews(status="pending", limit=20)
@@ -279,10 +279,10 @@ def test_approve_extraction():
         assert True
         return
 
-    # Get the first pending review ID
+
     first_id = reviews[0].get("id") or reviews[0].get("review_id") or reviews[0].get("_id")
     if not first_id:
-        # Try to create one manually
+
         conn = _conn()
         cur = conn.cursor()
         cur.execute(
@@ -301,11 +301,11 @@ def test_approve_extraction():
 
 def test_degraded_graph_load():
     """Service hoạt động ngay cả khi DB có vấn đề (graceful degradation)."""
-    # Use a fresh service instance pointing at existing DB
+
     svc = _svc()
     svc.seed_graph()
 
-    # get_graph with very low limit still works
+
     data = svc.get_graph(limit=1)
     assert len(data["nodes"]) <= 1
     print(f"✓ get_graph(limit=1): returned {len(data['nodes'])} node(s).")

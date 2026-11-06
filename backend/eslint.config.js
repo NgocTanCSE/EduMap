@@ -1,4 +1,4 @@
-/* eslint flat config — NestJS + TypeScript + Node.js */
+
 const js = require('@eslint/js');
 const ts = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
@@ -8,7 +8,7 @@ const globals = require('globals');
 module.exports = [
   js.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['src*.ts'],
     plugins: { '@typescript-eslint': ts },
     languageOptions: {
       parser: tsParser,

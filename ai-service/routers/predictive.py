@@ -14,8 +14,8 @@ from typing import List, Optional
 router = APIRouter(prefix="/api/ai/predictive", tags=["12. AI Predictive Analytics"])
 
 class TrendAnalysisRequest(BaseModel):
-    # Defaults keep backward-compat with clients that send a partial/empty body
-    # (the old `dict` handler tolerated missing fields with .get(..., default)).
+
+
     keywords: List[str] = Field(default_factory=list)
     time_period: Optional[str] = "30d"
 
@@ -34,8 +34,8 @@ async def analyze_market_trends(request_data: TrendAnalysisRequest):
         keywords = request_data.keywords
         recent_logs = [{"keyword": kw} for kw in keywords]
 
-        # analyze_trends now uses real education_stats data with Holt's Linear
-        # Exponential Smoothing, synced with analytics.py
+
+
         trends = predictive_service.analyze_trends(recent_logs)
 
         ai_analysis = None
@@ -68,8 +68,8 @@ async def predict_career_path(request_data: CareerPredictionRequest):
         interests = request_data.interests
         user_history = skills + interests
 
-        # predict_career_path now uses Holt's time-series forecasting
-        # instead of if-else keyword matching, synced with analytics.py
+
+
         prediction = predictive_service.predict_career_path(user_history)
 
         ai_suggestion = []

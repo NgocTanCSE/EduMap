@@ -4,33 +4,28 @@ import { ClipboardList, ArrowRight, Loader2, Calendar, FileText } from 'lucide-r
 import { surveyService, Survey } from '@/src/services/survey.service';
 import { toast } from "@/src/lib/toast";
 import Link from 'next/link';
-
 export default function SurveysPage() {
-  const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchSurveys();
-  }, []);
-
-  const fetchSurveys = async () => {
-    try {
-      setLoading(true);
-      const data = await surveyService.getSurveys();
-      // Unwrap backend { success, data: [...] } wrapper if present
-      setSurveys((data as any).data || (Array.isArray(data) ? data : []) || []);
-    } catch (error: any) {
-      toast.error('Lỗi khi tải danh sách khảo sát');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    const [surveys, setSurveys] = useState<Survey[]>([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        fetchSurveys();
+    }, []);
+    const fetchSurveys = async () => {
+        try {
+            setLoading(true);
+            const data = await surveyService.getSurveys();
+            setSurveys((data as any).data || (Array.isArray(data) ? data : []) || []);
+        }
+        catch (error: any) {
+            toast.error('Lỗi khi tải danh sách khảo sát');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-12">
-        
-        {/* Header */}
+
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-card p-6 rounded-lg border border-border relative overflow-hidden">
           <div className="relative z-10 text-center md:text-left">
             <h1 className="text-2xl md:text-3xl font-semibold mb-4">Ý Kiến Đóng Góp</h1>
@@ -39,24 +34,19 @@ export default function SurveysPage() {
             </p>
           </div>
           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-            <ClipboardList className="w-24 h-24" />
+            <ClipboardList className="w-24 h-24"/>
           </div>
         </div>
 
-        {/* Survey List */}
         <div>
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><FileText className="text-accent w-6 h-6"/> Khảo sát hiện có</h2>
-            
-            {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-accent animate-spin" /></div>
-            ) : surveys.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {surveys.map(survey => (
-                        <Link href={`/surveys/${survey.id}`} key={survey.id} className="group">
+
+            {loading ? (<div className="flex justify-center py-12"><Loader2 className="w-10 h-10 text-accent animate-spin"/></div>) : surveys.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {surveys.map(survey => (<Link href={`/surveys/${survey.id}`} key={survey.id} className="group">
                             <div className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all flex flex-col h-full">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="p-3 bg-accent/10 rounded-xl">
-                                        <ClipboardList className="w-6 h-6 text-accent" />
+                                        <ClipboardList className="w-6 h-6 text-accent"/>
                                     </div>
                                     <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold uppercase rounded border border-accent/20">
                                         ĐANG MỞ
@@ -66,24 +56,19 @@ export default function SurveysPage() {
                                     {survey.title}
                                 </h3>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground/60 mb-6 pt-4 border-t border-border">
-                                    <Calendar className="w-4 h-4" /> Đăng ngày {new Date(survey.created_at).toLocaleDateString('vi-VN')}
+                                    <Calendar className="w-4 h-4"/> Đăng ngày {new Date(survey.created_at).toLocaleDateString('vi-VN')}
                                 </div>
                                 <div className="flex items-center justify-between text-xs font-bold text-accent group-hover:translate-x-2 transition-transform w-fit">
-                                    THAM GIA KHẢO SÁT <ArrowRight className="w-4 h-4 ml-1" />
+                                    THAM GIA KHẢO SÁT <ArrowRight className="w-4 h-4 ml-1"/>
                                 </div>
                             </div>
-                        </Link>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
-                    <ClipboardList className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4" />
+                        </Link>))}
+                </div>) : (<div className="text-center py-12 bg-card border border-dashed border-border rounded-lg">
+                    <ClipboardList className="w-12 h-12 text-muted-foreground/10 mx-auto mb-4"/>
                     <p className="text-muted-foreground/60">Hiện tại không có cuộc khảo sát nào.</p>
-                </div>
-            )}
+                </div>)}
         </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

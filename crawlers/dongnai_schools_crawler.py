@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Dong Nai Detailed School Crawler — Tavily-based (Overpass API blocked on HF).
 
@@ -21,11 +19,9 @@ from crawl_scope import (
 )
 from tavily_poi import search_pois_tavily, TavilyPoiClient
 
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# Location expansion: Đồng Nai → miền Nam → cả Việt Nam (bboxes ordered by scope).
 VIETNAM_BBOXES = {
     "dong_nai": DONG_NAI_BBOX,
     "southern_vn": SOUTHERN_VN_BBOX,
@@ -41,7 +37,7 @@ class DongNaiSchoolCrawler:
     Falls back to a curated Đồng Nai snapshot when Tavily yields nothing.
     """
 
-    DNP_BBOX = DONG_NAI_BBOX  # "10.68,106.75,11.15,107.25" — Đồng Nai (from crawl_scope)
+    DNP_BBOX = DONG_NAI_BBOX  
 
     def __init__(self):
         self._tavily = TavilyPoiClient()
@@ -217,7 +213,6 @@ class DongNaiSchoolCrawler:
                 wifi_spots.append(w)
 
             if layer == "dong_nai" and (len(schools) < 5 and len(unis) < 3):
-                # Fallback to curated Đồng Nai snapshot if Tavily yielded nothing.
                 print("  [dong_nai] Tavily returned few results — using curated snapshot fallback")
                 curated = self._curated_bienhoa()
                 for c in curated:
@@ -252,13 +247,11 @@ class DongNaiSchoolCrawler:
                     elif cat == "wifi":
                         wifi_spots.append(c)
 
-        # Combine schools + universities
         all_education = schools + unis
 
         print(f"\nEnriching {len(all_education)} schools with WiFi & library data...")
         enriched = self.enrich_schools_with_nearby(all_education, libs, wifi_spots)
 
-        # Stats
         with_wifi = sum(1 for s in enriched if s.get("wifi"))
         with_lib = sum(1 for s in enriched if s.get("library"))
         print(f"  Schools with WiFi nearby: {with_wifi}")

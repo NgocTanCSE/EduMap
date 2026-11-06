@@ -20,7 +20,7 @@ from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/api/ai/knowledge", tags=["14. AI Knowledge Graph"])
 
-# Singleton service — module-level, mirrors vector_store / cache_service pattern.
+
 _kg = None
 _kg_loaded = False
 
@@ -103,7 +103,7 @@ async def query_graph(data: GraphQueryRequest):
     các node hàng xóm (neighbors) và các edge kết nối.
 
     Depth luôn bị clamp về 1 ở server-side để tránh query lớn trên HF Spaces
-    (xem Risks trong Idea #8: 'Graph lớn → subgraph query (1-degree only)').
+    (xem Risks trong Idea
     """
     kg = _get_kg()
     if kg is None:
@@ -129,7 +129,7 @@ async def suggest_partners(data: SuggestPartnersRequest):
       2. NLP entity extraction trên query → link tới sponsor nodes.
       3. Keyword relevance scoring.
 
-    Đây là đầu ra chính của Idea #8: 'Gợi ý tài trợ/đối tác phù hợp'.
+    Đây là đầu ra chính của Idea
     """
     kg = _get_kg()
     if kg is None:
@@ -140,8 +140,8 @@ async def suggest_partners(data: SuggestPartnersRequest):
                 "count": len(results), "suggestions": results}
     except Exception as e:
         print(f"[knowledge] suggest_partners error: {e}")
-        # Graceful degradation: return empty list instead of 503, so the
-        # frontend shows an empty state rather than crashing.
+
+
         return {"query": data.query, "focus_type": data.focus_type,
                 "count": 0, "suggestions": [],
                 "degraded": True, "reason": str(e)}
@@ -227,7 +227,7 @@ async def seed_graph(background: bool = False):
         if background:
             from fastapi import BackgroundTasks
             from services.knowledge_graph import KnowledgeGraphService
-            # Run in a daemon thread so the request returns immediately
+
             import threading
             def _bg():
                 try:

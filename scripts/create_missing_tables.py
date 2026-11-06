@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Create Supabase tables that exist in SQLite but not in Postgres.
 
 Derives column definitions from the SQLite schema (PRAGMA table_info) with
@@ -70,12 +69,10 @@ def pg_tables(pconn):
 
 def build_create_sql(table, sconn, pconn):
     info = sconn.execute(f'PRAGMA table_info("{table}")').fetchall()
-    # info: (cid, name, type, notnull, dflt_value, pk)
     pk_cols = [c[1] for c in info if c[5] > 0]
     col_defs = []
     for cid, name, ctype, notnull, dflt, pk in info:
         ctype_up = (ctype or "").upper()
-        # Determine Postgres type
         if name == "id" and pk:
             if ctype_up == "INTEGER":
                 pg_type = "SERIAL"
@@ -84,7 +81,6 @@ def build_create_sql(table, sconn, pconn):
             else:
                 pg_type = "TEXT"
         elif name.endswith("_id") or name.endswith("Id"):
-            # FK-ish: use uuid if values look like uuids, else keep type
             if ctype_up == "TEXT" and is_uuid_text(sconn, table, name):
                 pg_type = "UUID"
             elif ctype_up == "INTEGER":
@@ -102,7 +98,6 @@ def build_create_sql(table, sconn, pconn):
         else:
             pg_type = "TEXT"
 
-        # NOT NULL
         if pk and name == "id" and "SERIAL" in pg_type:
             not_null = "NOT NULL"
         elif notnull and pk == 0:
@@ -112,11 +107,8 @@ def build_create_sql(table, sconn, pconn):
         else:
             not_null = ""
 
-        # Default
         default = ""
         if dflt is not None and "SERIAL" not in pg_type and "uuid_generate_v4" not in pg_type:
-            # SQLite default expressions (e.g. datetime('now')) must be passed
-            # through unquoted; literal values get quoted.
             if "(" in str(dflt):
                 expr = str(dflt).replace("datetime('now')", "now()").replace('datetime("now")', "now()")
                 default = f"DEFAULT {expr}"
@@ -135,7 +127,6 @@ def build_create_sql(table, sconn, pconn):
             parts.append(default)
         col_defs.append(" ".join(parts))
 
-    # Primary key constraint
     if pk_cols:
         pk_sql = ", ".join(f'"{c}"' for c in pk_cols)
         col_defs.append(f'CONSTRAINT "PK_{table}" PRIMARY KEY ({pk_sql})')
@@ -146,7 +137,6 @@ def build_create_sql(table, sconn, pconn):
 
 def main():
     sqlite_path = os.getenv("DB_SQLITE_PATH", "frontend/public/edumap.db")
-    # allow override via argv
     if len(sys.argv) > 1 and sys.argv[1].startswith("--sqlite="):
         sqlite_path = sys.argv[1].split("=", 1)[1]
     elif len(sys.argv) > 2 and sys.argv[1] == "--sqlite":

@@ -1217,3 +1217,26 @@ for every question, including the seeded suggestion
   `AI SERVICE READY` for the `ai-service` program (and no
   `syntax error near unexpected token`), and one real question on `/ai-chat`
   must answer normally instead of returning the §13 degraded template.
+
+## 17. Overhaul pass (P0–P4, 2026-11-06)
+
+- **P0.1** `ai-service/main.py` `router_names` now includes `'route'`, mounting `routers/route.py` (`POST /api/ai/route/explain`, SafeRoute explain). Verified: `py_compile` OK; `router_names` vs `routers/*.py` → no gaps.
+- **P0.2** Removed dead `getFixedLocations()` from `backend/src/modules/map/map.controller.ts` (no HTTP decorator) and `MapService.getFixedLocations()` (no other callers). `backend/dist` left untouched (build artifact).
+- **P1 (auth/guards)** locked down previously public write/admin endpoints:
+  - `crawler` controller: class-level `JwtAuthGuard + RolesGuard` (ADMIN/MODERATOR).
+  - `gamification`: `grant-points`/`grant-achievement` admin/mod; `progress/:userId` self-or-staff.
+  - `summer`: `campaigns` POST, `campaigns/:id/activities`, `registrations/:id/status` admin/mod.
+  - `certificate`: `POST /issue` admin/mod (`verify/:code`, `download` remain public).
+  - `intl`: `POST /programs` admin/mod; `POST /alumni` requires login.
+  - `career`: `POST /paths` admin/mod.
+  - `mentor`: `register/:userId` self-or-staff; `student/:studentId/bookings`, `mentor/:mentorId/bookings` self-or-staff.
+  - `learning-community`: `POST /` (create spot) requires login.
+  - `scholarship`: `POST /`, `PUT /:id` admin/mod.
+  - `ai`: `POST /speech/to-text` explicitly `@Public()`.
+- **P2.1** `.env.example` `DB_SYNC=false` (matches Dockerfile/HF; `app.module.ts` already `process.env.DB_SYNC === 'true'`).
+- **P2.2** Provider hints in `scholarship.py`/`route.py` updated to `DEEPSEEK_API_KEY → GEMINI_API_KEY → CLOUDFLARE_API_TOKEN`.
+- **P4** Source already comment-free in `backend/src`, `frontend` (TS/TSX/JS) and `ai-service`/`crawlers`/`scripts` (Python) except preserved directives (shebang, `type: ignore`, `noqa`, pragmas, license/SPDX, `@ts-*`, etc.). Stripped remaining comments in root JS config/scripts and mobile placeholders. Shell scripts left with operational docs.
+- **Merges executed (P3)**: `question_gaps` → `analytics` router; `data_hunter` → `data_quality` router. Router files deleted; `main.py` `router_names` updated; tests updated; self-merged "Merged from data_hunter.py" marker removed. Remaining merge candidates (reported): BFF proxy factory, duplicate embed/tutor/geo namespaces, routing controllers, planning docs.
+- **Unsuitable/stale items (reported)**: `module`/`feature` backend folders already absent (stale report entries), build artifacts (`backend/dist`, `frontend/.next`) not tracked, `.env.example` corrected, lockfile `agentation` residue.
+- **P1 public-timeline extension** (after the initial guard sweep): endpoints whose product intent is genuinely public were annotated explicitly rather than left accidentally open — `resource-exchange/match`, `map/climate/alternatives`, `analytics/track` all got `@Public()`, and `ai/speech/to-text` already had it.
+- Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = HF Spaces free tier after user deploy.

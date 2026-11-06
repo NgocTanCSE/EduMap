@@ -5,11 +5,13 @@ import { Organization } from './entities/organization.entity';
 import { CertificateTemplate } from './entities/certificate-template.entity';
 import { CertificateService } from './certificate.service';
 import { CertificateController } from './certificate.controller';
-
+import { BlockchainService } from '../blockchain/blockchain.service';
+import { BlockchainController } from '../blockchain/blockchain.controller';
 @Module({
-  imports: [TypeOrmModule.forFeature([UserCertificate, Organization, CertificateTemplate])],
-  providers: [CertificateService],
-  controllers: [CertificateController],
-  exports: [CertificateService],
+    imports: [TypeOrmModule.forFeature([UserCertificate, Organization, CertificateTemplate])],
+    providers: [CertificateService, BlockchainService],
+    controllers: [CertificateController, BlockchainController],
+    exports: [CertificateService],
 })
-export class CertificateModule {}
+export class CertificateModule {
+}

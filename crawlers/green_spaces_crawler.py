@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Green Spaces & Parks Crawler for Đông Nai / miền Nam / Việt Nam.
 
@@ -21,12 +19,10 @@ from crawl_scope import (
 )
 from tavily_poi import search_pois_tavily, TavilyPoiClient
 
-# Crawl year window — 2 consecutive years.
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 print(f"  [green_spaces] crawl_years={_CRAWL_YEARS} | layers={[l['label'] for l in LOCATION_LAYERS]}")
 
-# Location-layer bboxes for the outward expansion (Đồng Nai → miền Nam → VN).
 SCOPE_BBOXES = [
     (LOCATION_LAYERS[0]["label"], DONG_NAI_BBOX),
     (LOCATION_LAYERS[1]["label"], SOUTHERN_VN_BBOX),
@@ -74,7 +70,6 @@ class GreenSpacesCrawler:
             pois = search_pois_tavily(q, category="park", location_scope="dong_nai")
             results.extend(pois)
             time.sleep(0.5)
-        # Map Tavily POI format to the green_spaces row dict schema.
         out = []
         for p in results:
             out.append({
@@ -262,7 +257,6 @@ class GreenSpacesCrawler:
             lng = loc.get("lng", 0)
             if not name or lat == 0 or lng == 0:
                 continue
-            # SQLite-compatible WKT POINT (no PostGIS).
             sql = f"INSERT INTO map_points (id, name, description, location) VALUES ('{point_id}', '{name}', '{desc}', 'POINT({lng} {lat})');"
             sql_statements.append(sql)
         return sql_statements
@@ -304,7 +298,6 @@ if __name__ == "__main__":
     for loc in result['locations']:
         print(f"  - {loc['name']} ({loc.get('area', '')})")
 
-    # Tạo SQL
     sql_statements = crawler.to_map_points_sql(result['locations'])
     with open("green_spaces.sql", "w", encoding="utf-8") as f:
         for sql in sql_statements:

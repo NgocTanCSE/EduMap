@@ -37,16 +37,16 @@ def _test_pois():
         {"lat": 10.952, "lng": 106.841, "weight": 40, "name": "Trường THCS B"},
         {"lat": 10.951, "lng": 106.843, "weight": 30, "name": "Cộng đồng C"},
         {"lat": 10.949, "lng": 106.839, "weight": 20, "name": "Nhà dân D"},
-        # Cluster around 10.92, 106.80
+
         {"lat": 10.920, "lng": 106.800, "weight": 60, "name": "Trường THCS E"},
         {"lat": 10.922, "lng": 106.802, "weight": 35, "name": "Cộng đồng F"},
         {"lat": 10.921, "lng": 106.798, "weight": 25, "name": "Nhà dân G"},
         {"lat": 10.919, "lng": 106.805, "weight": 15, "name": "Cộng đồng H"},
-        # Cluster around 10.98, 106.88
+
         {"lat": 10.980, "lng": 106.880, "weight": 70, "name": "Trường THCS I"},
         {"lat": 10.982, "lng": 106.882, "weight": 45, "name": "Cộng đồng J"},
         {"lat": 10.979, "lng": 106.878, "weight": 35, "name": "Nhà dân K"},
-        # Isolated demand (far from everything)
+
         {"lat": 11.050, "lng": 106.700, "weight": 80, "name": "Cộng đồng L (đông lạnh)"},
     ]
 
@@ -63,7 +63,7 @@ def _test_candidates():
     ]
 
 
-# ── Tests ───────────────────────────────────────────────────────────────────
+
 
 
 def test_optimize_returns_valid_geojson():
@@ -114,7 +114,7 @@ def test_coverage_increases_with_budget():
     served_a = result["plans"]["A"]["total_served"]
     served_b = result["plans"]["B"]["total_served"]
     served_c = result["plans"]["C"]["total_served"]
-    assert served_a <= served_b + 0  # allow equal (might max out)
+    assert served_a <= served_b + 0
     assert served_b <= served_c + 0
     print(f"✓ test_coverage_increases_with_budget (A={served_a}, B={served_b}, C={served_c})")
 
@@ -136,7 +136,7 @@ def test_budget_ratios_correct():
 
 def test_candidate_prefilter_caps_at_200():
     """When > 200 candidates are provided, they are pre-filtered to 200."""
-    # Generate 300 candidates
+
     cands = []
     for i in range(300):
         lat = 10.90 + (i % 20) * 0.005
@@ -166,7 +166,7 @@ def test_features_are_geojson_features():
     for f in result["features"]:
         assert f["type"] == "Feature"
         assert f["geometry"]["type"] == "Point"
-        assert len(f["geometry"]["coordinates"]) == 2  # [lng, lat]
+        assert len(f["geometry"]["coordinates"]) == 2
         assert "plan" in f["properties"]
         assert f["properties"]["plan"] in ("A", "B", "C")
     print("✓ test_features_are_geojson_features")
@@ -182,8 +182,8 @@ def test_gap_features_emitted():
         })
     assert result["gaps"]["type"] == "FeatureCollection"
     assert isinstance(result["gaps"]["features"], list)
-    # With a very small budget, the isolated demand point (11.05, 106.70)
-    # should not be served by any plan.
+
+
     gap_names = [f["properties"]["name"] for f in result["gaps"]["features"]]
     assert any("đông lạnh" in n.lower() or "L" in n for n in gap_names) or len(gap_features := result["gaps"]["features"]) >= 0
     print(f"✓ test_gap_features_emitted ({len(result['gaps']['features'])} gap points)")
@@ -209,7 +209,7 @@ def test_geometric_coordinates_order():
         })
     for f in result["features"]:
         lng, lat = f["geometry"]["coordinates"]
-        # Biên Hòa region sanity check
+
         assert 106 < lng < 108
         assert 10 < lat < 12
     print("✓ test_geometric_coordinates_order")
@@ -227,10 +227,10 @@ def test_empty_demand_degrades_gracefully():
             "demand_points": [],
             "candidate_locations": _cands(),
         })
-    # With empty demand, solver should still return valid structure
+
     assert result["type"] == "FeatureCollection"
     assert "plans" in result
-    # Synthetic demand is generated, so served may be > 0 — just verify no crash
+
     for p in ("A", "B", "C"):
         assert "selected" in result["plans"][p]
         assert "total_served" in result["plans"][p]
@@ -248,7 +248,7 @@ def test_single_candidate():
             ],
             "coverage_radius_km": 2.0,
         })
-    # At least plan C should select the single site
+
     assert result["plans"]["C"]["selected"] >= 1
     assert result["plans"]["C"]["total_served"] > 0
     print(f"✓ test_single_candidate (served {result['plans']['C']['total_served']})")
@@ -264,7 +264,7 @@ def test_total_cost_within_budget():
         })
     for p in ("A", "B", "C"):
         plan = result["plans"][p]
-        assert plan["total_cost"] <= plan["budget"] + 0.01  # small float tolerance
+        assert plan["total_cost"] <= plan["budget"] + 0.01
         assert plan["budget_used_pct"] <= 100.01
     print("✓ test_total_cost_within_budget")
 
@@ -274,19 +274,19 @@ def test_greedy_fallback_path():
     opt = ResourceOptimizer()
     import numpy as np
 
-    # 3 demand points, 2 candidate facilities
+
     weights = np.array([100.0, 50.0, 30.0])
     costs = np.array([1_500_000.0, 1_500_000.0])
-    # coverage[i][j] = 1 if candidate j covers demand i
+
     coverage = np.array([
-        [1.0, 0.0],  # demand 0 covered by facility 0
-        [1.0, 1.0],  # demand 1 covered by both
-        [0.0, 1.0],  # demand 2 covered by facility 1
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
     ])
     result = opt._solve_greedy(weights, costs, coverage, 2_000_000)
     assert isinstance(result, list)
     assert all(0 <= idx < 2 for idx in result)
-    # With 2M budget and 1.5M cost each, should select at most 1 facility
+
     assert len(result) <= 1
     print(f"✓ test_greedy_fallback_path (selected {len(result)} facilities)")
 
@@ -302,7 +302,7 @@ def test_facility_type_override():
             "demand_points": _demand(),
             "candidate_locations": _cands(),
         })
-    # With expensive WiFi, fewer facilities should be selected
+
     assert result["plans"]["C"]["selected"] <= result["summary"]["candidate_count"]
     print(f"✓ test_facility_type_override (C selected {result['plans']['C']['selected']})")
 
@@ -322,7 +322,7 @@ def test_summary_has_required_fields():
     print("✓ test_summary_has_required_fields")
 
 
-# ── Aliases to avoid re-typing ──────────────────────────────────────────────
+
 
 def _demand():
     return _test_pois()

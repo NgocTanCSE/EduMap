@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Books & Libraries Crawler for EduMap
 ------------------------------------
@@ -67,7 +65,6 @@ class BooksCrawler:
                         return books[:limit]
             except Exception as e:
                 print(f"Error fetching from OpenLibrary ({subject}): {e}")
-        # Snapshot offline (always available)
         return self._get_hardcoded_books_by_subject(subject)
 
     def _olid_from_link(self, link: str) -> str:
@@ -83,13 +80,9 @@ class BooksCrawler:
         """Snapshot thực của sách OpenLibrary, được phân loại cơ bản -> nâng cao."""
         return SUBJECT_BOOKS.get(subject.lower(), [])
 
-    # ------------------------------------------------------------------
-    # Nationwide library list (expanded beyond Dong Nai only)
-    # ------------------------------------------------------------------
     def get_libraries(self) -> List[Dict]:
         """Thư viện công lập trên toàn quốc (bổ sung thêm các tỉnh lớn)."""
         libraries = [
-            # Đồng Nai
             {"name": "Thư viện Tỉnh Đồng Nai", "address": "Thành phố Thủ Dầu Một",
              "lat": 10.8850, "lng": 106.7345, "opening_hours": "7:00 - 17:30",
              "collections": ["Sách tiếng Việt", "Sách tiếng Anh", "E-books"]},
@@ -98,7 +91,6 @@ class BooksCrawler:
              "collections": ["Sách CNTT", "Tài liệu kỹ thuật", "E-journals"]},
             {"name": "Thư viện Quận Biên Hòa", "address": "Trung tâm Quận Biên Hòa",
              "lat": 10.9300, "lng": 106.8300, "opening_hours": "7:00 - 18:00"},
-            # Toàn quốc
             {"name": "Thư viện Quốc gia Việt Nam", "address": "18 Tràng Tiền, Hoàn Kiếm, Hà Nội",
              "lat": 21.3559, "lng": 105.8435, "opening_hours": "8:00 - 21:00",
              "collections": ["Sách tiếng Việt", "Sách tiếng Anh", "Tạp chí", "Đồ cũ"]},
@@ -229,7 +221,6 @@ def _book(title, author, year, link, level):
             "olid": link.rstrip("/").split("/")[-1], "level": level}
 
 
-# ===================== SUBJECT -> BOOKS (snapshot, basic -> advanced) =====================
 SUBJECT_BOOKS: Dict[str, List[Dict]] = {
     "information_technology": [
         _book("Clean Code", "Robert C. Martin", 2008, "https://openlibrary.org/books/OL9316301M", "Cơ bản"),

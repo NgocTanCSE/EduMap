@@ -35,42 +35,42 @@ import numpy as np
 
 logger = logging.getLogger("data_quality")
 
-# ── Constants ────────────────────────────────────────────────────────────────
 
-# Biên giới Việt Nam (mở rộng một chút degress để tránh false positive
-# ở các vùng biên giới như Cà Mau, Lạch Tray, mỏm Bắc...):
-#   lat:  8.0  – 23.5  (Cà Mau ≈ 8.4, Lũng Cú ≈ 23.4)
-#   lng: 102.0 – 110.0  (Bờ cạnh Campuchia/Mỏm Tây miền)
+
+
+
+
+
 VIETNAM_LAT_MIN = 8.0
 VIETNAM_LAT_MAX = 23.5
 VIETNAM_LNG_MIN = 102.0
 VIETNAM_LNG_MAX = 110.0
 
-# Hai POI cùng tên và cách nhau < 200m thì coi là trùng lặp.
+
 DUPLICATE_PROXIMITY_M = 200.0
 
-# Chunk size cho IsolationForest — tránh timeout (>1000 hàng có thể mất
-# nhiều giây trên môi trường HF Spaces giới hạn tài nguyên).
+
+
 IFOREST_CHUNK_SIZE = 1000
 
-# Anomaly score ngưỡng IsolationForest (giá trị âm — càng âm càng bất thường).
-# -0.5 ~ threshold mặc định của sklearn. Tinh chỉnh để cân bằng precision/recall.
+
+
 IFOREST_THRESHOLD = -0.15
 
-# Dữ liệu cũ hơn 365 ngày thì báo cáo là "lỗi thời".
+
 STALENESS_DAYS = 365
 
-# Type_id → label ánh xạ (trùng với TYPE_NAME_MAP trong db_service.py).
+
 TYPE_NAME_MAP: Dict[int, str] = {
     1: "university", 2: "school", 3: "library", 4: "bookstore",
     5: "lab", 6: "wifi", 7: "green", 8: "cafe", 9: "restaurant",
     10: "market", 11: "convenience",
 }
 
-# Nhãn quán trọng cho rule weighting — trùng với MapService CATEGORY_COLOR.
+
 VALID_STATUS_VALUES = {"active", "approved", "pending", "rejected", "inactive"}
 
-# Mọi rule đều có "base weight". Confidence = weighted_sum / max_possible_weight.
+
 RULE_WEIGHTS: Dict[str, float] = {
     "missing_coordinates":       10.0,
     "invalid_coordinates":       8.0,
@@ -83,12 +83,12 @@ RULE_WEIGHTS: Dict[str, float] = {
     "missing_source":            1.0,
 }
 
-# Risk note: confidence 0.7 — false positive được giảm bằng cách ép min confidence
-# cho IsolationForest-only anomalies ở 0.7.
+
+
 MIN_CONFIDENCE_IFOREST = 0.7
 
 
-# ── Coordinate parsing ───────────────────────────────────────────────────────
+
 
 _EWKT_RE = re.compile(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", re.IGNORECASE)
 
@@ -106,7 +106,7 @@ def parse_coords(value: Any) -> Tuple[Optional[float], Optional[float]]:
     if value is None:
         return None, None
 
-    # Object / dict
+
     if isinstance(value, dict):
         coords = value.get("coordinates")
         if isinstance(coords, (list, tuple)) and len(coords) >= 2:
@@ -114,7 +114,7 @@ def parse_coords(value: Any) -> Tuple[Optional[float], Optional[float]]:
                 return float(coords[0]), float(coords[1])
             except (TypeError, ValueError):
                 pass
-        # Fallback: flat lat/lng keys
+
         if "lat" in value and "lng" in value:
             try:
                 return float(value["lng"]), float(value["lat"])
@@ -127,7 +127,7 @@ def parse_coords(value: Any) -> Tuple[Optional[float], Optional[float]]:
                 pass
         return None, None
 
-    # List / tuple directly
+
     if isinstance(value, (list, tuple)):
         if len(value) >= 2:
             try:
@@ -140,7 +140,7 @@ def parse_coords(value: Any) -> Tuple[Optional[float], Optional[float]]:
         s = value.strip()
         if not s:
             return None, None
-        # Try JSON first
+
         try:
             parsed = json.loads(s)
             if isinstance(parsed, dict):
@@ -149,14 +149,14 @@ def parse_coords(value: Any) -> Tuple[Optional[float], Optional[float]]:
                 return float(parsed[0]), float(parsed[1])
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
-        # EWKT
+
         m = _EWKT_RE.search(s)
         if m:
             try:
                 return float(m.group(1)), float(m.group(2))
             except ValueError:
                 pass
-        # Comma-separated "lat,lng" — ambiguous, skip (see map.service.ts comment)
+
 
     return None, None
 
@@ -178,13 +178,13 @@ def _normalize_name(name: str) -> str:
     if not name:
         return ""
     result = name.lower().strip()
-    # Tên viết tắt thường gặp
+
     result = re.sub(r"\bđh\b", "đại học", result)
     result = re.sub(r"\bđntu\b", "đại học nông lâm", result)
     result = re.sub(r"\bđhql\b", "đại học quốc gia", result)
     result = re.sub(r"\btp\.?\s*hcm\b", "thành phố hồ chí minh", result)
     result = re.sub(r"\bhcm\b", "hồ chí minh", result)
-    # Bỏ nội dung trong ngoặc
+
     result = re.sub(r"\s*\(.*?\)\s*", "", result)
     result = re.sub(r"\s+", " ", result)
     return result.strip()
@@ -221,7 +221,7 @@ def _levenshtein(a: str, b: str) -> int:
     return dp[m][n]
 
 
-# ── Data loading ─────────────────────────────────────────────────────────────
+
 
 def _sqlite_path() -> Optional[str]:
     """Trả về đường dẫn SQLite file (chế độ HF Spaces) hoặc None."""
@@ -262,7 +262,7 @@ def _load_poi_records() -> List[Dict[str, Any]]:
     """
     records: List[Dict[str, Any]] = []
 
-    # ── PostgreSQL mode (db_service) ─────────────────────────────────────────
+
     try:
         from services.db_service import db_service
         if db_service is not None:
@@ -289,8 +289,8 @@ def _load_poi_records() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.warning(f"db_service load failed, falling back to SQLite: {e}")
 
-    # ── SQLite mode (HF Spaces) — đọc trực tiếp 2 bảng ────────────────────
-    # map_points
+
+
     try:
         mp_rows = _query_sqlite(
             "SELECT id, name, type_id, location, address, city, district, province, "
@@ -318,7 +318,7 @@ def _load_poi_records() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.warning(f"SQLite map_points read failed: {e}")
 
-    # locations (crawled / newer TypeORM entity)
+
     try:
         loc_rows = _query_sqlite(
             "SELECT l.id, l.name, l.category_id, l.coordinates, l.address, "
@@ -389,7 +389,7 @@ def _normalize_poi(
 def _safe_float(v: Any) -> Optional[float]:
     try:
         f = float(v)
-        if f != f:  # NaN
+        if f != f:
             return None
         return f
     except (TypeError, ValueError, OverflowError):
@@ -412,7 +412,7 @@ def _parse_dt(v: Any) -> Optional[datetime]:
     return None
 
 
-# ── IsolationForest ─────────────────────────────────────────────────────────
+
 
 def _run_isolation_forest(
     points: List[Dict[str, Any]],
@@ -424,7 +424,7 @@ def _run_isolation_forest(
     Chunk 1000 hàng/chunk theo *Risks* trong AGENTS.md để tránh timeout
     trên HF Spaces. Chỉ các POI có tọa độ hợp lệ mới được đưa vào.
     """
-    # Lấy các điểm có tọa độ hợp lệ
+
     valid_points = [p for p in points if p.get("lat") is not None and p.get("lng") is not None]
     if not valid_points:
         return {}
@@ -443,9 +443,9 @@ def _run_isolation_forest(
     scores: Dict[str, float] = {}
     n = len(valid_points)
 
-    # Chunk processing — mỗi chunk chạy một IsolationForest độc lập.
-    # Điểm outlier được tính trên toàn bộ tập, nhưng để tránh memory/CPU
-    # exploding trên HF Spaces, chúng ta chunk và gộp kết quả.
+
+
+
     for start in range(0, n, chunk_size):
         end = min(start + chunk_size, n)
         chunk = feature_matrix[start:end]
@@ -455,7 +455,7 @@ def _run_isolation_forest(
             iso = IsolationForest(
                 contamination="auto",
                 random_state=42,
-                n_estimators=50,  # giảm từ 100 để tăng tốc
+                n_estimators=50,
             )
             iso.fit(chunk)
             chunk_scores = iso.decision_function(chunk)
@@ -468,7 +468,7 @@ def _run_isolation_forest(
     return scores
 
 
-# ── Rule-based anomaly detection ────────────────────────────────────────────
+
 
 def _run_rules(points: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """Chạy các luật kiểm tra, trả về {id: [rule_keys]}.
@@ -485,8 +485,8 @@ def _run_rules(points: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """
     triggered: Dict[str, List[str]] = defaultdict(list)
 
-    # Spatial grid để tìm kiếm trùng lặp nhanh (giống MapService dedup logic)
-    CELL_SIZE = DUPLICATE_PROXIMITY_M / 111_000.0  # ~0.002 độ
+
+    CELL_SIZE = DUPLICATE_PROXIMITY_M / 111_000.0
     grid: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
 
     def _cell(lat: float, lng: float) -> str:
@@ -495,39 +495,39 @@ def _run_rules(points: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     for p in points:
         pid = p["id"]
 
-        # missing_coordinates
+
         if p.get("lat") is None or p.get("lng") is None:
             triggered[pid].append("missing_coordinates")
-            continue  # không thể chạy Spatial rules nữa
+            continue
 
-        # invalid_coordinates
+
         if not (VIETNAM_LAT_MIN <= p["lat"] <= VIETNAM_LAT_MAX
                 and VIETNAM_LNG_MIN <= p["lng"] <= VIETNAM_LNG_MAX):
             triggered[pid].append("invalid_coordinates")
 
-        # stale_data
+
         updated = p.get("updated_at")
         if updated is None or (datetime.now() - updated).days > STALENESS_DAYS:
             triggered[pid].append("stale_data")
 
-        # invalid_status
+
         status = (p.get("status") or "").strip() if p.get("status") else ""
         if status and status not in VALID_STATUS_VALUES:
             triggered[pid].append("invalid_status")
 
-        # missing_source — không có thông tin địa giới nào
+
         if not p.get("city") and not p.get("district") and not p.get("address"):
             triggered[pid].append("missing_source")
 
-        # missing_name
+
         if not p.get("name"):
             triggered[pid].append("missing_name")
 
-        # missing_address
+
         if not p.get("address"):
             triggered[pid].append("missing_address")
 
-        # duplicate_name — kiểm tra với các POI trong cùng & lân cận cell
+
         key = _cell(p["lat"], p["lng"])
         lat_base = float(key.split(",")[0])
         lng_base = float(key.split(",")[1])
@@ -544,7 +544,7 @@ def _run_rules(points: List[Dict[str, Any]]) -> Dict[str, List[str]]:
                 p["lat"], p["lng"], existing["lat"], existing["lng"]
             )
             if dist < DUPLICATE_PROXIMITY_M:
-                # Tên giống hệt hoặc tương đồng >= 0.8
+
                 if p.get("name") and existing.get("name"):
                     sim = _name_similarity(p["name"], existing["name"])
                     if sim >= 0.8:
@@ -556,7 +556,7 @@ def _run_rules(points: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     return dict(triggered)
 
 
-# ── Scoring & ranking ────────────────────────────────────────────────────────
+
 
 def _rule_reason(rule: str) -> str:
     reasons = {
@@ -594,9 +594,9 @@ def _compute_confidence(rule_keys: List[str], iforest_anomaly: bool) -> float:
             conf = min(1.0, conf + 0.1)
         return round(conf, 3)
     else:
-        # IsolationForest-only
+
         base = MIN_CONFIDENCE_IFOREST
-        # Càng điểm số âm (anomalous) càng tin cậy
+
         return base
 
 
@@ -611,8 +611,8 @@ def _priority_level(confidence: float) -> str:
 
 def _priority_score(confidence: float, rule_keys: List[str]) -> float:
     """Điểm số dùng để xếp thứ tự (sắp giảm dần)."""
-    # Các rule nghiêm trọng (missing_coordinates, invalid_coordinates, spatial_outlier)
-    # được tăng điểm ưu tiên.
+
+
     severity_boost = sum(
         0.15 for r in rule_keys
         if r in ("missing_coordinates", "invalid_coordinates", "spatial_outlier", "duplicate_name")
@@ -620,7 +620,7 @@ def _priority_score(confidence: float, rule_keys: List[str]) -> float:
     return confidence + severity_boost
 
 
-# ── Main service ────────────────────────────────────────────────────────────
+
 
 class DataQualityService:
     """AI Data Trust & Anomaly Detector service.
@@ -651,7 +651,7 @@ class DataQualityService:
           source_counts: {map_points: n, locations: n}
         }
         """
-        # 1. Load dữ liệu
+
         points = _load_poi_records()
         if not points:
             return {
@@ -668,33 +668,33 @@ class DataQualityService:
                 "source_counts": {},
             }
 
-        # 2. Lọc theo category nếu có
+
         if category:
             cat_lower = category.lower()
             points = [p for p in points if p.get("category", "").lower() == cat_lower]
 
-        # 3. Giới hạn số lượng (để tránh timeout trên HF Spaces)
+
         if limit and len(points) > limit:
             points = points[:limit]
 
-        # 4. Chạy luật kiểm tra
+
         rule_triggered = _run_rules(points)
 
-        # 5. Chạy IsolationForest (chunked)
+
         iforest_scores = _run_isolation_forest(points)
 
-        # 6. Gộp kết quả và tính confidence
+
         anomalies: List[Dict[str, Any]] = []
         source_counts: Dict[str, int] = defaultdict(int)
 
         for p in points:
             source_counts[p.get("source", "unknown")] += 1
             if p.get("lat") is not None and p.get("lng") is not None:
-                pass  # có tọa độ
+                pass
 
             rule_keys: List[str] = rule_triggered.get(p["id"], [])
             if not rule_keys:
-                # Kiểm tra IsolationForest outlier
+
                 score = iforest_scores.get(p["id"])
                 if score is not None and score < IFOREST_THRESHOLD:
                     rule_keys = ["spatial_outlier"]
@@ -707,12 +707,12 @@ class DataQualityService:
             score = iforest_scores.get(p["id"])
             anomalies.append(_build_anomaly(p, rule_keys, score))
 
-        # 7. Sắp xếp theo priority_score (giảm dần)
+
         anomalies.sort(key=lambda a: _priority_score(a["confidence"], a["anomaly_types"]), reverse=True)
 
         total_anomalies = len(anomalies)
 
-        # 8. Tổng hợp summary
+
         by_category: Dict[str, int] = defaultdict(int)
         priority_breakdown = {"high": 0, "medium": 0, "low": 0}
         for a in anomalies:
@@ -743,7 +743,7 @@ def _build_anomaly(
     confidence = _compute_confidence(rule_keys, iforest_score is not None and iforest_score < IFOREST_THRESHOLD)
     reasons = [_rule_reason(r) for r in rule_keys]
 
-    # Nếu có iforest score nhưng chưa có spatial_outlier rule, thêm
+
     if iforest_score is not None and iforest_score < IFOREST_THRESHOLD and "spatial_outlier" not in rule_keys:
         rule_keys = list(rule_keys) + ["spatial_outlier"]
         reasons.append(_rule_reason("spatial_outlier"))
@@ -781,5 +781,5 @@ def _fmt_dt(dt: Any) -> Optional[str]:
     return str(dt)
 
 
-# Singleton
+
 data_quality_service = DataQualityService()

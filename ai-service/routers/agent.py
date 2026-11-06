@@ -55,8 +55,8 @@ async def agent_chat(request: AgentChatRequest):
     if not map_agent:
         raise HTTPException(status_code=503, detail="AI Agent service unavailable.")
 
-    # Run the agent loop in a worker thread (it does blocking curl subprocess
-    # calls + SQLite queries).
+
+
     try:
         result = await __import__("asyncio").to_thread(
             map_agent.run_agent_loop,

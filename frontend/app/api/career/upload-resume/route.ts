@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-
 export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData();
-    const authHeader = req.headers.get('Authorization');
-    const headers: Record<string, string> = {};
-    if (authHeader) headers['Authorization'] = authHeader;
-
-    const response = await fetch(`${getBackendUrl()}/career/upload-resume`, {
-      method: 'POST',
-      headers,
-      body: formData as any,
-    });
-
-    const data = await response.json();
-    return NextResponse.json(unwrapApiResponse(data), { status: response.status });
-  } catch (error) {
-    console.error('API Route Error:', error);
-    return NextResponse.json({ message: 'Lỗi tải CV' }, { status: 500 });
-  }
+    try {
+        const formData = await req.formData();
+        const authHeader = req.headers.get('Authorization');
+        const headers: Record<string, string> = {};
+        if (authHeader)
+            headers['Authorization'] = authHeader;
+        const response = await fetch(`${getBackendUrl()}/career/upload-resume`, {
+            method: 'POST',
+            headers,
+            body: formData as any,
+        });
+        const data = await response.json();
+        return NextResponse.json(unwrapApiResponse(data), { status: response.status });
+    }
+    catch (error) {
+        console.error('API Route Error:', error);
+        return NextResponse.json({ message: 'Lỗi tải CV' }, { status: 500 });
+    }
 }

@@ -15,14 +15,14 @@ class OpportunityCandidate(BaseModel):
     id: str = ""
     title: str = ""
     description: str = ""
-    type: str = "other"            # scholarship | internship | job | hackathon | ...
+    type: str = "other"
     organization: str = ""
     requirements: str = ""
     benefits: str = ""
     url: str = ""
     field_tags: List[str] = Field(default_factory=list)
     region: str = ""
-    deadline: Optional[str] = None  # ISO date string or None
+    deadline: Optional[str] = None
     source_table: str = "opportunities"
     status: str = "active"
 
@@ -69,7 +69,7 @@ class MatchItem(BaseModel):
     region: str
     match_score: float
     confidence: float
-    confidence_level: str  # 'high' | 'medium' | 'low'
+    confidence_level: str
     is_eligible: bool
     extracted_criteria: dict = Field(default_factory=dict)
     match_reasons: List[str] = Field(default_factory=list)

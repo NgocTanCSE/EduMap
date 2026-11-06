@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Migrate data from the shipped SQLite DB into a Supabase/Postgres DB.
 
 Usage:
@@ -20,7 +19,7 @@ import sys
 try:
     import psycopg2
     from psycopg2.extras import execute_values
-except ImportError as e:  # pragma: no cover - environment guard
+except ImportError as e:  
     print(f"ERROR: psycopg2 not available: {e}")
     sys.exit(1)
 
@@ -36,8 +35,6 @@ def pg_conn():
         password=os.getenv("DB_PASSWORD", ""),
         dbname=os.getenv("DB_DATABASE", "postgres"),
     )
-    # Supabase (and most managed Postgres) require TLS. Enable sslmode=require
-    # for any non-localhost host so local docker-compose (plain) keeps working.
     if host and host != "localhost" and host != "127.0.0.1":
         kwargs["sslmode"] = os.getenv("DB_SSLMODE", "require")
     return psycopg2.connect(**kwargs)
@@ -75,8 +72,6 @@ def pg_col_type(cur, table, col):
     if not r:
         _PG_COL_TYPE_CACHE[key] = None
         return None
-    # For USER-DEFINED types (geometry, etc.), return the udt_name so callers
-    # can branch on the concrete type.
     val = r[1] if r[0] == "USER-DEFINED" else r[0]
     _PG_COL_TYPE_CACHE[key] = val
     return val
@@ -114,8 +109,6 @@ def migrate(sqlite_path):
         ).fetchall()
     ]
 
-    # Topological sort: migrate parent tables before child tables so FK
-    # constraints are satisfied (comments -> posts, jobs -> career_paths, ...).
     fk_deps = {}
     for t in sqlite_tbls:
         if t not in pg_tbls:
@@ -142,7 +135,6 @@ def migrate(sqlite_path):
                 remaining.discard(t)
                 progressed = True
         if not progressed:
-            # Cycle or unresolved dep — append the rest as-is.
             ordered.extend(sorted(remaining))
             break
     sqlite_tbls = ordered + [t for t in sqlite_tbls if t not in pg_tbls]
@@ -159,18 +151,14 @@ def migrate(sqlite_path):
         cols = pg_columns(pcur, table)
         pk = pg_pk(pcur, table)
 
-        # SQLite columns for this table
         s_cols = [r[1] for r in sconn.execute(f"PRAGMA table_info({table})").fetchall()]
         s_col_types = {r[1]: r[2].upper() for r in sconn.execute(f"PRAGMA table_info({table})").fetchall()}
 
-        # intersect, preserving PG column order
         common = [c for c in cols if c in s_cols]
         if not common:
             print(f"  SKIP (no common columns): {table}")
             continue
 
-        # If the PK is uuid in Postgres but integer/text in SQLite, drop it from
-        # the insert so Postgres generates a fresh uuid (avoids type mismatch).
         if pk and pk in common:
             if pg_col_type(pcur, table, pk) == "uuid" and s_col_types.get(pk) in ("INTEGER", "INT", None):
                 common = [c for c in common if c != pk]
@@ -183,8 +171,6 @@ def migrate(sqlite_path):
             print(f"  {table}: 0 rows (empty)")
             continue
 
-        # Drop columns that are entirely NULL in SQLite (let Postgres apply its
-        # NOT NULL defaults, e.g. created_at/updated_at, instead of failing).
         all_null = {c for c in common if all(r[c] is None for r in rows)}
         if all_null:
             common = [c for c in common if c not in all_null]
@@ -195,7 +181,6 @@ def migrate(sqlite_path):
                 f"SELECT {', '.join(common)} FROM {table}"
             ).fetchall()
 
-        # Discover FK constraints for this table (child_col -> parent_table/parent_col).
         pcur.execute(
             "SELECT kcu.column_name, ccu.table_name, ccu.column_name "
             "FROM information_schema.table_constraints tc "
@@ -206,7 +191,6 @@ def migrate(sqlite_path):
         )
         fks = pcur.fetchall()
 
-        # Pre-load valid parent id sets for orphan nulling.
         parent_ids = {}
         for _, ptable, pcol in fks:
             if ptable not in parent_ids:
@@ -216,7 +200,6 @@ def migrate(sqlite_path):
                 except Exception:
                     parent_ids[ptable] = set()
 
-        # Null out orphan FK values so inserts don't violate constraints.
         if fks:
             fk_map = {child: (ptable, pcol) for child, ptable, pcol in fks}
             cleaned = []
@@ -229,21 +212,16 @@ def migrate(sqlite_path):
                 cleaned.append(r)
             rows = cleaned
 
-        # Coerce values whose PG column is uuid but SQLite value is not a uuid.
         def coerce(col, val):
             if val is None:
                 return None
             pt = pg_col_type(pcur, table, col)
             if pt == "uuid":
                 s = str(val).strip()
-                # accept only canonical uuid strings; otherwise null (FK-safe)
                 if len(s) == 36 and s.count("-") == 4:
                     return s
                 return None
             if pt in ("geometry", "geography"):
-                # SQLite stores geometry either as a GeoJSON object string
-                # ({"type":"Point","coordinates":[...]}) or as raw coord arrays.
-                # Convert to a PostGIS geometry via ST_GeomFromGeoJSON.
                 import json as _j
                 try:
                     parsed = val if not isinstance(val, str) else _j.loads(val)
@@ -252,7 +230,6 @@ def migrate(sqlite_path):
                 if isinstance(parsed, dict) and "type" in parsed and "coordinates" in parsed:
                     geojson = parsed
                 elif isinstance(parsed, list):
-                    # Determine geometry type by nesting depth.
                     if parsed and isinstance(parsed[0], (int, float)):
                         geojson = {"type": "Point", "coordinates": parsed}
                     elif parsed and isinstance(parsed[0], list) and parsed[0] and isinstance(parsed[0][0], (int, float)):
@@ -293,7 +270,6 @@ def migrate(sqlite_path):
                     if isinstance(parsed, list):
                         return parsed
                 except Exception:
-                    # fall back: try comma-split for simple arrays
                     return [x.strip() for x in val.strip("[]").split(",") if x.strip()]
             return val
 
@@ -306,7 +282,6 @@ def migrate(sqlite_path):
             conflict = ""
 
         sql = f'INSERT INTO "{table}" ({col_sql}) VALUES %s{conflict}'
-        # Chunk large tables to avoid oversized statements / pooler timeouts.
         chunk_size = 200
         for i in range(0, len(values), chunk_size):
             chunk = values[i:i + chunk_size]

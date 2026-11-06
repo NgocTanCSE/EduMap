@@ -57,13 +57,13 @@ except Exception:
     GeoDensityAnalysisRequest = None
 
 load_dotenv()
-# load_dotenv() không tham số chỉ tìm .env ở cwd (thường là /app/ai-service),
-# còn GEMINI_API_KEY được HF mount vào root workspace (/app/.env) hoặc process env.
-# Thử load thêm từ các đường dẫn cha để đảm bảo key được đọc khi chạy độc lập.
+
+
+
 import os as _os
 _load_paths = [
-    _os.path.join(_os.path.dirname(__file__), '..', '..', '.env'),   # /app/.env (root)
-    _os.path.join(_os.path.dirname(__file__), '..', '.env'),         # /app/ai/.env
+    _os.path.join(_os.path.dirname(__file__), '..', '..', '.env'),
+    _os.path.join(_os.path.dirname(__file__), '..', '.env'),
 ]
 for _p in _load_paths:
     if _os.path.exists(_p):
@@ -71,16 +71,16 @@ for _p in _load_paths:
         break
 
 
-# ── Local Gemma 2B LLM (offline text generation — replaces external providers) ─
-# Lazy-loaded singleton: ~1.5 GB RAM on HF Spaces free plan. Loaded once on
-# first use via transformers + BitsAndBytes 4-bit quantization. The model file
-# is pre-downloaded during Docker build (Gemma 2B IT Q4_K_M GGUF or FP16
-# transformers format) so cold-start does NOT hit the HF Hub download.
+
+
+
+
+
 _local_llm_model = None
 _local_llm_tokenizer = None
 _local_llm_loaded = False
 _local_llm_load_failed = False
-_local_llm_down_until = 0.0  # 5-min circuit breaker after OoM / crash
+_local_llm_down_until = 0.0
 
 
 def _get_ram_info() -> Dict[str, float]:
@@ -98,7 +98,7 @@ def _get_ram_info() -> Dict[str, float]:
             if len(parts) == 2:
                 key = parts[0].strip()
                 val = parts[1].strip().split()[0]
-                info[key] = int(val) * 1024  # kB → bytes
+                info[key] = int(val) * 1024
         total = info.get("MemTotal", 0)
         available = info.get("MemAvailable", info.get("MemFree", 0))
         return {
@@ -107,14 +107,14 @@ def _get_ram_info() -> Dict[str, float]:
             "used_gb": (total - available) / (1024 ** 3),
         }
     except Exception:
-        # Non-Linux or unavailable — assume HF Spaces defaults
+
         return {"total_gb": 16.0, "available_gb": 6.0, "used_gb": 10.0}
 
 
-# Minimum free RAM (GB) required before loading a local LLM model.
-# On HF Spaces free tier (16GB), other services (Next.js, NestJS, OSRM,
-# vision, embedding) use ~5-7GB. Loading Gemma 2B (~1.5GB) needs headroom —
-# keep at least 4GB free to avoid OOM killing the entire container.
+
+
+
+
 MIN_RAM_GB_FOR_LLM = float(os.getenv("MIN_RAM_GB_FOR_LLM", "4.0"))
 
 
@@ -131,7 +131,7 @@ def _load_local_llm(model_name: str = "google/gemma-2b-it"):
         return _local_llm_model is not None
     _local_llm_loaded = True
 
-    # --- Memory-aware guard: refuse to load if RAM too tight (OOM prevention) ---
+
     ram = _get_ram_info()
     print(f"[LocalLLM] RAM check: {ram['available_gb']:.1f}GB available / "
           f"{ram['total_gb']:.1f}GB total (need >{MIN_RAM_GB_FOR_LLM}GB free)")
@@ -145,7 +145,7 @@ def _load_local_llm(model_name: str = "google/gemma-2b-it"):
         from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
         import torch
 
-        # Check if bitsandbytes is available for 4-bit quantization
+
         HAS_BNB = False
         try:
             import bitsandbytes
@@ -154,7 +154,7 @@ def _load_local_llm(model_name: str = "google/gemma-2b-it"):
             pass
 
         if HAS_BNB:
-            # 4-bit quantization config — NF4 for best CPU memory efficiency
+
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
@@ -172,7 +172,7 @@ def _load_local_llm(model_name: str = "google/gemma-2b-it"):
             )
             print(f"[LocalLLM] {model_name} loaded OK (4-bit NF4, RAM ~1.5GB)")
         else:
-            # FP16 fallback — no bitsandbytes, use float16 (~3GB RAM on HF free tier)
+
             print(f"[LocalLLM] bitsandbytes not available — loading {model_name} (FP16, ~3GB RAM)...")
             _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
             _local_llm_model = AutoModelForCausalLM.from_pretrained(
@@ -201,24 +201,24 @@ def _local_llm_generate(
     """
     global _local_llm_down_until
 
-    # Circuit breaker: if local LLM OOM'd or crashed recently, skip it
+
     import time as _time
     if _time.monotonic() < _local_llm_down_until:
         raise RuntimeError("Local LLM circuit breaker open — skipping (recent OOM)")
 
     if not _local_llm_model or not _local_llm_loaded or _local_llm_load_failed:
-        # Try to lazy-load (graceful: if transformers/torch missing, raise)
+
         model_name = getattr(self_ref, "local_llm_model_name", "google/gemma-2b-it") if self_ref else "google/gemma-2b-it"
         if not _load_local_llm(model_name):
             raise RuntimeError("Local Gemma 2B model could not be loaded (transformers/torch missing or weights not baked)")
 
     try:
-        # Build a chat-style prompt — Gemma IT is instruction-tuned
+
         chat_prompt = (
             f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
         )
         inputs = _local_llm_tokenizer(chat_prompt, return_tensors="pt", truncation=True)
-        # Move to model device (CPU on HF Spaces)
+
         input_ids = inputs.input_ids
         max_new = max_tokens or 512
         with _time_limit(seconds=30):
@@ -238,9 +238,9 @@ def _local_llm_generate(
             raise RuntimeError("Local LLM produced empty response")
         return text
     except RuntimeError:
-        raise  # _time_limit or other intentional raise
+        raise
     except Exception as e:
-        # OOM or inference crash — open circuit breaker for 5 minutes
+
         _local_llm_down_until = _time.monotonic() + 300
         raise RuntimeError(f"Local LLM inference failed: {type(e).__name__}: {e}")
 
@@ -261,7 +261,7 @@ def _strip_markdown(text: str) -> str:
     """Remove markdown markers from model output.
 
     EduMap renders chat in a plain-text bubble (``whitespace-pre-wrap``, no
-    markdown parser), so ``**đậm**``, ``# tiêu đề``, ``` fences, ``---`` rules
+    markdown parser), so ``**đậm**``, ``
     and ``[chữ](url)`` links used to show up literally as ``***`` noise in the
     UI. This flattens the text while keeping the structure a reader needs:
     headings/bullets survive as plain lines, links keep their label + URL.
@@ -274,24 +274,24 @@ def _strip_markdown(text: str) -> str:
 
     out = text.replace("\r\n", "\n")
 
-    # Code fences: keep the code, drop the fences and the language tag.
+
     out = _MD_FENCE_RE.sub("", out)
-    # Inline code: keep the content only.
+
     out = _MD_INLINE_CODE_RE.sub(r"\1", out)
-    # Headings: drop the leading hashes, keep the title text.
+
     out = _MD_HEADING_RE.sub("", out)
-    # Horizontal rules: drop the whole line.
+
     out = _MD_HR_RE.sub("", out)
-    # Links: "nhãn (url)" — the URL stays readable for copy/paste.
+
     out = _MD_LINK_RE.sub(lambda m: f"{m.group(1)} ({m.group(2)})", out)
-    # Emphasis (two passes: nested ***bold italic*** needs the outer pass first).
+
     out = _MD_BOLD_RE.sub(r"\2", out)
     out = _MD_STRIKE_RE.sub(r"\1", out)
     out = _MD_ITALIC_STAR_RE.sub(r"\1", out)
     out = _MD_ITALIC_UNDERSCORE_RE.sub(r"\1", out)
-    # Bullets: "* mục" / "- mục" / "+ mục" → "• mục" (plain-text bullet).
+
     out = _MD_BULLET_RE.sub(lambda m: f"{m.group(1)}• ", out)
-    # Collapse the blank lines left behind by removed rules/fences.
+
     out = re.sub(r"\n{3,}", "\n\n", out)
     return out.strip()
 
@@ -313,9 +313,9 @@ def _time_limit(seconds: int):
     import signal
     import threading
 
-    # signal.SIGALRM is only usable in the main thread. Returning here avoids
-    # the ValueError that previously broke local-LLM generation inside
-    # asyncio.to_thread worker threads.
+
+
+
     if threading.current_thread() is not threading.main_thread():
         return contextlib.nullcontext()
 
@@ -339,12 +339,12 @@ def _time_limit(seconds: int):
 
 class LLMService:
     def __init__(self):
-        # ── DeepSeek (primary text generation — OpenAI-compatible API) ───────
-        # DeepSeek is the primary text provider: cheap, fast and it answers in
-        # Vietnamese well. It exposes an OpenAI-compatible /chat/completions
-        # endpoint, so the same payload shape also works for any compatible
-        # gateway. Calls go through `curl --ipv4 --insecure` for the same
-        # HF Spaces IPv6/TLS reason as every other provider.
+
+
+
+
+
+
         self.deepseek_key = (os.getenv("DEEPSEEK_API_KEY") or "").strip().strip('"').strip("'")
         self.deepseek_base_url = (
             os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").strip().rstrip("/")
@@ -355,27 +355,27 @@ class LLMService:
             if m.strip()
         ] or ["deepseek-chat"]
         self.deepseek_model_name = self.deepseek_models[0]
-        # DeepSeek is slower than Gemini for long prompts (reasoner especially),
-        # so the budget is a bit wider than GEMINI_TIMEOUT_SECONDS.
+
+
         self.deepseek_timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "20"))
         self.has_deepseek = bool(self.deepseek_key)
-        # Circuit breaker: 5 min cooldown after auth/network failure.
+
         self._deepseek_down_until = 0.0
 
-        # ── Google Gemini (fallback text generation + embeddings) ────────────
-        # Gemini key is used for embeddings (vector_store.py) and as the
-        # fallback text-generation provider. Cloudflare Workers AI is the
-        # primary text provider; on HF Spaces the Cloudflare TLS is blackholed
-        # so Gemini effectively becomes the primary path.
+
+
+
+
+
         self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         self.gemini_models = [
             m.strip()
             for m in os.getenv(
                 "GEMINI_MODEL",
-                # Valid Gemini API models as of Oct 2026. The 1.5/2.0 models
-                # were shut down (2.0-flash on 2026-06-01) and returned 404
-                # from v1beta, which made every chat request waste three
-                # round-trips before falling back to another provider.
+
+
+
+
                 "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest",
             ).split(",")
             if m.strip()
@@ -383,35 +383,35 @@ class LLMService:
         self.gemini_model_name = self.gemini_models[0] if self.gemini_models else "gemini-3.8-flash"
         self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "8"))
         self.has_gemini = bool(self.gemini_key)
-        # Circuit breaker: a network/TLS failure will fail identically for every
-        # model, so stop hammering Gemini for 5 minutes.
+
+
         self._gemini_down_until = 0.0
 
-        # ── Cloudflare Workers AI — text generation provider (1st priority) ──
-        # Single token covers text generation + Cloudflare embedding models.
-        # NOTE: On HF Spaces, api.cloudflare.com TLS handshake is IPv6 Blackholed
-        # (confirmed July 2026), so Cloudflare often fails fast → Gemini kicks in.
+
+
+
+
         self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-        # AI Gateway (tuỳ chọn): nếu bật, gọi qua gateway thay vì trực tiếp Workers AI.
+
         self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
         self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
-        # DSS model theo thứ tự từ CLOUDFLARE_MODEL (CSV). Model đầu tiên = primary; các model sau là fallback tự động.
+
         self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
         self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
         self.has_cf = bool(self.api_token) and bool(self.account_id)
-        # Circuit breaker: after a network-level failure, skip Cloudflare for
-        # 5 minutes instead of burning the cf_budget_seconds on every request.
+
+
         self._cf_down_until = 0.0
-        # Budget for the whole Cloudflare phase so a dead network cannot burn the
-        # backend's 60s HTTP timeout (3 models x retries used to take >60s).
+
+
         self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
-        # --- Provider summary ---
-        # DeepSeek is primary (configured via DEEPSEEK_API_KEY).
-        # Gemini is first fallback (GEMINI_API_KEY), Cloudflare is second
-        # fallback (CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID). Local Gemma
-        # and the Vietnamese templates are the last two safety nets.
-        # is_ready = True if at least one remote provider is configured.
+
+
+
+
+
+
         self.is_ready = self.has_deepseek or self.has_gemini or self.has_cf
         if self.has_deepseek:
             print(f"INFO: DeepSeek provider configured (primary). Model={self.deepseek_model_name}")
@@ -423,7 +423,7 @@ class LLMService:
             print("ERROR: Khong co DEEPSEEK_API_KEY / GEMINI_API_KEY / CLOUDFLARE_API_TOKEN. Cau hinh de dung AI chat.")
         else:
             print("INFO: LLM provider chain: DeepSeek -> Google Gemini -> Cloudflare Workers AI -> template")
-        # --- Adzuna API (job market data — LLM-independent trends) ---
+
         self.adzuna_app_id = os.getenv("ADZUNA_APP_ID")
         self.adzuna_app_key = os.getenv("ADZUNA_APP_KEY")
         self.adzuna_country = os.getenv("ADZUNA_COUNTRY", "us")
@@ -435,8 +435,8 @@ class LLMService:
         else:
             print("INFO: Adzuna API not configured (set ADZUNA_APP_ID + ADZUNA_APP_KEY). Will use local SQLite fallback for market trends.")
 
-        # --- LLM response cache (in-memory, 24h TTL) ---
-        # (existing config — unchanged)
+
+
         self._response_cache: Dict[str, str] = {}
         self._response_cache_meta: Dict[str, float] = {}
         self._response_cache_max = int(os.getenv("RESPONSE_CACHE_MAX", "2048"))
@@ -450,11 +450,11 @@ class LLMService:
             f"ttl={int(self._response_cache_ttl)}s ..."
         )
 
-        # ── Local LLM (Gemma 2B Q4_K_M — full offline text generation) ─────────
-        # Replaces Cloudflare/Gemini for all 10 text-generation features (#2, #4,
-        # #8, #9, #13, #14, #15, #17, #18, #19). Lazy-loaded once (~3-5s on
-        # 2-vCPU CPU, ~1.5GB RAM) via transformers + BitsAndBytes 4-bit.
-        # This makes the provider chain: Cloudflare → Gemini → Local Gemma → template.
+
+
+
+
+
         self.local_llm_model_name = os.getenv(
             "LOCAL_LLM_MODEL", "google/gemma-2b-it"
         )
@@ -468,13 +468,13 @@ class LLMService:
         self._local_llm_tokenizer: Optional[Any] = None
         self._local_llm_loaded = False
         self._local_llm_load_failed = False
-        self._local_llm_down_until = 0.0  # circuit breaker (5 min)
+        self._local_llm_down_until = 0.0
         if self.local_llm_enabled:
             print(f"INFO: Local LLM fallback configured: {self.local_llm_model_name} (~1.5GB RAM, lazy-load)")
             print("INFO: Provider chain: DeepSeek -> Gemini -> Cloudflare -> Local Gemma 2B -> template")
 
-        # Startup connectivity diagnostics: surfaces HF Spaces egress problems
-        # (IPv6 blackhole / blocked DNS) in the logs instead of only at chat time.
+
+
         if self.is_ready and os.getenv("AI_PREFLIGHT", "true").lower() not in ("0", "false", "no", "off"):
             try:
                 from services.net import probe_tls
@@ -491,10 +491,10 @@ class LLMService:
             except Exception as e:
                 print(f"[preflight] skipped: {e}")
 
-    # Reasons that mean the model name itself is wrong/unavailable/deprecated,
-    # so we should move on to the next candidate instead of retrying it.
-    # (429 = rate limit -> go to next model immediately; 502/503/504 = transient
-    #  -> retry once on the same model, then move on.)
+
+
+
+
     _MODEL_NOT_FOUND_REASONS = (
         "not found", "not supported", "no longer available",
         "model not found", "could not find", "deprecated", "does not exist",
@@ -503,11 +503,11 @@ class LLMService:
     def _is_model_not_found(self, code, message):
         low = (message or "").lower()
         return (
-            code in (404, 410)  # 410 = Gone / deprecated model
+            code in (404, 410)
             or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
         )
 
-    # ── DeepSeek (primary text provider) ────────────────────────────────────
+
 
     def _deepseek_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Call DeepSeek's OpenAI-compatible ``/chat/completions`` endpoint.
@@ -569,8 +569,8 @@ class LLMService:
 
             if proc.returncode != 0:
                 err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-                # 28 = timeout, 6/7 = DNS/connect — all network level, so cool
-                # the provider down instead of retrying every request.
+
+
                 self._deepseek_down_until = _time.monotonic() + 300
                 raise RuntimeError(f"DeepSeek connection failed: {err}")
 
@@ -590,8 +590,8 @@ class LLMService:
                     self._deepseek_down_until = _time.monotonic() + 300
                     raise RuntimeError(f"DeepSeek auth error (HTTP {code}): {message[:200]}")
                 if code == 402 or "insufficient balance" in low:
-                    # Out of credit — do not retry the other model, it shares
-                    # the same wallet. Fall straight through to Gemini.
+
+
                     self._deepseek_down_until = _time.monotonic() + 300
                     raise RuntimeError(f"DeepSeek insufficient balance (HTTP {code}): {message[:160]}")
                 last_err = f"{model}: HTTP {code} {message[:120]}"
@@ -729,11 +729,11 @@ class LLMService:
             }
             if top_p is not None:
                 payload["generationConfig"]["topP"] = float(top_p)
-            # Gemini 3.x cannot disable thinking and defaults to "medium".
-            # Long RAG prompts at that level can exceed the curl budget on HF
-            # Spaces ("0 bytes received" after 20s), so request the lowest
-            # supported level. Valid values are low/medium/high ("minimal" is
-            # rejected with HTTP 400). Gemini 2.x uses thinkingBudget instead.
+
+
+
+
+
             if model.startswith("gemini-3"):
                 payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
             body_json = json.dumps(payload)
@@ -828,7 +828,7 @@ class LLMService:
         request_started = _time.monotonic()
         cf_last_err = None
 
-        # --- Phan 1: thu Cloudflare (qua AI Gateway neu bat, nguoc lai truc tiep Workers AI) ---
+
         if self.has_cf and _time.monotonic() >= self._cf_down_until:
             cf_last_err = None
             cf_network_down = False
@@ -838,8 +838,8 @@ class LLMService:
             else:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
             last_err = None
-            # No retries: on HF Spaces a blocked/slow route fails identically on
-            # the second attempt and only burns the backend's 60s timeout.
+
+
             per_model_retries = 0
             cf_started = _time.monotonic()
 
@@ -847,11 +847,11 @@ class LLMService:
                 if _time.monotonic() - cf_started > self.cf_budget_seconds:
                     print(f"[LLM] Cloudflare budget ({self.cf_budget_seconds}s) exhausted, skipping remaining models")
                     break
-                # URL-encode only the @ prefix (keeps it from being treated as
-                # a userinfo separator) but PRESERVE / so Cloudflare sees the
-                # full model path: @cf/meta/llama-3.1-8b-instruct-fp8
-                # Encoding / as %2F flattens the path into a single segment
-                # → Cloudflare returns "No route for that URI" (code 7000).
+
+
+
+
+
                 encoded_model = urllib.parse.quote(model, safe='/')
                 url = f"{base_url}/{encoded_model}"
                 payload = {
@@ -873,9 +873,9 @@ class LLMService:
                     attempt += 1
                     data = None
                     try:
-                        # Use curl (OpenSSL TLS) — bypasses Python ssl module TLS issues in HF Spaces
-                        # --insecure skips cert verification (HF Spaces may have a MITM proxy with custom CA)
-                        # --ipv4 avoids the IPv6 blackhole that causes "SSL connection timeout".
+
+
+
                         _curl = subprocess.run(
                             ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
                              "-H", f"Authorization: Bearer {self.api_token}",
@@ -907,12 +907,12 @@ class LLMService:
                     except Exception as e:
                         if attempt <= per_model_retries:
                             last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, tạm ngưng Cloudflare 5 phút."); 
+                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, tạm ngưng Cloudflare 5 phút.");
                         self._cf_down_until = _time.monotonic() + 300
                         cf_network_down = True
                         break
 
-                    # Success path: parse Cloudflare response
+
                     if "error" in data and data.get("success") is False:
                         err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
                         code = err.get("code", 0)
@@ -939,23 +939,23 @@ class LLMService:
                         return text
                     last_err = f"{model}: trả về empty response"
                     break
-                # end while True (per-model retries)
+
                 if cf_network_down:
                     print("[LLM] Cloudflare network unreachable; skipping remaining models")
                     break
-            # end for model in model_candidates
+
             cf_last_err = last_err
 
-        # If Cloudflare is configured but circuit-broken, the block above was
-        # skipped — record a clear message so the final error does NOT
-        # misleadingly report "không cấu hình" (not configured) when it
-        # actually means "temporarily disabled after a network failure".
+
+
+
+
         if self.has_cf and _time.monotonic() < self._cf_down_until and not cf_last_err:
             cf_last_err = "Tạm thời gián đoạn (thất bại mạng, cooldown 5 phút)"
 
-        # ── Cloudflare fallback failed ──
-        # The caller (_generate_text_with_fallback) catches this RuntimeError
-        # and falls through to the Gemini fallback.
+
+
+
         raise RuntimeError(
             "Không thể sinh nội dung qua Cloudflare Workers AI. "
             f"{cf_last_err or ('không cấu hình' if not self.has_cf else 'lỗi không xác định')}"
@@ -980,13 +980,13 @@ class LLMService:
         request_started = _time.monotonic()
         last_err = None
         last_model = None
-        # Try each Cloudflare model candidate; yield tokens from the first
-        # one that starts streaming successfully.
+
+
         for model in self.model_candidates:
             if _time.monotonic() < self._cf_down_until:
                 raise RuntimeError("Cloudflare circuit breaker active — cooldown 5 min.")
-            # Budget guard: don't start a new model if the Cloudflare budget
-            # is nearly exhausted.
+
+
             if _time.monotonic() - request_started > self.cf_budget_seconds:
                 break
             url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/v1/chat/models/{model}"
@@ -1019,7 +1019,7 @@ class LLMService:
                     "--max-time", str(self.cf_budget_seconds),
                 ]
                 if self.cf_gateway_enabled and self.cf_gateway_id:
-                    # Route through Cloudflare AI Gateway if configured
+
                     cmd[3:3] = ["-x", f"https://{self.cf_gateway_id}.ai-gateway.cloudflare.com"]
                 proc = subprocess.Popen(
                     cmd,
@@ -1081,7 +1081,7 @@ class LLMService:
         if not (response and isinstance(response, str)):
             return
         now = time.monotonic()
-        # Lazily evict expired entries before inserting
+
         if len(self._response_cache) >= self._response_cache_max:
             expired = [
                 k for k, ts in self._response_cache_meta.items()
@@ -1090,7 +1090,7 @@ class LLMService:
             for k in expired:
                 self._response_cache.pop(k, None)
                 self._response_cache_meta.pop(k, None)
-            # If still over capacity after TTL purge, evict oldest (FIFO)
+
             while len(self._response_cache) >= self._response_cache_max:
                 oldest = next(iter(self._response_cache))
                 self._response_cache.pop(oldest, None)
@@ -1115,10 +1115,10 @@ class LLMService:
         """
         import time as _time
 
-        # --- In-memory response cache ---
-        # Cache key = md5(prompt + params). Identical prompts with the same
-        # generation params return the cached response — zero API calls.
-        # TTL (default 24h) prevents stale responses for slowly-changing content.
+
+
+
+
         _cache_key = hashlib.md5(
             (prompt + f"|{temperature}|{max_tokens}|{top_p}").encode("utf-8")
         ).hexdigest()
@@ -1132,14 +1132,14 @@ class LLMService:
                       f"ttl={int(self._response_cache_ttl)}s, hits={self._response_cache_hits})")
                 return _cached
             else:
-                # Expired — remove stale entry
+
                 self._response_cache.pop(_cache_key, None)
                 self._response_cache_meta.pop(_cache_key, None)
 
         self._response_cache_misses += 1
         errors: dict = {}
 
-        # 1. DeepSeek (primary — DEEPSEEK_API_KEY, OpenAI-compatible API)
+
         if self.has_deepseek:
             try:
                 result = self._deepseek_generate(
@@ -1153,7 +1153,7 @@ class LLMService:
                 errors["DeepSeek"] = str(e)
                 print(f"DeepSeek generate failed: {e}")
 
-        # 2. Google Gemini (fallback — reliable on HF Spaces egress)
+
         if self.has_gemini:
             try:
                 result = self._gemini_generate(
@@ -1167,8 +1167,8 @@ class LLMService:
                 errors["Gemini"] = str(e)
                 print(f"Google Gemini generate failed: {e}")
 
-        # 3. Cloudflare Workers AI (last remote fallback — its TLS is often
-        # blackholed on HF Spaces, hence the position after DeepSeek/Gemini)
+
+
         if self.has_cf:
             try:
                 result = self._cloudflare_generate(
@@ -1182,9 +1182,9 @@ class LLMService:
                 errors["Cloudflare"] = str(e)
                 print(f"Cloudflare generate failed: {e}")
 
-        # 4. Local Gemma 2B Q4 (offline last resort — gated weights, so it is
-        # usually a fast no-op on the free tier; TinyLlama was removed because
-        # 2 vCPU inference needed 30-60 s per answer).
+
+
+
         if self.has_local_llm:
             try:
                 result = _local_llm_generate(
@@ -1199,7 +1199,7 @@ class LLMService:
                 errors["local_llm"] = str(e)
                 print(f"Local Gemma 2B generate failed: {e}")
 
-        # Build a detailed, per-provider error message.
+
         parts = []
         if not self.has_deepseek:
             parts.append("DeepSeek: không cấu hình")
@@ -1218,19 +1218,19 @@ class LLMService:
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
-    # --- Methods from Legacy LLMService ---
+
 
     async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
         """
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
         Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
         """
-        # On HF Spaces free plan (no API keys), is_ready is False.
-        # Don't raise — let the provider cascade below be empty ([None, None])
-        # which skips straight to _chat_fallback_reply. The cache check below
-        # still runs so cached degraded responses are served fast.
 
-        # Kiểm tra Cache
+
+
+
+
+
         cache_key = hashlib.md5(f"chat:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
         cached_res = cache_service.get(cache_key)
         if cached_res:
@@ -1239,13 +1239,13 @@ class LLMService:
         history = history or []
         context = context or {}
 
-# 1. RAG Logic: Truy xuất dữ liệu từ ChromaDB
+
         from services.vector_store import vector_store
         try:
-            # ChromaDB + embeddings are synchronous (subprocess/urllib), so run
-            # them off the event loop. RAG_TIMEOUT_SECONDS is a hard ceiling:
-            # a dead embedding provider must never delay the first token past
-            # the NestJS 10s stream timeout. On timeout we answer LLM-only.
+
+
+
+
             _rag_timeout = float(os.getenv("RAG_TIMEOUT_SECONDS", "8"))
             search_results = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -1256,11 +1256,11 @@ class LLMService:
             documents = search_results.get('documents', [[]])
             metadatas = search_results.get('metadatas', [[]])
             ids = search_results.get('ids', [[]])
-            
+
             context_docs = documents[0] if documents and len(documents) > 0 else []
             meta_docs = metadatas[0] if metadatas and len(metadatas) > 0 else []
             id_docs = ids[0] if ids and len(ids) > 0 else []
-            
+
             sources = []
             docs_str = ""
             if context_docs:
@@ -1268,12 +1268,12 @@ class LLMService:
                     meta = meta_docs[i] if i < len(meta_docs) else {}
                     title = meta.get("title", f"Tài liệu tham khảo {i+1}")
                     doc_id = id_docs[i] if i < len(id_docs) else str(i)
-                    # Keep the prompt bounded: very large RAG documents make
-                    # Gemini slower and can push it past the curl timeout on
-                    # HF Spaces, which then falls back to a template reply.
+
+
+
                     doc_text = doc if len(doc) <= 1200 else doc[:1200] + "..."
                     docs_str += f"\n--- Tài liệu {i+1} ({title}) ---\n{doc_text}\n"
-                    
+
                     sources.append({
                         "doc_id": doc_id,
                         "title": title,
@@ -1283,36 +1283,36 @@ class LLMService:
                 docs_str = "Không tìm thấy dữ liệu liên quan trong hệ thống kiến thức của EduMap."
         except Exception as e:
             print(f"Error querying vector store: {e}")
-            # Graceful degradation: if embedding/RAG fails (all providers down),
-            # let the LLM answer from its own knowledge + conversation history
-            # instead of injecting an error string that the bot echoes back.
+
+
+
             docs_str = "Dữ liệu từ kho tri thức chưa sẵn sàng. Tôi sẽ trả lời dựa trên kiến thức chung."
             sources = []
 
-        # 2. Ngữ cảnh hệ thống (Dynamic Context)
+
         system_context_str = ""
         if context:
             system_context_str = "\nNGỮ CẢNH HỆ THỐNG THỜI GIAN THỰC:\n"
             for key, value in context.items():
                 system_context_str += f"- {key}: {value}\n"
 
-        # 3. Prompt Engineering: Thiết lập "Luật" cho AI
+
         system_instruction = f"""
         Bạn là Trợ lý ảo thông minh của EduMap DNTU (Trường Đại học Công nghệ Đồng Nai).
-        
+
         DỮ LIỆU TỪ HỆ THỐNG RAG (Sự thật):
         {docs_str}
         {system_context_str}
-        
+
         NGUYÊN TẮC HOẠT ĐỘNG (CORE RULES):
         1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
         2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
         4. Trình bày rõ ràng, dùng dấu gạch đầu dòng "-" khi cần liệt kê.
-        5. KHÔNG dùng markdown: không **, không *, không #, không ``` và không bảng markdown.\n           Giao diện chat chỉ hiển thị văn bản thuần, ký tự markdown sẽ hiện ra thành rác.
+        5. KHÔNG dùng markdown: không **, không *, không
         """
 
-        # Format history (lấy 6 tin nhắn gần nhất)
+
         history_str = ""
         for msg in history[-6:]:
             role = "Sinh viên" if msg.get("role") == "user" else "Trợ lý"
@@ -1320,7 +1320,7 @@ class LLMService:
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
 
-        # Provider chain: DeepSeek (primary) → Gemini → Cloudflare Workers AI.
+
         reply_text = None
         last_err = None
         for gen_fn in [
@@ -1331,8 +1331,8 @@ class LLMService:
             if gen_fn is None:
                 continue
             try:
-                # Provider helpers use blocking subprocess/urllib calls. Run
-                # them in a worker thread so the event loop stays responsive.
+
+
                 response = await asyncio.to_thread(
                     gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 )
@@ -1348,8 +1348,8 @@ class LLMService:
             print(f"AI Generation Error: {last_err or 'no provider available'} — using template fallback")
             reply_text = self._chat_fallback_reply(message, sources, context)
 
-        # The app renders chat as plain text (no markdown parser), so strip
-        # **bold** / # headings / ``` fences before the reply leaves the API.
+
+
         reply_text = _strip_markdown(reply_text)
 
         final_res = {"reply": reply_text, "sources": sources}
@@ -1372,12 +1372,12 @@ class LLMService:
         """
         from services.vector_store import vector_store
 
-        # ---- 1. RAG retrieval (shared with chat_with_rag) ----
+
         cache_key = hashlib.md5(f"chat_stream:{message}:{json.dumps(history or [])}:{json.dumps(context or {})}".encode()).hexdigest()
         cached_res = cache_service.get(cache_key)
         if cached_res:
-            # Stream the cached reply word-by-word so the user still sees
-            # a typing effect on cache hits (not a single block dump).
+
+
             async for chunk in self._stream_word_by_word(
                 cached_res.get('reply', ''), sources=cached_res.get('sources', []), is_final=True
             ):
@@ -1389,15 +1389,15 @@ class LLMService:
         sources = []
         docs_str = ""
 
-        # Immediate heartbeat (empty source list) so the HTTP response starts
-        # flowing before the embedding/RAG step. On HF Spaces the provider
-        # chain can take several seconds; without this, a proxy/client timeout
-        # could close the stream before the first token and leave the chat
-        # bubble empty. A later meta chunk overwrites sources with the real list.
+
+
+
+
+
         yield f"data: {json.dumps({'sources': [], 'meta': True, 'heartbeat': True})}\n\n"
 
-        # Track total elapsed time from heartbeat so the non-streaming fallback
-        # cascade can bail out before the NestJS 10s proxy deadline.
+
+
         _stream_start = time.monotonic()
 
         try:
@@ -1431,7 +1431,7 @@ class LLMService:
             docs_str = "Dữ liệu từ kho tri thức chưa sẵn sàng. Tôi sẽ trả lời dựa trên kiến thức chung."
             sources = []
 
-        # ---- 2. Build prompt (same as chat_with_rag) ----
+
         system_context_str = ""
         if context:
             system_context_str = "\nNGỮ CẢNH HỆ THỐNG THỜI GIAN THỰC:\n"
@@ -1440,17 +1440,17 @@ class LLMService:
 
         system_instruction = f"""
         Bạn là Trợ lý ảo thông minh của EduMap DNTU (Trường Đại học Công nghệ Đồng Nai).
-        
+
         DỮ LIỆU TỪ HỆ THỐNG RAG (Sự thật):
         {docs_str}
         {system_context_str}
-        
+
         NGUYÊN TẮC HOẠT ĐỘNG (CORE RULES):
         1. ZERO HALLUCINATION: TUYỆT ĐỐI KHÔNG tự bịa ra thông tin không có trong phần DỮ LIỆU TỪ HỆ THỐNG RAG và NGỮ CẢNH HỆ THỐNG.
         2. Nếu câu hỏi không liên quan đến dữ liệu hệ thống, trả lời dựa trên kiến thuật chung nhưng phải khẳng định là thông tin tham khảo.
         3. Tư vấn nhiệt tình, chuyên nghiệp, sử dụng ngôn ngữ thân thiện với sinh viên.
         4. Trình bày rõ ràng, dùng dấu gạch đầu dòng "-" khi cần liệt kê.
-        5. KHÔNG dùng markdown: không **, không *, không #, không ``` và không bảng markdown.\n           Giao diện chat chỉ hiển thị văn bản thuần, ký tự markdown sẽ hiện ra thành rác.
+        5. KHÔNG dùng markdown: không **, không *, không
         """
 
         history_str = ""
@@ -1460,10 +1460,10 @@ class LLMService:
 
         prompt = f"{system_instruction}\n\nLỊCH SỬ TRÒ CHUYỆN:\n{history_str}\nSinh viên: {message}\nTrợ lý EduMap:"
 
-        # ---- 3. Send metadata (sources) first ----
+
         yield f"data: {json.dumps({'sources': sources, 'meta': True})}\n\n"
 
-        # ---- 4a. Try true streaming via DeepSeek SSE (primary) ----
+
         if self.has_deepseek:
             try:
                 full_reply = ""
@@ -1484,7 +1484,7 @@ class LLMService:
             except Exception as e:
                 print(f"DeepSeek streaming failed, falling back to non-stream: {e}")
 
-        # ---- 4b. Try true streaming via Cloudflare Workers AI SSE ----
+
         if self.has_cf:
             try:
                 full_reply = ""
@@ -1493,15 +1493,15 @@ class LLMService:
                 ):
                     full_reply += token
                     yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
-                # Only return if streaming produced actual content. If the
-                # generator yielded zero tokens (e.g. curl returned 200 with an
-                # empty body, or Cloudflare returned no choices), fall through
-                # to the non-streaming fallback so the user still gets a reply
-                # instead of an empty/null response.
+
+
+
+
+
                 if full_reply:
                     yield f"data: {json.dumps({'done': True})}\n\n"
-                    # Cache for future identical requests — store the full reply text
-                    # so cache hits replay the complete streamed response.
+
+
                     cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
                     return
                 else:
@@ -1509,18 +1509,18 @@ class LLMService:
             except Exception as e:
                 print(f"Cloudflare streaming failed, falling back to non-stream: {e}")
 
-        # ---- 5. Fallback: non-streaming (yield word-by-word for typing effect) ----
-        # If no LLM providers are configured, or all configured providers are
-        # circuit-broken (5-min cooldown), skip the generation cascade entirely
-        # and use the template fallback. This prevents the slow per-provider
-        # curl timeouts from exceeding the NestJS proxy's 10s deadline, which
-        # would surface as a 503 with an empty chat bubble.
+
+
+
+
+
+
         if not self.is_ready:
             print("[stream] No LLM providers configured — using template fallback directly")
-            # _chat_fallback_reply() emits light markdown (**bold** for the
-            # question and each source title). Strip it here too: this is the
-            # ONLY path that runs when no provider key is configured (the HF
-            # free tier), and it used to stream raw "**" into the chat bubble.
+
+
+
+
             reply_text = _strip_markdown(self._chat_fallback_reply(message, sources, context))
             async for chunk in self._stream_word_by_word(
                 reply_text, sources=sources, is_final=True,
@@ -1531,12 +1531,12 @@ class LLMService:
             cache_service.set(cache_key, {"reply": reply_text, "sources": sources}, ttl=3600)
             return
 
-        # Time budget: the NestJS proxy (ai.service.ts `timeout: 10000`) kills
-        # this request at ~10s. Reserve time for the word-by-word stream + SSE
-        # framing, otherwise a slow provider pushes total time past the proxy
-        # deadline → NestJS logs "SSE stream error from ai-service: aborted"
-        # and the chat bubble stays empty. Budget chain: provider cascade →
-        # template reply, all inside `_proxy_deadline`.
+
+
+
+
+
+
         _proxy_deadline = float(os.getenv("STREAM_PROXY_DEADLINE_SECONDS", "10"))
         _final_reserve = float(os.getenv("STREAM_FINAL_RESERVE_SECONDS", "1.5"))
         _elapsed = time.monotonic() - _stream_start
@@ -1553,8 +1553,8 @@ class LLMService:
         ]:
             if gen_fn is None:
                 continue
-            # Skip if not enough time left — prevents the 10s NestJS proxy
-            # from killing the request mid-generation (503 + empty chat bubble).
+
+
             _gen_elapsed = time.monotonic() - _stream_start
             if _gen_elapsed > _gen_budget:
                 last_err = f"Timeout budget ({_gen_budget}s) exhausted after {_gen_elapsed:.1f}s"
@@ -1580,13 +1580,13 @@ class LLMService:
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
 
-        # Plain-text UI: strip markdown markers before the word-by-word stream.
+
         reply_text = _strip_markdown(reply_text)
 
-        # Stream word-by-word so the UI shows a typing effect even when
-        # real SSE streaming from Cloudflare is unavailable. `max_duration`
-        # fits the whole reply inside whatever is left of the proxy deadline
-        # (a 300-word reply at 30ms/word would otherwise take 9s and be cut).
+
+
+
+
         _stream_left = _proxy_deadline - (time.monotonic() - _stream_start)
         async for chunk in self._stream_word_by_word(
             reply_text, sources=sources, is_final=True,
@@ -1624,16 +1624,16 @@ class LLMService:
         """
         import asyncio
 
-        # Send metadata (sources) first — mirrors the real-streaming path
+
         yield f"data: {json.dumps({'sources': sources or [], 'meta': True})}\n\n"
 
-        # Split on word boundaries, keeping the separators (spaces, newlines)
+
         import re
         words = re.split(r'( +|\n+)', text)
-        words = [w for w in words if w]  # filter empty strings
+        words = [w for w in words if w]
 
         if max_duration is not None and words:
-            # Fit the reply inside the caller's deadline.
+
             delay = min(delay, max(0.0, max_duration) / len(words))
 
         for i, word in enumerate(words):
@@ -1732,7 +1732,7 @@ class LLMService:
                 f" hoặc GEMINI_API_KEY. Lỗi: {err[:140]}"
             )
 
-        # Keyword-matching: rank career paths by skill/interest overlap
+
         scored = []
         for row in rows:
             db_skills = []
@@ -1810,7 +1810,7 @@ class LLMService:
         Fallback: SQLite edumap.db (jobs, career_paths — luôn có sẵn trên Space).
         Không bao giờ gọi LLM — hoạt động ngay cả khi Cloudflare & HF bị chặn TLS.
         """
-        # Extract keywords from market_data (list of dicts or strings)
+
         keywords = []
         for item in market_data or []:
             if isinstance(item, dict):
@@ -1821,17 +1821,17 @@ class LLMService:
                 keywords.append(item)
         keyword = (keywords[0] if keywords else "AI")
 
-        # --- Primary: Adzuna API (real-time job data) ---
-        # Both helpers do blocking HTTP/SQLite work; keep the event loop free.
+
+
         job_data = None
         if self.has_adzuna:
             job_data = await asyncio.to_thread(self._fetch_adzuna_jobs, keyword)
 
-        # --- Fallback: local SQLite edumap.db ---
+
         if job_data is None:
             job_data = await asyncio.to_thread(self._get_local_trends, keyword)
 
-        # --- Build analysis via template (no LLM needed) ---
+
         analysis = self._generate_trends_analysis(keyword, job_data)
         return {"status": "ok", "analysis": analysis}
 
@@ -1850,10 +1850,10 @@ class LLMService:
                 f"app_id={self.adzuna_app_id}&app_key={self.adzuna_app_key}"
                 f"&results_per_page=10&what={urllib.parse.quote(keyword)}"
             )
-            # Use curl (OpenSSL TLS) — bypasses Python ssl/urllib IPv6 blackhole
-            # on HF Spaces. --ipv4 forces IPv4 (avoids the IPv6 blackhole that
-            # makes urllib.request.urlopen hang/timeout), --insecure skips the
-            # cert check (HF Spaces may sit behind a MITM proxy with a custom CA).
+
+
+
+
             proc = subprocess.run(
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-X", "GET",
@@ -1978,12 +1978,12 @@ class LLMService:
     async def generate_daily_insight(self, dashboard_data: dict) -> dict:
         if not self.is_ready:
             return self._daily_insight_fallback(dashboard_data or {})
-        
+
         dashboard_data = dashboard_data or {}
         prompt = f"Dựa trên dữ liệu dashboard: {json.dumps(dashboard_data)}, hãy đưa ra 1 lời khuyên ngắn gọn."
-        # Provider chain: Cloudflare Workers AI (primary) → Google Gemini (fallback).
-        # Build the list first so we never try to unpack `None` (which would
-        # raise "cannot unpack non-iterable NoneType") when a provider is absent.
+
+
+
         providers = []
         if self.has_cf:
             providers.append((self._cloudflare_generate, "Cloudflare"))
@@ -2029,7 +2029,7 @@ class LLMService:
             "suggested_action": action,
         }
 
-    # --- Methods from New LLMService ---
+
 
     def _extract_json(self, text: str):
         """
@@ -2038,26 +2038,26 @@ class LLMService:
         """
         if not text:
             return None
-            
+
         try:
             import json
             import re
-            
-            # 1. Thử bóc tách khối markdown ```json ... ```
+
+
             json_match = re.search(r'```json\s*([\s\S]*?)\s*```', text)
             if json_match:
                 try:
                     return json.loads(json_match.group(1).strip())
                 except:
                     pass
-            
-            # 2. Thử tìm khối { ... } hoặc [ ... ] lớn nhất
+
+
             text_cleaned = text.strip()
-            
-            # Tìm vị trí của dấu ngoặc đầu tiên và cuối cùng
+
+
             start_obj = text_cleaned.find('{')
             start_arr = text_cleaned.find('[')
-            
+
             start = -1
             if start_obj != -1 and (start_arr == -1 or start_obj < start_arr):
                 start = start_obj
@@ -2065,13 +2065,13 @@ class LLMService:
             elif start_arr != -1:
                 start = start_arr
                 end = text_cleaned.rfind(']') + 1
-            
+
             if start != -1:
                 candidate = text_cleaned[start:end]
-                # Fix các lỗi JSON phổ biến như dấu phẩy thừa
+
                 candidate = re.sub(r',\s*([\]}])', r'\1', candidate)
                 return json.loads(candidate)
-                
+
             return None
         except Exception as e:
             print(f"Error extracting JSON: {e}")
@@ -2080,7 +2080,7 @@ class LLMService:
     async def recommend_career(self, data: CareerAnalysisRequest) -> list:
         """Recommend careers. Falls back to a template list when all providers are down."""
         try:
-            # Kiểm tra Cache
+
             cache_key = hashlib.md5(f"career:{hashlib.md5(data.json().encode()).hexdigest()}".encode()).hexdigest()
             cached_res = cache_service.get(cache_key)
             if cached_res:
@@ -2098,7 +2098,7 @@ class LLMService:
             - Problem Solving (Giải quyết vấn đề)
             - Language (Ngoại ngữ)
             - Creativity (Sáng tạo)
-            
+
             Trả về mảng JSON gồm: title, match_score, explanation, missing_skills, radar_chart: {{criteria: score}}
             Chỉ trả về JSON.
             """
@@ -2132,20 +2132,20 @@ class LLMService:
         interests = interests or []
         from services.vector_store import vector_store
 
-        # 1. Semantic search in ChromaDB
+
         all_input = list(skills) + list(interests)
         semantic_results = await asyncio.to_thread(
             vector_store.semantic_career_search, all_input, 5
         ) if vector_store else []
 
-        # Cache key based on skill set
+
         cache_key = hashlib.md5(f"career_semantic:{hashlib.md5(','.join(sorted(all_input)).encode()).hexdigest()}".encode()).hexdigest()
         cached = cache_service.get(cache_key)
         if cached and isinstance(cached, list):
             return cached
 
         if not semantic_results:
-            # Fallback: use template recommendations
+
             return self._recommend_career_fallback(
                 type("Req", (), {"skills": all_input, "full_name": "", "mbti_type": None,
                                   "career_aspirations": interests, "recent_keywords": None,
@@ -2155,7 +2155,7 @@ class LLMService:
                 "No semantic results from ChromaDB"
             )
 
-        # 2. Enrich with LLM if available, or use semantic results directly
+
         enriched = []
         if self.is_ready:
             enrichment_prompt = f"""
@@ -2183,7 +2183,7 @@ class LLMService:
             except Exception as e:
                 print(f"Semantic career enrichment failed: {e}")
 
-        # 3. If enrichment failed, build from semantic results directly
+
         if not enriched:
             for item in semantic_results:
                 missing = item.get('missing_skills', [])
@@ -2218,7 +2218,7 @@ class LLMService:
         Khi mọi provider AI đều thất bại, trả về lộ trình mẫu thay thế.
         """
         try:
-            # Kiểm tra Cache
+
             cache_key = hashlib.md5(f"path:{data.user_id}:{data.target_role}:{data.current_level}".encode()).hexdigest()
             cached_res = cache_service.get(cache_key)
             if cached_res:
@@ -2232,13 +2232,13 @@ class LLMService:
             - Mục tiêu: {data.target_role}
             - Trình độ hiện tại: {data.current_level}
             - Thời gian cam kết: {data.time_commitment_hours_per_week} giờ/tuần
-            
+
             Yêu cầu:
             1. Phân rã thành các bước (steps) cụ thể.
             2. Mỗi bước bao gồm: step_number, title, estimated_weeks, description (tiếng Việt).
             3. Tính toán total_estimated_months dựa trên tổng số tuần.
             4. Trả về định dạng JSON: {{target_role, total_estimated_months, steps: []}}
-            
+
             Chỉ trả về JSON.
             """
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=2048, top_p=0.8)
@@ -2264,12 +2264,12 @@ class LLMService:
             Phân tích mật độ giáo dục tại {data.city}.
             Các cụm giáo dục (Hubs) được phát hiện: {json.dumps(hubs)}.
             Tổng số điểm: {len(data.points)}.
-            
+
             Hãy đưa ra:
             1. Nhận xét về sự phân bổ.
             2. Đánh giá mức độ thuận tiện cho sinh viên.
             3. Đề xuất khu vực cần đầu tư thêm.
-            
+
             Trả về JSON: {{summary, density_score, recommendations: []}}
             """
             response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
@@ -2305,7 +2305,7 @@ class LLMService:
         Falls back to a static template when all providers are down.
         """
         try:
-            # ── Cache lookup (24h) ──────────────────────────────────────
+
             cache_key = hashlib.md5(
                 f"ls_explain:{spot.get('id', '')}:{hashlib.md5(json.dumps(preferences, sort_keys=True, default=str).encode()).hexdigest()}"
                 .encode()
@@ -2317,7 +2317,7 @@ class LLMService:
             if not self.is_ready:
                 raise RuntimeError("AI Service chưa sẵn sàng.")
 
-            # ── Build a concise, Vietnamese prompt ───────────────────────
+
             spot_name = spot.get("name", "địa điểm")
             spot_type = spot.get("type", "")
             rating = spot.get("rating_avg", 0)
@@ -2413,12 +2413,12 @@ class LLMService:
             if not self.is_ready:
                 raise RuntimeError("AI Service chưa sẵn sàng.")
 
-            # Safety-net: cắt bớt mentor xuống max_mentors (backend đã pre-filter,
-            # nhưng bảo vệ trường hợp backend quên hoặc gửi từ nguồn khác).
+
+
             max_mentors = getattr(data, "max_mentors", 15)
             mentors = data.available_mentors[:max_mentors] if data.available_mentors else []
 
-            # Serialize chỉ các mentor đã được cắt + pre-filter metadata
+
             mentors_json = json.dumps(
                 [m.model_dump(mode="json") for m in mentors],
                 ensure_ascii=False,
@@ -2480,7 +2480,7 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
             max_results = max(1, min(max_results, 30))
             pairs = (data.pairs or [])[:max_results]
 
-            # Serialize pairs to compact JSON for the LLM prompt
+
             pairs_json = json.dumps(
                 [p.model_dump(mode="json") for p in pairs],
                 ensure_ascii=False,
@@ -2530,7 +2530,7 @@ Trả về **mảng JSON** sau:
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho rank_impact_matches.")
 
-            # Normalise: ensure each match has the required keys
+
             clean = []
             for m in result:
                 if isinstance(m, dict):
@@ -2555,8 +2555,8 @@ Trả về **mảng JSON** sau:
         surface a helpful message instead of a 502 that blocks the feature.
         """
         reason = f"AI unavailable -- graceful degradation ({err[:140]})"
-        # Build a lightweight template ranking using pure cost-fit heuristic
-        # so the user still gets _some_ ordered suggestions even offline.
+
+
         pairs = (data.pairs or [])[:15]
         template_matches = []
         for p in pairs:
@@ -2612,7 +2612,7 @@ Trả về **mảng JSON** sau:
             max_results = max(1, min(max_results, 30))
             pairs = (data.pairs or [])[:max_results]
 
-            # Serialize pairs to compact JSON for the LLM prompt
+
             pairs_json = json.dumps(
                 [p.model_dump(mode="json") for p in pairs],
                 ensure_ascii=False,
@@ -2663,7 +2663,7 @@ Trả về **mảng JSON** sau:
             if result is None or not isinstance(result, list):
                 raise RuntimeError("AI trả về JSON không hợp lệ cho rank_resource_matches.")
 
-            # Normalise LLM output into the canonical shape
+
             clean = []
             for m in result:
                 if isinstance(m, dict):
@@ -2676,7 +2676,7 @@ Trả về **mảng JSON** sau:
                         "next_steps": m.get("next_steps", []) or [],
                     })
 
-            # Greedy transport schedule (Python, conflict-free)
+
             transport_plan = self._build_transport_schedule(clean)
 
             return {
@@ -2719,7 +2719,7 @@ Trả về **mảng JSON** sau:
         except Exception:
             current = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)
 
-        slot_minutes = 120  # 2 giờ mỗi lần giao nhận
+        slot_minutes = 120
         scheduled_resources = set()
         scheduled_requests = set()
         plan = []
@@ -2728,7 +2728,7 @@ Trả về **mảng JSON** sau:
         for m in matches:
             rid = m.get("resource_id", "")
             reqid = m.get("request_id", "")
-            # Conflict check: skip if this resource OR request is already booked
+
             if rid in scheduled_resources or reqid in scheduled_requests:
                 continue
             scheduled_resources.add(rid)
@@ -2795,13 +2795,13 @@ Trả về **mảng JSON** sau:
         }
 
 
-    # ------------------------------------------------------------------
-    #  Template-based graceful-degradation fallbacks
-    #  Each returns a valid-shaped dict/list so routers and callers still
-    #  get a 200 with degraded content instead of a 503/502 that blocks the
-    #  entire feature when every LLM provider is unreachable (the common case
-    #  on HF Spaces where Cloudflare TLS is blocked and HF returns 401).
-    # ------------------------------------------------------------------
+
+
+
+
+
+
+
 
     def _learning_path_fallback(self, data: "LearningPathRequest", err: str = "") -> dict:
         """Template-based learning path when all LLM providers are down."""
@@ -2852,7 +2852,7 @@ Trả về **mảng JSON** sau:
         if self._resolved_db_path is not None:
             return self._resolved_db_path
         candidates = [self.sqlite_path]
-        # Local dev relative to the ai-service directory
+
         _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         candidates.append(os.path.join(_repo_root, "frontend", "public", "edumap.db"))
         candidates.append(os.path.join(os.path.dirname(_repo_root), "frontend", "public", "edumap.db"))
@@ -2876,7 +2876,7 @@ Trả về **mảng JSON** sau:
         On HF Spaces free plan (no API keys) this is the primary path, not a
         degraded fallback.
         """
-        # Extract user skills from the request
+
         user_skills_raw = []
         if hasattr(data, "skills") and data.skills:
             user_skills_raw = data.skills if isinstance(data.skills, list) else [str(data.skills)]
@@ -2886,7 +2886,7 @@ Trả về **mảng JSON** sau:
             user_skills_raw = data.career_aspirations if isinstance(data.career_aspirations, list) else [str(data.career_aspirations)]
         user_skills_lower = [str(s).lower().strip() for s in user_skills_raw if s]
 
-        # Query real career paths from SQLite
+
         rows = []
         db_path = self._resolve_db_path()
         if db_path:
@@ -2919,7 +2919,7 @@ Trả về **mảng JSON** sau:
                 }
             ]
 
-        # Match user skills against each career's required skills
+
         scored = []
         for row in rows:
             req_skills_raw = []
@@ -2939,7 +2939,7 @@ Trả về **mảng JSON** sau:
                 us in s or s in us for us in user_skills_lower
             )]
 
-            # Build radar chart from keyword categorisation
+
             radar = {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0,
                      "Language": 0, "Creativity": 0}
             tech_kw = ["lập trình", "python", "sql", "git", "cấu trúc dữ liệu", "pytorch", "tensorflow",
@@ -3005,7 +3005,7 @@ Trả về **mảng JSON** sau:
         """
         import sqlite3
 
-        # Extract desired skills/specialties from request
+
         desired = []
         if hasattr(data, "specialties") and data.specialties:
             desired = data.specialties if isinstance(data.specialties, list) else [str(data.specialties)]
@@ -3130,13 +3130,13 @@ Trả về **mảng JSON** sau:
         prompt = f"""
         Bạn là chuyên gia kiểm duyệt nội dung cho nền tảng giáo dục EduMap.
         Hãy phân tích văn bản sau: "{text}"
-        
+
         Các tiêu chí vi phạm:
         1. Ngôn từ thù ghét, thô tục, xúc phạm.
         2. Quảng cáo rác (Spam) không liên quan đến giáo dục.
         3. Các liên kết (links) có dấu hiệu lừa đảm hoặc mã độc.
         4. Nội dung nhạy cảm hoặc không phù hợp với môi trường học đường.
-        
+
         Trả về JSON: {{is_safe: boolean, confidence: float, flags: [string], reason: string}}
         """
         try:
@@ -3152,10 +3152,10 @@ Trả về **mảng JSON** sau:
             return result
         except Exception as e:
             print(f"Error in moderate_text: {e}")
-            # Graceful degradation: all AI providers unavailable. Content was
-            # already pre-filtered by regex Layer 1 (profanity + PII) in the
-            # moderation router, so approve with low confidence instead of
-            # blocking every community post during an AI outage.
+
+
+
+
             return {
                 "is_safe": True,
                 "confidence": 0.3,
@@ -3209,14 +3209,14 @@ Trả về **mảng JSON** sau:
             if not opportunities:
                 return self._empty_match_response(profile)
 
-            # When no LLM provider is configured (HF Spaces free plan), skip
-            # the LLM batch scoring and go straight to the keyword-based
-            # fallback — the backend has already pre-filtered opportunities
-            # from SQLite, so the keyword match operates on real data.
+
+
+
+
             if not self.is_ready:
                 return self._opportunity_match_fallback(profile, opportunities, "No LLM provider")
 
-            # Batch to respect the timeout budget — 8 ops per LLM call.
+
             BATCH = 8
             user_id = _profile_id(profile)
 
@@ -3229,7 +3229,7 @@ Trả về **mảng JSON** sau:
                 batch_matches = await asyncio.to_thread(self._match_batch, profile, batch)
                 all_matches.extend(batch_matches)
 
-            # Defence-in-depth: filter expired + sort by score (desc)
+
             live = [
                 m for m in all_matches
                 if not m.get("deadline") or _safe_date(m["deadline"]) > now_dt
@@ -3456,7 +3456,7 @@ def _safe_date(val: Any):
         return _dt.datetime.combine(val, _dt.time.min)
     try:
         s = str(val)
-        # Normalise ISO-8601 trailing 'Z' and split on timezone offset.
+
         s = s.replace("Z", "+00:00").split("+")[0].split(".")[0] if "T" in s else s
         return _dt.datetime.fromisoformat(s)
     except Exception:

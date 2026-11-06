@@ -64,8 +64,7 @@ export class MapService {
     private readonly cloudflareAI: CloudflareAIService,
   ) {
     this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL') || 'http://127.0.0.1:8000';
-    this.isSqlite = false;
-    this.logger.log(`MapService initialized. isSqlite=${this.isSqlite}, DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
+    this.logger.log(`MapService initialized. DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 
   // ─── In-process TTL cache for resource-optimization (HF Spaces safe) ──────
@@ -392,21 +391,11 @@ export class MapService {
     return result;
   }
 
-  private isSqlite: boolean;
 
   private async fetchMapPoints(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
     const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
 
-    if (this.isSqlite) {
-      // SQLite: use raw SQL for speed (TypeORM query builder + JSON transformer is very slow on SQLite)
-      // Bounds filtering is done in JS after fetch since SQLite has no PostGIS ST_Intersects.
-      const raw = await this.mapPointRepo.query(
-        'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000'
-      );
-      let pois = raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
-      if (bounds) pois = this.filterInBounds(pois, bounds);
-      return pois;
-    }
+    
 
     let query = this.mapPointRepo.createQueryBuilder('map_points');
 
@@ -423,17 +412,7 @@ export class MapService {
   }
 
   private async fetchLocations(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<PointOfInterest[]> {
-    if (this.isSqlite) {
-      // SQLite: use raw SQL (leftJoinAndSelect with JSON columns is extremely slow)
-      // Bounds filtering is done in JS after fetch since SQLite has no PostGIS ST_Intersects.
-      const raw = await this.locationRepo.query(
-        'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
-        'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id LIMIT 5000'
-      );
-      let pois = raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
-      if (bounds) pois = this.filterInBounds(pois, bounds);
-      return pois;
-    }
+    
 
     let query = this.locationRepo.createQueryBuilder('locations')
       .leftJoinAndSelect('locations.category', 'category');
@@ -496,19 +475,7 @@ export class MapService {
   }
 
   private async fetchMapPointsByCategory(typeId: number | undefined, catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
-    if (this.isSqlite) {
-      // SQLite: raw SQL (TypeORM query builder + ST_Intersects doesn't exist on SQLite)
-      const typesMap: { [key: number]: string } = { 1: 'university', 2: 'school', 3: 'library', 4: 'bookstore', 5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant', 10: 'market', 11: 'convenience' };
-      const sql = typeId
-        ? 'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points WHERE type_id = ? LIMIT 5000'
-        : 'SELECT id, name, type_id, location, address, description, rating_avg, rating_count, status, verified FROM map_points LIMIT 5000';
-      const raw = typeId
-        ? await this.mapPointRepo.query(sql, [typeId])
-        : await this.mapPointRepo.query(sql);
-      let pois = raw.map((r: any) => this.mapPointToPoi({ id: r.id, name: r.name, type_id: r.type_id, type: typesMap[r.type_id] || 'other', location: r.location, address: r.address, description: r.description, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, verified: !!r.verified } as any)).filter((p): p is PointOfInterest => p !== null);
-      if (bounds) pois = this.filterInBounds(pois, bounds);
-      return pois;
-    }
+    
 
     let query = this.mapPointRepo.createQueryBuilder('map_points');
     
@@ -535,21 +502,7 @@ export class MapService {
   }
 
   private async fetchLocationsByCategory(catLower: string, bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number }): Promise<PointOfInterest[]> {
-    if (this.isSqlite) {
-      // SQLite: raw SQL with description/category matching (no ST_Intersects)
-      const likeCat = `%${catLower === 'park' ? 'green' : catLower}%`;
-      const likeDesc = `%${catLower}%`;
-      const likeDesc2 = `%${(catLower === 'green' || catLower === 'park') ? 'park' : catLower === 'university' ? 'college' : catLower}%`;
-      const raw = await this.locationRepo.query(
-        'SELECT l.id, l.name, l.category_id, l.coordinates, l.address, l.description, l.rating_avg, l.rating_count, l.status, l.is_verified, c.name as cat_name ' +
-        'FROM locations l LEFT JOIN location_categories c ON l.category_id = c.id ' +
-        'WHERE LOWER(c.name) LIKE ? OR LOWER(l.description) LIKE ? OR LOWER(l.description) LIKE ? LIMIT 5000',
-        [likeCat, likeDesc, likeDesc2]
-      );
-      let pois = raw.map((r: any) => this.locationToPoi({ id: r.id, name: r.name, category: { name: r.cat_name } as any, description: r.description, coordinates: r.coordinates, address: r.address, rating_avg: r.rating_avg, rating_count: r.rating_count, status: r.status, is_verified: !!r.is_verified } as any)).filter((p): p is PointOfInterest => p !== null);
-      if (bounds) pois = this.filterInBounds(pois, bounds);
-      return pois;
-    }
+    
 
     let query = this.locationRepo.createQueryBuilder('locations')
       .leftJoinAndSelect('locations.category', 'category')
@@ -1196,16 +1149,6 @@ export class MapService {
     return result;
   }
 
-  async getFixedLocations(): Promise<PointOfInterest[]> {
-    try {
-      const points = await this.mapPointRepo.find({ where: { is_fixed: true } });
-      return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
-    } catch (error: any) {
-      this.logger.error(`Error getting fixed locations: ${error.message}`);
-      return [];
-    }
-  }
-
   async getPoiDetails(id: string): Promise<{ poi: PointOfInterest | null; nearby: PointOfInterest[] }> {
     let poi: PointOfInterest | null = null;
     const mp = await this.mapPointRepo.findOne({ where: { id } });
@@ -1247,221 +1190,99 @@ export class MapService {
     try {
       const pins: FeaturedPin[] = [];
 
-      if (this.isSqlite) {
-        // --- STEM Labs ---
-        const stemRaw = await this.mapPointRepo.query(
-          'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
-        );
-        for (const r of stemRaw) {
-          const coords = this.parseCoords(r.location_point);
-          if (!coords) continue;
-          const pin: FeaturedPin = {
-            id: `stem-${r.id}`,
-            name: r.name,
-            category: 'stem',
-            lat: coords[1],
-            lng: coords[0],
-            description: r.description || '',
-            address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.stem,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // --- Green Challenges ---
-        const greenRaw = await this.mapPointRepo.query(
-          'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
-        );
-        for (const r of greenRaw) {
-          const lat = Number(r.lat);
-          const lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          const pin: FeaturedPin = {
-            id: `green-${r.id}`,
-            name: r.name,
-            category: 'green',
-            lat,
-            lng,
-            description: r.description || '',
-            address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.green,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // --- Summer Campaigns ---
-        const summerRaw = await this.mapPointRepo.query(
-          'SELECT id, name, description, location as address, lat, lng, status FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
-        );
-        for (const r of summerRaw) {
-          const lat = Number(r.lat);
-          const lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          const pin: FeaturedPin = {
-            id: `summer-${r.id}`,
-            name: r.name,
-            category: 'summer',
-            lat,
-            lng,
-            description: r.description || '',
-            address: r.address || r.name,
-            featureLink: FEATURE_LINK_MAP.summer,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // --- Wifi (from locations table, same source as /wifi page) ---
-        const wifiRaw = await this.locationRepo.query(
-          'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
-        );
-        for (const r of wifiRaw) {
-          const coords = this.parseCoords(r.coordinates);
-          if (!coords) continue;
-          const pin: FeaturedPin = {
-            id: `wifi-${r.id}`,
-            name: r.name,
-            category: 'wifi',
-            lat: coords[1],
-            lng: coords[0],
-            description: r.description || '',
-            address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.wifi,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // --- Donation Campaigns (Quyên góp) ---
-        const donateRaw = await this.mapPointRepo.query(
-          'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
-        );
-        for (const r of donateRaw) {
-          const coords = this.parseCoords(r.location_point);
-          if (!coords) continue;
-          const pin: FeaturedPin = {
-            id: `donate-${r.id}`,
-            name: r.name,
-            category: 'donate',
-            lat: coords[1],
-            lng: coords[0],
-            description: r.description || '',
-            address: '',
-            featureLink: FEATURE_LINK_MAP.donate,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // --- Marketplace (Shared Items / Chợ trao đổi) ---
-        const marketRaw = await this.mapPointRepo.query(
-          'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
-        );
-        for (const r of marketRaw) {
-          const lat = Number(r.lat);
-          const lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
-          const pin: FeaturedPin = {
-            id: `market-${r.id}`,
-            name: r.name,
-            category: 'market',
-            lat,
-            lng,
-            description: desc,
-            address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.market,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-      } else {
-        // --- Postgres mode ---
-        // Stem labs
-        const stemLabs = await this.mapPointRepo.query(
-          'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
-        );
-        for (const r of stemLabs) {
-          const coords = this.parseCoords(r.location_point);
-          if (!coords) continue;
-          const pin: FeaturedPin = {
-            id: `stem-${r.id}`, name: r.name, category: 'stem',
-            lat: coords[1], lng: coords[0],
-            description: r.description || '', address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.stem,
-          };
-          if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
-        }
-
-        // Green challenges
-        const greenLabs = await this.mapPointRepo.query(
-          'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
-        );
-        for (const r of greenLabs) {
-          const lat = Number(r.lat), lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          pins.push({
-            id: `green-${r.id}`, name: r.name, category: 'green',
-            lat, lng, description: r.description || '', address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.green,
-          });
-        }
-
-        // Summer campaigns
-        const summerLabs = await this.mapPointRepo.query(
-          'SELECT id, name, description, location as address, lat, lng FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
-        );
-        for (const r of summerLabs) {
-          const lat = Number(r.lat), lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          pins.push({
-            id: `summer-${r.id}`, name: r.name, category: 'summer',
-            lat, lng, description: r.description || '', address: r.address || r.name,
-            featureLink: FEATURE_LINK_MAP.summer,
-          });
-        }
-
-        // Wifi
-        const wifiLabs = await this.locationRepo.query(
-          'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
-        );
-        for (const r of wifiLabs) {
-          const coords = this.parseCoords(r.coordinates);
-          if (!coords) continue;
-          pins.push({
-            id: `wifi-${r.id}`, name: r.name, category: 'wifi',
-            lat: coords[1], lng: coords[0],
-            description: r.description || '', address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.wifi,
-          });
-        }
-
-        // Donation campaigns
-        const donateLabs = await this.mapPointRepo.query(
-          'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
-        );
-        for (const r of donateLabs) {
-          const coords = this.parseCoords(r.location_point);
-          if (!coords) continue;
-          pins.push({
-            id: `donate-${r.id}`, name: r.name, category: 'donate',
-            lat: coords[1], lng: coords[0],
-            description: r.description || '', address: '',
-            featureLink: FEATURE_LINK_MAP.donate,
-          });
-        }
-
-        // Marketplace (shared items)
-        const marketLabs = await this.mapPointRepo.query(
-          'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
-        );
-        for (const r of marketLabs) {
-          const lat = Number(r.lat), lng = Number(r.lng);
-          if (!this.isValidLatLng(lat, lng)) continue;
-          const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
-          pins.push({
-            id: `market-${r.id}`, name: r.name, category: 'market',
-            lat, lng, description: desc, address: r.address || '',
-            featureLink: FEATURE_LINK_MAP.market,
-          });
-        }
+      
+      // --- Postgres mode ---
+      // Stem labs
+      const stemLabs = await this.mapPointRepo.query(
+        'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
+      );
+      for (const r of stemLabs) {
+        const coords = this.parseCoords(r.location_point);
+        if (!coords) continue;
+        const pin: FeaturedPin = {
+          id: `stem-${r.id}`, name: r.name, category: 'stem',
+          lat: coords[1], lng: coords[0],
+          description: r.description || '', address: r.address || '',
+          featureLink: FEATURE_LINK_MAP.stem,
+        };
+        if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
       }
+
+      // Green challenges
+      const greenLabs = await this.mapPointRepo.query(
+        'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
+      );
+      for (const r of greenLabs) {
+        const lat = Number(r.lat), lng = Number(r.lng);
+        if (!this.isValidLatLng(lat, lng)) continue;
+        pins.push({
+          id: `green-${r.id}`, name: r.name, category: 'green',
+          lat, lng, description: r.description || '', address: r.address || '',
+          featureLink: FEATURE_LINK_MAP.green,
+        });
+      }
+
+      // Summer campaigns
+      const summerLabs = await this.mapPointRepo.query(
+        'SELECT id, name, description, location as address, lat, lng FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
+      );
+      for (const r of summerLabs) {
+        const lat = Number(r.lat), lng = Number(r.lng);
+        if (!this.isValidLatLng(lat, lng)) continue;
+        pins.push({
+          id: `summer-${r.id}`, name: r.name, category: 'summer',
+          lat, lng, description: r.description || '', address: r.address || r.name,
+          featureLink: FEATURE_LINK_MAP.summer,
+        });
+      }
+
+      // Wifi
+      const wifiLabs = await this.locationRepo.query(
+        'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
+      );
+      for (const r of wifiLabs) {
+        const coords = this.parseCoords(r.coordinates);
+        if (!coords) continue;
+        pins.push({
+          id: `wifi-${r.id}`, name: r.name, category: 'wifi',
+          lat: coords[1], lng: coords[0],
+          description: r.description || '', address: r.address || '',
+          featureLink: FEATURE_LINK_MAP.wifi,
+        });
+      }
+
+      // Donation campaigns
+      const donateLabs = await this.mapPointRepo.query(
+        'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
+      );
+      for (const r of donateLabs) {
+        const coords = this.parseCoords(r.location_point);
+        if (!coords) continue;
+        pins.push({
+          id: `donate-${r.id}`, name: r.name, category: 'donate',
+          lat: coords[1], lng: coords[0],
+          description: r.description || '', address: '',
+          featureLink: FEATURE_LINK_MAP.donate,
+        });
+      }
+
+      // Marketplace (shared items)
+      const marketLabs = await this.mapPointRepo.query(
+        'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
+      );
+      for (const r of marketLabs) {
+        const lat = Number(r.lat), lng = Number(r.lng);
+        if (!this.isValidLatLng(lat, lng)) continue;
+        const desc = r.category ? `${r.category} · ${r.description || ''}` : r.description || '';
+        pins.push({
+          id: `market-${r.id}`, name: r.name, category: 'market',
+          lat, lng, description: desc, address: r.address || '',
+          featureLink: FEATURE_LINK_MAP.market,
+        });
+      }
+    
+
+
 
       return pins;
     } catch (error: any) {

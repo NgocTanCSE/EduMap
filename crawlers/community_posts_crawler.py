@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Community posts crawler -> `posts` table (tag='community').
 
@@ -31,27 +30,22 @@ from crawl_scope import crawl_years, LOCATION_LAYERS
 from tavily_client import TavilyClient, tavily_search_and_extract
 from tavily_parse import clean_text, parse_tavily_posts
 
-# --- Source: Tavily Vietnamese community/education content ---
 _TAVILY_COMMUNITY_QUERIES = [
-    # Đồng Nai
     "tin tức giáo dục Đồng Nai 2025",
     "cộng đồng sinh viên Bình Dương",
-    # miền Nam
     "cộng đồng developer TP Hồ Chí Minh",
     "cộng đồng giáo dục miền Nam",
-    # Việt Nam
     "cộng đồng sinh viên Việt Nam 2025",
     "tin tức giáo dục Việt Nam",
     "cộng đồng lập trình viên Việt Nam",
     "diễn đàn giáo dục 2025",
-    # keyword-focussed
     "ứng dụng giáo dục công nghệ thông minh",
     "innovation community Việt Nam",
     "startup ecosystem giáo dục",
     "hội thảo học thuật Việt Nam",
 ]
 
-TARGET = 150  # soft cap
+TARGET = 150  
 
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
@@ -86,7 +80,6 @@ def crawl():
                 extract_depth="basic",
             )
             print(f"  [community] [tavily] '{q[:50]}...' → {len(results)} results")
-            # Use parse_tavily_posts with source_name="tavily_community".
             parsed = parse_tavily_posts(results, post_tag="community", source_name="tavily_community")
             for post in parsed:
                 key = (post["title"], post["source"])

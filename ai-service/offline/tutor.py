@@ -1,5 +1,5 @@
 """
-Edge AI Tutor — offline-first LLM tutor (Idea #7).
+Edge AI Tutor — offline-first LLM tutor (Idea
 
 The bundled TinyLlama 1.1B local model was **removed** (2026-10-30): loading it
 needed ~1.5 GB RAM and produced ~2-5 tokens/s on the 2-vCPU HF free tier, i.e.
@@ -39,22 +39,22 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# ── Configuration (env-tunable, AGENTS.md compliant) ───────────────────────
+
 OFFLINE_MAX_TOKENS = int(os.getenv("OFFLINE_MAX_TOKENS", "256"))
 OFFLINE_TEMPERATURE = float(os.getenv("OFFLINE_TEMPERATURE", "0.7"))
 OFFLINE_TOP_P = float(os.getenv("OFFLINE_TOP_P", "0.9"))
-OFFLINE_CACHE_TTL = int(os.getenv("OFFLINE_CACHE_TTL", "3600"))  # 1 hour (s)
+OFFLINE_CACHE_TTL = int(os.getenv("OFFLINE_CACHE_TTL", "3600"))
 OFFLINE_CACHE_MAX = int(os.getenv("OFFLINE_CACHE_MAX", "128"))
-# Set OFFLINE_TUTOR_USE_LLM=false to force the template-only path (the tutor
-# then answers instantly without any network call, e.g. for offline demos).
+
+
 OFFLINE_TUTOR_USE_LLM = (
     os.getenv("OFFLINE_TUTOR_USE_LLM", "true").lower() != "false"
 )
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# Template-based fallback content (Vietnamese educational content)
-# ───────────────────────────────────────────────────────────────────────────
+
+
+
 
 _TEMPLATE_EXPLANATIONS: Dict[str, str] = {
     "đạo hàm": (
@@ -90,7 +90,7 @@ def _template_explain(topic: str, material_context: Optional[str]) -> str:
     if key in _TEMPLATE_EXPLANATIONS:
         base = _TEMPLATE_EXPLANATIONS[key]
     else:
-        # Generic explanation template
+
         base = (
             f"**{topic}** là một khái niệm quan trọng trong chương trình học.\n\n"
             f"Để hiểu rõ hơn, học sinh cần nắm vững các khái niệm cơ bản "
@@ -138,9 +138,9 @@ def _template_suggest(next_step: str, topic: str = "") -> Dict[str, Any]:
     }
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# Prompt templates for the tutor LLM
-# ───────────────────────────────────────────────────────────────────────────
+
+
+
 
 _SYSTEM_PROMPT = (
     "Bạn là 'Trợ lý học tập' của EduMap DNTU. Bạn giúp học sinh giải thích "
@@ -149,9 +149,9 @@ _SYSTEM_PROMPT = (
 )
 
 
-# ───────────────────────────────────────────────────────────────────────────
-# OfflineTutor — main class
-# ───────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class OfflineTutor:
@@ -168,10 +168,10 @@ class OfflineTutor:
     _instance_lock = threading.Lock()
 
     def __init__(self) -> None:
-        self._cache: Dict[str, Tuple[str, float]] = {}  # key → (result_json, expiry_ts)
+        self._cache: Dict[str, Tuple[str, float]] = {}
         self._cache_lock = threading.Lock()
 
-    # ── Singleton accessor ──────────────────────────────────────────────
+
 
     @classmethod
     def get_instance(cls) -> "OfflineTutor":
@@ -182,7 +182,7 @@ class OfflineTutor:
                     cls._instance = cls()
         return cls._instance
 
-    # ── Generation ──────────────────────────────────────────────────────
+
 
     def _llm_ready(self) -> bool:
         """True when at least one remote text provider is configured."""
@@ -192,7 +192,7 @@ class OfflineTutor:
             from services.llm_service import llm_service as _llm
 
             return bool(getattr(_llm, "is_ready", False))
-        except Exception:  # pragma: no cover — llm_service import is defensive
+        except Exception:
             return False
 
     def _provider_name(self) -> Optional[str]:
@@ -234,12 +234,12 @@ class OfflineTutor:
                 max_tokens=max_tokens or OFFLINE_MAX_TOKENS,
                 top_p=OFFLINE_TOP_P,
             ) or ""
-            # The app renders plain text everywhere (EduMap has no markdown
-            # renderer), so flatten any markers the LLM emitted. The same
-            # helper is exposed to the frontend as a client-side safety net.
+
+
+
             try:
                 from services.llm_service import _strip_markdown as _strip
-            except Exception:  # pragma: no cover
+            except Exception:
                 def _strip(x: str) -> str:
                     return x
             return _strip(text)
@@ -247,7 +247,7 @@ class OfflineTutor:
             logger.warning(f"[OfflineTutor] LLM generation failed: {e}")
             return ""
 
-    # ── Cache helpers ──────────────────────────────────────────────────
+
 
     def _cache_key(self, parts: List[str]) -> str:
         return hashlib.md5("|".join(parts).encode("utf-8")).hexdigest()
@@ -265,13 +265,13 @@ class OfflineTutor:
 
     def _cache_set(self, key: str, value: str) -> None:
         with self._cache_lock:
-            # Evict oldest entries if cache is full
+
             if len(self._cache) >= OFFLINE_CACHE_MAX:
                 oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
                 del self._cache[oldest_key]
             self._cache[key] = (value, time.time() + OFFLINE_CACHE_TTL)
 
-    # ── Public API ─────────────────────────────────────────────────────
+
 
     def explain(
         self, topic: str, material_context: Optional[str] = None
@@ -301,12 +301,12 @@ class OfflineTutor:
         source = "model"
 
         if not text:
-            # Template fallback
+
             text = _template_explain(topic, material_context)
             degraded = True
             source = "template"
 
-        # Add a footer if using fallback
+
         if degraded:
             text += (
                 "\n\nLưu ý: Trả lời này được tạo từ mẫu có sẵn của EduMap vì "
@@ -341,7 +341,7 @@ class OfflineTutor:
             {"questions": [{"question", "answer", "difficulty"}],
              "degraded": bool, "source": str, "model_used": str}
         """
-        num_questions = max(1, min(num_questions, 5))  # safety clamp
+        num_questions = max(1, min(num_questions, 5))
 
         cache_parts = ["practice", topic or "", difficulty, str(num_questions)]
         cache_key = self._cache_key(cache_parts)
@@ -374,7 +374,7 @@ class OfflineTutor:
                                 }
                             )
             except (json.JSONDecodeError, TypeError):
-                pass  # fall through to template
+                pass
 
         if not questions:
             degraded = True
@@ -407,7 +407,7 @@ class OfflineTutor:
             {"next_step": str, "resources": list, "estimated_time": str,
              "difficulty": str, "degraded": bool, ...}
         """
-        # Build cache key from normalised JSON
+
         try:
             prog_json = json.dumps(user_progression, sort_keys=True, ensure_ascii=False)
         except (TypeError, ValueError):
@@ -440,7 +440,7 @@ class OfflineTutor:
 
         if not text:
             degraded = True
-            # Template suggestion
+
             focus = weak[0] if weak else (topics[-1] if topics else "chương tiếp theo")
             text = _template_suggest(
                 f"Hãy ôn tập lại {focus} và chuẩn bị cho bài tiếp theo", focus
@@ -470,7 +470,7 @@ class OfflineTutor:
         self._cache_set(cache_key, json.dumps(result, ensure_ascii=False))
         return result
 
-    # ── Diagnostics ────────────────────────────────────────────────────
+
 
     def status(self) -> Dict[str, Any]:
         """Return the current status of the offline tutor (for health checks).
@@ -494,8 +494,8 @@ class OfflineTutor:
         }
 
 
-# ── Module-level singleton ─────────────────────────────────────────────────
-tutor_singleton = OfflineTutor() if False else None  # lazy — created on demand
+
+tutor_singleton = OfflineTutor() if False else None
 
 
 def get_tutor() -> OfflineTutor:

@@ -7,12 +7,7 @@ import type { ScreenProps } from '../navigation/types';
 
 type Props = ScreenProps<'UploadFile'>;
 
-/**
- * File upload entry point.
- * NOTE: A real device picker (expo-document-picker) is not installed in this env,
- * so we accept a file URL + metadata. Hook up expo-document-picker on device to
- * supply a local `uri` from `DocumentPicker.getDocumentAsync()`.
- */
+
 export const UploadFileScreen: React.FC<Props> = () => {
   const [uri, setUri] = useState('');
   const [name, setName] = useState('');

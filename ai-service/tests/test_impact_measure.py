@@ -16,18 +16,18 @@ import os
 import sys
 from unittest.mock import patch
 
-# Make ai-service importable.
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode against the real seeded DB (no PostgreSQL needed).
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_SQLITE_PATH"] = os.path.abspath(
     os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 )
-# No real LLM providers in this environment → narrative falls back to template.
+
 os.environ["OWM_API_KEY"] = ""
 
 import pytest
@@ -45,7 +45,7 @@ from services.impact_measure import (
 from models.impact_measure_models import ImpactMeasureRequest, ImpactMeasureResponse
 
 
-# ── Geometry / weights ──────────────────────────────────────────────────────
+
 
 def test_weights_sum_to_one():
     total = W_COVERAGE + W_ACCESS + W_USAGE
@@ -59,7 +59,7 @@ def test_synthetic_before_access_rate_is_0_7():
 def test_wilson_interval_bounds():
     lo, hi = _wilson_interval(85, 100)
     assert 0.0 <= lo <= hi <= 1.0
-    assert lo > 0.7  # 85 % success → lower bound still high
+    assert lo > 0.7
 
 
 def test_wilson_interval_zero_total():
@@ -83,7 +83,7 @@ def test_is_informative_narrative_accepts_real():
     assert _is_informative_narrative(text) is True
 
 
-# ── Full report against the real seeded DB ───────────────────────────────────
+
 
 def _measure():
     req = ImpactMeasureRequest(
@@ -95,7 +95,7 @@ def _measure():
 
 def test_measure_returns_valid_response():
     result = _measure()
-    # Round-trips through the pydantic response model (shape contract).
+
     ImpactMeasureResponse(**result)
     assert result["region"] == "Biên Hòa, Đồng Nai"
     assert isinstance(result["bbox"], list) and len(result["bbox"]) == 4
@@ -121,7 +121,7 @@ def test_before_after_self_consistent():
     assert b["access_rate"] >= 0.0
     assert a["access_rate"] >= 0.0
     assert a["facility_count"] >= 0
-    # After cohort is non-empty on the real DB.
+
     assert a["facility_count"] > 0
 
 
@@ -129,7 +129,7 @@ def test_synthetic_baseline_flag():
     """No real 'before' data on the seeded DB → synthetic baseline flagged."""
     result = _measure()
     assert result["before"]["synthetic_baseline"] is True
-    assert result["degraded"] is True  # synthetic baseline → degraded
+    assert result["degraded"] is True
     assert result["confidence_interval"]["method"] == "wilson_score+synthetic_baseline_widen"
 
 
@@ -137,7 +137,7 @@ def test_causal_notes_present():
     result = _measure()
     notes = result["causal_notes"]
     assert isinstance(notes, list) and len(notes) >= 2
-    # Every note is a non-empty Vietnamese string.
+
     assert all(isinstance(n, str) and len(n) > 10 for n in notes)
 
 
@@ -145,7 +145,7 @@ def test_people_in_radius():
     result = _measure()
     people = result["people_in_radius"]
     assert people["before"] > 0
-    assert people["after"] >= people["before"]  # after >= before on the tight bbox
+    assert people["after"] >= people["before"]
     assert people["radius_km"] == 5.0
 
 
@@ -174,16 +174,16 @@ def test_cache_returns_same_result():
     assert r2["metadata"].get("cached") is True
 
 
-# ── Graceful degradation: far from any facility ─────────────────────────────
+
 
 def test_degraded_region_returns_valid_report():
     """A region with no facilities must still return a valid-shaped report."""
     req = ImpactMeasureRequest(
-        min_lat=12.0, max_lat=12.1, min_lng=109.0, max_lng=109.1,  # South China Sea
+        min_lat=12.0, max_lat=12.1, min_lng=109.0, max_lng=109.1,
         deployment_date="2025-01-01", region="Vùng biển",
     )
     result = impact_measure.measure(req)
-    ImpactMeasureResponse(**result)  # shape contract
+    ImpactMeasureResponse(**result)
     assert result["degraded"] is True
     assert result["before"]["synthetic_baseline"] is True
 

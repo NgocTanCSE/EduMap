@@ -1,9 +1,9 @@
 import os
 print("AI SERVICE STARTING")
 
-# HF Spaces may resolve IPv6 first on a network without a working IPv6 route,
-# which makes TLS handshakes to Cloudflare/HF hang until timeout. Force IPv4
-# before any service (and therefore any HTTP client) is imported.
+
+
+
 try:
     from services.net import force_ipv4
     force_ipv4()
@@ -28,7 +28,7 @@ try:
 except Exception as e:
     print(f"3. fastapi FAIL: {e}")
 
-# Import services
+
 try:
     from services.llm_service import llm_service
     print(f"4. llm_service OK, is_ready={llm_service.is_ready}")
@@ -43,7 +43,7 @@ except Exception as e:
     print(f"5. db_service FAIL: {e}")
     db_service = None
 
-# Create FastAPI app
+
 try:
     app = FastAPI(title="EduMap AI Service")
     print("FastAPI app created")
@@ -51,17 +51,17 @@ except Exception as e:
     print(f"FastAPI app FAIL: {e}")
     raise
 
-# Import and include routers with robust error handling
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'data_hunter', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'question_gaps', 'resource_exchange', 'survey', 'system', 'auto']
+
+router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'resource_exchange', 'survey', 'system', 'auto', 'route']
 
 for name in router_names:
     try:
         module = __import__(f'routers.{name}', fromlist=['router'])
         r = getattr(module, 'router', None)
         if r is not None:
-            # Every router declares its own full path prefix (e.g.
-            # "/api/ai/chat", "/api/ai/survey"). Mount them uniformly so the
-            # route table is identical no matter which main.py revision runs.
+
+
+
             app.include_router(r)
             print(f"Router routers.{name} included successfully")
         else:
@@ -69,11 +69,11 @@ for name in router_names:
     except Exception as e:
         print(f"Router routers.{name} include FAIL: {e}")
 
-# Startup diagnostics: make a missing chat route obvious in the HF logs.
-# NOTE: include_router() registers lazy `_IncludedRouter` proxies, so
-# `app.routes` does not expose the resolved paths even after startup (it made
-# this diagnostic print a false "not registered" warning). The OpenAPI schema
-# resolves the proxies, so it is the reliable source for the real route table.
+
+
+
+
+
 @app.on_event("startup")
 def _log_registered_routes():
     try:
@@ -83,27 +83,27 @@ def _log_registered_routes():
         if "/api/ai/chat/stream" not in paths:
             print("WARNING: /api/ai/chat/stream is NOT registered — chat will 404!")
         print(f"TOTAL API ROUTES REGISTERED: {len(paths)}")
-    except Exception as _diag_err:  # pragma: no cover - diagnostics only
+    except Exception as _diag_err:
         print(f"Route diagnostics failed (non-fatal): {_diag_err}")
 
 
-# ── Startup hook: auto-seed ChromaDB ─────────────────────────────────────────
-# HF Spaces uses an ephemeral ChromaDB (CHROMA_DB_PATH=/tmp/chroma_db) that is
-# wiped on every Space restart. Without auto-seeding the vector DB is empty on
-# first boot until a manual POST /api/ai/sync-knowledge or a library/career/
-# scholarship create event fires. This startup hook calls seed_data() in a
-# daemon thread so uvicorn can begin serving immediately while seeding proceeds
-# in parallel — if a request arrives before seeding completes, RAG degrades
-# gracefully (returns empty results instead of crashing).
+
+
+
+
+
+
+
+
 @app.on_event("startup")
 def _startup_seed_vector_db():
     """Seed the vector DB (ChromaDB) at application startup."""
     import threading
 
     def _seed():
-        # Memory guard: if RAM is tight, skip seeding to avoid OOM.
-        # RAG will degrade gracefully (LLM-only answers) until the first
-        # request triggers lazy seeding or the auto-scheduler re-seeds.
+
+
+
         from utils.memory_guard import check_oom
         oom = check_oom()
         if not oom["safe_to_load_models"]:
@@ -126,21 +126,21 @@ def _startup_seed_vector_db():
                 f"status={result.get('status', '?')} ==="
             )
         except Exception as e:
-            # Non-fatal: a seeding failure must NOT prevent the AI service
-            # from starting. RAG will degrade gracefully on an empty vector DB.
+
+
             print(f"Startup: seed_data() failed (non-fatal): {e}")
 
     threading.Thread(target=_seed, daemon=True).start()
 
 
-# ── Startup hook: staggered local model loading (OOM prevention) ─────────────
-# All local models use lazy loading (loaded on first request), but we also kick
-# off a staggered warmup here so the FIRST user request doesn't pay the full
-# cold-start penalty. Models are pre-loaded in sequence with delays to avoid
-# RAM spikes that could OOM the 16GB HF Spaces free container.
-# Order: embeddings → reranker → vision → LLM (each ~15s apart).
-# TinyLlama was removed on 2026-10-30 — the Edge AI Tutor now uses the
-# DeepSeek/Gemini/Cloudflare cascade, so there is no second local LLM.
+
+
+
+
+
+
+
+
 @app.on_event("startup")
 def _startup_stagger_local_models():
     """Staggered pre-load of local models to smooth the RAM curve on startup.
@@ -154,9 +154,9 @@ def _startup_stagger_local_models():
     import time
     import os
 
-    # Configurable stagger delay (default 30s, was 15s). Can be tuned via
-    # HF Space variable MODEL_LOAD_STAGGER_SECONDS if cold starts need more
-    # breathing room.
+
+
+
     stagger_seconds = int(os.getenv("MODEL_LOAD_STAGGER_SECONDS", "30"))
 
     model_load_order = [
@@ -170,13 +170,13 @@ def _startup_stagger_local_models():
         from utils.memory_guard import check_oom
 
         for name, module_name in model_load_order:
-            # Stagger: wait between model loads to let RAM settle
+
             time.sleep(stagger_seconds)
 
-            # Pre-flight RAM check: skip this model if memory is too tight.
-            # This prevents a model load from tipping the container over the
-            # 16GB limit when other processes (Next.js, NestJS, OSRM) are
-            # already running.
+
+
+
+
             oom = check_oom()
             if not oom["safe_to_load_models"]:
                 print(
@@ -197,7 +197,7 @@ def _startup_stagger_local_models():
                     ok = vector_store._warmup_local_reranker()
                     print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load skipped (see warnings above)'}")
                 elif name == "vision":
-                    # Respect LOCAL_VISION_ENABLED env var
+
                     if os.getenv("LOCAL_VISION_ENABLED", "false").lower() != "true":
                         print(f"[staggered-warmup] {name} SKIPPED — LOCAL_VISION_ENABLED=false")
                         continue
@@ -205,7 +205,7 @@ def _startup_stagger_local_models():
                     ok = _load_local_vision_model()
                     print(f"[staggered-warmup] {name} {'pre-loaded OK' if ok else 'pre-load FAILED — GeoVision will use HF Inference API / template fallback'}")
                 elif name == "llm":
-                    # Respect LOCAL_LLM_ENABLED env var (already false in Dockerfile)
+
                     if os.getenv("LOCAL_LLM_ENABLED", "false").lower() != "true":
                         print(f"[staggered-warmup] {name} SKIPPED — LOCAL_LLM_ENABLED=false")
                         continue
@@ -216,39 +216,39 @@ def _startup_stagger_local_models():
                     else:
                         print(f"[staggered-warmup] {name} pre-load FAILED — using Cloudflare/Gemini/template fallback chain")
             except Exception as e:
-                # Non-fatal: lazy-load will retry on first request
+
                 print(f"[staggered-warmup] {name} pre-load failed (non-fatal): {type(e).__name__}: {e}")
-                # Continue to next model — one model's failure doesn't block others
+
 
     threading.Thread(target=_warmup, daemon=True).start()
 
 
-# ── Startup hook: auto-seed Knowledge Graph ────────────────────────────────
-# HF Spaces runs everything in one container; the SQLite DB at
-# DB_SQLITE_PATH is pre-built at deploy time but may be updated by the
-# hourly crawler job. The knowledge graph (Idea #8) is a derived SQLite
-# adjacency list (kg_nodes / kg_edges) built FROM those content tables, so it
-# must be (re)seeded at startup and refreshed hourly.
-#
-# This startup hook seeds the graph in a daemon thread (non-blocking) so
-# uvicorn can begin serving immediately while seeding proceeds. Requests that
-# arrive before seeding completes get whatever nodes exist (possibly 0 →
-# frontend shows an empty state, which is the honest default per AGENTS.md).
-#
-# A repeating background thread then re-seeds every 60 minutes (hourly sync
-# per T3) so the graph stays in sync with crawled data. In SQLite/HF mode
-# ScheduleModule is disabled, so the loop lives here instead of in NestJS.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.on_event("startup")
 def _startup_seed_knowledge_graph():
     """Seed the AI Knowledge Graph at startup + start hourly refresh thread."""
     import threading
     import time as _time
 
-    # Sync interval (env-tunable; default 3600s = 1 hour per T3 spec).
+
     sync_interval = int(os.getenv("KNOWLEDGE_GRAPH_SYNC_INTERVAL", "3600"))
 
     def _seed_once():
-        # Memory guard: skip if RAM is tight
+
         from utils.memory_guard import check_oom
         oom = check_oom()
         if not oom["safe_to_load_models"]:
@@ -278,35 +278,35 @@ def _startup_seed_knowledge_graph():
     threading.Thread(target=_loop, daemon=True).start()
 
 
-# ── Startup hook: AI Auto-Scheduler ──────────────────────────────────────────
-# On HF Spaces (SQLite mode, ScheduleModule disabled), there is no NestJS Cron
-# to drive background AI work. This hook starts a single daemon thread that
-# runs the AutoScheduler loop, which periodically (env-tunable intervals):
-#   • Re-seeds ChromaDB (6h) so vector DB stays fresh
-#   • Pre-computes Question Gap Reports (6h)
-#   • Pre-runs Resource Exchange matching (6h)
-#   • Pre-runs ImpactMatch ranking (12h)
-#   • Pre-computes Impact Measurement for key regions (24h)
-#   • Pre-computes Climate Risk heatmaps for key regions (12h)
-#   • Pre-generates Daily Insights (24h)
-#
-# Results are stored in the shared AutoCache (in-process TTL, 24h default).
-# GET endpoints under /api/ai/auto/* serve these cached results instantly —
-# no user button click needed. If a cache miss occurs on first request,
-# the GET handler triggers a non-blocking background refresh and returns
-# HTTP 202 with an empty payload (frontend shows empty state).
-#
-# Each task runs in its own thread so a single slow/failed task (e.g. LLM
-# timeout on DeepSeek) never blocks the scheduler or other tasks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.on_event("startup")
 def _startup_auto_scheduler():
     """Start the AI Auto-Scheduler daemon thread."""
     import threading
 
     def _run():
-        # Memory guard: if RAM is tight at startup, delay scheduler start
-        # until first auto-scheduler API call triggers it. This avoids
-        # running heavy pre-computation tasks during the initial RAM spike.
+
+
+
         from utils.memory_guard import check_oom
         oom = check_oom()
         if not oom["safe_to_load_models"]:
@@ -324,17 +324,17 @@ def _startup_auto_scheduler():
         try:
             from services.auto_scheduler import auto_scheduler
             print("[auto-scheduler] Starting daemon loop (staggered initial run)...")
-            # The run_loop method handles staggered initial run + periodic checks.
-            # It blocks (runs forever in this daemon thread).
+
+
             auto_scheduler.run_loop()
         except Exception as e:
-            # Non-fatal: scheduler failure must NOT crash the AI service
+
             print(f"[auto-scheduler] Scheduler loop failed (non-fatal): {type(e).__name__}: {e}")
 
     threading.Thread(target=_run, daemon=True).start()
 
 
-# Endpoints
+
 @app.get("/api/ai/trends")
 async def get_trends():
     if not llm_service:
@@ -388,10 +388,10 @@ async def sync_knowledge(background_tasks: BackgroundTasks, background: bool = F
         raise HTTPException(status_code=502, detail=f"Lỗi khi đồng bộ tri thức: {str(e)}")
 
 
-# ─── Incremental Embed endpoints (auto-embed on new books / locations) ───────
-# These mirror the endpoints in routers/library.py but are registered at the
-# top-level /api/ai/ prefix so the backend (ai.service.ts, map.service.ts)
-# can call POST /api/ai/embed directly. See library.py for background docs.
+
+
+
+
 @app.post("/api/ai/embed")
 async def incremental_embed(req_body: dict):
     """Incrementally embed a SINGLE new document (book / location) into the

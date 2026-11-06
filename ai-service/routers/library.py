@@ -25,10 +25,10 @@ async def summarize_material(data: MaterialSummaryRequest):
     try:
         analysis = await llm_service.summarize_material(data)
         if analysis:
-            # Pass through degraded status if present
+
             degraded = analysis.pop("_degraded", False) if isinstance(analysis, dict) else False
             reason = analysis.pop("_reason", None) if isinstance(analysis, dict) else None
-            # Re-wrap in the Pydantic model for clean output
+
             key_concepts = analysis.get("key_concepts", [])
             if key_concepts and not isinstance(key_concepts[0], dict):
                 key_concepts = [{"concept": str(k), "explanation": ""} for k in key_concepts]
@@ -47,11 +47,11 @@ async def summarize_material(data: MaterialSummaryRequest):
         raise HTTPException(status_code=502, detail=f"Lỗi tóm tắt tài liệu: {str(e)}")
 
 
-# ─── Incremental Embed endpoints (auto-embed on new books / locations) ───────
-# Called by the NestJS backend when a new learning material or map POI is
-# created. Replaces the previous full re-sync (POST /api/ai/sync-knowledge)
-# so only the single new document is embedded — keeping latency low and
-# avoiding re-embedding the entire knowledge base.
+
+
+
+
+
 
 class EmbedRequest(BaseModel):
     text: str = Field(..., description="Document text to embed")

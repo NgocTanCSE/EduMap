@@ -67,14 +67,14 @@ def test_collection_init_can_be_retried_after_failure(monkeypatch):
     assert flaky.calls == 1
     assert svc.collection is None, "first attempt is expected to fail"
 
-    # Cooldown is respected — a burst of queries must not hammer ChromaDB.
+
     monkeypatch.setattr(vs_module.time, "monotonic", lambda: 0.0)
     svc._collection_next_retry = 10.0
 
     assert svc._ensure_collection() is False
     assert flaky.calls == 1
 
-    # After the cooldown the retry succeeds and RAG works again.
+
     svc._collection_next_retry = 0.0
     assert svc._ensure_collection() is True
     assert flaky.calls == 2

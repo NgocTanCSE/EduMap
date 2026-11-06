@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 tavily_client.py — Tavily AI search/extract HTTP client for EduMap crawlers.
 
@@ -37,7 +35,7 @@ Design rules
 
 API surface
 -----------
-    client = TavilyClient()          # reads TAVILY_API_KEY from env
+    client = TavilyClient()
     client.is_configured()           -> bool   (key present)
     client.search(query, ...)        -> list[dict]  (search result dicts)
     client.extract(urls, ...)        -> list[dict]  (extracted content dicts)
@@ -55,20 +53,16 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode
 
-# Tavily REST endpoints (single HTTPS host — reachable from HF Spaces).
 TAVILY_BASE = "https://api.tavily.com"
 SEARCH_URL = f"{TAVILY_BASE}/search"
 EXTRACT_URL = f"{TAVILY_BASE}/extract"
 
-# Circuit-breaker config (env-tunable).
 CB_FAILURES = int(os.getenv("TAVILY_CIRCUIT_BREAKER_FAILURES", "5"))
 CB_TTL = int(os.getenv("TAVILY_CIRCUIT_BREAKER_TTL", "300"))
-# Per-request budget (seconds).  Keep well under any HF Spaces proxy timeout.
 REQUEST_TIMEOUT = float(os.getenv("TAVILY_TIMEOUT_SECONDS", "25"))
-# Credits are limited (1 000 free / month on HF Spaces free tier).
 MAX_RESULTS_DEFAULT = int(os.getenv("TAVILY_MAX_RESULTS", "8"))
-MAX_EXTRACT_URLS = 10   # Tavily Extract accepts up to 20 URLs per call; 10 is safe.
-MAX_EXTRACT_BATCH = 20  # Tavily batch limit for Extract.
+MAX_EXTRACT_URLS = 10   
+MAX_EXTRACT_BATCH = 20  
 
 _USER_AGENT = "EduMapTavilyCrawler/1.0 (+https://edumap.vn; contact admin@edumap.vn)"
 
@@ -88,8 +82,7 @@ class _CircuitBreaker:
         with self._lock:
             if self._failures >= self._fail_threshold:
                 if time.time() - self._opened_at < self._ttl:
-                    return False  # OPEN — reject
-                # Half-open: allow one trial request.
+                    return False  
                 return True
             return True
 
@@ -115,9 +108,6 @@ class _CircuitBreaker:
 _CB = _CircuitBreaker(CB_FAILURES, CB_TTL)
 
 
-# --------------------------------------------------------------------------- #
-# IPv4 forcing — mirrors ai-service/services/net.py:force_ipv4()            #
-# --------------------------------------------------------------------------- #
 def _force_ipv4() -> None:
     """Monkeypatch socket.getaddrinfo to prefer AF_INET.
 
@@ -133,7 +123,6 @@ def _force_ipv4() -> None:
     socket.getaddrinfo = _ipv4_getaddrinfo
 
 
-# Apply at import time so every module that imports us benefits.
 _force_ipv4()
 
 
@@ -155,7 +144,6 @@ class TavilyClient:
         self._cb = _CircuitBreaker(CB_FAILURES, CB_TTL)
         self.last_error: Optional[str] = None
 
-    # -- public status -------------------------------------------------------
 
     def is_configured(self) -> bool:
         """True when a TAVILY_API_KEY env var is set."""
@@ -169,7 +157,6 @@ class TavilyClient:
             "last_error": self.last_error,
         }
 
-    # -- HTTP primitive ------------------------------------------------------
 
     def _post(self, url: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """POST JSON to a Tavily endpoint; return parsed JSON or ``None``."""
@@ -198,10 +185,8 @@ class TavilyClient:
             self.last_error = f"http_{e.code}"
             self._cb.record_failure()
             if e.code in (401, 403):
-                # Auth failure — key missing/invalid.  Don't keep retrying fast.
                 print(f"  [tavily] auth error {e.code} — check TAVILY_API_KEY")
             elif e.code in (429, 432, 433, 434):
-                # Rate-limited or quota exhausted — open circuit.
                 self._cb.record_failure()
                 print(f"  [tavily] rate/limit {e.code} — circuit breaker engaged")
             return None
@@ -210,7 +195,6 @@ class TavilyClient:
             self._cb.record_failure()
             return None
 
-    # -- Search ---------------------------------------------------------------
 
     def search(
         self,
@@ -250,9 +234,7 @@ class TavilyClient:
         data = self._post(SEARCH_URL, payload)
         if not data:
             return []
-        # Tavily may return `results` or `answer` depending on the plan.
         results = data.get("results", []) or []
-        # Attach the top-level LLM answer (if any) as an extra "result".
         answer = data.get("answer")
         if answer:
             results.append({
@@ -265,7 +247,6 @@ class TavilyClient:
             })
         return results
 
-    # -- Extract --------------------------------------------------------------
 
     def extract(
         self,
@@ -302,7 +283,6 @@ class TavilyClient:
             return []
         return data.get("results", []) or []
 
-    # -- Combined -------------------------------------------------------------
 
     def search_and_extract(
         self,
@@ -325,12 +305,11 @@ class TavilyClient:
             query,
             search_depth=search_depth,
             max_results=max_results,
-            include_raw_content=False,  # we'll fetch raw_content via Extract
+            include_raw_content=False,  
             include_answer=False,
         )
         if not results:
             return []
-        # Collect URLs that look like real pages (skip the synthetic 'search:' answer).
         urls = [r["url"] for r in results[:extract_top_k] if r.get("url", "").startswith("http")]
         extracted = self.extract(urls, extract_depth=extract_depth) if urls else []
         ext_by_url = {e["url"]: e.get("raw_content", "") for e in extracted}
@@ -348,7 +327,6 @@ class TavilyClient:
         return out
 
 
-# Module-level singleton (crawlers import `default_client`).
 _default_client: Optional[TavilyClient] = None
 _default_lock = threading.Lock()
 
@@ -363,7 +341,6 @@ def get_client() -> TavilyClient:
     return _default_client
 
 
-# Convenience functions for crawler modules that don't want to manage a client.
 def tavily_search(query: str, **kw) -> List[Dict[str, Any]]:
     """Search Tavily (graceful — returns [] on any failure)."""
     return get_client().search(query, **kw)

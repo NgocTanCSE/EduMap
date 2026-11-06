@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Test script for OverpassCrawler and OpenDataCrawler"""
 import sys
 import os

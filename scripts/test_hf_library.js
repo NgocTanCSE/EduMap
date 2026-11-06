@@ -2,7 +2,7 @@ const https = require('https');
 const crypto = require('crypto');
 const BASE = 'https://tancse2005-edumap.hf.space';
 const JWT_SECRET = 'edumap-local-dev-secret';
-function b64url(buf) { return buf.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64url(buf) { return buf.toString('base64').replace(/\+/g,'-').replace(/\
 const h = b64url(Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})));
 const p = b64url(Buffer.from(JSON.stringify({sub:'test-user-123',role:'student',email:'test@test.com',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+3600})));
 const s = crypto.createHmac('sha256',JWT_SECRET).update(h+'.'+p).digest();
@@ -18,7 +18,6 @@ function doFetch(url, opts) {
   });
 }
 (async()=>{
-  // First get a resource ID
   console.log('=== Get library resources ===');
   try {
     const r = await doFetch(BASE+'/api/library/resources?page=1&limit=2');
@@ -26,7 +25,7 @@ function doFetch(url, opts) {
     const firstId = data.items[0]?.id;
     console.log('First resource ID: ' + firstId);
     console.log('First resource title: ' + data.items[0]?.title);
-    
+
     if (firstId) {
       console.log('\n=== TEST: /api/library/resources/' + firstId + '/summary ===');
       try {
@@ -37,7 +36,6 @@ function doFetch(url, opts) {
     }
   } catch(e) { console.log('ERROR: ' + e.message); }
 
-  // Test without auth
   console.log('\n=== TEST: /api/ai/analytics/stats (public endpoint) ===');
   try {
     const r = await doFetch(BASE+'/api/ai/analytics/stats');
@@ -45,7 +43,6 @@ function doFetch(url, opts) {
     console.log('Body: ' + r.body.substring(0, 500));
   } catch(e) { console.log('ERROR: ' + e.message); }
 
-  // Test trends
   console.log('\n=== TEST: /api/ai/trends (public endpoint) ===');
   try {
     const r = await doFetch(BASE+'/api/ai/trends');

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Unit tests for crawlers/tavily_client.py and crawlers/tavily_parse.py.
 
 Covers:
@@ -26,7 +25,6 @@ from unittest import mock
 
 import pytest
 
-# Ensure crawlers/ is importable.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
 
 from tavily_parse import (
@@ -41,9 +39,6 @@ from tavily_poi import search_pois_tavily, TavilyPoiClient
 from tavily_client import TavilyClient, get_client
 
 
-# --------------------------------------------------------------------------- #
-#  tavily_parse — text cleaning & extractors                                    #
-# --------------------------------------------------------------------------- #
 class TestCleanText:
     def test_strips_html(self):
         assert clean_text("<p>hello</p>") == "hello"
@@ -52,7 +47,6 @@ class TestCleanText:
         assert clean_text("  foo   bar  ") == "foo bar"
 
     def test_preserves_vietnamese_diacritics(self):
-        # The whole point — must NOT ASCII-fold Vietnamese.
         result = clean_text("Xin chào thế giới — đẹp quá!")
         assert "chào" in result
         assert "thế giới" in result
@@ -77,7 +71,6 @@ class TestExtractCoords:
         assert round(lng, 4) == 106.8686
 
     def test_rejects_out_of_range_lat(self):
-        # lat=105.8342 (swapped) > 90 → invalid → returns (None, None)
         lat, lng = extract_coords("lat 105.8342, lng 21.0285")
         assert lat is None
         assert lng is None
@@ -93,9 +86,6 @@ class TestExtractCoords:
         assert lng is None
 
     def test_extracts_from_json_coords(self):
-        # The regex looks for number.number pairs — "10.93" has only 2 decimal
-        # places, which doesn't match the {3,8} decimal pattern. Use a
-        # 4-decimal number instead.
         lat, lng = extract_coords("tọa độ 10.9300, 106.8300")
         assert lat is not None
         assert round(lat, 2) == 10.93
@@ -111,9 +101,6 @@ class TestExtractCoords:
         assert lng is None
 
     def test_rejects_out_of_range_lng_high(self):
-        # lat=21.03 (Hanoi), lng=105.83 (swapped from original bug) → lat ok but
-        # lng must be 102-109.5; 105.83 is actually valid. Use lng=150.0 to
-        # trigger the out-of-range rejection.
         lat, lng = extract_coords("10.7700, 150.0000")
         assert lat is None
         assert lng is None
@@ -157,9 +144,6 @@ class TestExtractDeadline:
 class TestExtractCompany:
     def test_finds_cong_ty(self):
         result = extract_company("Công ty ABC tuyển dụng")
-        # extract_company looks for "Công ty TNHH <name>" / "Công ty trách nhiệm <name>"
-        # A bare "Công ty ABC" won't match — returns None (company is parsed
-        # from Tavily titles via _split_title_company fallback instead).
         assert result is None or "abc" in result.lower()
 
 
@@ -191,9 +175,6 @@ class TestLocationLayer:
         assert _location_layer("Singapore") == "sea"
 
 
-# --------------------------------------------------------------------------- #
-#  Row builders — schema mapping (params match actual tavily_parse.py signatures)  #
-# --------------------------------------------------------------------------- #
 class TestMakeJobRow:
     def test_basic_mapping(self):
         row = make_job_row(
@@ -328,25 +309,22 @@ class TestMakeMapPointRow:
             address="Biên Hòa, Đồng Nai",
         )
         assert row["name"] == "Trường DNTU"
-        # Coordinates are stored as WKT POINT(lng lat) string, not as lat/lng fields.
         assert "POINT(106.8686 10.9835)" in row["location"]
         assert row["location_scope"] == "vietnam"
 
     def test_without_coords(self):
         row = make_map_point_row(name="Unknown", category="market", lat=None, lng=None)
-        assert row == {}  # returns empty dict when coords are None
+        assert row == {}  
 
     def test_out_of_range_coords(self):
         row = make_map_point_row(name="Bad", category="poi", lat=105.0, lng=10.0)
-        assert row == {}  # rejected by VN bbox guard
+        assert row == {}  
 
     def test_vietnam_bbox(self):
-        # Northernmost Vietnam (Móng Cái ~22.6°N, 106.7°E)
         row = make_map_point_row(name="Móng Cái", category="poi", lat=22.6, lng=106.7)
         assert row != {}
 
     def test_southernmost_vietnam(self):
-        # Southernmost Vietnam (~8.4°N)
         row = make_map_point_row(name="Cà Mau", category="poi", lat=8.4, lng=105.0)
         assert row != {}
 
@@ -404,9 +382,6 @@ class TestMakeGreenChallengeRow:
         assert row["status"] == "active"
 
 
-# --------------------------------------------------------------------------- #
-#  parse_tavily_jobs / parse_tavily_posts / parse_tavily_map_points            #
-# --------------------------------------------------------------------------- #
 class TestParseTavilyJobs:
     def test_parse_basic_results(self):
         mock_results = [
@@ -441,8 +416,6 @@ class TestParseTavilyJobs:
              "raw_content": "desc2 20 triệu"},
         ]
         jobs = parse_tavily_jobs(results)
-        # The title gets split differently by the pipe-split fallback. Both have
-        # title "Job A" + company "Company X" → deduped to 1.
         assert len(jobs) == 1
 
 
@@ -491,7 +464,6 @@ class TestParseTavilyMapPoints:
              "url": "https://example.com/cafe", "raw_content": "không có tọa độ ở đây"},
         ]
         points = parse_tavily_map_points(results)
-        # Without valid coords, points are skipped (no fabricated coords).
         assert len(points) == 0
 
     def test_parse_empty(self):
@@ -508,9 +480,6 @@ class TestParseTavilyMapPoints:
         assert len(points) == 1
 
 
-# --------------------------------------------------------------------------- #
-#  tavily_client — graceful degradation & circuit breaker                        #
-# --------------------------------------------------------------------------- #
 class TestTavilyClientConfig:
     def test_is_configured_with_key(self):
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": "fake_key"}):
@@ -527,7 +496,6 @@ class TestTavilyClientConfig:
         network failure — so search() returns [] gracefully."""
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
             client = TavilyClient()
-            # Without key and without network mock, _post will fail → returns [].
             results = client.search("test query")
             assert results == []
 
@@ -564,26 +532,21 @@ class TestTavilyClientCircuitBreaker:
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": "fake_key",
                                           "TAVILY_CIRCUIT_BREAKER_FAILURES": "2",
                                           "TAVILY_CIRCUIT_BREAKER_TTL": "300"}):
-            # CB_FAILURES / CB_TTL are module-level constants — patch them.
             with mock.patch("tavily_client.CB_FAILURES", 2), \
                  mock.patch("tavily_client.CB_TTL", 300):
                 client = TavilyClient()
-                # 2 failures to trip the breaker.
                 client.search("q1")
                 client.search("q2")
 
-                # After 2 failures, circuit should be OPEN.
                 assert client._cb.state().startswith("open") or \
                        "open" in client._cb.state()
 
-                # search() should return [] without calling urlopen again.
                 call_count_before = mock_urlopen.call_count
                 client.search("q3-blocked-by-circuit")
                 assert mock_urlopen.call_count == call_count_before
 
     @mock.patch("tavily_client.urlopen")
     def test_circuit_records_success(self, mock_urlopen):
-        # Mock a successful HTTP response.
         mock_response = mock.MagicMock()
         mock_response.read.return_value = json.dumps({"results": []}).encode()
         mock_response.__enter__ = mock.MagicMock(return_value=mock_response)
@@ -594,7 +557,6 @@ class TestTavilyClientCircuitBreaker:
              mock.patch("tavily_client.CB_TTL", 300):
             client = TavilyClient()
             client.search("test")
-            # After success, failures should reset.
             assert client._cb.state() == "closed"
 
     @mock.patch("tavily_client.urlopen")
@@ -614,20 +576,14 @@ class TestIPv4Monkeypatch:
     def test_getaddrinfo_forces_ipv4(self):
         from tavily_client import _force_ipv4
         _force_ipv4()
-        # After patching, getaddrinfo should only return AF_INET.
         infos = socket.getaddrinfo("api.tavily.com", 443, socket.AF_UNSPEC)
         families = [info[0] for info in infos]
         assert all(f == socket.AF_INET for f in families)
 
 
-# --------------------------------------------------------------------------- #
-#  Module-level convenience functions                                            #
-# --------------------------------------------------------------------------- #
 class TestModuleFunctions:
     def test_tavily_search_delegates_to_get_client(self):
         from tavily_client import tavily_search, tavily_extract, tavily_search_and_extract
-        # These are thin wrappers — verify they return [] gracefully when no
-        # key is configured.
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
             assert tavily_search("test") == []
             assert tavily_extract("https://example.com") == []
@@ -636,16 +592,12 @@ class TestModuleFunctions:
     def test_get_client_singleton(self):
         c1 = get_client()
         c2 = get_client()
-        assert c1 is c2  # same singleton instance
+        assert c1 is c2  
 
 
-# --------------------------------------------------------------------------- #
-#  tavily_poi — TavilyPoiClient + search_pois_tavily                            #
-# --------------------------------------------------------------------------- #
 class TestTavilyPoi:
     def test_search_pois_tavily_empty_without_key(self):
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
-            # Force the singleton to re-init without key
             import tavily_client as tc
             tc._default_client = None
             assert search_pois_tavily("test query") == []
@@ -653,7 +605,6 @@ class TestTavilyPoi:
     def test_tavily_poi_client_is_configured_without_key(self):
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
             client = TavilyPoiClient()
-            # When not configured, should use the fallback (empty list, no crash)
             results = client._search_category(["test"], "poi")
             assert results == []
 

@@ -30,14 +30,12 @@ class DongNaiEducation(datasets.GeneratorBasedBuilder):
         )
 
     def _split_generators(self, dl_manager):
-        # Các file JSON đều đã có trong repo, không cần download.
         json_path = dl_manager.download_and_extract("dongnai_detailed.json")
         return [datasets.SplitGenerator(name=datasets.Split.TRAIN, gen_kwargs={"filepath": json_path})]
 
     def _generate_examples(self, filepath):
         with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
-        # Merge three sections into a flat list.
         for entry in data.get("schools", []):
             yield entry["name"], {
                 "name": entry.get("name", ""),

@@ -14,15 +14,15 @@ from datetime import date as _date
 from typing import List, Dict, Any, Optional
 from collections import Counter, defaultdict
 
-# Module-level numpy: `_cluster_polygon()` (convex-hull polygons for DBSCAN
-# hubs) used `np` while numpy was only imported inside
-# `predict_educational_gaps()`. That raised `NameError: np is not defined`,
-# which the surrounding `except Exception: pass` swallowed — so hub geometry
-# was ALWAYS a Point and never a Polygon. Keep the import here, at module level.
+
+
+
+
+
 try:
-    import numpy as np  # type: ignore
-except Exception:  # pragma: no cover - numpy is a hard requirement of the service
-    np = None  # type: ignore
+    import numpy as np
+except Exception:
+    np = None
 
 class PredictiveService:
     def __init__(self):
@@ -32,7 +32,7 @@ class PredictiveService:
         self.db_user = os.getenv("DB_USERNAME", "admin")
         self.db_password = os.getenv("DB_PASSWORD", "password123")
 
-    # ────────────────── Data access (synced with analytics.py) ──────────────────
+
 
     def _load_education_stats(self) -> List[Dict[str, Any]]:
         """Load education_stats rows from PostgreSQL or SQLite fallback.
@@ -80,7 +80,7 @@ class PredictiveService:
         from routers.analytics import _build_sectors
         return _build_sectors(stats)
 
-    # ────────────────── Public API ──────────────────
+
 
     def analyze_trends(self, recent_logs: List[Dict]) -> List[Dict]:
         """Analyze market trends using actual time-series data with Holt's forecasting.
@@ -90,7 +90,7 @@ class PredictiveService:
         applies Holt's Linear Exponential Smoothing to identify growing sectors.
         Also retains keyword-frequency analysis from recent_logs for backward compat.
         """
-        # 1. Time-series analysis from real data (synced with analytics.py)
+
         stats = self._load_education_stats()
         sectors = self._build_sectors(stats) if stats else []
 
@@ -120,7 +120,7 @@ class PredictiveService:
                     "method": "insufficient_data",
                 })
 
-        # 2. Keyword-based analysis from recent_logs (backward-compatible)
+
         if recent_logs:
             keyword_counts: Dict[str, int] = {}
             for log in recent_logs:
@@ -129,7 +129,7 @@ class PredictiveService:
                     keyword_counts[kw.lower()] = keyword_counts.get(kw.lower(), 0) + 1
             sorted_trends = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
             for kw, count in sorted_trends[:5]:
-                # Avoid duplicating sectors already found via time-series
+
                 if not any(t["name"].lower() == kw.lower() for t in trend_results):
                     trend_results.append({
                         "name": kw,
@@ -138,7 +138,7 @@ class PredictiveService:
                         "method": "keyword_frequency",
                     })
 
-        # Sort by score descending, return top results
+
         trend_results.sort(key=lambda t: t.get("score", 0), reverse=True)
         return trend_results[:10]
 
@@ -175,7 +175,7 @@ class PredictiveService:
         job_skills = self._load_active_job_skills()
         sectors = self._build_sectors(stats) if stats else []
 
-        # Skill-to-sector mapping: which education metrics relate to which skills
+
         skill_sector_map: Dict[str, List[str]] = {
             "python": ["Stem Lab Usage", "Online Learning Adoption"],
             "javascript": ["Online Learning Adoption"],
@@ -187,7 +187,7 @@ class PredictiveService:
             "graduation": ["Graduation Rate"],
         }
 
-        # Build growth ranking from Holt's forecasts
+
         growth_ranking: List[Dict[str, Any]] = []
         for sector in sectors:
             points = sector.get("historical", [])
@@ -203,13 +203,13 @@ class PredictiveService:
             else:
                 forecast_val = latest
 
-            # Determine which sector keywords relate to this sector
+
             sector_keywords = [kw for kw, sectors_list in skill_sector_map.items() if name in sectors_list]
 
-            # Compute match: how many user inputs relate to this sector
+
             match_count = sum(1 for h in history_lower if any(kw in h for kw in sector_keywords))
 
-            # Base score from growth + match count
+
             base_score = min(100, max(0, 30 + growth * 2 + match_count * 15))
             if match_count > 0:
                 base_score = min(100, base_score + 10)
@@ -225,10 +225,10 @@ class PredictiveService:
                 "method": "holt_linear_exponential_smoothing",
             })
 
-        # Sort by score descending
+
         growth_ranking.sort(key=lambda r: r["score"], reverse=True)
 
-        # Build structured recommendations
+
         recommendations: List[Dict[str, Any]] = []
         for item in growth_ranking:
             keywords = item["sector_keywords"]
@@ -250,7 +250,7 @@ class PredictiveService:
                 "method": item["method"],
             })
 
-        # Enrich with job-skill demand data if available
+
         if job_skills:
             skill_counter = Counter(job_skills)
             top_skills = [{"skill": s, "count": c} for s, c in skill_counter.most_common(5)]
@@ -355,11 +355,11 @@ class PredictiveService:
             "method": "holt_linear_exponential_smoothing",
         }
 
-    # ────────────────── Educational Gap Predictor (Idea #3) ──────────────────
 
-    # Province centroid fallback (decimal degrees) used when a region has
-    # education_stats but no POI locations in the shared SQLite DB, so the
-    # GeoJSON risk map still anchors on a sensible point instead of (0, 0).
+
+
+
+
     _PROVINCE_CENTROID: Dict[str, Any] = {
         "đồng nai": (10.9567, 107.1825),
         "tp. hồ chí minh": (10.7727, 106.6548),
@@ -369,7 +369,7 @@ class PredictiveService:
         "cần thơ": (10.0333, 105.7936),
     }
 
-    # map_points.type_id / locations.category_id -> label (mirrors DBService.TYPE_NAME_MAP)
+
     _TYPE_NAME_MAP: Dict[int, str] = {
         1: 'university', 2: 'school', 3: 'library', 4: 'bookstore',
         5: 'lab', 6: 'wifi', 7: 'green', 8: 'cafe', 9: 'restaurant',
@@ -426,7 +426,7 @@ class PredictiveService:
                 return self._parse_point_coords(obj)
             except (ValueError, TypeError):
                 pass
-            # EWKT fallback: SRID=4326;POINT(lng lat)
+
             m = re.search(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", s, re.I)
             if m:
                 try:
@@ -467,7 +467,7 @@ class PredictiveService:
             except (TypeError, ValueError):
                 continue
             if not (isinstance(lat, float) and isinstance(lng, float)) or lat != lat or lng != lng:
-                continue  # reject NaN
+                continue
             type_id_raw = r.get("type_id")
             try:
                 type_id = int(float(type_id_raw)) if type_id_raw is not None else 0
@@ -533,9 +533,9 @@ class PredictiveService:
         crash. DBSCAN input is pre-filtered to ≤ 2000 points to bound latency
         (mitigation for the "DBSCAN slow on 10k+ points" risk).
         """
-        import numpy as np  # type: ignore
+        import numpy as np
         try:
-            from sklearn.cluster import DBSCAN  # type: ignore
+            from sklearn.cluster import DBSCAN
             sklearn_ok = True
         except Exception:
             sklearn_ok = False
@@ -543,7 +543,7 @@ class PredictiveService:
         region_str = (region or "").strip() or None
         stats = self._load_education_stats() or []
 
-        # ── 1. Time-series forecast per metric ──────────────────────────────
+
         region_stats = [s for s in stats if self._matches_region(s, region_str)] if region_str else stats
         stats_degraded = len(region_stats) == 0
         stats_reason = None if stats else None
@@ -578,11 +578,11 @@ class PredictiveService:
 
             latest = float(values[-1]) if values else 0.0
             forecast_final = float(fc[-1]) if fc else latest
-            # growth risk: decline (forecast < latest) raises risk
+
             growth_frac = ((forecast_final - latest) / latest) if latest > 0 else 0.0
             growth_risk = float(np.clip(-growth_frac, 0.0, 1.0))
-            # level risk: these metrics are "higher is better" (0-100 %),
-            # so a low absolute level is itself a gap.
+
+
             level_risk = float(np.clip(1.0 - (latest / 100.0 if latest <= 100 else 1.0), 0.0, 1.0))
             risk = 0.6 * growth_risk + 0.4 * level_risk
             metric_risks.append(risk)
@@ -601,12 +601,12 @@ class PredictiveService:
             })
 
         stats_growth_risk = float(sum(metric_risks) / len(metric_risks)) if metric_risks else 0.0
-        # Build a clean forecast horizon from the first metric's latest year.
+
         first_metric_pts = next(iter(by_metric.values()), []) if by_metric else []
         forecast_horizon = [int(first_metric_pts[-1]["year"]) + i + 1 for i in range(steps_ahead)] if first_metric_pts else []
         trend_desc = self._summarise_trend(trends)
 
-        # ── 2. Geographic DBSCAN + gap detection ─────────────────────────────
+
         poi_points = self._load_region_points(region_str)
 
         geo_degraded = False
@@ -618,7 +618,7 @@ class PredictiveService:
             geo_degraded = True
             geo_reason = "sklearn/chroma chưa sẵn sàng — bản đồ rủi ro địa lý bị giảm."
 
-        # Pre-filter DBI input to ≤ 2000 points (mitigates DBSCAN latency risk).
+
         cluster_points = list(poi_points)
         if len(cluster_points) > 2000:
             stride = max(1, len(cluster_points) // 2000)
@@ -631,11 +631,11 @@ class PredictiveService:
 
         if poi_points and sklearn_ok:
             coords = np.array([[p["lat"], p["lng"]] for p in cluster_points], dtype=float)
-            # DBSCAN on (lat, lng) degrees; eps≈0.01 (~1.1 km) mirrors geo.py.
+
             db = DBSCAN(eps=0.01, min_samples=3).fit(coords)
             labels = db.labels_
 
-            # --- Hub features (well-served, lower risk) ---
+
             cluster_ids = set(labels) - {-1}
             hub_density_scores = {}
             for cid in cluster_ids:
@@ -645,7 +645,7 @@ class PredictiveService:
                               "lng": float(coords[member_idx, 1].mean())}
                 density_score = float(len(members) / max(len(cluster_points), 1))
                 hub_density_scores[cid] = density_score
-                # A hub is served, so its gap-access risk is ~0; blend with stats.
+
                 hub_risk = float(np.clip(0.4 * stats_growth_risk + 0.6 * (1.0 - density_score), 0.0, 1.0))
                 geom = self._cluster_polygon(members) if len(members) >= 3 else {
                     "type": "Point", "coordinates": [hub_center["lng"], hub_center["lat"]]}
@@ -679,15 +679,15 @@ class PredictiveService:
                     "reason": "Khu vực có tập trung cơ sở giáo dục, ít rủi ro.",
                 })
 
-            # --- Gap detection via a grid + nearest-facility distance ---
+
             lats = coords[:, 0]; lngs = coords[:, 1]
             min_lat, max_lat = float(lats.min()), float(lats.max())
             min_lng, max_lng = float(lngs.min()), float(lngs.max())
-            # Pad the bbox so the heatmap extends beyond the outermost POIs.
+
             pad = (max_lat - min_lat) * 0.25 + 0.005
             lat_lo, lat_hi = min_lat - pad, max_lat + pad
             lng_lo, lng_hi = min_lng - pad, max_lng + pad
-            # Cap grid resolution to bound work (≤ 30×30 = 900 cells).
+
             n = 30
             grid_lats = np.linspace(lat_lo, lat_hi, n).tolist()
             grid_lngs = np.linspace(lng_lo, lng_hi, n).tolist()
@@ -696,8 +696,8 @@ class PredictiveService:
             cell_rows: List[Dict[str, Any]] = []
             for glat in grid_lats:
                 for glng in grid_lngs:
-                    # nearest-POI distance (Euclidean-in-degrees on grid is fine
-                    # for ordering; compute true km for the risk weight).
+
+
                     diffs = coords - np.array([[glat, glng]])
                     nearest_idx = int(np.argmin(np.abs(diffs).sum(axis=1)))
                     nearest = cluster_points[nearest_idx]
@@ -710,13 +710,13 @@ class PredictiveService:
                         "nearest_name": nearest["name"],
                     })
 
-            # Heat points (leaflet.heat): every cell, weight = cell_risk ∈ [0,1].
-            # Sort by weight desc and cap for performance.
+
+
             cell_rows.sort(key=lambda c: c["cell_risk"], reverse=True)
             heat_points = [[round(c["lat"], 6), round(c["lng"], 6), round(c["cell_risk"], 3)]
                            for c in cell_rows[:500]]
 
-            # Gap features: top-N highest-risk cells → "areas to survey".
+
             for c in cell_rows[:12]:
                 features.append({
                     "type": "Feature",
@@ -751,7 +751,7 @@ class PredictiveService:
         else:
             n_clusters = 0
 
-        # ── 3. Region aggregate feature (always present) ─────────────────────
+
         overall_risk = float(np.clip(stats_growth_risk if stats_growth_risk else 0.0, 0.0, 1.0))
         if poi_points and sklearn_ok:
             overall_geo_risk = max((c["cell_risk"] for c in cell_rows), default=0.0)
@@ -788,7 +788,7 @@ class PredictiveService:
         if not reason and any(t["degraded"] for t in trends):
             reason = "Một số chỉ số có < 3 năm dữ liệu — dự báo Holt's không ổn định."
 
-        # Sort ranking by risk desc.
+
         risk_ranking.sort(key=lambda r: r["risk_score"], reverse=True)
 
         return {
@@ -835,8 +835,8 @@ class PredictiveService:
         """Convex-hull Polygon (RFC 7946 [lng,lat]) for a DBSCAN hub, or a
         Point at the centroid when < 3 / collinear points."""
         try:
-            from scipy.spatial import ConvexHull  # type: ignore
-            if np is None:  # numpy unavailable → fall back to the centroid
+            from scipy.spatial import ConvexHull
+            if np is None:
                 raise RuntimeError("numpy unavailable")
             pts = np.array([[m["lat"], m["lng"]] for m in members], dtype=float)
             if len(pts) >= 3:

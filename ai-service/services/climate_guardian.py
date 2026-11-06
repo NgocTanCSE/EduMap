@@ -32,8 +32,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from .cache_service import cache_get, cache_set  # may not exist or be optional
-except Exception:  # pragma: no cover — cache_service is optional
+    from .cache_service import cache_get, cache_set
+except Exception:
     def cache_get(key: str) -> Optional[Any]:
         return None
 
@@ -41,7 +41,7 @@ except Exception:  # pragma: no cover — cache_service is optional
         pass
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
+
 
 SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
 ELEV_CACHE_PATH = os.getenv(
@@ -49,66 +49,66 @@ ELEV_CACHE_PATH = os.getenv(
     "/tmp/edumap_elevation_cache.json",
 )
 
-# OpenWeatherMap (optional — set as HF Space secret).
+
 OWM_API_KEY = (os.getenv("OWM_API_KEY") or "").strip().strip('"').strip("'")
 OWM_BASE = "https://api.openweathermap.org/data/2.5"
 OWM_TIMEOUT = float(os.getenv("OWM_TIMEOUT_SECONDS", "6"))
 
-# Open-Meteo elevation API (free, no key).
+
 OM_ELEV_BASE = "https://api.open-meteo.com/v1/elevation"
 OM_WEATHER_BASE = "https://api.open-meteo.com/v1/forecast"
 
-# ── Local SRTM elevation model (100% offline, replaces Open-Meteo API) ───────
-# Vietnam SRTM 1-arc-second (30m) tile converted to a NumPy .npy array
-# during Docker build. Grid covers ~8°N–23°N, ~102°E–109.5°E (VN bounding box).
-# Array shape: (1500, 1400) ≈ 2.1M cells × 4 bytes = **~8.4MB RAM**.
-# Lazy-loaded once and cached as a module-level singleton.
-# Coverage: https://srtm.csi.cgiar.org/ (CGIAR-ERSI SRTM 1 Arc-Second Global)
+
+
+
+
+
+
 LOCAL_ELEVATION_ENABLED = os.getenv("LOCAL_ELEVATION_ENABLED", "true").lower() in ("1", "true", "yes", "on")
 LOCAL_ELEVATION_MODEL_PATH = os.getenv(
     "LOCAL_ELEVATION_MODEL_PATH",
     "/app/ai-service/models/elevation/srtm_vn.npy",
 )
-# Bounding box for the VN SRTM tile
+
 VN_SOUTH, VN_NORTH = 8.0, 23.5
 VN_WEST, VN_EAST = 102.0, 109.5
-# Grid resolution (degrees per pixel) — matches 30m at equator: ~0.000278°
-_ELEV_NROWS = 1500  # VN_NORTH - VN_SOUTH ≈ 15.5° → 1500 rows at 30m
-_ELEV_NCOLS = 1400  # VN_EAST - VN_WEST  ≈ 7.5° → 1400 cols at 30m
-_ELEV_LAT_STEP = (VN_NORTH - VN_SOUTH) / _ELEV_NROWS  # ~0.0103° per pixel
-_ELEV_LON_STEP = (VN_EAST - VN_WEST) / _ELEV_NCOLS   # ~0.0054° per pixel
+
+_ELEV_NROWS = 1500
+_ELEV_NCOLS = 1400
+_ELEV_LAT_STEP = (VN_NORTH - VN_SOUTH) / _ELEV_NROWS
+_ELEV_LON_STEP = (VN_EAST - VN_WEST) / _ELEV_NCOLS
 
 _local_elev_array = None
 _local_elev_loaded = False
 _local_elev_load_failed = False
 
-# Circuit breaker: 5 min cooldown after a network failure (mirrors vector_store).
+
 _OWM_DOWN_UNTIL: float = 0.0
 
-# Risk weight components (must sum to 1.0).
+
 FLOOD_WEIGHT = 0.35
 WEATHER_WEIGHT = 0.35
 ACCESS_WEIGHT = 0.30
 
-# Seasonal flood months keyed by season ("wet"/"dry"/"transition").
-# Based on real Vietnamese monsoon patterns (Mekong Delta floods Sep-Nov,
-# Central Vietnam floods Sep-Oct, Đồng Nai river basin flooding May-Oct).
+
+
+
 SEASONAL_FLOOD_MONTHS = {
-    "wet": [5, 6, 7, 8, 9, 10],      # Southwest monsoon / rainy season
+    "wet": [5, 6, 7, 8, 9, 10],
     "transition": [11, 12, 1, 2, 3, 4],
-    "dry": [1, 2],  # dry season in southern Vietnam
+    "dry": [1, 2],
 }
 
-# Static flood-hazard zones — real Vietnamese flood-prone areas.
-# Each entry: polygon (lng/lat), risk_level, flood_months, description.
-# These are *historical / known flood extents* sourced from:
-#   - CẦN / MONRE Vietnam flood hazard maps
-#   - World Bank VN_FCS4 Flood Exposure maps
-#   - Đồng Nai River basin flood management reports
-# When OWM is unavailable, these static zones serve as the hazard baseline.
+
+
+
+
+
+
+
 STATIC_FLOOD_ZONES: List[Dict[str, Any]] = [
     {
-        # Đồng Nai river floodplain — Biên Hòa
+
         "name": "Khu vực đồng bằng sông Đồng Nai (Biên Hòa)",
         "description": "Vùng trũng nước khi lũ lịch sử sông Đồng Nai, "
                        "ảnh hưởng trường Đại học Đồng Nai, DNTU và khu dân cư ven sông.",
@@ -122,7 +122,7 @@ STATIC_FLOOD_ZONES: List[Dict[str, Any]] = [
         "verification_date": "2025-06-15",
     },
     {
-        # Mekong Delta flood-prone area — Cần Thơ / Long Xuyên
+
         "name": "Khu vực đồng bằng sông Cửu Long (Cần Thơ)",
         "description": "Vùng đầm lũ tự nhiên mùa lũ, ảnh hưởng trường Đại học Cần Thơ "
                        "và khu vực ven kênh.",
@@ -136,7 +136,7 @@ STATIC_FLOOD_ZONES: List[Dict[str, Any]] = [
         "verification_date": "2025-08-22",
     },
     {
-        # Central Vietnam coastal flood zone — Đà Nẵng / Hội An
+
         "name": "Khu vực ven biển miền Trung (Đà Nẵng)",
         "description": "Vùng ngập lũ do bão/táp lôi, ảnh hưởng trường Đại học Đà Nẵng "
                        "và khu vực cửa sông.",
@@ -150,7 +150,7 @@ STATIC_FLOOD_ZONES: List[Dict[str, Any]] = [
         "verification_date": "2025-10-03",
     },
     {
-        # Hồ Chí Minh City / TPHCM flood-prone (Khu vực sông Bến Nghé / kênh Đồng Nai)
+
         "name": "Khu vực sông Bến Nghé & kênh phụ (TP. Hồ Chí Minh)",
         "description": "Khu trung tâm TPHCM ngập úng khi lũ về, ảnh hưởng nhiều trường học "
                        "và thư viện ven kênh.",
@@ -165,14 +165,14 @@ STATIC_FLOOD_ZONES: List[Dict[str, Any]] = [
     },
 ]
 
-# Grid resolution for the heatmap (cells per degree, ~111 km).
-HEATMAP_GRID_DEG = 0.01  # ~1.1 km granularity
 
-# 24h TTL cache.
+HEATMAP_GRID_DEG = 0.01
+
+
 _CACHE_TTL = 24 * 3600
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _sqlite_path() -> Optional[str]:
     """Return the SQLite DB path if it exists and DB_TYPE=sqlite, else None.
@@ -245,23 +245,23 @@ def _point_to_polygon_min_dist_km(lat: float, lng: float, polygon: List[List[flo
         j = (i + 1) % n
         lng1, lat1 = polygon[i]
         lng2, lat2 = polygon[j]
-        # Point-to-segment distance.
+
         d = _point_to_segment_dist(lat, lng, lat1, lng1, lat2, lng2)
         if d < min_d:
             min_d = d
-    return min_d * 111.0  # degrees → km (approx)
+    return min_d * 111.0
 
 
 def _point_to_segment_dist(lat: float, lng: float,
                            lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Perpendicular distance from point to line segment (in degrees)."""
-    # Vector from segment start to end.
+
     dx = lng2 - lng1
     dy = lat2 - lat1
     seg_len_sq = dx * dx + dy * dy
     if seg_len_sq < 1e-12:
         return math.sqrt((lat - lat1) ** 2 + (lng - lng1) ** 2)
-    # Project point onto segment.
+
     t = max(0.0, min(1.0, ((lng - lng1) * dx + (lat - lat1) * dy) / seg_len_sq))
     proj_lng = lng1 + t * dx
     proj_lat = lat1 + t * dy
@@ -347,7 +347,7 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
     if key in cache:
         return cache[key]
 
-    # --- Local elevation lookup (priority) ---
+
     if LOCAL_ELEVATION_ENABLED:
         local_elev = _get_elevation_local(lat, lng)
         if local_elev is not None:
@@ -355,7 +355,7 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
             _save_elevation_cache(cache)
             return local_elev
 
-    # --- Open-Meteo elevation API (fallback — free, no key) ---
+
     url = f"{OM_ELEV_BASE}?latitude={lat}&longitude={lng}"
     data = _curl_get_json(url, timeout=6)
     elev = None
@@ -376,7 +376,7 @@ def _save_elevation_cache(cache: Dict[str, float]) -> None:
         with open(ELEV_CACHE_PATH, "w") as f:
             json.dump(cache, f)
     except Exception:
-        pass  # ephemeral fs, not critical
+        pass
 
 
 def _load_local_elevation() -> bool:
@@ -423,36 +423,36 @@ def _get_elevation_local(lat: float, lng: float) -> Optional[float]:
     """
     if not _load_local_elevation() or _local_elev_array is None:
         return None
-    # Skip if outside VN bounding box
+
     if not (VN_SOUTH <= lat <= VN_NORTH and VN_WEST <= lng <= VN_EAST):
         return None
-    # Convert (lat, lng) to grid indices
+
     row = (lat - VN_SOUTH) / _ELEV_LAT_STEP
     col = (lng - VN_WEST) / _ELEV_LON_STEP
     r0, c0 = int(row), int(col)
-    # Boundary check
+
     if r0 < 0 or r0 + 1 >= _ELEV_NROWS or c0 < 0 or c0 + 1 >= _ELEV_NCOLS:
         return None
-    # Bilinear interpolation
+
     fr, fc = row - r0, col - c0
     try:
         e00 = float(_local_elev_array[r0, c0])
         e01 = float(_local_elev_array[r0, c0 + 1])
         e10 = float(_local_elev_array[r0 + 1, c0])
         e11 = float(_local_elev_array[r0 + 1, c0 + 1])
-        # Handle NODATA (SRTM uses -32768 for missing)
+
         vals = [e00, e01, e10, e11]
         valid = [v for v in vals if v != -32768.0]
         if not valid:
             return None
-        # Bilinear interpolation with NODATA protection
+
         if all(v != -32768.0 for v in vals):
             elev = (e00 * (1 - fr) * (1 - fc) +
                     e01 * (1 - fr) * fc +
                     e10 * fr * (1 - fc) +
                     e11 * fr * fc)
         else:
-            elev = sum(valid) / len(valid)  # nearest valid average
+            elev = sum(valid) / len(valid)
         return elev if elev is not None else None
     except (IndexError, ValueError, TypeError):
         return None
@@ -469,7 +469,7 @@ def _get_weather(lat: float, lng: float) -> Optional[Dict[str, Any]]:
     url = f"{OWM_BASE}/weather?lat={lat}&lon={lng}&appid={OWM_API_KEY}&units=metric"
     data = _curl_get_json(url, timeout=OWM_TIMEOUT)
     if not data or data.get("cod") not in (200, "200"):
-        _OWM_DOWN_UNTIL = time.monotonic() + 300  # 5-min circuit breaker
+        _OWM_DOWN_UNTIL = time.monotonic() + 300
         return None
     return data
 
@@ -498,36 +498,36 @@ def _weather_severity(weather: Optional[Dict[str, Any]]) -> float:
     if not weather:
         return 0.0
     try:
-        # Rain intensity: volume.sum.rain (mm) → severity.
+
         rain_1h = float(weather.get("rain", {}).get("1h", 0))
-        rain_severity = min(rain_1h / 50.0, 1.0)  # 50mm/h is extreme
-        # Wind speed: 30 m/s (~108 km/h) is storm-level.
+        rain_severity = min(rain_1h / 50.0, 1.0)
+
         wind = float(weather.get("wind", {}).get("speed", 0))
         wind_severity = min(wind / 30.0, 1.0)
-        # Weather condition codes: 2xx thunderstorm, 3xx drizzle, 5xx rain.
+
         weather_id = int(weather.get("weather", [{}])[0].get("id", 800))
         id_severity = 0.0
-        if 200 <= weather_id < 300:  # thunderstorm
+        if 200 <= weather_id < 300:
             id_severity = 0.8
-        elif 300 <= weather_id < 600:  # drizzle/rain
+        elif 300 <= weather_id < 600:
             id_severity = rain_severity * 0.6
-        elif 600 <= weather_id < 700:  # snow
+        elif 600 <= weather_id < 700:
             id_severity = 0.4
-        elif 700 <= weather_id < 800:  # mist/haze
+        elif 700 <= weather_id < 800:
             id_severity = 0.3
-        elif 800 <= weather_id < 803:  # clear
+        elif 800 <= weather_id < 803:
             id_severity = 0.0
-        elif weather_id >= 803:  # clouds
+        elif weather_id >= 803:
             id_severity = 0.1
         return max(rain_severity, wind_severity, id_severity)
     except Exception:
         return 0.0
 
 
-# ── In-process 24h TTL cache (mirrors forecast.py) ──────────────────────────
+
 
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
-_CACHE_LOCK = True  # module-level sentinel; GIL protects single-threaded access
+_CACHE_LOCK = True
 
 
 def _cache_get(key: str) -> Optional[Dict[str, Any]]:
@@ -543,7 +543,7 @@ def _cache_set(key: str, value: Dict[str, Any]) -> None:
     _CACHE[key] = (time.time(), value)
 
 
-# ── Educational facilities loading ───────────────────────────────────────────
+
 
 _EDU_CATEGORIES = {
     "university", "school", "library", "wifi_hotspot", "study_space",
@@ -561,7 +561,7 @@ def _load_educational_facilities(bbox: Tuple[float, float, float, float]) -> Lis
     min_lat, max_lat, min_lng, max_lng = bbox
     facilities: List[Dict[str, Any]] = []
 
-    # From locations table (GeoJSON coordinates in JSON column).
+
     rows = _query_sqlite(
         """SELECT id, name, coordinates, city, address, category_id
            FROM locations WHERE coordinates IS NOT NULL AND city IS NOT NULL
@@ -583,7 +583,7 @@ def _load_educational_facilities(bbox: Tuple[float, float, float, float]) -> Lis
                 "category": _category_id_to_name(r.get("category_id")),
             })
 
-    # From map_points table (location column in GeoJSON JSON).
+
     rows2 = _query_sqlite(
         """SELECT id, name, location, city, province, type_id
            FROM map_points WHERE location IS NOT NULL AND city IS NOT NULL
@@ -615,12 +615,12 @@ def _parse_coords(value: Any) -> Optional[Tuple[float, float]]:
     """
     if value is None:
         return None
-    # GeoJSON JSON string or dict.
+
     if isinstance(value, str):
         try:
             value = json.loads(value)
         except (json.JSONDecodeError, TypeError):
-            # EWKT string: SRID=4326;POINT(lng lat)
+
             if "POINT" in value.upper():
                 try:
                     coords = value.split("POINT(")[1].rstrip(")").split()
@@ -632,12 +632,12 @@ def _parse_coords(value: Any) -> Optional[Tuple[float, float]]:
         coords = value.get("coordinates")
         if isinstance(coords, list) and len(coords) >= 2:
             return float(coords[0]), float(coords[1])
-        # Object with lat/lng keys.
+
         if "lat" in value and "lng" in value:
             return float(value["lng"]), float(value["lat"])
     if isinstance(value, (list, tuple)):
         if len(value) >= 2:
-            # Could be [lng, lat] or [lat, lng] — assume GeoJSON [lng, lat].
+
             try:
                 return float(value[0]), float(value[1])
             except (ValueError, TypeError):
@@ -668,7 +668,7 @@ def _type_id_to_name(type_id: Any) -> str:
     return _category_id_to_name(type_id)
 
 
-# ── Flood zone loading (SQLite + static) ─────────────────────────────────────
+
 
 def _load_flood_zones(bbox: Tuple[float, float, float, float]) -> List[Dict[str, Any]]:
     """Load flood hazard zones overlapping the bbox.
@@ -680,7 +680,7 @@ def _load_flood_zones(bbox: Tuple[float, float, float, float]) -> List[Dict[str,
     """
     zones: List[Dict[str, Any]] = []
 
-    # Try SQLite flood_zones first.
+
     rows = _query_sqlite(
         "SELECT id, name, description, coordinates, riskLevel, metadata "
         "FROM flood_zones LIMIT 500"
@@ -694,28 +694,28 @@ def _load_flood_zones(bbox: Tuple[float, float, float, float]) -> List[Dict[str,
                 coords = None
         polygon: Optional[List[List[float]]] = None
         if isinstance(coords, dict):
-            # GeoJSON Polygon or MultiPolygon.
+
             geom_type = coords.get("type", "")
             gcoords = coords.get("coordinates", [])
             if geom_type == "Polygon" and gcoords:
-                polygon = gcoords[0]  # exterior ring
+                polygon = gcoords[0]
             elif geom_type == "MultiPolygon" and gcoords:
                 polygon = gcoords[0][0]
         elif isinstance(coords, list):
-            # Could be a raw GeoJSON Polygon coordinates array
-            # ( [[[lng,lat],...]] — 3 levels for Polygon), a MultiPolygon,
-            # or a flat ring ( [[lng,lat],...] — 2 levels).
+
+
+
             if len(coords) > 0 and isinstance(coords[0], list):
                 if len(coords[0]) > 0 and isinstance(coords[0][0], list):
-                    # 3-level: Polygon or MultiPolygon coords.
+
                     if isinstance(coords[0][0][0], list):
-                        # 4-level: MultiPolygon → take first polygon's first ring.
+
                         polygon = coords[0][0] if isinstance(coords[0][0][0][0], (int, float)) else coords[0][0]
                     else:
-                        # 3-level: Polygon coords → take exterior ring.
+
                         polygon = coords[0]
                 else:
-                    # 2-level: already a flat ring of [lng,lat] pairs.
+
                     polygon = coords
 
         if polygon and _polygon_overlaps_bbox(polygon, bbox):
@@ -740,12 +740,12 @@ def _load_flood_zones(bbox: Tuple[float, float, float, float]) -> List[Dict[str,
                 "from_db": True,
             })
 
-    # If DB had real zones, also include overlapping static zones as supplementary.
-    # If DB had zero zones, use static zones as the hazard baseline.
+
+
     for sz in STATIC_FLOOD_ZONES:
-        # Check if zone polygon overlaps the bbox.
+
         if _polygon_overlaps_bbox(sz["polygon"], bbox):
-            zones.append(dict(sz))  # copy
+            zones.append(dict(sz))
 
     return zones
 
@@ -760,7 +760,7 @@ def _polygon_overlaps_bbox(polygon: List[List[float]],
     return False
 
 
-# ── Risk computation ─────────────────────────────────────────────────────────
+
 
 def _flood_risk(lat: float, lng: float, month: int,
                 zones: List[Dict[str, Any]]) -> float:
@@ -776,14 +776,14 @@ def _flood_risk(lat: float, lng: float, month: int,
         if not poly:
             continue
         if _point_in_polygon(lng, lat, poly):
-            # Inside the flood zone → high risk.
+
             seasonal = 1.0 if month in z.get("flood_months", []) else 0.5
             rl = z.get("risk_level", "seasonal")
             base = 0.9 if rl == "high" else 0.6
             best_risk = max(best_risk, base * seasonal)
         else:
             dist_km = _point_to_polygon_min_dist_km(lat, lng, poly)
-            # Risk decays exponentially: 0 at 5km, 1 at 0km.
+
             proximity = max(0.0, 1.0 - dist_km / 5.0)
             if proximity > 0.01:
                 seasonal = 1.0 if month in z.get("flood_months", []) else 0.3
@@ -823,17 +823,17 @@ def _terrain_slope_risk(lat: float, lng: float, elev: Optional[float]) -> float:
     low elevation (< 2m, coastal/mekong) get higher risk.
     """
     if elev is None:
-        return 0.0  # cannot compute → neutral
+        return 0.0
     if elev < 0.5:
-        return 0.9   # below sea level — very high flood risk
+        return 0.9
     if elev < 2:
-        return 0.6   # low-lying
+        return 0.6
     if elev < 10:
-        return 0.3   # moderate
-    return 0.0       # elevated, low risk
+        return 0.3
+    return 0.0
 
 
-# ── Main service ─�────────────────────────────────────────────────────────────
+
 
 class ClimateGuardianService:
     """Singleton-style service (mirrors predictive_service = PredictiveService())."""
@@ -868,7 +868,7 @@ class ClimateGuardianService:
         reason: Optional[str] = None
         data_source = "static_flood_hazard"
 
-        # Load flood zones (DB or static fallback).
+
         try:
             zones = _load_flood_zones(bbox)
         except Exception:
@@ -881,7 +881,7 @@ class ClimateGuardianService:
         else:
             data_source = "static_flood_hazard+sqlite" if any(z.get("from_db") for z in zones) else "static_flood_hazard"
 
-        # Load educational facilities.
+
         try:
             facilities = _load_educational_facilities(bbox)
         except Exception:
@@ -889,10 +889,10 @@ class ClimateGuardianService:
             degraded = True
             reason = (reason or "") + " Không tải được danh sách cơ sở giáo dục." if reason else "Không tải được danh sách cơ sở giáo dục."
 
-        # Weather availability check.
+
         has_weather = bool(OWM_API_KEY) and time.monotonic() >= _OWM_DOWN_UNTIL
         if not has_weather and OWM_API_KEY:
-            # Key set but circuit breaker active.
+
             degraded = True
             reason = (reason + " | " if reason else "") + "OpenWeatherMap đang nghẽn (circuit breaker)."
         elif not OWM_API_KEY:
@@ -902,7 +902,7 @@ class ClimateGuardianService:
         heat_points: List[List[float]] = []
         risk_ranking: List[Dict[str, Any]] = []
 
-        # Generate a grid of cells covering the bbox.
+
         n_lat = max(5, min(30, int((max_lat - min_lat) / grid_step)))
         n_lng = max(5, min(30, int((max_lng - min_lng) / grid_step)))
         lats = [min_lat + i * (max_lat - min_lat) / n_lat for i in range(n_lat + 1)]
@@ -914,14 +914,14 @@ class ClimateGuardianService:
                 clat = (lats[i] + lats[i + 1]) / 2
                 clng = (lngs[j] + lngs[j + 1]) / 2
 
-                # Compute risk components.
+
                 f_risk = _flood_risk(clat, clng, month, zones)
                 w_risk = _weather_risk(clat, clng) if has_weather else 0.0
                 a_risk = _access_risk(clat, clng, facilities)
                 elev = _get_elevation(clat, clng)
                 t_risk = _terrain_slope_risk(clat, clng, elev)
 
-                # Blend: terrain acts as a modifier within the access component.
+
                 if t_risk > 0:
                     a_risk = float(min(1.0, a_risk * (1 - t_risk * 0.3) + t_risk * 0.3))
 
@@ -934,7 +934,7 @@ class ClimateGuardianService:
                 if cell_risk > max_cell_risk:
                     max_cell_risk = cell_risk
 
-                # Build polygon for this cell.
+
                 ring = [
                     [clng - grid_step / 2, clat - grid_step / 2],
                     [clng + grid_step / 2, clat - grid_step / 2],
@@ -959,15 +959,15 @@ class ClimateGuardianService:
                         "nearest_facility": self._nearest_facility_name(clat, clng, facilities),
                     },
                 })
-                # Heat point: only include cells with non-trivial risk.
+
                 if cell_risk >= 0.1:
                     heat_points.append([round(clat, 6), round(clng, 6), round(cell_risk, 3)])
 
-        # Sort heat points by weight desc, cap at 500 (mirrors forecast.py:706).
+
         heat_points.sort(key=lambda p: p[2], reverse=True)
         heat_points = heat_points[:500]
 
-        # Risk ranking: top 15 highest-risk cells.
+
         features_sorted = sorted(features, key=lambda f: f["properties"]["risk_score"], reverse=True)
         for f in features_sorted[:15]:
             p = f["properties"]
@@ -1038,22 +1038,22 @@ class ClimateGuardianService:
         zones = _load_flood_zones(bbox)
         facilities = _load_educational_facilities(bbox)
 
-        # Filter facilities within radius and matching category.
+
         nearby: List[Dict[str, Any]] = []
         for f in facilities:
             dist = _haversine_km(lat, lng, f["lat"], f["lng"])
             if dist <= radius_km:
                 if category and f.get("category") != category:
                     continue
-                # Compute flood risk at the facility location.
+
                 f_risk = _flood_risk(f["lat"], f["lng"], month, zones)
                 elev = _get_elevation(f["lat"], f["lng"])
                 t_risk = _terrain_slope_risk(f["lat"], f["lng"], elev)
-                # Safety score: inverse of flood risk (higher = safer).
-                # Weight flood more heavily than terrain for safety ranking.
+
+
                 safety = float(1.0 - (0.7 * f_risk + 0.3 * t_risk))
                 safety = float(max(0.0, min(1.0, safety)))
-                # Walking time estimate (Haversine-based, 5 km/h walking).
+
                 walk_min = int(dist * 60 / 5.0)
                 nearby.append({
                     **f,
@@ -1066,11 +1066,11 @@ class ClimateGuardianService:
                     "in_high_risk_zone": f_risk >= 0.5,
                 })
 
-        # Separate safe vs high-risk.
+
         safe = [f for f in nearby if not f["in_high_risk_zone"]]
         unsafe = [f for f in nearby if f["in_high_risk_zone"]]
 
-        # Sort: safe ones by safety desc then distance asc; unsafe by distance asc.
+
         safe.sort(key=lambda f: (-f["safety_score"], f["distance_km"]))
         unsafe.sort(key=lambda f: f["distance_km"])
 
@@ -1147,5 +1147,5 @@ class ClimateGuardianService:
         return "Rủi ro do " + ", ".join(parts) + "."
 
 
-# Module-level singleton (mirrors predictive_service.py:842 pattern).
+
 climate_guardian = ClimateGuardianService()

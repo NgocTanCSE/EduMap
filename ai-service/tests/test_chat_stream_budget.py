@@ -85,18 +85,18 @@ def test_stream_cuts_hung_provider_and_still_answers(monkeypatch):
     """A provider that hangs must be cut by the proxy budget, and the user
     must still receive the Vietnamese template reply before the deadline."""
     svc = LLMService()
-    svc.is_ready = True          # bypass the "no providers → template" shortcut
+    svc.is_ready = True
     svc.has_deepseek = True
     svc.has_gemini = False
     svc.has_cf = False
-    # Streaming attempt yields no tokens → falls through to the non-stream path.
+
     monkeypatch.setattr(svc, "_deepseek_generate_stream", lambda *a, **k: iter(()))
 
     called = []
 
     def _hang(*args, **kwargs):
         called.append(True)
-        time.sleep(5)            # a provider stuck on a dead TCP connection
+        time.sleep(5)
         return "không bao giờ trả về kịp"
 
     monkeypatch.setattr(svc, "_deepseek_generate", _hang)
@@ -110,19 +110,19 @@ def test_stream_cuts_hung_provider_and_still_answers(monkeypatch):
              patch.object(llm_module.cache_service, "set"):
             mock_vs.query.return_value = {"documents": [[]], "metadatas": [[]], "ids": [[]]}
             chunks = [chunk async for chunk in svc.chat_with_rag_stream("Xin chào")]
-        # Measure inside the loop: asyncio.run() itself joins the worker thread
-        # on shutdown, which would add the provider's full sleep time here.
+
+
         return chunks, time.monotonic() - started
 
     chunks, elapsed = asyncio.run(_collect())
 
     assert called, "the provider should be attempted once before the timeout"
-    # The provider hangs for 5s; the reply must arrive well before that
-    # (1.5s generation budget + ~0.5s word-by-word stream + overhead).
+
+
     assert elapsed < 3.0, f"stream took {elapsed:.1f}s — provider not cut"
     assert chunks[-1].strip() == "data: " + '{"done": true}'
     body = "".join(chunks)
-    # Template fallback replies are Vietnamese strings, never empty metadata.
+
     assert '"token"' in body
     assert _plain_text(chunks).strip(), "the user must receive some text"
     assert len(chunks) > 3
@@ -153,7 +153,7 @@ def test_stream_reply_has_no_markdown_markers(monkeypatch):
     assert "**" not in body
     assert "#" not in body
     assert "```" not in body
-    # Tokens are JSON-escaped ("Ch\u00e0o"), so rebuild the reply text.
+
     text = _plain_text(chunks)
     assert "Chào bạn" in text
     assert "Hướng dẫn" in text

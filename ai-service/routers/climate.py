@@ -32,7 +32,7 @@ logger = logging.getLogger("climate")
 router = APIRouter(prefix="/api/ai/climate", tags=["11. AI Climate Learning Guardian"])
 
 
-# ── Request models ───────────────────────────────────────────────────────────
+
 
 class ClimateRiskRequest(BaseModel):
     """POST body for /api/ai/climate/risk.
@@ -70,7 +70,7 @@ class ClimateAlternativesRequest(BaseModel):
     category: Optional[str] = Field(default=None, description="Filter by category (school, university, library, wifi_hotspot, ...)")
 
 
-# ── In-process 24 h cache (HF Spaces: no Redis) ──────────────────────────────
+
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _CACHE_TTL_SECONDS = 24 * 3600
 
@@ -100,7 +100,7 @@ def _empty_degraded_heatmap(reason: str) -> Dict[str, Any]:
     """A valid-but-degraded GeoJSON returned only when the service itself is
     broken — not when data is sparse (sparse data is handled inside the
     service with ``degraded=True``)."""
-    centroid = {"lat": 10.9567, "lng": 107.1825}  # Biên Hòa / Đồng Nai centroid
+    centroid = {"lat": 10.9567, "lng": 107.1825}
     return {
         "type": "FeatureCollection",
         "features": [{
@@ -135,7 +135,7 @@ def _empty_degraded_heatmap(reason: str) -> Dict[str, Any]:
     }
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/risk")
 async def climate_risk_heatmap(request_data: ClimateRiskRequest):
@@ -149,7 +149,7 @@ async def climate_risk_heatmap(request_data: ClimateRiskRequest):
     ``metadata.degraded`` flag is set when weather API keys are missing
     (static flood hazard map fallback) or data is sparse.
     """
-    # Resolve bbox.
+
     if request_data.min_lat is not None and request_data.max_lat is not None \
        and request_data.min_lng is not None and request_data.max_lng is not None:
         min_lat, max_lat = request_data.min_lat, request_data.max_lat
@@ -159,7 +159,7 @@ async def climate_risk_heatmap(request_data: ClimateRiskRequest):
             request_data.lat, request_data.lng, request_data.radius_km
         )
     else:
-        # Default to Đồng Nai province (Biên Hòa centroid).
+
         min_lat, max_lat, min_lng, max_lng = 10.75, 11.20, 106.60, 107.20
 
     if min_lat > max_lat:
@@ -170,7 +170,7 @@ async def climate_risk_heatmap(request_data: ClimateRiskRequest):
     date_str = request_data.date
     cache_key = f"risk:{min_lat:.4f}:{max_lat:.4f}:{min_lng:.4f}:{max_lng:.4f}:{date_str or ''}"
 
-    # Cached shortcut (24 h in-process).
+
     cached = _cache_get(cache_key)
     if cached is not None:
         cached = dict(cached)
@@ -234,7 +234,7 @@ async def climate_alternatives(request_data: ClimateAlternativesRequest):
         return result
     except Exception as e:
         logger.exception("Error in climate/alternatives: %s", e)
-        # Graceful degradation: empty but valid GeoJSON.
+
         return {
             "type": "FeatureCollection",
             "features": [],

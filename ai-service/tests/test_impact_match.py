@@ -13,7 +13,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
@@ -88,9 +88,9 @@ def test_rank_impact_matches_template_scores():
     """
     svc = _fresh_service()
     pairs = [
-        # sponsor has 5B budget for 200M need → high cost fit
+
         _make_pair("n1", "s1"),
-        # sponsor has 5B budget for 200M need → same high cost fit
+
         _make_pair("n2", "s2"),
     ]
     data = ImpactMatchRequest(pairs=pairs)
@@ -125,11 +125,11 @@ def test_rank_impact_matches_safety_cap():
     svc = _fresh_service()
     pairs = [_make_pair(f"n{i}", f"s{i}") for i in range(30)]
     data = ImpactMatchRequest(pairs=pairs, max_results=15)
-    # With all providers down, this goes straight to fallback.
-    # But we verify _no_ exception is raised (safety cap doesn't break things).
+
+
     result = asyncio.run(svc.rank_impact_matches(data))
     assert isinstance(result, dict)
-    # Fallback may return up to 15 template matches
+
     assert len(result["ranked_matches"]) <= 15
     assert result["degraded"] is True
     print("✓ test_rank_impact_matches_safety_cap")
@@ -155,7 +155,7 @@ def test_rank_impact_matches_returns_degraded_flag():
 
     assert "degraded" in result
     assert "reason" in result
-    # Ensure no underscore-prefixed keys leak to the router
+
     assert "_degraded" not in result
     assert "_reason" not in result
     print("✓ test_rank_impact_matches_returns_degraded_flag")

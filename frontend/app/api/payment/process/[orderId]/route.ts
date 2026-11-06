@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-
 export async function POST(req: NextRequest) {
-  try {
-    const orderId = req.nextUrl.pathname.split('/').filter(Boolean).pop();
-    const body = await req.json();
-    const authHeader = req.headers.get('Authorization');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authHeader) headers['Authorization'] = authHeader;
-    const response = await fetch(`${getBackendUrl()}/payment/process/${orderId}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    return NextResponse.json(unwrapApiResponse(data), { status: response.status });
-  } catch (error) {
-    console.error('API Route Error:', error);
-    return NextResponse.json({ message: 'Lỗi xử lý thanh toán' }, { status: 500 });
-  }
+    try {
+        const orderId = req.nextUrl.pathname.split('/').filter(Boolean).pop();
+        const body = await req.json();
+        const authHeader = req.headers.get('Authorization');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (authHeader)
+            headers['Authorization'] = authHeader;
+        const response = await fetch(`${getBackendUrl()}/payment/process/${orderId}`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        return NextResponse.json(unwrapApiResponse(data), { status: response.status });
+    }
+    catch (error) {
+        console.error('API Route Error:', error);
+        return NextResponse.json({ message: 'Lỗi xử lý thanh toán' }, { status: 500 });
+    }
 }

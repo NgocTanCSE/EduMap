@@ -28,16 +28,16 @@ from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
-# ── Env guard ────────────────────────────────────────────────────────────────
-# Other test modules (test_data_quality.py, test_predictive_service.py) mutate
-# the global DB_SQLITE_PATH during their fixtures and restore it to a throw-away
-# DB (/tmp/test_edumap_dq.db). Since the ai-service startup daemon + router
-# read DB_SQLITE_PATH at call time (see knowledge_graph.py), we must pin it
-# back to the real edumap.db before every smoke test.
+
+
+
+
+
+
 _REAL_DB = os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 os.environ["DB_SQLITE_PATH"] = _REAL_DB
 
-import pytest  # noqa: E402
+import pytest
 
 @pytest.fixture(autouse=True)
 def _knowledge_graph_env():
@@ -98,7 +98,7 @@ def test_smoke_graph_node_types_filter():
 
 def test_smoke_query_endpoint():
     """POST /api/ai/knowledge/query → 200, valid 1-degree traversal."""
-    # First get a node to query from
+
     graph_resp = client.get("/api/ai/knowledge/graph?node_types=scholarship&limit=5")
     body = graph_resp.json()
 
@@ -154,7 +154,7 @@ def test_smoke_suggest_partners():
     assert "suggestions" in body
     assert isinstance(body["suggestions"], list)
 
-    # Verify ranking (scores descending)
+
     if len(body["suggestions"]) > 1:
         scores = [s["match_score"] for s in body["suggestions"]]
         assert scores == sorted(scores, reverse=True), "Suggestions not ranked by score"
@@ -212,7 +212,7 @@ def test_smoke_reviews_endpoint():
 
 
 if __name__ == "__main__":
-    # Allow running directly: python3 test_smoke_knowledge_graph.py
+
     test_smoke_seed_endpoint()
     test_smoke_graph_endpoint()
     test_smoke_graph_node_types_filter()

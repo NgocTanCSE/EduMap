@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Gamification crawler -> `badges` + `green_challenges` tables (STATIC definitions).
 
@@ -14,11 +13,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, upsert_rows, Jsonb, sync_seq
 from crawl_scope import crawl_years, year_scope_range
 
-# Dynamic green challenge dates spanning the 2-year crawl window.
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# Badges: fill icon_url with inline SVG (no external network)
 def _svg_icon(char="🏆"):
     return f"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><text y='34' font-size='28' text-anchor='middle'>{char}</text></svg>"
 

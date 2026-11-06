@@ -18,7 +18,7 @@ from services.auto_scheduler import (
     AUTO_REGIONS,
     AUTO_ENABLED,
 )
-from services.auto_scheduler import _run_chroma_seed  # for background trigger if needed
+from services.auto_scheduler import _run_chroma_seed
 
 router = APIRouter(prefix="/api/ai/auto", tags=["Auto Scheduler"])
 
@@ -30,14 +30,14 @@ async def get_auto_scheduler_health():
     return auto_scheduler.health()
 
 
-# ── ChromaDB seed status ──
+
 
 @router.get("/chroma/seed-status")
 async def get_chroma_seed_status(refresh: Optional[bool] = False):
     """Trạng thái re-seed ChromaDB. Set ?refresh=true để trigger ngay."""
     result = auto_scheduler.get_result("chroma_seed")
     if (not result or refresh) and AUTO_ENABLED:
-        # Non-blocking: run in background thread
+
         import threading
         t = threading.Thread(target=auto_scheduler.run_once, args=("chroma_seed",), daemon=True)
         t.start()
@@ -54,7 +54,7 @@ async def get_chroma_seed_status(refresh: Optional[bool] = False):
     return result
 
 
-# ── Question Gaps (admin) ──
+
 
 @router.get("/question-gaps")
 async def get_cached_question_gaps(refresh: Optional[bool] = False):
@@ -77,7 +77,7 @@ async def get_cached_question_gaps(refresh: Optional[bool] = False):
     return result
 
 
-# ── Resource Exchange matches (cached) ──
+
 
 @router.get("/resource-exchange/matches")
 async def get_cached_resource_exchange(refresh: Optional[bool] = False):
@@ -110,7 +110,7 @@ async def get_cached_resource_exchange(refresh: Optional[bool] = False):
     return result
 
 
-# ── Impact Match rankings (cached) ──
+
 
 @router.get("/impact-match/rankings")
 async def get_cached_impact_match(refresh: Optional[bool] = False):
@@ -143,12 +143,12 @@ async def get_cached_impact_match(refresh: Optional[bool] = False):
     return result
 
 
-# ── Impact Measurement (per region, cached) ──
+
 
 @router.get("/impact-measurement/{region_id}")
 async def get_cached_impact_measure(region_id: str, refresh: Optional[bool] = False):
     """Báo cáo đo lường tác động cho một vùng."""
-    # Check if this region is in the auto-computed results
+
     cached_overall = auto_scheduler.get_result("impact_measure")
     if cached_overall and cached_overall.get("data", {}).get("regions", {}).get(region_id):
         return _make_impact_result(cached_overall["data"]["regions"][region_id],
@@ -178,7 +178,7 @@ def _make_impact_result(region_data: dict, region_id: str, refresh: bool):
     return region_data
 
 
-# ── Climate risk heatmap (per region, cached) ──
+
 
 @router.get("/climate-risk/{region_id}")
 async def get_cached_climate_risk(region_id: str, refresh: Optional[bool] = False):
@@ -204,7 +204,7 @@ async def get_cached_climate_risk(region_id: str, refresh: Optional[bool] = Fals
     )
 
 
-# ── Daily insight ──
+
 
 @router.get("/daily-insight")
 async def get_cached_daily_insight(refresh: Optional[bool] = False):
@@ -227,7 +227,7 @@ async def get_cached_daily_insight(refresh: Optional[bool] = False):
     return result
 
 
-# ── Available regions (for frontend to know which cached results exist) ──
+
 
 @router.get("/regions")
 async def get_auto_regions():

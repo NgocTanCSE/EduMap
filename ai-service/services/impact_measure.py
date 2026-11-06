@@ -41,39 +41,39 @@ import time
 from datetime import date as _date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-# Re-use the LLM provider cascade for the narrative (temperature=0.3).
-# Imported lazily inside methods to avoid hard-failing at import time if
-# the LLM service is unavailable (mirrors routers/climate.py import style).
-try:  # optional — only used for the LLM narrative
-    from services.llm_service import LLMService  # type: ignore
-except Exception:  # pragma: no cover — ai-service may be partially initialised
-    LLMService = None  # type: ignore
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
+
+try:
+    from services.llm_service import LLMService
+except Exception:
+    LLMService = None
+
+
+
 
 SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
 
-# HF Spaces propagates secrets via the PID-1 environ; recover defensively.
+
 SQLITE_PATH = (
     os.getenv("DB_SQLITE_PATH")
     or os.getenv("SQLITE_DATABASE_URL")
     or "/app/frontend/public/edumap.db"
 )
 
-# Static population density (people / km²) used to estimate the population
-# living inside a reporting bbox. Vietnam national average ≈ 300/km²; Đồng Nai
-# (the EduMap core region, centred on Biên Hòa) ≈ 340/km². This is the *only*
-# population source — there is no live census feed on the free plan.
+
+
+
+
 POP_DENSITY_PER_KM2 = float(os.getenv("IMPACT_POP_DENSITY", "350"))
 
-# Synthetic before-baseline: ~70 % of the population had access before the
-# deployment (per Idea #19 risk mitigation). Only used when no real "before"
-# facility data exists.
+
+
+
 SYNTHETIC_BEFORE_ACCESS_RATE = 0.70
 
-# Educational facility types that count as "access" (mirrors the map_points
-# type_id → name mapping in backend map.service.ts).
+
+
 EDU_TYPE_NAMES = {
     1: "university",
     2: "school",
@@ -86,38 +86,38 @@ EDU_TYPE_NAMES = {
     10: "restaurant",
     11: "convenience",
 }
-# Which types count toward *educational* access (wifi, libraries, schools,
-# universities, STEM labs). Cafés/study spaces are borderline; we include
-# cafe (type 8) as a study_space proxy only when explicitly requested.
+
+
+
 DEFAULT_EDU_ACCESS_TYPES = {"wifi", "library", "school", "university", "lab"}
 
-# Walking catchment radius (km) — "people in 5km radius".
+
 ACCESS_RADIUS_KM = 5.0
 
-# Grid cell size (degrees) for the population/access grid. ~0.01° ≈ 1.1 km,
-# matches climate_guardian.HEATMAP_GRID_DEG so the two heatmaps align.
+
+
 GRID_STEP_DEG = 0.01
 
-# Assumed individual usage touches per facility (proxy for "usage_count").
-# A wifi spot serves more individuals than a library per unit area; this is a
-# coarse but transparent multiplier.
+
+
+
 USAGE_PER_FACILITY = {"wifi": 30, "library": 25, "school": 0, "university": 0, "lab": 20}
 
-# Impact-score weights (must sum to 1.0). Mirrors climate_guardian's
-# risk-weight philosophy: a linear, explainable blend.
-W_COVERAGE = 0.45   # coverage_improvement (capped to [0,1])
-W_ACCESS = 0.35     # access_rate gain (normalised)
-W_USAGE = 0.20      # usage growth (normalised)
 
-# Wilson score interval confidence.
+
+W_COVERAGE = 0.45
+W_ACCESS = 0.35
+W_USAGE = 0.20
+
+
 CI_LEVEL = 0.95
-CI_Z = 1.96  # z-score for 95 % two-sided
+CI_Z = 1.96
 
-# 24 h TTL cache (mirrors forecast.py / climate.py).
+
 _CACHE_TTL = 24 * 3600
 
 
-# ── SQLite helpers (mirror analytics.py:_query_sqlite) ────────────────────────
+
 
 def _sqlite_path() -> Optional[str]:
     """Return the SQLite file used by the backend when in SQLite mode."""
@@ -126,7 +126,7 @@ def _sqlite_path() -> Optional[str]:
     path = SQLITE_PATH
     if path and os.path.exists(path):
         return path
-    # Fallback: relative to the repo (local dev / test).
+
     candidate = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "frontend", "public", "edumap.db",
@@ -157,7 +157,7 @@ def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, An
                 pass
 
 
-# ── Geometry helpers (mirror climate_guardian.py) ─────────────────────────────
+
 
 def _parse_coords(value: Any) -> Optional[Tuple[float, float]]:
     """Parse coordinates from GeoJSON JSON string/dict/array/EWKT → (lng, lat)."""
@@ -204,7 +204,7 @@ def _bbox_area_km2(min_lat: float, max_lat: float, min_lng: float, max_lng: floa
     """Approximate bbox area in km² (spherical rectangle)."""
     lat_span = abs(max_lat - min_lat)
     lng_span = abs(max_lng - min_lng)
-    # 1° lat ≈ 111.32 km; 1° lng at latitude φ ≈ 111.32 * cos(φ) km.
+
     mid_lat = math.radians((min_lat + max_lat) / 2.0)
     return lat_span * lng_span * (111.32 ** 2) * math.cos(mid_lat)
 
@@ -218,7 +218,7 @@ def _polygon_overlaps_bbox(polygon: List[List[float]],
     return False
 
 
-# ── Grid helpers ───────────────────────────────────────────────────────────────
+
 
 def _grid_cells(min_lat: float, max_lat: float,
                 min_lng: float, max_lng: float,
@@ -233,7 +233,7 @@ def _grid_cells(min_lat: float, max_lat: float,
             clng = (lngs[j] + lngs[j + 1]) / 2.0
             cells.append((clat, clng))
     if not cells:
-        # Degenerate tiny bbox → single cell at centroid.
+
         cells.append(((min_lat + max_lat) / 2.0, (min_lng + max_lng) / 2.0))
     return cells
 
@@ -245,15 +245,15 @@ def _cell_step_for(bbox_area_km2: float) -> float:
     """
     if bbox_area_km2 <= 0:
         return GRID_STEP_DEG
-    # Target ~2000 cells; clamp step to keep things fast.
+
     side_km = math.sqrt(max(bbox_area_km2, 0.1))
-    target_side_cells = 50  # 50 × ~50 = 2500 cells max
-    step_km = max(side_km / target_side_cells, 0.5)  # ≥0.5 km cells
-    # 0.5 km ≈ 0.0045° lat
+    target_side_cells = 50
+    step_km = max(side_km / target_side_cells, 0.5)
+
     return max(0.004, min(GRID_STEP_DEG, step_km / 111.32))
 
 
-# ── Facility loading ──────────────────────────────────────────────────────────
+
 
 def _resolve_access_types(requested: Optional[List[str]]) -> set:
     if not requested:
@@ -316,7 +316,7 @@ def _facilities_before_after(facilities: List[Dict[str, Any]],
     cutoff = _parse_iso_date(cutoff_iso)
 
     if cutoff is None:
-        # Derive a median deployment date from the facility cohort.
+
         dates = [_parse_iso_date(f.get("created_at")) for f in facilities]
         dates = [d for d in dates if d is not None]
         if dates:
@@ -333,12 +333,12 @@ def _facilities_before_after(facilities: List[Dict[str, Any]],
             else:
                 after.append(f)
         elif cutoff is None:
-            # No usable timeline at all → everything counts as "after"; "before"
-            # will be the synthetic baseline (population × 0.7).
+
+
             after.append(f)
         else:
-            # Facility has no date but a cutoff exists → count as "before"
-            # (persisted baseline infrastructure).
+
+
             before.append(f)
     return before, after
 
@@ -357,7 +357,7 @@ def _parse_iso_date(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-# ── Access / population metrics ───────────────────────────────────────────────
+
 
 def _nearest_facility_within(cells: List[Tuple[float, float]],
                              facilities: List[Dict[str, Any]],
@@ -412,15 +412,15 @@ def _linear_growth_rate(points: List[Tuple[int, float]]) -> float:
     if den == 0:
         return 0.0
     slope = num / den
-    # Express as % of the mean value per step.
+
     if my == 0:
         return 0.0
     return (slope / my) * 100.0
 
 
-# Tokens that indicate the LLM emitted a safety-refusal / non-answer rather
-# than a useful narrative. When detected we fall back to the deterministic
-# template so the dashboard never shows a refused-message string.
+
+
+
 _REFUSAL_MARKERS = (
     "tôi không thể", "tôi xin lỗi", "xin lỗi", "không thể hỗ trợ",
     "không được phép", "illegal", "i'm sorry", "i cannot",
@@ -445,7 +445,7 @@ def _is_informative_narrative(text: str) -> bool:
     return True
 
 
-# ── In-process 24 h cache ─────────────────────────────────────────────────────
+
 
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
@@ -465,7 +465,7 @@ def _cache_set(key: str, value: Dict[str, Any]) -> None:
     _CACHE[key] = (time.time() + _CACHE_TTL, value)
 
 
-# ── Main service ──────────────────────────────────────────────────────────────
+
 
 class ImpactMeasurementService:
     """Singleton-style service for AI Impact Measurement (Idea #19).
@@ -481,7 +481,7 @@ class ImpactMeasurementService:
     def _llm_ready(self) -> bool:
         if self._llm is None:
             try:
-                from services.llm_service import llm_service  # module singleton
+                from services.llm_service import llm_service
                 self._llm = llm_service
             except Exception:
                 return False
@@ -497,11 +497,11 @@ class ImpactMeasurementService:
             r = getattr(request, "radius_km", 15.0)
             d = r / 111.0
             return (request.lat - d, request.lat + d, request.lng - d, request.lng + d)
-        # Default: tight Biên Hòa city core bbox. The real EduMap facilities
-        # cluster in ~10.88-10.99N, 106.81-106.88E (Biên Hòa city). This exact
-        # envelope is validated against the seeded map_points and yields a
-        # meaningful post-deployment access rate (> the 0.7 synthetic baseline).
-        # A looser fallback dilutes the access-rate grid and flips the delta.
+
+
+
+
+
         return (10.9, 11.0, 106.8, 107.0)
 
     def measure(self, request: Any) -> Dict[str, Any]:
@@ -524,7 +524,7 @@ class ImpactMeasurementService:
         step = _cell_step_for(area_km2)
         cells = _grid_cells(min_lat, max_lat, min_lng, max_lng, step)
         population = int(area_km2 * POP_DENSITY_PER_KM2)
-        # Guard against absurd density × area → cap at a sane upper bound.
+
         population = min(population, 2_000_000)
 
         access_types = _resolve_access_types(getattr(request, "facility_types", None))
@@ -538,13 +538,13 @@ class ImpactMeasurementService:
         before, after = _facilities_before_after(facilities, request.deployment_date)
         synthetic_before = len(before) == 0
 
-        # Access rates: fraction of population-grid cells within 5 km of a facility.
+
         n_cells = len(cells)
         before_flags = _nearest_facility_within(cells, before, ACCESS_RADIUS_KM)
         after_flags = _nearest_facility_within(cells, after, ACCESS_RADIUS_KM)
         access_after = sum(after_flags) / max(n_cells, 1)
         if synthetic_before:
-            # Risk mitigation: synthetic baseline = 70 % access.
+
             access_before = SYNTHETIC_BEFORE_ACCESS_RATE
             before_user_count = int(population * access_before)
             degraded = True
@@ -554,12 +554,12 @@ class ImpactMeasurementService:
 
         after_user_count = int(population * access_after)
 
-        # Usage counts: weighted sum of facility counts (proxy for touchpoints).
+
         def usage_of(facil: List[Dict[str, Any]]) -> int:
             total = 0
             for f in facil:
                 total += int(USAGE_PER_FACILITY.get(f["category"], 0))
-            return max(total, len(facil))  # at least 1 touchpoint per facility
+            return max(total, len(facil))
 
         usage_before = usage_of(before)
         usage_after = usage_of(after)
@@ -584,23 +584,23 @@ class ImpactMeasurementService:
             "synthetic_baseline": False,
         }
 
-        # ── Trend analysis (monthly deployment timeline) ───────────────────
+
         monthly = self._trend_monthly(facilities, before, after, cutoff=before_metrics["period"])
         growth_pct = self._trend_growth(monthly)
 
-        # ── Impact score (0–100 weighted composite) ─────────────────────────
+
         score = self._impact_score(cover_imp, access_before, access_after, usage_before, usage_after)
 
-        # ── Confidence interval (Wilson on post-deployment access rate) ────
+
         ci_lo, ci_hi = _wilson_interval(int(round(access_after * n_cells)), max(n_cells, 1))
-        # Widen the CI when the "before" cohort was synthetic (model uncertainty).
+
         if synthetic_before:
             ci_lo = max(0.0, ci_lo - 0.05)
             ci_hi = min(1.0, ci_hi + 0.10)
             ci_method = "wilson_score+synthetic_baseline_widen"
         else:
             ci_method = "wilson_score"
-        # Convert the access-rate CI to an impact-score CI band.
+
         score_ci_half = (ci_hi - ci_lo) / 2.0 * 100.0
         score_ci = {
             "lower": round(max(0.0, score - score_ci_half), 1),
@@ -609,10 +609,10 @@ class ImpactMeasurementService:
             "method": ci_method,
         }
 
-        # ── Causal-inference notes ─────────────────────────────────────────
+
         causal_notes = self._causal_notes(synthetic_before, len(before), len(after))
 
-        # ── LLM narrative (with template fallback) ─────────────────────────
+
         narrative = self._narrative(
             before_metrics, after_metrics, cover_imp, access_delta,
             score, growth_pct, synthetic_before, degraded,
@@ -666,7 +666,7 @@ class ImpactMeasurementService:
         _cache_set(cache_key, result)
         return result
 
-    # ── Cache key ───────────────────────────────────────────────────────────
+
 
     def _cache_key(self, bbox: Tuple[float, float, float, float], request: Any) -> str:
         lats = f"{bbox[0]:.4f}:{bbox[1]:.4f}:{bbox[2]:.4f}:{bbox[3]:.4f}"
@@ -674,7 +674,7 @@ class ImpactMeasurementService:
         types = "_".join(sorted(getattr(request, "facility_types", None) or []))
         return f"impact:{lats}:{dep}:{types}"
 
-    # ── Trend ───────────────────────────────────────────────────────────────
+
 
     @staticmethod
     def _trend_monthly(facilities: List[Dict[str, Any]],
@@ -716,7 +716,7 @@ class ImpactMeasurementService:
             return "giảm"
         return "ổn định"
 
-    # ── Impact score ────────────────────────────────────────────────────────
+
 
     @staticmethod
     def _impact_score(cover_imp_pct: float,
@@ -729,14 +729,14 @@ class ImpactMeasurementService:
         """
         cover = max(0.0, min(1.0, cover_imp_pct / 100.0))
         access_gain = max(0.0, min(1.0, (access_after - access_before) / max(access_before, 0.01)))
-        # Normalise usage growth against the larger of before/after so a move
-        # from 0 → N facilities is full credit (1.0), not an exploding ratio.
+
+
         denom = max(usage_before, usage_after, 1)
         usage_gain = max(0.0, min(1.0, (usage_after - usage_before) / denom))
         score = W_COVERAGE * cover * 100.0 + W_ACCESS * access_gain * 100.0 + W_USAGE * usage_gain * 100.0
         return max(0.0, min(100.0, score))
 
-    # ── Causal notes ───────────────────────────────────────────────────────
+
 
     @staticmethod
     @staticmethod
@@ -754,7 +754,7 @@ class ImpactMeasurementService:
         )
         return notes
 
-    # ── Narrative (LLM + template fallback) ─────────────────────────────────
+
 
     def _narrative(self, before, after, cover_imp, user_delta,
                    score: float, growth_pct: float, synthetic_before: bool,
@@ -784,7 +784,7 @@ class ImpactMeasurementService:
                 if text and _is_informative_narrative(text):
                     return text.strip()[:1500]
             except Exception:
-                pass  # fall through to template
+                pass
         return self._narrative_template(payload)
 
     @staticmethod
@@ -829,5 +829,5 @@ Hãy ghi chú ngắn gọn hạn chế của causal inference và đề xuất R
         )
 
 
-# Module-level singleton (mirrors climate_guardian.py / predictive_service.py).
+
 impact_measure = ImpactMeasurementService()

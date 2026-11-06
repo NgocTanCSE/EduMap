@@ -1,5 +1,5 @@
 """
-Pydantic models for the Voice-to-Geo AI speech endpoints (Idea #16).
+Pydantic models for the Voice-to-Geo AI speech endpoints (Idea
 
 These models describe the request/response shape for the server-side
 Speech-to-Text fallback (``POST /api/ai/speech/to-text``).

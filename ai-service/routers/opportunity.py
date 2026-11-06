@@ -50,13 +50,13 @@ async def match_opportunities(data: OpportunityMatchRequest):
                 degraded = True
             if "_reason" in m:
                 reason = m.get("_reason")
-            # Strip internal fallback markers before returning to the client.
+
             clean = {k: v for k, v in m.items() if k not in ("_degraded", "_reason")}
             try:
                 clean_matches.append(MatchItem(**clean))
             except Exception:
-                # Skip any item that doesn't conform to the response schema
-                # (e.g. an unexpected fallback shape).
+
+
                 continue
 
         return OpportunityMatchResponse(

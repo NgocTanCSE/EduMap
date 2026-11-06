@@ -26,9 +26,9 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Auto-generate / restore session ID on first mount.
-  // The session ID ties the chat to SessionMemoryService on the backend,
-  // enabling short-term memory + query-relevant context across turns.
+
+
+
   useEffect(() => {
     aiService.getSessionId();
   }, []);
@@ -40,13 +40,13 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
     setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
 
-    // Add an empty assistant "bubble" that gets filled word-by-word
-    // (the typing/streaming effect). isStreaming=true so the UI shows a
-    // cursor indicator instead of a spinner.
+
+
+
     setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
 
-    // Build history from all prior complete messages (exclude the empty
-    // assistant bubble we just added).
+
+
     const history = messages
       .filter((m) => m.content.trim().length > 0)
       .map((m) => ({ role: m.role, content: m.content }));
@@ -64,15 +64,15 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
         }
         return newMsgs;
       });
-      // Scroll to bottom as tokens arrive for a smooth typing effect
+
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 30);
     };
 
     try {
-      // Use SSE streaming via the backend's /ai/chat-stream endpoint.
-      // The backend proxies to ai-service /api/ai/chat/stream which yields
-      // word-by-word SSE chunks. This gives the mobile UI a real-time
-      // "chữ chạy" (typing) effect.
+
+
+
+
       let gotAnyToken = false;
       const stream = aiService.sendMessageStream(userMsg, history, 'mobile', (tok) => {
         gotAnyToken = true;
@@ -80,8 +80,8 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       for await (const token of stream) {
-        // The async generator yields each token; the onToken callback
-        // already updates the UI. This loop just keeps the stream going.
+
+
         if (token) gotAnyToken = true;
       }
 
@@ -89,7 +89,7 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
         throw new Error('Stream produced no output.');
       }
 
-      // Mark the streaming message as complete
+
       setMessages((prev) => {
         const newMsgs = [...prev];
         if (newMsgs.length > 0) {
@@ -101,8 +101,8 @@ export const ChatScreen: React.FC<Props> = ({ navigation }) => {
         return newMsgs;
       });
     } catch {
-      // The sendMessageStream already has its own non-streaming fallback,
-      // but if that also failed, show an error message.
+
+
       setMessages((prev) => {
         const newMsgs = [...prev];
         if (newMsgs.length > 0) {

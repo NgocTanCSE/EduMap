@@ -16,8 +16,8 @@ export interface AuthUser {
 export const authService = {
   async login(email: string, password: string) {
     const res = await apiService.login({ email, password });
-    // Backend returns the auth payload nested under `data`
-    // ({ success, data: { access_token, refresh_token, userId, email, ... } }).
+
+
     const payload = res?.data || res;
     const access_token = payload?.access_token || res?.access_token;
     const refresh_token = payload?.refresh_token || res?.refresh_token;
@@ -82,7 +82,7 @@ export const authService = {
       if (token) apiService.setToken(token);
       return { token, user, refresh };
     } catch (e) {
-      // web fallback
+
       if (Platform.OS === 'web') {
         const token = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null;
         if (token) apiService.setToken(token);
@@ -101,7 +101,7 @@ export const authService = {
       if (refresh) await SecureStore.setItemAsync(REFRESH_KEY, refresh);
       if (user) await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
     } catch (e) {
-      // ignore
+
     }
   },
 };

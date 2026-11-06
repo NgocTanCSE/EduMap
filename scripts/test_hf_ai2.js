@@ -5,7 +5,7 @@ const BASE = 'https://tancse2005-edumap.hf.space';
 const JWT_SECRET = 'edumap-local-dev-secret';
 
 function b64url(buf) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\
 }
 
 const header = b64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));

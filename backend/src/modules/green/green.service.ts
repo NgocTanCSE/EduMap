@@ -2,124 +2,110 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GreenChallenge, GreenChallengeActivity } from './entities/green.entity';
-
 export interface GreenImpact {
-  id: string;
-  initiative: string;
-  carbonSavedKg: number;
-  date: string;
+    id: string;
+    initiative: string;
+    carbonSavedKg: number;
+    date: string;
 }
-
 @Injectable()
 export class GreenService {
-  private readonly logger = new Logger(GreenService.name);
-
-  constructor(
+    private readonly logger = new Logger(GreenService.name);
+    constructor(
     @InjectRepository(GreenChallenge)
-    private readonly challengeRepo: Repository<GreenChallenge>,
+    private readonly challengeRepo: Repository<GreenChallenge>, 
     @InjectRepository(GreenChallengeActivity)
-    private readonly activityRepo: Repository<GreenChallengeActivity>,
-  ) {}
-
-  async getAllImpacts(): Promise<GreenImpact[]> {
-    try {
-      const challenges = await this.challengeRepo.find({
-        select: ['id', 'title', 'points_reward', 'created_at'],
-        order: { created_at: 'DESC' },
-      });
-      return challenges.map(c => ({
-        id: c.id,
-        initiative: c.title,
-        carbonSavedKg: c.points_reward * 0.5,
-        date: c.created_at.toISOString().split('T')[0],
-      }));
-    } catch (error: any) {
-      this.logger.error(`Error fetching green impacts: ${error.message}`);
-      return [];
+    private readonly activityRepo: Repository<GreenChallengeActivity>) { }
+    async getAllImpacts(): Promise<GreenImpact[]> {
+        try {
+            const challenges = await this.challengeRepo.find({
+                select: ['id', 'title', 'points_reward', 'created_at'],
+                order: { created_at: 'DESC' },
+            });
+            return challenges.map(c => ({
+                id: c.id,
+                initiative: c.title,
+                carbonSavedKg: c.points_reward * 0.5,
+                date: c.created_at.toISOString().split('T')[0],
+            }));
+        }
+        catch (error: any) {
+            this.logger.error(`Error fetching green impacts: ${error.message}`);
+            return [];
+        }
     }
-  }
-
-  async getChallenges() {
-    try {
-      const challenges = await this.challengeRepo.find({
-        select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at', 'lat', 'lng', 'address'],
-        where: { status: 'active' },
-        order: { created_at: 'DESC' },
-      });
-      
-      // Get participants count for each challenge
-      const challengesWithParticipants = await Promise.all(
-        challenges.map(async (c) => {
-          const participantsCount = await this.activityRepo.count({ where: { challenge_id: c.id } });
-          return {
-            id: c.id,
-            title: c.title,
-            description: c.description,
-            points: c.points_reward,
-            carbon_saved_kg: c.points_reward * 0.5,
-            participants_count: participantsCount,
-            image_url: null,
-            status: c.status,
-            lat: c.lat,
-            lng: c.lng,
-            address: c.address,
-          };
-        })
-      );
-      
-      return challengesWithParticipants;
-    } catch (error: any) {
-      this.logger.error(`Error fetching green challenges: ${error.message}`);
-      // Return empty array instead of mock data to avoid hardcoded data
-      return [];
+    async getChallenges() {
+        try {
+            const challenges = await this.challengeRepo.find({
+                select: ['id', 'title', 'description', 'points_reward', 'status', 'created_at', 'lat', 'lng', 'address'],
+                where: { status: 'active' },
+                order: { created_at: 'DESC' },
+            });
+            const challengesWithParticipants = await Promise.all(challenges.map(async (c) => {
+                const participantsCount = await this.activityRepo.count({ where: { challenge_id: c.id } });
+                return {
+                    id: c.id,
+                    title: c.title,
+                    description: c.description,
+                    points: c.points_reward,
+                    carbon_saved_kg: c.points_reward * 0.5,
+                    participants_count: participantsCount,
+                    image_url: null,
+                    status: c.status,
+                    lat: c.lat,
+                    lng: c.lng,
+                    address: c.address,
+                };
+            }));
+            return challengesWithParticipants;
+        }
+        catch (error: any) {
+            this.logger.error(`Error fetching green challenges: ${error.message}`);
+            return [];
+        }
     }
-  }
-
-  /**
-   * Ghi nhận hoạt động tham gia thử thách Sống Xanh của người dùng.
-   * Ánh xạ theo bảng 6.2 — STT 24: green.service.ts ↳ logActivity()
-   */
-  async logActivity(userId: string, challengeId: string, carbonSavedKg: number = 0): Promise<any> {
-    try {
-      const pointsEarned = Math.round((carbonSavedKg || 0) * 2);
-      const activity = this.activityRepo.create({
-        user_id: userId,
-        challenge_id: challengeId,
-        carbon_saved_kg: carbonSavedKg,
-        points_earned: pointsEarned,
-      });
-      const saved = await this.activityRepo.save(activity);
-      return {
-        id: saved.id,
-        user_id: saved.user_id,
-        challenge_id: saved.challenge_id,
-        carbon_saved_kg: Number(saved.carbon_saved_kg),
-        points_earned: saved.points_earned,
-        created_at: saved.created_at,
-      };
-    } catch (error: any) {
-      this.logger.error(`Error logging green activity: ${error.message}`);
-      throw error;
+    async logActivity(userId: string, challengeId: string, carbonSavedKg: number = 0): Promise<any> {
+        try {
+            const pointsEarned = Math.round((carbonSavedKg || 0) * 2);
+            const activity = this.activityRepo.create({
+                user_id: userId,
+                challenge_id: challengeId,
+                carbon_saved_kg: carbonSavedKg,
+                points_earned: pointsEarned,
+            });
+            const saved = await this.activityRepo.save(activity);
+            return {
+                id: saved.id,
+                user_id: saved.user_id,
+                challenge_id: saved.challenge_id,
+                carbon_saved_kg: Number(saved.carbon_saved_kg),
+                points_earned: saved.points_earned,
+                created_at: saved.created_at,
+            };
+        }
+        catch (error: any) {
+            this.logger.error(`Error logging green activity: ${error.message}`);
+            throw error;
+        }
     }
-  }
-
-  async addImpact(initiative: string, carbonSavedKg: number): Promise<GreenImpact> {
-    try {
-      const challenge = this.challengeRepo.create({
-        title: initiative,
-        points_reward: Math.round(carbonSavedKg * 2),
-        status: 'active',
-      });
-      const saved = await this.challengeRepo.save(challenge);
-      return {
-        id: saved.id,
-        initiative: saved.title,
-        carbonSavedKg: saved.points_reward * 0.5,
-        date: saved.created_at.toISOString().split('T')[0],
-      };
-    } catch (error: any) {
-      this.logger.error(`Error adding green impact: ${error.message}`);
-      throw error;
+    async addImpact(initiative: string, carbonSavedKg: number): Promise<GreenImpact> {
+        try {
+            const challenge = this.challengeRepo.create({
+                title: initiative,
+                points_reward: Math.round(carbonSavedKg * 2),
+                status: 'active',
+            });
+            const saved = await this.challengeRepo.save(challenge);
+            return {
+                id: saved.id,
+                initiative: saved.title,
+                carbonSavedKg: saved.points_reward * 0.5,
+                date: saved.created_at.toISOString().split('T')[0],
+            };
+        }
+        catch (error: any) {
+            this.logger.error(`Error adding green impact: ${error.message}`);
+            throw error;
+        }
     }
-  }
 }

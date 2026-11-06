@@ -1,124 +1,111 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
-import { 
-  MessageSquare, Heart, Share2, MoreHorizontal, ArrowLeft,
-  Send, AlertTriangle, CheckCircle2, Clock, User, Loader2
-} from 'lucide-react';
+import { MessageSquare, Heart, Share2, MoreHorizontal, ArrowLeft, Send, AlertTriangle, CheckCircle2, Clock, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { communityService, Post, Comment } from '@/src/services/community.service';
 import { authService } from '@/src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-
-export default function PostDetailPage({ params }: { params: { id: string } }) {
+export default function PostDetailPage({ params }: {
+    params: {
+        id: string;
+    };
+}) {
     const postId = params.id;
-  const currentUser = authService.getUser();
-
-  const [post, setPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [newComment, setNewComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (postId) {
-      fetchPostAndComments();
-    }
-  }, [postId]);
-
-  const fetchPostAndComments = async () => {
-    try {
-      setLoading(true);
-      const [postData, commentsData] = await Promise.all([
-        communityService.getPostById(postId),
-        communityService.getComments(postId)
-      ]);
-      setPost(postData);
-      setComments(commentsData.comments || []);
-    } catch (error: any) {
-      toast.error('Không thể tải bài viết');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLike = async () => {
-      if (!authService.isLoggedIn()) {
-          toast.error('Vui lòng đăng nhập để thích');
-          return;
-      }
-      try {
-          await communityService.likePost(postId);
-          if (post) setPost({ ...post, like_count: Number(post.like_count) + 1 });
-      } catch (error) {
-          toast.error('Không thể thích bài viết');
-      }
-  };
-
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authService.isLoggedIn()) {
-        toast.error('Vui lòng đăng nhập để bình luận');
-        return;
-    }
-    if (!newComment.trim()) return;
-
-    try {
-        setSubmitting(true);
-        const res = await communityService.addComment(postId, newComment);
-        
-        if (res.moderation_message) {
-            toast.info(res.moderation_message, { duration: 5000 });
-        } else {
-            toast.success('Đã gửi bình luận');
-            setComments([...comments, res.comment]);
-            if (post) setPost({ ...post, comment_count: Number(post.comment_count) + 1 });
+    const currentUser = authService.getUser();
+    const [post, setPost] = useState<Post | null>(null);
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [newComment, setNewComment] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    useEffect(() => {
+        if (postId) {
+            fetchPostAndComments();
         }
-        setNewComment('');
-    } catch (error: any) {
-        toast.error(error.message || 'Lỗi khi gửi bình luận');
-    } finally {
-        setSubmitting(false);
+    }, [postId]);
+    const fetchPostAndComments = async () => {
+        try {
+            setLoading(true);
+            const [postData, commentsData] = await Promise.all([
+                communityService.getPostById(postId),
+                communityService.getComments(postId)
+            ]);
+            setPost(postData);
+            setComments(commentsData.comments || []);
+        }
+        catch (error: any) {
+            toast.error('Không thể tải bài viết');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const handleLike = async () => {
+        if (!authService.isLoggedIn()) {
+            toast.error('Vui lòng đăng nhập để thích');
+            return;
+        }
+        try {
+            await communityService.likePost(postId);
+            if (post)
+                setPost({ ...post, like_count: Number(post.like_count) + 1 });
+        }
+        catch (error) {
+            toast.error('Không thể thích bài viết');
+        }
+    };
+    const handleComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!authService.isLoggedIn()) {
+            toast.error('Vui lòng đăng nhập để bình luận');
+            return;
+        }
+        if (!newComment.trim())
+            return;
+        try {
+            setSubmitting(true);
+            const res = await communityService.addComment(postId, newComment);
+            if (res.moderation_message) {
+                toast.info(res.moderation_message, { duration: 5000 });
+            }
+            else {
+                toast.success('Đã gửi bình luận');
+                setComments([...comments, res.comment]);
+                if (post)
+                    setPost({ ...post, comment_count: Number(post.comment_count) + 1 });
+            }
+            setNewComment('');
+        }
+        catch (error: any) {
+            toast.error(error.message || 'Lỗi khi gửi bình luận');
+        }
+        finally {
+            setSubmitting(false);
+        }
+    };
+    if (loading) {
+        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary/80 animate-spin"/>
+      </div>);
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-primary/80 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!post) {
-      return (
-          <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center">
+    if (!post) {
+        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center">
               <h1 className="text-2xl font-bold mb-4">Không tìm thấy bài viết</h1>
               <Link href="/community" className="text-primary/80 hover:underline">Quay lại Cộng đồng</Link>
-          </div>
-      );
-  }
-
-  return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
+          </div>);
+    }
+    return (<div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        
+
         <Link href="/community" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
-          <ArrowLeft className="w-4 h-4" /> QUAY LẠI
+          <ArrowLeft className="w-4 h-4"/> QUAY LẠI
         </Link>
 
-        {/* Original Post */}
         <article className="bg-card border border-border rounded-xl p-6 md:p-8">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <img 
-                        src={post.author?.avatar_url || avatarFallback(post.author?.full_name)}
-                        onError={onImageError(avatarFallback(post.author?.full_name))}
-                        alt="" 
-                        className="w-12 h-12 rounded-full bg-card"
-                    />
+                    <img src={post.author?.avatar_url || avatarFallback(post.author?.full_name)} onError={onImageError(avatarFallback(post.author?.full_name))} alt="" className="w-12 h-12 rounded-full bg-card"/>
                     <div>
                         <h4 className="font-bold text-muted-foreground/70">{post.author?.full_name}</h4>
                         <p className="text-xs text-muted-foreground flex items-center gap-2">
@@ -128,7 +115,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                     </div>
                 </div>
                 <button className="text-muted-foreground hover:text-foreground p-2"><MoreHorizontal size={20}/></button>
-                <BookmarkButton targetType="community_post" targetId={post.id} size="sm" />
+                <BookmarkButton targetType="community_post" targetId={post.id} size="sm"/>
             </div>
 
             <div className="space-y-4">
@@ -140,57 +127,35 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
 
             <div className="mt-8 pt-4 border-t border-border flex items-center gap-6">
                 <button onClick={handleLike} className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors font-bold group">
-                    <Heart size={20} className="group-active:scale-75 transition-transform" /> 
+                    <Heart size={20} className="group-active:scale-75 transition-transform"/>
                     {post.like_count}
                 </button>
                 <div className="flex items-center gap-2 text-muted-foreground/60 font-bold">
-                    <MessageSquare size={20} /> 
+                    <MessageSquare size={20}/>
                     {post.comment_count}
                 </div>
                 <button className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors font-bold ml-auto">
-                    <Share2 size={20} />
+                    <Share2 size={20}/>
                 </button>
             </div>
         </article>
 
-        {/* Comments Section */}
         <div className="bg-card/50 border border-border rounded-xl p-6 md:p-8 space-y-8">
             <h3 className="text-xl font-bold flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-primary/80"/> Bình luận ({comments.length})
             </h3>
 
-            {/* Comment Form */}
             <form onSubmit={handleComment} className="flex gap-4">
                 <div className="w-10 h-10 rounded-full bg-card shrink-0 flex items-center justify-center border border-border overflow-hidden">
-                    {authService.isLoggedIn() ? (
-                         <img
-                            src={currentUser?.avatar_url || avatarFallback(currentUser?.fullName)}
-                            onError={onImageError(avatarFallback(currentUser?.fullName))}
-                            alt=""
-                            className="w-full h-full object-cover"
-                         />
-                    ) : (
-                        <User className="w-5 h-5 text-muted-foreground" />
-                    )}
+                    {authService.isLoggedIn() ? (<img src={currentUser?.avatar_url || avatarFallback(currentUser?.fullName)} onError={onImageError(avatarFallback(currentUser?.fullName))} alt="" className="w-full h-full object-cover"/>) : (<User className="w-5 h-5 text-muted-foreground"/>)}
                 </div>
                 <div className="flex-1 space-y-3">
-                    <textarea 
-                        rows={3}
-                        value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
-                        placeholder={authService.isLoggedIn() ? "Viết bình luận của bạn..." : "Vui lòng đăng nhập để bình luận"}
-                        disabled={!authService.isLoggedIn()}
-                        className="w-full bg-card/40 border border-border rounded-lg p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"
-                    />
+                    <textarea rows={3} value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={authService.isLoggedIn() ? "Viết bình luận của bạn..." : "Vui lòng đăng nhập để bình luận"} disabled={!authService.isLoggedIn()} className="w-full bg-card/40 border border-border rounded-lg p-4 text-sm outline-none focus:border-primary transition-colors resize-none disabled:opacity-50"/>
                     <div className="flex justify-between items-center">
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3"/> AI sẽ kiểm duyệt nội dung
                         </span>
-                        <button 
-                            type="submit"
-                            disabled={!authService.isLoggedIn() || submitting || !newComment.trim()}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
-                        >
+                        <button type="submit" disabled={!authService.isLoggedIn() || submitting || !newComment.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 flex items-center gap-2">
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Send className="w-4 h-4"/>} Gửi
                         </button>
                     </div>
@@ -198,14 +163,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             </form>
 
             <div className="space-y-6 pt-6">
-                {comments.length > 0 ? comments.map(comment => (
-                    <div key={comment.id} className="flex gap-4 group">
-                        <img 
-                            src={comment.author?.avatar_url || avatarFallback(comment.author?.full_name)}
-                            onError={onImageError(avatarFallback(comment.author?.full_name))}
-                            alt="" 
-                            className="w-10 h-10 rounded-full bg-card shrink-0"
-                        />
+                {comments.length > 0 ? comments.map(comment => (<div key={comment.id} className="flex gap-4 group">
+                        <img src={comment.author?.avatar_url || avatarFallback(comment.author?.full_name)} onError={onImageError(avatarFallback(comment.author?.full_name))} alt="" className="w-10 h-10 rounded-full bg-card shrink-0"/>
                         <div className="flex-1 space-y-1">
                             <div className="flex items-baseline gap-2">
                                 <span className="font-bold text-sm text-muted-foreground/70">{comment.author?.full_name}</span>
@@ -215,16 +174,12 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
                                 {comment.content}
                             </div>
                         </div>
-                    </div>
-                )) : (
-                    <div className="text-center py-8 text-muted-foreground text-sm italic">
+                    </div>)) : (<div className="text-center py-8 text-muted-foreground text-sm italic">
                         Chưa có bình luận nào. Hãy là người đầu tiên!
-                    </div>
-                )}
+                    </div>)}
             </div>
         </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

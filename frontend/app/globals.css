@@ -2,59 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* EduMap Design System — Amber primary + Zinc neutral
-   HSL format enables Tailwind opacity modifiers (bg-primary/50, etc.)
-   No AI-purple, no random gradients, no emoji logos. */
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   :root {
-    /* Sidebar width — Orvel standard 252px, collapsible to 56px */
+
     --sidebar-width: 252px;
     --sidebar-width-collapsed: 56px;
 
-    /* ── Orvel Warm Editorial (Education SaaS Edition) ─────────────
-       A warm ivory, high-end editorial palette:
-         bg        #F2EFE8 → warm ivory / cream canvas (page background)
-         surface   #FFFEFA → warm off-white surface (cards)
-         surface-2 #F6F3EB → secondary card / pill / input background
-         text      #1B1813 → deep warm charcoal (primary text)
-         muted     #57534E → stone neutral (secondary text)
-         primary   #E07A5F → warm terracotta / amber (primary actions)
-         accent    #0F6A45 → emerald forest (positive status / growth)
-         rose      #D0475E → warm rose (overdue / warning / delete)
-         border    rgba(46, 34, 12, 0.12) → subtle warm neutral border
-       ───────────────────────────────────────────────────────────── */
-    --background: 40 25% 93%;            /* #F2EFE8 */
-    --foreground: 38 17% 9%;             /* #1B1813 */
-    --card: 43 100% 98.6%;               /* #FFFEFA */
-    --card-foreground: 38 17% 9%;        /* #1B1813 */
-    --popover: 0 0% 100%;                /* #FFFFFF */
+
+    --background: 40 25% 93%;
+    --foreground: 38 17% 9%;
+    --card: 43 100% 98.6%;
+    --card-foreground: 38 17% 9%;
+    --popover: 0 0% 100%;
     --popover-foreground: 38 17% 9%;
-    --secondary: 44 35% 94%;             /* #F6F3EB */
+    --secondary: 44 35% 94%;
     --secondary-foreground: 38 17% 9%;
-    --sidebar: 44 35% 94%;               /* #F6F3EB */
+    --sidebar: 44 35% 94%;
     --sidebar-foreground: 38 17% 9%;
-    --border: 38 18% 85%;                /* soft warm border */
+    --border: 38 18% 85%;
     --input: 38 18% 85%;
-    --ring: 13 67.5% 62.5%;              /* terracotta focus ring */
-    --primary: 13 67.5% 62.5%;           /* #E07A5F */
+    --ring: 13 67.5% 62.5%;
+    --primary: 13 67.5% 62.5%;
     --primary-foreground: 0 0% 100%;
-    --muted: 44 30% 92%;                 /* #F2EFE6 */
-    --muted-foreground: 25 5% 36%;       /* #57534E */
-    --accent: 158 54% 28%;               /* #0F6A45 (emerald) */
+    --muted: 44 30% 92%;
+    --muted-foreground: 25 5% 36%;
+    --accent: 158 54% 28%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 350 63% 55%;          /* #D0475E (rose) */
+    --destructive: 350 63% 55%;
     --destructive-foreground: 0 0% 100%;
   }
 
-  /* Dark mode option (Warm Charcoal Editorial) */
+
   .dark {
-    --background: 36 12% 7%;            /* #13110E */
-    --foreground: 40 22% 93%;           /* #F3EEE4 */
-    --card: 35 12% 10%;                 /* #1B1915 */
+    --background: 36 12% 7%;
+    --foreground: 40 22% 93%;
+    --card: 35 12% 10%;
     --card-foreground: 40 22% 90%;
     --popover: 35 12% 12%;
     --popover-foreground: 40 22% 90%;
@@ -65,11 +52,11 @@
     --border: 35 15% 18%;
     --input: 35 15% 18%;
     --ring: 38 88% 54%;
-    --primary: 38 88% 54%;              /* #F5B23A */
+    --primary: 38 88% 54%;
     --primary-foreground: 20 13% 10%;
     --muted: 35 12% 14%;
     --muted-foreground: 38 12% 65%;
-    --accent: 152 48% 55%;              /* #52CF92 */
+    --accent: 152 48% 55%;
     --accent-foreground: 20 13% 10%;
     --destructive: 350 63% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -85,17 +72,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Native checkboxes/radios: Desert Dusk terracotta accent.
-     Prevents the default "blue water" checkmark on every browser. */
+
   input[type="checkbox"],
   input[type="radio"] {
     accent-color: hsl(var(--primary));
   }
 }
 
-/* Consistent border radius scale — one system, applied everywhere.
-   Default to radius-lg (12px) for cards, radius-md (8px) for inputs/buttons,
-   radius-xl (16px) for modal shells. */
+
 @layer utilities {
   .radius-sm { border-radius: 0.375rem; }
   .radius-md { border-radius: 0.5rem; }
@@ -104,31 +88,24 @@
   .radius-2xl { border-radius: 1.5rem; }
 }
 
-/* ── Layout & alignment primitives ─────────────────────────────────────
-   These exist so every feature page shares ONE page frame, ONE card
-   surface and ONE card grid. Before them, pages mixed `p-8`, `p-6`,
-   `max-w-7xl`, which is why nothing lined up between
-   routes. Apply these classes instead of writing the same 6 utilities
-   again (and again, with slightly different values).
-   Defined in @layer components so page-level utility classes can still
-   override them (e.g. `page-shell max-w-4xl`). */
+
 @layer components {
-  /* Page frame: same padding + vertical rhythm on mobile and desktop. */
+
   .page-shell {
     @apply mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
   }
 
-  /* Narrow variant for form/detail pages. */
+
   .page-shell-narrow {
     @apply mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6 sm:py-8;
   }
 
-  /* Standard surface for cards, panels and list rows. */
+
   .card-surface {
     @apply rounded-[22px] border border-border/80 bg-card shadow-orvel transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-pop;
   }
 
-  /* Equal-height card grid: every row's cards stretch to the tallest card. */
+
   .card-grid {
     @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-3;
   }
@@ -137,33 +114,28 @@
     @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
   }
 
-  /* Card body that keeps title/description/footer aligned across a row. */
+
   .card-equal {
     @apply flex h-full flex-col;
   }
 
-  /* Push a card's footer (meta row / CTA) to the bottom edge. */
+
   .card-footer {
     @apply mt-auto flex items-center justify-between gap-2 border-t border-border pt-3;
   }
 
-  /* Uniform vector-icon tile — replaces emoji tiles and <img> icon art. */
+
   .icon-tile {
     @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary;
   }
 
-  /* Secondary text that still passes contrast on the dark background.
-     Use instead of `text-muted-foreground/40|50`, which was unreadable. */
+
   .text-soft {
     @apply text-foreground/60;
   }
 }
 
-/* ── Typography scale (Desert Dusk) ────────────────────────────────────
-   ONE heading scale applied everywhere. Pages must use these tokens
-   instead of inventing `text-xl`/`text-3xl`/`text-2xl` arbitrarily —
-   that is what caused some titles to balloon while card titles were
-   lost in the noise. */
+
 @layer utilities {
   .h1-page {    @apply text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl; }
   .h2-section { @apply text-lg font-bold tracking-tight text-foreground; }
@@ -172,13 +144,7 @@
   .label-pill { @apply text-[10px] font-bold uppercase tracking-wider; }
 }
 
-/* ── Form field system ──────────────────────────────────────────────────
-   Every input / select / textarea shares this exact shape so textboxes,
-   date pickers, and buttons line up pixel-for-pixel across pages:
-     • height 48 px (h-12) for comfortable touch targets
-     • border-radius 12 px (rounded-lg) — never square
-     • consistent 16 px horizontal padding
-     • focus ring uses --ring (terracotta) not a raw border-color swap */
+
 @layer components {
   .form-input {
     @apply w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50;
@@ -196,8 +162,7 @@
     @apply flex items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
 
-  /* Native <select> chevron — rendered via Tailwind bg-image so it
-     inherits the form-select padding. */
+
   .form-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -205,8 +170,7 @@
     background-size: 16px;
   }
 
-  /* Input group: icon-inside pattern that keeps the icon from
-     overlapping the text or the clear/search button. */
+
   .input-icon {
     @apply absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none;
   }
@@ -214,29 +178,23 @@
     @apply pl-10 pr-4;
   }
 
-  /* Button-icon-text: reserves a fixed-width icon slot inside an
-     icon+text button so swapping the icon (e.g. CalendarPlus → spinner)
-     never shifts the label left/right. */
+
   .btn-icon-slot {
     @apply flex h-5 w-5 shrink-0 items-center justify-center;
   }
 
-  /* Fixed-width icon wrapper for icon-only buttons (clear, close, toggle)
-     so the surrounding layout never reflows when the icon changes. */
+
   .icon-fixed {
     @apply flex h-4 w-4 shrink-0 items-center justify-center;
   }
 
-  /* Card title that won't dwarf the body text — the previous text-2xl
-     on CardTitle made every card look like a billboard. */
+
   .card-title {
     @apply text-base font-semibold leading-tight tracking-tight text-foreground;
   }
 }
 
-/* ── Native form control consistency ────────────────────────────────────
-   Strip the default square corners from date / time / number pickers
-   and textarea so they inherit the Desert Dusk form field style. */
+
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"],
@@ -244,7 +202,7 @@ input[type="number"],
 textarea,
 select {
   @apply rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition-colors;
-  padding: 0.75rem 1rem; /* matches form-input px-4 py-3 */
+  padding: 0.75rem 1rem;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
@@ -252,7 +210,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(0.45) opacity(0.6);
 }
 
-/* Leaflet Dark Mode Tile Filter (Watermark-free, 100% Free OpenStreetMap) */
+
 .leaflet-dark-tiles .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
@@ -261,7 +219,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background: hsl(var(--card)) !important;
 }
 
-/* Leaflet popup — sync nền với theme (card / background) thay vì trắng cứng */
+
 .leaflet-popup-content-wrapper {
   background: hsl(var(--card)) !important;
   color: hsl(var(--foreground)) !important;
@@ -281,9 +239,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: hsl(var(--foreground)) !important;
 }
 
-/* Leaflet tooltip — desert dusk theme (dark card bg + light text)
-   Default Leaflet tooltip is white bg + dark text = unreadable on dark tiles.
-   Sync with .leaflet-popup styling for visual consistency. */
+
 .leaflet-tooltip {
   background: hsl(var(--card)) !important;
   color: hsl(var(--foreground)) !important;
@@ -296,7 +252,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 
-/* Tooltip arrow — must match the tooltip background so it's not a white stub */
+
 .leaflet-tooltip-top:before {
   border-top-color: hsl(var(--card)) !important;
 }
@@ -310,10 +266,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-right-color: hsl(var(--card)) !important;
 }
 
-/* ─── MapPopupContent ──────────────────────────────────────────────
-   Consistent styling for POI + featured-pin popups. LeafPopup already
-   strips padding via `.leaflet-popup-content` (margin:0, padding:0);
-   the component adds its own `p-2` inner padding via POPUP_CONTENT_CLASS. */
+
 .map-popup {
   line-height: 1.4;
 }
@@ -322,13 +275,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   line-height: 1.4;
 }
 
-/* Custom scrollbar for overflow panels */
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-/* Ẩn thanh cuộn nhưng GIỮ chức năng cuộn (dùng cho các panel không muốn thấy thanh cuộn) */
+
 .no-scrollbar,
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -351,17 +304,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   background-color: hsl(var(--muted-foreground));
 }
 
-/* Smooth anchor scrolling */
+
 html {
   scroll-behavior: smooth;
 }
 
-/* Student map: category pin badge palette */
+
 .map-pin-badge {
   @apply text-[10px] font-semibold uppercase tracking-wider;
 }
 
-/* Card background — fixes the undefined bg-card class previously used across pages */
+
 .bg-card {
   background-color: hsl(var(--card));
 }
@@ -372,17 +325,13 @@ html {
   border-color: hsl(var(--border));
 }
 
-/* Mobile app shell: the sticky 56px header already occupies part of the
-   viewport, so page roots using `min-h-screen` should fill the remaining
-   space instead of forcing an extra 56px of empty scroll. Scoped to the
-   in-app content column so full-screen pages keep their 100vh layout. */
+
 @media (max-width: 1023px) {
-  #app-content .min-h-screen {
     min-height: calc(100dvh - 3.5rem);
   }
 }
 
-/* Orvel Signature Card, Pill & Shadow Utilities */
+
 @layer utilities {
   .shadow-orvel {
     box-shadow: 0 1px 2px rgba(46, 34, 12, 0.05), 0 14px 32px -20px rgba(46, 34, 12, 0.28);
@@ -410,7 +359,7 @@ html {
   }
 }
 
-/* Animated Theme Toggler View Transition Effect (Magic UI Circular Reveal) */
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

@@ -13,14 +13,14 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
-# Disable local LLM so tests don't require transformers/torch at import time
+
 os.environ["LOCAL_LLM_ENABLED"] = "false"
 
 from services.llm_service import LLMService
@@ -66,11 +66,11 @@ def test_recommend_career_degraded_fallback():
     result = asyncio.run(svc.recommend_career(data))
     assert isinstance(result, list)
     assert len(result) >= 2
-    # Each fallback item should have _degraded marker
+
     for item in result:
         assert item["_degraded"] is True
         assert "_reason" in item
-    # Verify field names match frontend expectations
+
     for item in result:
         assert "title" in item
         assert "match_score" in item
@@ -105,7 +105,7 @@ def test_match_mentors_degraded_fallback():
     Mocks the DB to return no rows, so this tests the empty-state path."""
     from unittest.mock import patch
     svc = _fresh_service()
-    svc.is_ready = False  # simulate no provider
+    svc.is_ready = False
     data = MatchRequest(
         student_id="test-student",
         student_skills_needed=["Python"],
@@ -113,8 +113,8 @@ def test_match_mentors_degraded_fallback():
         preferred_days=["Mon", "Wed"],
         available_mentors=[],
     )
-    # Mock _resolve_db_path to return None so the DB query is skipped,
-    # simulating an empty mentors table — guarantees the empty-state branch.
+
+
     with patch.object(svc, "_resolve_db_path", return_value=None):
         result = svc._match_mentors_fallback(data, "No LLM provider")
     assert isinstance(result, list)
@@ -130,7 +130,7 @@ def test_match_mentors_degraded_fallback_with_seeded_data():
     returns actual mentor matches (scored by specialty overlap) with
     _degraded=True, instead of an empty-state."""
     svc = _fresh_service()
-    svc.is_ready = False  # simulate no provider
+    svc.is_ready = False
     data = MatchRequest(
         student_id="test-student",
         student_skills_needed=["Python"],
@@ -190,7 +190,7 @@ def test_analyze_geo_density_fallback_accepts_geojson_hubs():
              "properties": {"hub_id": 2, "point_count": 1, "categories": []}},
         ],
     }
-    # 13 points so density_score = hub_count / point_count * 100.
+
     data = GeoDensityAnalysisRequest(
         city="Biên Hòa",
         points=[{"lat": 10.95, "lng": 106.84, "type": "school"}] * 13,
@@ -198,8 +198,8 @@ def test_analyze_geo_density_fallback_accepts_geojson_hubs():
     result = asyncio.run(svc.analyze_geo_density(data, hubs=hubs_fc))
     assert result["_degraded"] is True
     assert "template fallback" in result["_reason"]
-    # hub_count must be read from features (3), not len(dict)==2.
-    # 3/13*100 = 23.0769... -> round -> 23.1
+
+
     assert result["density_score"] == 23.1
     assert "3 cụm giáo dục" in result["summary"]
     print("✓ test_analyze_geo_density_fallback_accepts_geojson_hubs")
@@ -230,10 +230,10 @@ def test_generate_career_advice_degraded_fallback():
     result = asyncio.run(svc.generate_career_advice({"skills": "Python", "interests": ["lập trình"]}))
     assert isinstance(result, str)
     assert len(result) > 0
-    # Must mention that AI is unavailable (degraded notice)
+
     assert "AI" in result or "offline" in result.lower()
-    # With SQLite career_paths = 8 rows, fallback should include real career titles
-    # (at minimum, the "offline mode" notice + config hint)
+
+
     print("✓ test_generate_career_advice_degraded_fallback")
 
 
@@ -243,8 +243,8 @@ def test_generate_career_advice_includes_real_careers():
     svc = _fresh_service()
     result = asyncio.run(svc.generate_career_advice({"skills": "Python"}))
     assert isinstance(result, str)
-    # Should NOT contain the old hardcoded template careers (proves promotion worked)
-    # Instead should reference SQLite or real career data
+
+
     assert "offline" in result.lower() or "SQLite" in result or "career" in result.lower()
 
 
@@ -255,17 +255,17 @@ def test_mentor_profile_accepts_id_alias():
     required 'mentor_id', causing 422 ValidationErrors on the /api/ai/mentor/match
     endpoint.
     """
-    # Backend sends 'id' — must not raise
+
     m = MentorProfile(id="mentor-1", name="Dr. A", bio="AI expert", specialties=["AI", "Python"])
     assert m.mentor_id == "mentor-1"
     assert m.name == "Dr. A"
     assert m.specialties == ["AI", "Python"]
-    # Optional fields get sensible defaults
+
     assert m.skills == []
     assert m.mbti == ""
     assert m.location is None
 
-    # Canonical 'mentor_id' still works
+
     m2 = MentorProfile(mentor_id="mentor-2", name="Dr. B")
     assert m2.mentor_id == "mentor-2"
     print("✓ test_mentor_profile_accepts_id_alias")
@@ -274,7 +274,7 @@ def test_mentor_profile_accepts_id_alias():
 def test_match_request_pre_filter_fields():
     """MatchRequest should carry pre-filter metadata (student_specialty,
     student_region, max_mentors) with backward-compatible defaults."""
-    # Full pre-filtered request
+
     req = MatchRequest(
         student_id="stu-1",
         student_skills_needed=["Python", "AI"],
@@ -291,7 +291,7 @@ def test_match_request_pre_filter_fields():
     assert req.student_specialty == "AI"
     assert req.max_mentors == 15
 
-    # Backward compat: pre-filter fields optional with defaults
+
     req2 = MatchRequest(
         student_id="stu-2",
         student_skills_needed=["Python"],
@@ -312,7 +312,7 @@ def test_match_mentors_safety_cap():
     This prevents token overflow if the backend pre-filter is bypassed.
     """
     svc = _fresh_service()
-    # Create 30 mentors — exceeds the default max_mentors (15)
+
     mentors = [
         MentorProfile(id=f"m-{i}", name=f"Mentor {i}", specialties=["AI"])
         for i in range(30)
@@ -325,8 +325,8 @@ def test_match_mentors_safety_cap():
         available_mentors=mentors,
     )
     result = asyncio.run(svc.match_mentors(data))
-    # With all providers down, returns fallback empty list — the point is
-    # it must NOT raise (cap logic is exercised in the try block)
+
+
     assert isinstance(result, list)
     print("✓ test_match_mentors_safety_cap")
 
@@ -344,7 +344,7 @@ def test_match_mentors_safety_cap_with_custom_max():
         student_mbti="INTJ",
         preferred_days=["Mon"],
         available_mentors=mentors,
-        max_mentors=5,  # Custom cap
+        max_mentors=5,
     )
     result = asyncio.run(svc.match_mentors(data))
     assert isinstance(result, list)
@@ -355,19 +355,19 @@ def test_response_cache_avoids_duplicate_llm_calls():
     """_generate_text_with_fallback should cache responses so the same prompt
     hits the provider chain only once (dramatically reducing API calls)."""
     svc = _fresh_service()
-    # Simulate a working provider by mocking the Gemini generate path
+
     svc.has_gemini = True
     svc._gemini_generate = lambda prompt, **kw: "cached_response_text"
 
     prompt = "Explain the water cycle"
-    # First call: provider is invoked, result cached
+
     resp1 = svc._generate_text_with_fallback(prompt, temperature=0.3)
     assert resp1 == "cached_response_text"
     assert svc._response_cache_hits == 0
     assert svc._response_cache_misses == 1
     assert len(svc._response_cache) == 1
 
-    # Second call: should HIT the cache, provider NOT called
+
     call_count = [0]
     original = svc._gemini_generate
     def counting_gemini(prompt, **kw):
@@ -377,7 +377,7 @@ def test_response_cache_avoids_duplicate_llm_calls():
 
     resp2 = svc._generate_text_with_fallback(prompt, temperature=0.3)
     assert resp2 == "cached_response_text"
-    assert call_count[0] == 0  # provider was NOT called
+    assert call_count[0] == 0
     assert svc._response_cache_hits == 1
     assert svc._response_cache_misses == 1
     print("✓ test_response_cache_avoids_duplicate_llm_calls")
@@ -394,15 +394,15 @@ def test_response_cache_different_params_not_shared():
     svc._gemini_generate = mock_gen
 
     r1 = svc._generate_text_with_fallback("prompt", temperature=0.7)
-    r2 = svc._generate_text_with_fallback("prompt", temperature=0.3)  # different temp -> MISS
-    assert r1 != r2  # different responses
-    assert svc._gen_count == 2  # both hit provider
+    r2 = svc._generate_text_with_fallback("prompt", temperature=0.3)
+    assert r1 != r2
+    assert svc._gen_count == 2
     assert svc._response_cache_misses == 2
 
-    # Same params again -> HIT
+
     r3 = svc._generate_text_with_fallback("prompt", temperature=0.7)
     assert r3 == r1
-    assert svc._gen_count == 2  # no new provider call
+    assert svc._gen_count == 2
     assert svc._response_cache_hits == 1
     print("✓ test_response_cache_different_params_not_shared")
 
@@ -412,25 +412,25 @@ def test_response_cache_ttl_expiry():
     svc = _fresh_service()
     svc.has_gemini = True
     svc._gemini_generate = lambda prompt, **kw: "fresh_response"
-    svc._response_cache_ttl = 0.1  # 100ms for testing
+    svc._response_cache_ttl = 0.1
 
     r1 = svc._generate_text_with_fallback("question")
     assert svc._response_cache_hits == 0
     assert svc._response_cache_misses == 1
 
     import time
-    time.sleep(0.15)  # wait for TTL expiry
+    time.sleep(0.15)
     r2 = svc._generate_text_with_fallback("question")
     assert r2 == "fresh_response"
-    assert svc._response_cache_hits == 0  # expired -> miss, not hit
-    assert svc._response_cache_misses == 2  # second call was a miss
+    assert svc._response_cache_hits == 0
+    assert svc._response_cache_misses == 2
     print("✓ test_response_cache_ttl_expiry")
 
 
 def test_response_cache_only_stores_success():
     """Failed provider calls must NOT pollute the cache (no empty/partial entries)."""
     svc = _fresh_service()
-    # has_gemini=False, has_cf=False -> RuntimeError raised, not cached
+
     try:
         svc._generate_text_with_fallback("no providers")
         assert False, "Should have raised RuntimeError"

@@ -34,7 +34,7 @@ from datetime import datetime
 
 logger = logging.getLogger("auto_scheduler")
 
-# ── SQLite path (mirror impact_measure.py pattern) ───────────────────────────
+
 
 SQLITE_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
 
@@ -71,9 +71,9 @@ def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, An
             conn.close()
 
 
-# ── Predefined Vietnamese regions for geo-based auto-run ──────────────────────
-# Used by climate_risk + impact_measure tasks to pre-compute for key areas
-# so the frontend shows results immediately on map load.
+
+
+
 AUTO_REGIONS: List[Dict[str, Any]] = [
     {"id": "dong_nai",  "name": "Đồng Nai",      "bbox": [10.80, 11.70, 106.90, 107.70]},
     {"id": "hcmc",      "name": "TP. Hồ Chí Minh", "bbox": [10.70, 10.90, 106.55, 107.00]},
@@ -83,11 +83,11 @@ AUTO_REGIONS: List[Dict[str, Any]] = [
 ]
 
 
-# ── Urgency weight map (mirror backend ResourceExchangeService / ImpactMatch) ──
+
 URGENCY_WEIGHT = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
-# ── Shared in-process TTL cache ──────────────────────────────────────────────
+
 
 class AutoCache:
     """Shared in-process TTL cache cho toàn bộ auto-scheduler (HF Spaces: no Redis).
@@ -149,7 +149,7 @@ class AutoCache:
             cls._store.clear()
 
 
-# ── Task result wrapper ──
+
 
 def _wrap_result(name: str, data: Any, degraded: bool = False, reason: str = "") -> Dict[str, Any]:
     """Wrap task output in a consistent response shape."""
@@ -163,7 +163,7 @@ def _wrap_result(name: str, data: Any, degraded: bool = False, reason: str = "")
     }
 
 
-# ── Task interval config (env-tunable) ──
+
 
 def _env_hours(var: str, default: float) -> float:
     try:
@@ -185,7 +185,7 @@ AUTO_INTERVALS: Dict[str, Dict[str, Any]] = {
 AUTO_ENABLED = os.getenv("AUTO_SCHEDULER_ENABLED", "true").lower() in ("1", "true", "yes", "on")
 
 
-# ── Individual task implementations ──────────────────────────────────────────
+
 
 def _run_chroma_seed() -> Dict[str, Any]:
     """Re-seed ChromaDB to keep vector DB fresh (not just at startup)."""
@@ -221,7 +221,7 @@ def _run_daily_insight() -> Dict[str, Any]:
     """Pre-generate daily insight for the dashboard."""
     from services.llm_service import LLMService
     svc = LLMService()
-    # Build summary stats from SQLite for the insight prompt
+
     stats = {}
     try:
         rows = _query_sqlite(
@@ -296,16 +296,16 @@ def _run_resource_exchange() -> Dict[str, Any]:
             if res_cond < req_min_cond:
                 continue
 
-            # Scoring (mirrors backend _scorePair)
-            # proximity: location overlap heuristic (40%)
+
+
             res_loc = (res.get("location") or "").lower()
             proximity_score = 60.0 if (req_loc and res_loc and (req_loc in res_loc or res_loc in req_loc)) else 30.0
-            # need_level (urgencyWeight/4 * 100 * 0.25)
+
             need_level = (req_urgency_weight / 4.0) * 100
             need_level_score = need_level * 0.25
-            # condition (res.condition/5 * 100 * 0.25)
+
             condition_score = (res_cond / 5.0) * 100 * 0.25
-            # availability (10%) — always 100 for available items
+
             availability_score = 100 * 0.10
 
             total = proximity_score * 0.40 + need_level_score + condition_score + availability_score
@@ -360,7 +360,7 @@ def _run_resource_exchange() -> Dict[str, Any]:
             "pre_filter_summary": {"total_resources": len(resources), "total_requests": len(requests), "pre_filtered_pairs": 0, "max_pairs": 0},
         }, degraded=False)
 
-    # Build the request object for the LLM service
+
     from models.resource_exchange_models import ResourceExchangeRequest, MatchCandidate
     try:
         model_pairs = [MatchCandidate(**p) for p in limited_pairs]
@@ -423,21 +423,21 @@ def _run_impact_match() -> Dict[str, Any]:
             need_tags = json.loads(need.get("tags") or "[]")
             category_match = bool(need_cat and (need_cat in focus_areas or any(t in focus_areas for t in need_tags)))
 
-            # Proximity: location overlap (0-30 points)
+
             spon_loc = (spon.get("location") or "").lower()
             need_loc = (need.get("location") or "").lower()
             proximity = 30.0 if (need_loc and spon_loc and (need_loc in spon_loc or spon_loc in need_loc)) else 10.0
-            # Budget fit: budget >= cost → full points (0-30)
+
             if need_cost > 0:
                 budget_fit = min(30, (spon_budget / need_cost) * 15 + 15)
             else:
                 budget_fit = 30.0
-            # Category match (0-20)
+
             category_score = 20.0 if category_match else 5.0
-            # Urgency bonus (0-20)
+
             urgency_weight = URGENCY_WEIGHT.get(need.get("urgency") or "medium", 2)
             urgency_score = urgency_weight / 4.0 * 20
-            # Verified bonus (0-5)
+
             verified_score = 5.0 if spon.get("is_verified") else 0.0
 
             total = round(min(100.0, proximity + budget_fit + category_score + urgency_score + verified_score), 1)
@@ -491,7 +491,7 @@ def _run_impact_match() -> Dict[str, Any]:
         from services.llm_service import LLMService
         svc = LLMService()
         result = asyncio.run(svc.rank_impact_matches(req_obj))
-        # Inject SQLite-side score into each result for the fallback frontend display
+
         score_map = {f"{p['need_id']}:{p['sponsor_id']}": p.get("match_score", 0) for p in limited_pairs}
         for m in result.get("ranked_matches", []):
             key = f"{m.get('need_id')}:{m.get('sponsor_id')}"
@@ -536,7 +536,7 @@ def _run_impact_measure() -> Dict[str, Any]:
     any_degraded = False
     for region in AUTO_REGIONS:
         lat1, lat2, lng1, lng2 = region["bbox"]
-        # Use a representative center point for impact measurement
+
         center_lat = (lat1 + lat2) / 2
         center_lng = (lng1 + lng2) / 2
         try:
@@ -561,7 +561,7 @@ def _run_impact_measure() -> Dict[str, Any]:
     return _wrap_result("impact_measure", {"regions": results}, degraded=any_degraded)
 
 
-# ── Task registry ──
+
 
 TASK_REGISTRY: Dict[str, Callable[[], Dict[str, Any]]] = {
     "chroma_seed": _run_chroma_seed,
@@ -574,7 +574,7 @@ TASK_REGISTRY: Dict[str, Callable[[], Dict[str, Any]]] = {
 }
 
 
-# ── AutoScheduler ──
+
 
 class AutoScheduler:
     """Centralized AI auto-scheduler.
@@ -608,7 +608,7 @@ class AutoScheduler:
 
         try:
             result = fn()
-            # Cache the result
+
             cache_key = f"auto:{name}"
             AutoCache.set(cache_key, result, ttl_seconds=ttl)
 
@@ -626,8 +626,8 @@ class AutoScheduler:
             with self._lock:
                 self._last_error[name] = str(e)[:300]
                 self._last_run[name] = time.time()
-            # Cache a degraded result so GET endpoints can return it
-            # instead of 202-warming forever after a crash
+
+
             fallback_result = _wrap_result(
                 name, {"error": str(e)[:300]},
                 degraded=True,
@@ -649,7 +649,7 @@ class AutoScheduler:
 
     def run_initial(self) -> None:
         """Run all tasks once at startup (non-blocking per task via thread)."""
-        # Run each task in its own thread so one slow task doesn't block others
+
         for name in TASK_REGISTRY:
             t = threading.Thread(target=self._run_task, args=(name,), daemon=True)
             t.start()
@@ -659,23 +659,23 @@ class AutoScheduler:
         self._running = True
         logger.info("[auto-scheduler] Starting auto-scheduler daemon loop")
 
-        # Initial run: stagger tasks to avoid RAM spike
-        # (mirrors the staggered model warmup pattern)
-        stagger_delay = 5  # seconds between initial task launches
+
+
+        stagger_delay = 5
         for name in TASK_REGISTRY:
             time.sleep(stagger_delay)
             t = threading.Thread(target=self._run_task, args=(name,), daemon=True)
             t.start()
 
-        # Periodic loop: check every minute
-        CHECK_INTERVAL = 60  # seconds
+
+        CHECK_INTERVAL = 60
         while self._running:
             now = time.time()
             for name, config in AUTO_INTERVALS.items():
                 last = self._last_run.get(name, 0)
                 interval = config["interval_s"]
                 if now - last >= interval:
-                    # Run in background thread so the loop isn't blocked
+
                     t = threading.Thread(target=self._run_task, args=(name,), daemon=True)
                     t.start()
 
@@ -690,7 +690,7 @@ class AutoScheduler:
         if result:
             return result
 
-        # If not cached, check the in-memory last result
+
         with self._lock:
             return self._last_result.get(name)
 
@@ -720,6 +720,6 @@ class AutoScheduler:
         }
 
 
-# ── Singleton ──
+
 
 auto_scheduler = AutoScheduler()

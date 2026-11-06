@@ -1,131 +1,112 @@
 import { authService } from './auth.service';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-
 export interface Scholarship {
-  id: string;
-  title: string;
-  description: string;
-  provider: string;
-  value_amount: number;
-  deadline: string;
-  requirements: any;
-  /** Official application page (provenance link shown in the UI). */
-  apply_url?: string;
-  eligibility_criteria?: string;
-  location?: string;
-  status?: string;
+    id: string;
+    title: string;
+    description: string;
+    provider: string;
+    value_amount: number;
+    deadline: string;
+    requirements: any;
+    apply_url?: string;
+    eligibility_criteria?: string;
+    location?: string;
+    status?: string;
 }
-
 export interface EligibilityResponse {
-  is_eligible: boolean;
-  message: string;
+    is_eligible: boolean;
+    message: string;
 }
-
 export interface ScholarshipApplication {
-  id: string;
-  scholarship_id: string;
-  status: string;
-  created_at: string;
-  scholarship: Scholarship;
+    id: string;
+    scholarship_id: string;
+    status: string;
+    created_at: string;
+    scholarship: Scholarship;
 }
-
 class ScholarshipService {
-  private readonly API_URL = '/api/scholarships';
-
-  /**
-   * Lấy danh sách tất cả học bổng
-   */
-  async getScholarships(page: number = 1, limit: number = 10): Promise<any> {
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}?page=${page}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error('Không thể tải danh sách học bổng');
-      }
-      return unwrapApiResponse<any>(await response.json());
-    } catch (error) {
-      console.error("ScholarshipService.getScholarships Error:", error);
-      throw error;
+    private readonly API_URL = '/api/scholarships';
+    async getScholarships(page: number = 1, limit: number = 10): Promise<any> {
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}?page=${page}&limit=${limit}`);
+            if (!response.ok) {
+                throw new Error('Không thể tải danh sách học bổng');
+            }
+            return unwrapApiResponse<any>(await response.json());
+        }
+        catch (error) {
+            console.error("ScholarshipService.getScholarships Error:", error);
+            throw error;
+        }
     }
-  }
-
-  /**
-   * Lấy chi tiết một học bổng theo ID
-   */
-  async getScholarshipById(id: string): Promise<Scholarship> {
-    const response = await fetchWithRetry(`${this.API_URL}/${id}`);
-    if (!response.ok) throw new Error('Không thể tải chi tiết học bổng');
-    return unwrapApiResponse<any>(await response.json());
-  }
-
-  /**
-   * Kiểm tra điều kiện nộp đơn
-   */
-  async checkEligibility(id: string, transcript?: any): Promise<EligibilityResponse> {
-    const token = authService.getAccessToken();
-    if (!token) throw new Error('Vui lòng đăng nhập để kiểm tra điều kiện');
-
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}/${id}/check-eligibility`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(transcript || {}),
-      });
-      if (!response.ok) throw new Error('Kiểm tra thất bại');
-      return unwrapApiResponse<any>(await response.json());
-    } catch (error) {
-      console.error(error);
-      throw error;
+    async getScholarshipById(id: string): Promise<Scholarship> {
+        const response = await fetchWithRetry(`${this.API_URL}/${id}`);
+        if (!response.ok)
+            throw new Error('Không thể tải chi tiết học bổng');
+        return unwrapApiResponse<any>(await response.json());
     }
-  }
-
-  /**
-   * Nộp đơn ứng tuyển học bổng
-   */
-  async applyScholarship(id: string, personalStatement: string, cvUrl: string): Promise<any> {
-    const token = authService.getAccessToken();
-    if (!token) throw new Error('Vui lòng đăng nhập để nộp đơn');
-
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}/${id}/apply`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ personal_statement: personalStatement, cv_url: cvUrl }),
-      });
-      
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Nộp đơn thất bại');
-      return data;
-    } catch (error) {
-      console.error(error);
-      throw error;
+    async checkEligibility(id: string, transcript?: any): Promise<EligibilityResponse> {
+        const token = authService.getAccessToken();
+        if (!token)
+            throw new Error('Vui lòng đăng nhập để kiểm tra điều kiện');
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}/${id}/check-eligibility`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(transcript || {}),
+            });
+            if (!response.ok)
+                throw new Error('Kiểm tra thất bại');
+            return unwrapApiResponse<any>(await response.json());
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
     }
-  }
-
-  /**
-   * Lấy danh sách hồ sơ của tôi
-   */
-  async getMyApplications(): Promise<ScholarshipApplication[]> {
-    const token = authService.getAccessToken();
-    if (!token) throw new Error('Vui lòng đăng nhập');
-
-    try {
-      const response = await fetchWithRetry(`${this.API_URL}/me/applications`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Không thể tải hồ sơ');
-      return unwrapApiResponse<any>(await response.json());
-    } catch (error) {
-      console.error(error);
-      throw error;
+    async applyScholarship(id: string, personalStatement: string, cvUrl: string): Promise<any> {
+        const token = authService.getAccessToken();
+        if (!token)
+            throw new Error('Vui lòng đăng nhập để nộp đơn');
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}/${id}/apply`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ personal_statement: personalStatement, cv_url: cvUrl }),
+            });
+            const data = await response.json();
+            if (!response.ok)
+                throw new Error(data.message || 'Nộp đơn thất bại');
+            return data;
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
     }
-  }
+    async getMyApplications(): Promise<ScholarshipApplication[]> {
+        const token = authService.getAccessToken();
+        if (!token)
+            throw new Error('Vui lòng đăng nhập');
+        try {
+            const response = await fetchWithRetry(`${this.API_URL}/me/applications`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok)
+                throw new Error('Không thể tải hồ sơ');
+            return unwrapApiResponse<any>(await response.json());
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
 }
-
 export const scholarshipService = new ScholarshipService();

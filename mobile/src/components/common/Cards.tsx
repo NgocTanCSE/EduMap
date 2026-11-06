@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { Colors, Radius, Spacing, FontSize } from '../../theme';
 
-// Lightweight presentational cards reused across feature screens.
+
 export const StatCard: React.FC<{ label: string; value: string | number; icon?: React.ReactNode }> = ({
   label,
   value,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Scholarships crawler -> `scholarships` table (title UNIQUE).
 
@@ -34,25 +33,18 @@ from tavily_client import TavilyClient, tavily_search_and_extract
 from tavily_parse import parse_date_or_default, clean_text, extract_deadline
 
 NOW = datetime.datetime.utcnow()
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 _DEFAULT_DEADLINE = NOW + datetime.timedelta(days=30)
 
-# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
-# VN → ĐNA) plus keyword-focussed.
 _TAVILY_SCHOLARSHIP_QUERIES = [
-    # Đồng Nai
     "học bổng sinh viên Đồng Nai 2025",
     "học bổng xuất sắc Đại học Bà Rịa",
-    # miền Nam
     "học bổng du học TP Hồ Chí Minh",
     "học bổng giáo dục miền Nam 2025",
-    # Việt Nam
     "học bổng du học Việt Nam 2025",
     "học bổng xuất sắc quốc tế Việt Nam",
     "học bổng tài chính đại học 2025",
-    # keyword-focussed
     "học bổng toán học Việt Nam",
     "học bổng lập trình viên đại học",
     "học bổng nghiên cứu khoa học",
@@ -62,7 +54,7 @@ _TAVILY_SCHOLARSHIP_QUERIES = [
     "học bổng liên quốc gia",
 ]
 
-TARGET = 150  # soft cap on distinct scholarships
+TARGET = 150  
 
 
 def _location_layer(location_str):
@@ -104,7 +96,6 @@ def _scholarship_row(title, description, provider, deadline=None, image_url=None
     desc = f"Học bổng tìm thấy qua Tavily" + (f" (tìm theo '{query}')" if query else "") + f". {clean_text(description)[:200]}"
     deadline_dt = parse_date(deadline) if deadline else None
     if not deadline_dt:
-        # Try extracting a date from the description.
         dl_str = extract_deadline(clean_text(description) or "")
         if dl_str:
             deadline_dt = parse_date(dl_str)
@@ -153,7 +144,6 @@ def crawl():
                 title = clean_text(r.get("title", ""))[:255]
                 if not title:
                     continue
-                # Extract provider name from content (e.g. "trường Đại học Bách Khoa").
                 provider = None
                 blob = r.get("raw_content", "") or r.get("content", "") or ""
                 m = re.search(r"(trường\s+\S[^,\n.;]{2,60}|trường\s+đại\s+học\s+\S[^,\n.;]{2,60})", blob, re.I)

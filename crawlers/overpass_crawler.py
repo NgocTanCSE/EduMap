@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OverpassCrawler → **renamed** to TavilyCrawler (compat shim keeps the class name).
 
@@ -20,18 +19,15 @@ import time
 from typing import List, Dict, Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from crawl_scope import (  # noqa: E402
+from crawl_scope import (  
     crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
 )
-from tavily_poi import TavilyPoiClient  # noqa: E402
+from tavily_poi import TavilyPoiClient  
 
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# Vietnam regions — reordered so SOUTH (incl. Đồng Nai) is crawled first, then
-# northward, matching the location expansion: Đồng Nai → miền Nam → VN.
 VIETNAM_REGIONS = {
     "dong_nai": DONG_NAI_BBOX,
     "southern_vn": SOUTHERN_VN_BBOX,
@@ -82,9 +78,6 @@ class OverpassCrawler:
         results = self._client._search_category([query], "poi")
         return results
 
-    # ------------------------------------------------------------------
-    # Category fetchers (same method names as the Overpass version)      #
-    # ------------------------------------------------------------------
 
     def fetch_all_education_health(self, bbox: str) -> List[Dict[str, Any]]:
         """Fetch education + health POIs via Tavily (schools, libraries, hospitals)."""
@@ -106,11 +99,8 @@ class OverpassCrawler:
         self._last_ts = _respect_rate_limit(self._last_ts)
         return self._client.fetch_wifi(bbox)
 
-    # ------------------------------------------------------------------
-    # Nationwide crawl (same interface as the Overpass version)         #
-    # ------------------------------------------------------------------
 
-    tile_size: float = 0.5  # kept for compatibility; Tavily doesn't tile.
+    tile_size: float = 0.5  
 
     def _iter_tiles(self, bbox: str, size: float = None) -> List[str]:
         """Kept for compatibility — returns a single tile (Tavily uses search, not tiles)."""
@@ -157,7 +147,6 @@ class OverpassCrawler:
             region_data = self._crawl_region(region_name, bbox)
             all_locations.extend(region_data)
 
-        # Summary
         print(f"\n{'='*60}")
         print("NATIONWIDE SUMMARY (Tavily)")
         print(f"{'='*60}")

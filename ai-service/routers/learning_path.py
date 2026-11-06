@@ -26,7 +26,7 @@ async def generate_path(data: LearningPathRequest):
 
     try:
         ai_data = await llm_service.generate_learning_path(data)
-        # Check degraded flag before constructing the model (pop extra keys)
+
         degraded = ai_data.pop("_degraded", False) if isinstance(ai_data, dict) else False
         reason = ai_data.pop("_reason", None) if isinstance(ai_data, dict) else None
         steps = []

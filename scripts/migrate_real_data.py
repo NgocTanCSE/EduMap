@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 EduMap — replace fabricated demo rows in the shipped SQLite DB with verified
 Vietnamese data.
@@ -35,7 +34,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import real_vn_data as D  # noqa: E402
+import real_vn_data as D  
 
 DEFAULT_DB = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -44,7 +43,6 @@ DEFAULT_DB = os.path.join(
 
 NOW = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-# Content tables we fully control — wipe demo rows, insert curated rows.
 CONTENT_TABLES = [
     "scholarships",
     "international_programs",
@@ -67,7 +65,6 @@ CONTENT_TABLES = [
     "comments",
 ]
 
-# Tables that should always be empty — genuine UGC with no curated seed.
 DEMO_ONLY_TABLES = [
     "shared_items",
     "surveys",
@@ -75,9 +72,6 @@ DEMO_ONLY_TABLES = [
     "summer_activities",
 ]
 
-# System / configuration tables that ship empty on the SQLite file but have
-# curated seed data in seed-base.sql / seed.sql. These are wiped and re-seeded
-# so the auth/role system and feature registry work out of the box.
 SYSTEM_TABLES = [
     "modules",
     "features",
@@ -103,7 +97,7 @@ def clear(con: sqlite3.Connection, table: str) -> int:
     try:
         cur = con.execute(f'DELETE FROM "{table}"')
         return cur.rowcount
-    except sqlite3.OperationalError as exc:  # table missing on very old DBs
+    except sqlite3.OperationalError as exc:  
         print(f"  ! {table}: {exc}")
         return 0
 
@@ -129,7 +123,7 @@ def ensure_column(con: sqlite3.Connection, table: str, column: str, sql_type: st
     try:
         cols = [r[1] for r in con.execute(f'PRAGMA table_info("{table}")').fetchall()]
     except sqlite3.OperationalError:
-        return False  # table doesn't exist
+        return False  
     if column in cols:
         return False
     ddl = f'ALTER TABLE "{table}" ADD COLUMN "{column}" {sql_type}'
@@ -163,9 +157,6 @@ def main() -> int:
         n = clear(con, t)
         print(f"  - {t:24s} cleared {n}")
 
-    # Jobs come from the live crawler, not from seeders. Drop the rows the old
-    # broken crawler produced (location text stored as company name, EduMap
-    # fictional employer, ASCII-folded garbage) so only real postings remain.
     bad_jobs = con.execute(
         """
         DELETE FROM jobs
@@ -181,9 +172,6 @@ def main() -> int:
     ).rowcount
     print(f"  - {'jobs (fake rows)':24s} cleared {bad_jobs}")
 
-    # Remove fabricated / test POI rows from map_points — these were injected
-    # by early demo scripts and never correspond to a real school, library,
-    # or facility. Verified = 0 + type_id 2 (school) + test-style names.
     bad_pois = con.execute(
         """
         DELETE FROM map_points
@@ -198,12 +186,6 @@ def main() -> int:
 
     print("\n🌱 Inserting verified Vietnamese data")
 
-    # ---------------------------------------------------------------- scholarships
-    # The TypeORM entity (scholarship.entity.ts) types `location` as `json`
-    # and `eligibility_criteria` as `json[]` on SQLite.  TypeORM's hydration
-    # layer calls JSON.parse on these columns when reading, so plain strings
-    # like "Australia" or comma-separated text cause a SyntaxError at runtime.
-    # Store proper JSON here to match the entity contract.
     import json as _json
     rows = []
     for (key, title, desc, provider, location, value, deadline, eligibility, url) in D.SCHOLARSHIPS:
@@ -220,7 +202,6 @@ def main() -> int:
     ], rows)
     print(f"  + scholarships           {n}")
 
-    # ------------------------------------------------------ international_programs
     rows = []
     for (key, title, typ, desc, country, org, deadline, benefits, url) in D.INTERNATIONAL_PROGRAMS:
         rows.append((
@@ -233,7 +214,6 @@ def main() -> int:
     ], rows)
     print(f"  + international_programs {n}")
 
-    # ---------------------------------------------------------------- opportunities
     rows = []
     for (key, title, typ, desc, org, address, deadline, req, benefits, url, tags, region) in D.OPPORTUNITIES:
         rows.append((
@@ -249,7 +229,6 @@ def main() -> int:
     ], rows)
     print(f"  + opportunities          {n}")
 
-    # ---------------------------------------------------------------- internships
     rows = []
     for (key, title, company, field, address, salary, duration, req, benefits, url) in D.INTERNSHIPS:
         desc = D.with_source(
@@ -267,7 +246,6 @@ def main() -> int:
     ], rows)
     print(f"  + internships            {n}")
 
-    # ---------------------------------------------------------------- events
     rows = []
     for (key, title, desc, typ, address, start, end, url, tags, is_online) in D.EVENTS:
         rows.append((
@@ -283,7 +261,6 @@ def main() -> int:
     ], rows)
     print(f"  + events                 {n}")
 
-    # ---------------------------------------------------------------- hackathons
     rows = []
     for (key, title, desc, start, end, status, url) in D.HACKATHONS:
         rows.append((D.uid(key), title, D.with_source(desc, url), start, end, status, NOW))
@@ -292,8 +269,6 @@ def main() -> int:
     ], rows)
     print(f"  + hackathons             {n}")
 
-    # ---------------------------------------------------------------- career_paths
-    # id is INTEGER AUTOINCREMENT — let SQLite assign it.
     rows = []
     for (key, title, field, desc, skills, roadmap, salary, demand, resources) in D.CAREER_PATHS:
         rows.append((
@@ -306,14 +281,13 @@ def main() -> int:
     ], rows)
     print(f"  + career_paths           {n}")
 
-    # ---------------------------------------------------------------- stem_labs
     coords = {
-        "lab-ltv": (106.8624, 10.9482),         # THPT Chuyên Lương Thế Vinh — matches map_points
-        "lab-lhu-robotics": (106.8085, 10.9631),  # Đại học Lạc Hồng — matches map_points
-        "lab-nguyen-trai": (106.8351, 10.9501),   # THPT Nguyễn Trãi — matches map_points
-        "lab-tran-bien": (106.8448, 10.9581),     # THCS Trấn Biên — matches map_points
-        "lab-long-khanh": (107.2450, 10.9280),    # THPT Long Khánh
-        "lab-dnu": (106.8475, 10.9423),           # Đại học Đồng Nai — matches map_points
+        "lab-ltv": (106.8624, 10.9482),         
+        "lab-lhu-robotics": (106.8085, 10.9631),  
+        "lab-nguyen-trai": (106.8351, 10.9501),   
+        "lab-tran-bien": (106.8448, 10.9581),     
+        "lab-long-khanh": (107.2450, 10.9280),    
+        "lab-dnu": (106.8475, 10.9423),           
     }
     rows = []
     for (key, name, address, desc, equipment, contact) in D.STEM_LABS:
@@ -330,7 +304,6 @@ def main() -> int:
     ], rows)
     print(f"  + stem_labs              {n}")
 
-    # ---------------------------------------------------------------- green_challenges
     rows = []
     for (key, title, desc, typ, start, end, points, url, address, lat, lng) in D.GREEN_CHALLENGES:
         rows.append((
@@ -344,7 +317,6 @@ def main() -> int:
     ], rows)
     print(f"  + green_challenges       {n}")
 
-    # ---------------------------------------------------------------- summer_campaigns
     rows = []
     for (key, name, year, location, status, desc, lat, lng) in D.SUMMER_CAMPAIGNS:
         rows.append((
@@ -358,11 +330,6 @@ def main() -> int:
     ], rows)
     print(f"  + summer_campaigns       {n}")
 
-    # ---------------------------------------------------------------- flood_zones
-    # Seed real Vietnamese flood-hazard zones (Idea #11: AI Climate Learning
-    # Guardian). The flood_zones table is empty on the shipped SQLite DB (the
-    # TypeORM migration only seeds it on PostgreSQL); populate it here so the
-    # ai-service can load real hazard polygons from the DB.
     if con.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='flood_zones'"
     ).fetchone():
@@ -380,7 +347,6 @@ def main() -> int:
     else:
         print(f"  ! flood_zones            table not found (skipped)")
 
-    # ---------------------------------------------------------------- donation_campaigns
     rows = []
     for (key, title, desc, target, org, address, start, end, url, lat, lng) in D.DONATION_CAMPAIGNS:
         location_point = D.geo(lng, lat) if (lat is not None and lng is not None) else None
@@ -395,7 +361,6 @@ def main() -> int:
     ], rows)
     print(f"  + donation_campaigns     {n}")
 
-    # ---------------------------------------------------------------- learning_materials
     rows = []
     for (key, title, desc, typ, subject, grade, tags, url) in D.LEARNING_MATERIALS:
         rows.append((
@@ -411,7 +376,6 @@ def main() -> int:
     ], rows)
     print(f"  + learning_materials     {n}")
 
-    # ---------------------------------------------------------------- groups
     rows = []
     for (key, name, desc, typ, url) in D.GROUPS:
         rows.append((
@@ -424,15 +388,6 @@ def main() -> int:
     ], rows)
     print(f"  + groups                 {n}")
 
-    # ---------------------------------------------------------------- learning_spots
-    # Real Vietnamese study spaces (libraries + study cafés) with opening hours,
-    # quietness, amenities, and provenance. Coordinates stored as GeoJSON Point
-    # (lng, lat) per the locations/location_point convention used elsewhere.
-    #
-    # The shipped SQLite DB ships with the original 8-column learning_spots;
-    # the recommender needs the extended columns. Ensure they exist here (the
-    # runtime bootstrap at backend/src/database/sqlite-bootstrap.ts does the
-    # same on HF boot, but this runs first when re-seeding the bundled DB).
     for col, sql_type, default_sql in [
         ("address", "TEXT", None),
         ("description", "TEXT", None),
@@ -460,10 +415,6 @@ def main() -> int:
     ], rows)
     print(f"  + learning_spots         {n}")
 
-    # ---------------------------------------------------------------- mentors
-    # Real Vietnamese education professionals (existing users.role = 'mentor').
-    # Each row references a real user_id; bio/specialties/experience are
-    # curated, real-domain expertise — not fabricated organisations.
     rows = []
     for (key, user_id, bio, specialties_json, exp_years, rating_avg,
          total_sessions, hourly_rate, location) in D.MENTORS:
@@ -478,7 +429,6 @@ def main() -> int:
     ], rows)
     print(f"  + mentors                {n}")
 
-    # -------------------------------------------------- mentor_availabilities
     rows = []
     for (key, mentor_user_id, day_of_week, start_time, end_time) in D.MENTOR_AVAILABILITIES:
         rows.append((
@@ -491,10 +441,6 @@ def main() -> int:
     ], rows)
     print(f"  + mentor_availabilities  {n}")
 
-    # ------------------------------------------------------------------ posts
-    # Real Vietnamese educational discussion posts. author_id references
-    # existing users; group_id references the deterministic UUIDs from
-    # D.uid("grp-…"). Content is genuine Vietnamese educational prose.
     group_id_map = {D.uid(g[0]): True for g in D.GROUPS}
     rows = []
     for (key, author_id, group_key, title, content, media_urls_json,
@@ -512,9 +458,6 @@ def main() -> int:
     ], rows)
     print(f"  + posts                  {n}")
 
-    # --------------------------------------------------------------- comments
-    # Real replies to the seeded posts, by existing users. The comment `id`
-    # is looked up from the post id we just inserted (via uid("post:⟨key⟩")).
     rows = []
     for (post_key, author_id, content) in D.COMMENTS:
         rows.append((
@@ -528,14 +471,12 @@ def main() -> int:
     ], rows)
     print(f"  + comments               {n}")
 
-    # ----------------------------------------------------------------- modules
     rows = []
     for (key, name, desc) in D.MODULES:
         rows.append((key, name, desc, NOW))
     n = insert(con, "modules", ["id", "name", "description", "created_at"], rows)
     print(f"  + modules                {n}")
 
-    # ---------------------------------------------------------------- features
     feature_module_map = {D.uid(g[0]): True for g in D.MODULES}
     rows = []
     for (key, name, mod_key, desc) in D.FEATURES:
@@ -543,9 +484,6 @@ def main() -> int:
     n = insert(con, "features", ["id", "name", "module_id", "description", "created_at"], rows)
     print(f"  + features               {n}")
 
-    # ----------------------------------------------------------- role_perms
-    # Bind roles to permissions. Uses the role `id` (INTEGER) from the
-    # `roles` table and `permission_id` from the `permissions` table.
     rows = [(r, p, NOW) for (r, p) in D.ROLE_PERMISSIONS]
     n = insert(con, "role_permissions", ["role_id", "permission_id", "created_at"], rows)
     print(f"  + role_permissions       {n}")

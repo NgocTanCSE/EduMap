@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Social crawler -> `posts` table (tag='social').
 
@@ -37,35 +36,28 @@ from crawl_scope import crawl_years, LOCATION_LAYERS
 from tavily_client import TavilyClient, tavily_search_and_extract
 from tavily_parse import clean_text, parse_tavily_posts
 
-# Social-platform tokens (kept for completeness; Tavily is the primary path).
 FB_TOKEN = os.getenv("FB_TOKEN")
 IG_TOKEN = os.getenv("IG_TOKEN")
 LI_TOKEN = os.getenv("LI_TOKEN")
 TWITTER_BEARER = os.getenv("TWITTER_BEARER_TOKEN")
 
-# --- Source: Tavily Vietnamese social/community content ---
 _TAVILY_SOCIAL_QUERIES = [
-    # Đồng Nai
     "cộng đồng giáo dục Đồng Nai",
     "mạng xã hội giáo dục Biên Hòa",
-    # miền Nam
     "cộng đồng sinh viên TP Hồ Chí Minh",
     "cộng đồng developer miền Nam",
-    # Việt Nam
     "cộng đồng giáo dục Việt Nam 2025",
     "bài viết giáo dục nổi tiếng",
     "cộng đồng học thuật Việt Nam",
     "xã hội giáo dục công nghệ thông minh",
-    # keyword-focussed
     "chia sẻ kinh nghiệm học tập",
     "cộng đồng học lập trình Việt Nam",
     "mạng xã hội giáo dục học thuật",
     "cộng đồng nghiên cứu khoa học",
 ]
 
-TARGET = 120  # soft cap
+TARGET = 120  
 
-# HN fallback (public API — may or may not be reachable from HF).
 HN_TOP = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
@@ -76,7 +68,6 @@ def clean(t):
 
 def _fallback_hn(n=80):
     """HN public API fallback — only when Tavily yields nothing AND HN is reachable."""
-    # Uses urllib (stdlib) to avoid requests dependency in cron env.
     import urllib.request, json as _json
     rows = []
     try:
@@ -125,7 +116,7 @@ def crawl():
         print("  [social] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
         print("  [social] Thử chế độ keyless của Tavily...")
 
-    if tavily_ok or True:  # Attempt keyless mode regardless.
+    if tavily_ok or True:  
         for q in _TAVILY_SOCIAL_QUERIES:
             if len(by_key) >= TARGET:
                 break
@@ -147,7 +138,6 @@ def crawl():
                 print(f"  [social] [warn] Tavily query failed '{q[:50]}...': {e}")
                 continue
 
-    # HN fallback only when Tavily yielded nothing AND no social tokens.
     if not by_key and not (FB_TOKEN or IG_TOKEN or LI_TOKEN or TWITTER_BEARER):
         print("  [social] Tavily yielded 0 rows, and no social tokens — falling back to HN public API")
         for row in _fallback_hn(80):
@@ -166,7 +156,6 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
-        # Ensure posts table has location_scope column.
         ensure_column(conn, "posts", "image_url", "TEXT")
         ensure_column(conn, "posts", "location_scope", "TEXT")
         if rows:

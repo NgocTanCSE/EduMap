@@ -19,8 +19,8 @@ class VisionDetectRequest(BaseModel):
 
 
 class GeoDensityAnalysisRequest(BaseModel):
-    # `points` kept as List[dict] because the downstream clustering_service
-    # accesses fields with dict-style indexing (point['lat'] / point['lng'])
-    # and the LLM service only reads `data.city` / `len(data.points)`.
+
+
+
     city: Optional[str] = "Unknown"
     points: List[dict] = Field(default_factory=list)

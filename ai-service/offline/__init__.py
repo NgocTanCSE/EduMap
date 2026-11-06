@@ -1,5 +1,5 @@
 """
-Edge AI Tutor — offline LLM tutor package (Idea #7).
+Edge AI Tutor — offline LLM tutor package (Idea
 
 AI tutoring backed by the ai-service text cascade
 (DeepSeek → Gemini → Cloudflare) with curated Vietnamese templates as the

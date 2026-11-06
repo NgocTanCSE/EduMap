@@ -8,64 +8,43 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+    const logger = new Logger('Bootstrap');
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN_BACKEND,
+        integrations: [
+            nodeProfilingIntegration(),
+        ],
+        tracesSampleRate: 1.0,
+        profilesSampleRate: 1.0,
+        environment: process.env.NODE_ENV || 'development',
+    });
+    const _dbUser = process.env.DB_USERNAME || 'admin';
+    const _dbHost = process.env.DB_HOST || 'localhost';
+    console.log(`[DB-DEBUG] DB_TYPE=${process.env.DB_TYPE} HOST=${_dbHost} PORT=${process.env.DB_PORT} USER=${_dbUser} DB=${process.env.DB_DATABASE}`);
+    if (_dbHost.includes('supabase') && !_dbUser.includes('.')) {
+        console.error('[DB-DEBUG] ERROR: DB_USERNAME must be "postgres.<project-ref>" for Supabase pooler (e.g. postgres.lvostfvocchmmhmrmhru). Current value lacks project ref -> ENOIDENTIFIER.');
+    }
+    const app = await NestFactory.create(AppModule);
+    app.use(helmet());
+    app.enableCors();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+    }));
+    app.useGlobalFilters(new AllExceptionsFilter());
+    app.useGlobalInterceptors(new ResponseInterceptor());
+    const redisIoAdapter = new RedisIoAdapter(app);
+    await redisIoAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisIoAdapter);
+    const config = new DocumentBuilder()
+        .setTitle('EduMap API Ecosystem')
+        .setDescription(String.raw `
 
-  // Khởi tạo Sentry trước khi khởi tạo Nest App
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN_BACKEND,
-    integrations: [
-      nodeProfilingIntegration(),
-    ],
-    tracesSampleRate: 1.0,
-    profilesSampleRate: 1.0,
-    environment: process.env.NODE_ENV || 'development',
-  });
-
-  const _dbUser = process.env.DB_USERNAME || 'admin';
-  const _dbHost = process.env.DB_HOST || 'localhost';
-  console.log(`[DB-DEBUG] DB_TYPE=${process.env.DB_TYPE} HOST=${_dbHost} PORT=${process.env.DB_PORT} USER=${_dbUser} DB=${process.env.DB_DATABASE}`);
-  if (_dbHost.includes('supabase') && !_dbUser.includes('.')) {
-    console.error('[DB-DEBUG] ERROR: DB_USERNAME must be "postgres.<project-ref>" for Supabase pooler (e.g. postgres.lvostfvocchmmhmrmhru). Current value lacks project ref -> ENOIDENTIFIER.');
-  }
-  const app = await NestFactory.create(AppModule);
-
-  // 🛡️ SECURITY: Helmet bảo mật HTTP Header
-  app.use(helmet());
-  app.enableCors();
-
-  // 📝 GLOBAL PREFIX: Tất cả API bắt đầu bằng /api
-  app.setGlobalPrefix('api');
-
-  // 📝 VALIDATION: Tự động kiểm tra DTO
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true,
-  }));
-
-  // 🐛 EXCEPTION FILTER: Log full stack traces
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  // 📦 RESPONSE INTERCEPTOR: Normalize all responses to { success, data, timestamp }
-  app.useGlobalInterceptors(new ResponseInterceptor());
-
-  // REDIS WEBSOCKET ADAPTER
-  const redisIoAdapter = new RedisIoAdapter(app);
-  await redisIoAdapter.connectToRedis();
-  app.useWebSocketAdapter(redisIoAdapter);
-
-  // 📖 SWAGGER: Cấu hình Tài liệu API
-  const config = new DocumentBuilder()
-    .setTitle('EduMap API Ecosystem')
-    .setDescription(String.raw`
-## EduMap - Nền tảng Bản đồ Giáo dục Thông minh
-
-### Giới thiệu
 EduMap là nền tảng giáo dục toàn diện kết hợp bản đồ địa lý, trí tuệ nhân tạo, và cộng đồng học tập.
 
-### Tính năng chính
 - **Bản đồ Giáo dục**: Tìm kiếm địa điểm giáo dục với PostGIS
 - **AI Chatbot**: Trợ lý ảo sử dụng Gemini Pro và RAG
 - **Career Development**: Lộ trình nghề nghiệp và gợi ý việc làm
@@ -73,65 +52,49 @@ EduMap là nền tảng giáo dục toàn diện kết hợp bản đồ địa 
 - **Mentoring**: Kết nối mentor và học viên
 - **Gamification**: Hệ thống điểm và huy hiệu
 
-### Authentication
 Sử dụng JWT Bearer Token để xác thực. Lấy token từ endpoint \`\\\${auth/login}\`.
 
-### Rate Limiting
 - API công khai: 100 requests/phút
 - Xác thực: 100 requests/phút (cùng giới hạn toàn cục tại AppModule; chưa tách riêng; dùng @Throttle() per-controller khi cần).
 - AI: 100 requests/phút (cùng giới hạn toàn cục; chưa tách riêng; dùng @Throttle() per-controller khi cần).
     `)
-    // NOTE: Routes are NOT versioned (no /api/v2 prefix). The version tag below
-    // was removed because it misrepresented the API as v2.0 in Swagger docs
-    // while routes remain unversioned — a mismatch that misleads consumers.
-    // If versioning is added later, re-introduce this + a global URI prefix.
-    .setContact('EduMap Team', 'https://edumap.vn', 'admin@edumap.vn')
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
-    .addBearerAuth(
-      {
+        .setContact('EduMap Team', 'https://edumap.vn', 'admin@edumap.vn')
+        .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+        .addBearerAuth({
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
         description: 'Nhập JWT token từ endpoint /auth/login',
-      },
-      'access-token',
-    )
-    .addTag('Auth', 'Xác thực & Phân quyền - Đăng nhập, đăng ký, quản lý tài khoản')
-    .addTag('Admin', 'Quản trị hệ thống - Quản lý người dùng, nội dung, thống kê')
-    .addTag('Map', 'Bản đồ & PostGIS - Tìm kiếm, thêm, đánh giá địa điểm giáo dục')
-    .addTag('Library', 'Kho học liệu - Tài liệu, sách, khóa học')
-    .addTag('AI', 'Trí tuệ nhân tạo - Chatbot, gợi ý, phân tích')
-    .addTag('Career', 'Phát triển nghề nghiệp - Lộ trình, việc làm, thực tập')
-    .addTag('Community', 'Cộng đồng - Bài viết, bình luận, nhóm học tập')
-    .addTag('Mentor', 'Mentoring - Kết nối mentor và học viên')
-    .addTag('Events', 'Sự kiện - Workshop, hackathon, seminar')
-    .addTag('Scholarships', 'Học bổng - Tìm kiếm và apply học bổng')
-    .addTag('Green', 'Môi trường - Thử thách xanh, hoạt động bảo vệ môi trường')
-    .addTag('Gamification', 'Trò chơi hóa - Điểm, huy hiệu, bảng xếp hạng')
-    .addTag('Donations', 'Quyên góp - Chiến dịch và lịch sử quyên góp')
-    .addTag('ImpactMatch', 'Ghép nối nhu cầu ↔ nhà tài trợ - AI matching')
-    .addTag('Certificates', 'Chứng chỉ - Cấp và xác minh chứng chỉ số')
-    .addTag('Surveys', 'Khảo sát - Tạo và trả lời khảo sát')
-    .addTag('Notifications', 'Thông báo - Quản lý thông báo')
-    .addTag('Storage', 'Lưu trữ - Upload và quản lý file')
-    .addTag('Business', 'Kết nối doanh nghiệp - Sản phẩm, dịch vụ, giao dịch')
-    .addTag('Volunteer', 'Tình nguyện - Hoạt động tình nguyện')
-    .addTag('STEM', 'STEM Labs - Phòng thí nghiệm STEM')
-    .addTag('WiFi', 'WiFi công cộng - Tìm và báo cáo điểm WiFi')
-    .addTag('Crawler', 'Crawler - Thu thập dữ liệu tự động')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  // `useGlobalPrefix: true` is required because the app uses
-  // `setGlobalPrefix('api')`. Without it Swagger is mounted at `/docs`
-  // while the startup log (and every other route) advertises `/api/docs`,
-  // so visiting `/api/docs` returns 404.
-  SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
-
-  const port = process.env.PORT || 3000;
-  await app.listen(port, '0.0.0.0');
-  
-  logger.log(`🚀 Server is running on: http://0.0.0.0:${port}`);
-  logger.log(`📖 API Documentation: http://localhost:${port}/api/docs`);
+    }, 'access-token')
+        .addTag('Auth', 'Xác thực & Phân quyền - Đăng nhập, đăng ký, quản lý tài khoản')
+        .addTag('Admin', 'Quản trị hệ thống - Quản lý người dùng, nội dung, thống kê')
+        .addTag('Map', 'Bản đồ & PostGIS - Tìm kiếm, thêm, đánh giá địa điểm giáo dục')
+        .addTag('Library', 'Kho học liệu - Tài liệu, sách, khóa học')
+        .addTag('AI', 'Trí tuệ nhân tạo - Chatbot, gợi ý, phân tích')
+        .addTag('Career', 'Phát triển nghề nghiệp - Lộ trình, việc làm, thực tập')
+        .addTag('Community', 'Cộng đồng - Bài viết, bình luận, nhóm học tập')
+        .addTag('Mentor', 'Mentoring - Kết nối mentor và học viên')
+        .addTag('Events', 'Sự kiện - Workshop, hackathon, seminar')
+        .addTag('Scholarships', 'Học bổng - Tìm kiếm và apply học bổng')
+        .addTag('Green', 'Môi trường - Thử thách xanh, hoạt động bảo vệ môi trường')
+        .addTag('Gamification', 'Trò chơi hóa - Điểm, huy hiệu, bảng xếp hạng')
+        .addTag('Donations', 'Quyên góp - Chiến dịch và lịch sử quyên góp')
+        .addTag('ImpactMatch', 'Ghép nối nhu cầu ↔ nhà tài trợ - AI matching')
+        .addTag('Certificates', 'Chứng chỉ - Cấp và xác minh chứng chỉ số')
+        .addTag('Surveys', 'Khảo sát - Tạo và trả lời khảo sát')
+        .addTag('Notifications', 'Thông báo - Quản lý thông báo')
+        .addTag('Storage', 'Lưu trữ - Upload và quản lý file')
+        .addTag('Business', 'Kết nối doanh nghiệp - Sản phẩm, dịch vụ, giao dịch')
+        .addTag('Volunteer', 'Tình nguyện - Hoạt động tình nguyện')
+        .addTag('STEM', 'STEM Labs - Phòng thí nghiệm STEM')
+        .addTag('WiFi', 'WiFi công cộng - Tìm và báo cáo điểm WiFi')
+        .addTag('Crawler', 'Crawler - Thu thập dữ liệu tự động')
+        .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
+    const port = process.env.PORT || 3000;
+    await app.listen(port, '0.0.0.0');
+    logger.log(`🚀 Server is running on: http://0.0.0.0:${port}`);
+    logger.log(`📖 API Documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

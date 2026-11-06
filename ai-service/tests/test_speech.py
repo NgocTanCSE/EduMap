@@ -1,5 +1,5 @@
 """
-Tests for Voice-to-Geo AI (Idea #16).
+Tests for Voice-to-Geo AI (Idea
 
 Covers:
   1. SpeechService.transcribe — always degrades (no server-side STT provider
@@ -22,12 +22,12 @@ import sys
 import json
 from unittest.mock import patch, MagicMock
 
-# Make ai-service importable.
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode + no real HTTP calls during tests.
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["STT_TIMEOUT_SECONDS"] = "25"
@@ -37,11 +37,11 @@ os.environ.setdefault("DB_SQLITE_PATH", os.path.abspath(
 
 import pytest
 
-# Import SpeechService at module level so patch.object can reference it.
+
 from services.speech import SpeechService
 
 
-# ── 1. SpeechService unit tests ──────────────────────────────────────────
+
 
 class TestSpeechService:
     """Verify STT transcription always degrades gracefully (no provider)."""
@@ -87,7 +87,7 @@ class TestSpeechService:
         assert result["confidence"] is None
 
 
-# ── 2. Intent extraction (T3) ────────────────────────────────────────────
+
 
 class TestIntentExtraction:
     """NLQueryParser.extract_intent — reuses Talk2Map regex baseline."""
@@ -149,7 +149,7 @@ class TestIntentExtraction:
     def test_report_keyword_beats_find(self, parser):
         """A report keyword should win even if 'tìm' also appears."""
         _, intent = self._parse_and_intent(parser, "Tìm wifi để biết trường có hỏng không")
-        # 'hỏng' present → report_form (report takes priority)
+
         assert intent["intent"] == "report_form"
 
     def test_intent_detail_is_vietnamese(self, parser):
@@ -159,7 +159,7 @@ class TestIntentExtraction:
         assert len(intent["detail"]) > 0
 
 
-# ── 3. Router smoke test (FastAPI TestClient) ────────────────────────────
+
 
 class TestSpeechRouter:
     """Verify POST /api/ai/speech/to-text returns valid schema.

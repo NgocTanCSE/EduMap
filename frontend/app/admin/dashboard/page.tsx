@@ -1,81 +1,69 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService } from '@/reporting/services/admin.service';
-import { 
-  Users, Activity, TrendingUp, Shield, 
-  MapPin, BookOpen, Heart, Leaf, BrainCircuit
-} from 'lucide-react';
+import { adminService } from '@/src/services/admin.service';
+import { aiService } from '@/src/services/ai.service';
+import { Users, Activity, TrendingUp, Shield, MapPin, BookOpen, Heart, Leaf, BrainCircuit } from 'lucide-react';
 import { authService } from '@/src/services/auth.service';
-
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<any>(null);
-  const [aiStats, setAiStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAllStats = async () => {
-      try {
-        const adminData = await adminService.getStats();
-        setStats(adminData);
-        
-        // Fetch AI Analytics
-        const token = authService.getAccessToken();
-        if (token) {
-          const aiRes = await fetch('/api/ai/analytics/stats', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            setAiStats(aiData.data);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllStats();
-  }, []);
-
-  if (loading) return <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu thực tế từ Database & Redis...</div>;
-
-  const cards = [
-    { title: 'Tổng người dùng', value: stats?.total_users || 0, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Chiến dịch hoạt động', value: stats?.active_campaigns || 0, icon: Activity, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Chờ xác minh', value: stats?.pending_verifications || 0, icon: Shield, color: 'text-primary', bg: 'bg-primary/10' },
-    { title: 'Tăng trưởng', value: stats?.revenue_growth || '+0%', icon: TrendingUp, color: 'text-primary/80', bg: 'bg-primary/10' },
-  ];
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    const [stats, setStats] = useState<any>(null);
+    const [aiStats, setAiStats] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        const fetchAllStats = async () => {
+            try {
+                const adminData = await adminService.getStats();
+                setStats(adminData);
+                const token = authService.getAccessToken();
+                if (token) {
+                    try {
+                        const aiData = await aiService.getAnalyticsStats();
+                        setAiStats(aiData);
+                    }
+                    catch (error) {
+                        console.error('Error fetching AI stats:', error);
+                    }
+                }
+            }
+            catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+            finally {
+                setLoading(false);
+            }
+        };
+        fetchAllStats();
+    }, []);
+    if (loading)
+        return <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu thực tế từ Database & Redis...</div>;
+    const cards = [
+        { title: 'Tổng người dùng', value: stats?.total_users || 0, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+        { title: 'Chiến dịch hoạt động', value: stats?.active_campaigns || 0, icon: Activity, color: 'text-primary', bg: 'bg-primary/10' },
+        { title: 'Chờ xác minh', value: stats?.pending_verifications || 0, icon: Shield, color: 'text-primary', bg: 'bg-primary/10' },
+        { title: 'Tăng trưởng', value: stats?.revenue_growth || '+0%', icon: TrendingUp, color: 'text-primary/80', bg: 'bg-primary/10' },
+    ];
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header */}
+
         <div>
           <h1 className="text-3xl font-bold text-primary">Tổng quan Hệ thống</h1>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {cards.map((card, idx) => {
             const Icon = card.icon;
-            return (
-              <div key={idx} className="p-6 rounded-xl bg-card/50 border border-border hover:border-primary/50 transition-all">
+            return (<div key={idx} className="p-6 rounded-xl bg-card/50 border border-border hover:border-primary/50 transition-all">
                 <div className={`w-12 h-12 rounded-lg ${card.bg} ${card.color} flex items-center justify-center mb-4`}>
-                   <Icon className="w-6 h-6" />
+                   <Icon className="w-6 h-6"/>
                 </div>
                 <p className="text-3xl font-bold">{card.value}</p>
                 <p className="text-xs text-muted-foreground/60 uppercase font-bold mt-1 tracking-widest">{card.title}</p>
-              </div>
-            );
-          })}
+              </div>);
+        })}
         </div>
 
-        {/* AI Analytics Section */}
         <div className="p-8 rounded-lg bg-card/40 border border-border space-y-6">
            <h3 className="text-xl font-bold flex items-center gap-2 text-primary/70">
-             <BrainCircuit className="w-6 h-6" />
+             <BrainCircuit className="w-6 h-6"/>
              AI Analytics & Predictive Models
            </h3>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -85,7 +73,6 @@ export default function AdminDashboardPage() {
                     <p className="text-2xl font-semibold text-foreground">{aiStats?.total_predictions || 0}</p>
                     <span className="text-sm text-primary mb-1">+12%</span>
                  </div>
-                 {/* Visual Bar representation */}
                  <div className="w-full h-2 bg-card/20 rounded-full mt-4 overflow-hidden">
                     <div className="h-full bg-primary w-[75%] rounded-full"></div>
                  </div>
@@ -116,36 +103,33 @@ export default function AdminDashboardPage() {
            </div>
         </div>
 
-{/* Quick Links / Module Status */}
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="p-8 rounded-lg bg-card/30 border border-border space-y-6">
                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" />
+                  <Activity className="w-5 h-5 text-primary"/>
                   Trạng thái Module
                </h3>
                <div className="space-y-4">
                   {[
-                    { name: 'Bản đồ', status: 'Hoạt động', icon: MapPin, href: '/map' },
-                    { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
-                    { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/green' },
-                    { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
-                  ].map((mod, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-card/20 border border-border">
+            { name: 'Bản đồ', status: 'Hoạt động', icon: MapPin, href: '/map' },
+            { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
+            { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/green' },
+            { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
+        ].map((mod, i) => (<div key={i} className="flex items-center justify-between p-4 rounded-lg bg-card/20 border border-border">
                        <div className="flex items-center gap-3">
-                          <mod.icon className="w-5 h-5 text-muted-foreground/20" />
+                          <mod.icon className="w-5 h-5 text-muted-foreground/20"/>
                           <span className="text-sm font-bold">{mod.name}</span>
                        </div>
                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${mod.status === 'Hoạt động' ? 'text-primary bg-primary/10' : 'text-primary bg-primary/10'}`}>
                           {mod.status}
                        </span>
-                    </div>
-                  ))}
+                    </div>))}
                </div>
             </div>
 
             <div className="p-8 rounded-lg bg-card border border-border flex flex-col justify-center items-center text-center space-y-4">
                <div className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center  ">
-                  <Shield className="w-8 h-8 text-foreground" />
+                  <Shield className="w-8 h-8 text-foreground"/>
                </div>
                <h3 className="text-2xl font-bold">Bảo mật Tuyệt đối</h3>
                <p className="text-sm text-muted-foreground/60 leading-relaxed max-w-sm">
@@ -160,6 +144,5 @@ export default function AdminDashboardPage() {
          </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

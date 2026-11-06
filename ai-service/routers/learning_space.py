@@ -1,5 +1,5 @@
 """
-AI Learning Space Recommender — Explain endpoint (Idea #13, T2).
+AI Learning Space Recommender — Explain endpoint (Idea
 
 POST /api/ai/learning-space/explain
   Accepts a single learning spot + the user's search preferences, returns
@@ -25,7 +25,7 @@ class LearnSpot(BaseModel):
     has_wifi: Optional[bool] = True
     has_power_outlets: Optional[bool] = True
     rating_avg: Optional[float] = 0
-    quietness: Optional[int] = None  # 1-5
+    quietness: Optional[int] = None
     amenities: List[str] = Field(default_factory=list)
     opening_hours: Optional[Dict[str, Any]] = None
     total_capacity: Optional[int] = 50
@@ -55,10 +55,10 @@ async def explain_learning_space(data: ExplainRequest):
     """
     from services.llm_service import llm_service
     if not llm_service:
-        # Even with no LLM service at all, return a template explanation.
+
         from services.llm_service import LLMService
-        # Build a minimal fallback using a bare instance is not safe; use a
-        # plain template string instead.
+
+
         spot = data.spot
         dist = spot.distance_km or 0
         explanation = (
@@ -76,8 +76,8 @@ async def explain_learning_space(data: ExplainRequest):
             data.spot.model_dump(),
             data.preferences,
         )
-        # The LLM service returns {"explanation", "degraded", "_degraded", "reason"}
-        # Normalise to the public response model.
+
+
         return ExplainResponse(
             explanation=result.get("explanation", ""),
             degraded=bool(result.get("degraded", False) or result.get("_degraded", False)),
@@ -85,7 +85,7 @@ async def explain_learning_space(data: ExplainRequest):
         )
     except Exception as e:
         print(f"[learning_space.explain] error: {e}")
-        # Absolute last-resort fallback so the frontend never sees a 502.
+
         spot = data.spot
         return ExplainResponse(
             explanation=f"{spot.name} được đề xuất vì phù hợp với tiêu chí tìm kiếm của bạn. (Lỗi hệ thống, dùng mẫu tĩnh.)",

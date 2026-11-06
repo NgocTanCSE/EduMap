@@ -1,5 +1,5 @@
 """
-Pydantic models for the AI Impact Measurement endpoint (Idea #19).
+Pydantic models for the AI Impact Measurement endpoint (Idea
 
 Flow:
   The backend ``ImpactMeasurementService`` pre-computes a before/after diff
@@ -36,7 +36,7 @@ class ImpactMeasureRequest(BaseModel):
     ``deployment_date`` is the cut-off that splits facilities into a "before"
     (pre-deployment baseline) and "after" (post-deployment) cohort.
     """
-    # Region selector — bbox OR center+lat/lng.
+
     min_lat: Optional[float] = Field(default=None, ge=-90, le=90)
     max_lat: Optional[float] = Field(default=None, ge=-90, le=90)
     min_lng: Optional[float] = Field(default=None, ge=-180, le=180)
@@ -48,7 +48,7 @@ class ImpactMeasureRequest(BaseModel):
     radius_km: float = Field(default=15.0, ge=1, le=100,
                              description="Bán kính tính (km) khi dùng lat/lng")
 
-    # Before/after cut-off. Facilities created_at < deployment_date are "before".
+
     deployment_date: Optional[str] = Field(
         default=None,
         description="ISO date (e.g. 2025-01-01) chia trước/sau triển khai. "
@@ -56,7 +56,7 @@ class ImpactMeasureRequest(BaseModel):
     )
     region: Optional[str] = Field(default=None, description="Tên khu vực (nếu có)")
 
-    # Optional override: which facility types count as "educational access".
+
     facility_types: Optional[List[str]] = Field(
         default=None,
         description="Danh sách type_id/tên loại cơ sở (wifi, library, school, university, lab). "
@@ -98,7 +98,7 @@ class TrendPoint(BaseModel):
 class TrendAnalysis(BaseModel):
     monthly: List[TrendPoint]
     growth_rate_pct: float
-    trend: str  # "tăng" | "giảm" | "ổn định"
+    trend: str
 
 
 class ConfidenceInterval(BaseModel):

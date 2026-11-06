@@ -3,10 +3,8 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# --- Database Configuration ---
 DB_CONFIG = {
     "host": "localhost",
     "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"),
@@ -15,9 +13,7 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD", "password123")
 }
 
-# Type IDs: 1: School, 3: Library, 5: STEM Lab, 6: Green Space, 7: WiFi, 8: Bookstore, 9: Cafe
 LOCATIONS = [
-    # --- DNTU CORE & INTERNAL ---
     {
         "name": "Đại học Công nghệ Đồng Nai (DNTU)",
         "type_id": 1,
@@ -75,7 +71,6 @@ LOCATIONS = [
         "description": "Khu vực thư giãn, học bài ngoài trời thoáng mát."
     },
 
-    # --- BOOKSTORES (Bán kính 10km) ---
     {
         "name": "Nhà sách Fahasa Biên Hòa",
         "type_id": 8,
@@ -93,7 +88,6 @@ LOCATIONS = [
         "description": "Không gian mua sắm sách hiện đại, có khu vực đọc sách."
     },
 
-    # --- STEM & INNOVATION ---
     {
         "name": "Trung tâm Tin học Đồng Nai",
         "type_id": 5,
@@ -103,7 +97,6 @@ LOCATIONS = [
         "description": "Đào tạo kỹ năng số và lập trình cho sinh viên."
     },
 
-    # --- GREEN SPACES & PARKS ---
     {
         "name": "Công viên Trảng Dài",
         "type_id": 6,
@@ -121,7 +114,6 @@ LOCATIONS = [
         "description": "Địa điểm tổ chức nhiều sự kiện văn hóa, giáo dục."
     },
 
-    # --- WiFi & STUDY CAFES ---
     {
         "name": "Smile Coffee (Trảng Dài)",
         "type_id": 8,
@@ -281,12 +273,11 @@ def seed():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
-        
+
         print("Skipping cleaning old map data to preserve crawled data.")
-        # cur.execute("DELETE FROM map_points;")
-        
+
         print(f"Seeding {len(LOCATIONS)} precise locations for DNTU ecosystem...")
-        
+
         for loc in LOCATIONS:
             point_wkt = f"POINT({loc['lng']} {loc['lat']})"
             cur.execute("""
@@ -301,10 +292,10 @@ def seed():
                 point_wkt,
                 "approved"
             ))
-            
+
         conn.commit()
         print("DNTU Ecosystem data updated successfully with WiFi details!")
-        
+
     except Exception as e:
         print(f"Error seeding data: {e}", file=sys.stderr)
     finally:

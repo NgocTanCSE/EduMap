@@ -18,25 +18,25 @@ if _AI_DIR not in sys.path:
 
 from services.clustering_service import clustering_service as cs
 
-# Silence the "SERVICES PACKAGE LOADED" banner printed on import.
+
 import io, contextlib
 
 
 def _points():
     """Three tight, NON-collinear clusters + a couple noise points."""
-    # Cluster A: triangle around (10.95, 106.84)
+
     a = [
         {"lat": 10.950, "lng": 106.840, "category": "school", "name": "A1"},
         {"lat": 10.953, "lng": 106.841, "category": "school", "name": "A2"},
         {"lat": 10.951, "lng": 106.844, "category": "library", "name": "A3"},
     ]
-    # Cluster B: triangle around (10.92, 106.80)
+
     b = [
         {"lat": 10.920, "lng": 106.800, "category": "university", "name": "B1"},
         {"lat": 10.923, "lng": 106.802, "category": "university", "name": "B2"},
         {"lat": 10.921, "lng": 106.804, "category": "lab", "name": "B3"},
     ]
-    # Noise: far from everything and the only member of its "area"
+
     noise = [
         {"lat": 99.0, "lng": 99.0, "category": "noise", "name": "N1"},
         {"lat": 98.0, "lng": 98.0, "category": "noise", "name": "N2"},
@@ -58,13 +58,13 @@ def test_features_have_polygon_or_point_geometry():
     """Every feature carries a renderable geometry (Polygon or Point)."""
     with contextlib.redirect_stdout(io.StringIO()):
         result = cs.identify_education_hubs(_points())
-    assert len(result["features"]) >= 2  # at least the two real clusters
+    assert len(result["features"]) >= 2
     for f in result["features"]:
         assert f["type"] == "Feature"
         geom = f["geometry"]
         assert geom["type"] in ("Polygon", "Point")
         assert isinstance(geom["coordinates"], list)
-        # Polygon ring MUST be closed (first == last vertex) per RFC 7946 3.1.6
+
         if geom["type"] == "Polygon":
             ring = geom["coordinates"][0]
             assert len(ring) >= 4
@@ -93,7 +93,7 @@ def test_features_carry_hub_metadata():
         props = f["properties"]
         assert "hub_id" in props
         assert "center" in props and "lat" in props["center"] and "lng" in props["center"]
-        assert props["point_count"] >= 3  # DBSCAN min_samples=3
+        assert props["point_count"] >= 3
         assert "categories" in props and isinstance(props["categories"], list)
         assert "density_score" in props
     print("✓ test_features_carry_hub_metadata")
@@ -115,7 +115,7 @@ def test_empty_input_returns_empty_featurecollection():
             r = cs.identify_education_hubs(bad if bad is not None else [])
             assert r["type"] == "FeatureCollection"
             assert r["features"] == []
-    # Too few points (< 3) -> empty
+
     with contextlib.redirect_stdout(io.StringIO()):
         r = cs.identify_education_hubs([{"lat": 1, "lng": 2, "category": "x"}])
         assert r["features"] == []
@@ -126,7 +126,7 @@ def test_noise_points_excluded():
     """DBSCAN noise points (cluster_id == -1) must not become features."""
     with contextlib.redirect_stdout(io.StringIO()):
         result = cs.identify_education_hubs(_points())
-    # Two noise points at (99,99)/(98,98) should never appear in any feature.
+
     for f in result["features"]:
         coords = f["geometry"]["coordinates"]
         if f["geometry"]["type"] == "Polygon":

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 EduMap — curated, verifiable Vietnamese datasets.
 
@@ -33,7 +32,6 @@ import json
 import uuid
 from typing import Any, Iterable
 
-# Bump when the curated content changes so migrations stay auditable.
 VERIFIED_AT = "2026-10-27"
 VERIFIED_AT_VN = "27/10/2026"
 
@@ -55,10 +53,6 @@ def with_source(description: str, url: str) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Scholarships — real government / university programmes open to Vietnamese
-# ---------------------------------------------------------------------------
-# (key, title, description, provider, location, value_amount, deadline, eligibility, url)
 SCHOLARSHIPS: list[tuple] = [
     (
         "sch-australia-awards",
@@ -194,10 +188,6 @@ SCHOLARSHIPS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# International programmes / exchanges
-# ---------------------------------------------------------------------------
-# (key, title, type, description, host_country, organization, deadline, benefits, url)
 INTERNATIONAL_PROGRAMS: list[tuple] = [
     (
         "intl-afs",
@@ -302,10 +292,6 @@ INTERNATIONAL_PROGRAMS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Opportunities — real Vietnamese competitions / campaigns
-# ---------------------------------------------------------------------------
-# (key, title, type, description, organization, address, deadline, requirements, benefits, url, tags, region)
 OPPORTUNITIES: list[tuple] = [
     (
         "opp-olp",
@@ -464,10 +450,6 @@ OPPORTUNITIES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Internships — real employers with public internship/career pages
-# ---------------------------------------------------------------------------
-# (key, title, company, field, address, salary, duration, requirements, benefits, url)
 INTERNSHIPS: list[tuple] = [
     (
         "intern-fpt-software",
@@ -592,10 +574,6 @@ INTERNSHIPS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Events — real recurring Vietnamese events (upcoming windows)
-# ---------------------------------------------------------------------------
-# (key, title, description, type, address, start_date, end_date, url, tags, is_online)
 EVENTS: list[tuple] = [
     (
         "evt-techfest",
@@ -672,10 +650,6 @@ EVENTS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Hackathons — real, recurring competitions open to Vietnamese students
-# ---------------------------------------------------------------------------
-# (key, title, description, start_date, end_date, status, url)
 HACKATHONS: list[tuple] = [
     (
         "hack-techfest",
@@ -725,10 +699,6 @@ HACKATHONS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Career paths — Vietnamese roles with reference salary bands
-# ---------------------------------------------------------------------------
-# (key, title, field, description, skills, roadmap, salary, demand, resources)
 CAREER_PATHS: list[tuple] = [
     (
         "career-software-engineer",
@@ -821,10 +791,6 @@ CAREER_PATHS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# STEM labs — real schools/universities in Đồng Nai with maker spaces
-# ---------------------------------------------------------------------------
-# (key, name, address, description, equipment, contact)
 STEM_LABS: list[tuple] = [
     (
         "lab-ltv",
@@ -877,10 +843,6 @@ STEM_LABS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Green challenges — real national environmental campaigns
-# ---------------------------------------------------------------------------
-# (key, title, description, type, start, end, points, url, address, lat, lng)
 GREEN_CHALLENGES: list[tuple] = [
     (
         "green-earth-hour",
@@ -937,10 +899,6 @@ GREEN_CHALLENGES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Summer campaigns — real Youth Union campaigns
-# ---------------------------------------------------------------------------
-# (key, name, year, location, status, description, lat, lng)
 SUMMER_CAMPAIGNS: list[tuple] = [
     (
         "summer-mua-he-xanh",
@@ -995,10 +953,6 @@ SUMMER_CAMPAIGNS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Donation campaigns — real, official Vietnamese funds
-# ---------------------------------------------------------------------------
-# (key, title, description, target, organizer, address, start, end, url, lat, lng)
 DONATION_CAMPAIGNS: list[tuple] = [
     (
         "donate-quy-vi-tre-em",
@@ -1094,10 +1048,6 @@ DONATION_CAMPAIGNS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Learning materials — real, free Vietnamese learning sites
-# ---------------------------------------------------------------------------
-# (key, title, description, type, subject, grade, tags, url, thumbnail)
 LEARNING_MATERIALS: list[tuple] = [
     (
         "mat-khan-academy",
@@ -1262,10 +1212,6 @@ LEARNING_MATERIALS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Community groups — real Vietnamese study/tech communities
-# ---------------------------------------------------------------------------
-# (key, name, description, type, url)
 GROUPS: list[tuple] = [
     (
         "grp-vnoi",
@@ -1305,14 +1251,6 @@ GROUPS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Learning spots — real Vietnamese study spaces (libraries, study cafés)
-# ---------------------------------------------------------------------------
-# (key, name, type, lat, lng, address, description, has_wifi, has_power_outlets,
-#  quietness, opening_hours_json, amenities_json, rating_avg, total_capacity, url)
-#
-# Opening hours stored as JSON: {"monday":"08:00-17:00", ...} — null = closed.
-# quietness: 1 (noisy)–5 (very quiet); NULL = unknown.
 LEARNING_SPOTS: list[tuple] = [
     (
         "spot-nlv-hanoi",
@@ -1397,18 +1335,6 @@ def source_url_of(description: str) -> str | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Flood hazard zones — real Vietnamese flood-prone geographic areas
-# ---------------------------------------------------------------------------
-# (key, name, description, polygon_geojson, risk_level, metadata_json, source_url)
-#
-# Each polygon is a closed ring of [lng, lat] pairs (geojson coordinates).
-# Sources: Bộ Tài nguyên & Môi trường (MONRE), Tổng cục Thủy lợi, Bộ NN&PTNT,
-# UBND các tỉnh — verified public flood hazard / disaster data.
-# Used by ai-service/services/climate_guardian.py (Idea #11: AI Climate
-# Learning Guardian) as the static flood-hazard baseline when OpenWeatherMap
-# API key is unavailable, and as supplementary data alongside the DB flood_zones
-# table.
 FLOOD_ZONES: list[tuple] = [
     (
         "flood-dong-nai-bien-hoa",
@@ -1450,11 +1376,6 @@ FLOOD_ZONES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Modules — system feature modules (Idea: seed from seed-base.sql that was
-# never loaded into SQLite because it used PostgreSQL syntax).
-# ---------------------------------------------------------------------------
-# (key, name, description)
 MODULES: list[tuple] = [
     ("auth", "Xác thực", "Quản lý người dùng và xác thực"),
     ("map", "Bản đồ", "Bản đồ giáo dục và định vị"),
@@ -1469,10 +1390,6 @@ MODULES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Features — individual features under each module (from seed-base.sql).
-# ---------------------------------------------------------------------------
-# (key, name, module_key, description)
 FEATURES: list[tuple] = [
     ("auth-login", "Đăng nhập", "auth", "API đăng nhập hệ thống"),
     ("auth-register", "Đăng ký", "auth", "API đăng ký tài khoản"),
@@ -1485,16 +1402,6 @@ FEATURES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Mentors — real Vietnamese education professionals who serve as verified
-# mentors on the platform. Each entry references an existing `users` row whose
-# `role = 'mentor'`. The data was previously authored in `seed.sql` (for
-# PostgreSQL) but never ported to the SQLite migration, so the mentors table
-# shipped empty and the /mentor page showed a "no mentors" state even though
-# 9 mentor-role users existed in the DB.
-# ---------------------------------------------------------------------------
-# (key, user_id, bio, specialties_json, experience_years, rating_avg,
-#  total_sessions, hourly_rate, location)
 MENTORS: list[tuple] = [
     (
         "mentor-nguyen-thi-lan",
@@ -1562,13 +1469,6 @@ MENTORS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Mentor availabilities — weekly schedule slots for each mentor so the
-# booking UI has real time slots to display. Uses the same mentor user_ids
-# as MENTORS above.
-# ---------------------------------------------------------------------------
-# (key, mentor_user_id, day_of_week, start_time, end_time)
-# day_of_week: 0=Sunday .. 6=Saturday
 MENTOR_AVAILABILITIES: list[tuple] = [
     ("avail-mlan-0", "0b18a95a-406f-4437-bd9d-4d67783c5c05", 1, "14:00", "17:00"),
     ("avail-mlan-1", "0b18a95a-406f-4437-bd9d-4d67783c5c05", 3, "19:00", "21:00"),
@@ -1593,13 +1493,6 @@ MENTOR_AVAILABILITIES: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Posts — real Vietnamese educational discussion posts. Each post references
-# an existing `users` row (author) and an existing `groups` row. Provenance is
-# appended with with_source() so the UI shows the source.
-# ---------------------------------------------------------------------------
-# (key, author_id, group_key, title, content, media_urls_json, tags_json,
-#  like_count, comment_count, status, pinned, created_at_iso)
 POSTS: list[tuple] = [
     (
         "post-physic-9",
@@ -1722,12 +1615,6 @@ POSTS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Comments — real discussion replies to the posts above, authored by
-# existing users. Gives the community pages a lived-in feel instead of
-# empty comment counts everywhere.
-# ---------------------------------------------------------------------------
-# (key, post_key, author_id, content)
 COMMENTS: list[tuple] = [
     ("post-physic-9", "2f64dbc8-9a2d-44ef-ab79-e0aee6f79630",
      "Cảm ơn bạn! Mình đã áp dụng phương pháp vẽ đồ thị đạo số và cải thiện "
@@ -1756,26 +1643,18 @@ COMMENTS: list[tuple] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Role–permission mappings — bind the 12 roles to the 10 permissions so the
-# RBAC system the backend implements actually has rows to read. Previously
-# `role_permissions` shipped empty (the old PostgreSQL seed used
-# `ON CONFLICT DO NOTHING` on text role ids that didn't match), so
-# authorization queries returned nothing.
-# ---------------------------------------------------------------------------
-# (role_id, permission_id)  — role_id is the INTEGER primary key of `roles`.
 ROLE_PERMISSIONS: list[tuple] = [
-    (1, 5),  # super_admin → PERM_MANAGE
-    (2, 2),  # admin → PERM_READ
-    (2, 3),  # admin → PERM_UPDATE
-    (3, 2),  # moderator → PERM_READ
-    (3, 6),  # moderator → PERM_APPROVE
-    (8, 7),  # teacher → PERM_VIEW
-    (8, 8),  # teacher → PERM_DOWNLOAD
-    (9, 7),  # mentor → PERM_VIEW
-    (9, 9),  # mentor → PERM_UPLOAD
-    (11, 2), # student → PERM_READ
-    (11, 1), # student → PERM_CREATE
-    (11, 10),# student → PERM_SHARE
-    (12, 7), # guest → PERM_VIEW
+    (1, 5),  
+    (2, 2),  
+    (2, 3),  
+    (3, 2),  
+    (3, 6),  
+    (8, 7),  
+    (8, 8),  
+    (9, 7),  
+    (9, 9),  
+    (11, 2), 
+    (11, 1), 
+    (11, 10),
+    (12, 7), 
 ]

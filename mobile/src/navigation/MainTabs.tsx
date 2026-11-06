@@ -4,20 +4,20 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Colors, FontSize } from '../theme';
 import type { RootParamList } from './types';
 
-// Screens — Home
+
 import HomeScreen from '../screens/HomeScreen';
-// Screens — Map
+
 import MapScreen from '../screens/MapScreen';
 import LocationDetailScreen from '../screens/LocationDetailScreen';
 import RouteScreen from '../screens/RouteScreen';
-// Screens — Career
+
 import CareerJobsScreen from '../screens/CareerJobsScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 import CareerRoadmapScreen from '../screens/CareerRoadmapScreen';
 import AiAdviceScreen from '../screens/AiAdviceScreen';
 import CareersPathsScreen from '../screens/CareersPathsScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
-// Screens — More (hub)
+
 import MoreDashboardScreen from '../screens/MoreDashboardScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ChatHistoryScreen from '../screens/ChatHistoryScreen';

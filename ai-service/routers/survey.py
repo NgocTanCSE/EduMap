@@ -62,12 +62,12 @@ router = APIRouter(
 
 logger = logging.getLogger("survey")
 
-# ── In-process 24 h cache (HF Spaces: no Redis) ──────────────────────────────
+
 _CACHE: Dict[str, Dict[str, Any]] = {}
 _CACHE_TTL_SECONDS = 24 * 3600
 
 
-# ── Request model (inline — mirrors routers/climate.py) ─────────────────────
+
 
 class SurveyRequest(BaseModel):
     """POST body for /api/ai/survey/priorities and /next.
@@ -167,7 +167,7 @@ def _degraded_priorities(reason: str) -> Dict[str, Any]:
     }
 
 
-# ── Endpoints ───────────────────────────────────────────────────────────────
+
 
 
 @router.post("/priorities")
@@ -207,7 +207,7 @@ async def survey_priorities(request_data: SurveyRequest):
         return result
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001 — graceful degradation
+    except Exception as e:
         logger.exception("survey/priorities failed: %s", e)
         return _degraded_priorities(f"Lỗi tính toán khảo sát ưu tiên: {e}")
 
@@ -244,7 +244,7 @@ async def survey_next(request_data: SurveyRequest):
         return result
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001 — graceful degradation
+    except Exception as e:
         logger.exception("survey/next failed: %s", e)
         return {
             "feature": None,

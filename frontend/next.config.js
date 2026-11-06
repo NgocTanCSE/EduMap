@@ -1,12 +1,12 @@
 const { withSentryConfig } = require("@sentry/nextjs/config");
 
-// EduMap Frontend — single Next.js configuration.
-//
-// NOTE: Previously this project shipped TWO config files (`next.config.js` and
-// `next.config.mjs`). Next.js loads only one of them, so one of the two sets of
-// options (PWA/Sentry/images vs. rewrites) was silently ignored depending on
-// which file Next.js picked. They are merged here into a single source of
-// truth so the build is now deterministic.
+
+
+
+
+
+
+
 const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
   cacheOnFrontEndNav: true,
@@ -16,10 +16,10 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   disable: process.env.NODE_ENV === "development",
   workboxOptions: {
     disableDevLogs: true,
-    // Take the new service worker over immediately. Without this, a browser
-    // that already has the previous SW keeps serving the OLD JS bundle for the
-    // whole session (that is why a fixed UI still looked broken after a
-    // deploy), and the outdated precache entries are never evicted.
+
+
+
+
     skipWaiting: true,
     clientsClaim: true,
     cleanupOutdatedCaches: true,
@@ -41,7 +41,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)\//i,
+        urlPattern: /\/api\/(map|wifi|stem|library|career|scholarships)\
         handler: 'NetworkFirst',
         options: {
           cacheName: 'api-cache',
@@ -50,13 +50,13 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        // PWA: cache offline tutor responses so the tutor page works
-        // even when the network is intermittent/unavailable.
-        urlPattern: /\/api\/offline\/tutor\//i,
+
+
+        urlPattern: /\/api\/offline\/tutor\
         handler: 'NetworkFirst',
         options: {
           cacheName: 'offline-tutor-cache',
-          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 }, // 1 hour
+          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
           networkTimeoutSeconds: 10,
         },
       },
@@ -72,7 +72,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   },
 });
 
-/** @type {import('next').NextConfig} */
+
 const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -86,9 +86,9 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // `/dashboard/saved`, `/storage`, `/certificates` and `/notifications` were
-  // merged into the "Cá nhân" hub on `/dashboard`. Keep old bookmarks/links
-  // working by redirecting to the matching tab.
+
+
+
   async redirects() {
     return [
       {
@@ -116,28 +116,39 @@ const nextConfig = {
         destination: '/marketplace?category=book',
         permanent: false,
       },
+      { source: '/ai-agent', destination: '/map?tool=ai-agent', permanent: false },
+      { source: '/voice-search', destination: '/map?tool=voice-search', permanent: false },
+      { source: '/talk2map', destination: '/map', permanent: false },
+      { source: '/climate-guardian', destination: '/map?tool=climate', permanent: false },
+      { source: '/map/data-hunter', destination: '/map?tool=data-hunter', permanent: false },
+      { source: '/map/gap-predictor', destination: '/map?tool=gap-predictor', permanent: false },
+      { source: '/map/geo-vision', destination: '/map?tool=geo-vision', permanent: false },
+      { source: '/map/resource-optimizer', destination: '/map?tool=resource-optimizer', permanent: false },
+      { source: '/map/survey-planner', destination: '/map?tool=survey-planner', permanent: false },
+      { source: '/analytics', destination: '/analytics/trends', permanent: false },
+      { source: '/auth', destination: '/auth/login', permanent: false },
     ];
   },
-  // Reverse-proxy `/api/*` to the NestJS backend so the browser can call
-  // `/api/auth/login`, `/api/map/...`, etc. The BFF route handlers in
-  // `app/api/*` (notably `/api/ai/chat`, `/api/ai/history`,
-  // `/api/ai/learning-path`, and `/api/ai/search`) are kept out of the
-  // rewrite loop on purpose: they run in Next and add error handling +
-  // auth-token forwarding that a raw proxy would skip.
+
+
+
+
+
+
   async rewrites() {
-    // `BACKEND_URL` is injected by Docker Compose (e.g. http://backend:3000).
-    // The NestJS backend listens on `PORT || 3000` (backend/src/main.ts), so
-    // 3000 — NOT 3001 — is the correct local-dev fallback.
+
+
+
     const backendUrl = (process.env.BACKEND_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
     return [
       {
-        // `config` is excluded so `/api/config` always hits the Next route
-        // handler (runtime Google client ID) instead of the backend.
-        // `gamification` is excluded so `/api/gamification/*` always hits the
-        // BFF route handlers in `app/api/gamification/*` — they unwrap the
-        // response envelope and forward auth headers. Without this exclusion
-        // a rewrite could bypass the BFF and return the raw envelope to the
-        // client, breaking the gamification service's response parsing.
+
+
+
+
+
+
+
         source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|gamification|offline/tutor|offline/status|config$).*)',
         destination: `${backendUrl}/api/:path`,
       },
@@ -147,11 +158,11 @@ const nextConfig = {
 
 const baseConfig = withPWA(nextConfig);
 
-// Sentry is only wired when a DSN is actually configured. Without a DSN the
-// SDK is inert, yet `@sentry/nextjs` v10 still prints build warnings about the
-// legacy `sentry.client.config.ts` entry point (this project is on Next 14.1,
-// which does not support the `instrumentation-client.ts` convention). Skipping
-// the wrapper on HF keeps the build log clean and saves the source-map work.
+
+
+
+
+
 module.exports = process.env.NEXT_PUBLIC_SENTRY_DSN
   ? withSentryConfig(
       baseConfig,

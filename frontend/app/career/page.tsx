@@ -1,87 +1,67 @@
-/**
- * Unified Career Hub — consolidates career/jobs/roadmap/predictive/opportunities/radar/analytics.
- *
- * Previously 6 separate sidebar items; now one page with tab navigation.
- * The dashboard renders inline; other tabs link to the sub-pages so each
- * retains its full layout. Old direct-access routes still work.
- */
 "use client";
 import React, { useState, useEffect } from 'react';
-import {
-  Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target,
-  TrendingUp, BrainCircuit, Compass, BarChart3, LogIn,
-} from 'lucide-react';
+import { Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target, TrendingUp, BrainCircuit, Compass, BarChart3, LogIn, } from 'lucide-react';
 import { careerService } from '@/src/services/career.service';
 import { authService } from '@/src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
 import { CareerTabBar } from '@/components/career/CareerTabBar';
-
 function CareerDashboard() {
-  const [stats, setStats] = useState({
-    skillsCount: 0,
-    aspirationsCount: 0,
-    applicationsCount: 0
-  });
-  const [latestJobs, setJobs] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Nếu chưa đăng nhập, không gọi API cần auth — tránh hiện 0 gâu ý như "chưa có dữ liệu"
-    if (!authService.isLoggedIn()) {
-      setLoading(false);
-    } else {
-      fetchDashboardData();
-    }
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [skills, careers, apps, jobData, suggestData] = await Promise.all([
-        careerService.getUserSkills().catch(() => []),
-        careerService.getUserCareers().catch(() => []),
-        careerService.getUserApplications().catch(() => []),
-        careerService.searchJobs({ limit: 3 }).catch(() => ({ jobs: [] })),
-        careerService.getCareerSuggestions().catch(() => ({ top_suggestions: [] }))
-      ]);
-
-      setStats({
-        skillsCount: skills.length,
-        aspirationsCount: careers.length,
-        applicationsCount: apps.length
-      });
-      setJobs(jobData.jobs || []);
-      setSuggestions(suggestData.top_suggestions || []);
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="w-full mx-auto space-y-12">
-      {/* Login Gate */}
-      {!loading && !authService.isLoggedIn() && (
-        <section className="bg-card border border-border rounded-xl p-8 text-center space-y-6">
+    const [stats, setStats] = useState({
+        skillsCount: 0,
+        aspirationsCount: 0,
+        applicationsCount: 0
+    });
+    const [latestJobs, setJobs] = useState<any[]>([]);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(() => {
+        if (!authService.isLoggedIn()) {
+            setLoading(false);
+        }
+        else {
+            fetchDashboardData();
+        }
+    }, []);
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true);
+            const [skills, careers, apps, jobData, suggestData] = await Promise.all([
+                careerService.getUserSkills().catch(() => []),
+                careerService.getUserCareers().catch(() => []),
+                careerService.getUserApplications().catch(() => []),
+                careerService.searchJobs({ limit: 3 }).catch(() => ({ jobs: [] })),
+                careerService.getCareerSuggestions().catch(() => ({ top_suggestions: [] }))
+            ]);
+            setStats({
+                skillsCount: skills.length,
+                aspirationsCount: careers.length,
+                applicationsCount: apps.length
+            });
+            setJobs(jobData.jobs || []);
+            setSuggestions(suggestData.top_suggestions || []);
+        }
+        catch (err) {
+            console.error('Error fetching dashboard data:', err);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    return (<div className="w-full mx-auto space-y-12">
+      {!loading && !authService.isLoggedIn() && (<section className="bg-card border border-border rounded-xl p-8 text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-            <UserCircle size={32} className="text-primary" />
+            <UserCircle size={32} className="text-primary"/>
           </div>
           <h2 className="text-xl font-semibold">Kết nối để xem tiến trình sự nghiệp</h2>
           <p className="text-sm text-muted-foreground/60 max-w-md mx-auto">
             Đăng nhập để theo dõi kỹ năng, lộ trình học tập, đơn ứng tuyển và nhận gợi ý công việc từ AI.
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.location.href = '/login?callbackUrl=/career';
-              }
-            }}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm"
-          >
-            <LogIn size={16} />
+          <button type="button" onClick={() => {
+                if (typeof window !== 'undefined') {
+                    window.location.href = '/login?callbackUrl=/career';
+                }
+            }} className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all shadow-lg active:scale-95 text-sm">
+            <LogIn size={16}/>
             Đăng nhập ngay
           </button>
           <div className="pt-4">
@@ -89,8 +69,7 @@ function CareerDashboard() {
               Khám phá tất cả việc làm (không cần đăng nhập)
             </a>
           </div>
-        </section>
-      )}
+        </section>)}
       <section className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel">
         <div className="space-y-5">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -98,46 +77,37 @@ function CareerDashboard() {
           </h1>
           <div className="flex flex-wrap gap-4 pt-4">
             <a href="/career/jobs" className="bg-card text-foreground px-8 py-4 rounded-lg font-semibold flex items-center gap-2 hover:bg-muted transition-all">
-              <Search size={20} /> Tìm cơ hội
+              <Search size={20}/> Tìm cơ hội
             </a>
             <a href="/career/roadmap" className="bg-card text-foreground border border-border px-8 py-4 rounded-lg font-semibold flex items-center gap-2 hover:bg-card/50 transition-all">
-              <UserCircle size={20} /> Hồ sơ nghề nghiệp
+              <UserCircle size={20}/> Hồ sơ nghề nghiệp
             </a>
           </div>
         </div>
       </section>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {loading ? (
-          <><StatSkeleton /><StatSkeleton /><StatSkeleton /></>
-        ) : [
-          { label: 'Kỹ năng đã có', value: stats.skillsCount, color: 'text-primary/70', icon: Rocket },
-          { label: 'Mục tiêu nghề nghiệp', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
-          { label: 'Hồ sơ đã nộp', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
-        ].map((stat, i) => (
-          <div key={i} className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex items-center justify-between transition-all hover:-translate-y-0.5 hover:shadow-pop">
+        {loading ? (<><StatSkeleton /><StatSkeleton /><StatSkeleton /></>) : [
+            { label: 'Kỹ năng đã có', value: stats.skillsCount, color: 'text-primary/70', icon: Rocket },
+            { label: 'Mục tiêu nghề nghiệp', value: stats.aspirationsCount, color: 'text-primary/70', icon: Target },
+            { label: 'Hồ sơ đã nộp', value: stats.applicationsCount, color: 'text-primary', icon: Briefcase }
+        ].map((stat, i) => (<div key={i} className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex items-center justify-between transition-all hover:-translate-y-0.5 hover:shadow-pop">
             <div className="space-y-1">
               <p className="text-muted-foreground font-bold text-sm uppercase tracking-widest">{stat.label}</p>
               <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
             </div>
-            <stat.icon size={48} className="text-foreground" />
-          </div>
-        ))}
+            <stat.icon size={48} className="text-foreground"/>
+          </div>))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* AI Suggestions */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-2xl font-bold">
-            <Sparkles className="text-primary/70" />
+            <Sparkles className="text-primary/70"/>
             <h2>Lộ trình AI gợi ý</h2>
           </div>
           <div className="space-y-4">
-            {loading ? (
-              <><CardSkeleton /><CardSkeleton /></>
-            ) : suggestions.length > 0 ? suggestions.map((s: any) => (
-              <a key={s.career_id ?? s.title} href="/career/roadmap" className="block">
+            {loading ? (<><CardSkeleton /><CardSkeleton /></>) : suggestions.length > 0 ? suggestions.map((s: any) => (<a key={s.career_id ?? s.title} href="/career/roadmap" className="block">
                 <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 flex items-center justify-between group hover:border-primary/40 hover:bg-secondary/30 transition-all shadow-xs">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary/70 font-bold border border-primary/20 text-xs">
@@ -148,71 +118,52 @@ function CareerDashboard() {
                       <p className="text-xs text-muted-foreground">{s.field}</p>
                     </div>
                   </div>
-                  <ChevronRight className="text-muted-foreground group-hover:text-primary/70 transition-colors" />
+                  <ChevronRight className="text-muted-foreground group-hover:text-primary/70 transition-colors"/>
                 </div>
-              </a>
-            )) : (
-              <div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
+              </a>)) : (<div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
                 <p className="text-muted-foreground italic">Chưa có gợi ý. Cập nhật hồ sơ để AI đề xuất lộ trình phù hợp.</p>
-              </div>
-            )}
+              </div>)}
           </div>
         </section>
 
-        {/* Latest Jobs */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 text-2xl font-bold">
-            <TrendingUp className="text-primary/70" />
+            <TrendingUp className="text-primary/70"/>
             <h2>Cơ hội mới nhất</h2>
           </div>
           <div className="space-y-4">
-            {loading ? (
-              <><CardSkeleton /><CardSkeleton /></>
-            ) : latestJobs.length > 0 ? latestJobs.map((job: any) => (
-              <a key={job.id} href={`/career/jobs/${job.id}`} className="block">
+            {loading ? (<><CardSkeleton /><CardSkeleton /></>) : latestJobs.length > 0 ? latestJobs.map((job: any) => (<a key={job.id} href={`/career/jobs/${job.id}`} className="block">
                 <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 flex items-center justify-between group hover:border-primary/40 hover:bg-secondary/30 transition-all shadow-xs">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                      <Briefcase size={20} />
+                      <Briefcase size={20}/>
                     </div>
                     <div>
                       <h3 className="font-bold text-foreground">{job.title}</h3>
                       <p className="text-xs text-muted-foreground">{job.company_name} • {job.location}</p>
                     </div>
                   </div>
-                  <ChevronRight className="text-muted-foreground group-hover:text-primary/70 transition-colors" />
+                  <ChevronRight className="text-muted-foreground group-hover:text-primary/70 transition-colors"/>
                 </div>
-              </a>
-            )) : (
-              <div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
+              </a>)) : (<div className="bg-card/30 border border-dashed border-border p-10 rounded-lg text-center">
                 <p className="text-muted-foreground italic">Hiện chưa có tin tuyển dụng mới.</p>
-              </div>
-            )}
+              </div>)}
             <a href="/career/jobs" className="text-muted-foreground/60 hover:text-foreground text-sm font-bold flex items-center gap-1 justify-center pt-2">
-              Xem tất cả cơ hội <ChevronRight size={16} />
+              Xem tất cả cơ hội <ChevronRight size={16}/>
             </a>
           </div>
         </section>
       </div>
-    </div>
-  );
+    </div>);
 }
-
 export default function CareerPage() {
-  return (
-    <div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
-      {/* Shared Career Hub tab bar — consistent navigation across all
-          career sub-pages (jobs, roadmap, predictive, opportunities,
-          radar, analytics). Uses Next.js <Link> for instant client-side
-          nav instead of window.location.href full reload. */}
+    return (<div className="min-h-[calc(100dvh-3.5rem)] w-full bg-background overflow-hidden lg:min-h-screen flex flex-col">
       <CareerTabBar />
 
-      {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         <div className="page-shell">
           <CareerDashboard />
         </div>
       </div>
-    </div>
-  );
+    </div>);
 }

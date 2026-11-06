@@ -9,22 +9,22 @@ import { MentorAvailability } from './entities/mentor-availability.entity';
 import { User } from '../auth/entities/user.entity';
 import { AIModule } from '../ai/ai.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Mentor, 
-      Booking, 
-      MentorSession, 
-      MentorRelationship, 
-      MentorAvailability,
-      User
-    ]),
-    AIModule,
-    NotificationsModule
-  ],
-  providers: [MentorService],
-  controllers: [MentorController],
-  exports: [MentorService],
+    imports: [
+        TypeOrmModule.forFeature([
+            Mentor,
+            Booking,
+            MentorSession,
+            MentorRelationship,
+            MentorAvailability,
+            User
+        ]),
+        AIModule,
+        NotificationsModule
+    ],
+    providers: [MentorService],
+    controllers: [MentorController],
+    exports: [MentorService],
 })
-export class MentorModule {}
+export class MentorModule {
+}

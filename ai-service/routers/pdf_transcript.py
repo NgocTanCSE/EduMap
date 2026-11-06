@@ -44,8 +44,8 @@ def _parse_transcript(text: str) -> dict:
         "raw_text_length": len(text),
     }
 
-    # ——— Student name ———
-    # Tìm tên sau "Họ và tên" hoặc "Tên sinh viên"
+
+
     name_match = re.search(
         r"(?:Họ\s*và\s*tên|Tên sinh viên|Name)\s*[:\s]\s*([A-ZÀ-ỖƯỶ-Ỹ\s]{3,30})",
         text, re.IGNORECASE
@@ -53,7 +53,7 @@ def _parse_transcript(text: str) -> dict:
     if name_match:
         result["student_name"] = name_match.group(1).strip()
 
-    # ——— Student ID ———
+
     id_match = re.search(
         r"(?:Mã\s*sinhviên|MSSV|Student ID|MaSV|ID)\s*[:\s]\s*(\w[\w\-]*)",
         text, re.IGNORECASE
@@ -61,7 +61,7 @@ def _parse_transcript(text: str) -> dict:
     if id_match:
         result["student_id"] = id_match.group(1).strip()
 
-    # ——— Program / Ngành ———
+
     program_match = re.search(
         r"(?:Ngành|Chuyên ngành|Program|Major)\s*[:\s]\s*(.{3,50})",
         text, re.IGNORECASE
@@ -69,7 +69,7 @@ def _parse_transcript(text: str) -> dict:
     if program_match:
         result["program"] = program_match.group(1).strip()
 
-    # ——— Semester / Học kỳ ———
+
     sem_match = re.search(
         r"(?:Học kỳ|Semester|Học kì)\s*[:\s]\s*(.+)",
         text, re.IGNORECASE
@@ -77,8 +77,8 @@ def _parse_transcript(text: str) -> dict:
     if sem_match:
         result["semester"] = sem_match.group(1).strip()
 
-    # ——— GPA / Điểm trung bình ———
-    # Common patterns: "Điểm TB: 3.45/4.0" or "GPA: 3.45" or "Trung bình: 3.45"
+
+
     gpa_4_match = re.search(
         r"(?:GPA|Điểm\s*TB|Trung\s*bình|TBTK)\s*[:\s]\s*(\d{1,2}[.,]\d{2})\s*[/\(]?\s*(\d\.\d)?",
         text, re.IGNORECASE
@@ -93,7 +93,7 @@ def _parse_transcript(text: str) -> dict:
         except ValueError:
             pass
 
-    # Vietnamese 10-point GPA: "Điểm TB hệ 10: 8.25"
+
     gpa_10_match = re.search(
         r"(?:Điểm\s*TB\s*hệ\s*10|TB\s*\(10\)|Trung\s*bình\s*hệ\s*10)\s*[:\s]\s*(\d{1,2}[.,]\d{2})",
         text, re.IGNORECASE
@@ -105,12 +105,12 @@ def _parse_transcript(text: str) -> dict:
         except ValueError:
             pass
 
-    # ——— Courses table ———
-    # Lines like: "Mã MH | Tên môn học | TC | Điểm TH | Điểm CK | Điểm TK | DD"
-    # Or: "Course Code | Course Name | Credits | Grade"
+
+
+
     lines = text.split("\n")
     for line in lines:
-        # Try to match a course row with grade
+
         course_match = re.match(
             r"^\s*(\w[\w\-/]{3,15})\s+(.{3,50}?)\s+(\d+)\s+[\d,]*\s+[\d,]*\s+([\d,]*)\s*(\(?[^\)]+\)?)?$",
             line.strip()
@@ -122,7 +122,7 @@ def _parse_transcript(text: str) -> dict:
             grade_str = course_match.group(4).replace(",", ".")
             try:
                 grade = float(grade_str)
-                if grade > 10:  # Might be percentage
+                if grade > 10:
                     grade = grade / 10
             except ValueError:
                 grade = None
@@ -134,9 +134,9 @@ def _parse_transcript(text: str) -> dict:
                 "grade_raw": grade_str,
             })
 
-    # If no courses parsed from table format, look for simple "Subject: Grade" patterns
+
     if not result["courses"]:
-        # Pattern: "Tên môn: 3.5" or "Subject - Grade"
+
         subject_match = re.findall(
             r"([A-ZÀ-ỖƯỶ][a-zà-ỗươỷỷêế\s]{2,30})\s*[:\-]\s*(\d{1,2}[.,]\d{1,2}|\d{1,2})",
             text
@@ -153,9 +153,9 @@ def _parse_transcript(text: str) -> dict:
                 "grade_raw": grade_str,
             })
 
-    result["courses"] = result["courses"][:50]  # Cap at 50 courses
+    result["courses"] = result["courses"][:50]
 
-    # ——— Overall grade classification ———
+
     if result["gpa"] is not None:
         if result["gpa"] >= 3.6:
             result["overall_grade"] = "Giỏi"
@@ -185,7 +185,7 @@ async def extract_transcript(file: UploadFile = File(...)):
 
     try:
         file_bytes = await file.read()
-        if len(file_bytes) > 10 * 1024 * 1024:  # 10 MB limit
+        if len(file_bytes) > 10 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="File PDF quá lớn (giới hạn 10MB).")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Lỗi đọc file: {str(e)}")
@@ -193,7 +193,7 @@ async def extract_transcript(file: UploadFile = File(...)):
     try:
         text = _extract_text_pypdf(file_bytes)
     except ImportError:
-        # Fallback: basic PDF text extraction without pypdf
+
         text = _extract_text_fallback(file_bytes)
     except Exception as e:
         logger.error(f"PDF extraction failed: {e}")
@@ -229,14 +229,14 @@ def _extract_text_fallback(file_bytes: bytes) -> str:
     except Exception:
         raw = file_bytes.decode("utf-8", errors="replace")
 
-    # Find stream objects and decompress them
+
     text_fragments = []
     idx = 0
     while True:
         stream_start = raw.find("stream", idx)
         if stream_start == -1:
             break
-        # Skip to actual stream content (after "stream\n" or "stream\r\n")
+
         stream_content_start = stream_start + len("stream")
         if raw[stream_content_start:stream_content_start + 2] in ("\r\n", "\n"):
             stream_content_start += 2 if raw[stream_content_start:stream_content_start + 2] == "\r\n" else 1
@@ -250,7 +250,7 @@ def _extract_text_fallback(file_bytes: bytes) -> str:
         stream_data = raw[stream_content_start:stream_end]
         try:
             decompressed = zlib.decompress(stream_data)
-            # Extract text between parentheses (PDF text operators: (text) Tj or (text) ')
+
             texts = re.findall(r"\(([^)]+)\)", decompressed.decode("latin-1", errors="replace"))
             text_fragments.extend(texts)
         except Exception:

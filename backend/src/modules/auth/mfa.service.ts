@@ -4,58 +4,39 @@ import { Repository } from 'typeorm';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import { User } from './entities/user.entity';
-
 @Injectable()
 export class MfaService {
-  private readonly logger = new Logger(MfaService.name);
-
-  constructor(
+    private readonly logger = new Logger(MfaService.name);
+    constructor(
     @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-  ) {}
-
-  /**
-   * 🔐 Tạo mật khẩu bí mật và mã QR cho Admin lần đầu thiết lập 2FA
-   */
-  async generateSecret(userEmail: string) {
-    const secret = authenticator.generateSecret();
-    const otpauthUrl = authenticator.keyuri(userEmail, 'EduMap Admin', secret);
-    const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
-    
-    return { secret, qrCodeUrl };
-  }
-
-  /** Store the 2FA secret for a user (called during initial 2FA setup). */
-  async saveSecret(userId: string, secret: string): Promise<void> {
-    await this.userRepo.update(userId, { twoFactorSecret: secret });
-  }
-
-  /**
-   * 🛡️ Xác thực mã 6 chữ số từ điện thoại (TOTP) của người dùng.
-   * Ánh xạ theo bảng 6.2 — STT 29: mfa.service.ts ↳ verifyTwoFactor()
-   */
-  async verifyTwoFactor(userId: string, token: string): Promise<boolean> {
-    const user = await this.userRepo.findOne({
-      where: { id: userId },
-      select: ['id', 'isTwoFactorEnabled', 'twoFactorSecret'],
-    });
-    if (!user) {
-      throw new NotFoundException('Người dùng không tồn tại.');
+    private readonly userRepo: Repository<User>) { }
+    async generateSecret(userEmail: string) {
+        const secret = authenticator.generateSecret();
+        const otpauthUrl = authenticator.keyuri(userEmail, 'EduMap Admin', secret);
+        const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
+        return { secret, qrCodeUrl };
     }
-    if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
-      throw new UnauthorizedException('Tài khoản chưa bật xác thực hai yếu tố.');
+    async saveSecret(userId: string, secret: string): Promise<void> {
+        await this.userRepo.update(userId, { twoFactorSecret: secret });
     }
-    const isValid = authenticator.verify({ token, secret: user.twoFactorSecret });
-    if (!isValid) {
-      this.logger.warn(`Invalid 2FA token attempt for user ${userId}`);
+    async verifyTwoFactor(userId: string, token: string): Promise<boolean> {
+        const user = await this.userRepo.findOne({
+            where: { id: userId },
+            select: ['id', 'isTwoFactorEnabled', 'twoFactorSecret'],
+        });
+        if (!user) {
+            throw new NotFoundException('Người dùng không tồn tại.');
+        }
+        if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
+            throw new UnauthorizedException('Tài khoản chưa bật xác thực hai yếu tố.');
+        }
+        const isValid = authenticator.verify({ token, secret: user.twoFactorSecret });
+        if (!isValid) {
+            this.logger.warn(`Invalid 2FA token attempt for user ${userId}`);
+        }
+        return isValid;
     }
-    return isValid;
-  }
-
-  /**
-   * 🛡️ Xác thực mã 6 chữ số (legacy helper)
-   */
-  verifyToken(token: string, secret: string): boolean {
-    return authenticator.verify({ token, secret });
-  }
+    verifyToken(token: string, secret: string): boolean {
+        return authenticator.verify({ token, secret });
+    }
 }

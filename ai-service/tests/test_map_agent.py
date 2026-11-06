@@ -25,7 +25,7 @@ from unittest.mock import patch, MagicMock
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _AI_DIR)
 
-# Disable pre-flight checks and clear provider env so tests don't hit the network
+
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["XKIRO_API_KEY"] = ""
 os.environ["NVIDIA_API_KEY"] = ""
@@ -38,7 +38,7 @@ os.environ["DB_SQLITE_PATH"] = "/app/frontend/public/edumap.db"
 import pytest
 
 
-# ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 
 @pytest.fixture
@@ -59,9 +59,9 @@ def db_path():
     return p
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 1. SQL injection prevention
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestSQLInjection:
@@ -140,9 +140,9 @@ class TestSQLInjection:
         assert "type_id" in result[0]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 2. geo_recommend
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestGeoRecommend:
@@ -155,16 +155,16 @@ class TestGeoRecommend:
         )
         assert result["status"] == "success"
         assert result["total_found"] > 0
-        # All results should be libraries (type_id=3)
+
         for rec in result["recommendations"]:
             assert rec["category"] == "library"
             assert rec["distance_km"] <= 5.0
 
     def test_haversine_distance_correctness(self, map_agent):
         """Verify the Haversine formula is approximately correct."""
-        # Distance from DNTU to itself should be ~0
-        dist = map_agent.__class__.__module__  # no-op, avoid unused import warning
-        # Direct test of _haversine
+
+        dist = map_agent.__class__.__module__
+
         d = _haversine_test(10.9525, 106.8778, 10.9525, 106.8778)
         assert d < 0.01, f"Self-distance should be ~0, got {d}"
 
@@ -182,9 +182,9 @@ class TestGeoRecommend:
             lat=10.9525, lng=106.8778, radius_km=2.0, limit=50
         )
         assert result["status"] == "success"
-        # Should contain universities, libraries, etc.
+
         categories = {r["category"] for r in result["recommendations"]}
-        # At least one known category
+
         assert any(c in categories for c in ["university", "library", "school", "cafe", "wifi"])
 
 
@@ -200,9 +200,9 @@ def _haversine_test(lat1, lon1, lat2, lon2):
     return R * c
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 3. _extract_table_names
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestTableExtraction:
@@ -218,7 +218,7 @@ class TestTableExtraction:
         tables = map_agent._extract_table_names(
             "SELECT * FROM map_points mp JOIN users u ON mp.id = u.point_id"
         )
-        # Should find both tables
+
         assert "map_points" in tables or "mp" in tables
         assert "users" in tables or "u" in tables
 
@@ -229,9 +229,9 @@ class TestTableExtraction:
         assert "map_points" in tables
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 4. _extract_sources
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestExtractSources:
@@ -262,9 +262,9 @@ class TestExtractSources:
         assert sources[0]["type"] == "sql"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 5. Tool definitions
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestToolDefinitions:
@@ -284,12 +284,12 @@ class TestToolDefinitions:
 
     def test_max_tool_rounds_positive(self, map_agent):
         assert map_agent.MAX_TOOL_ROUNDS > 0
-        assert map_agent.MAX_TOOL_ROUNDS <= 10  # prevent runaway loops
+        assert map_agent.MAX_TOOL_ROUNDS <= 10
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 6. run_agent_loop — graceful degradation
-# ──────────────────────────────────────────────────────────────────────────────
+
+
+
 
 
 class TestAgentLoop:
@@ -298,8 +298,8 @@ class TestAgentLoop:
     def test_degraded_when_no_api_keys(self, map_agent, db_path):
         """With all API keys empty, the agent should return a degraded reply,
         not crash."""
-        # llm_service.is_ready may still be True if a cached HF token exists,
-        # so we patch it to simulate no LLM provider being available.
+
+
         from services.llm_service import llm_service
         with patch.object(llm_service, 'is_ready', False):
             result = map_agent.run_agent_loop(
@@ -318,6 +318,6 @@ class TestAgentLoop:
         with patch.object(llm_service, 'is_ready', False):
             result = map_agent.run_agent_loop("Tìm trường học ở Biên Hòa", [])
         assert result["degraded"] is True
-        # The degraded reply should mention the offline mode (not a raw 502/503).
+
         assert "offline" in result["reply"].lower() or "sqlite" in result["reply"].lower() \
             or "chưa sẵn sàng" in result["reply"].lower() or "không thể" in result["reply"].lower()

@@ -1,46 +1,39 @@
 "use client";
-
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
-
+import { authService } from '@/src/services/auth.service';
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      if (response.ok) {
-        setIsSuccess(true);
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Có lỗi xảy ra, vui lòng thử lại sau.');
-      }
-    } catch (err) {
-      setError('Lỗi kết nối server.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    const [email, setEmail] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+    const [error, setError] = useState('');
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError('');
+        try {
+            const response = await authService.forgotPassword(email);
+            if (response) {
+                setIsSuccess(true);
+            }
+            else {
+                const data = await response.json();
+                setError(data.message || 'Có lỗi xảy ra, vui lòng thử lại sau.');
+            }
+        }
+        catch (err) {
+            setError('Lỗi kết nối server.');
+        }
+        finally {
+            setIsLoading(false);
+        }
+    };
+    if (isSuccess) {
+        return (<div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-card/50 border border-border rounded-xl p-8 text-center ">
           <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-8 h-8 text-primary" />
+            <CheckCircle2 className="w-8 h-8 text-primary"/>
           </div>
           <h1 className="text-2xl font-bold mb-2">Kiểm tra email của bạn</h1>
           <p className="text-muted-foreground/60 mb-8">
@@ -52,15 +45,12 @@ export default function ForgotPasswordPage() {
             </button>
           </Link>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      </div>);
+    }
+    return (<div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-card/50 border border-border rounded-xl p-8 ">
         <Link href="/auth" className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors mb-8 text-sm group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform"/>
           Quay lại
         </Link>
 
@@ -73,37 +63,19 @@ export default function ForgotPasswordPage() {
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest px-1">Email hệ thống</label>
             <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/20 group-focus-within:text-primary transition-colors" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full h-14 bg-card/20 border border-border rounded-lg pl-12 pr-4 text-foreground focus:outline-none focus:border-primary focus:bg-card/20 transition-all"
-              />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/20 group-focus-within:text-primary transition-colors"/>
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="w-full h-14 bg-card/20 border border-border rounded-lg pl-12 pr-4 text-foreground focus:outline-none focus:border-primary focus:bg-card/20 transition-all"/>
             </div>
           </div>
 
-          {error && (
-            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+          {error && (<div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
               {error}
-            </div>
-          )}
+            </div>)}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full h-14 bg-primary hover:bg-primary text-primary-foreground rounded-lg font-bold shadow-lg  transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              'Gửi yêu cầu'
-            )}
+          <button type="submit" disabled={isLoading} className="w-full h-14 bg-primary hover:bg-primary text-primary-foreground rounded-lg font-bold shadow-lg  transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isLoading ? (<Loader2 className="w-5 h-5 animate-spin"/>) : ('Gửi yêu cầu')}
           </button>
         </form>
       </div>
-    </div>
-  );
+    </div>);
 }

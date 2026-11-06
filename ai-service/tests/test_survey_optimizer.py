@@ -21,12 +21,12 @@ PEP 668 venv used by the rest of the ai-service tests.
 import os
 import sys
 
-# Make ai-service importable (mirrors test_impact_match.py / test_climate_guardian.py).
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Force SQLite mode + disable AI pre-flight so no LLM providers are touched.
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 
@@ -51,7 +51,7 @@ with _silence_import_banner():
     )
 
 
-# ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 def _dntu_cluster():
     """A tight educational cluster around DNTU (Biên Hòa) + a sparse western ring.
@@ -103,7 +103,7 @@ def test_safe_float_coercion():
     print("✓ test_safe_float_coercion")
 
 
-# ── compute_priorities structural tests ─────────────────────────────────────
+
 
 
 def test_priorities_returns_valid_geojson():
@@ -129,7 +129,7 @@ def test_priorities_scores_descending_and_formula():
     assert len(feats) == 8
     scores = [f["properties"]["priority_score"] for f in feats]
     assert scores == sorted(scores, reverse=True), scores
-    # priority_score == info_value / cost for every feature.
+
     for f in feats:
         p = f["properties"]
         assert abs(p["priority_score"] - p["info_value"] / p["cost"]) < 1e-3
@@ -164,8 +164,8 @@ def test_surveyed_cells_excluded():
         grid_size_km=0.5, top_n=10,
     )
     for f in res["features"]:
-        assert f["properties"]["points_in_cell"] == 0  # already-surveyed are skipped
-        # And the cell must NOT sit directly on top of a known POI.
+        assert f["properties"]["points_in_cell"] == 0
+
         too_close = False
         for p in pts:
             d = _haversine_km(f["properties"]["lat"], f["properties"]["lng"],
@@ -197,7 +197,7 @@ def test_empty_points_uses_static_fallback():
     assert res["metadata"]["degraded"] is True
     assert res["metadata"]["method"] == "static_fallback"
     assert len(res["features"]) == 5
-    # Candidates are real Biên Hòa / Đồng Nai cells (within the province box).
+
     for f in res["features"]:
         lat, lng = f["properties"]["lat"], f["properties"]["lng"]
         assert 10.90 < lat < 10.98
@@ -265,22 +265,22 @@ def test_cost_includes_fixed_survey_overhead():
         grid_size_km=0.3, top_n=5, survey_time_hours=2.0, surveyor_speed_kmh=30.0,
     )
     for f in res["features"]:
-        # Every cell costs at least the fixed survey overhead (2h) plus travel.
+
         assert f["properties"]["cost"] >= 2.0 - 1e-6
     print("✓ test_cost_includes_fixed_survey_overhead")
 
 
 def test_uncertainty_highest_at_transition_ring():
     """The entropy model peaks on the intermediate ring around a cluster (p≈0.5)."""
-    # POI directly on the grid centre → the centre cell is certain.
+
     pts = [{"lat": 10.0, "lng": 10.0, "category": "school"}]
     res = survey_optimizer.compute_priorities(
         points=pts, current_location={"lat": 10.0, "lng": 10.0},
         bbox={"min_lat": 9.96, "max_lat": 10.04, "min_lng": 9.96, "max_lng": 10.04},
         grid_size_km=0.3, influence_radius_km=2.0, top_n=10,
     )
-    # The top-ranked feature must NOT be the cell sitting on the POI (already
-    # surveyed) — it should be a transition cell with high uncertainty.
+
+
     top = res["features"][0]["properties"]
     assert top["nearest_poi_distance_km"] > 0.0
     assert res["metadata"]["degraded"] is True or len(res["features"]) >= 1

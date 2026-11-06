@@ -28,7 +28,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode + no real HTTP calls during tests.
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ.setdefault("DB_SQLITE_PATH", os.path.abspath(
@@ -42,7 +42,7 @@ from routers import geo, system
 from services.llm_service import LLMService
 
 
-# ── 1. Climate Guardian elevation ───────────────────────────────────────────
+
 
 
 def test_get_elevation_uses_defined_local_flag(monkeypatch, tmp_path):
@@ -82,7 +82,7 @@ def test_get_elevation_skips_local_when_disabled(monkeypatch, tmp_path):
     assert calls["local"] == 0
 
 
-# ── 2. GeoVision HF Inference API helper ────────────────────────────────────
+
 
 
 def test_hf_vision_detect_requires_token(monkeypatch):
@@ -103,7 +103,7 @@ def test_hf_vision_detect_respects_circuit_breaker(monkeypatch):
         geo._hf_vision_detect("ZmFrZQ==", ["school"])
 
 
-# ── 3. /api/ai/system/status ────────────────────────────────────────────────
+
 
 
 def test_system_status_resolves_check_oom():
@@ -116,7 +116,7 @@ def test_system_status_resolves_check_oom():
     assert "providers" in status
 
 
-# ── 5. Local LLM generate (Gemma decode step) ────────────────────────────────
+
 
 
 def test_local_llm_generate_decodes_output(monkeypatch):
@@ -131,26 +131,26 @@ def test_local_llm_generate_decodes_output(monkeypatch):
     """
     import services.llm_service as llm_mod
 
-    # Bypass circuit breaker and lazy-load check
+
     monkeypatch.setattr(llm_mod, "_local_llm_down_until", 0.0)
     monkeypatch.setattr(llm_mod, "_local_llm_loaded", True)
     monkeypatch.setattr(llm_mod, "_local_llm_load_failed", False)
 
-    # Mock tokenizer — decode must be called (this is the line that was missing)
+
     mock_tokenizer = MagicMock()
     mock_tokenizer.eos_token_id = 1
     mock_tokenizer.decode.return_value = "  Hello from Gemma  "
 
-    # tokenizer() returns {"input_ids": ...} with a shape for slicing
+
     mock_input_ids = MagicMock()
     mock_input_ids.shape = (1, 5)
 
-    # inputs = tokenizer(...) → inputs.input_ids (attribute access, not dict)
+
     mock_inputs = MagicMock()
     mock_inputs.input_ids = mock_input_ids
     mock_tokenizer.return_value = mock_inputs
 
-    # Mock model.generate to return a tensor-like object
+
     mock_model = MagicMock()
     mock_output = MagicMock()
     mock_output.__getitem__ = MagicMock(return_value=MagicMock())
@@ -164,7 +164,7 @@ def test_local_llm_generate_decodes_output(monkeypatch):
 
     result = llm_mod._local_llm_generate("test prompt")
 
-    # decode() must have been called — this is the regression guard
+
     mock_tokenizer.decode.assert_called_once()
     assert result == "Hello from Gemma"
 
@@ -184,7 +184,7 @@ def test_local_llm_generate_raises_on_empty_output(monkeypatch):
     mock_input_ids = MagicMock()
     mock_input_ids.shape = (1, 3)
 
-    # inputs = tokenizer(...) → inputs.input_ids (attribute access)
+
     mock_inputs = MagicMock()
     mock_inputs.input_ids = mock_input_ids
     mock_tokenizer.return_value = mock_inputs
@@ -235,5 +235,5 @@ def test_recommend_career_semantic_prompt_builds_json_schema():
     prompt = captured["prompt"]
     assert "{title, match_score" in prompt
     assert "radar_chart" in prompt
-    # Degraded to the semantic results when the LLM returns an empty list.
+
     assert result and result[0]["title"] == "Data Analyst"

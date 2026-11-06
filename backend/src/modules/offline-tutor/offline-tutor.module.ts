@@ -3,11 +3,11 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { OfflineTutorController } from './offline-tutor.controller';
 import { OfflineTutorService } from './offline-tutor.service';
-
 @Module({
-  imports: [HttpModule, ConfigModule],
-  controllers: [OfflineTutorController],
-  providers: [OfflineTutorService],
-  exports: [OfflineTutorService],
+    imports: [HttpModule, ConfigModule],
+    controllers: [OfflineTutorController],
+    providers: [OfflineTutorService],
+    exports: [OfflineTutorService],
 })
-export class OfflineTutorModule {}
+export class OfflineTutorModule {
+}

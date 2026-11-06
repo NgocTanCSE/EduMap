@@ -46,7 +46,7 @@ async def match_rank(data: ResourceExchangeRequest):
             try:
                 ranked.append(RankedResourceMatch(**m))
             except Exception:
-                # Skip malformed entries (e.g. fallback placeholders)
+
                 pass
 
         plan = []

@@ -1,8 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-
 export class CreatePins1880000000000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
       CREATE TABLE pins (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         title VARCHAR(255) NOT NULL,
@@ -24,12 +23,11 @@ export class CreatePins1880000000000 implements MigrationInterface {
         CONSTRAINT chk_pins_status CHECK (status IN ('pending','published','rejected'))
       );
     `);
-    await queryRunner.query(`CREATE INDEX idx_pins_location ON pins USING GIST(location);`);
-    await queryRunner.query(`CREATE INDEX idx_pins_posted_by ON pins(posted_by);`);
-    await queryRunner.query(`CREATE INDEX idx_pins_status_type ON pins(status, type);`);
-  }
-
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS pins CASCADE;`);
-  }
+        await queryRunner.query(`CREATE INDEX idx_pins_location ON pins USING GIST(location);`);
+        await queryRunner.query(`CREATE INDEX idx_pins_posted_by ON pins(posted_by);`);
+        await queryRunner.query(`CREATE INDEX idx_pins_status_type ON pins(status, type);`);
+    }
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP TABLE IF EXISTS pins CASCADE;`);
+    }
 }

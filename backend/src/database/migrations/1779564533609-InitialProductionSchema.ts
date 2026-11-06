@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
-
 export class InitialProductionSchema1779564533609 implements MigrationInterface {
-    name = 'InitialProductionSchema1779564533609'
-
+    name = 'InitialProductionSchema1779564533609';
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "roles" ("id" character varying(50) NOT NULL, "name" character varying(255) NOT NULL, "description" text, CONSTRAINT "PK_c1433d71a4838793a49dcad46ab" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE TABLE "opportunities" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "title" character varying NOT NULL, "type" character varying, "description" text, "location_point" geography(Point,4326), "address" character varying, "deadline" TIMESTAMP WITH TIME ZONE, "is_team_finding_open" boolean NOT NULL DEFAULT false, "tags" jsonb, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_4bd9cd12ddc0ff48a5a97ddebce" PRIMARY KEY ("id"))`);
@@ -129,7 +127,6 @@ export class InitialProductionSchema1779564533609 implements MigrationInterface 
         await queryRunner.query(`ALTER TABLE "scholarship_applications" ADD CONSTRAINT "FK_2c9e0c62af26956ca61f8616a7f" FOREIGN KEY ("scholarship_id") REFERENCES "scholarships"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "scholarship_applications" ADD CONSTRAINT "FK_41ab6c7fb59a9fd5ba8a15885cd" FOREIGN KEY ("student_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
     }
-
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "scholarship_applications" DROP CONSTRAINT "FK_41ab6c7fb59a9fd5ba8a15885cd"`);
         await queryRunner.query(`ALTER TABLE "scholarship_applications" DROP CONSTRAINT "FK_2c9e0c62af26956ca61f8616a7f"`);
@@ -256,5 +253,4 @@ export class InitialProductionSchema1779564533609 implements MigrationInterface 
         await queryRunner.query(`DROP TABLE "opportunities"`);
         await queryRunner.query(`DROP TABLE "roles"`);
     }
-
 }

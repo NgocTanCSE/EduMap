@@ -1,13 +1,11 @@
-// Quick diagnostic script for HF Spaces AI routes
-// Usage: node scripts/test_hf_ai.js [base_url]
 const https = require('https');
 const crypto = require('crypto');
 
 const BASE = process.argv[2] || 'https://tancse2005-edumap.hf.space';
-const JWT_SECRET = 'edumap-local-dev-secret'; // from .env — verifyJWT on BFF uses this
+const JWT_SECRET = 'edumap-local-dev-secret';
 
 function b64url(buf) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\
 }
 
 const header = b64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));

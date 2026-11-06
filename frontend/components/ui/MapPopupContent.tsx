@@ -1,251 +1,127 @@
 "use client";
-
-/**
- * MapPopupContent — reusable popup body for both regular POI markers and
- * featured "ghim" pins.
- *
- * Fixes:
- *   - Width capped at 420px (was 720px — too wide for the content, leaving
- *     blank space on the right while text was tiny).
- *   - Text scale bumped to readable sizes:
- *       title     text-base → was text-sm
- *       address   text-xs   → was text-[11px]
- *       amenities text-xs   → was text-[9px]
- *       body      text-sm   → was text-[10px]
- *       list      text-sm   → was text-[10px]
- *       buttons   text-xs   → was text-[9px]
- *   - Nearby facilities list uses max-h + overflow so it can't balloon the
- *     popup beyond the viewport.
- *
- * The component receives pre-resolved data (not raw point objects) so it can
- * be unit-tested in isolation and re-used from InteractiveMap's two popup
- * variants (POI marker + featured pin).
- */
 import React from "react";
 import { ShieldCheck, Star } from "lucide-react";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
-
 export interface PoiAmenity {
-  icon: string;
-  label: string;
+    icon: string;
+    label: string;
 }
-
 export interface NearbyFacility {
-  id: string;
-  name: string;
-  category: string;
-  lat: number;
-  lng: number;
-  icon?: React.ComponentType<{ className?: string }>;
+    id: string;
+    name: string;
+    category: string;
+    lat: number;
+    lng: number;
+    icon?: React.ComponentType<{
+        className?: string;
+    }>;
 }
-
 export interface MapPopupContentProps {
-  /** POI or featured-pin name — shown as the title */
-  title: string;
-  /** Physical address / district */
-  address?: string;
-  /** Longer description text */
-  description?: string;
-  /** Own amenities (wifi, parking, toilets…) — compact icon+label chips */
-  amenities?: PoiAmenity[];
-  /** Nearby facilities within 1 km, with a route-to action */
-  nearbyPoints?: NearbyFacility[];
-  /** True when this POI is the currently selected point (shows nearby list) */
-  showNearby?: boolean;
-  /** Route user to a nearby facility */
-  onRouteNearby?: (p: NearbyFacility) => void;
-  /** Route user to this POI itself */
-  onRouteHere?: () => void;
-  /** Verified badge — always shown for POI popups */
-  showVerified?: boolean;
-  /** Featured-pin category tag (e.g. "STEM", "WiFi") */
-  categoryTag?: string;
-  /** Featured-pin "Đến" (visit) button — when provided, links to featureLink */
-  featureLink?: string;
-  /** Custom icon for a nearby facility when the caller resolved one */
-  facilityIcons?: Record<string, React.ComponentType<{ className?: string }>>;
-  /** POI id — when provided, shows a BookmarkButton so the user can "ghim"
-      this school/facility directly from the popup (targetType="poi"). */
-  poiId?: string;
-  /** Featured-pin extra fields — shown as contextual info rows. */
-  carbonSaved?: number;
-  participants?: number;
-  points?: number;
-  currentAmount?: number;
-  targetAmount?: number;
-  speedLabel?: string;
-  isFree?: boolean;
+    title: string;
+    address?: string;
+    description?: string;
+    amenities?: PoiAmenity[];
+    nearbyPoints?: NearbyFacility[];
+    showNearby?: boolean;
+    onRouteNearby?: (p: NearbyFacility) => void;
+    onRouteHere?: () => void;
+    showVerified?: boolean;
+    categoryTag?: string;
+    featureLink?: string;
+    facilityIcons?: Record<string, React.ComponentType<{
+        className?: string;
+    }>>;
+    poiId?: string;
+    carbonSaved?: number;
+    participants?: number;
+    points?: number;
+    currentAmount?: number;
+    targetAmount?: number;
+    speedLabel?: string;
+    isFree?: boolean;
 }
-
-function AmenityLabel({ icon, label }: { icon: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1 text-xs text-muted-foreground/80">
+function AmenityLabel({ icon, label }: {
+    icon: string;
+    label: string;
+}) {
+    return (<span className="flex items-center gap-1 text-xs text-muted-foreground/80">
       <span aria-hidden="true">{icon.replace(/[{}]/g, "")}</span>
       <span>{label}</span>
-    </span>
-  );
+    </span>);
 }
-
-export function MapPopupContent({
-  title,
-  address,
-  description,
-  amenities,
-  nearbyPoints,
-  showNearby = false,
-  onRouteNearby,
-  onRouteHere,
-  showVerified = false,
-  categoryTag,
-  featureLink,
-  facilityIcons,
-  poiId,
-  carbonSaved,
-  participants,
-  points,
-  currentAmount,
-  targetAmount,
-  speedLabel,
-  isFree,
-}: MapPopupContentProps) {
-  const hasNearby = showNearby && nearbyPoints && nearbyPoints.length > 0;
-  const hasActions = onRouteHere || (featureLink && categoryTag);
-
-  return (
-    <div className="map-popup max-w-[420px] bg-card text-foreground font-sans">
-      {/* Title */}
+export function MapPopupContent({ title, address, description, amenities, nearbyPoints, showNearby = false, onRouteNearby, onRouteHere, showVerified = false, categoryTag, featureLink, facilityIcons, poiId, carbonSaved, participants, points, currentAmount, targetAmount, speedLabel, isFree, }: MapPopupContentProps) {
+    const hasNearby = showNearby && nearbyPoints && nearbyPoints.length > 0;
+    const hasActions = onRouteHere || (featureLink && categoryTag);
+    return (<div className="map-popup max-w-[420px] bg-card text-foreground font-sans">
       <h4 className="text-base font-bold text-foreground leading-tight mb-1">
         {title}
       </h4>
 
-      {/* Address */}
-      {address && (
-        <p className="text-xs text-muted-foreground/70 mb-2">{address}</p>
-      )}
+      {address && (<p className="text-xs text-muted-foreground/70 mb-2">{address}</p>)}
 
-      {/* Own amenities */}
-      {amenities && amenities.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          {amenities.map((a) => (
-            <AmenityLabel key={a.icon} icon={a.icon} label={a.label} />
-          ))}
-        </div>
-      )}
+      {amenities && amenities.length > 0 && (<div className="flex items-center gap-2 flex-wrap mb-2">
+          {amenities.map((a) => (<AmenityLabel key={a.icon} icon={a.icon} label={a.label}/>))}
+        </div>)}
 
-      {/* Description */}
-      {description && (
-        <p className="text-sm text-muted-foreground/80 leading-snug mb-2 line-clamp-3">
+      {description && (<p className="text-sm text-muted-foreground/80 leading-snug mb-2 line-clamp-3">
           {description}
-        </p>
-      )}
+        </p>)}
 
-      {/* Featured-pin extra data rows */}
-      {carbonSaved !== undefined && carbonSaved > 0 && (
-        <p className="text-xs text-muted-foreground/60 mb-1">
+      {carbonSaved !== undefined && carbonSaved > 0 && (<p className="text-xs text-muted-foreground/60 mb-1">
           • CO₂ tiết kiệm: <b className="text-green-600">{carbonSaved} kg</b>
-        </p>
-      )}
-      {participants !== undefined && participants > 0 && (
-        <p className="text-xs text-muted-foreground/60 mb-1">
+        </p>)}
+      {participants !== undefined && participants > 0 && (<p className="text-xs text-muted-foreground/60 mb-1">
           • {participants} người tham gia
-        </p>
-      )}
-      {points !== undefined && (
-        <p className="text-xs text-muted-foreground/60 mb-1">
+        </p>)}
+      {points !== undefined && (<p className="text-xs text-muted-foreground/60 mb-1">
           • {points} điểm
-        </p>
-      )}
-      {speedLabel && (
-        <p className="text-xs text-muted-foreground/60 mb-1">
+        </p>)}
+      {speedLabel && (<p className="text-xs text-muted-foreground/60 mb-1">
           • Tốc độ: {speedLabel} {isFree !== undefined && (isFree ? "· Miễn phí" : "· Trả tiền")}
-        </p>
-      )}
-      {currentAmount !== undefined && targetAmount !== undefined && (
-        <p className="text-xs text-muted-foreground/60 mb-1">
+        </p>)}
+      {currentAmount !== undefined && targetAmount !== undefined && (<p className="text-xs text-muted-foreground/60 mb-1">
           • Quyên góp: <b className="text-primary">{currentAmount?.toLocaleString()}₫</b> / {targetAmount?.toLocaleString()}₫
-        </p>
-      )}
+        </p>)}
 
-      {/* Nearby facilities (≤1km) */}
-      {hasNearby && (
-        <div className="pt-2 border-t border-border">
+      {hasNearby && (<div className="pt-2 border-t border-border">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
             Tiện ích xung quanh (≤1km)
           </p>
           <ul className="space-y-1 max-h-44 overflow-y-auto">
             {nearbyPoints!.map((f) => {
-              const Fi = facilityIcons?.[f.category] ?? f.icon;
-              return (
-                <li
-                  key={f.id}
-                  className="flex items-center justify-between gap-1 text-xs text-muted-foreground/70"
-                >
+                const Fi = facilityIcons?.[f.category] ?? f.icon;
+                return (<li key={f.id} className="flex items-center justify-between gap-1 text-xs text-muted-foreground/70">
                   <span className="flex items-center gap-1 truncate">
                     {Fi && React.createElement(Fi, { className: "w-3.5 h-3.5 text-accent" })}
                     <span>{f.name}</span>
                   </span>
-                  {onRouteNearby && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteNearby(f); }}
-                      className="underline text-xs font-bold text-accent hover:text-accent/80"
-                    >
+                  {onRouteNearby && (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteNearby(f); }} className="underline text-xs font-bold text-accent hover:text-accent/80">
                       Đến
-                    </button>
-                  )}
-                </li>
-              );
+                    </button>)}
+                </li>);
             })}
           </ul>
-        </div>
-      )}
+        </div>)}
 
-      {/* Footer actions */}
-      {hasActions && (
-        <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-          {showVerified && (
-            <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-accent">
-              <ShieldCheck className="w-3.5 h-3.5" />
+      {hasActions && (<div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+          {showVerified && (<div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-accent">
+              <ShieldCheck className="w-3.5 h-3.5"/>
               <span>Đã xác minh</span>
-            </div>
-          )}
-          {categoryTag && (
-            <span className="text-xs font-bold uppercase text-primary/80">
+            </div>)}
+          {categoryTag && (<span className="text-xs font-bold uppercase text-primary/80">
               Ghim {categoryTag}
-            </span>
-          )}
+            </span>)}
           <div className="flex items-center gap-2">
-            {poiId && (
-              <BookmarkButton
-                targetType="poi"
-                targetId={poiId}
-                size="sm"
-                className="h-6 w-6 p-0"
-              />
-            )}
-            {onRouteHere && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteHere(); }}
-                className="bg-card text-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/20 transition-colors"
-              >
+            {poiId && (<BookmarkButton targetType="poi" targetId={poiId} size="sm" className="h-6 w-6 p-0"/>)}
+            {onRouteHere && (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRouteHere(); }} className="bg-card text-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/20 transition-colors">
                 Dẫn đường
-              </button>
-            )}
-            {featureLink && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = featureLink; }}
-                className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1"
-              >
-                <Star className="w-3 h-3 fill-current" />
+              </button>)}
+            {featureLink && (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = featureLink; }} className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded hover:bg-primary/80 transition-colors flex items-center gap-1">
+                <Star className="w-3 h-3 fill-current"/>
                 Đến
-              </button>
-            )}
+              </button>)}
           </div>
-        </div>
-      )}
-    </div>
-  );
+        </div>)}
+    </div>);
 }
-
-/** CSS class applied to the popup content — overrides Leaflet's default
-    zero-padding/margin (set in globals.css `.leaflet-popup-content`). */
 export const POPUP_CONTENT_CLASS = "p-2";

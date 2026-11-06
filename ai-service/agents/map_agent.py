@@ -25,7 +25,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-# ── Lazy imports (HF Spaces: db_service is None in SQLite mode) ───────────────
+
 try:
     from services.llm_service import llm_service
 except Exception as e:
@@ -49,9 +49,9 @@ except Exception as e:
     print(f"[MapAgent] vector_store import failed: {e}")
     vector_store = None
 
-# ── Shared SQLite path (HF Spaces: /app/frontend/public/edumap.db) ────────────
-# In SQLite mode db_service is None, so the agent reads edumap.db directly.
-# _sqlite_path() returns None when the DB file is genuinely absent.
+
+
+
 _DB_ENV_PATH = os.getenv("DB_SQLITE_PATH", "")
 
 def _sqlite_path() -> Optional[str]:
@@ -65,20 +65,20 @@ def _sqlite_path() -> Optional[str]:
     candidates = []
     if _DB_ENV_PATH:
         candidates.append(_DB_ENV_PATH)
-    # Local dev: repo-root/frontend/public/edumap.db
+
     _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     candidates.append(os.path.join(_repo_root, "frontend", "public", "edumap.db"))
-    # HF Spaces default
+
     candidates.append("/app/frontend/public/edumap.db")
     for p in candidates:
         if p and os.path.exists(p):
             return p
     return None
 
-# ── Table allowlist for query_sqlite ──────────────────────────────────────────
-# Only these tables may be read via the agent's query_sqlite tool. This is the
-# primary SQL-injection defence: even if a malicious payload bypasses the
-# keyword filter, the table name must appear in this set.
+
+
+
+
 _ALLOWED_TABLES: List[str] = [
     "map_points",
     "jobs",
@@ -103,7 +103,7 @@ _ALLOWED_TABLES: List[str] = [
     "users",
 ]
 
-# SQL key-words that must NEVER appear in a user-supplied query.
+
 _SQL_BLOCKLIST_RE = re.compile(
     r"\b("
     r"drop|delete|insert|update|alter|create|truncate|replace|grant|revoke|"
@@ -112,7 +112,7 @@ _SQL_BLOCKLIST_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Type-ID → category-name map (mirrors db_service.TYPE_NAME_MAP)
+
 _TYPE_NAME_MAP = {
     1: "university", 2: "school", 3: "library", 4: "bookstore",
     5: "lab", 6: "wifi", 7: "green", 8: "cafe",
@@ -171,7 +171,7 @@ class MapAgent:
     parses and executes, then summarises.
     """
 
-    # ── Tool definitions (OpenAI / XKIRO function-calling schema) ────────
+
     TOOLS: List[Dict[str, Any]] = [
         {
             "type": "function",
@@ -278,7 +278,7 @@ class MapAgent:
         },
     ]
 
-    MAX_TOOL_ROUNDS = 8  # giới hạn số vòng tool-calling để tránh vòng lặp vô hạn
+    MAX_TOOL_ROUNDS = 8
 
     def __init__(self):
         self._tool_map = {
@@ -288,9 +288,9 @@ class MapAgent:
             "rag_search": self.rag_search,
         }
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Tool: query_sqlite  (SQL-injection-safe)
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def query_sqlite(self, sql: str) -> List[Dict[str, Any]]:
         """Execute a read-only SELECT on the allowlisted SQLite tables.
@@ -310,17 +310,17 @@ class MapAgent:
         if not path:
             return [{"error": "SQLite database is not available."}]
 
-        # Layer 1: block dangerous keywords
+
         if _SQL_BLOCKLIST_RE.search(sql):
             match = _SQL_BLOCKLIST_RE.search(sql)
             return [{"error": f"Truy vấn bị từ chối: từ khóa nguy hiểm '{match.group(0)}' không được phép."}]
 
-        # Layer 2: must be SELECT
+
         stripped = sql.strip()
         if not re.match(r"^SELECT\b", stripped, re.IGNORECASE):
             return [{"error": "Chỉ cho phép câu lệnh SELECT."}]
 
-        # Layer 3: table allowlist
+
         referenced_tables = self._extract_table_names(sql)
         if not referenced_tables:
             return [{"error": "Không tìm thấy tên bảng trong truy vấn."}]
@@ -328,7 +328,7 @@ class MapAgent:
         if denied:
             return [{"error": f"Bảng không được phép: {denied}. Bảng cho phép: {_ALLOWED_TABLES}"}]
 
-        # Layer 4: read-only connection
+
         import sqlite3 as _sqlite3
         conn = None
         try:
@@ -356,17 +356,17 @@ class MapAgent:
         would still be caught by the other layers.
         """
         tables: List[str] = []
-        # Match: FROM table_name  /  JOIN table_name
+
         for m in re.finditer(r"\b(?:FROM|JOIN)\s+([\"\[]?[a-zA-Z_][a-zA-Z0-9_\"]*[\"]?\]?)", sql, re.IGNORECASE):
             name = m.group(1).strip().strip('"').strip("'").strip("[]")
             tables.append(name)
-        # Also catch subquery aliases inside parentheses (e.g. FROM (SELECT ... FROM x) AS y)
-        # The regex already handles nested FROM inside parens.
+
+
         return tables
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Tool: geo_recommend  — nearby locations with Haversine filtering
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def geo_recommend(
         self,
@@ -394,14 +394,14 @@ class MapAgent:
             if tid is not None:
                 type_ids = [tid]
             else:
-                # numeric category
+
                 try:
                     tid = int(category_filter)
                     if tid in _TYPE_NAME_MAP:
                         type_ids = [tid]
                 except (TypeError, ValueError):
                     pass
-        # If category unmatched, return empty
+
         if category_filter and not type_ids:
             return {
                 "status": "ok",
@@ -412,7 +412,7 @@ class MapAgent:
                 "note": f"Loại '{category_filter}' không hợp lệ.",
             }
 
-        # Build SQL to fetch candidate points (optionally filtered by type)
+
         path = _sqlite_path()
         if not path:
             return {
@@ -430,7 +430,7 @@ class MapAgent:
             conn.row_factory = _sqlite3.Row
             cur = conn.cursor()
             if type_ids:
-                # SQLite IN clause with integers
+
                 type_filter_sql = " AND type_id IN (" + ",".join(str(t) for t in type_ids) + ")"
             else:
                 type_filter_sql = ""
@@ -459,16 +459,16 @@ class MapAgent:
                 except Exception:
                     pass
 
-        # Haversine filtering + sorting
+
         nearby: List[Dict[str, Any]] = []
         for c in candidates:
             clat = c.get("lat")
             clng = c.get("lng")
             if clat is None or clng is None:
-                # Try parsing GeoJSON location manually
+
                 parsed = _parse_geojson_location(c.get("location")) if "location" in c else None
-                # In the SQL above we used json_extract which may return NULL
-                # if 'location' isn't valid JSON; fall back to the raw column
+
+
                 if parsed:
                     clat, clng = parsed["lat"], parsed["lng"]
                 else:
@@ -500,9 +500,9 @@ class MapAgent:
             "center": {"lat": float(lat), "lng": float(lng)},
         }
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Tool: geo_density  — DBSCAN clustering
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def geo_density(self, points: str) -> Dict[str, Any]:
         """Cluster education POIs with DBSCAN and return a GeoJSON
@@ -510,7 +510,7 @@ class MapAgent:
         if clustering_service is None:
             return {"type": "FeatureCollection", "features": [], "error": "Clustering service unavailable."}
 
-        # points may arrive as a JSON string (tool-call args) or a list
+
         if isinstance(points, str):
             try:
                 points_list = json.loads(points)
@@ -528,9 +528,9 @@ class MapAgent:
             print(f"[MapAgent] geo_density error: {e}")
             return {"type": "FeatureCollection", "features": [], "error": str(e)}
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Tool: rag_search  — semantic search over ChromaDB
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def rag_search(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
         """Semantic search in ChromaDB knowledge base. Falls back to an
@@ -562,9 +562,9 @@ class MapAgent:
             print(f"[MapAgent] rag_search error: {e}")
             return []
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # System prompt
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def _system_prompt(self) -> str:
         return (
@@ -592,9 +592,9 @@ class MapAgent:
             "geo_recommend hoặc rag_search."
         )
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Agent loop (non-streaming)
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def run_agent_loop(
         self,
@@ -606,14 +606,14 @@ class MapAgent:
         Returns ``{"reply": str, "tools_used": [...], "sources": [...]}``.
         If the LLM is unavailable, returns a degraded reply.
         """
-        # XKIRO tool calling was removed from the provider chain (see
-        # AGENTS.md §3). Always use plan-then-execute via
-        # _generate_text_with_fallback (Cloudflare → Gemini → template).
+
+
+
         return self._fallback_plan_execute(question, history, [])
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Fallback: plan-then-execute (Gemini / non-tool-calling LLM)
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def _fallback_plan_execute(
         self,
@@ -627,14 +627,14 @@ class MapAgent:
         plan of tool calls. We parse it, execute the tools, then prompt the LLM
         again to summarise the results.
         """
-        # When no LLM provider is configured (HF Spaces free plan), use
-        # keyword-based planning to run SQLite queries directly and produce a
-        # template summary — so the agent still answers geo/data questions
-        # from real Vietnamese data instead of just saying "service not ready".
+
+
+
+
         if not llm_service or not llm_service.is_ready:
             return self._keyword_plan_execute(question, history, tools_used)
 
-        # Step 1: ask LLM to plan tool calls in JSON
+
         plan_prompt = f"""
 Bạn là Edumap AI Agent. Phân tích câu hỏi và lên kế hoạch gọi công cụ.
 
@@ -665,7 +665,7 @@ Nếu câu hỏi không cần gọi công cụ (ví dụ: chào hỏi, câu hỏ
         plan = llm_service._extract_json(plan_response) or {}
         tool_calls = plan.get("tool_calls", [])
         if not tool_calls:
-            # LLM couldn't plan — ask it to answer directly
+
             direct_prompt = f"""
 Bạn là trợ lý ảnh của EduMap. Trả lời câu hỏi sau một cách thân thiện, ngắn gọn bằng tiếng Việt:
 "{question}"
@@ -684,7 +684,7 @@ Nếu bạn không biết thông tin cụ thể, hãy nói rằng bạn không c
                     "degraded": True,
                 }
 
-        # Step 2: execute planned tool calls
+
         for tc in tool_calls:
             fn_name = tc.get("tool", "")
             fn_args = tc.get("arguments", {})
@@ -699,7 +699,7 @@ Nếu bạn không biết thông tin cụ thể, hãy nói rằng bạn không c
             except Exception as ex:
                 tools_used.append({"tool": fn_name, "error": str(ex)[:200]})
 
-        # Step 3: summarise
+
         summary_prompt = f"""
 Bạn là Edumap AI Agent. Dựa trên câu hỏi và kết quả công cụ thu thập được, hãy đư ra câu trả lời cuối cùng.
 
@@ -722,9 +722,9 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                 "degraded": True,
             }
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Keyword-based plan (no LLM provider — HF Spaces free plan)
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     def _keyword_plan_execute(
         self,
@@ -739,10 +739,10 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
         """
         q_lower = question.lower().strip()
 
-        # Pattern: "tìm <type> ở/gần <place>" or "có <type> nào ở <place>"
-        # → query map_points filtered by type + city/district keyword.
+
+
         _type_keywords = {
-            "trường": [1, 2],       # university, school
+            "trường": [1, 2],
             "trường đại học": [1],
             "trường trung học": [2],
             "thư viện": [3],
@@ -754,26 +754,26 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
             "nhà sách": [4],
         }
 
-        # Try to identify a location filter from the question
+
         city_keywords = ["biên hòa", "đồng nai", "tp.hcm", "tp hồ chí minh",
                          "hà nội", "đà nẵng", "cần thơ", "hải phòng",
                          "biên giới", "thị trấn", "thành phố"]
         matched_city = None
         for kw in city_keywords:
             if kw in q_lower:
-                matched_city = kw.replace(".", " ")  # normalise
+                matched_city = kw.replace(".", " ")
                 break
 
-        # Try to identify an education type
+
         matched_types: List[int] = []
         for kw, type_ids in _type_keywords.items():
             if kw in q_lower:
                 matched_types.extend(type_ids)
         matched_types = list(set(matched_types))
 
-        # Build and execute the SQLite query (inline values — query_sqlite
-        # does not accept params; SQL-injection is already blocked by the
-        # blocklist + allowlist + read-only mode in query_sqlite itself).
+
+
+
         sql = "SELECT name, type_id, address, city, district, rating_avg, " \
               "json_extract(location, '$.coordinates[1]') AS lat, " \
               "json_extract(location, '$.coordinates[0]') AS lng " \
@@ -784,7 +784,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
             type_placeholders = ",".join(str(t) for t in matched_types)
             conditions.append(f"type_id IN ({type_placeholders})")
         if matched_city:
-            # Inline the LIKE value (safe due to query_sqlite's blocklist).
+
             safe_city = matched_city.replace("'", "''")
             conditions.append(f"city LIKE '%{safe_city}%'")
         elif "biên hòa" in q_lower or "đồng nai" in q_lower:
@@ -807,9 +807,9 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
 
         sources = self._extract_sources(tools_used)
 
-        # Template summary (no LLM needed)
+
         if results and not any("error" in r for r in results):
-            # Build a readable template reply
+
             type_names = {1: "Đại học", 2: "Trường", 3: "Thư viện", 4: "Nhà sách",
                           5: "Lab", 6: "Wifi", 7: "Khu xanh", 8: "Quán cà phê"}
             parts = [f"Dựa trên dữ liệu hệ thống EduMap, tôi tìm thấy {len(results)} kết quả cho câu hỏi của bạn:"]
@@ -843,9 +843,9 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
             "degraded": True,
         }
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Helpers
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     @staticmethod
     def _extract_sources(tools_used: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -870,7 +870,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                 try:
                     sql_results = json.loads(result_preview)
                     if isinstance(sql_results, list) and sql_results:
-                        # Use the first row as a source snippet
+
                         first = sql_results[0] if isinstance(sql_results[0], dict) else {}
                         sources.append({
                             "doc_id": "sqlite",
@@ -882,9 +882,9 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                     pass
         return sources
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Streaming agent (SSE)
-    # ─────────────────────────────────────────────────────────────────────────
+
+
+
 
     async def stream_agent(
         self,
@@ -899,7 +899,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
           data: {"token": "...", "is_final": false}
           data: {"done": true}
         """
-        # Heartbeat — keep the connection alive before the (blocking) agent runs
+
         yield self._sse("data", {"sources": [], "tools_used": [], "meta": True, "heartbeat": True})
 
         try:
@@ -913,7 +913,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                 "degraded": True,
             }
 
-        # Send metadata (sources + tools used) before the text
+
         meta = {
             "sources": result.get("sources", []),
             "tools_used": result.get("tools_used", []),
@@ -921,7 +921,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
         }
         yield self._sse("data", meta)
 
-        # Stream the reply word-by-word for a typing effect
+
         reply = result.get("reply", "")
         import re as _re
         words = _re.split(r'( +|\n+)', reply)
@@ -931,7 +931,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
             yield self._sse("data", {"token": word, "is_final": is_final, "done": is_final})
             if not is_final:
                 await asyncio.sleep(0.02)
-        # Ensure done chunk
+
         yield self._sse("data", {"done": True})
 
     @staticmethod
@@ -940,5 +940,5 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
         return f"data: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
 
-# ── Singleton ────────────────────────────────────────────────────────────────
+
 map_agent = MapAgent()

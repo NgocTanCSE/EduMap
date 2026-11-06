@@ -1,22 +1,16 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
-
 @Entity('university_counseling')
 export class UniversityCounseling {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column()
-  university_name: string;
-
-  @Column({ type: 'text', nullable: true })
-  program_info: string;
-
-  @Column({ nullable: true })
-  contact_email: string;
-
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
-  admission_criteria: any;
-
-  @CreateDateColumn()
-  created_at: Date;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+    @Column()
+    university_name: string;
+    @Column({ type: 'text', nullable: true })
+    program_info: string;
+    @Column({ nullable: true })
+    contact_email: string;
+    @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
+    admission_criteria: any;
+    @CreateDateColumn()
+    created_at: Date;
 }

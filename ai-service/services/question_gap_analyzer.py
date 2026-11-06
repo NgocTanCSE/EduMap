@@ -27,9 +27,9 @@ from collections import Counter, defaultdict
 from datetime import date as _date
 from typing import Any, Dict, List, Optional, Tuple
 
-# ── Optional sklearn ───────────────────────────────────────────────────────
-# scikit-learn is listed in ai-service/requirements.txt.  The import is
-# still guarded so the router never crashes if the package is missing.
+
+
+
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.cluster import KMeans
@@ -39,24 +39,24 @@ except ImportError:
 
 logger = logging.getLogger("question_gaps")
 
-# ── Constants ───────────────────────────────────────────────────────────────
 
-#: Hard cap on the number of queries analyzed — mitigates the
-#: "clustering chậm" (slow clustering) risk documented in AGENTS.md.
+
+
+
 MAX_QUERY_LIMIT = 10_000
 
-#: Number of topic clusters to extract.
+
 N_CLUSTERS = 12
 
-#: A query is flagged as a "gap" when ANY of these hold.
-GAP_RETRIEVAL_FAILED = "failed"
-GAP_QUALITY_THRESHOLD = 0.30  # response_quality below this = likely gap
 
-#: 24 h in-process cache (mirrors climate.py / forecast.py).
+GAP_RETRIEVAL_FAILED = "failed"
+GAP_QUALITY_THRESHOLD = 0.30
+
+
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _CACHE_TTL_SECONDS = 24 * 3600
 
-# Vietnamese stop-words (lightweight — no external dep).
+
 _VIETNAMESE_STOPWORDS = frozenset({
     "và", "của", "các", "là", "để", "trong", "cho", "với", "tại", "về",
     "như", "được", "có", "không", "đã", "đã", "sẽ", "đang", "này", "đó",
@@ -68,7 +68,7 @@ _VIETNAMESE_STOPWORDS = frozenset({
 })
 
 
-# ── SQLite access (mirrors analytics.py) ────────────────────────────────────
+
 
 def _sqlite_path() -> Optional[str]:
     """Return the SQLite file used by the backend, when in SQLite mode."""
@@ -101,7 +101,7 @@ def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, An
                 pass
 
 
-# ── Caching ─────────────────────────────────────────────────────────────────
+
 
 def _cache_get(key: str) -> Optional[Dict[str, Any]]:
     entry = _CACHE.get(key)
@@ -118,14 +118,14 @@ def _cache_set(key: str, value: Dict[str, Any]) -> None:
     _CACHE[key] = (time.time() + _CACHE_TTL_SECONDS, value)
 
 
-# ── Preprocessing ───────────────────────────────────────────────────────────
+
 
 def _clean_query(text: str) -> str:
     """Normalize query text for clustering: lowercase, strip noise."""
     if not text:
         return ""
     text = text.lower().strip()
-    # Remove URLs, emails, extra whitespace.
+
     text = re.sub(r"https?://\S+", " ", text)
     text = re.sub(r"\S+@\S+", " ", text)
     text = re.sub(r"\s+", " ", text)
@@ -147,23 +147,23 @@ def _gap_fallback(cluster_terms: List[str], gap_queries: List[str]) -> List[str]
     top TF-IDF terms + the most common gap queries.
     """
     recs = []
-    # Suggest a document per top term.
+
     for term in cluster_terms[:3]:
         recs.append(f"Tài liệu hướng dẫn chi tiết về: {term}")
-    # Suggest a document per common gap topic (deduplicated).
+
     seen = set()
     for q in gap_queries[:3]:
         q_clean = _clean_query(q)
         if q_clean and q_clean not in seen:
             seen.add(q_clean)
             recs.append(f"Câu hỏi thường gặp: {q_clean[:80]}")
-    # Always at least one meaningful suggestion.
+
     if not recs:
         recs.append("Tài liệu giới thiệu chung về giáo dục Việt Nam")
     return recs[:5]
 
 
-# ── Core analyzer ───────────────────────────────────────────────────────────
+
 
 class QuestionGapAnalyzer:
     """Analyzes anonymized query_logs to find knowledge gaps.
@@ -176,7 +176,7 @@ class QuestionGapAnalyzer:
         self.max_query_limit = int(os.getenv("QUESTION_GAPS_MAX_QUERIES", str(MAX_QUERY_LIMIT)))
         self.n_clusters = int(os.getenv("QUESTION_GAPS_N_CLUSTERS", str(N_CLUSTERS)))
 
-    # ── Public API ───────────────────────────────────────────────────────
+
 
     def analyze_gaps(self, limit: Optional[int] = None) -> Dict[str, Any]:
         """Read query_logs, cluster, identify gaps, recommend docs.
@@ -205,7 +205,7 @@ class QuestionGapAnalyzer:
         result["cached"] = False
         return result
 
-    # ── Data loading ─────────────────────────────────────────────────────
+
 
     def _load_query_logs(self, limit: int) -> List[Dict[str, Any]]:
         """Read up to ``limit`` anonymized query_logs rows, newest first.
@@ -227,7 +227,7 @@ class QuestionGapAnalyzer:
         logger.info("question-gaps: loaded %d query_log rows (limit=%d)", len(rows), limit)
         return rows
 
-    # ── Clustering ───────────────────────────────────────────────────────
+
 
     def _cluster_queries(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Group queries into topic clusters.
@@ -275,14 +275,14 @@ class QuestionGapAnalyzer:
         for idx, label in enumerate(labels):
             groups[label].append(idx)
 
-        # Map TF-IDF feature indices back to term strings.
+
         feature_names = vectorizer.get_feature_names_out()
 
         clusters = []
         for cid, indices in groups.items():
             cluster_rows = [rows[i] for i in indices]
             cluster_texts = [texts[i] for i in indices]
-            # Top terms by average TF-IDF weight.
+
             cluster_tfidf = [row for row in cluster_texts]
             term_scores: Counter = Counter()
             for t in cluster_tfidf:
@@ -293,7 +293,7 @@ class QuestionGapAnalyzer:
             clusters.append(
                 self._make_cluster(cid, cluster_rows, cluster_texts, top_terms, topic)
             )
-        # Sort by total query count descending.
+
         clusters.sort(key=lambda c: c["total_queries"], reverse=True)
         return clusters
 
@@ -312,7 +312,7 @@ class QuestionGapAnalyzer:
         for i, (key, indices) in enumerate(groups.items()):
             cluster_rows = [rows[idx] for idx in indices]
             cluster_texts = [texts[idx] for idx in indices]
-            # Flatten tokens from all queries in this cluster, dedupe by first occurrence.
+
             flat_terms: List[str] = []
             seen_terms: set = set()
             for t in cluster_texts[:5]:
@@ -332,8 +332,8 @@ class QuestionGapAnalyzer:
         """Derive a human-readable topic label from cluster terms."""
         if not terms:
             return "chủ đề khác"
-        # Use a bigram from the most common query if possible; otherwise the top term.
-        # Look for the longest common bigram prefix across cluster queries.
+
+
         if len(terms) >= 2:
             return f"{terms[0]} {terms[1]}"
         return terms[0]
@@ -356,7 +356,7 @@ class QuestionGapAnalyzer:
         gap_queries = [r.get("query_text", "") for r in gap_rows][:10]
         representative = cluster_rows[0].get("query_text", "") if cluster_rows else ""
 
-        # Doc recommendations (LLM + template fallback).
+
         recommended_docs = self._recommend_docs(top_terms, gap_queries, topic)
 
         return {
@@ -384,7 +384,7 @@ class QuestionGapAnalyzer:
             return True
         return False
 
-    # ── Doc recommendation ──────────────────────────────────────────────
+
 
     def _recommend_docs(self, terms: List[str], gap_queries: List[str], topic: str) -> List[str]:
         """Ask the LLM for doc recommendations, fall back to templates."""
@@ -400,14 +400,14 @@ class QuestionGapAnalyzer:
                 )
                 recs = self._extract_json(response)
                 if isinstance(recs, list) and len(recs) > 0:
-                    # Validate: each entry should be a string.
+
                     clean = [str(r) for r in recs if r]
                     if clean:
                         return clean[:5]
         except Exception as e:
             logger.warning(f"LLM doc recommendation failed, using template fallback: {e}")
 
-        # Template-based fallback.
+
         return _gap_fallback(terms, gap_queries)
 
     def _doc_recommendation_prompt(self, terms: List[str], gap_queries: List[str], topic: str) -> str:
@@ -461,7 +461,7 @@ Không cần giải thích thêm."""
             pass
         return None
 
-    # ── Report assembly ─────────────────────────────────────────────────
+
 
     def _build_report(self, rows: List[Dict[str, Any]], n_limit: int) -> Dict[str, Any]:
         """Assemble the full gap report from raw query_log rows."""
@@ -476,7 +476,7 @@ Không cần giải thích thêm."""
 
         clusters = self._cluster_queries(rows) if total > 0 else []
 
-        # Flat list of the most severe gap queries.
+
         gap_rows = [r for r in rows if self._is_gap(r)]
         top_gaps = []
         for r in gap_rows[:20]:
@@ -488,7 +488,7 @@ Không cần giải thích thêm."""
                 "created_at": r.get("created_at"),
             })
 
-        # Summary
+
         gap_pct = round(len(gap_rows) / max(total, 1) * 100, 1)
         avg_quality = (
             round(sum(float(r.get("response_quality") or 0) for r in rows) / max(total, 1), 3)
@@ -535,5 +535,5 @@ Không cần giải thích thêm."""
         }
 
 
-# ── Singleton (mirrors clustering_service / climate_guardian) ────────────────
+
 question_gap_analyzer = QuestionGapAnalyzer()

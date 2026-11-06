@@ -29,44 +29,44 @@ import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+
+
+
 
 DB_PATH = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
 
-# Node types (semantic labels for graph nodes).
+
 NODE_TYPES = [
-    "school",               # THPT / trường sau này
-    "university",           # Đại học
-    "scholarship",          # Học bổng
-    "sponsor",              # Nhà tài trợ / tổ chức
-    "opportunity",          # Cơ hội (competition, event, volunteer)
-    "career_path",          # Lộ trình nghề nghiệp
-    "learning_material",    # Tài liệu học tập
-    "internship",           # Thực tập
-    "international_program",  # Chương trình quốc tế
-    "skill",                # Kỹ năng (trích xuất NLP)
-    "region",               # Khu vực / địa lý
+    "school",
+    "university",
+    "scholarship",
+    "sponsor",
+    "opportunity",
+    "career_path",
+    "learning_material",
+    "internship",
+    "international_program",
+    "skill",
+    "region",
 ]
 
-# Edge types (semantic relationships).
+
 EDGE_TYPES = [
-    "SPONSORED_BY",        # scholarship/opp → sponsor
-    "OFFERS_SCHOLARSHIP",  # sponsor → scholarship
-    "LINKED_TO",           # school ↔ school (cùng khu vực, cùng mạng lưới)
-    "REQUIRES_SKILL",      # scholarship/career/internship → skill
-    "STUDY_AT",            # career_path → school/university
-    "HAS_PROGRAM",         # sponsor/university → international_program
-    "APPLY_TO",            # school/user → scholarship/opp
-    "HAS_MATERIAL",        # learning_material → career_path/skill
-    "RELATED_TO",          # bất kỳ → bất kỳ (trích xuất NLP, human review)
-    "LOCATED_IN",          # school/university → region
+    "SPONSORED_BY",
+    "OFFERS_SCHOLARSHIP",
+    "LINKED_TO",
+    "REQUIRES_SKILL",
+    "STUDY_AT",
+    "HAS_PROGRAM",
+    "APPLY_TO",
+    "HAS_MATERIAL",
+    "RELATED_TO",
+    "LOCATED_IN",
 ]
 
-# Map SQLite source table → knowledge-graph node type.
+
 SOURCE_TABLE_NODE_TYPE: Dict[str, str] = {
-    "map_points": "university",      # type_id 1 = university; we refine below
+    "map_points": "university",
     "scholarships": "scholarship",
     "organizations": "sponsor",
     "opportunities": "opportunity",
@@ -76,22 +76,22 @@ SOURCE_TABLE_NODE_TYPE: Dict[str, str] = {
     "international_programs": "international_program",
 }
 
-# map_points.type_id → node type.
+
 MAP_POINT_TYPE_MAP = {
     1: "university",
     2: "school",
     3: "library",
     4: "bookstore",
-    5: "lab",         # STEM lab
+    5: "lab",
     6: "wifi",
     7: "green",
     8: "cafe",
     9: "restaurant",
 }
 
-# Circuit-breaker cooldown for LLM entity extraction (seconds).
+
 _NLP_DOWN_UNTIL = 0.0
-_NLP_COOLDOWN = 300  # 5 minutes
+_NLP_COOLDOWN = 300
 
 
 class KnowledgeGraphService:
@@ -108,16 +108,16 @@ class KnowledgeGraphService:
 
     def __init__(self, db_path: str = None):
         self.db_path = db_path or os.getenv("DB_SQLITE_PATH", DB_PATH)
-        # Knowledge graph storage is SQLite-only. On Postgres (Supabase) we
-        # degrade gracefully: no crash, empty graph, so the frontend shows an
-        # honest empty state instead of a 500.
+
+
+
         self._available = os.getenv("DB_TYPE", "sqlite") == "sqlite"
         if self._available:
             self._init_schema()
         else:
             self._available = False
 
-    # ── SQLite helpers ───────────────────────────────────────────────────
+
 
     def _connect(self) -> sqlite3.Connection:
         """Open a SQLite connection (row factory + foreign keys on)."""
@@ -192,7 +192,7 @@ class KnowledgeGraphService:
         finally:
             conn.close()
 
-    # ── Seeding (T1 core: build graph from existing tables) ────────────────
+
 
     def seed_graph(self) -> Dict[str, Any]:
         """Build the knowledge graph from the existing SQLite content tables.
@@ -213,7 +213,7 @@ class KnowledgeGraphService:
             conn.execute("DELETE FROM kg_edges")
             conn.execute("DELETE FROM kg_nodes")
 
-            # ── 1. Nodes from each source table ─────────────────────────────
+
             self._seed_nodes_map_points(conn, summary)
             self._seed_nodes_scholarships(conn, summary)
             self._seed_nodes_opportunities(conn, summary)
@@ -223,7 +223,7 @@ class KnowledgeGraphService:
             self._seed_nodes_international_programs(conn, summary)
             self._seed_nodes_organizations(conn, summary)
 
-            # ── 2. Semantic edges ────────────────────────────────────────
+
             self._build_edges(conn, summary)
 
             conn.commit()
@@ -240,7 +240,7 @@ class KnowledgeGraphService:
         )
         return summary
 
-    # -- Node builders ----------------------------------------------------
+
 
     def _seed_nodes_map_points(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
         rows = conn.execute(
@@ -250,7 +250,7 @@ class KnowledgeGraphService:
         for r in rows:
             node_type = MAP_POINT_TYPE_MAP.get(int(r["type_id"] or 0), "school")
             if node_type in ("cafe", "restaurant", "bookstore", "green", "wifi"):
-                # These are supporting infrastructure, not core KG entities.
+
                 s["skipped"] += 1
                 continue
             lat, lng = self._parse_location(r["address"])
@@ -357,7 +357,7 @@ class KnowledgeGraphService:
         from the denormalised 'organization' columns in opportunities /
         international_programs / scholarships.provider (which act as
         de-facto sponsors even when the organizations table is empty)."""
-        # Explicit organizations
+
         org_rows = conn.execute(
             "SELECT id, name, description, website_url FROM organizations"
         ).fetchall()
@@ -367,9 +367,9 @@ class KnowledgeGraphService:
                               r["name"], r["description"], None, None,
                               None, None, r["website_url"], meta, s)
 
-        # Denormalised sponsors pulled from scholarship.provider / opportunity.organization /
-        # international_program.organization. These are real Vietnamese organisations
-        # (per AGENTS.md) so they're valid graph nodes.
+
+
+
         seen_sponsors: Set[str] = set()
         sponsor_sources = [
             ("scholarships", "id", "title", "provider", "apply_url"),
@@ -385,33 +385,33 @@ class KnowledgeGraphService:
                 if not org_name or org_name in seen_sponsors:
                     continue
                 seen_sponsors.add(org_name)
-                # Create a deterministic node id from the organisation name
+
                 node_id = self._sponsor_node_id(org_name)
                 meta = {"source_table": table, "source_id": r["src_id"]}
                 self._insert_node(conn, node_id, "sponsor", "organizations", node_id,
                                   org_name, None, None, None,
                                   None, None, r["url"], meta, s)
 
-    # -- Edge builder -----------------------------------------------------
+
 
     def _build_edges(self, conn: sqlite3.Connection, s: Dict[str, int]) -> None:
         """Create semantic edges between nodes that already exist in kg_nodes."""
-        # scholarships → sponsored_by sponsor (match by provider name or
-        # organisation name)
+
+
         self._link_scholarships_to_sponsors(conn, s)
-        # opportunities → sponsored_by sponsor (match by organization)
+
         self._link_opportunities_to_sponsors(conn, s)
-        # international_programs → located_in host_country region
+
         self._link_international_programs_to_regions(conn, s)
-        # career_paths → study_at universities (field match)
+
         self._link_career_paths_to_schools(conn, s)
-        # learning_materials → has_material / requires_skill
+
         self._link_materials_to_skills_and_careers(conn, s)
-        # scholarships → requires_skill (from eligibility_criteria text)
+
         self._link_scholarships_to_skills(conn, s)
-        # schools ↔ linked_to schools in the same province/city
+
         self._link_schools_by_region(conn, s)
-        # internships → offers (company sponsor)
+
         self._link_internships_to_sponsors(conn, s)
 
     def _link_scholarships_to_sponsors(self, conn, s):
@@ -517,11 +517,11 @@ class KnowledgeGraphService:
                     tags = []
             if tags is None:
                 tags = []
-            # Material → HAS_MATERIAL (reverse: career → material)
+
             for c in careers:
                 self._insert_edge(conn, c["id"], r["id"], "HAS_MATERIAL",
                                   weight=1.0, metadata={"subject": subject}, s=s)
-            # Extract skill keywords from subject/tags
+
             skill_text = f"{subject} {' '.join(tags) if isinstance(tags, list) else ''}"
             for skill_kw in self._extract_skill_keywords(skill_text):
                 skill_id = f"skill:{skill_kw}"
@@ -566,7 +566,7 @@ class KnowledgeGraphService:
         for key, ids in by_region.items():
             for i in range(len(ids)):
                 for j in range(i + 1, len(ids)):
-                    # Bidirectional — only one direction stored, query reverses if needed
+
                     self._insert_edge(conn, ids[i], ids[j], "LINKED_TO",
                                       weight=1.0, metadata={"region": key}, s=s)
 
@@ -583,16 +583,16 @@ class KnowledgeGraphService:
             except Exception:
                 meta = {}
             field = (meta.get("field") or "").strip()
-            # Link internship → sponsor by field match (heuristic)
+
             for sp in sponsors:
                 sp_name = (sp["name"] or "").strip()
-                # Simple heuristic: link if sponsor appears in internship metadata
+
                 meta_str = json.dumps(meta, ensure_ascii=False)
                 if sp_name and sp_name.lower() in meta_str.lower():
                     self._insert_edge(conn, r["id"], sp["id"], "SPONSORED_BY",
                                       weight=1.0, s=s)
 
-    # -- Insert helpers ---------------------------------------------------
+
 
     def _insert_node(self, conn, node_id, node_type, source_table, source_id,
                      name, description, lat, lng, city, province, url,
@@ -609,7 +609,7 @@ class KnowledgeGraphService:
             )
             s["nodes"] += 1
         except sqlite3.IntegrityError:
-            pass  # duplicate id, skip
+            pass
 
     def _insert_edge(self, conn, source_id, target_id, edge_type,
                      weight=1.0, metadata=None, s=None):
@@ -659,7 +659,7 @@ class KnowledgeGraphService:
         set_b = set(re.findall(r"[a-zàáạảãâầấậằắẵăằẳẵèéẹẻẽêềếệễểịìíỉĩĩòóọỏõôồốộỗổơờớợợụùúủũưừứựửữ]+|[a-z]+", bl, re.I))
         if not set_a or not set_b:
             return False
-        # Token overlap ≥ 1
+
         return bool(set_a & set_b)
 
     @staticmethod
@@ -669,11 +669,11 @@ class KnowledgeGraphService:
         with at least the explicitly-mentioned skills."""
         if not text:
             return []
-        # Split on punctuation/whitespace, keep tokens ≥ 3 chars
+
         tokens = re.findall(r"[a-zàáạảãâầấậằắẵăằẳẵèéẹẻẽêềếệễểịìíỉĩĩòóọỏõôồốộỗổơờớợợụùúủũưừứựửữ]+", text.lower())
         return [t for t in tokens if len(t) >= 3]
 
-    # ── Querying (1-degree traversal only — see Risks) ─────────────────────
+
 
     def get_graph(self, node_types: List[str] = None, limit: int = 500) -> Dict[str, Any]:
         """Return the full graph (nodes + edges) for frontend rendering.
@@ -740,7 +740,7 @@ class KnowledgeGraphService:
         """
         if not self._available:
             return {"start_node": None, "neighbors": [], "edges": [], "meta": {"degraded": True}}
-        depth = min(max(1, int(depth or 1)), 1)  # enforced 1-degree cap
+        depth = min(max(1, int(depth or 1)), 1)
 
         conn = self._connect()
         try:
@@ -754,7 +754,7 @@ class KnowledgeGraphService:
                 return {"start_node": None, "neighbors": [], "edges": [],
                         "meta": {"depth": depth, "clamped": True}}
 
-            # Outgoing edges: source_id = start_node_id
+
             et_filter = ""
             et_params: List[Any] = []
             if edge_types:
@@ -767,7 +767,7 @@ class KnowledgeGraphService:
                 f"FROM kg_edges WHERE source_id = ? {et_filter} LIMIT ?",
                 [start_node_id] + et_params + [limit],
             ).fetchall()
-            # Incoming edges: target_id = start_node_id
+
             in_edges = conn.execute(
                 f"SELECT id, source_id, target_id, edge_type, weight, metadata_json "
                 f"FROM kg_edges WHERE target_id = ? {et_filter} LIMIT ?",
@@ -800,7 +800,7 @@ class KnowledgeGraphService:
         finally:
             conn.close()
 
-    # ── NLP entity extraction (T1 core) ────────────────────────────────────
+
 
     def extract_entities(self, text: str) -> Dict[str, Any]:
         """NLP entity extraction: trích xuất thực thể từ văn bản, liên kết
@@ -822,20 +822,20 @@ class KnowledgeGraphService:
         global _NLP_DOWN_UNTIL
         extracted: Dict[str, Any] = {"entities": [], "linked_nodes": [], "confidence": 0.0, "degraded": False}
 
-        # Try LLM first (with circuit breaker)
+
         llm_result = self._llm_extract_entities(text)
         if llm_result is not None:
             extracted = llm_result
         else:
-            # Fallback: rule-based extraction
+
             extracted = self._rule_based_extract(text)
             extracted["degraded"] = True
             _NLP_DOWN_UNTIL = time.monotonic() + _NLP_COOLDOWN
 
-        # Link extracted entities to existing graph nodes
+
         extracted["linked_nodes"] = self._link_entities(text, extracted["entities"])
 
-        # Queue for human review when degraded or confidence is low
+
         if extracted.get("degraded") or extracted.get("confidence", 0.0) < 0.5:
             self._queue_extraction_review(text, extracted)
 
@@ -903,7 +903,7 @@ Chỉ trả về JSON, không giải thích thêm.
                     })
         finally:
             conn.close()
-        # Deduplicate by (text, type)
+
         seen = set()
         uniq = []
         for e in entities:
@@ -924,7 +924,7 @@ Chỉ trả về JSON, không giải thích thêm.
                 ent_text = (ent.get("text") or "").strip().lower()
                 if not ent_text:
                     continue
-                # Match entity type or any type containing the name
+
                 rows = conn.execute(
                     "SELECT id, type, name, url FROM kg_nodes WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?",
                     (f"%{ent_text}%", f"%{ent_text.replace(' ', '')}%"),
@@ -961,7 +961,7 @@ Chỉ trả về JSON, không giải thích thêm.
         finally:
             conn.close()
 
-    # ── Partner / sponsorship suggestions (T1: suggest sponsors) ───────────
+
 
     def suggest_partners(self, query: str, limit: int = 10,
                          focus_type: str = None) -> List[Dict[str, Any]]:
@@ -980,7 +980,7 @@ Chỉ trả về JSON, không giải thích thêm.
         suggestions: List[Dict[str, Any]] = []
         conn = self._connect()
         try:
-            # 1. Direct node match
+
             rows = conn.execute(
                 "SELECT id, type, name, description, url, metadata_json FROM kg_nodes "
                 "WHERE type = 'sponsor'",
@@ -992,7 +992,7 @@ Chỉ trả về JSON, không giải thích thêm.
                 if score > 0:
                     score_map[r["id"]] = score
 
-            # 2. Traverse from matched scholarships → sponsors
+
             if query_lower:
                 scholarships = conn.execute(
                     "SELECT id, name FROM kg_nodes WHERE type = 'scholarship' "
@@ -1008,13 +1008,13 @@ Chỉ trả về JSON, không giải thích thêm.
                     for e in edges:
                         score_map[e["target_id"]] = score_map.get(e["target_id"], 0) + 0.5
 
-            # 3. NLP entity extraction for skill/region matching
+
             extracted = self.extract_entities(query)
             for link in extracted.get("linked_nodes", []):
                 if link["node_type"] == "sponsor":
                     score_map[link["node_id"]] = score_map.get(link["node_id"], 0) + 0.3
 
-            # Build result list sorted by score
+
             for node_id, score in sorted(score_map.items(), key=lambda x: -x[1])[:limit]:
                 node = conn.execute(
                     "SELECT id, type, name, description, url, city, province, metadata_json "
@@ -1055,7 +1055,7 @@ Chỉ trả về JSON, không giải thích thêm.
                 score += len(overlap) / len(q_tokens)
         return score
 
-    # ── Human review queue access ───────────────────────────────────────────
+
 
     def get_extraction_reviews(self, status: str = "pending", limit: int = 100) -> List[Dict]:
         """Return NLP extractions queued for human review."""
@@ -1101,7 +1101,7 @@ Chỉ trả về JSON, không giải thích thêm.
         finally:
             conn.close()
 
-    # ── Serialization helpers ----------------------------------------------
+
 
     @staticmethod
     def _node_to_dict(row) -> Dict[str, Any]:
@@ -1175,7 +1175,7 @@ Chỉ trả về JSON, không giải thích thêm.
         return None
 
 
-# Module-level singleton (mirrors vector_store / cache_service pattern)
+
 knowledge_graph = None
 try:
     knowledge_graph = KnowledgeGraphService()

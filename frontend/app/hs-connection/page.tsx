@@ -1,193 +1,146 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { 
-    Users, UserPlus, Check, X, Search, MapPin, Loader2, Sparkles, UserCheck
-} from 'lucide-react';
+import { Users, UserPlus, Check, X, Search, MapPin, Loader2, Sparkles, UserCheck } from 'lucide-react';
 import { hsConnectionService, NetworkResponse, HSUser } from '@/src/services/hs-connection.service';
 import { toast } from "@/src/lib/toast";
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
-
 export default function HSConnectionPage() {
     const [network, setNetwork] = useState<NetworkResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-
     useEffect(() => {
         fetchNetwork();
     }, []);
-
     const fetchNetwork = async () => {
         try {
             setLoading(true);
             const data = await hsConnectionService.getMyNetwork();
             setNetwork((data as any).data ?? data);
-        } catch (error: any) {
+        }
+        catch (error: any) {
             toast.error(error.message || 'Không thể tải dữ liệu mạng lưới');
-        } finally {
+        }
+        finally {
             setLoading(false);
         }
     };
-
     const handleSendRequest = async (userId: string) => {
         try {
             setActionLoading(userId);
             await hsConnectionService.sendRequest(userId);
             toast.success('Đã gửi yêu cầu kết nối');
-            // Optimistically update suggestions
             if (network) {
                 setNetwork({
                     ...network,
                     suggestions: network.suggestions.filter(u => u.id !== userId)
                 });
             }
-        } catch (error: any) {
+        }
+        catch (error: any) {
             toast.error(error.message);
-        } finally {
+        }
+        finally {
             setActionLoading(null);
         }
     };
-
     const handleRespond = async (connectionId: string, accept: boolean) => {
         try {
             setActionLoading(connectionId);
             await hsConnectionService.respondToRequest(connectionId, accept);
             toast.success(accept ? 'Đã chấp nhận kết nối' : 'Đã từ chối kết nối');
-            fetchNetwork(); // Refresh to move from pending to friends
-        } catch (error: any) {
+            fetchNetwork();
+        }
+        catch (error: any) {
             toast.error(error.message);
-        } finally {
+        }
+        finally {
             setActionLoading(null);
         }
     };
-
     if (loading && !network) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
-            </div>
-        );
+        return (<div className="min-h-screen bg-background flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-primary animate-spin"/>
+            </div>);
     }
-
-    return (
-        <div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+    return (<div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
             <div className="w-full mx-auto space-y-12">
-                
-                {/* Header */}
+
                 <div className="text-center space-y-4 max-w-2xl mx-auto">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
-                        <Sparkles className="w-4 h-4" /> Mạng lưới Học sinh
+                        <Sparkles className="w-4 h-4"/> Mạng lưới Học sinh
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Kết nối & Học hỏi</h1>
                     <p className="text-muted-foreground/60">Mở rộng mạng lưới bạn bè, chia sẻ kinh nghiệm học tập và cùng nhau phát triển trên EduMap.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
-                    {/* Left Column: Network & Requests */}
+
                     <div className="lg:col-span-2 space-y-8">
-                        
-                        {/* Pending Requests */}
-                        {network?.requests && network.requests.length > 0 && (
-                            <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel">
+
+                        {network?.requests && network.requests.length > 0 && (<div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <UserPlus className="w-5 h-5 text-primary" /> 
+                                    <UserPlus className="w-5 h-5 text-primary"/>
                                     Lời mời kết bạn ({network.requests.length})
                                 </h2>
                                 <div className="space-y-4">
-                                    {network.requests.map(req => (
-                                        <div key={req.id} className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-border hover:bg-card transition-colors">
+                                    {network.requests.map(req => (<div key={req.id} className="flex items-center justify-between p-4 bg-card/50 rounded-lg border border-border hover:bg-card transition-colors">
                                             <div className="flex items-center gap-4">
-                                                <img 
-                                                    src={req.avatar_url || avatarFallback(req.full_name)}
-                                                    onError={onImageError(avatarFallback(req.full_name))}
-                                                    alt="" 
-                                                    className="w-12 h-12 rounded-full border border-border"
-                                                />
+                                                <img src={req.avatar_url || avatarFallback(req.full_name)} onError={onImageError(avatarFallback(req.full_name))} alt="" className="w-12 h-12 rounded-full border border-border"/>
                                                 <div>
                                                     <p className="font-bold">{req.full_name}</p>
                                                     <p className="text-xs text-muted-foreground/60">Cấp độ {req.level}</p>
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button 
-                                                    disabled={actionLoading === req.connection_id}
-                                                    onClick={() => handleRespond(req.connection_id!, true)}
-                                                    className="p-2 bg-primary hover:bg-primary text-primary-foreground rounded-xl transition-colors disabled:opacity-50"
-                                                >
-                                                    {actionLoading === req.connection_id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                                                <button disabled={actionLoading === req.connection_id} onClick={() => handleRespond(req.connection_id!, true)} className="p-2 bg-primary hover:bg-primary text-primary-foreground rounded-xl transition-colors disabled:opacity-50">
+                                                    {actionLoading === req.connection_id ? <Loader2 className="w-5 h-5 animate-spin"/> : <Check className="w-5 h-5"/>}
                                                 </button>
-                                                <button 
-                                                    disabled={actionLoading === req.connection_id}
-                                                    onClick={() => handleRespond(req.connection_id!, false)}
-                                                    className="p-2 bg-card hover:bg-destructive/20 hover:text-destructive text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50"
-                                                >
-                                                    <X className="w-5 h-5" />
+                                                <button disabled={actionLoading === req.connection_id} onClick={() => handleRespond(req.connection_id!, false)} className="p-2 bg-card hover:bg-destructive/20 hover:text-destructive text-muted-foreground/60 rounded-xl transition-colors disabled:opacity-50">
+                                                    <X className="w-5 h-5"/>
                                                 </button>
                                             </div>
-                                        </div>
-                                    ))}
+                                        </div>))}
                                 </div>
-                            </div>
-                        )}
+                            </div>)}
 
-                        {/* Friend List */}
                         <div className="bg-card border border-border rounded-xl p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-bold flex items-center gap-2">
-                                    <Users className="w-5 h-5 text-primary" /> Bạn bè ({network?.friends?.length || 0})
+                                    <Users className="w-5 h-5 text-primary"/> Bạn bè ({network?.friends?.length || 0})
                                 </h2>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
-                                    <input type="text" placeholder="Tìm bạn bè..." className="bg-card border border-border rounded-xl py-2 pl-9 pr-4 text-sm focus:border-primary outline-none" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60"/>
+                                    <input type="text" placeholder="Tìm bạn bè..." className="bg-card border border-border rounded-xl py-2 pl-9 pr-4 text-sm focus:border-primary outline-none"/>
                                 </div>
                             </div>
-                            
-                            {network?.friends && network.friends.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {network.friends.map(friend => (
-                                        <div key={friend.id} className="flex items-center gap-4 p-4 rounded-[18px] bg-card border border-border/80 hover:border-primary/50 shadow-xs hover:shadow-orvel transition-all cursor-pointer group">
+
+                            {network?.friends && network.friends.length > 0 ? (<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {network.friends.map(friend => (<div key={friend.id} className="flex items-center gap-4 p-4 rounded-[18px] bg-card border border-border/80 hover:border-primary/50 shadow-xs hover:shadow-orvel transition-all cursor-pointer group">
                                             <div className="relative">
-                                                <img 
-                                                    src={friend.avatar_url || avatarFallback(friend.full_name)}
-                                                    onError={onImageError(avatarFallback(friend.full_name))}
-                                                    alt="" 
-                                                    className="w-12 h-12 rounded-full border border-border"
-                                                />
+                                                <img src={friend.avatar_url || avatarFallback(friend.full_name)} onError={onImageError(avatarFallback(friend.full_name))} alt="" className="w-12 h-12 rounded-full border border-border"/>
                                                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-background"></div>
                                             </div>
                                             <div className="flex-1">
                                                 <p className="font-bold text-sm group-hover:text-primary transition-colors">{friend.full_name}</p>
                                                 <p className="text-xs text-muted-foreground/60">Level {friend.level} • {friend.points.toLocaleString()} XP</p>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-12 text-muted-foreground/60">
-                                    <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                        </div>))}
+                                </div>) : (<div className="text-center py-12 text-muted-foreground/60">
+                                    <Users className="w-12 h-12 mx-auto mb-3 opacity-20"/>
                                     <p>Bạn chưa có kết nối nào. Hãy gửi lời mời ở phần gợi ý!</p>
-                                </div>
-                            )}
+                                </div>)}
                         </div>
                     </div>
 
-                    {/* Right Column: Suggestions */}
                     <div className="space-y-6">
                         <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel sticky top-8 space-y-5">
                             <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                                <Sparkles className="w-5 h-5 text-primary/70" /> Gợi ý kết bạn
+                                <Sparkles className="w-5 h-5 text-primary/70"/> Gợi ý kết bạn
                             </h2>
                             <div className="space-y-4">
-                                {network?.suggestions && network.suggestions.length > 0 ? (
-                                    network.suggestions.map(suggest => (
-                                        <div key={suggest.id} className="bg-card/40 rounded-lg p-4 border border-border relative overflow-hidden group">
+                                {network?.suggestions && network.suggestions.length > 0 ? (network.suggestions.map(suggest => (<div key={suggest.id} className="bg-card/40 rounded-lg p-4 border border-border relative overflow-hidden group">
                                             <div className="flex flex-col items-center text-center space-y-3">
-                                                <img 
-                                                    src={suggest.avatar_url || avatarFallback(suggest.full_name)}
-                                                    onError={onImageError(avatarFallback(suggest.full_name))}
-                                                    alt="" 
-                                                    className="w-16 h-16 rounded-full border-2 border-border group-hover:border-primary transition-colors"
-                                                />
+                                                <img src={suggest.avatar_url || avatarFallback(suggest.full_name)} onError={onImageError(avatarFallback(suggest.full_name))} alt="" className="w-16 h-16 rounded-full border-2 border-border group-hover:border-primary transition-colors"/>
                                                 <div>
                                                     <p className="font-bold text-sm">{suggest.full_name}</p>
                                                     <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest mt-1">Level {suggest.level}</p>
@@ -195,26 +148,17 @@ export default function HSConnectionPage() {
                                                 <p className="text-xs text-muted-foreground/60 line-clamp-2 min-h-[32px] italic">
                                                     "{suggest.bio || 'Đang tích cực hoạt động trên EduMap'}"
                                                 </p>
-                                                <button 
-                                                    onClick={() => handleSendRequest(suggest.id)}
-                                                    disabled={actionLoading === suggest.id}
-                                                    className="w-full py-2 bg-muted/50 hover:bg-primary hover:border-primary border border-border rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                                >
-                                                    {actionLoading === suggest.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                                                <button onClick={() => handleSendRequest(suggest.id)} disabled={actionLoading === suggest.id} className="w-full py-2 bg-muted/50 hover:bg-primary hover:border-primary border border-border rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                                                    {actionLoading === suggest.id ? <Loader2 className="w-4 h-4 animate-spin"/> : <UserPlus className="w-4 h-4"/>}
                                                     KẾT NỐI
                                                 </button>
                                             </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-center text-muted-foreground/60 text-sm py-8">Không có gợi ý nào lúc này.</p>
-                                )}
+                                        </div>))) : (<p className="text-center text-muted-foreground/60 text-sm py-8">Không có gợi ý nào lúc này.</p>)}
                             </div>
                         </div>
                     </div>
 
                 </div>
             </div>
-        </div>
-    );
+        </div>);
 }

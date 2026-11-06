@@ -7,7 +7,7 @@ being OOM-killed by the kernel.
 Usage in model loaders:
     ram = _get_ram_info()
     if ram["available_gb"] < RAM_THRESHOLD_GB:
-        return False  # skip loading
+        return False
     ...
 """
 import os
@@ -15,12 +15,12 @@ import time
 import threading
 from typing import Dict, Any
 
-# Minimum free RAM (GB) required to load a local LLM model on HF Spaces.
-# Other services (Next.js, NestJS, OSRM, vision, embedding) use ~6GB.
-# Each LLM needs ~1.5GB. Keeping 4GB headroom prevents OOM kills.
+
+
+
 RAM_THRESHOLD_GB = float(os.getenv("RAM_THRESHOLD_GB", "4.0"))
 
-# Global OOM status tracker (updated by check_oom / guard_load)
+
 OOM_STATUS: Dict[str, Any] = {
     "enabled": True,
     "checks_count": 0,
@@ -41,7 +41,7 @@ def _read_meminfo() -> Dict[str, float]:
             if len(parts) == 2:
                 key = parts[0].strip()
                 val = parts[1].strip().split()[0]
-                info[key] = int(val) * 1024  # kB → bytes
+                info[key] = int(val) * 1024
         total = info.get("MemTotal", 0)
         available = info.get("MemAvailable", info.get("MemFree", 0))
         free = info.get("MemFree", 0)
@@ -52,7 +52,7 @@ def _read_meminfo() -> Dict[str, float]:
             "free_gb": free / (1024 ** 3),
         }
     except Exception:
-        # Non-Linux (e.g., macOS test env) — assume HF Spaces defaults
+
         return {"total_gb": 16.0, "available_gb": 6.0, "used_gb": 10.0, "free_gb": 6.0}
 
 

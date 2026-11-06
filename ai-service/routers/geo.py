@@ -10,11 +10,11 @@ from models.geo_models import GeoDensityAnalysisRequest, VisionDetectRequest
 
 router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
 
-# ── GeoVision AI (Idea #10) — HF Inference API config ──────────────────────
+
 GEO_VISION_MODEL = os.getenv("GEO_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
 HF_TOKEN = (os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or "").strip().strip('"').strip("'")
 HF_ROUTER_URL = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
-# Circuit breaker: skip HF vision inference for 5 min after auth/network failure
+
 _geo_vision_down_until = 0.0
 GEO_VISION_TIMEOUT = float(os.getenv("GEO_VISION_TIMEOUT_SECONDS", "25"))
 GEO_VISION_DEFAULT_LABELS = [
@@ -22,24 +22,24 @@ GEO_VISION_DEFAULT_LABELS = [
     "building", "campus", "library",
 ]
 
-# ── Local vision fallback (Idea #10) ────────────────────────────────────────
-# When HF_TOKEN is absent (common on HF Spaces free plan without secrets),
-# GeoVision AI falls back to a LOCAL zero-shot object detection model loaded
-# into RAM. We use google/owlv2-base-patch16-ensemble (~440MB) — public OWLv2
-# ensemble model. This guarantees vision detection works with ZERO API keys
-# as per AGENTS.md §3 "never 502s" rule.
-#
-# Env-tunable:
-#   LOCAL_VISION_MODEL       — default google/owlv2-base-patch16-ensemble
-#   LOCAL_VISION_ENABLED     — default true (auto-enable when HF_TOKEN absent)
-#   LOCAL_VISION_THRESHOLD   — default 0.25 (lower = more detections, more noise)
-#   LOCAL_VISION_IMAGE_MAX   — default 1024 (square max px, keeps CPU inference <15s)
+
+
+
+
+
+
+
+
+
+
+
+
 LOCAL_VISION_MODEL = os.getenv("LOCAL_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
 LOCAL_VISION_ENABLED = os.getenv("LOCAL_VISION_ENABLED", "true").lower() not in ("0", "false", "no", "off")
 LOCAL_VISION_THRESHOLD = float(os.getenv("LOCAL_VISION_THRESHOLD", "0.25"))
 LOCAL_VISION_IMAGE_MAX = int(os.getenv("LOCAL_VISION_IMAGE_MAX", "1024"))
 
-# Singleton state for local vision model (lazy-loaded, never reloaded)
+
 _local_vision_model = None
 _local_vision_processor = None
 _local_vision_loaded = False
@@ -101,7 +101,7 @@ def _b64_to_image(image_b64: str, max_px: int = 1024):
     from PIL import Image
     raw = _b64.b64decode(image_b64)
     img = Image.open(io.BytesIO(raw)).convert("RGB")
-    # Resize to keep CPU inference fast (<15s on 2-vCPU HF free tier)
+
     ratio = min(max_px / img.width, max_px / img.height, 1.0)
     if ratio < 1.0:
         img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.BICUBIC)
@@ -133,14 +133,14 @@ def _local_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
         with torch.no_grad():
             outputs = _local_vision_model(**inputs)
 
-        # OwlV2 post-processing: rescale boxes from [0,1] to pixel coords
-        target_sizes = torch.tensor([img.size[::-1]])  # (height, width) of PIL image
+
+        target_sizes = torch.tensor([img.size[::-1]])
         results = processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=LOCAL_VISION_THRESHOLD
         )[0]
 
         detections = []
-        # OwlV2 zero-shot: map text labels → predicted classes
+
         label_map = {i: lbl for i, lbl in enumerate(labels)}
         for box, score, label_id in zip(results["boxes"], results["scores"], results["labels"]):
             lbl = label_map.get(int(label_id), str(label_id))
@@ -155,13 +155,13 @@ def _local_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
                     "ymax": int(y2),
                 },
             })
-        # Sort by score descending
+
         detections.sort(key=lambda d: d["score"], reverse=True)
         return detections
     except ImportError:
         raise RuntimeError("Local vision requires torch + transformers (not installed)")
     except RuntimeError as e:
-        raise  # propagate OOM / inference errors
+        raise
     except Exception as e:
         print(f"[GeoVision] Local detection error: {type(e).__name__}: {e}")
         return []
@@ -176,7 +176,7 @@ def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
     """
     global _geo_vision_down_until
 
-    # Circuit breaker
+
     if time.monotonic() < _geo_vision_down_until:
         raise RuntimeError("HF vision inference temporarily disabled (circuit breaker — 5 min cooldown)")
 
@@ -232,7 +232,7 @@ def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
     except Exception:
         raise RuntimeError(f"HF Inference API invalid JSON: {(proc.stdout or '')[:200]}")
 
-    # Handle error response
+
     if isinstance(data, dict) and "error" in data and not data.get("detections"):
         err_str = str(data.get("error", ""))
         low = err_str.lower()
@@ -244,16 +244,16 @@ def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
             raise RuntimeError(f"HF vision auth error: {err_str[:200]}")
         raise RuntimeError(f"HF Inference API error: {data.get('error')}")
 
-    # Normal success: list of {score, label, box}
+
     if isinstance(data, list):
         return data
-    # Sometimes the API wraps results in {"detections": [...]}
+
     if isinstance(data, dict) and "detections" in data:
         return data["detections"]
     return []
 
 
-# Lazy load services
+
 _services_loaded = False
 _db_service = None
 _clustering_service = None
@@ -302,7 +302,7 @@ async def analyze_geo_density(data: GeoDensityAnalysisRequest):
             raise HTTPException(status_code=503, detail="AI Service chưa được khởi tạo.")
         analysis = await llm_service.analyze_geo_density(data, hubs)
 
-        # Pass through degraded status if the AI method returned a fallback
+
         degraded = analysis.pop("_degraded", False) if isinstance(analysis, dict) else False
         reason = analysis.pop("_reason", None) if isinstance(analysis, dict) else None
 
@@ -412,7 +412,7 @@ async def recommend_nearby_opportunities(data: GeoRecommendRequest):
 @router.post("/vision-detect")
 async def vision_detect(request: VisionDetectRequest):
     """
-    GeoVision AI (Idea #10) — POST /api/ai/geo/vision-detect
+    GeoVision AI (Idea
 
     Sends a base64-encoded satellite/map image to the HF Inference API
     (google/owlv2 — zero-shot object detection) and returns detection
@@ -439,7 +439,7 @@ async def vision_detect(request: VisionDetectRequest):
         }
 
     try:
-        # ── Priority 1: HF Inference API (fast, server-side, if HF_TOKEN set) ──
+
         if HF_TOKEN:
             try:
                 detections = _hf_vision_detect(image_b64, labels)
@@ -447,22 +447,22 @@ async def vision_detect(request: VisionDetectRequest):
                 detection_source = "hf_api"
             except RuntimeError as hf_err:
                 print(f"[GeoVision] HF vision failed ({hf_err}), falling back to local model ...")
-                # Fall through to local fallback below
+
                 detections = _local_vision_detect(image_b64, labels)
                 used_model = LOCAL_VISION_MODEL
                 detection_source = "local"
         else:
-            # ── Priority 2: Local model (100% offline, no API key needed)   ──
-            # Per AGENTS.md §3: on HF Spaces free plan without secrets, local
-            # model is the guaranteed backup. Lazy-loads ~120MB model on first
-            # call (~3-8s inference on 2-vCPU CPU).
+
+
+
+
             if not LOCAL_VISION_ENABLED:
                 raise RuntimeError("HF_TOKEN not set and LOCAL_VISION_ENABLED=false — no vision provider available")
             detections = _local_vision_detect(image_b64, labels)
             used_model = LOCAL_VISION_MODEL
             detection_source = "local"
 
-        # Normalise box field names to camelCase for consistency
+
         normalised = []
         for d in detections:
             box = d.get("box", {})

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 crawl_scope.py — Shared location + year scope for ALL EduMap crawlers.
 
@@ -46,9 +44,9 @@ crawlers.
 
 Usage (typical):
     >>> from crawl_scope import crawl_years, in_year_scope, LOCATION_LAYERS
-    >>> crawl_years()            # [2025, 2026]  (when EDUMAP_CRAWL_YEAR unset)
-    >>> in_year_scope("2026-11-25")   # True  — inside the window
-    >>> in_year_scope("2024-03-01")   # False — before window
+    >>> crawl_years()
+    >>> in_year_scope("2026-11-25")
+    >>> in_year_scope("2024-03-01")
     >>> for layer in LOCATION_LAYERS:
     ...     crawl_this_layer(layer)
 """
@@ -59,9 +57,6 @@ import datetime
 from typing import List, Tuple, Optional, Dict, Any
 
 
-# ===========================================================================
-# YEAR SCOPE
-# ===========================================================================
 
 def crawl_year() -> int:
     """The calendar year this crawl run targets.
@@ -87,7 +82,6 @@ def crawl_years() -> List[int]:
     return [y - 1, y]
 
 
-# Convenient alias — most callers want the two-year set.
 CRAWL_YEARS = crawl_years
 
 
@@ -112,38 +106,24 @@ def in_year_scope(date_str: Optional[str], fmt: str = "%Y-%m-%d") -> bool:
     s = str(date_str).strip()
     if not s:
         return True
-    # Bare 4-digit year.
     if len(s) == 4 and s.isdigit():
         return int(s) in years
-    # Full date / datetime — extract the year from the leading YYYY.
-    # We avoid strptime for every candidate format: just grab the first token.
     if s[:4].isdigit():
         return int(s[:4]) in years
-    # Last resort: look for a 4-digit year anywhere in the string.
     import re
     m = re.search(r"\b(20\d{2})\b", s)
     if m:
         return int(m.group(1)) in years
-    return True  # unparseable → keep (graceful, never drops real data)
+    return True  
 
 
-# ===========================================================================
-# LOCATION SCOPE
-# ===========================================================================
 
-# --- Layer 1: Đồng Nai (project anchor) -----------------------------------
 
 DONG_NAI_PROVINCE = "Đồng Nai"
-DONG_NAI_BBOX = "10.68,106.75,11.15,107.25"        # south, west, north, east
-DONG_NAI_CENTER = (10.9835, 106.8686)              # DNTU centroid
+DONG_NAI_BBOX = "10.68,106.75,11.15,107.25"        
+DONG_NAI_CENTER = (10.9835, 106.8686)              
 DONG_NAI_KEYWORDS = ["Đồng Nai", "Biên Hòa", "Bình Dương", "Vũng Tàu"]
 
-# --- Layer 2: Southern Vietnam provinces (miền Nam) -----------------------
-# Covers the three southern regions:
-#   • Đông Nam Bộ (Southeast)   — Bà Rịa-Vũng Tàu, TP.HCM, Đồng Nai, Bình Dương
-#   • Tây Nguyên (Central Highlands) — Gia Lai, Kon Tum, Đắk Lắk, Đắk Nông, Lâm Đồng
-#   • Đông Nam Bộ (Mekong Delta)    — 12 delta provinces
-# Ordered roughly north→south so crawlers that tile by latitude expand cleanly.
 SOUTHERN_PROVINCES_VN = [
     "Bình Dương",
     "Bà Rịa – Vũng Tàu",
@@ -171,14 +151,11 @@ SOUTHERN_PROVINCES_VN = [
     "Cà Mau",
 ]
 
-# Southern Vietnam bbox (south, west, north, east) — latitudes south of ~15°N.
 SOUTHERN_VN_BBOX = "8.0,104.0,15.0,109.5"
 
-# --- Layer 3: All of Vietnam ----------------------------------------------
 VIETNAM_BBOX = "8.0,102.0,23.5,109.5"
 VIETNAM_KEYWORDS = ["Việt Nam", "Vietnam"]
 
-# --- Layer 4: Southeast Asia (các nước Đông Nam Á) ------------------------
 SOUTHEAST_ASIA_COUNTRIES = [
     "Việt Nam",
     "Thái Lan",
@@ -193,8 +170,6 @@ SOUTHEAST_ASIA_COUNTRIES = [
     "Timor-Leste",
 ]
 
-# No single bbox covers all of SEA; each country is looked up by keyword.
-# Representative SEA country centroids (lat, lng) for distance-based scoping.
 SEA_COUNTRY_CENTROIDS = {
     "Việt Nam":     (14.0583, 108.2772),
     "Thái Lan":     (15.8700, 100.9925),
@@ -221,7 +196,6 @@ def _layer(label: str, name: str, bboxes: List[str], keywords: List[str],
     }
 
 
-# Ordered location layers — iterate from most-local outward.
 LOCATION_LAYERS: List[Dict[str, Any]] = [
     _layer("dong_nai", "Đồng Nai",       [DONG_NAI_BBOX],   DONG_NAI_KEYWORDS, "vietnam"),
     _layer("southern_vn", "Miền Nam VN",  [SOUTHERN_VN_BBOX], SOUTHERN_PROVINCES_VN, "vietnam"),
@@ -278,9 +252,6 @@ def location_matches(location_str: str, keywords: List[str]) -> bool:
     return False
 
 
-# ===========================================================================
-# COMBINED HELPERS
-# ===========================================================================
 
 def scope_summary() -> Dict[str, Any]:
     """Human-readable snapshot of the active scope (useful for crawler logs)."""

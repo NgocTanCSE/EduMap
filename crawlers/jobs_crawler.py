@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Jobs crawler  -> `jobs` table.
 
@@ -30,39 +29,28 @@ Runs as:
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import (get_conn, upsert_rows, Jsonb, ensure_column)  # noqa: E402
-from crawl_scope import (  # noqa: E402
+from db_utils import (get_conn, upsert_rows, Jsonb, ensure_column)  
+from crawl_scope import (  
     crawl_years, year_scope_range, in_year_scope,
     LOCATION_LAYERS, location_matches,
 )
-from tavily_client import TavilyClient, tavily_search_and_extract  # noqa: E402
-from tavily_parse import parse_tavily_jobs, clean_text  # noqa: E402
+from tavily_client import TavilyClient, tavily_search_and_extract  
+from tavily_parse import parse_tavily_jobs, clean_text  
 
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
-# Default deadline for undated crawl rows — end of crawl year, keeping items
-# visible across the 2-year window.
 _DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
-# Tavily search queries — location-scoped (Đồng Nai → miền Nam → VN → ĐNA)
-# plus keyword-focussed queries for specific roles.  Vietnamese language so
-# Tavily returns Vietnamese job boards.
 _TAVILY_JOB_QUERIES = [
-    # Đồng Nai (highest priority)
     "tuyển dụng lập trình viên phần mềm Đồng Nai 2025",
     "tuyển dụng IT kĩ thuật viên Bình Dương miền Nam",
     "tuyển dụng kỹ sư phần mềm Biên Hòa Đồng Nai",
-    # miền Nam
     "tuyển dụng developer TP Hồ Chí Minh 2025",
     "tuyển dụng lập trình viên Cần Thơ 2025",
-    # Việt Nam (national)
     "tuyển dụng lập trình viên Hà Nội 2025",
     "tuyển dụng kỹ sư phần mềm Việt Nam 2025",
-    # Đông Nam Á (regional remote)
     "tuyển dụng developer Singapore Vietnam remote",
     "tuyển dụng IT remote Việt Nam",
-    # Keyword-focussed
     "tuyển dụng data analyst Việt Nam 2025",
     "tuyển dụng designer giáo dục Việt Nam",
     "tuyển dụng product manager tech startup VN",
@@ -136,7 +124,6 @@ def crawl():
     client = TavilyClient()
     if not client.is_configured():
         print("  [jobs] TAVILY_API_KEY không được cài đặt — crawl trả về 0 dòng (giảm dần)")
-        # Keyless mode attempt (Tavily supports limited keyless search).
         print("  [jobs] Thử chế độ keyless của Tavily...")
 
     all_results = []
@@ -155,7 +142,6 @@ def crawl():
             print(f"  [jobs] [warn] Tavily query failed '{q[:50]}...': {e}")
             continue
 
-    # Parse Tavily results into job row dicts (structured field extraction).
     parsed = parse_tavily_jobs(all_results, source_name="tavily")
     for j in parsed:
         row = _base_row(
@@ -194,9 +180,7 @@ def run():
         conn.close()
 
 
-# Late import of json (used by parse_tavily_jobs output) to avoid adding it to
-# the top-level import block which is stdlib anyway.
-import json  # noqa: E402
+import json  
 
 
 if __name__ == "__main__":

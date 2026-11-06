@@ -12,14 +12,14 @@ import sys
 import time
 from unittest.mock import patch, MagicMock
 
-# Ensure ai-service is on the path so `services` package is importable
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing the service.
-# We set empty strings (not pop) so load_dotenv() — which has override=False
-# by default — does NOT clobber them with the .env file values.
+
+
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
@@ -27,7 +27,7 @@ for _v in [
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
 
-from services.llm_service import LLMService  # noqa: E402
+from services.llm_service import LLMService
 
 
 def _fresh_service():
@@ -55,15 +55,15 @@ def test_moderate_text_fallback_after_provider_failure():
     """Even when is_ready is True but every provider fails, moderate_text
     should return a safe fallback instead of raising."""
     svc = _fresh_service()
-    # Simulate CF configured but failing at runtime (SSL timeout, etc.)
+
     svc.has_cf = True
     svc.is_ready = True
     svc.api_token = "fake-token"
     svc.account_id = "fake-account"
 
-    # _cloudflare_generate will try CF, fail with network error, set circuit
-    # breaker, try Gemini (not configured), and raise. moderate_text should catch
-    # that and return the fallback.
+
+
+
     result = asyncio.run(svc.moderate_text("Nội dung cần kiểm duyệt"))
     assert result["is_safe"] is True
     assert result["confidence"] == 0.3
@@ -79,7 +79,7 @@ def test_cf_circuit_breaker_message_not_misleading():
     svc.is_ready = True
     svc.api_token = "fake-token"
     svc.account_id = "fake-account"
-    # Activate circuit breaker
+
     svc._cf_down_until = time.monotonic() + 60
 
     err = None
@@ -89,12 +89,12 @@ def test_cf_circuit_breaker_message_not_misleading():
         err = str(e)
 
     assert err is not None, "Expected RuntimeError from _cloudflare_generate"
-    # CF portion should NOT say "không cấu hình" (not configured) when
-    # the circuit breaker is active -- it should say temporarily unavailable.
+
+
     cf_part = err.split("Cloudflare:")[1].split(",")[0] if "Cloudflare:" in err else ""
     assert "kho" + chr(0x3001) not in cf_part, f"CF should not say 'not configured' when circuit-broken: {cf_part}"
-    # Check that it contains the cooldown indication (either Vietnamese or
-    # the circuit-breaker keyword in lowercase).
+
+
     err_lower = err.lower()
     assert "circuit" in err_lower or "gioi" in err_lower or "tam thoi" in err_lower or "cooldown" in err_lower, \
         f"Expected circuit-breaker indicator in error, got: {err}"
@@ -117,9 +117,9 @@ def test_generate_text_with_fallback_error_message():
 
     assert err is not None
     assert "Không thể sinh nội dung" in err
-    # Cloudflare is configured but not working (no real key) → should show error
+
     assert "Cloudflare:" in err
-    # Gemini and Cloudflare should be mentioned in the breakdown
+
     assert "Gemini" in err
     print("✓ test_generate_text_with_fallback_error_message")
 

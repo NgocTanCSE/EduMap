@@ -1,5 +1,5 @@
 """
-Pydantic models for the ImpactMatch ranking endpoint (Idea #9).
+Pydantic models for the ImpactMatch ranking endpoint (Idea
 
 Flow:
   Backend ImpactMatchService pre-filters need×sponsor pairs at the SQLite

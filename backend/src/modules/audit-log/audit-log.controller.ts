@@ -6,19 +6,19 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/entities/user.entity';
 import { AuditLogService } from './audit-log.service';
 import { AuditLogQueryDto } from './dto/audit-log-query.dto';
-
 @ApiTags('Audit Logs')
 @Controller('audit-logs')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.MODERATOR)
 @ApiBearerAuth()
 export class AuditLogController {
-  constructor(private readonly auditLogService: AuditLogService) {}
-
-  @Get()
-  @UsePipes(new ValidationPipe({ transform: true }))
-  @ApiOperation({ summary: 'Lấy danh sách nhật ký hệ thống' })
-  async getLogs(@Query() query: AuditLogQueryDto) {
-    return this.auditLogService.findAll(query);
-  }
+    constructor(private readonly auditLogService: AuditLogService) { }
+    @Get()
+    @UsePipes(new ValidationPipe({ transform: true }))
+    @ApiOperation({ summary: 'Lấy danh sách nhật ký hệ thống' })
+    async getLogs(
+    @Query()
+    query: AuditLogQueryDto) {
+        return this.auditLogService.findAll(query);
+    }
 }

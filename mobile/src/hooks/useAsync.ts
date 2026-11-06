@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-/**
- * Generic async hook for screen-level data fetching.
- * Returns { data, error, loading, execute, reset } so screens can call an API
- * on mount or on demand without boilerplate.
- */
+
 export function useAsync<T = any>(fn?: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<any>(null);

@@ -4,10 +4,8 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# --- Database Configuration ---
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": os.getenv("DB_PORT", "5432"),
@@ -24,7 +22,6 @@ def seed_real_dntu_data():
 
         print("--- VALIDATING & SEEDING REAL DNTU DATA ---")
 
-        # 1. SEED SCHOLARSHIPS (opportunities table)
         print("1. Cleaning old DNTU scholarships...")
         cur.execute("DELETE FROM opportunities WHERE organization = 'Đại học Công nghệ Đồng Nai (DNTU)' AND type = 'scholarship';")
 
@@ -67,7 +64,6 @@ def seed_real_dntu_data():
             """, (s["title"], s["desc"], s["reqs"], s["benefits"], json.dumps(s["tags"])))
 
 
-        # 2. SEED MAJORS (career_paths table)
         print("2. Cleaning old DNTU career paths...")
         cur.execute("DELETE FROM career_paths WHERE resources::text LIKE '%DNTU%';")
 

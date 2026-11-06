@@ -18,11 +18,11 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode (no PostgreSQL needed for these tests)
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 
-# Point to the local seed DB; seed it before importing the service
+
 _DB_PATH = os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 _DB_PATH = os.path.abspath(_DB_PATH)
 os.environ["DB_SQLITE_PATH"] = _DB_PATH
@@ -68,23 +68,23 @@ def _ensure_seed_data():
 
 _ensure_seed_data()
 
-from services.predictive_service import predictive_service  # noqa: E402
-from routers.analytics import _holt_linear_forecast  # noqa: E402
+from services.predictive_service import predictive_service
+from routers.analytics import _holt_linear_forecast
 
 
-# ── Env guard ────────────────────────────────────────────────────────────────
-#
-# Other test modules in this suite (notably test_data_quality.py and
-# test_map_agent.py) mutate the *global* `os.environ` DB_SQLITE_PATH / DB_TYPE
-# during their own execution and do not always restore them (e.g.
-# test_data_quality leaves DB_SQLITE_PATH pointing at /tmp/test_edumap_dq.db,
-# a throw-away DB that only has a `map_points` table and no education_stats
-# rows). Because analytics._sqlite_path() reads these env vars at *call time*
-# (no import-time caching), those stray mutations make predict_educational_gaps
-# silently read an empty/wrong database when the full suite runs together.
-#
-# predictive_service does not cache stats/pois, so we just need to (re)point
-# the env vars at the real local seed DB before every test in this module.
+
+
+
+
+
+
+
+
+
+
+
+
+
 @pytest.fixture(autouse=True)
 def _force_sqlite_env():
     _prev = {
@@ -105,7 +105,7 @@ def _force_sqlite_env():
                 os.environ[_k] = _v
 
 
-# ──────────────────────────── get_market_trends ────────────────────────────
+
 
 def test_get_market_trends_returns_structured_data_not_empty():
     """get_market_trends must NOT return {} — it should return a structured
@@ -152,7 +152,7 @@ def test_get_market_trends_forecast_values_are_positive():
     print("✓ get_market_trends forecast values are non-negative")
 
 
-# ──────────────────────── predict_career_path ────────────────────────────────
+
 
 def test_predict_career_path_empty_input_returns_no_input():
     """Empty user_history should return no_input status, not a crash."""
@@ -200,12 +200,12 @@ def test_predict_career_path_uses_holt_parameters():
     print("✓ predict_career_path references Holt's alpha=0.3, beta=0.1")
 
 
-# ──────────────────────────── analyze_trends ────────────────────────────────
+
 
 def test_analyze_trends_uses_holt_method():
     """analyze_trends should use Holt's forecasting on real data when available."""
     trends = predictive_service.analyze_trends([])
-    # At minimum, should return a list (possibly empty if no data)
+
     assert isinstance(trends, list)
     if trends:
         methods = {t.get("method") for t in trends}
@@ -217,23 +217,23 @@ def test_analyze_trends_with_keywords_fallback():
     """analyze_trends should still include keyword frequency analysis when data present."""
     trends = predictive_service.analyze_trends([{"keyword": "Python"}, {"keyword": "Web"}])
     assert isinstance(trends, list)
-    # Should include keyword_frequency entries for the provided keywords
+
     kw_entries = [t for t in trends if t.get("method") == "keyword_frequency"]
     kw_names = {t["name"] for t in kw_entries}
     assert "python" in kw_names or "web" in kw_names
     print("✓ analyze_trends includes keyword frequency analysis")
 
 
-# ────────────────────────── Holt's consistency ────────────────────────────────
+
 
 def test_holt_forecast_consistency_with_analytics():
     """The predictive service's Holt forecast must match analytics.py's
     _holt_linear_forecast exactly (true sync, not a copy)."""
     years = [2022, 2023, 2024]
     values = [80.0, 85.0, 90.0]
-    # Direct call to analytics.py
+
     direct = _holt_linear_forecast(years, values, steps_ahead=3)
-    # Via predictive_service._forecast (delegates to analytics)
+
     via_service = predictive_service._forecast(years, values, steps_ahead=3)
     assert direct == via_service
     assert len(direct) == 3
@@ -254,7 +254,7 @@ def test_holt_forecast_negative_clamped():
     print("✓ Holt forecast clamps negatives to 0")
 
 
-# ──────────────── predict_educational_gaps (Idea #3) ────────────────────────
+
 
 def test_gap_forecast_returns_geojson_featurecollection():
     """Output must be a valid GeoJSON FeatureCollection with the expected
@@ -264,7 +264,7 @@ def test_gap_forecast_returns_geojson_featurecollection():
     assert isinstance(result, dict)
     assert result["type"] == "FeatureCollection"
     assert isinstance(result["features"], list)
-    # heat_points is [lat, lng, weight]
+
     assert isinstance(result["heat_points"], list)
     assert isinstance(result["risk_ranking"], list)
     assert isinstance(result["trends"], list)
@@ -278,7 +278,7 @@ def test_gap_forecast_heat_points_format_and_bounds():
     for p in result["heat_points"]:
         assert len(p) == 3, f"heat_point must be [lat,lng,weight], got {p}"
         lat, lng, weight = p
-        # Vietnam lat/lng bounds sanity check
+
         assert -90 <= lat <= 90
         assert -180 <= lng <= 180
         assert 0.0 <= weight <= 1.0, f"weight out of [0,1]: {weight}"
@@ -317,8 +317,8 @@ def test_gap_forecast_dbscan_prefilter_capped():
     """Whole-country call (lots of POIs) must pre-filter DBSCAN to ≤2000 pts."""
     result = predictive_service.predict_educational_gaps(None, 3)
     meta = result["metadata"]
-    # pois_loaded is the raw count (≈3,200+); pois_clustered is the post-filter
-    # cap that DBSCAN actually sees.
+
+
     assert meta.get("pois_loaded") > 0
     assert meta.get("pois_clustered") <= 2000, f"DBSCAN pre-filter exceeded 2000: {meta.get('pois_clustered')}"
     assert meta.get("pois_clustered") <= meta.get("pois_loaded")
@@ -334,7 +334,7 @@ def test_gap_forecast_degraded_when_sparse():
     meta = result["metadata"]
     assert meta.get("degraded") is True
     assert isinstance(meta.get("reason"), str) and len(meta["reason"]) > 0
-    # Even when degraded, the structure the frontend expects must exist.
+
     assert isinstance(result["heat_points"], list)
     assert isinstance(result["risk_ranking"], list)
     print(f"✓ degraded gracefully for sparse region: {meta['reason']}")
@@ -354,9 +354,9 @@ def test_cluster_polygon_returns_polygon_for_three_plus_points():
     geom = predictive_service._cluster_polygon(members)
     assert geom["type"] == "Polygon", f"expected Polygon, got {geom['type']}"
     ring = geom["coordinates"][0]
-    assert len(ring) >= 4  # closed ring: N hull vertices + the repeated first
+    assert len(ring) >= 4
     assert ring[0] == ring[-1], "GeoJSON rings must be closed"
-    # RFC 7946 order is [lng, lat] — a swap would put a value > 90 first.
+
     assert all(abs(pt[0]) <= 180 and abs(pt[1]) <= 90 for pt in ring)
 
 

@@ -1,6 +1,6 @@
 """Resource Optimizer service — MCLP (Maximum Coverage Location Problem).
 
-Idea #1: AI Education Resource Optimizer (MCLP)
+Idea
   Given a budget and a set of learner / POI demand points plus candidate
   facility sites, decide where to place Wi-Fi, computers, bookcases (library)
   and study-space facilities so the maximum number of learners is covered.
@@ -37,7 +37,7 @@ try:
     from scipy.optimize import milp, LinearConstraint, Bounds
     from scipy.sparse import lil_matrix, csr_matrix
     SCIPY_OK = True
-except ImportError:  # pragma: no cover - scipy is in requirements.txt
+except ImportError:
     SCIPY_OK = False
     np = None
     milp = None
@@ -48,12 +48,12 @@ except ImportError:  # pragma: no cover - scipy is in requirements.txt
 
 import pandas as pd
 
-# ── Defaults (Biên Hòa region, matching the rest of EduMap) ──────────────────
+
 DEFAULT_CENTER = {"lat": 10.9567, "lng": 107.1825}
 
-# Facility type catalog: cost (VND) + per-type coverage radius (km).
-# These are sensible defaults for a Vietnamese secondary-city context; clients
-# may override per call.
+
+
+
 DEFAULT_FACILITY_TYPES: Dict[str, Dict[str, float]] = {
     "wifi":       {"cost": 1_500_000, "radius_km": 0.6, "label": "Wi-Fi công cộng"},
     "computer":   {"cost": 8_000_000, "radius_km": 0.3, "label": "Phòng máy tính"},
@@ -61,10 +61,10 @@ DEFAULT_FACILITY_TYPES: Dict[str, Dict[str, float]] = {
     "study_space":{"cost": 5_000_000, "radius_km": 0.5, "label": "Không gian học tập"},
 }
 
-MAX_CANDIDATES = 200   # hard cap from the risk note in AGENTS.md
-MAX_DEMAND_POINTS = 500  # keep coverage matrix small on 1-vCPU
+MAX_CANDIDATES = 200
+MAX_DEMAND_POINTS = 500
 
-# Budget split ratios for the three plans A / B / C
+
 PLAN_RATIOS = {"A": 0.40, "B": 0.70, "C": 1.00}
 PLAN_LABELS = {"A": "Cơ sở dữ liệu (40% ngân sách)", "B": "Cân bằng (70% ngân sách)", "C": "Toàn diện (100% ngân sách)"}
 
@@ -163,7 +163,7 @@ class ResourceOptimizer:
         """Boolean coverage matrix ``a[i][j] = 1`` if facility j covers demand i."""
         m = len(demand_points)
         n = len(candidates)
-        # Per-facility radius may differ, so compute per (i,j) pair.
+
         mat = np.zeros((m, n), dtype=float)
         for i, d in enumerate(demand_points):
             dlat, dlng = float(d["lat"]), float(d["lng"])
@@ -182,36 +182,36 @@ class ResourceOptimizer:
         if not SCIPY_OK or milp is None:
             return None
 
-        n = len(costs)           # facility variables
-        m = len(weights)         # demand-coverage variables
+        n = len(costs)
+        m = len(weights)
         n_vars = n + m
 
-        # Objective: minimise  -Σ w_i y_i  (= maximise weighted coverage)
+
         c = np.concatenate([np.zeros(n), -weights]).astype(float)
 
-        # All variables binary
+
         integrality = np.ones(n_vars)
         bounds = Bounds(lb=0.0, ub=1.0)
 
-        # ── Constraint matrix (sparse, 1 (budget) + m (coverage)) ──
-        # Variable order: [x_0..x_{n-1}, y_0..y_{m-1}]
+
+
         A = lil_matrix((1 + m, n_vars), dtype=float)
         ub = np.full(1 + m, np.inf)
         lb = np.full(1 + m, -np.inf)
 
-        # 1) Budget: Σ c_j x_j ≤ budget  →  ub[0] = budget
+
         A[0, :n] = costs
         ub[0] = budget
 
-        # 2) Coverage: y_i ≤ Σ a_{ij} x_j   →   Σ a_{ij} x_j − y_i ≥ 0
-        #    In ≤ form :  −Σ a_{ij} x_j + y_i ≤ 0
-        #    A row offset by 1+i, column  : -a[i,j] for j in [0,n), +1 at col n+i
-        #    (only set non-zero entries for efficiency)
+
+
+
+
         rows, cols = np.where(coverage > 0)
         for i, j in zip(rows, cols):
-            A[1 + i, j] = -1.0          # −a_{ij}
+            A[1 + i, j] = -1.0
         for i in range(m):
-            A[1 + i, n + i] = 1.0       # +1 · y_i
+            A[1 + i, n + i] = 1.0
         ub[1:] = 0.0
 
         try:
@@ -242,13 +242,13 @@ class ResourceOptimizer:
         selected: List[int] = []
         remaining_budget = budget
 
-        col_sums = coverage.sum(axis=0)  # demand count per facility (for ordering)
-        order = np.argsort(-col_sums)    # most-covering first
+        col_sums = coverage.sum(axis=0)
+        order = np.argsort(-col_sums)
 
         for j in order:
             if costs[j] > remaining_budget:
                 continue
-            # marginal gain: demand points newly covered by facility j
+
             new_cov = coverage[:, j].astype(bool) & ~covered
             gain = float(np.dot(weights, new_cov))
             if gain <= 0:
@@ -268,8 +268,8 @@ class ResourceOptimizer:
         costs = np.array([self._facility_cost(c, facility_types) for c in candidates], dtype=float)
         coverage = self._build_coverage_matrix(demand_points, candidates, facility_types)
 
-        # Effective budget: can't select more facilities than we have, and
-        # can't exceed total cost of all candidates.
+
+
         eff_budget = min(budget, float(costs.sum()) if len(costs) else 0)
 
         selected_idx = self._solve_milp(weights, costs, coverage, eff_budget)
@@ -279,7 +279,7 @@ class ResourceOptimizer:
             selected_idx = self._solve_greedy(weights, costs, coverage, eff_budget)
             solver_used = "greedy_fallback"
 
-        # Compute coverage results
+
         served_mask = np.zeros(len(demand_points), dtype=bool)
         per_facility_served: Dict[int, int] = {}
         for j in selected_idx:
@@ -293,7 +293,7 @@ class ResourceOptimizer:
         total_cost = float(costs[selected_idx].sum()) if selected_idx else 0.0
         budget_used_pct = round(total_cost / budget * 100, 1) if budget > 0 else 0.0
 
-        # Demand points NOT served by this plan (gap points)
+
         gap_indices = [i for i in range(len(demand_points)) if not served_mask[i]]
 
         return {
@@ -364,10 +364,10 @@ class ResourceOptimizer:
         """
         t0 = time.monotonic()
 
-        # ── Resolve inputs ──────────────────────────────────────────────
+
         budget = float(data.get("budget", 30_000_000))
 
-        # Facility type catalog
+
         facility_types = dict(DEFAULT_FACILITY_TYPES)
         ft_override = data.get("facility_types")
         if isinstance(ft_override, dict):
@@ -379,16 +379,16 @@ class ResourceOptimizer:
                         "label": v.get("label", DEFAULT_FACILITY_TYPES.get(k.lower(), {}).get("label", k)),
                     }
 
-        # If a global coverage_radius_km is given, override all facility radii
+
         global_radius = data.get("coverage_radius_km")
 
         center = data.get("center") or DEFAULT_CENTER
         region_radius = float(data.get("region_radius_km", 10.0))
 
-        # Demand points
+
         raw_demand = data.get("demand_points") or []
         if not raw_demand:
-            # Default: use existing POIs from the DB (or grid demand points)
+
             raw_demand = self._default_demand_points(center, region_radius)
 
         demand_points = []
@@ -403,13 +403,13 @@ class ResourceOptimizer:
                                      "address": d.get("address", "")})
             except (TypeError, ValueError):
                 continue
-        # Cap demand points
+
         if len(demand_points) > MAX_DEMAND_POINTS:
-            # Keep the highest-weight demand points
+
             demand_points.sort(key=lambda d: d["weight"], reverse=True)
             demand_points = demand_points[:MAX_DEMAND_POINTS]
 
-        # Candidate locations
+
         raw_cands = data.get("candidate_locations") or []
         if not raw_cands:
             raw_cands = self._build_grid_candidates(center, region_radius, grid_step_km=1.5)
@@ -435,7 +435,7 @@ class ResourceOptimizer:
             except (TypeError, ValueError):
                 continue
 
-        # Pre-filter to <= 200 candidates
+
         pre_filtered = False
         if len(candidates) > MAX_CANDIDATES:
             candidates = self._pre_filter_candidates(candidates, demand_points,
@@ -466,7 +466,7 @@ class ResourceOptimizer:
                 },
             }
 
-        # ── Solve A / B / C plans ───────────────────────────────────────
+
         plan_results: Dict[str, Dict] = {}
         all_features: List[Dict] = []
         for plan_name, ratio in PLAN_RATIOS.items():
@@ -484,7 +484,7 @@ class ResourceOptimizer:
                 "budget": round(plan_budget, 2),
                 "solver": result["solver"],
             }
-            # Build facility features for this plan
+
             for j in result["selected_indices"]:
                 served = result["per_facility_served"].get(j, 0)
                 feat = self._to_facility_feature(candidates[j], plan_name, served)
@@ -492,7 +492,7 @@ class ResourceOptimizer:
                 feat["properties"]["radius_km"] = candidates[j]["radius_km"]
                 all_features.append(feat)
 
-        # ── Gap analysis (based on the best plan C) ──────────────────────
+
         best_plan = plan_results["C"]
         best_result = self._solve_plan(demand_points, candidates, budget * PLAN_RATIOS["C"], facility_types)
         gap_features = [self._to_gap_feature(demand_points[i]) for i in best_result["gap_indices"]]
@@ -525,7 +525,7 @@ class ResourceOptimizer:
         lat0 = float(center.get("lat", DEFAULT_CENTER["lat"]))
         lng0 = float(center.get("lng", DEFAULT_CENTER["lng"]))
         points = []
-        # 24 evenly-spaced demand points in a circle
+
         for k in range(24):
             angle = 2 * math.pi * k / 24
             r = radius_km * (0.3 + 0.7 * (k / 24))
@@ -545,5 +545,5 @@ def solver_used_fallback() -> str:
     return "none"
 
 
-# Singleton (mirrors the pattern used by clustering_service, vector_store, etc.)
+
 resource_optimizer = ResourceOptimizer()

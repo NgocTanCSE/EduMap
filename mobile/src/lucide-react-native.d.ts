@@ -3,7 +3,7 @@ declare module 'lucide-react-native' {
 
   export type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
-  // Core icons used across the app
+
   export const MapPin: LucideIcon;
   export const MessageSquare: LucideIcon;
   export const Briefcase: LucideIcon;
@@ -12,7 +12,7 @@ declare module 'lucide-react-native' {
   export const Building2: LucideIcon;
   export const DollarSign: LucideIcon;
   export const Clock: LucideIcon;
-  // Extended set for additional screens
+
   export const Search: LucideIcon;
   export const Award: LucideIcon;
   export const Users: LucideIcon;

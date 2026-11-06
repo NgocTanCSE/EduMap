@@ -17,7 +17,7 @@ from services.nl_query_parser import NLQueryParser
 
 router = APIRouter(prefix="/api/ai/map", tags=["4. Talk2Map (NLP → GIS)"])
 
-# ── Lazy service loading (same pattern as routers/geo.py) ─────────────────
+
 _services_loaded = False
 _parser: NLQueryParser | None = None
 
@@ -31,7 +31,7 @@ def _get_parser() -> NLQueryParser:
             from services.llm_service import llm_service as llm
             llm_service = llm
         except Exception:
-            # LLM service not available — parser will run in regex-only mode
+
             pass
         _parser = NLQueryParser(llm_service=llm_service)
         _services_loaded = True
@@ -89,9 +89,9 @@ async def parse_map_query(request: Talk2MapQueryRequest):
         parser = _get_parser()
         parsed = await parser.parse_async(text)
         explanation = parser.generate_explanation(parsed)
-        # Voice-to-Geo (Idea #16, Task 3): classify the parsed query into an
-        # intent (geo_recommend / report_form / geo_query) using the same
-        # regex baseline so it works on HF Spaces without an LLM key.
+
+
+
         intent = parser.extract_intent(parsed)
 
         return {
@@ -104,9 +104,9 @@ async def parse_map_query(request: Talk2MapQueryRequest):
     except HTTPException:
         raise
     except Exception as e:
-        # Never crash — return a minimal degraded result so the chat / map
-        # feature still responds. The backend caller checks ``degraded``
-        # and surfaces a hint to the user if needed.
+
+
+
         return {
             "status": "success",
             "degraded": True,

@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-# Load environment variables
+
 load_dotenv()
 
 from services.vector_store import vector_store
@@ -61,7 +61,7 @@ def get_sqlite_connection():
         return None
     try:
         conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row  # truy cap cot bang ten (tuong tu RealDictCursor)
+        conn.row_factory = sqlite3.Row
         print(f"  -> Ket noi SQLite thanh cong tai {db_path}")
         return conn
     except Exception as e:
@@ -88,9 +88,9 @@ def fetch_data_from_sqlite(conn):
     metadatas = []
     ids = []
 
-    cur = conn.cursor()  # sqlite3.Row factory da duoc set o get_sqlite_connection
+    cur = conn.cursor()
 
-    # 1. Hoc bong (scholarships)
+
     try:
         cur.execute("""
             SELECT id, title, description, provider, value_amount, deadline, eligibility_criteria
@@ -101,7 +101,7 @@ def fetch_data_from_sqlite(conn):
         for r in rows:
             criteria = r["eligibility_criteria"]
             if isinstance(criteria, str):
-                # co the la JSON string
+
                 try:
                     parsed = json.loads(criteria)
                     criteria_str = json.dumps(parsed, ensure_ascii=False)
@@ -129,7 +129,7 @@ def fetch_data_from_sqlite(conn):
         print(f"  ! Khong the doc bang scholarships: {e}")
         conn.rollback()
 
-    # 2. Phong STEM Lab (stem_labs)
+
     try:
         cur.execute("""
             SELECT id, name, description, equipment, location_point_text, capacity, contact
@@ -156,7 +156,7 @@ def fetch_data_from_sqlite(conn):
         print(f"  ! Khong the doc bang stem_labs: {e}")
         conn.rollback()
 
-    # 3. Lo trinh nghe nghiep (career_paths)
+
     try:
         cur.execute("""
             SELECT id, title, description, skills_required, roadmap_json, salary_range, demand_level
@@ -186,7 +186,7 @@ def fetch_data_from_sqlite(conn):
         print(f"  ! Khong the doc bang career_paths: {e}")
         conn.rollback()
 
-    # 4. Diem truy cap Wifi (wifi_locations)
+
     try:
         cur.execute("""
             SELECT id, name, address, speed_mbps, is_free, provider, hint
@@ -212,7 +212,7 @@ def fetch_data_from_sqlite(conn):
         print(f"  ! Khong the doc bang wifi_locations: {e}")
         conn.rollback()
 
-    # 5. Dia diem & Tien ich truong hoc (locations + location_categories)
+
     try:
         cur.execute("""
             SELECT l.id, l.name, l.description, l.address, l.city, c.name as category_name
@@ -236,7 +236,7 @@ def fetch_data_from_sqlite(conn):
         print(f"  ! Khong the doc bang locations: {e}")
         conn.rollback()
 
-    # 6. Tai lieu hoc tap & Thu vien (learning_materials)
+
     try:
         cur.execute("""
             SELECT id, title, description, type, subject, grade, author_id
@@ -277,7 +277,7 @@ def fetch_data_from_db(conn):
 
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    # 1. Hoc bong (scholarships)
+
     try:
         cur.execute("""
             SELECT id, title, description, provider, value_amount, deadline, eligibility_criteria
@@ -307,7 +307,7 @@ def fetch_data_from_db(conn):
         print(f"  ! Khong the doc bang scholarships: {e}")
         conn.rollback()
 
-    # 2. Phong STEM Lab (stem_labs)
+
     try:
         cur.execute("""
             SELECT id, name, description, equipment, location_point_text, capacity, contact
@@ -337,7 +337,7 @@ def fetch_data_from_db(conn):
         print(f"  ! Khong the doc bang stem_labs: {e}")
         conn.rollback()
 
-    # 3. Lo trinh nghe nghiep (career_paths)
+
     try:
         cur.execute("""
             SELECT id, title, description, skills_required, roadmap_json, salary_range, demand_level
@@ -359,8 +359,8 @@ def fetch_data_from_db(conn):
                 f"Lo trinh chi tiet: {r.get('description') or 'Chuong trinh dao tao gan lien voi nhu cau doanh nghiep.'}."
             )
             documents.append(doc_text)
-            # Include skills_required in metadata so the semantic search can
-            # compute match scores and missing-skills without re-parsing text.
+
+
             metadatas.append({"title": r["title"], "category": "career", "source": "db_career_paths", "skills_required": skills_str, "field": r.get("field") or ""})
             ids.append(f"career_{r['id']}")
         if rows:
@@ -369,7 +369,7 @@ def fetch_data_from_db(conn):
         print(f"  ! Khong the doc bang career_paths: {e}")
         conn.rollback()
 
-    # 4. Diem truy cap Wifi (wifi_locations)
+
     try:
         cur.execute("""
             SELECT id, name, address, speed_mbps, is_free, provider, hint
@@ -395,7 +395,7 @@ def fetch_data_from_db(conn):
         print(f"  ! Khong the doc bang wifi_locations: {e}")
         conn.rollback()
 
-    # 5. Dia diem & Tien ich truong hoc (locations)
+
     try:
         cur.execute("""
             SELECT l.id, l.name, l.description, l.address, l.city, c.name as category_name
@@ -419,10 +419,10 @@ def fetch_data_from_db(conn):
         print(f"  ! Khong the doc bang locations: {e}")
         conn.rollback()
 
-    # 6. Tai lieu hoc tap & Thu vien (learning_materials)
+
     try:
-        # schema thuc te: id, title, description, type, subject, grade, author_id, ...
-        # (khong co cot category/author nhu cu — da sua de gioi qua loi "column does not exist")
+
+
         cur.execute("""
             SELECT id, title, description, type, subject, grade, author_id
             FROM learning_materials
@@ -503,7 +503,7 @@ def seed_data():
     source = "database"
 
     if db_type == "sqlite":
-        # ── HF Spaces mode: read from SQLite (edumap.db) ──
+
         conn = get_sqlite_connection()
         if conn:
             try:
@@ -516,11 +516,11 @@ def seed_data():
                 conn.close()
         else:
             print("-> Khong the ket noi SQLite, se thu PostgreSQL...")
-            # Fall through to PostgreSQL attempt below
+
             db_type = "postgres"
 
     if db_type != "sqlite" or not documents:
-        # ── PostgreSQL mode (local Docker Compose) ──
+
         conn = get_db_connection()
         if conn:
             try:
@@ -540,13 +540,13 @@ def seed_data():
 
     print(f"-> Dang danh chi muc (indexing) {len(documents)} tai lieu vao ChromaDB...")
 
-    # ── Seed budget ──────────────────────────────────────────────────────
-    # The interactive embedding budget (EMBED_GLOBAL_TIMEOUT_SECONDS=6,
-    # EMBED_PROVIDER_TIMEOUT_SECONDS=4) is tuned so chat never blocks. Seeding
-    # runs in a background daemon thread at startup, so it can afford a longer
-    # budget — a cold HF Spaces container regularly needs >4s for the first
-    # remote embedding, which used to make the seed fail with 0 documents and
-    # `status=error` on every fresh Space.
+
+
+
+
+
+
+
     _prev_global = getattr(vector_store, "embed_global_timeout", None)
     _prev_provider = getattr(vector_store, "embed_provider_timeout", None)
     _seed_global = float(os.getenv("SEED_EMBED_GLOBAL_TIMEOUT_SECONDS", "25"))
@@ -567,9 +567,9 @@ def seed_data():
         try:
             stats = _index_batch()
         except Exception as first_err:
-            # One retry: the first remote call of a fresh container often fails
-            # while DNS/TLS warm up. Providers also have 5-min circuit breakers,
-            # so a retry is cheap once the first attempt already failed fast.
+
+
+
             print(f"Indexing attempt 1 failed ({first_err}) — retrying once in 10s...")
             import time as _seed_time
             _seed_time.sleep(10)

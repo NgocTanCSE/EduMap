@@ -13,19 +13,19 @@ import sys
 import json
 from unittest.mock import patch
 
-# Make ai-service importable.
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode (no PostgreSQL needed for these tests)
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_SQLITE_PATH"] = os.path.abspath(
     os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 )
 
-# Prevent real HTTP calls during tests (elevation/weather).
+
 os.environ["OWM_API_KEY"] = ""
 
 import pytest
@@ -44,7 +44,7 @@ from services.climate_guardian import (
     ACCESS_WEIGHT,
 )
 
-# ── Shared test fixtures: mock elevation to avoid real HTTP calls ──────────
+
 
 _ELEVATION_PATCH = patch(
     "services.climate_guardian._get_elevation",
@@ -59,7 +59,7 @@ def mock_elevation():
         yield mock
 
 
-# ── Geometry / scoring helper tests ──────────────────────────────────────────
+
 
 def test_point_in_polygon_true():
     poly = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
@@ -72,7 +72,7 @@ def test_point_in_polygon_false():
 
 
 def test_haversine_km_bien_hoa_to_dntu():
-    # DNTU (~10.9525, 106.8778) to DNU (~10.9423, 106.8475) ≈ 3.2 km.
+
     dist = _haversine_km(10.9525, 106.8778, 10.9423, 106.8475)
     assert 2.5 < dist < 4.0
 
@@ -136,7 +136,7 @@ def test_weather_severity_thunderstorm():
         "rain": {"1h": 5},
     }
     score = _weather_severity(weather)
-    assert 0.5 < score <= 1.0  # thunderstorm → high severity
+    assert 0.5 < score <= 1.0
 
 
 def test_season_from_month():
@@ -146,11 +146,11 @@ def test_season_from_month():
     assert _season_from_month(7) == "wet"
 
 
-# ── Flood risk scoring tests ─────────────────────────────────────────────────
+
 
 def test_flood_risk_inside_zone():
     """A point inside a static flood zone polygon should have high flood risk."""
-    # Đồng Nai flood zone centroid (~10.947, 106.867) is inside the polygon.
+
     zones = [{
         "name": "test",
         "polygon": [[106.840, 10.925], [106.895, 10.925],
@@ -158,7 +158,7 @@ def test_flood_risk_inside_zone():
         "risk_level": "high",
         "flood_months": [5, 6, 7, 8, 9, 10],
     }]
-    risk = _flood_risk(10.947, 106.867, 9, zones)  # September = wet season
+    risk = _flood_risk(10.947, 106.867, 9, zones)
     assert 0 < risk <= 1.0
 
 
@@ -171,7 +171,7 @@ def test_flood_risk_outside_zone():
         "risk_level": "high",
         "flood_months": [5, 6, 7, 8, 9, 10],
     }]
-    # Point in Hanoi (~21.0279, 105.8342) — far from Đồng Nai.
+
     risk = _flood_risk(21.0279, 105.8342, 9, zones)
     assert risk < 0.1
 
@@ -186,8 +186,8 @@ def test_flood_risk_outside_dry_season():
         "risk_level": "high",
         "flood_months": [5, 6, 7, 8, 9, 10],
     }]
-    risk_wet = _flood_risk(10.947, 106.867, 9, zones)   # September (wet)
-    risk_dry = _flood_risk(10.947, 106.867, 2, zones)   # February (not in flood_months)
+    risk_wet = _flood_risk(10.947, 106.867, 9, zones)
+    risk_dry = _flood_risk(10.947, 106.867, 2, zones)
     assert risk_wet > risk_dry
 
 
@@ -195,7 +195,7 @@ def test_flood_risk_empty_zones():
     assert _flood_risk(10.95, 106.87, 9, []) == 0.0
 
 
-# ── Heatmap integration tests ────────────────────────────────────────────────
+
 
 def test_risk_heatmap_valid_geojson():
     """Heatmap should return a valid GeoJSON FeatureCollection."""
@@ -236,12 +236,12 @@ def test_risk_heatmap_has_metadata():
 
 def test_risk_heatmap_date_param():
     """Date parameter should affect the season/month used in risk computation."""
-    # Wet season date.
+
     r_wet = climate_guardian.get_risk_heatmap(
         min_lat=10.92, max_lat=10.96, min_lng=106.84, max_lng=106.90,
         date="2025-09-15",
     )
-    # Dry season date.
+
     r_dry = climate_guardian.get_risk_heatmap(
         min_lat=10.92, max_lat=10.96, min_lng=106.84, max_lng=106.90,
         date="2025-02-15",
@@ -257,8 +257,8 @@ def test_risk_heatmap_cache():
     result1 = climate_guardian.get_risk_heatmap(
         min_lat=10.92, max_lat=10.96, min_lng=106.84, max_lng=106.90,
     )
-    # The service returns cached results directly (no "cached" flag in metadata
-    # since caching is transparent). Verify it doesn't crash and returns valid data.
+
+
     assert result1["type"] == "FeatureCollection"
     result2 = climate_guardian.get_risk_heatmap(
         min_lat=10.92, max_lat=10.96, min_lng=106.84, max_lng=106.90,
@@ -270,20 +270,20 @@ def test_risk_heatmap_cache():
 def test_risk_heatmap_default_bbox():
     """A bbox covering no flood zones should still return valid GeoJSON."""
     result = climate_guardian.get_risk_heatmap(
-        min_lat=21.0, max_lat=21.1, min_lng=105.8, max_lng=105.9,  # Hanoi
+        min_lat=21.0, max_lat=21.1, min_lng=105.8, max_lng=105.9,
     )
     assert result["type"] == "FeatureCollection"
     assert len(result["features"]) > 0
-    # Should be marked degraded (no flood zones in Hanoi).
+
     assert result["metadata"]["degraded"] is True
 
 
-# ── Alternatives tests ───────────────────────────────────────────────────────
+
 
 def test_alternatives_returns_geojson():
     """get_alternatives should return a valid GeoJSON FeatureCollection."""
     result = climate_guardian.get_alternatives(
-        lat=10.9525, lng=106.8778,  # DNTU
+        lat=10.9525, lng=106.8778,
         bbox=(10.90, 11.00, 106.80, 106.95),
         radius_km=10,
     )
@@ -308,10 +308,10 @@ def test_alternatives_safe_score_in_range():
 
 def test_alternatives_degraded_no_data():
     """If no facilities are found, should return degraded but valid GeoJSON."""
-    # Use a bbox far from any educational facility (ocean area).
+
     result = climate_guardian.get_alternatives(
         lat=12.0, lng=109.0,
-        bbox=(11.9, 12.1, 108.9, 109.1),  # Middle of the South China Sea
+        bbox=(11.9, 12.1, 108.9, 109.1),
         radius_km=5,
     )
     assert result["type"] == "FeatureCollection"
@@ -331,11 +331,11 @@ def test_alternatives_category_filter():
         assert f["properties"]["category"] == "university"
 
 
-# ── Graceful degradation tests ─────────────────────────────────────────────────
+
 
 def test_service_handles_empty_facilities():
     """The service should never crash when no facilities are loaded."""
-    # Hanoi area — may have facilities but no flood zones.
+
     result = climate_guardian.get_risk_heatmap(
         min_lat=21.0, max_lat=21.1, min_lng=105.8, max_lng=105.9,
     )

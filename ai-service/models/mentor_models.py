@@ -18,7 +18,7 @@ class MentorProfile(BaseModel):
     mbti: str = Field(default="")
     available_days: List[str] = Field(default=[])
 
-    # ── Extended fields (used by the pre-filter layer) ──────────────────────
+
     specialties: List[str] = Field(default=[])
     bio: Optional[str] = Field(default=None)
     location: Optional[str] = Field(default=None, description="Tỉnh/thành hoặc khu vực mentor hoạt động")
@@ -43,7 +43,7 @@ class MatchRequest(BaseModel):
 
     available_mentors: List[MentorProfile]
 
-    # ── Pre-filter metadata (added by mentor.service.ts getAIRecommendedMentors) ──
+
     student_region: Optional[str] = Field(
         default=None,
         description="Khu vực/quốc tỉ học sinh quan tâm — dùng để lọc mentor theo cự ly",

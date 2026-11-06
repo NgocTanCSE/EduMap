@@ -16,7 +16,7 @@ class CacheService:
         self.enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
         self.redis_host = os.getenv("REDIS_HOST", "localhost")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
-        
+
         if self.enabled:
             hosts_to_try = [self.redis_host, "redis", "localhost", "127.0.0.1"]
             connected = False
@@ -36,7 +36,7 @@ class CacheService:
                     break
                 except Exception:
                     continue
-            
+
             if not connected:
                 print("Redis connection failed on all common hosts. Caching disabled.")
                 self.enabled = False

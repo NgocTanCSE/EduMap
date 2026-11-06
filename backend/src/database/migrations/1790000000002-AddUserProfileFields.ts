@@ -1,17 +1,11 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
-
 export class AddUserProfileFields1790000000002 implements MigrationInterface {
-    name = 'AddUserProfileFields1790000000002'
-
+    name = 'AddUserProfileFields1790000000002';
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Thêm date_of_birth, major, location, email_verified vào bảng users
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "date_of_birth" DATE`);
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "major" character varying(255)`);
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "location" character varying(255)`);
         await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verified" boolean NOT NULL DEFAULT false`);
-
-        // Bảng user_preferences có thể chưa tồn tại (chưa có migration tạo nó).
-        // Tạo nếu thiếu để migration không fail trên Postgres fresh.
         await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "user_preferences" (
                 "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -25,11 +19,8 @@ export class AddUserProfileFields1790000000002 implements MigrationInterface {
                 "updated_at" TIMESTAMP NOT NULL DEFAULT now()
             )
         `);
-
-        // Thêm notification_settings vào bảng user_preferences (idempotent)
         await queryRunner.query(`ALTER TABLE "user_preferences" ADD COLUMN IF NOT EXISTS "notification_settings" TEXT`);
     }
-
     public async down(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "user_preferences" DROP COLUMN "notification_settings"`);
         await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "major"`);

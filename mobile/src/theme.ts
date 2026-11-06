@@ -1,21 +1,18 @@
-/**
- * EduMap Mobile — theme & style tokens.
- * Mirror of web frontend color palette (dark mode) for visual consistency.
- */
+
 export const Colors = {
-  primary: '#eab308',      // yellow-500
+  primary: '#eab308',
   primaryDark: '#a17a03',
-  background: '#09090b',   // zinc-950
-  surface: '#18181b',     // zinc-900
-  card: '#27272a',        // zinc-800
+  background: '#09090b',
+  surface: '#18181b',
+  card: '#27272a',
   border: '#27272a',
   text: '#ffffff',
-  textSecondary: '#a1a1aa', // zinc-400
-  textMuted: '#71717a',   // zinc-500
-  danger: '#ef4444',      // red-500
-  success: '#22c55e',     // green-500
-  warning: '#f59e0b',     // amber-500
-  info: '#3b82f6',        // blue-500
+  textSecondary: '#a1a1aa',
+  textMuted: '#71717a',
+  danger: '#ef4444',
+  success: '#22c55e',
+  warning: '#f59e0b',
+  info: '#3b82f6',
   overlay: 'rgba(0,0,0,0.6)',
 };
 

@@ -20,7 +20,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers + SQLite mode
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["DB_SQLITE_PATH"] = "/tmp/edumap_test.db"
 for _v in [
@@ -49,7 +49,7 @@ from services.data_quality import (
 )
 
 
-# ── parse_coords tests ─────────────────────────────────────────────────────
+
 
 def test_parse_coords_ewkt():
     """EWKT string 'SRID=4326;POINT(lng lat)' được parse đúng."""
@@ -99,11 +99,11 @@ def test_parse_coords_invalid():
     print("✓ test_parse_coords_invalid")
 
 
-# ── _haversine tests ─────────────────────────────────────────────────────────
+
 
 def test_haversine_dntu_to_lhu():
     """Khoảng cách DNTU → LHU (~8km) phải nằm trong ngưỡng 7–9km."""
-    # DNTU: 10.98448, 106.86965 ; LHU: 10.95322, 106.80245
+
     d = _haversine(10.98448, 106.86965, 10.95322, 106.80245)
     assert 7000 < d < 9000, f"Expected ~8km, got {d}m"
     print(f"✓ test_haversine_dntu_to_lhu ({d:.0f}m)")
@@ -115,7 +115,7 @@ def test_haversine_same_point():
     print("✓ test_haversine_same_point")
 
 
-# ── Rule-based detection tests ───────────────────────────────────────────────
+
 
 def _make_poi(id, name="Test POI", lat=10.95, lng=106.84, address="123 Test St",
               city="Biên Hòa", district="Trảng Dài", category="university",
@@ -140,7 +140,7 @@ def test_rule_missing_coordinates():
 
 def test_rule_invalid_coordinates():
     """Tọa độ ngoài biên giới VN → trigger invalid_coordinates."""
-    # Tọa độ ở ngoài biển (giữa biển Đông)
+
     points = [_make_poi("2", lat=5.0, lng=120.0, address="Test")]
     result = _run_rules(points)
     assert "invalid_coordinates" in result.get("2", [])
@@ -193,7 +193,7 @@ def test_rule_valid_poi_no_anomalies():
     print("✓ test_rule_valid_poi_no_anomalies")
 
 
-# ── Confidence scoring tests ─────────────────────────────────────────────────
+
 
 def test_confidence_iforest_only():
     """IsolationForest-only anomaly → confidence >= 0.7 (risks mitigation)."""
@@ -217,7 +217,7 @@ def test_confidence_rule_plus_iforest():
     print(f"✓ test_confidence_rule_plus_iforest ({conf_no_if} → {conf_with_if})")
 
 
-# ── IsolationForest tests ────────────────────────────────────────────────────
+
 
 def test_isolation_forest_no_valid_points():
     """Không có tọa độ hợp lệ → trả về dict rỗng."""
@@ -229,7 +229,7 @@ def test_isolation_forest_no_valid_points():
 
 def test_isolation_forest_detects_outlier():
     """IsolationForest phát hiện điểm outlier rõ rệt."""
-    # 50 điểm tập trung quanh TP.HCM + 1 điểm ở miền Bắc (Hà Nội)
+
     points = []
     for i in range(50):
         points.append({
@@ -241,8 +241,8 @@ def test_isolation_forest_detects_outlier():
 
     scores = _run_isolation_forest(points)
     assert "outlier" in scores, "Outlier point should get a score"
-    # Hà Nội (21.x) nên là outlier — điểm số âm hơn (anomalous)
-    # so với các điểm ở TP.HCM
+
+
     outlier_score = scores.get("outlier", 0)
     normal_score = scores.get("p0", 0)
     assert outlier_score < normal_score, f"Outlier score ({outlier_score}) should be lower than normal ({normal_score})"
@@ -251,14 +251,14 @@ def test_isolation_forest_detects_outlier():
 
 def test_isolation_forest_chunking():
     """IsolationForest chạy đúng cách chunk > 1000 hàng."""
-    # Tạo 1200 điểm — vượ qua chunk size 1000
+
     points = [{"id": f"c{i}", "lat": 10.8 + i * 0.0001, "lng": 106.7 + i * 0.0001} for i in range(1200)]
     scores = _run_isolation_forest(points, chunk_size=1000)
     assert len(scores) == 1200, f"Expected 1200 scores, got {len(scores)}"
     print("✓ test_isolation_forest_chunking")
 
 
-# ── Name normalization & similarity ─────────────────────────────────────────
+
 
 def test_normalize_name_abbrev():
     """Tên viết tắt được chuẩn hóa."""
@@ -275,7 +275,7 @@ def test_name_similarity_high():
     print("✓ test_name_similarity_high")
 
 
-# ── Report / DataQualityService tests ────────────────────────────────────────
+
 
 def test_report_empty_when_no_data():
     """Khi không có dữ liệu (SQLite path không tồn tại) → degraded = True, anomalies rỗng."""
@@ -290,7 +290,7 @@ def test_report_empty_when_no_data():
 
 def test_report_structure():
     """Report trả về cấu trúc đúng shape."""
-    # Tạo SQLite DB giả định để test
+
     import sqlite3
     db_path = "/tmp/test_edumap_dq.db"
     if os.path.exists(db_path):
@@ -326,19 +326,19 @@ def test_report_structure():
     assert result["summary"]["total_checked"] == 4
     assert result["summary"]["total_anomalies"] >= 1, f"Expected at least 1 anomaly, got {result['summary']['total_anomalies']}"
 
-    # POIs uuid-3 (invalid coords + bad status + stale) và uuid-4 (missing coords + missing name + missing address)
+
     anomaly_ids = [a["id"] for a in result["anomalies"]]
     assert "uuid-3" in anomaly_ids, f"uuid-3 should be flagged, got {anomaly_ids}"
     assert "uuid-4" in anomaly_ids, f"uuid-4 should be flagged, got {anomaly_ids}"
 
-    # Kiểm tra anomaly có confidence
+
     for a in result["anomalies"]:
         assert 0 <= a["confidence"] <= 1.0
         assert a["priority"] in ("high", "medium", "low")
         assert len(a["reasons"]) > 0
         assert len(a["anomaly_types"]) > 0
 
-    # Dọn dẹp
+
     os.remove(db_path)
 
     print(f"✓ test_report_structure ({result['summary']['total_anomalies']} anomalies found)")
@@ -373,15 +373,15 @@ def test_report_category_filter():
     os.environ["DB_SQLITE_PATH"] = db_path
     svc = DataQualityService()
 
-    # Lọc category=school (type_id=2) — u1 (School A) có dữ liệu hợp lệ nên clean,
-    # u2 (university) và u3 (university, missing coords) bị lọc ra ngoài
+
+
     result = svc.report(category="school", limit=500)
     assert result["summary"]["total_checked"] == 1, f"Expected 1 school, got {result['summary']['total_checked']}"
-    # u1 has valid data → 0 anomalies (when include_clean=False)
+
     assert result["summary"]["total_anomalies"] == 0, f"Expected 0 anomalies for clean school, got {result['summary']['total_anomalies']}"
     assert result["anomalies"] == []
 
-    # include_clean=True → u1 appears dưới dạng clean record
+
     result_clean = svc.report(category="school", limit=500, include_clean=True)
     assert result_clean["summary"]["total_checked"] == 1
     assert len(result_clean["anomalies"]) == 1
@@ -391,12 +391,12 @@ def test_report_category_filter():
     print("✓ test_report_category_filter")
 
 
-# ── Smoke test for router integration ────────────────────────────────────────
+
 
 def test_router_importable():
     """Router data_quality.py phải import được và có router attribute."""
     import importlib
-    # Reset module cache to pick up fresh env
+
     if 'routers.data_quality' in sys.modules:
         del sys.modules['routers.data_quality']
     mod = importlib.import_module('routers.data_quality')
@@ -405,13 +405,13 @@ def test_router_importable():
     print("✓ test_router_importable")
 
 
-# ── Backend admin endpoint guard test (conceptual) ───────────────────────────
+
 
 def test_admin_controller_guard_structure():
     """Kiểm tra rằng AdminController có endpoint data-quality/report
     với guard và role decoration (được gắn bởi class-level @UseGuards + @Roles)."""
-    # Đây là smoke test — chúng ta kiểm tra metadata của decorator trên file nguồn
-    # vì TypeScript NestJS decorators không thể introspect ở runtime Python.
+
+
     controller_path = os.path.join(
         os.path.dirname(_AI_DIR),
         "backend/src/modules/admin/admin.controller.ts"
@@ -428,7 +428,7 @@ def test_admin_controller_guard_structure():
         print("⊘ test_admin_controller_guard_structure (backend src not accessible)")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     test_parse_coords_ewkt()

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Stdlib-only Overpass helper (urllib — NO `requests`/`psycopg2` dependency).
 
@@ -25,7 +23,7 @@ OVERPASS_MIRRORS = [
 
 DEFAULT_TIMEOUT = 180
 DEFAULT_RETRIES = 3
-RATE_DELAY = 1.5  # be polite to public Overpass instances (1 req / 1.5s)
+RATE_DELAY = 1.5  
 
 
 def overpass_query(bbox, ql, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES,
@@ -53,7 +51,7 @@ def overpass_query(bbox, ql, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRIES,
                 out = json.loads(resp.read().decode("utf-8", errors="replace"))
             time.sleep(delay)
             return out.get("elements", [])
-        except Exception as e:           # 429 / 504 / timeout / parse error
+        except Exception as e:           
             last_err = e
             print(f"  [{label}] overpass mirror {url} failed (attempt {attempt+1}/{retries}): {e}")
             time.sleep(RATE_DELAY * (attempt + 1))
@@ -84,7 +82,7 @@ def overpass_post(query, mirrors, timeout=DEFAULT_TIMEOUT, retries=DEFAULT_RETRI
                                    "User-Agent": user_agent})
             with urlopen(req, timeout=timeout + 5) as resp:
                 return json.loads(resp.read().decode("utf-8", errors="replace"))
-        except Exception as e:           # 429 / 504 / timeout / parse error
+        except Exception as e:           
             last_err = e
             print(f"  [{label}] mirror {url} failed (attempt {attempt+1}/{retries}): {e}")
             time.sleep(RATE_DELAY * (attempt + 1))

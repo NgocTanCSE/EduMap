@@ -1,12 +1,9 @@
 import apiService from './api';
 
-/**
- * Mentor service (mirrors web FE mentor.service.ts + backend BookMentorDto).
- * Booking DTO shape: { mentorId, slot: { start (ISO), end (ISO) }, notes? }
- */
+
 export interface BookingSlot {
-  start: string; // ISO datetime
-  end: string; // ISO datetime
+  start: string;
+  end: string;
 }
 
 export const mentorService = {

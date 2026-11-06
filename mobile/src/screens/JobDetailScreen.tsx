@@ -37,7 +37,7 @@ export const JobDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 await apiService.applyToJob(job.id, {});
                 Alert.alert('Thành công', 'Đã nộp đơn ứng tuyển');
               } catch (e: any) {
-                // Fallback: open external link if provided
+
                 if (job.apply_url) await Linking.openURL(job.apply_url);
                 else Alert.alert('Lỗi', e?.message || 'Nộp đơn thất bại');
               }

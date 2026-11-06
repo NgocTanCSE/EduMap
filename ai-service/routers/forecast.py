@@ -35,10 +35,10 @@ class GapForecastRequest(BaseModel):
                              description="Số năm dự báo tới (1-10)")
 
 
-# ── In-process 24 h cache for the GET shortcut (HF Spaces: no Redis) ──────────
-# Maps "region:steps" -> (expiry_epoch, result_dict). Eviction is lazy; the
-# ai-service is a single-process FastAPI, so a plain dict + TTL is sufficient
-# and avoids pulling in a cache dependency.
+
+
+
+
 _GAP_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _CACHE_TTL_SECONDS = 24 * 3600
 
@@ -117,7 +117,7 @@ async def forecast_educational_gaps(request_data: GapForecastRequest):
     steps_ahead = request_data.steps_ahead
     cache_key = _cache_key(region, steps_ahead)
 
-    # 1. Cached shortcut (24 h in-process).
+
     cached = _cache_get(cache_key)
     if cached is not None:
         cached = dict(cached)
@@ -128,21 +128,21 @@ async def forecast_educational_gaps(request_data: GapForecastRequest):
     try:
         from services.predictive_service import predictive_service
 
-        # Run the (CPU-bound) Holt + DBSCAN pipeline off the event loop so a
-        # slow DBSCAN run can never stall other FastAPI requests. Mirrors the
-        # asyncio.to_thread pattern used by analytics.py's /stats endpoint.
+
+
+
         result = await asyncio.to_thread(
             predictive_service.predict_educational_gaps, region, steps_ahead
         )
 
-        # Cache the successful result (including degraded-but-valid results).
+
         _cache_set(cache_key, result)
         return result
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error in forecast/gaps: %s", e)
-        # Graceful degradation: a broken AI must never tear down the map.
+
         return _empty_degraded_geojson(region, f"Dự báo thất bại: {e}", steps_ahead)
 
 

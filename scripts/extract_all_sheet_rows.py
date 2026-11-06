@@ -12,7 +12,6 @@ def analyze():
             f.write(f"=========================================\n")
             for r in range(1, sheet.max_row + 1):
                 row_vals = [cell.value for cell in sheet[r]]
-                # Filter out completely empty rows
                 if any(val is not None for val in row_vals):
                     row_str = " | ".join([str(val) if val is not None else "" for val in row_vals])
                     f.write(f"Row {r}: {row_str}\n")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Hackathons crawler -> `posts` table (tag='hackathon').
 
@@ -37,22 +36,16 @@ NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-TARGET = 200  # soft cap
+TARGET = 200  
 
-# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam →
-# VN → ĐNA) plus keyword-focussed.
 _TAVILY_HACKATHON_QUERIES = [
-    # Đồng Nai
     "hackathon Đồng Nai 2025",
     "cuộc thi lập trình sinh viên Bình Dương",
-    # miền Nam
     "hackathon TP Hồ Chí Minh",
     "cuộc thi code miền Nam",
-    # Việt Nam
     "hackathon Việt Nam 2025",
     "cuộc thi sinh viên đại học Việt Nam",
     "code competition Việt Nam",
-    # keyword-focussed
     "cuộc thi AI trí tuệ nhân tạo",
     "hackathon giáo dục 2025",
     "cuộc thi phần mềm sinh viên",
@@ -107,7 +100,6 @@ def crawl():
                 key = (title, "tavily")
                 if key in by_key:
                     continue
-                # Use parse_tavily_posts to get structured post rows.
                 parsed = parse_tavily_posts([r], post_tag="hackathon", source_name="tavily")
                 if parsed:
                     by_key[key] = parsed[0]

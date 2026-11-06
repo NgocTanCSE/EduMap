@@ -47,7 +47,7 @@ async def recommend_career(data: CareerAnalysisRequest):
 
     try:
         ai_results = await llm_service.recommend_career(data)
-        # Detect degraded fallback (fallback items carry _degraded markers)
+
         degraded = any(
             isinstance(item, dict) and item.get("_degraded", False)
             for item in ai_results
@@ -57,7 +57,7 @@ async def recommend_career(data: CareerAnalysisRequest):
              if isinstance(item, dict) and "_reason" in item),
             None,
         )
-        # Strip internal markers before constructing model objects
+
         clean = [
             {k: v for k, v in item.items() if k not in ("_degraded", "_reason")}
             for item in ai_results if item and isinstance(item, dict)

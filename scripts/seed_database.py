@@ -6,13 +6,11 @@ import re
 import os
 from dotenv import load_dotenv
 
-# Load .env file from the project root
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# --- Database Configuration ---
 DB_CONFIG = {
     "host": "localhost",
-    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"), # Use POSTGRES_PORT_EXTERNAL from .env
+    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"), 
     "dbname": os.getenv("DB_DATABASE", "edumap_db"),
     "user": os.getenv("DB_USERNAME", "admin"),
     "password": os.getenv("DB_PASSWORD", "password123")
@@ -64,9 +62,8 @@ def seed_features(conn):
             for _, row in df.iterrows():
                 if pd.notna(row[col_name]):
                     f_name = str(row[col_name])
-                    f_id = slugify(f_name)[:50] # Limit to 50 chars as per schema
+                    f_id = slugify(f_name)[:50] 
                     m_id = str(row[col_module]) if pd.notna(row[col_module]) else None
-                    # Verify if module exists
                     cur.execute("SELECT id FROM modules WHERE id = %s", (m_id,))
                     if cur.fetchone():
                         cur.execute("INSERT INTO features (id, name, description, module_id) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, module_id = EXCLUDED.module_id;",
@@ -80,8 +77,6 @@ def main():
     conn = get_db_connection()
     seed_modules(conn)
     seed_features(conn)
-    # seed_roles(conn) # Removed to avoid conflict with seed.sql
-    # seed_admin(conn) # Removed to avoid conflict with seed.sql
     print("Database seeding completed successfully for the new schema!")
     conn.close()
 

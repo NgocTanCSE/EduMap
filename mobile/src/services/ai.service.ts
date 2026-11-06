@@ -1,9 +1,6 @@
 import apiService, { BASE_URL } from './api';
 
-/**
- * AI chat service mirror of web FE.
- * Keeps a session history in memory and posts to /ai/chat.
- */
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -14,11 +11,10 @@ export const aiService = {
   history: [] as ChatMessage[],
   sessionId: null as string | null,
 
-  /** Generate or reuse a session ID for this chat session.
-   * Called on first render / first message of ChatScreen. */
+  
   getSessionId(): string {
     if (!this.sessionId) {
-      // UUID v4 fallback for React Native environments without crypto.randomUUID
+
       this.sessionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
@@ -26,8 +22,8 @@ export const aiService = {
     return this.sessionId;
   },
 
-  /** Reset the session (called when user starts a new chat). */
-  /** Add a user message to the in-memory history (call before sending). */
+  
+  
   push(message: string) {
     this.history = [...this.history, { role: 'user', content: message }];
   },
@@ -41,7 +37,7 @@ export const aiService = {
     return apiService.get('/ai/history');
   },
 
-  /** Non-streaming fallback — kept for backward compatibility. */
+  
   async sendMessage(message: string, context: string = 'mobile') {
     const res = await apiService.post('/ai/chat', {
       message,
@@ -56,14 +52,7 @@ export const aiService = {
     return reply;
   },
 
-  /**
-   * Streaming chat: returns an async generator that yields SSE token chunks
-   * in real-time. The caller receives each token as it arrives, enabling a
-   * *typing effect* on the mobile UI (matching the web frontend).
-   *
-   * Falls back to non-streaming /ai/chat if the stream encounters an error,
-   * so the user always gets a response.
-   */
+  
   async *sendMessageStream(
     message: string,
     history: any[] = [],
@@ -73,7 +62,7 @@ export const aiService = {
   ): AsyncGenerator<string, void, unknown> {
     try {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 90000); // 90s for streaming
+      const id = setTimeout(() => controller.abort(), 90000);
 
       const res = await fetch(`${BASE_URL}/ai/chat-stream`, {
         method: 'POST',
@@ -93,7 +82,7 @@ export const aiService = {
       clearTimeout(id);
 
       if (!res.ok) {
-        // Fallback to non-streaming if stream endpoint fails
+
         const errData = await res.json().catch(() => null);
         const fallback = await this.sendMessage(message, context);
         yield fallback;
@@ -136,7 +125,7 @@ export const aiService = {
                 return;
               }
             } catch {
-              // Malformed SSE chunk — skip silently
+
             }
           }
         }
@@ -145,7 +134,7 @@ export const aiService = {
       }
     } catch (error: any) {
       console.warn('SSE stream failed, falling back to non-streaming:', error?.message);
-      // Graceful fallback: switch to non-streaming /ai/chat
+
       const fallback = await this.sendMessage(message, context);
       if (fallback) {
         onToken?.(fallback);
@@ -170,12 +159,8 @@ export const aiService = {
     return apiService.get('/ai/trends', subject ? { subject } : undefined);
   },
 
-  // ===================== OFFLINE TUTOR (Idea #7) =====================
-  /**
-   * Edge AI Tutor — ai-service text cascade (DeepSeek → Gemini → Cloudflare).
-   * Falls back to template-based Vietnamese responses when no provider is
-   * reachable.
-   */
+
+  
   offlineTutor: (payload: {
     action: 'explain' | 'practice' | 'suggest';
     topic: string;

@@ -1,95 +1,72 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { 
-  Trophy, Medal, Crown, Star, 
-  TrendingUp, Users, Loader2, Target, Award
-} from 'lucide-react';
-import { gamificationService, LeaderboardUser, UserProgress } from '@/reporting/services/gamification.service';
+import { Trophy, Medal, Crown, Star, TrendingUp, Users, Loader2, Target, Award } from 'lucide-react';
+import { gamificationService, LeaderboardUser, UserProgress } from '@/src/services/gamification.service';
 import { authService, CurrentUser } from '@/src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import Pagination from '@/components/ui/Pagination';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
-
 export default function LeaderboardPage() {
-  const [users, setUsers] = useState<LeaderboardUser[]>([]);
-  const [progress, setProgress] = useState<UserProgress | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [leaderboardError, setLeaderboardError] = useState(false);
-  const [scopeTab, setScopeTab] = useState<'province' | 'school' | 'friends'>('province');
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const currentUser = authService.getUser();
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  /**
-   * Fetch leaderboard and my-progress independently.
-   * Using Promise.allSettled so that a failure in getMyProgress (e.g. 401
-   * token-expired) does NOT wipe the leaderboard data. Each result is
-   * handled separately so the user always sees the leaderboard.
-   */
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      const [leaderboardResult, progressResult] = await Promise.allSettled([
-        gamificationService.getLeaderboard(),
-        authService.isLoggedIn() ? gamificationService.getMyProgress() : Promise.resolve(null)
-      ]);
-
-      // Leaderboard — always show even if progress fails
-      if (leaderboardResult.status === 'fulfilled') {
-        setUsers(leaderboardResult.value || []);
-        setLeaderboardError(false);
-      } else {
-        setUsers([]);
-        setLeaderboardError(true);
-        toast.error('Không thể tải bảng xếp hạng');
-      }
-
-      // My Progress — independent; missing progress is not fatal
-      if (progressResult.status === 'fulfilled' && progressResult.value) {
-        setProgress(progressResult.value as UserProgress);
-      } else if (progressResult.status === 'rejected') {
-        // If the user was logged in but progress fetch failed, log them out
-        if (progressResult.reason?.message?.includes('401')) {
-          // Token likely expired — authService.isLoggedIn() will catch this
-          // on next render and the page will show login UI state.
-          console.error('My-progress auth failure:', progressResult.reason);
-        } else {
-          console.error('My-progress fetch error:', progressResult.reason);
+    const [users, setUsers] = useState<LeaderboardUser[]>([]);
+    const [progress, setProgress] = useState<UserProgress | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [leaderboardError, setLeaderboardError] = useState(false);
+    const [scopeTab, setScopeTab] = useState<'province' | 'school' | 'friends'>('province');
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+    const currentUser = authService.getUser();
+    useEffect(() => {
+        fetchData();
+    }, []);
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [leaderboardResult, progressResult] = await Promise.allSettled([
+                gamificationService.getLeaderboard(),
+                authService.isLoggedIn() ? gamificationService.getMyProgress() : Promise.resolve(null)
+            ]);
+            if (leaderboardResult.status === 'fulfilled') {
+                setUsers(leaderboardResult.value || []);
+                setLeaderboardError(false);
+            }
+            else {
+                setUsers([]);
+                setLeaderboardError(true);
+                toast.error('Không thể tải bảng xếp hạng');
+            }
+            if (progressResult.status === 'fulfilled' && progressResult.value) {
+                setProgress(progressResult.value as UserProgress);
+            }
+            else if (progressResult.status === 'rejected') {
+                if (progressResult.reason?.message?.includes('401')) {
+                    console.error('My-progress auth failure:', progressResult.reason);
+                }
+                else {
+                    console.error('My-progress fetch error:', progressResult.reason);
+                }
+                setProgress(null);
+            }
         }
-        setProgress(null);
-      }
-    } catch (error: any) {
-      toast.error('Không thể tải dữ liệu bảng xếp hạng');
-    } finally {
-      setLoading(false);
+        catch (error: any) {
+            toast.error('Không thể tải dữ liệu bảng xếp hạng');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    if (loading) {
+        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin"/>
+      </div>);
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  const topThree = users.slice(0, 3);
-  const others = users.slice(3);
-
-  return (
-    <div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+    const topThree = users.slice(0, 3);
+    const others = users.slice(3);
+    return (<div className="min-h-screen bg-background text-foreground w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
       <div className="w-full mx-auto space-y-12">
-        
-        {/* Header */}
+
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-widest">
-            <Trophy className="w-4 h-4" /> Bảng xếp hạng EduMap
+            <Trophy className="w-4 h-4"/> Bảng xếp hạng EduMap
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Vinh danh những nỗ lực</h1>
           <p className="text-muted-foreground/60 max-w-2xl mx-auto">
@@ -98,22 +75,16 @@ export default function LeaderboardPage() {
           </p>
         </div>
 
-        {/* My Progress Card (If logged in) */}
-        {progress && currentUser && (
-          <div className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel flex flex-col md:flex-row items-center gap-8">
+        {progress && currentUser && (<div className="rounded-[22px] border border-border/80 bg-card p-6 sm:p-8 shadow-orvel flex flex-col md:flex-row items-center gap-8">
             <div className="relative">
                 <div className="w-24 h-24 rounded-full border-4 border-primary/30 overflow-hidden bg-card/40 shrink-0">
-                    {currentUser.avatar_url ? (
-                        <img src={currentUser.avatar_url} onError={onImageError(avatarFallback(currentUser.fullName || currentUser.email))} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-primary">
+                    {currentUser.avatar_url ? (<img src={currentUser.avatar_url} onError={onImageError(avatarFallback(currentUser.fullName || currentUser.email))} alt="" className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-3xl font-semibold text-primary">
                             {currentUser.fullName?.[0] || currentUser.email?.[0] || '?'}
-                        </div>
-                    )}
+                        </div>)}
                 </div>
                 <div className="absolute -bottom-2 -right-2 bg-primary rounded-lg px-2 py-1 text-[10px] font-semibold text-primary-foreground">LEVEL {progress.level}</div>
             </div>
-            
+
             <div className="flex-1 space-y-4 w-full text-center md:text-left">
                 <div className="flex justify-between items-end">
                     <div>
@@ -122,10 +93,10 @@ export default function LeaderboardPage() {
                         </h2>
                         <p className="text-muted-foreground/60 text-xs mt-1">
                             {progress.rank !== undefined && progress.total_users !== undefined
-                                ? `Hạng #${progress.rank}${progress.total_users > 0 ? ` / ${progress.total_users} người chơi` : ''}`
-                                : (progress.points === 0
-                                    ? 'Hãy tham gia hoạt động để lên hạng!'
-                                    : `Điểm của bạn chưa đủ để nằm trong top ${users.length}`)}
+                ? `Hạng #${progress.rank}${progress.total_users > 0 ? ` / ${progress.total_users} người chơi` : ''}`
+                : (progress.points === 0
+                    ? 'Hãy tham gia hoạt động để lên hạng!'
+                    : `Điểm của bạn chưa đủ để nằm trong top ${users.length}`)}
                         </p>
                     </div>
                     <div className="text-right">
@@ -133,34 +104,29 @@ export default function LeaderboardPage() {
                         <span className="text-xs text-muted-foreground/60 font-bold ml-1">XP</span>
                     </div>
                 </div>
-                
+
                 <div className="h-4 w-full bg-card/40 rounded-full overflow-hidden border border-border p-0.5">
-                    <div 
-                        className="h-full bg-primary rounded-full transition-all duration-1000" 
-                        style={{ width: `${progress.progress_percent}%` }}
-                    />
+                    <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${progress.progress_percent}%` }}/>
                 </div>
-                
+
                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                     <span>Cấp độ {progress.level}</span>
                     <span className="text-primary">{progress.progress_percent}% hoàn thành</span>
                     <span>Cấp độ {progress.level + 1}</span>
                 </div>
             </div>
-          </div>
-        )}
+          </div>)}
 
-        {/* Podium (Top 3) */}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end w-full mx-auto pt-12">
-            {/* 2nd Place */}
-            {topThree[1] && (
-                <div className="order-2 md:order-1 space-y-4 text-center pb-8">
+            
+            {topThree[1] && (<div className="order-2 md:order-1 space-y-4 text-center pb-8">
                     <div className="relative inline-block">
                         <div className="w-24 h-24 rounded-full border-4 border-muted-foreground/30 overflow-hidden bg-card">
-                            <img src={topThree[1].avatar_url || avatarFallback(topThree[1].full_name)} onError={onImageError(avatarFallback(topThree[1].full_name))} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[1].avatar_url || avatarFallback(topThree[1].full_name)} onError={onImageError(avatarFallback(topThree[1].full_name))} alt="" className="w-full h-full object-cover"/>
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground rounded-full p-2">
-                            <Medal className="w-5 h-5" />
+                            <Medal className="w-5 h-5"/>
                         </div>
                         <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-slate-400 text-foreground font-semibold px-3 py-1 rounded-lg text-sm">#2</div>
                     </div>
@@ -168,18 +134,16 @@ export default function LeaderboardPage() {
                         <p className="font-bold">{topThree[1].full_name}</p>
                         <p className="text-xs text-muted-foreground/60">Level {topThree[1].level} • {topThree[1].points.toLocaleString()} XP</p>
                     </div>
-                </div>
-            )}
+                </div>)}
 
-            {/* 1st Place */}
-            {topThree[0] && (
-                <div className="order-1 md:order-2 space-y-6 text-center">
+            
+            {topThree[0] && (<div className="order-1 md:order-2 space-y-6 text-center">
                     <div className="relative inline-block">
                         <div className="w-32 h-32 rounded-full border-4 border-primary overflow-hidden bg-card shadow-lg">
-                            <img src={topThree[0].avatar_url || avatarFallback(topThree[0].full_name)} onError={onImageError(avatarFallback(topThree[0].full_name))} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[0].avatar_url || avatarFallback(topThree[0].full_name)} onError={onImageError(avatarFallback(topThree[0].full_name))} alt="" className="w-full h-full object-cover"/>
                         </div>
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary animate-bounce">
-                            <Crown className="w-10 h-10 fill-primary" />
+                            <Crown className="w-10 h-10 fill-primary"/>
                         </div>
                         <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-primary/80 text-primary-foreground font-semibold px-4 py-1.5 rounded-lg text-base">#1</div>
                     </div>
@@ -187,18 +151,16 @@ export default function LeaderboardPage() {
                         <p className="text-xl font-semibold text-primary">{topThree[0].full_name}</p>
                         <p className="text-sm text-muted-foreground/60">Level {topThree[0].level} • {topThree[0].points.toLocaleString()} XP</p>
                     </div>
-                </div>
-            )}
+                </div>)}
 
-            {/* 3rd Place */}
-            {topThree[2] && (
-                <div className="order-3 space-y-4 text-center pb-4">
+            
+            {topThree[2] && (<div className="order-3 space-y-4 text-center pb-4">
                     <div className="relative inline-block">
                         <div className="w-20 h-20 rounded-full border-4 border-amber-700 overflow-hidden bg-card">
-                            <img src={topThree[2].avatar_url || avatarFallback(topThree[2].full_name)} onError={onImageError(avatarFallback(topThree[2].full_name))} alt="" className="w-full h-full object-cover" />
+                            <img src={topThree[2].avatar_url || avatarFallback(topThree[2].full_name)} onError={onImageError(avatarFallback(topThree[2].full_name))} alt="" className="w-full h-full object-cover"/>
                         </div>
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-700 text-foreground rounded-full p-2">
-                            <Medal className="w-4 h-4" />
+                            <Medal className="w-4 h-4"/>
                         </div>
                         <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-amber-700 text-foreground font-semibold px-3 py-1 rounded-lg text-xs">#3</div>
                     </div>
@@ -206,31 +168,26 @@ export default function LeaderboardPage() {
                         <p className="font-bold">{topThree[2].full_name}</p>
                         <p className="text-xs text-muted-foreground/60">Level {topThree[2].level} • {topThree[2].points.toLocaleString()} XP</p>
                     </div>
-                </div>
-            )}
+                </div>)}
         </div>
 
-        {/* Others List */}
+        
         <div className="rounded-[22px] border border-border/80 bg-card overflow-hidden shadow-orvel w-full mx-auto">
             <div className="p-6 border-b border-border flex justify-between items-center bg-card/20">
                 <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">Bảng xếp hạng chi tiết</span>
-                <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4" /> {users.length} Thành viên</span>
+                <span className="text-xs font-bold text-primary flex items-center gap-2"><Users className="w-4 h-4"/> {users.length} Thành viên</span>
             </div>
-            {users.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground/60">
+            {users.length === 0 ? (<div className="p-12 text-center text-muted-foreground/60">
                     {leaderboardError
-                        ? 'Không thể tải bảng xếp hạng. Vui lòng thử lại.'
-                        : 'Chưa có ai trên bảng xếp hạng. Hãy là người đầu tiên tham gia!'}
-                </div>
-            ) : (
-            <div className="divide-y divide-white/5">
-                {others.slice((page - 1) * pageSize, page * pageSize).map((user, index) => (
-                    <div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-card/20 group ${user.id === currentUser?.id ? 'bg-primary/10' : ''}`}>
+                ? 'Không thể tải bảng xếp hạng. Vui lòng thử lại.'
+                : 'Chưa có ai trên bảng xếp hạng. Hãy là người đầu tiên tham gia!'}
+                </div>) : (<div className="divide-y divide-white/5">
+                {others.slice((page - 1) * pageSize, page * pageSize).map((user, index) => (<div key={user.id} className={`flex items-center gap-4 p-5 transition-all hover:bg-card/20 group ${user.id === currentUser?.id ? 'bg-primary/10' : ''}`}>
                         <div className="w-8 text-center font-mono font-bold text-muted-foreground/20 group-hover:text-muted-foreground/60">
                             {(page - 1) * pageSize + index + 4}
                         </div>
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-card shrink-0">
-                            <img src={user.avatar_url || avatarFallback(user.full_name)} onError={onImageError(avatarFallback(user.full_name))} alt="" className="w-full h-full object-cover" />
+                            <img src={user.avatar_url || avatarFallback(user.full_name)} onError={onImageError(avatarFallback(user.full_name))} alt="" className="w-full h-full object-cover"/>
                         </div>
                         <div className="flex-1">
                             <p className={`font-bold text-sm ${user.id === currentUser?.id ? 'text-primary' : ''}`}>
@@ -242,34 +199,23 @@ export default function LeaderboardPage() {
                             <p className="font-mono font-bold text-sm">{user.points.toLocaleString()}</p>
                             <p className="text-[10px] text-muted-foreground/60 uppercase font-semibold">XP</p>
                         </div>
-                    </div>
-                ))}
-            </div>
-            )}
+                    </div>))}
+            </div>)}
         </div>
 
-        {/* Not-in-top-10 notice */}
-        {progress && currentUser && users.length > 0 && (
-            <div className="mb-4 text-center">
+        
+        {progress && currentUser && users.length > 0 && (<div className="mb-4 text-center">
                 <p className="text-xs text-muted-foreground/60">
-                    {users.findIndex(u => u.id === currentUser?.id) < 0 && (
-                        progress.rank !== undefined && progress.total_users !== undefined ? (
-                            <>
-                                {currentUser.fullName || currentUser.email} — bạn đang hạng #{progress.rank}/{progress.total_users}. 
+                    {users.findIndex(u => u.id === currentUser?.id) < 0 && (progress.rank !== undefined && progress.total_users !== undefined ? (<>
+                                {currentUser.fullName || currentUser.email} — bạn đang hạng #{progress.rank}/{progress.total_users}.
                                 Hãy tham gia hoạt động để lên hạng!
-                            </>
-                        ) : (
-                            <>
-                                {currentUser.fullName || currentUser.email} — bạn chưa nằm trong top {users.length}. 
+                            </>) : (<>
+                                {currentUser.fullName || currentUser.email} — bạn chưa nằm trong top {users.length}.
                                 Hãy tham gia hoạt động để lên hạng!
-                            </>
-                        )
-                    )}
+                            </>))}
                 </p>
-            </div>
-        )}
+            </div>)}
 
       </div>
-    </div>
-  );
+    </div>);
 }

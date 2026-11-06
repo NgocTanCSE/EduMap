@@ -4,13 +4,11 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
-# Load .env file from the project root
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# --- Database Configuration ---
 DB_CONFIG = {
     "host": "localhost",
-    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"), # Use POSTGRES_PORT_EXTERNAL from .env
+    "port": os.getenv("POSTGRES_PORT_EXTERNAL", "5432"), 
     "dbname": os.getenv("DB_DATABASE", "edumap_db"),
     "user": os.getenv("DB_USERNAME", "admin"),
     "password": os.getenv("DB_PASSWORD", "password123")
@@ -20,12 +18,10 @@ def mega_seed():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
-        
-        # Get Admin ID
+
         cur.execute("SELECT id FROM users WHERE email = 'admin@edumap.vn' LIMIT 1;")
         admin_id = cur.fetchone()[0]
 
-        # 1. MEGA SEED: LIBRARY (BOOKS)
         print("Expanding Library with 20+ real textbooks...")
         library_data = [
             ("Kinh tế vi mô - DNTU", "Giáo trình khoa Kinh tế, bài giảng chi tiết.", "book", "Kinh tế", ["Economics", "Basic"]),
@@ -39,13 +35,11 @@ def mega_seed():
             ("Điện tử cơ bản", "Nguyên lý hoạt động các linh kiện bán dẫn.", "book", "Kỹ thuật", ["Electronics"]),
             ("Tiếng Anh chuyên ngành Công nghệ thực phẩm", "Từ vựng kỹ thuật thực phẩm DNTU.", "pdf", "Ngoại ngữ", ["English", "Food Tech"]),
             ("Ngữ pháp tiếng Anh IELTS 6.5", "Lộ trình tự học cho sinh viên Ngoại ngữ.", "pdf", "Ngoại ngữ", ["English", "IELTS"]),
-            # ... and many more potential entries
         ]
         for title, desc, m_type, cat, tags in library_data:
-            cur.execute("INSERT INTO learning_materials (id, title, description, type, subject, tags, view_count) VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;", 
+            cur.execute("INSERT INTO learning_materials (id, title, description, type, subject, tags, view_count) VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;",
                         (title, desc, m_type, cat, json.dumps(tags), 150))
 
-        # 2. MEGA SEED: SCHOLARSHIPS
         try:
             print("Adding 10+ real scholarship opportunities...")
             scholarship_data = [
@@ -61,7 +55,6 @@ def mega_seed():
         except Exception as e:
             print(f"Skipping scholarships due to: {e}")
 
-        # 3. MEGA SEED: MAP POINTS (SURROUNDINGS)
         try:
             print("Adding 20+ facilities and local services...")
             map_data = [
@@ -74,14 +67,12 @@ def mega_seed():
                 ("Phòng Gym California Biên Hòa", 6, "Trung tâm thể hình cao cấp cách trường 4km.", "Vincom Biên Hòa", 10.9495, 106.8265),
             ]
             for name, t_id, desc, addr, lat, lng in map_data:
-                # Sửa lỗi tọa độ ghim chung thành tọa độ riêng biệt chính xác
                 point_wkt = f"POINT({lng} {lat})"
                 cur.execute("INSERT INTO map_points (id, name, type_id, description, address, city, location, status) VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, ST_GeogFromText(%s), 'approved');",
                             (name, t_id, desc, addr, "Biên Hòa", point_wkt))
         except Exception as e:
             print(f"Skipping map points due to: {e}")
 
-        # 4. MEGA SEED: COMMUNITY POSTS
         try:
             print("Simulating real community interactions...")
             posts = [

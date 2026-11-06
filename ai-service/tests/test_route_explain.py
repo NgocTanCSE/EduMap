@@ -1,5 +1,5 @@
 """
-Tests for the SafeRoute AI explain endpoint (Idea #12: T3).
+Tests for the SafeRoute AI explain endpoint (Idea
 
 Covers:
   1. Degraded fallback when all LLM providers are disabled — returns valid
@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
-# ── Disable all AI providers to force regex/template fallback ────────────
+
 _PROVIDER_ENV_VARS = [
     "XKIRO_API_KEY", "XKIRO_MODEL", "XKIRO_BASE_URL",
     "NVIDIA_API_KEY", "NVIDIA_BASE_URL", "KIMI_API_KEY", "KIMI_BASE_URL",
@@ -90,7 +90,7 @@ def _make_request():
     )
 
 
-# ── Tests ───────────────────────────────────────────────────────────────
+
 
 
 def test_fallback_returns_valid_structure():
@@ -116,9 +116,9 @@ def test_fallback_explanation_mentions_scores():
     data = _make_request()
     result = _route_explain_fallback(data, "test")
 
-    # The best route (92/100) should be mentioned
+
     assert "92" in result["explanation"]
-    assert "2.5" in result["explanation"]  # distance in km
+    assert "2.5" in result["explanation"]
 
 
 def test_fallback_with_empty_routes():
@@ -135,7 +135,7 @@ def test_explain_route_degraded_when_no_providers():
     """When all LLM providers are disabled, explain_route returns degraded fallback."""
     data = _make_request()
 
-    # Reset lazy loading so _get_llm_service picks up the disabled state
+
     import routers.route as route_module
     route_module._services_loaded = False
     route_module._llm_service = None
@@ -164,7 +164,7 @@ def test_explain_route_llm_success():
     """When LLM returns valid JSON, result is non-degraded."""
     data = _make_request()
 
-    # Mock the LLM service
+
     mock_llm = MagicMock()
     mock_llm.is_ready = True
     mock_llm._extract_json.return_value = {
@@ -194,7 +194,7 @@ def test_explain_route_llm_returns_invalid_json():
 
     mock_llm = MagicMock()
     mock_llm.is_ready = True
-    mock_llm._extract_json.return_value = None  # invalid JSON
+    mock_llm._extract_json.return_value = None
     mock_llm._generate_text_with_fallback.return_value = "garbage text"
 
     with patch.object(route_module, "_get_llm_service", return_value=mock_llm):
@@ -210,7 +210,7 @@ def test_explain_route_llm_returns_missing_keys():
 
     mock_llm = MagicMock()
     mock_llm.is_ready = True
-    # Missing 'route_reasons' key
+
     mock_llm._extract_json.return_value = {"explanation": "only explanation"}
     mock_llm._generate_text_with_fallback.return_value = '{"explanation": "..."}'
 
@@ -249,4 +249,4 @@ def test_route_explain_response_model():
     assert resp.degraded is False
 
 
-# ── Import sys at top level ──────────────────────────────────────────────
+

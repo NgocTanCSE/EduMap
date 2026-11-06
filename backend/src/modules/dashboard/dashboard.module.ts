@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../auth/entities/user.entity';
 import { DashboardService } from './dashboard.service';
 import { DashboardController } from './dashboard.controller';
-
 import { UserEvent } from '../analytics/entities/user-event.entity';
 import { UserLearningHistory } from '../library/entities/user-learning-history.entity';
 import { UserCareer } from '../career/entities/user-career.entity';
@@ -14,26 +13,26 @@ import { UserCertificate } from '../certificate/entities/user-certificate.entity
 import { AIModule } from '../ai/ai.module';
 import { MapModule } from '../map/map.module';
 import { EducationStat } from '../analytics/entities/education-stat.entity';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      User, 
-      UserEvent, 
-      UserLearningHistory, 
-      UserCareer, 
-      UserSkill, 
-      Post, 
-      Comment, 
-      Booking, 
-      UserCertificate,
-      EducationStat
-    ]),
-    AIModule,
-    MapModule
-  ],
-  providers: [DashboardService],
-  controllers: [DashboardController],
-  exports: [DashboardService],
+    imports: [
+        TypeOrmModule.forFeature([
+            User,
+            UserEvent,
+            UserLearningHistory,
+            UserCareer,
+            UserSkill,
+            Post,
+            Comment,
+            Booking,
+            UserCertificate,
+            EducationStat
+        ]),
+        AIModule,
+        MapModule
+    ],
+    providers: [DashboardService],
+    controllers: [DashboardController],
+    exports: [DashboardService],
 })
-export class DashboardModule {}
+export class DashboardModule {
+}

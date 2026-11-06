@@ -1,5 +1,5 @@
 """
-Voice-to-Geo AI — Speech-to-Text router (Idea #16, Task 2).
+Voice-to-Geo AI — Speech-to-Text router (Idea
 
 ``POST /api/ai/speech/to-text`` is the server-side STT fallback. The
 frontend prefers the client-side Web Speech API (T1) for privacy, but when
@@ -20,7 +20,7 @@ from models.speech_models import SpeechToTextRequest, SpeechToTextResponse
 
 router = APIRouter(prefix="/api/ai/speech", tags=["16. Voice-to-Geo AI"])
 
-# ── Lazy service loading (same pattern as routers/geo.py, routers/talk2map.py) ──
+
 _services_loaded = False
 _speech: object | None = None
 
@@ -80,9 +80,9 @@ async def speech_to_text(request: SpeechToTextRequest):
             error="Speech service not initialised",
         )
 
-    # ``transcribe`` never raises — it always returns a valid dict matching
-    # the response model. This keeps the endpoint resilient on HF Spaces
-    # where the ai-service process may still be cold-starting.
+
+
+
     result = svc.transcribe(
         audio_base64=request.audio_base64,
         audio_format=request.audio_format or "wav",

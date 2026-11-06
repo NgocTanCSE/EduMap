@@ -8,8 +8,8 @@ export default function ScholarshipScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  // Pagination
+
+
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -57,7 +57,7 @@ export default function ScholarshipScreen() {
         <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
       </View>
       <Text style={styles.providerText}>{item.provider || "Tổ chức EduMap"}</Text>
-      
+
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <DollarSign size={14} color="#10b981" />

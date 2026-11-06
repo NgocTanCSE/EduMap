@@ -36,7 +36,7 @@ logger = logging.getLogger("impact_measure")
 router = APIRouter(prefix="/api/ai/impact", tags=["19. AI Impact Measurement"])
 
 
-# ── In-process 24 h cache (HF Spaces: no Redis) ────────────────────────────────
+
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _CACHE_TTL_SECONDS = 24 * 3600
 
@@ -114,7 +114,7 @@ def _empty_degraded_report(region: str, reason: str, bbox: List[float]) -> Dict[
     }
 
 
-# ── Endpoint ──────────────────────────────────────────────────────────────────
+
 
 @router.post("/measure", response_model=ImpactMeasureResponse)
 async def measure_impact(request_data: ImpactMeasureRequest):
@@ -132,7 +132,7 @@ async def measure_impact(request_data: ImpactMeasureRequest):
     ``ImpactMeasureResponse``). The whole computation runs off the event loop
     via ``asyncio.to_thread`` and is cached for 24 h.
     """
-    # Resolve the report bbox for the degraded fallback.
+
     if request_data.min_lat is not None and request_data.max_lat is not None \
        and request_data.min_lng is not None and request_data.max_lng is not None:
         mn_lat, mx_lat = min(request_data.min_lat, request_data.max_lat), max(request_data.min_lat, request_data.max_lat)
@@ -197,7 +197,7 @@ async def get_impact_metrics(
     without the full narrative/trend. Falls back to the same degraded report
     shape when the DB or computation is unavailable.
     """
-    # Build a lightweight request object for the service.
+
     class _Req:
         pass
     req = _Req()
@@ -233,7 +233,7 @@ async def get_impact_metrics(
         raise
     except Exception as e:
         logger.exception("Error in impact/metrics: %s", e)
-        # Reuse _empty_degraded_report for a valid-shaped fallback.
+
         if min_lat is not None and max_lat is not None and min_lng is not None and max_lng is not None:
             mn_lat, mx_lat = min(min_lat, max_lat), max(min_lat, max_lat)
             mn_lng, mx_lng = min(min_lng, max_lng), max(min_lng, max_lng)

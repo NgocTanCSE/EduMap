@@ -14,15 +14,15 @@ Two-tier architecture (mirrors the provider-cascade pattern in ``llm_service.py`
 Returns a dict with this shape::
 
     {
-      "location": str | None,           # proper location name (city, region, institution)
-      "radius_km": float | None,        # search radius in kilometres
-      "facility_types": List[str],      # POI categories to search for
-      "conditions": List[str],          # filter conditions (free, wifi, open_evening…)
-      "reference_location": str | None, # reference point (e.g. "trường" = near school)
-      "confidence": float,              # 0.0–1.0
-      "method": str,                    # "llm" | "regex"
-      "suggestions": List[str],         # fuzzy location / facility suggestions
-      "raw_text": str,                  # original user input
+      "location": str | None,
+      "radius_km": float | None,
+      "facility_types": List[str],
+      "conditions": List[str],
+      "reference_location": str | None,
+      "confidence": float,
+      "method": str,
+      "suggestions": List[str],
+      "raw_text": str,
     }
 
 The ``facility_types`` values match ``PointOfInterest.category`` on the NestJS
@@ -36,13 +36,13 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-# ── Intent classification (Idea #16: Voice-to-Geo) ───────────────────────────
-# Maps a transcribed (or typed) Vietnamese query to one of three intents.
-# ``geo_recommend``  — user wants to FIND a place to learn/study/etc.
-# ``report_form``    — user wants to REPORT an issue (broken wifi, flooding…).
-# ``geo_query``      — pure information request about a location ("where is …").
-# The classification reuses the Talk2Map regex baseline so it works even when
-# the LLM is down (zero-dependency, always-on path on HF Spaces free plan).
+
+
+
+
+
+
+
 INTENT_REPORT_KEYWORDS: List[str] = [
     "hỏng", "đứt", "lỗi", "ngập", "hỏng", "gửi báo cáo", "báo cáo",
     "đóng góp", "báo cáo sự cố", "báo lỗi", "báo wifi", "mạng yếu",
@@ -57,54 +57,54 @@ INTENT_QUERY_KEYWORDS: List[str] = [
     "giờ đóng cửa", "thông tin", "liên hệ", "số điện thoại",
 ]
 
-# Default intent when nothing clearly matches.
+
 _DEFAULT_INTENT = "geo_recommend"
 
 
-# ── Vietnamese category keywords → backend POI category ─────────────────────
-# Sorted longest-first at match-time so multi-word phrases (e.g. "trường học")
-# are matched before bare "trường". Covers miền Bắc / Trung / Nam variants.
+
+
+
 FACILITY_KEYWORDS: Dict[str, str] = {
-    # school (miền Bắc: "trường", miền Nam: "truồng", typo: "trương")
+
     "trường đại học": "university",
     "trường học": "school",
     "trường tiểu học": "school",
     "trường trung học": "school",
     "trường thpt": "school",
     "trường thcs": "school",
-    "truồng": "school",          # Southern pronunciation
-    "trương": "school",          # common typo
+    "truồng": "school",
+    "trương": "school",
     "trường": "school",
-    # university
+
     "đại học": "university",
     "đh": "university",
-    # library
+
     "thư viện": "library",
-    "thư viên": "library",       # common misspelling
+    "thư viên": "library",
     "thuvien": "library",
     "thưvien": "library",
-    # cafe
+
     "cà phê": "cafe",
     "càphê": "cafe",
     "quán cà phê": "cafe",
     "cafe": "cafe",
     "cà pha": "cafe",
-    # restaurant
+
     "nhà hàng": "restaurant",
     "quán ăn": "restaurant",
     "nhà ăn": "restaurant",
     "đồ ăn": "restaurant",
     "food": "restaurant",
-    # market
+
     "chợ": "market",
     "thị trường": "market",
     "siêu thị": "market",
     "chợ hôm": "market",
-    # convenience
+
     "cửa hàng": "convenience",
     "cửa hàng tiện lợi": "convenience",
     "tiệm": "convenience",
-    # green / park
+
     "công viên": "park",
     "khu vui chơi": "park",
     "khu xanh": "green",
@@ -113,8 +113,8 @@ FACILITY_KEYWORDS: Dict[str, str] = {
     "park": "park",
 }
 
-# wifi/internet is a CONDITION (filter amenity), NOT a facility type to search for.
-# Users asking "có wifi" mean "places that have wifi", not "wifi hotspots".
+
+
 CONDITION_KEYWORDS: Dict[str, List[str]] = {
     "free": ["miễn phí", "free", "chạy", "không mất tiền", "tự do", "gratis",
              "miễn cước", "ko mất tiền", "không tính phí"],
@@ -134,7 +134,7 @@ CONDITION_KEYWORDS: Dict[str, List[str]] = {
     "aircon": ["điều hòa", "mát", "máy lạnh", "mát lạnh", "có điều hòa"],
 }
 
-# Proper location names (city / region / institution) — 3 miền.
+
 LOCATION_PROPER_NAMES: Dict[str, str] = {
     "biên hòa": "Biên Hòa",
     "biên hà": "Biên Hà",
@@ -157,13 +157,13 @@ LOCATION_PROPER_NAMES: Dict[str, str] = {
     "đại học quốc gia": "Đại học Quốc gia",
 }
 
-# Reference-location prefixes (context words that precede a reference place).
+
 _REF_CONTEXTS = ["gần", "ở", "tại", "quanh", "xung quanh", "bên"]
 
-# Radius extraction regex — matches "3km", "5 km", "3.5km", "bán kính 3km".
+
 _RADIUS_RE = re.compile(r'(?:bán\s*kính\s*)?(\d+(?:\.\d+)?)\s*(km|kĩ|mét|m)\b', re.IGNORECASE)
 
-# Default radius (km) when user says "gần" but gives no number.
+
 _DEFAULT_RADIUS = 5.0
 _NEAR_RADIUS = 3.0
 _FAR_RADIUS = 10.0
@@ -191,17 +191,17 @@ class NLQueryParser:
     def __init__(self, llm_service: Optional[Any] = None) -> None:
         self.llm = llm_service
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+
+
+
     def parse(self, text: str) -> dict:
         """Parse a Vietnamese query string. Always returns a valid dict."""
         text = (text or "").strip()
 
-        # 1. Baseline: regex parse (always succeeds)
+
         result = self._parse_regex(text)
 
-        # 2. Optional: LLM enrichment + merge
+
         if self.llm and getattr(self.llm, "is_ready", False):
             try:
                 llm_result = self._parse_llm(text)
@@ -209,7 +209,7 @@ class NLQueryParser:
                     result = self._merge_results(result, llm_result)
                     result["method"] = "llm"
             except Exception:
-                pass  # keep regex result — graceful degradation
+                pass
 
         result["raw_text"] = text
         return result
@@ -220,9 +220,9 @@ class NLQueryParser:
         freeze the event loop."""
         return await asyncio.to_thread(self.parse, text)
 
-    # ------------------------------------------------------------------
-    # Intent classification (Idea #16: Voice-to-Geo, Task 3)
-    # ------------------------------------------------------------------
+
+
+
     def extract_intent(self, parsed: dict) -> dict:
         """Classify a parsed query into a Voice-to-Geo intent.
 
@@ -255,8 +255,8 @@ class NLQueryParser:
         conditions = parsed.get("conditions") or []
         has_location = bool(parsed.get("location") or parsed.get("reference_location"))
 
-        # ── report_form: issue / broken / flooding keywords ─────────────
-        # Takes priority: "Báo wifi hỏng" is a report even if "tìm" appears.
+
+
         report_hits = [kw for kw in INTENT_REPORT_KEYWORDS if kw in raw]
         if report_hits:
             return {
@@ -265,15 +265,15 @@ class NLQueryParser:
                 "detail": f"Nhận diện báo cáo sự cố: {', '.join(report_hits[:3])}",
             }
 
-        # ── geo_recommend: explicit "find" verbs (tìm / tìm kiếm / tìm nơi) ─
-        # These are unambiguous search intents — the user wants results on a map.
+
+
         find_hits = [kw for kw in INTENT_FIND_KEYWORDS if re.search(kw, raw)]
 
-        # ── geo_query: information questions (ở đâu / là gì / bao nhiêu…) ────
-        # Only trigger when there is NO explicit "tìm" find-verb — a query like
-        # "Trường DNTU ở đâu?" asks WHERE, it doesn't search FOR a place.
-        # Facility keywords (trường, thư viện…) appear in both find and info
-        # queries, so the verb — not the facility presence — decides.
+
+
+
+
+
         query_hits = [kw for kw in INTENT_QUERY_KEYWORDS if re.search(kw, raw)]
         if query_hits and not find_hits:
             return {
@@ -282,7 +282,7 @@ class NLQueryParser:
                 "detail": f"Nhận diện câu hỏi thông tin: {', '.join(query_hits[:3])}",
             }
 
-        # ── geo_recommend: the default / "find a place" intent ──────────
+
         find_hits = [kw for kw in INTENT_FIND_KEYWORDS if re.search(kw, raw)]
         confidence = 0.5
         if facilities:
@@ -332,12 +332,12 @@ class NLQueryParser:
             except Exception:
                 pass
 
-        # Template fallback
+
         return self._template_explanation(parsed)
 
-    # ------------------------------------------------------------------
-    # Regex fallback
-    # ------------------------------------------------------------------
+
+
+
     def _parse_regex(self, text: str) -> dict:
         text_lower = text.lower().strip()
 
@@ -345,9 +345,9 @@ class NLQueryParser:
         conditions: List[str] = []
         reference_location: Optional[str] = None
 
-        # ── 1. Extract reference locations (facility keyword after
-        #      "gần/ở/tại …") and mask that span in a working copy so the
-        #      facility matcher below doesn't double-count it.
+
+
+
         text_for_facility = text_lower
         for ref_ctx in _REF_CONTEXTS:
             for kw in _sort_keywords(FACILITY_KEYWORDS):
@@ -357,16 +357,16 @@ class NLQueryParser:
                     if reference_location is None:
                         reference_location = kw
                     text_for_facility = text_for_facility.replace(m.group(0), '   ', 1)
-                    break  # move to next ref_ctx
+                    break
 
-        # ── 2. Detect facility types (on masked working copy) ───────────
+
         for kw in _sort_keywords(FACILITY_KEYWORDS):
             if kw in text_for_facility:
                 facility = FACILITY_KEYWORDS[kw]
                 if facility not in facility_types:
                     facility_types.append(facility)
 
-        # ── 3. Detect conditions (on ORIGINAL text) ─────────────────────
+
         for cond, keywords in CONDITION_KEYWORDS.items():
             for kw in keywords:
                 if kw in text_lower:
@@ -374,16 +374,16 @@ class NLQueryParser:
                         conditions.append(cond)
                     break
 
-        # ── 4. Detect radius (on ORIGINAL text) ────────────────────────
+
         radius_km = self._extract_radius(text_lower)
 
-        # ── 5. Detect overall location (proper names, on ORIGINAL text) ─
+
         location = self._extract_location(text_lower)
 
-        # ── 6. Generate suggestions ──────────────────────────────────────
+
         suggestions = self._generate_suggestions(text_lower, location, reference_location, facility_types)
 
-        # ── 7. Confidence score ──────────────────────────────────────────
+
         confidence = self._compute_confidence(
             facility_types, conditions, radius_km, location, reference_location
         )
@@ -431,26 +431,26 @@ class NLQueryParser:
         suggestion strings the frontend can surface to the user."""
         suggestions: List[str] = []
 
-        # Suggest canonical institution names when short forms are used.
+
         if reference_location and "trường" in str(reference_location):
             suggestions.append("Đại học Công nghệ Đồng Nai (DNTU)")
             suggestions.append("Đại học Nông lâm")
         if "dntu" in text_lower:
             suggestions.append("Đại học Công nghệ Đồng Nai")
 
-        # Suggest broader location when a region keyword appears.
+
         for name_key, canonical in LOCATION_PROPER_NAMES.items():
             if name_key in text_lower and canonical not in suggestions:
                 if len(canonical) > 2:
                     suggestions.append(canonical)
 
-        # If a facility was detected but location is fuzzy, suggest
-        # surrounding areas.
+
+
         if facility_types and not location:
             suggestions.append("Biên Hòa, Đồng Nai")
             suggestions.append("TP. Hồ Chí Minh")
 
-        # Deduplicate while preserving order
+
         seen: set = set()
         deduped: List[str] = []
         for s in suggestions:
@@ -494,9 +494,9 @@ class NLQueryParser:
                  + (f", với điều kiện: {', '.join(conditions)}" if conditions else '')]
         return ". ".join(p for p in parts if p) + "."
 
-    # ------------------------------------------------------------------
-    # LLM enrichment
-    # ------------------------------------------------------------------
+
+
+
     def _parse_llm(self, text: str) -> Optional[dict]:
         """Call the LLM to extract structured entities from Vietnamese text.
 
@@ -532,7 +532,7 @@ class NLQueryParser:
         if result is None or not isinstance(result, dict):
             return None
 
-        # Validate / normalise types
+
         if "facility_types" in result and not isinstance(result["facility_types"], list):
             result["facility_types"] = []
         if "conditions" in result and not isinstance(result["conditions"], list):
@@ -543,7 +543,7 @@ class NLQueryParser:
             except (ValueError, TypeError):
                 result["radius_km"] = None
 
-        # Validate facility/condition names against known sets
+
         valid_facilities = set(FACILITY_KEYWORDS.values()) | {"bookstore", "lab", "other"}
         valid_conditions = set(CONDITION_KEYWORDS.keys())
         result["facility_types"] = [f for f in result.get("facility_types", []) if f in valid_facilities]
@@ -569,6 +569,6 @@ class NLQueryParser:
         if llm_result.get("suggestions"):
             merged["suggestions"] = list(llm_result["suggestions"])
 
-        # Boost confidence when LLM agrees with regex
+
         merged["confidence"] = max(merged["confidence"], 0.7)
         return merged

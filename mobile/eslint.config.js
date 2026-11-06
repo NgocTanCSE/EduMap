@@ -1,4 +1,4 @@
-/* eslint flat config — React Native + Expo + TypeScript */
+
 const js = require('@eslint/js');
 const ts = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
@@ -9,7 +9,7 @@ const globals = require('globals');
 module.exports = [
   js.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src*.{ts,tsx}'],
     plugins: {
       '@typescript-eslint': ts,
       'react-hooks': reactHooks,

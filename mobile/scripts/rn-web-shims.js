@@ -1,17 +1,4 @@
-/**
- * Self-healing web shim discoverer for react-native@0.73.2 + expo export:web.
- *
- * RN 0.73.2 ships several internal modules WITHOUT a `.web.js` variant that
- * `ReactNativePrivateInterface` / `StyleSheet` / etc. require on web. This
- * script runs `expo export:web` repeatedly; each time webpack reports a
- * `ModuleNotFoundError: Can't resolve 'X' in 'Y'`, it writes a tiny no-op
- * `X.web.js` into the resolved location and retries.
- *
- * It prints the full list of shims created so the Dockerfile can bake them
- * deterministically.
- *
- * Usage: node scripts/rn-web-shims.js
- */
+
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +8,7 @@ const ROOTP = path.resolve(__dirname, '..');
 const lineRe = /ModuleNotFoundError: Module not found: Error: Can't resolve '([^']+)' in '([^']+)'/g;
 
 function createShim(targetDir, request) {
-  // Resolve the request relative to the dir that failed to resolve it (handles ../).
+
   let resolved = path.normalize(path.join(targetDir, request));
   const ext = path.extname(resolved);
   const candidate =
@@ -32,11 +19,11 @@ function createShim(targetDir, request) {
   if (fs.existsSync(candidate)) return null;
 
   fs.mkdirSync(path.dirname(candidate), { recursive: true });
-  // Generic no-op web shim (object). react-native-web overrides these modules;
-  // the stub only exists so the static resolver is satisfied on web exports.
+
+
   fs.writeFileSync(
     candidate,
-    "/** Auto-generated web no-op shim for RN 0.73.2 web export (scripts/rn-web-shims.js). */\nmodule.exports = {};\n"
+    "\nmodule.exports = {};\n"
   );
   return candidate;
 }

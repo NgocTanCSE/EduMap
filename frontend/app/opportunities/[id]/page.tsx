@@ -9,118 +9,104 @@ import Link from 'next/link';
 import Thumb from '@/components/ui/Thumb';
 import { opportunityIllustration } from '@/src/lib/illustrations';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-
-export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
+export default function OpportunityDetailPage({ params }: {
+    params: {
+        id: string;
+    };
+}) {
     const oppId = params.id;
-
-  const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState(false);
-
-  useEffect(() => {
-    if (oppId) {
-      fetchOpportunity();
+    const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [toggling, setToggling] = useState(false);
+    useEffect(() => {
+        if (oppId) {
+            fetchOpportunity();
+        }
+    }, [oppId]);
+    const fetchOpportunity = async () => {
+        try {
+            setLoading(true);
+            const data = await opportunityService.getOpportunityById(oppId);
+            setOpportunity((data as any)?.data ?? data);
+        }
+        catch (error: any) {
+            toast.error('Không thể tải chi tiết cơ hội');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const handleShare = async () => {
+        if (!opportunity)
+            return;
+        await shareLink({
+            title: opportunity.title,
+            text: `Cơ hội: ${opportunity.title}`,
+            url: `${window.location.origin}/opportunities/${opportunity.id}`,
+        });
+    };
+    const handleToggleTeam = async () => {
+        if (!authService.isLoggedIn()) {
+            toast.error('Vui lòng đăng nhập để sử dụng tính năng này');
+            return;
+        }
+        try {
+            setToggling(true);
+            const updated = await opportunityService.toggleTeamFinding(oppId);
+            setOpportunity(updated);
+            toast.success(updated.is_team_finding_open ? 'Đã BẬT tìm đồng đội' : 'Đã TẮT tìm đồng đội');
+        }
+        catch (error: any) {
+            toast.error(error.message);
+        }
+        finally {
+            setToggling(false);
+        }
+    };
+    if (loading) {
+        return (<div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin"/>
+      </div>);
     }
-  }, [oppId]);
-
-  const fetchOpportunity = async () => {
-    try {
-      setLoading(true);
-      const data = await opportunityService.getOpportunityById(oppId);
-      setOpportunity((data as any)?.data ?? data);
-    } catch (error: any) {
-      toast.error('Không thể tải chi tiết cơ hội');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!opportunity) return;
-    await shareLink({
-      title: opportunity.title,
-      text: `Cơ hội: ${opportunity.title}`,
-      url: `${window.location.origin}/opportunities/${opportunity.id}`,
-    });
-  };
-
-  const handleToggleTeam = async () => {
-      if (!authService.isLoggedIn()) {
-          toast.error('Vui lòng đăng nhập để sử dụng tính năng này');
-          return;
-      }
-      try {
-          setToggling(true);
-          const updated = await opportunityService.toggleTeamFinding(oppId);
-          setOpportunity(updated);
-          toast.success(updated.is_team_finding_open ? 'Đã BẬT tìm đồng đội' : 'Đã TẮT tìm đồng đội');
-      } catch (error: any) {
-          toast.error(error.message);
-      } finally {
-          setToggling(false);
-      }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (!opportunity) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
+    if (!opportunity) {
+        return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-bold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy cơ hội này.</p>
         <Link href="/opportunities" className="px-8 py-3 rounded-full bg-primary font-bold hover:bg-primary transition-all">
           Quay lại danh sách
         </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+      </div>);
+    }
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
-        
+
         <Link href="/opportunities" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors text-sm font-bold w-fit">
-          <ArrowLeft className="w-4 h-4" /> QUAY LẠI
+          <ArrowLeft className="w-4 h-4"/> QUAY LẠI
         </Link>
 
         <div className="bg-card border border-border rounded-lg p-8 md:p-6 relative overflow-hidden">
-            
+
             <div className="relative z-10 space-y-6">
                 <div className="overflow-hidden rounded-lg border border-border">
-                    <Thumb
-                        src={opportunityIllustration(opportunity.category, opportunity.title)}
-                        alt={opportunity.title}
-                        aspect="16/6"
-                    />
+                    <Thumb src={opportunityIllustration(opportunity.category, opportunity.title)} alt={opportunity.title} aspect="16/6"/>
                 </div>
                 <div className="flex justify-between items-start mb-2">
                     <span className="px-4 py-2 rounded-full bg-primary/20 text-primary/90 text-xs font-bold uppercase tracking-widest border border-primary/30">
                         {opportunity.category}
                     </span>
                     <div className="flex items-center gap-2">
-                        <BookmarkButton targetType="opportunity" targetId={opportunity.id} size="sm" />
-                        <button
-                            type="button"
-                            onClick={handleShare}
-                            aria-label="Chia sẻ cơ hội"
-                            className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors"
-                        >
-                            <Share2 className="w-5 h-5 text-muted-foreground/60" />
+                        <BookmarkButton targetType="opportunity" targetId={opportunity.id} size="sm"/>
+                        <button type="button" onClick={handleShare} aria-label="Chia sẻ cơ hội" className="p-3 bg-card border border-border rounded-xl hover:bg-card/20 transition-colors">
+                            <Share2 className="w-5 h-5 text-muted-foreground/60"/>
                         </button>
                     </div>
                 </div>
-                
+
                 <h1 className="text-3xl md:text-3xl font-semibold leading-tight">{opportunity.title}</h1>
-                
+
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground/60 pt-4 border-t border-border">
-                    <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary/90" /> {opportunity.address || 'Trực tuyến'}</span>
-                    <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-primary" /> Hạn chót: {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString('vi-VN') : 'Không có'}</span>
+                    <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary/90"/> {opportunity.address || 'Trực tuyến'}</span>
+                    <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-primary"/> Hạn chót: {opportunity.deadline ? new Date(opportunity.deadline).toLocaleDateString('vi-VN') : 'Không có'}</span>
                 </div>
             </div>
         </div>
@@ -140,41 +126,30 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
             <div className="space-y-6">
                 <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-xl p-6 text-center space-y-4">
                     <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto border border-primary/30">
-                        <Users className="w-8 h-8 text-primary" />
+                        <Users className="w-8 h-8 text-primary"/>
                     </div>
                     <div>
                         <h3 className="font-bold mb-2">Tìm Đồng Đội</h3>
                         <p className="text-xs text-muted-foreground/60 mb-6">Bạn có muốn mở tín hiệu để các học sinh khác tìm thấy và mời bạn vào nhóm không?</p>
-                        
-                        <button 
-                            onClick={handleToggleTeam}
-                            disabled={toggling}
-                            className={`w-full py-4 rounded-xl font-bold text-sm transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 ${
-                                opportunity.is_team_finding_open 
-                                    ? 'bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25' 
-                                    : 'bg-primary text-primary-foreground hover:bg-primary/90 '
-                            }`}
-                        >
-                            {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+
+                        <button onClick={handleToggleTeam} disabled={toggling} className={`w-full py-4 rounded-xl font-bold text-sm transition-all shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 ${opportunity.is_team_finding_open
+            ? 'bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25'
+            : 'bg-primary text-primary-foreground hover:bg-primary/90 '}`}>
+                            {toggling ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
                             {opportunity.is_team_finding_open ? 'TẮT TÌM ĐỒNG ĐỘI' : 'BẬT TÌM ĐỒNG ĐỘI'}
                         </button>
                     </div>
                 </div>
 
-                {opportunity.tags && opportunity.tags.length > 0 && (
-                    <div className="bg-card border border-border rounded-xl p-6">
+                {opportunity.tags && opportunity.tags.length > 0 && (<div className="bg-card border border-border rounded-xl p-6">
                         <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><Tag className="w-4 h-4 text-muted-foreground/60"/> Thẻ phân loại</h3>
                         <div className="flex flex-wrap gap-2">
-                            {opportunity.tags.map((tag, i) => (
-                                <span key={i} className="px-3 py-1 bg-card border border-border rounded-lg text-xs text-muted-foreground/60">#{tag}</span>
-                            ))}
+                            {opportunity.tags.map((tag, i) => (<span key={i} className="px-3 py-1 bg-card border border-border rounded-lg text-xs text-muted-foreground/60">#{tag}</span>))}
                         </div>
-                    </div>
-                )}
+                    </div>)}
             </div>
         </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

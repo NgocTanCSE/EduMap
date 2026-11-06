@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 tavily_parse.py — Shared helpers for turning Tavily Search/Extract results
 into structured EduMap row dicts.
@@ -25,9 +23,6 @@ import html as _html
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
-# --------------------------------------------------------------------------- #
-# Text helpers (Vietnamese-aware)                                             #
-# --------------------------------------------------------------------------- #
 
 def clean_text(text: Any) -> str:
     """Unescape HTML entities, strip tags, collapse whitespace.
@@ -48,9 +43,6 @@ def truncate(text: Any, n: int) -> str:
     return clean_text(text)[:n]
 
 
-# --------------------------------------------------------------------------- #
-# Field extractors — each returns (value, found_bool) for a single text blob  #
-# --------------------------------------------------------------------------- #
 
 def extract_salary(text: str) -> Optional[str]:
     """Best-effort salary extraction from free text.
@@ -62,15 +54,12 @@ def extract_salary(text: str) -> Optional[str]:
     if not text:
         return None
     t = text.lower()
-    # Vietnamese: "X - Y triệu" / "từ X triệu" / "lên tới Y triệu"
     m = re.search(r"(\d[\d\.,]*(?:\s*-\s*\d[\d\.,]*)?)\s*(triệu|đ|dong|vnd)", t)
     if m:
         return m.group(0).replace("triệu", "triệu").strip()
-    # USD / EUR / GBP: "$X-Y", "X-Y USD"
     m = re.search(r"(?:usd|eur|gbp)?\s*\$?\s*(\d[\d\.,]*)\s*(?:-\s*\$?\s*(\d[\d\.,]*))?\s*(usd|eur|gbp|vnd)?", t)
     if m:
         return m.group(0).strip()
-    # Fallback: bare number + "triệu"
     m = re.search(r"(\d+\.?\d*)\s*triệu", t)
     if m:
         return f"{m.group(1)} triệu"
@@ -85,7 +74,6 @@ def extract_deadline(text: str) -> Optional[str]:
     """
     if not text:
         return None
-    # ISO dates: 2025-12-31, 2025/12/31
     m = re.search(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", text)
     if m:
         y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -93,7 +81,6 @@ def extract_deadline(text: str) -> Optional[str]:
             return datetime(y, mo, d).strftime("%Y-%m-%d")
         except ValueError:
             pass
-    # DD/MM/YYYY or DD.MM.YYYY
     m = re.search(r"(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{4})", text)
     if m:
         d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -101,7 +88,6 @@ def extract_deadline(text: str) -> Optional[str]:
             return f"{y:04d}-{mo:02d}-{d:02d}"
         except ValueError:
             pass
-    # "31/12/2025" handled above.  Try "tháng 12 năm 2025" / "December 2025"
     m = re.search(r"(?:tháng\s*(\d{1,2})|(\d{1,2})[\/\-](\d{4}))", text.lower())
     if m:
         month = m.group(1) or m.group(2)
@@ -134,11 +120,9 @@ def extract_company(text: str) -> Optional[str]:
     like 'công ty ABC', 'Công ty TNHH XYZ', 'ABC tuyển dụng', etc."""
     if not text:
         return None
-    # "Công ty TNHH ABC" / "Công ty ABC"
     m = re.search(r"[Cc]ông ty\s+(?:tnhh|trách nhiệm)\s+(\S[^.\,]{2,80})", text)
     if m:
         return clean_text(m.group(1))[:200]
-    # "Tên công ty: ABC"
     m = re.search(r"[Tt]ên công ty[:\s]+([^\n\,\.]{3,120})", text)
     if m:
         return clean_text(m.group(1))[:200]
@@ -167,10 +151,8 @@ def _location_layer(location_str: str) -> str:
     if not location_str:
         return "unscoped"
     hay = location_str.lower()
-    # Đồng Nai / Biên Hòa / Bình Dương / Vũng Tàu
     if any(k.lower() in hay for k in ("đồng nai", "biên hòa", "bình dương", "vũng tàu")):
         return "dong_nai"
-    # Southern provinces
     southern = ["tp.hồ chí minh", "tp. hồ chí minh", "hồ chí minh", "hcmc", "cần thơ",
                 "long an", "tiền giang", "bến tre", "vĩnh long", "trà vinh", "đồng tháp",
                 "an giang", "kiên giang", "hậu giang", "sóc trăng", "bạc liêu", "cà mau",
@@ -178,12 +160,10 @@ def _location_layer(location_str: str) -> str:
                 "ninh thuận", "bình phước", "bà rịa", "bạc liêu"]
     if any(k in hay for k in southern):
         return "southern_vn"
-    # "việt nam" / "vietnam" / "toàn quốc" → national scope.
     if any(k in hay for k in ("việt nam", "vietnam", "toàn quốc", "hà nội",
                               "đà nẵng", "hải phòng", "quảng ninh", "hải dương",
                               "hưng yên", "thái bình", "nam định", "phú thọ", "bắc ninh")):
         return "vietnam"
-    # Southeast Asia
     sea = ["thái lan", "indonesia", "malaysia", "philippines", "singapore", "myanmar",
            "laos", "campuchia", "brunei"]
     if any(k in hay for k in sea):
@@ -195,7 +175,6 @@ def extract_location(text: str) -> Optional[str]:
     """Extract a location string (city/province) from text."""
     if not text:
         return None
-    # Common VN cities/provinces mentioned in job texts.
     for city in ("đồng nai", "biên hòa", "tp.hồ chí minh", "hồ chí minh", "hà nội",
                  "đà nẵng", "cần thơ", "hải phòng", "quận 1", "quận 3", "bình dương",
                  "vũng tàu", "long an", "tiền giang", "bến tre", "cà mau", "an giang"):
@@ -214,18 +193,15 @@ def extract_coords(text: str) -> Tuple[Optional[float], Optional[float]]:
     """
     if not text:
         return None, None
-    # Match coordinate pairs (lat, lng) — lat is 8-11° for VN, lng is 102-109°
     m = re.search(
         r"(?:lat(?:itude)?[:\s=]*|tọa độ\s*)?(\d{1,3}\.\d{3,8})\s*[,;\s]\s*(\d{1,3}\.\d{3,8})",
         text,
     )
     if not m:
-        # Bare pair like "10.9835, 106.8686"
         m = re.search(r"(\d{1,3}\.\d{3,8})\s*,\s*(\d{1,3}\.\d{3,8})", text)
     if m:
         try:
             lat, lng = float(m.group(1)), float(m.group(2))
-            # Sanity-check VN bounds (AGENTS.md §9 coordinate fix).
             if 8.0 <= lat <= 24.0 and 102.0 <= lng <= 109.5:
                 return lat, lng
         except (ValueError, TypeError):
@@ -233,9 +209,6 @@ def extract_coords(text: str) -> Tuple[Optional[float], Optional[float]]:
     return None, None
 
 
-# --------------------------------------------------------------------------- #
-# Row builders — produce dicts matching the existing SQLite schema          #
-# --------------------------------------------------------------------------- #
 
 def make_job_row(
     title: str,
@@ -250,7 +223,7 @@ def make_job_row(
     crawl_year: int = 0,
 ) -> Dict[str, Any]:
     """Build a ``jobs`` row dict (matches jobs_crawler._base_row / crawl_jobs._base_job)."""
-    from crawl_scope import in_year_scope  # lazy to avoid circular imports
+    from crawl_scope import in_year_scope  
     tags = tags or []
     desc = clean_text(description) or ""
     if tags:
@@ -411,7 +384,7 @@ def make_post_row(
     tags: Optional[List[str]] = None,
     like_count: int = 0,
     comment_count: int = 0,
-    post_tag: str = "community",  # community / social / hackathon
+    post_tag: str = "community",  
     source_url: str = "",
 ) -> Dict[str, Any]:
     """Build a ``posts`` row dict (tag=community/social/hackathon)."""
@@ -474,7 +447,6 @@ def make_map_point_row(
     """
     if lat is None or lng is None:
         return {}
-    # Validate coordinates (AGENTS.md §9 coordinate fix — skip out-of-range).
     if not (8.0 <= lat <= 24.0 and 102.0 <= lng <= 109.5):
         return {}
     return {
@@ -553,12 +525,7 @@ def _json(obj: Any) -> str:
     return _json_mod.dumps(obj, ensure_ascii=False) if obj is not None else None
 
 
-# --------------------------------------------------------------------------- #
-# Tavily result → structured row parsers                                       #
-# --------------------------------------------------------------------------- #
 
-# Regex for parsing Tavily search-result titles / content to extract jobs.
-# Tavily result titles often look like: "Tuyển Dung Lap Trinh Vien Java - ABC Corp"
 _JOB_TITLE_RE = re.compile(
     r"(?:tuyển\s+d?ng|tuyển\s+d?ụng|tuyển\s+d?ụng\s+ngay|tuyển\s+d?ụng\s+gấp|"
     r"urgent|tuyển\s+d?ụng|job|recruitment|tuyển\s+d?ụng|tuyen\s+dung)\s*"
@@ -570,7 +537,6 @@ _JOB_TITLE_RE = re.compile(
     r"officer|manager)\b[^|]{0,200}",
     re.IGNORECASE | re.UNICODE,
 )
-# Salary patterns: "15 - 20 triệu", "15-20 triệu", "$1,200 - $2,000", "20-30tr"
 _SALARY_RE = re.compile(
     r"(\d[\d\.,]*(?:\s*-\s*\d[\d\.,]*)?)\s*(triệu|tr|vnd|đ|usd|eur|gbp|\$)?",
     re.IGNORECASE,
@@ -588,10 +554,8 @@ def _split_title_company(raw_title: str, raw_content: str) -> Tuple[str, str, st
     company = ""
     location = ""
 
-    # Try to find "Công ty ..." pattern in the content.
     company = extract_company(raw_content + " " + title) or ""
 
-    # Try to find a Vietnamese city in the title/content.
     for city in ("đồng nai", "biên hòa", "tp.hồ chí minh", "hồ chí minh",
                  "hà nội", "đà nẵng", "cần thơ", "bình dương", "vũng tàu"):
         if city in title.lower():
@@ -600,11 +564,9 @@ def _split_title_company(raw_title: str, raw_content: str) -> Tuple[str, str, st
     if not location:
         location = extract_location(raw_content) or extract_location(title) or ""
 
-    # If title looks like "Lập trình viên X - Công ty Y", split on " - " or " | ".
     if not company:
         parts = re.split(r"\s*[-|]\s*", title)
         if len(parts) >= 2:
-            # Last part is often the company.
             possible_company = parts[-1].strip()
             if len(possible_company) < 80 and len(possible_company) > 2:
                 company = possible_company
@@ -654,15 +616,12 @@ def parse_tavily_jobs(
         title, company, location = _split_title_company(raw_title, raw_content)
         blob = clean_text(raw_content) or clean_text(raw_title)
 
-        # Salary
         salary = extract_salary(blob)
         if not salary:
-            # Try "lương: X" pattern explicitly
             m = re.search(r"(?:lương|tệ|salary)[:\s]*([\d\.,\-]+\s*(?:triệu|tỷ|usd|eur|vnd)?)", blob.lower())
             if m:
                 salary = m.group(0)[:60]
 
-        # Tags (skills) — look for comma-separated tech keywords.
         tags = []
         for kw in ("python", "java", "javascript", "react", "angular", "vue",
                    "node.js", "nodejs", "golang", "go", "c++", "c#", ".net",
@@ -672,7 +631,6 @@ def parse_tavily_jobs(
             if re.search(rf"\b{kw}\b", blob.lower()):
                 tags.append(kw)
 
-        # Dedup
         dedup = f"{title.lower()}|{company.lower()}"
         if dedup in seen:
             continue
@@ -771,7 +729,7 @@ def parse_tavily_map_points(
 
         lat, lng = extract_coords(raw_content) or extract_coords(blob)
         if lat is None or lng is None:
-            continue  # can't geo-locate — skip, curated snapshot fills the gap
+            continue  
 
         name = raw_title[:255] if raw_title else f"{category} tại {lat:.4f},{lng:.4f}"
         if name.lower() in seen:
@@ -802,4 +760,4 @@ def parse_tavily_poi_from_results(
     Returns a row dict (possibly empty if coords can't be parsed) or ``None``.
     This is used by the POI crawlers that need one POI per result.
     """
-    pass  # kept minimal — see parse_tavily_map_points for the list version
+    pass  

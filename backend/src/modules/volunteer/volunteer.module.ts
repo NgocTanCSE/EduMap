@@ -4,11 +4,11 @@ import { VolunteerActivity } from './entities/volunteer.entity';
 import { VolunteerHours } from './entities/volunteer-hours.entity';
 import { VolunteerService } from './volunteer.service';
 import { VolunteerController } from './volunteer.controller';
-
 @Module({
-  imports: [TypeOrmModule.forFeature([VolunteerActivity, VolunteerHours])],
-  providers: [VolunteerService],
-  controllers: [VolunteerController],
-  exports: [VolunteerService],
+    imports: [TypeOrmModule.forFeature([VolunteerActivity, VolunteerHours])],
+    providers: [VolunteerService],
+    controllers: [VolunteerController],
+    exports: [VolunteerService],
 })
-export class VolunteerModule {}
+export class VolunteerModule {
+}

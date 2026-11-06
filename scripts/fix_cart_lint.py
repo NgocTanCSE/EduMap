@@ -4,7 +4,6 @@ path = r"c:\Users\Ngoc Tan\Downloads\EduMap\frontend\app\marketplace\cart\page.t
 with open(path, "r", encoding="utf-8") as f:
     c = f.read()
 
-# Add GraduationCap to lucide-react import
 if "GraduationCap" not in c.split("from 'lucide-react'")[0]:
     c = c.replace("ShoppingCart,", "ShoppingCart, GraduationCap,")
 

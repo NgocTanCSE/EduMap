@@ -23,13 +23,13 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Silence the "SERVICES PACKAGE LOADED" / "ROUTERS PACKAGE LOADED" banners.
-import io, contextlib  # noqa: E402
+
+import io, contextlib
 
 from services.clustering_service import clustering_service as cs
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _tight_cluster(lat, lng, n=5, spread=0.002):
     """Generate n tightly-clustered points around (lat, lng)."""
@@ -52,7 +52,7 @@ def _sparse_points():
     return _tight_cluster(10.95, 106.84) + _tight_cluster(10.98, 106.90)
 
 
-# ── GeoJSON structure tests ──────────────────────────────────────────────────
+
 
 def test_returns_geojson_featurecollection():
     """identify_data_gaps returns a valid GeoJSON FeatureCollection."""
@@ -110,16 +110,16 @@ def test_polygon_rings_are_closed():
         result = cs.identify_data_gaps(_sparse_points(), grid_size_km=0.5)
     for f in result["features"]:
         ring = f["geometry"]["coordinates"][0]
-        assert len(ring) >= 5  # 4 corners + closing vertex
+        assert len(ring) >= 5
         assert ring[0] == ring[-1], "Polygon ring must be closed"
     print("✓ test_polygon_rings_are_closed")
 
 
-# ── Spatial gap detection tests ──────────────────────────────────────────────
+
 
 def test_empty_cell_detected_as_gap():
     """Cells with zero POIs are flagged as spatial gaps."""
-    # Points tightly clustered in one corner; the rest of the bbox should have gaps.
+
     points = _tight_cluster(10.95, 106.84, n=6)
     with contextlib.redirect_stdout(io.StringIO()):
         result = cs.identify_data_gaps(points, grid_size_km=0.5)
@@ -132,16 +132,16 @@ def test_empty_cell_detected_as_gap():
 
 def test_filled_cells_not_flagged():
     """Cells with POIs are NOT flagged as gap features."""
-    # Create a dense cluster so most cells are filled.
+
     points = []
     for lat in [10.950, 10.952, 10.954, 10.956]:
         for lng in [106.840, 106.842, 106.844, 106.846]:
             points.append({"lat": lat, "lng": lng, "name": f"P{lat}", "address": "addr", "category": "school"})
     with contextlib.redirect_stdout(io.StringIO()):
-        result = cs.identify_data_gaps(points, grid_size_km=3.0)  # large cell → few cells, all filled
+        result = cs.identify_data_gaps(points, grid_size_km=3.0)
     gap_cells = result["summary"]["gap_cells"]
     total_cells = result["summary"]["total_cells"]
-    # With large grid + dense points, gaps should be few or zero.
+
     assert gap_cells <= total_cells
     print(f"✓ test_filled_cells_not_flagged ({gap_cells}/{total_cells} gaps)")
 
@@ -153,7 +153,7 @@ def test_gap_score_increases_with_distance():
         result = cs.identify_data_gaps(points, grid_size_km=1.0)
     scores = [f["properties"]["gap_score"] for f in result["features"]]
     assert max(scores) >= min(scores), "Should have varying gap scores"
-    # The farthest gap cell should have a higher score.
+
     assert max(scores) > 0, "At least one gap cell should have positive score"
     print(f"✓ test_gap_score_increases_with_distance (max={max(scores):.3f}, min={min(scores):.3f})")
 
@@ -185,11 +185,11 @@ def test_priority_assignment():
     print("✓ test_priority_assignment")
 
 
-# ── Attribute gap detection tests ────────────────────────────────────────────
+
 
 def test_attribute_gaps_detected():
     """Missing attributes are detected and aggregated."""
-    # Points with some attributes missing.
+
     points = [
         {"lat": 10.95, "lng": 106.84, "name": "A", "address": "123 St", "city": "Biên Hòa",
          "district": "Biên Hòa", "category": "school", "rating_avg": 4.0},
@@ -199,11 +199,11 @@ def test_attribute_gaps_detected():
          "district": "Biên Hòa", "category": "school", "rating_avg": 3.5},
     ]
     with contextlib.redirect_stdout(io.StringIO()):
-        result = cs.identify_data_gaps(points, grid_size_km=5.0)  # large grid → fewer gaps
+        result = cs.identify_data_gaps(points, grid_size_km=5.0)
     attr_gaps = result["attribute_gaps"]
     assert "district" in attr_gaps or "address" in attr_gaps or "rating_avg" in attr_gaps or "city" in attr_gaps, \
         f"Should detect missing attributes, got: {list(attr_gaps.keys())}"
-    # Check percentage is correct.
+
     if "address" in attr_gaps:
         assert attr_gaps["address"]["missing"] == 1
         assert attr_gaps["address"]["total"] == 3
@@ -225,8 +225,8 @@ def test_attribute_gaps_empty_when_complete():
     ]
     with contextlib.redirect_stdout(io.StringIO()):
         result = cs.identify_data_gaps(points, grid_size_km=5.0)
-    # With complete data and a large grid, attribute_gaps should be mostly empty.
-    # (district and city will be present, so no gaps).
+
+
     attr_gaps = result["attribute_gaps"]
     for v in attr_gaps.values():
         assert isinstance(v, dict) and "missing" in v and "total" in v and "pct" in v
@@ -247,7 +247,7 @@ def test_summary_contains_grid_info():
     print(f"✓ test_summary_contains_grid_info ({s['total_cells']} cells, {s['gap_cells']} gaps, {s['gap_rate']}%)")
 
 
-# ── Edge cases ───────────────────────────────────────────────────────────────
+
 
 def test_empty_points():
     """Empty points list returns valid empty FeatureCollection (degraded)."""
@@ -283,9 +283,9 @@ def test_grid_size_clamping():
     """grid_size_km is clamped to [0.1, 50]."""
     points = _tight_cluster(10.95, 106.84, n=5)
     with contextlib.redirect_stdout(io.StringIO()):
-        result_low = cs.identify_data_gaps(points, grid_size_km=0.01)  # below min
-        result_high = cs.identify_data_gaps(points, grid_size_km=100.0)  # above max
-    # Should clamp to 0.1 and 50.0 respectively (no crash).
+        result_low = cs.identify_data_gaps(points, grid_size_km=0.01)
+        result_high = cs.identify_data_gaps(points, grid_size_km=100.0)
+
     assert result_low["summary"]["grid_size_km"] == 0.1
     assert result_high["summary"]["grid_size_km"] == 50.0
     print("✓ test_grid_size_clamping")
@@ -293,10 +293,10 @@ def test_grid_size_clamping():
 
 def test_dense_points_fill_all_cells():
     """With dense points, gaps are only in the 1-cell extension boundary."""
-    # The grid extends 1 cell on each side beyond the data extent. Points
-    # cannot fall into the bottom-left extension cell (below min_lat), so
-    # gap_cells >= 1 always. With dense points, ONLY the boundary extension
-    # cells should be gaps — interior cells are all filled.
+
+
+
+
     grid_deg = 50.0 / 111.0
     center_lat, center_lng = 10.95, 106.84
     points = []
@@ -311,18 +311,18 @@ def test_dense_points_fill_all_cells():
     total = result["summary"]["total_cells"]
     gaps = result["summary"]["gap_cells"]
     gap_rate = result["summary"]["gap_rate"]
-    # Gaps = extension boundary cells. With N=5 interior points + 2 extensions,
-    # the grid is (N+1)x(N+1)=36 or (N+2)x(N+2)=49. All gaps are boundary cells.
-    # Assert: gap_rate is low (< 50%) and gaps == boundary cells (no interior gaps).
+
+
+
     assert 0 < gap_rate < 50, f"Expected low gap_rate, got {gap_rate}%"
-    # Interior cells (excluding top/bottom/left/right borders) should all be filled.
-    n_rows = total // (N + 1) if total > 0 else 0  # approximate
-    # Just verify that the gap count is bounded by the border cells.
+
+    n_rows = total // (N + 1) if total > 0 else 0
+
     assert gaps < total * 0.6, f"Too many gaps ({gaps}/{total}) for dense data"
     print(f"✓ test_dense_points_fill_all_cells ({gaps}/{total} = {gap_rate}% gaps)")
 
 
-# ── Helper function tests ────────────────────────────────────────────────────
+
 
 def test_safe_float():
     """_safe_float handles valid, invalid, and NaN values."""
@@ -338,7 +338,7 @@ def test_safe_float():
 def test_haversine_vectorized():
     """_haversine_vectorized returns correct distances."""
     import numpy as np
-    # DNTU → LHU (~8km)
+
     lats = np.array([10.95322])
     lngs = np.array([106.80245])
     dists = cs._haversine_vectorized(10.98448, 106.86965, lats, lngs)
@@ -355,15 +355,15 @@ def test_haversine_vectorized_empty():
     print("✓ test_haversine_vectorized_empty")
 
 
-# ── Router integration test ──────────────────────────────────────────────────
+
 
 def test_router_importable():
-    """Router data_hunter.py is importable and exports the expected endpoint."""
+    """Router data_quality.py is importable and exports the expected endpoint."""
     import importlib
-    if 'routers.data_hunter' in sys.modules:
-        del sys.modules['routers.data_hunter']
-    mod = importlib.import_module('routers.data_hunter')
-    assert hasattr(mod, 'router'), "routers.data_hunter must export 'router'"
+    if 'routers.data_quality' in sys.modules:
+        del sys.modules['routers.data_quality']
+    mod = importlib.import_module('routers.data_quality')
+    assert hasattr(mod, 'router'), "routers.data_quality must export 'router'"
     assert hasattr(mod, 'data_gaps'), "Must have data_gaps endpoint function"
     routes = [r.path for r in mod.router.routes]
     assert '/api/ai/data/gaps' in routes, f"Expected /api/ai/data/gaps in routes: {routes}"
@@ -373,16 +373,16 @@ def test_router_importable():
 def test_router_request_model():
     """DataGapsRequest model has required fields."""
     import importlib
-    if 'routers.data_hunter' in sys.modules:
-        del sys.modules['routers.data_hunter']
-    mod = importlib.import_module('routers.data_hunter')
+    if 'routers.data_quality' in sys.modules:
+        del sys.modules['routers.data_quality']
+    mod = importlib.import_module('routers.data_quality')
     req_cls = mod.DataGapsRequest
-    # Default values
+
     req = req_cls()
     assert req.grid_size_km == 1.0
     assert req.top_n == 50
     assert req.points == []
-    # With data
+
     req2 = req_cls(points=[{"lat": 10.0, "lng": 106.0}], grid_size_km=2.0, top_n=10)
     assert req2.points == [{"lat": 10.0, "lng": 106.0}]
     assert req2.grid_size_km == 2.0
@@ -390,7 +390,7 @@ def test_router_request_model():
     print("✓ test_router_request_model")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     test_returns_geojson_featurecollection()

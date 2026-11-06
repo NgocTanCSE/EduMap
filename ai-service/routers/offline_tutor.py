@@ -1,5 +1,5 @@
 """
-Offline Tutor router — POST /api/offline/tutor  (Idea #7: Edge AI Tutor)
+Offline Tutor router — POST /api/offline/tutor  (Idea
 
 Endpoints:
   POST /api/offline/tutor  — proxy to OfflineTutor with {action, topic, ...}
@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/offline", tags=["7. Edge AI Tutor (offline)"])
 
-# ── Lazy model loading ───────────────────────────────────────────────────
+
 _offline_tutor = None
 _offline_tutor_error: str | None = None
 
@@ -39,9 +39,9 @@ def _get_tutor():
     global _offline_tutor, _offline_tutor_error
     if _offline_tutor is None and _offline_tutor_error is None:
         try:
-            # Import here so that a failed import doesn't prevent the
-            # entire ai-service from starting (FastAPI must still serve
-            # /api/ai/chat etc. even if offline tutor deps are missing).
+
+
+
             from offline.tutor import OfflineTutor
             _offline_tutor = OfflineTutor.get_instance()
         except Exception as e:
@@ -51,7 +51,7 @@ def _get_tutor():
     return _offline_tutor
 
 
-# ── Request / Response models ────────────────────────────────────────────
+
 
 
 class OfflineTutorRequest(BaseModel):
@@ -61,7 +61,7 @@ class OfflineTutorRequest(BaseModel):
         ..., description="One of: 'explain', 'practice', 'suggest'"
     )
 
-    # Common fields
+
     topic: str = Field(
         ..., min_length=1, max_length=200,
         description="Subject/concept to tutor (e.g. 'Đạo hàm', 'Toán')"
@@ -70,12 +70,12 @@ class OfflineTutorRequest(BaseModel):
         default=None, description="Bổ sung context (material_context, user_id,...)"
     )
 
-    # explain-specific
+
     material_context: Optional[str] = Field(
         default=None, description="Text from learning materials"
     )
 
-    # practice-specific
+
     difficulty: str = Field(
         default="medium",
         description="easy | medium | hard"
@@ -85,7 +85,7 @@ class OfflineTutorRequest(BaseModel):
         description="Số câu hỏi luyện tập (1-5)"
     )
 
-    # suggest-specific
+
     progression: Optional[Dict[str, Any]] = Field(
         default=None,
         description="User progression: {topics_studied, current_level, weak_areas, goals}"
@@ -101,24 +101,24 @@ class OfflineTutorResponse(BaseModel):
     source: str = Field(default="model", description="model | template")
     model_used: Optional[str] = Field(default=None)
 
-    # explain
+
     text: Optional[str] = Field(default=None)
 
-    # practice
+
     questions: Optional[List[Dict[str, Any]]] = Field(default=None)
 
-    # suggest
+
     next_step: Optional[str] = Field(default=None)
     resources: Optional[List[Any]] = Field(default=None)
     estimated_time: Optional[str] = Field(default=None)
     difficulty: Optional[str] = Field(default=None)
     progression: Optional[Dict[str, Any]] = Field(default=None)
 
-    # diagnostics
+
     model_status: Optional[Dict[str, Any]] = Field(default=None)
 
 
-# ── Endpoint ─────────────────────────────────────────────────────────────
+
 
 
 @router.post("/tutor")
@@ -137,7 +137,7 @@ async def offline_tutor(request: OfflineTutorRequest) -> OfflineTutorResponse:
     """
     tutor = _get_tutor()
 
-    # ── If the tutor module itself failed to import, use template fallback ──
+
     if tutor is None:
         return _template_fallback(request)
 
@@ -191,11 +191,11 @@ async def offline_tutor(request: OfflineTutorRequest) -> OfflineTutorResponse:
             )
 
         else:
-            # Unknown action — still return 200 with degraded template
+
             return _template_fallback(request)
 
     except Exception as e:
-        # Never let an exception propagate — always return a valid response
+
         import logging
         logging.getLogger(__name__).error(
             f"offline_tutor error (action={action}, topic={request.topic}): {e}"
@@ -203,7 +203,7 @@ async def offline_tutor(request: OfflineTutorRequest) -> OfflineTutorResponse:
         return _template_fallback(request, error=str(e))
 
 
-# ── Template fallback (when model unavailable or action unknown) ──────────
+
 
 def _template_fallback(
     request: OfflineTutorRequest, error: str | None = None
@@ -256,7 +256,7 @@ def _template_fallback(
             progression=prog,
         )
     else:
-        # Unknown action
+
         return OfflineTutorResponse(
             action=action or "unknown",
             topic=topic,

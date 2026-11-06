@@ -4,13 +4,7 @@ import { ResponseInterceptor } from './../src/common/interceptors/response.inter
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
-/**
- * Helper: create a fully-configured Nest app identical to production.
- * - Sets the `/api` global prefix
- * - Registers the global ValidationPipe (whitelist + forbidNonWhitelisted)
- * - Registers the ResponseInterceptor for consistent `{ success, data }` shape
- * - Registers the AllExceptionsFilter
- */
+
 async function createApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
@@ -76,7 +70,7 @@ describe('Auth API (e2e)', () => {
 
   describe('/api/auth/login (POST)', () => {
     it('should login with valid credentials', async () => {
-      // First register a user
+
       await request(app.getHttpServer())
         .post('/api/auth/register')
         .send({
@@ -86,7 +80,7 @@ describe('Auth API (e2e)', () => {
           role: 'student',
         });
 
-      // Then login — controller uses @HttpCode(OK) so 200, not 201
+
       return request(app.getHttpServer())
         .post('/api/auth/login')
         .send({

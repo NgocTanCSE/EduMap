@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OpenDataCrawler – fetches datasets from the Vietnam Open Data portal (data.gov.vn).
 It supports automatic detection of CSV/JSON resources and basic normalization of fields
@@ -20,16 +19,13 @@ from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches,
 )
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 print(f"  [open_data] crawl_years={_CRAWL_YEARS} | layers={[l['label'] for l in LOCATION_LAYERS]}")
 
-# Load optional proxy configuration from environment (e.g., http://proxy:8080)
 PROXY_URL = os.getenv("PROXY_URL")
 PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
-# Simple Nominatim geocoder for fallback (rate‑limited to 1 req/s)
 def _geocode(address: str) -> Dict[str, float]:
     """Geocode an address using Nominatim. Returns a dict with lat/lng (0.0 if failed)."""
     try:
@@ -46,7 +42,6 @@ def _geocode(address: str) -> Dict[str, float]:
             return {"lat": float(data[0]["lat"]), "lng": float(data[0]["lon"]) }
     except Exception:
         pass
-    # Respect Nominatim rate‑limit even on failure
     time.sleep(1)
     return {"lat": 0.0, "lng": 0.0}
 
@@ -97,7 +92,6 @@ class OpenDataCrawler:
         address = _get(["address", "địa chỉ", "location", "Address"])
         lat = _get(["lat", "latitude", "latitud", "latituded"])
         lng = _get(["lng", "longitude", "longitud", "longituded"])
-        # Convert to float if possible
         try:
             lat = float(lat) if lat is not None else None
         except Exception:
@@ -106,12 +100,10 @@ class OpenDataCrawler:
             lng = float(lng) if lng is not None else None
         except Exception:
             lng = None
-        # If missing coordinates, attempt geocode (slow)
         if (lat is None or lng is None) and address:
             geo = _geocode(address)
             lat = geo.get("lat")
             lng = geo.get("lng")
-        # Classify the address into a scope layer (Đồng Nai → miền Nam → VN → ĐNA).
         lscope = "unscoped"
         if address:
             for layer in LOCATION_LAYERS:
@@ -152,9 +144,7 @@ class OpenDataCrawler:
                     if loc["name"]:
                         locations.append(loc)
             except Exception as e:
-                # Continue with next resource if one fails
                 print(f"[OpenDataCrawler] Failed resource {res.get('url')}: {e}")
-            # Stop after first successful resource to avoid duplicate imports
             if locations:
                 break
         return locations

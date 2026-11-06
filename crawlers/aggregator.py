@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Master Crawler Aggregator for EduMap
 Combines all crawlers and generates consolidated seed data
@@ -11,7 +9,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# Import crawlers
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from wifi_crawler import WiFiCrawler
 from green_spaces_crawler import GreenSpacesCrawler
@@ -32,16 +29,10 @@ class DataAggregator:
         """Run nationwide crawl using Overpass + native crawlers."""
         print("[START] Nationwide Data Aggregation for EduMap...\n")
 
-        # ----------------------------------------------------------
-        # 1) Nationwide Overpass crawl (all categories)
-        # ----------------------------------------------------------
         print("[1/4] Nationwide Overpass Crawl...")
         overpass = OverpassCrawler()
         nationwide_locations = overpass.crawl_vietnam()
 
-        # ----------------------------------------------------------
-        # 2) Native crawlers (Dong Nai specific data)
-        # ----------------------------------------------------------
         print("\n[2/4] Native Crawlers (Dong Nai)...")
         wifi_crawler = WiFiCrawler()
         wifi_data = wifi_crawler.crawl_all_wifi()
@@ -59,9 +50,6 @@ class DataAggregator:
         schools_data = schools_crawler.crawl_all_schools()
         print(f"  Schools: {schools_data['total']} institutions")
 
-        # ----------------------------------------------------------
-        # 3) Merge all data
-        # ----------------------------------------------------------
         print("\n[3/4] Merging data...")
         all_locations = list(nationwide_locations)
         for loc in all_locations:
@@ -88,9 +76,6 @@ class DataAggregator:
             all_locations.append(school)
         print(f"  + Native Schools: {schools_data['total']}")
 
-        # ----------------------------------------------------------
-        # 4) Deduplicate
-        # ----------------------------------------------------------
         print(f"\n[4/4] Deduplicating {len(all_locations)} records...")
         all_locations = self._dedup_locations(all_locations)
         print(f"  After dedup: {len(all_locations)} unique records")
@@ -116,7 +101,6 @@ class DataAggregator:
 -- Sources: OSM Overpass (nationwide), Native crawlers (Dong Nai)
 """
 
-        # All map points
         sql_content += f"-- ============================================\n"
         sql_content += f"-- Map Points (All Sources)\n"
         sql_content += f"-- Total: {len(all_locations)} locations\n"
@@ -128,7 +112,6 @@ class DataAggregator:
                 sql_content += sql + "\n"
         sql_content += "\n"
 
-        # Books
         if total_books > 0:
             sql_content += f"-- ============================================\n"
             sql_content += f"-- Learning Materials (Books)\n"
@@ -153,8 +136,8 @@ class DataAggregator:
         from math import radians, sin, cos, sqrt, atan2
         import re as _re
 
-        SPATIAL_THRESHOLD_M = 200   # ~0.002° grid
-        GRID_DIV = 0.002            # ~200 m cell
+        SPATIAL_THRESHOLD_M = 200   
+        GRID_DIV = 0.002            
 
         def _norm_name(name: str) -> str:
             n = name.lower().strip()
@@ -176,7 +159,6 @@ class DataAggregator:
         def _richness(loc: Dict) -> int:
             return sum(1 for v in loc.values() if v not in (None, '', [], {}))
 
-        # --- Pass 1: exact name + rounded coordinate dedup ---
         seen = set()
         deduped = []
         for loc in locations:
@@ -191,9 +173,8 @@ class DataAggregator:
             seen.add(key)
             deduped.append(loc)
 
-        # --- Pass 2: spatial proximity dedup ---
         unique = []
-        spatial: Dict = {}  # grid_key -> [(lat, lng, norm_name, richness, idx)]
+        spatial: Dict = {}  
 
         for loc in deduped:
             name = loc.get("name", "").strip()
@@ -256,25 +237,23 @@ class DataAggregator:
     def save_results(self, crawlers_data: Dict):
         """Save all results to files, splitting SQL to avoid Git limits."""
 
-        # Generate Consolidated SQL Content (List of lines)
         sql_lines = self.generate_consolidated_sql(crawlers_data).split('\n')
-        
-        chunk_size = 30000  # ~6MB per file to avoid 10MB Git limit
+
+        chunk_size = 30000  
         total_chunks = (len(sql_lines) // chunk_size) + 1
-        
+
         for i in range(total_chunks):
             chunk_lines = sql_lines[i*chunk_size : (i+1)*chunk_size]
             if not chunk_lines or all(not line.strip() for line in chunk_lines):
                 continue
-                
+
             suffix = f"_part{i+1}" if total_chunks > 1 else ""
             sql_file = os.path.join(self.output_dir, f"consolidated_crawled_data_{self.timestamp}{suffix}.sql")
-            
+
             with open(sql_file, "w", encoding="utf-8") as f:
                 f.write('\n'.join(chunk_lines))
             print(f"✓ Saved SQL chunk: {sql_file}")
 
-        # Individual JSON reports
         summary = self._generate_summary(crawlers_data)
         json_file = os.path.join(self.output_dir, f"crawl_summary_{self.timestamp}.json")
         import json
@@ -282,7 +261,6 @@ class DataAggregator:
             json.dump(summary, f, ensure_ascii=False, indent=2)
         print(f"✓ Saved summary: {json_file}")
 
-        # Statistics
         stats_file = os.path.join(self.output_dir, f"statistics_{self.timestamp}.txt")
         with open(stats_file, "w", encoding="utf-8") as f:
             f.write(self._generate_statistics(crawlers_data))
@@ -292,11 +270,9 @@ class DataAggregator:
         """Generate summary of all crawled data."""
         all_locations = crawlers_data.get("all_locations", [])
 
-        # Count by category
         from collections import Counter
         cat_counts = Counter(loc.get("category", "unknown") for loc in all_locations)
 
-        # Count by source
         source_counts = Counter(loc.get("source", "unknown") for loc in all_locations)
 
         return {
@@ -343,10 +319,8 @@ def main():
     aggregator = DataAggregator(output_dir="crawled_data")
 
     try:
-        # Run all crawlers
         crawlers_data = aggregator.run_all_crawlers()
 
-        # Save results
         aggregator.save_results(crawlers_data)
 
         print("\n" + "="*60)
@@ -355,7 +329,7 @@ def main():
         print(f"\n📂 Output directory: {aggregator.output_dir}/")
         print("\nFiles generated:")
         for file in sorted(os.listdir(aggregator.output_dir)):
-            size = os.path.getsize(os.path.join(aggregator.output_dir, file)) / 1024  # KB
+            size = os.path.getsize(os.path.join(aggregator.output_dir, file)) / 1024  
             print(f"  • {file} ({size:.1f} KB)")
 
     except Exception as e:

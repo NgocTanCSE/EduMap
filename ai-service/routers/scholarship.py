@@ -48,7 +48,7 @@ def _parse_json_object(text: str) -> Optional[dict]:
     return None
 
 
-# ── Local (offline) eligibility checker ─────────────────────────────────────────
+
 
 def _check_eligibility_local(
     user_data: dict,
@@ -61,7 +61,7 @@ def _check_eligibility_local(
     field and matches against the user's GPA, major, and keywords. Returns
     a real assessment with a confidence level.
     """
-    # Normalise fields: requirements may come as a string or JSON list
+
     req_raw = (scholarship_data.get("requirements")
                or scholarship_data.get("eligibility_criteria")
                or scholarship_data.get("criteria", "")
@@ -84,13 +84,13 @@ def _check_eligibility_local(
     checks_passed = []
     checks_failed = []
 
-    # GPA check — look for "GPA" or "điểm" patterns in requirements
+
     import re as _re
     gpa_m = _re.search(r'(?:gpa|xếp\s*loại|điểm\s*trung\s*bình)\s*[:/\s]*([<\s=]*\d+[.,]?\d*)', req_lower)
     if gpa_m and user_gpa is not None:
         threshold_str = gpa_m.group(1).strip()
         threshold = float(_re.sub(r'[^0-9.,]', '', threshold_str).replace(',', '.'))
-        # Determine comparison operator from context
+
         before = req_lower[max(0, gpa_m.start() - 20):gpa_m.start()]
         if "≥" in before or ">=" in before or "tối thiểu" in before:
             if user_gpa >= threshold:
@@ -103,7 +103,7 @@ def _check_eligibility_local(
             else:
                 checks_failed.append(f"GPA {user_gpa}/4.0 > {threshold} (yêu cầu tối đa {threshold})")
         else:
-            # Default: assume minimum threshold
+
             if user_gpa >= threshold:
                 checks_passed.append(f"GPA {user_gpa}/4.0 ≥ {threshold}")
             else:
@@ -114,7 +114,7 @@ def _check_eligibility_local(
         else:
             checks_failed.append("Chưa cung cấp GPA để kiểm tra")
 
-    # Major / field check
+
     major_lower = user_major.lower().strip() if user_major else ""
     if major_lower:
         if major_lower in req_lower:
@@ -124,7 +124,7 @@ def _check_eligibility_local(
     else:
         checks_failed.append("Chưa cung cấp chuyên ngành")
 
-    # Language check (IELTS/TOEFL)
+
     if "ielts" in req_lower or "toefl" in req_lower or "tiếng anh" in req_lower:
         lang = user_data.get("language_score") or user_data.get("english_score", "")
         if lang:
@@ -132,7 +132,7 @@ def _check_eligibility_local(
         else:
             checks_passed.append("Yêu cầu tiếng Anh (kiểm tra thủ công)")
 
-    # Experience check
+
     if "kinh nghiệm" in req_lower or "kinh nghiệp" in req_lower:
         exp = user_data.get("experience_years", 0)
         if exp:
@@ -140,7 +140,7 @@ def _check_eligibility_local(
         else:
             checks_failed.append("Chưa có kinh nghiệm")
 
-    # Compute eligibility: pass if no hard failures on required criteria
+
     is_eligible = len(checks_failed) == 0
     passed_str = "; ".join(checks_passed) if checks_passed else "Chưa có"
     failed_str = "; ".join(checks_failed) if checks_failed else "Không có"
@@ -151,7 +151,7 @@ def _check_eligibility_local(
         f"{'❌ Điều kiện chưa đạt: ' + failed_str if checks_failed else ''}\n"
         f"Kết quả: {'Có khả năng đủ điều kiện' if is_eligible else 'Cần bổ sung hồ sơ trước khi nộp'}.\n"
         f"Lưu ý: Đây là đánh giá dựa trên từ khóa offline. Để nhận đánh giá chi tiết từ AI, "
-        f"hãy cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY."
+        f"hãy cấu hình DEEPSEEK_API_KEY, GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN."
     )
 
     return {
@@ -171,10 +171,10 @@ async def check_scholarship_eligibility(data: ScholarshipCheckRequest):
     scholarship_data = data.scholarship_data or {}
     transcript_data = data.transcript_data or {}
 
-    # On HF Spaces free plan (no API keys), use rule-based eligibility check
-    # from the scholarship's real requirements + user's transcript data.
-    # This is a real assessment — not a mock — based on GPA keywords and
-    # requirement text matching.
+
+
+
+
     if not llm_service or not llm_service.is_ready:
         return _check_eligibility_local(user_data, scholarship_data, transcript_data)
 
@@ -201,10 +201,10 @@ async def check_scholarship_eligibility(data: ScholarshipCheckRequest):
 
         result = _parse_json_object(reply)
         if result is None:
-            # chat_with_rag falls back to a plain-text template when every LLM
-            # provider is unreachable. That is not an error — return a valid
-            # eligibility payload so the UI can render a message instead of a
-            # 502 from this endpoint.
+
+
+
+
             return {
                 "is_eligible": False,
                 "message": (reply.strip() or "Không thể đánh giá tự động lúc này. Vui lòng thử lại sau.")[:1000],

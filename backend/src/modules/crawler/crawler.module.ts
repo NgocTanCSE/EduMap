@@ -4,14 +4,14 @@ import { HttpModule } from '@nestjs/axios';
 import { CrawlerService } from './crawler.service';
 import { MapPoint } from '../map/entities/map-point.entity';
 import { AIModule } from '../ai/ai.module';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([MapPoint]),
-    HttpModule,
-    AIModule,
-  ],
-  providers: [CrawlerService],
-  exports: [CrawlerService],
+    imports: [
+        TypeOrmModule.forFeature([MapPoint]),
+        HttpModule,
+        AIModule,
+    ],
+    providers: [CrawlerService],
+    exports: [CrawlerService],
 })
-export class CrawlerModule {}
+export class CrawlerModule {
+}

@@ -22,18 +22,18 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Force the template-only path so tests never touch a network provider.
+
 os.environ["OFFLINE_TUTOR_USE_LLM"] = "false"
 
-from offline.tutor import OfflineTutor  # noqa: E402
+from offline.tutor import OfflineTutor
 from offline.tutor import (
     _template_explain,
     _template_practice,
     _template_suggest,
-)  # noqa: E402
+)
 
 
-# ── Template fallback tests ──────────────────────────────────────────────
+
 
 def test_explain_returns_text_and_degraded_flag():
     """explain() returns a dict with 'text' and degraded=True when model is disabled."""
@@ -61,7 +61,7 @@ def test_explain_unknown_topic_gets_generic_template():
     tutor = OfflineTutor()
     result = tutor.explain(topic="Quantum Computing")
     assert result["text"] is not None
-    assert len(result["text"]) > 20  # non-trivial
+    assert len(result["text"]) > 20
     assert result["degraded"] is True
     print("✓ test_explain_unknown_topic_gets_generic_template")
 
@@ -84,10 +84,10 @@ def test_generate_practice_returns_questions():
 def test_generate_practice_clamps_num_questions():
     """num_questions is clamped to [1, 5]."""
     tutor = OfflineTutor()
-    # Request 10 questions — should be clamped to 5
+
     result = tutor.generate_practice(topic="Toán", num_questions=10)
     assert len(result["questions"]) <= 5
-    # Request 0 — clamped to 1
+
     result2 = tutor.generate_practice(topic="Toán", num_questions=0)
     assert len(result2["questions"]) >= 1
     print("✓ test_generate_practice_clamps_num_questions")
@@ -166,7 +166,7 @@ def test_get_tutor_singleton():
     print("✓ test_get_tutor_singleton")
 
 
-# ── Test runner ──────────────────────────────────────────────────────────
+
 
 def _run_all():
     test_explain_returns_text_and_degraded_flag()

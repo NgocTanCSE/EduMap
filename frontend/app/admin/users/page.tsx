@@ -1,68 +1,59 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService, User } from '@/reporting/services/admin.service';
+import { adminService, User } from '@/src/services/admin.service';
 import { toast } from "@/src/lib/toast";
-import { 
-  Users, Search, MoreVertical, CheckCircle, XCircle, 
-  AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter
-} from 'lucide-react';
-
+import { Users, Search, MoreVertical, CheckCircle, XCircle, AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  const fetchUsers = async (page = 1) => {
-    setLoading(true);
-    try {
-      const response = await adminService.getUsers({ 
-        page, 
-        limit: 10, 
-        search: searchTerm,
-        status: statusFilter
-      });
-      setUsers(response.items);
-      setMeta(response.meta);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers(meta.page);
-  }, [meta.page, statusFilter]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchUsers(1);
-  };
-
-  const handleUpdateStatus = async (userId: string, status: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái người dùng sang ${status}?`)) return;
-    try {
-      await adminService.updateUserStatus(userId, status);
-      toast.success('Đã cập nhật trạng thái người dùng.');
-      fetchUsers(meta.page);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Cập nhật trạng thái thất bại',
-      );
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    const [users, setUsers] = useState<User[]>([]);
+    const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const fetchUsers = async (page = 1) => {
+        setLoading(true);
+        try {
+            const response = await adminService.getUsers({
+                page,
+                limit: 10,
+                search: searchTerm,
+                status: statusFilter
+            });
+            setUsers(response.items);
+            setMeta(response.meta);
+        }
+        catch (error) {
+            console.error('Error fetching users:', error);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    useEffect(() => {
+        fetchUsers(meta.page);
+    }, [meta.page, statusFilter]);
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        fetchUsers(1);
+    };
+    const handleUpdateStatus = async (userId: string, status: string) => {
+        if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái người dùng sang ${status}?`))
+            return;
+        try {
+            await adminService.updateUserStatus(userId, status);
+            toast.success('Đã cập nhật trạng thái người dùng.');
+            fetchUsers(meta.page);
+        }
+        catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Cập nhật trạng thái thất bại');
+        }
+    };
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header */}
+
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3 text-primary">
-              <Users className="w-8 h-8" />
+              <Users className="w-8 h-8"/>
               Quản lý Người dùng
             </h1>
             <p className="text-muted-foreground/60 text-sm mt-1">Quản trị toàn bộ tài khoản người dùng trong hệ thống.</p>
@@ -75,26 +66,15 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* Search & Filters */}
         <div className="flex flex-wrap gap-4 items-center p-4 rounded-xl bg-card/50 border border-border">
           <form onSubmit={handleSearch} className="flex-1 min-w-[300px] relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/45" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm theo tên hoặc email..." 
-              className="w-full bg-card border border-border rounded-lg py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground/45"/>
+            <input type="text" placeholder="Tìm kiếm theo tên hoặc email..." className="w-full bg-card border border-border rounded-lg py-3 pl-12 pr-4 text-sm outline-none focus:border-primary transition-colors" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/>
           </form>
-          
+
           <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-4 py-2">
-            <Filter className="w-4 h-4 text-muted-foreground/45" />
-            <select 
-              className="bg-transparent text-sm outline-none"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
+            <Filter className="w-4 h-4 text-muted-foreground/45"/>
+            <select className="bg-transparent text-sm outline-none" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
               <option value="banned">Bị chặn</option>
@@ -102,20 +82,13 @@ export default function AdminUsersPage() {
             </select>
           </div>
 
-          <button 
-            onClick={() => fetchUsers(1)}
-            className="px-6 py-3 rounded-lg bg-primary hover:bg-primary/80 text-sm font-bold transition-all"
-          >
+          <button onClick={() => fetchUsers(1)} className="px-6 py-3 rounded-lg bg-primary hover:bg-primary/80 text-sm font-bold transition-all">
             Tìm kiếm
           </button>
         </div>
 
-        {/* Users Table */}
         <div className="rounded-xl overflow-hidden border border-border bg-card/30">
-          {loading ? (
-            <div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>
-          ) : (
-            <>
+          {loading ? (<div className="p-20 text-center text-muted-foreground/60">Đang tải dữ liệu...</div>) : (<>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-card/50">
@@ -127,8 +100,7 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {users.map(user => (
-                    <tr key={user.id} className="hover:bg-card/20 transition-colors">
+                  {users.map(user => (<tr key={user.id} className="hover:bg-card/20 transition-colors">
                       <td className="p-6">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-sm font-bold border border-border">
@@ -147,7 +119,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="p-6">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.status === 'active' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                          {user.status === 'active' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                          {user.status === 'active' ? <CheckCircle className="w-3 h-3"/> : <XCircle className="w-3 h-3"/>}
                           {user.status}
                         </span>
                       </td>
@@ -156,58 +128,37 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="p-6 text-right">
                         <div className="flex justify-end gap-2">
-                          {user.status === 'active' ? (
-                            <button 
-                              onClick={() => handleUpdateStatus(user.id, 'banned')}
-                              className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors title='Chặn người dùng'"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => handleUpdateStatus(user.id, 'active')}
-                              className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors title='Bỏ chặn'"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
+                          {user.status === 'active' ? (<button onClick={() => handleUpdateStatus(user.id, 'banned')} className="p-2 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors title='Chặn người dùng'">
+                              <XCircle className="w-4 h-4"/>
+                            </button>) : (<button onClick={() => handleUpdateStatus(user.id, 'active')} className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors title='Bỏ chặn'">
+                              <CheckCircle className="w-4 h-4"/>
+                            </button>)}
                           <button className="p-2 rounded-lg hover:bg-card/20 transition-colors">
-                            <MoreVertical className="w-4 h-4 text-muted-foreground/45" />
+                            <MoreVertical className="w-4 h-4 text-muted-foreground/45"/>
                           </button>
                         </div>
                       </td>
-                    </tr>
-                  ))}
+                    </tr>))}
                 </tbody>
               </table>
 
-              {/* Pagination */}
+              
               <div className="p-6 border-t border-border flex justify-between items-center">
                 <p className="text-xs text-muted-foreground/60">
                   Hiển thị {users.length} trên {meta.total} người dùng
                 </p>
                 <div className="flex gap-2">
-                  <button 
-                    disabled={meta.page <= 1}
-                    onClick={() => setMeta({...meta, page: meta.page - 1})}
-                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
+                  <button disabled={meta.page <= 1} onClick={() => setMeta({ ...meta, page: meta.page - 1 })} className="p-2 rounded-xl bg-card border border-border disabled:opacity-30">
+                    <ChevronLeft className="w-5 h-5"/>
                   </button>
-                  <button 
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => setMeta({...meta, page: meta.page + 1})}
-                    className="p-2 rounded-xl bg-card border border-border disabled:opacity-30"
-                  >
-                    <ChevronRight className="w-5 h-5" />
+                  <button disabled={meta.page >= meta.totalPages} onClick={() => setMeta({ ...meta, page: meta.page + 1 })} className="p-2 rounded-xl bg-card border border-border disabled:opacity-30">
+                    <ChevronRight className="w-5 h-5"/>
                   </button>
                 </div>
               </div>
-            </>
-          )}
+            </>)}
         </div>
 
       </div>
-    </div>
-  );
+    </div>);
 }

@@ -9,7 +9,7 @@ export interface ContainerProps {
   scrollable?: boolean;
 }
 
-/** Full-bleed safe-area container with the app dark background. */
+
 export const Container: React.FC<ContainerProps> = ({ children, style, scrollable }) => {
   const Wrapper = scrollable ? require('react-native').ScrollView : View;
   return (

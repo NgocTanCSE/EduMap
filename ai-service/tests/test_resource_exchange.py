@@ -14,7 +14,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
@@ -97,15 +97,15 @@ def test_rank_resource_matches_template_scores():
     """Template fallback preserves the SQLite-side score ordering (0–100)."""
     svc = _fresh_service()
     pairs = [
-        _make_pair("r1", "req1", score=90.0),   # high score
-        _make_pair("r2", "req2", score=30.0),   # low score
+        _make_pair("r1", "req1", score=90.0),
+        _make_pair("r2", "req2", score=30.0),
     ]
     data = ResourceExchangeRequest(pairs=pairs)
     result = asyncio.run(svc.rank_resource_matches(data))
 
     matches = result["ranked_matches"]
     assert len(matches) == 2
-    # Sorted descending by score
+
     assert matches[0]["match_score"] >= matches[1]["match_score"]
     for m in matches:
         assert 0 <= m["match_score"] <= 100
@@ -135,7 +135,7 @@ def test_rank_resource_matches_safety_cap():
     data = ResourceExchangeRequest(pairs=pairs, max_results=15)
     result = asyncio.run(svc.rank_resource_matches(data))
     assert isinstance(result, dict)
-    # Fallback may return up to 15 template matches
+
     assert len(result["ranked_matches"]) <= 15
     assert result["degraded"] is True
     print("✓ test_rank_resource_matches_safety_cap")
@@ -150,7 +150,7 @@ def test_resource_exchange_fallback_includes_transport_plan():
     assert isinstance(result, dict)
     assert "transport_plan" in result
     assert isinstance(result["transport_plan"], list)
-    # 2 distinct resource/request pairs → 2 conflict-free slots
+
     assert len(result["transport_plan"]) == 2
     print("✓ test_resource_exchange_fallback_includes_transport_plan")
 
@@ -161,8 +161,8 @@ def test_build_transport_schedule_conflict_free():
     svc = _fresh_service()
     matches = [
         {"resource_id": "r1", "request_id": "req1", "match_score": 95},
-        {"resource_id": "r1", "request_id": "req2", "match_score": 90},  # r1 conflict
-        {"resource_id": "r2", "request_id": "req1", "match_score": 88},  # req1 conflict
+        {"resource_id": "r1", "request_id": "req2", "match_score": 90},
+        {"resource_id": "r2", "request_id": "req1", "match_score": 88},
         {"resource_id": "r2", "request_id": "req3", "match_score": 80},
     ]
     plan = svc._build_transport_schedule(matches)
@@ -170,7 +170,7 @@ def test_build_transport_schedule_conflict_free():
     reqids = [s["request_id"] for s in plan]
     assert len(rids) == len(set(rids)), "resource double-booked"
     assert len(reqids) == len(set(reqids)), "request double-booked"
-    # r1→req1 wins (highest). r1→req2 skipped. r2→req1 skipped. r2→req3 booked.
+
     assert {"r1", "r2"} == set(rids)
     assert {"req1", "req3"} == set(reqids)
     assert [s["pickup_order"] for s in plan] == [1, 2]
@@ -187,7 +187,7 @@ def test_build_transport_schedule_staggered_slots():
     plan = svc._build_transport_schedule(matches)
     assert len(plan) == 3
     times = [s["pickup_datetime"] for s in plan]
-    # Each slot is 2h apart
+
     from datetime import datetime
     t0 = datetime.fromisoformat(times[0])
     t1 = datetime.fromisoformat(times[1])
@@ -219,7 +219,7 @@ def test_rank_resource_matches_returns_degraded_flag():
 
     assert "degraded" in result
     assert "reason" in result
-    # Ensure no underscore-prefixed keys leak to the router
+
     assert "_degraded" not in result
     assert "_reason" not in result
     print("✓ test_rank_resource_matches_returns_degraded_flag")

@@ -18,8 +18,8 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing — mirrors
-# test_impact_match.py / test_ai_fallbacks.py.
+
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
@@ -28,8 +28,8 @@ for _v in [
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_TYPE"] = "sqlite"
-# Point to the real DB if it exists; tests don't actually query it but the
-# import chain expects the env var to be set.
+
+
 _db = os.path.abspath(os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db"))
 if os.path.exists(_db):
     os.environ["DB_SQLITE_PATH"] = _db
@@ -46,7 +46,7 @@ from services.language_bridge import (
 )
 
 
-# ── Service instantiation ────────────────────────────────────────────────────
+
 
 def test_service_singleton():
     """The module-level singleton should be a LanguageBridgeService instance."""
@@ -66,7 +66,7 @@ def test_supported_languages():
     assert "Tiếng Việt" in SUPPORTED_LANGUAGES.values()
 
 
-# ── Simplify ─────────────────────────────────────────────────────────────────
+
 
 def test_simplify_empty_text():
     """Empty input should return an empty simplified string (no crash)."""
@@ -81,7 +81,7 @@ def test_simplify_degraded_fallback():
     """When all LLM providers are disabled, simplify must degrade gracefully
     — return valid output with degraded=True instead of raising."""
     svc = LanguageBridgeService()
-    # With no API keys, llm_ready is False → fallback path.
+
     assert svc.llm_ready is False
 
     sample = "Áp dụng giải thuật đa thứ tự (multi-head attention) trong kiến trúc Transformer cho phép mô hình..." * 3
@@ -136,7 +136,7 @@ def test_simplify_whitespace_only():
     assert result["simplified"] == ""
 
 
-# ── Translate ─────────────────────────────────────────────────────────────────
+
 
 def test_translate_empty_text():
     svc = LanguageBridgeService()
@@ -195,7 +195,7 @@ def test_translate_glossary_respected():
     assert result["target_language"] == "en"
 
 
-# ── TTS ────────────────────────────────────────────────────────────────────
+
 
 def test_tts_empty_text():
     """Empty TTS input should return degraded with no audio."""
@@ -220,9 +220,9 @@ def test_tts_degraded_when_no_provider():
     assert "reason" in result
     assert result["language"] == "vi"
     assert result["audio_format"] == "mp3"
-    # Since no TTS provider is likely available in the test environment,
-    # it should degrade.  If a provider *is* available (e.g. gTTS installed),
-    # we still verify the shape is correct.
+
+
+
     print(f"  TTS result: degraded={result['degraded']}, provider={result.get('provider')}")
     print("✓ test_tts_degraded_when_no_provider")
 
@@ -245,7 +245,7 @@ def test_tts_cache_hit():
     print("✓ test_tts_cache_hit")
 
 
-# ── Utility helpers ──────────────────────────────────────────────────────────
+
 
 def test_truncate_short_text():
     """Short text should be returned unchanged (minus surrounding whitespace)."""
@@ -256,14 +256,14 @@ def test_truncate_long_text():
     """Long text should be truncated with ellipsis."""
     long_text = "A" * 1000
     result = _truncate(long_text, 200)
-    assert len(result) <= 203  # 200 + "..."
+    assert len(result) <= 203
     assert result.endswith("...")
 
 
 def test_estimate_duration_ms():
     """Duration should scale with word count."""
-    short = _estimate_duration_ms("Xin chào")  # 2 words
-    long = _estimate_duration_ms("Xin chào " * 50)  # 100 words
+    short = _estimate_duration_ms("Xin chào")
+    long = _estimate_duration_ms("Xin chào " * 50)
     assert long > short
     assert short > 0
 
@@ -274,16 +274,16 @@ def test_hash_text_deterministic():
     assert hash_text("hello") != hash_text("world")
 
 
-# ── Vietnamese text handling ──────────────────────────────────────────────────
+
 
 def test_simplify_preserves_vietnamese_diacritics():
     """Vietnamese diacritics must be preserved in the simplified output."""
     svc = LanguageBridgeService()
     sample = "Đại học quốc gia là một trong những trường đại học lớn nhất miền Bắc Việt Nam."
     result = svc.simplify_text(sample, difficulty="middle")
-    # Even in fallback mode, the text should retain Vietnamese characters.
+
     assert any(ch in result["simplified"] for ch in "àáạảấầấẩ") or \
-           result["simplified"]  # fallback returns original/truncated
+           result["simplified"]
     print("✓ test_simplify_preserves_vietnamese_diacritics")
 
 
@@ -295,7 +295,7 @@ def test_translate_vietnamese_to_english():
         target_language="en",
     )
     assert len(result["translated"]) > 0
-    assert result["degraded"] is True  # LLM is down → degraded
+    assert result["degraded"] is True
     print("✓ test_translate_vietnamese_to_english")
 
 
@@ -312,7 +312,7 @@ def test_simplify_with_context():
     print("✓ test_simplify_with_context")
 
 
-# ── Smoke / integration-style ──────────────────────────────────────────────────────────────────
+
 
 def test_all_endpoints_return_dict():
     """All three public methods should return a dict (never raise)."""

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Schools & Educational Spaces Crawler for Dong Nai Province
 Crawls schools, universities, training centers, co-working spaces
@@ -269,7 +267,6 @@ class SchoolsCrawler:
 
         all_schools = universities + secondary + training + dntu_spaces
 
-        # Tag each school with its location scope (all Đồng Nai-sourced here).
         for s in all_schools:
             s["location_scope"] = "dong_nai"
 
@@ -361,7 +358,6 @@ if __name__ == "__main__":
     for loc in result['locations']:
         print(f"  - {loc['name']}")
 
-    # Tạo SQL
     sql_statements = crawler.to_map_points_sql(result['locations'])
     with open("schools.sql", "w", encoding="utf-8") as f:
         for sql in sql_statements:

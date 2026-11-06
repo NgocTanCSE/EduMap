@@ -46,7 +46,7 @@ export default function CareerScreen() {
         )}
       </View>
       <Text style={styles.companyText}>{item.company}</Text>
-      
+
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <MapPin size={14} color="#06b6d4" />

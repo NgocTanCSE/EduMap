@@ -6,18 +6,18 @@ import { GeoVisionService } from './geo-vision.service';
 import { GeoVisionController } from './geo-vision.controller';
 import { MapPoint } from '../map/entities/map-point.entity';
 import { Location } from '../map/entities/location.entity';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([MapPoint, Location]),
-    HttpModule.register({
-      timeout: 8000,
-      maxRedirects: 5,
-    }),
-    ConfigModule,
-  ],
-  providers: [GeoVisionService],
-  controllers: [GeoVisionController],
-  exports: [GeoVisionService],
+    imports: [
+        TypeOrmModule.forFeature([MapPoint, Location]),
+        HttpModule.register({
+            timeout: 8000,
+            maxRedirects: 5,
+        }),
+        ConfigModule,
+    ],
+    providers: [GeoVisionService],
+    controllers: [GeoVisionController],
+    exports: [GeoVisionService],
 })
-export class GeoModule {}
+export class GeoModule {
+}

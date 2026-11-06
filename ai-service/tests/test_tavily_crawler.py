@@ -24,15 +24,15 @@ import urllib.error
 
 import pytest
 
-# Add crawlers/ dir to path so we can import tavily_client / tavily_parse.
-# __file__ = .../ai-service/tests/test_tavily_crawler.py
-# _PROJECT_ROOT = .../EduMap/  (3 levels up from the test file)
+
+
+
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _CRAWLERS_DIR = os.path.join(_PROJECT_ROOT, "crawlers")
 if _CRAWLERS_DIR not in sys.path:
     sys.path.insert(0, _CRAWLERS_DIR)
 
-from tavily_parse import (  # noqa: E402
+from tavily_parse import (
     clean_text,
     extract_salary,
     extract_coords,
@@ -44,7 +44,7 @@ from tavily_parse import (  # noqa: E402
     make_map_point_row,
     make_wifi_row,
 )
-from tavily_client import (  # noqa: E402
+from tavily_client import (
     TavilyClient,
     get_client,
     tavily_search,
@@ -52,12 +52,12 @@ from tavily_client import (  # noqa: E402
     tavily_search_and_extract,
     _force_ipv4,
 )
-from tavily_poi import search_pois_tavily, TavilyPoiClient  # noqa: E402
+from tavily_poi import search_pois_tavily, TavilyPoiClient
 
 
-# --------------------------------------------------------------------------- #
-#  Mock Tavily search/extract responses                                        #
-# --------------------------------------------------------------------------- #
+
+
+
 
 MOCK_JOB_RESULTS = [
     {
@@ -151,9 +151,9 @@ MOCK_MAP_POINTS = [
 ]
 
 
-# --------------------------------------------------------------------------- #
-#  parse_tavily_jobs integration                                              #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestParseTavilyJobsIntegration:
     def test_parses_valid_job_results(self):
         jobs = parse_tavily_jobs(MOCK_JOB_RESULTS[:2])
@@ -173,22 +173,22 @@ class TestParseTavilyJobsIntegration:
 
     def test_skips_results_without_title(self):
         jobs = parse_tavily_jobs(MOCK_JOB_RESULTS)
-        # 4 valid + 1 dup = 4 unique (the dup has same title+company).
-        # Result 4 (no title) is skipped.
+
+
         assert all(job["title"] for job in jobs)
-        # No duplicate title+company pairs.
+
         pairs = [(j["title"], j["company_name"]) for j in jobs]
         assert len(pairs) == len(set(pairs))
 
     def test_vietnamese_location_scope(self):
         jobs = parse_tavily_jobs(MOCK_JOB_RESULTS[:1])
         assert len(jobs) == 1
-        assert jobs[0]["location_scope"] == "dong_nai"  # Biên Hòa, Đồng Nai
+        assert jobs[0]["location_scope"] == "dong_nai"
 
     def test_southern_vn_location_scope(self):
         jobs = parse_tavily_jobs(MOCK_JOB_RESULTS[1:2])
         assert len(jobs) == 1
-        assert jobs[0]["location_scope"] == "southern_vn"  # TP.HCM / TP Hồ Chí Minh
+        assert jobs[0]["location_scope"] == "southern_vn"
 
     def test_northern_location_scope(self):
         results = [
@@ -227,9 +227,9 @@ class TestParseTavilyJobsIntegration:
         assert isinstance(tags, list)
 
 
-# --------------------------------------------------------------------------- #
-#  parse_tavily_posts integration                                             #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestParseTavilyPostsIntegration:
     def test_parses_community_posts(self):
         posts = parse_tavily_posts(MOCK_POST_RESULTS[:1], post_tag="community")
@@ -237,7 +237,7 @@ class TestParseTavilyPostsIntegration:
         assert posts[0]["title"] == "Hội thảo AI giáo dục tại Đà Nẵng"
         tags = json.loads(posts[0]["tags"])
         assert "community" in tags
-        assert len(tags) >= 2  # at least community + source tag
+        assert len(tags) >= 2
 
     def test_parses_hackathon_posts(self):
         posts = parse_tavily_posts(MOCK_POST_RESULTS[1:], post_tag="hackathon")
@@ -249,31 +249,31 @@ class TestParseTavilyPostsIntegration:
         assert parse_tavily_posts(None) == []
 
 
-# --------------------------------------------------------------------------- #
-#  parse_tavily_map_points integration                                        #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestParseTavilyMapPointsIntegration:
     def test_parses_valid_coords(self):
         points = parse_tavily_map_points(MOCK_MAP_POINTS[:2])
         assert len(points) == 2
         assert all("POINT(" in p["location"] for p in points)
         assert all(8.0 <= p["lat"] <= 24.0 for p in points) if "lat" in points[0] else True
-        # Check that coordinates are in WKT POINT format: POINT(lng lat)
+
         for p in points:
             wkt = p["location"]
             assert wkt.startswith("POINT(")
             assert wkt.endswith(")")
 
     def test_skips_results_without_coords(self):
-        # Result 3 (café) has no coordinates → skipped.
+
         points = parse_tavily_map_points(MOCK_MAP_POINTS[:3])
-        assert len(points) == 2  # café skipped
+        assert len(points) == 2
 
     def test_deduplicates_by_name(self):
         points = parse_tavily_map_points(MOCK_MAP_POINTS)
-        # DNTU appears twice (results 1 and 4) → deduped to 1.
-        # Café (no coords) skipped.
-        # Total: DNTU (deduped) + Chợ Đầm Cau = 2 points.
+
+
+
         names = [p["name"] for p in points]
         assert len(names) == len(set(names))
         assert "Trường Đại học Công nghệ Đồng Nai" in names
@@ -284,7 +284,7 @@ class TestParseTavilyMapPointsIntegration:
     def test_vietnam_bbox_validation(self):
         points = parse_tavily_map_points(MOCK_MAP_POINTS[:2])
         for p in points:
-            # Parse lat/lng from WKT POINT(lng lat) and validate VN bounds.
+
             wkt = p["location"]
             parts = wkt.replace("POINT(", "").replace(")", "").strip().split()
             lng = float(parts[0])
@@ -293,15 +293,15 @@ class TestParseTavilyMapPointsIntegration:
             assert 102.0 <= lng <= 109.5, f"lng {lng} out of VN range"
 
 
-# --------------------------------------------------------------------------- #
-#  tavily_client — graceful degradation                                         #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestTavilyClientDegradation:
     def test_returns_empty_list_when_no_key(self):
         """Without TAVILY_API_KEY, search() must return [] (never raise)."""
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
             import tavily_client as tc
-            tc._default_client = None  # Force fresh singleton
+            tc._default_client = None
             client = TavilyClient()
             assert client.is_configured() is False
             assert client.search("test") == []
@@ -340,7 +340,7 @@ class TestTavilyClientDegradation:
         with mock.patch("tavily_client.CB_FAILURES", 100), \
              mock.patch("tavily_client.CB_TTL", 300):
             client = TavilyClient()
-            # Invalid JSON → _post returns None → search returns []
+
             assert client.search("test") == []
 
 
@@ -352,12 +352,12 @@ class TestTavilyClientCircuitBreakerIntegration:
         with mock.patch("tavily_client.CB_FAILURES", 3), \
              mock.patch("tavily_client.CB_TTL", 300):
             client = TavilyClient()
-            # Trip the breaker with 3 failures.
+
             for _ in range(3):
                 client.search("q")
             assert "open" in client._cb.state()
 
-            # Subsequent calls should NOT hit urlopen (circuit is open).
+
             calls_before = mock_urlopen.call_count
             client.search("blocked-query")
             assert mock_urlopen.call_count == calls_before
@@ -367,23 +367,23 @@ class TestTavilyClientCircuitBreakerIntegration:
         mock_urlopen.side_effect = urllib.error.URLError("blocked")
 
         with mock.patch("tavily_client.CB_FAILURES", 2), \
-             mock.patch("tavily_client.CB_TTL", 1):  # 1 second TTL
+             mock.patch("tavily_client.CB_TTL", 1):
             client = TavilyClient()
             client.search("q1")
             client.search("q2")
             assert "open" in client._cb.state()
 
             time.sleep(2)
-            client._cb._failures = 0  # Simulate TTL expiry
-            client._cb._opened_at = time.time() - 10  # Old enough to be half-open
+            client._cb._failures = 0
+            client._cb._opened_at = time.time() - 10
 
-            # After TTL expiry, allow() returns True.
+
             assert client._cb.allow() is True
 
 
-# --------------------------------------------------------------------------- #
-#  IPv4 monkeypatch                                                             #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestIPv4Monkeypatch:
     def test_ipv4_enforced_at_import(self):
         """socket.getaddrinfo must only return AF_INET after _force_ipv4()."""
@@ -400,9 +400,9 @@ class TestIPv4Monkeypatch:
         assert all(f == socket.AF_INET for f in families)
 
 
-# --------------------------------------------------------------------------- #
-#  Module singleton pattern                                                     #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestSingletonPattern:
     def test_get_client_returns_same_instance(self):
         c1 = get_client()
@@ -418,9 +418,9 @@ class TestSingletonPattern:
             assert tavily_search_and_extract("test") == []
 
 
-# --------------------------------------------------------------------------- #
-#  TavilyPoiClient (POI crawlers)                                               #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestTavilyPoiClient:
     def test_returns_empty_without_key(self):
         with mock.patch.dict(os.environ, {"TAVILY_API_KEY": ""}, clear=False):
@@ -434,9 +434,9 @@ class TestTavilyPoiClient:
         assert results == []
 
 
-# --------------------------------------------------------------------------- #
-#  clean_text — Vietnamese diacritics preserved                                 #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestCleanTextVietnamese:
     def test_preserves_diacritics(self):
         text = "Xin chào! Đây là trường Đại học Công nghệ Đồng Nai."
@@ -452,9 +452,9 @@ class TestCleanTextVietnamese:
         assert "20" in result
 
 
-# --------------------------------------------------------------------------- #
-#  Row schema validation (cross-check with existing DB schema from AGENTS.md)    #
-# --------------------------------------------------------------------------- #
+
+
+
 class TestRowSchemaCompatibility:
     """Verify parsed rows match the column names from schema.sql."""
 
@@ -481,11 +481,11 @@ class TestRowSchemaCompatibility:
         assert len(jobs) == 1
         row = jobs[0]
         missing = self.JOBS_COLUMNS - set(row.keys())
-        # crawl_year may be 0 (not set) but should be present as a key.
+
         assert "crawl_year" in row
         assert "location_scope" in row
         assert "image_url" in row
-        # All schema columns should be present.
+
         for col in self.JOBS_COLUMNS:
             assert col in row, f"Missing column: {col}"
 
@@ -505,14 +505,14 @@ class TestRowSchemaCompatibility:
             speed_mbps=50,
             provider="Viettel",
         )
-        assert row != {}  # valid coords
+        assert row != {}
         for col in self.WIFI_COLUMNS:
             assert col in row, f"Missing column: {col}"
         assert "POINT(" in row["location_point"]
 
     def test_wifi_row_invalid_coords(self):
         row = make_wifi_row(name="Bad", lat=0, lng=0)
-        assert row == {}  # out of range → empty
+        assert row == {}
 
 
 if __name__ == "__main__":

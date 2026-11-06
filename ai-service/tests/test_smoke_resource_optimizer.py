@@ -17,7 +17,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Import the FastAPI app from main.py (routers auto-included via try/except)
+
 os.environ.setdefault("XKIRO_API_KEY", "")
 os.environ.setdefault("HF_TOKEN", "")
 from main import app
@@ -48,11 +48,11 @@ def test_smoke_optimize_endpoint_returns_valid_geojson():
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
     body = response.json()
 
-    # Valid GeoJSON FeatureCollection
+
     assert body["type"] == "FeatureCollection"
     assert isinstance(body["features"], list)
 
-    # Three plans present
+
     assert "plans" in body
     for p in ("A", "B", "C"):
         assert p in body["plans"]
@@ -63,19 +63,19 @@ def test_smoke_optimize_endpoint_returns_valid_geojson():
         assert plan["coverage_pct"] is not None
         assert plan["solver"] == "scipy.milp"
 
-    # Coverage increases A <= B <= C
+
     served_a = body["plans"]["A"]["total_served"]
     served_b = body["plans"]["B"]["total_served"]
     served_c = body["plans"]["C"]["total_served"]
     assert served_a <= served_b
     assert served_b <= served_c
 
-    # Gaps present
+
     assert "gaps" in body
     assert body["gaps"]["type"] == "FeatureCollection"
     assert isinstance(body["gaps"]["features"], list)
 
-    # Summary with required fields
+
     assert "summary" in body
     for key in ("budget", "candidate_count", "demand_count", "pre_filtered",
                  "elapsed_ms", "best_plan"):

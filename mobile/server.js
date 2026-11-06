@@ -1,13 +1,4 @@
-/**
- * EduMap Mobile (Web) — lightweight static server for local Docker.
- *
- * Expo's `export:web` produces a static `web-build/` directory. This server
- * serves it with a SPA fallback (any unknown route → index.html) on port
- * 3005 (overridable via PORT env).
- *
- * No runtime dependencies — uses only Node's built-in modules so the final
- * image stays tiny and needs no package install at runtime.
- */
+
 'use strict';
 
 const http = require('http');
@@ -40,7 +31,7 @@ const MIME = {
 function sendFile(res, filePath, stat) {
   const ext = path.extname(filePath).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
-  // Hashed assets (expo emits [name].[hash].js) can be cached long-term.
+
   const isHashed = /\.[a-f0-9]{6,}\./.test(path.basename(filePath));
   res.writeHead(200, {
     'Content-Type': type,
@@ -74,7 +65,7 @@ function handleRequest(req, res) {
   if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
 
   const filePath = path.normalize(path.join(ROOT, urlPath));
-  // Prevent path traversal outside web-build.
+
   if (!filePath.startsWith(ROOT + path.sep) && filePath !== ROOT) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Forbidden');

@@ -1,7 +1,6 @@
 import os
 import subprocess
 
-# Fix Sparkles import in mentor/page.tsx
 path = r"c:\Users\Ngoc Tan\Downloads\EduMap\frontend\app\mentor\page.tsx"
 with open(path, "r", encoding="utf-8") as f:
     c = f.read()

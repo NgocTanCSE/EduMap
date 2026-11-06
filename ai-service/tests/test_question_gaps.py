@@ -17,12 +17,12 @@ import tempfile
 import json
 from unittest.mock import patch, MagicMock
 
-# Make ai-service importable.
+
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure SQLite mode with a temp DB and no real API keys.
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_SQLITE_PATH"] = tempfile.mktemp(suffix=".db")
@@ -38,7 +38,7 @@ from services.question_gap_analyzer import (
 )
 
 
-# ── Test helpers ────────────────────────────────────────────────────────────
+
 
 def _clear_cache():
     """Clear the in-process cache so tests start fresh."""
@@ -92,7 +92,7 @@ _SAMPLE_ROWS = [
 ]
 
 
-# ── Tests ────────────────────────────────────────────────────────────────────
+
 
 def test_is_gap_flags_failed_retrieval():
     """Queries with retrieval_status='failed' are gaps."""
@@ -147,7 +147,7 @@ def test_analyze_gaps_clusters_queries_by_topic():
         result = question_gap_analyzer.analyze_gaps(limit=1000)
         clusters = result["clusters"]
         assert len(clusters) >= 2, "Expected at least 2 clusters from 10 diverse queries"
-        # Each cluster should have structured gap metrics.
+
         for c in clusters:
             assert "cluster_id" in c
             assert "topic" in c
@@ -189,7 +189,7 @@ def test_analyze_gaps_recommends_docs_per_cluster():
 
 def test_analyze_gaps_empty_db_returns_valid_empty_report():
     """No query_logs → valid empty report (not a 502)."""
-    db_path = _make_db()  # empty table
+    db_path = _make_db()
     try:
         result = question_gap_analyzer.analyze_gaps(limit=1000)
         assert result["status"] == "success"
@@ -221,7 +221,7 @@ def test_max_query_limit_is_10000():
 def test_analyze_gaps_respects_limit():
     """The limit is clamped to MAX_QUERY_LIMIT."""
     analyzer = QuestionGapAnalyzer()
-    # When limit exceeds MAX_QUERY_LIMIT, it's clamped.
+
     n_limit = min(99999, analyzer.max_query_limit, MAX_QUERY_LIMIT)
     assert n_limit <= MAX_QUERY_LIMIT
 
@@ -247,7 +247,7 @@ def test_cache_returns_cached_on_second_call():
         assert first.get("cached") is False
         second = question_gap_analyzer.analyze_gaps(limit=1000)
         assert second.get("cached") is True
-        # Total queries must match.
+
         assert second["total_queries"] == first["total_queries"]
     finally:
         os.unlink(db_path)
@@ -256,7 +256,7 @@ def test_cache_returns_cached_on_second_call():
 def test_template_fallback_when_no_llm():
     """_recommend_docs falls back to template-based docs when LLM is unavailable."""
     analyzer = QuestionGapAnalyzer()
-    # Simulate LLM unavailable by patching the import.
+
     with patch.dict(sys.modules, {"services.llm_service": None}):
         docs = analyzer._recommend_docs(["học", "bổng"], ["hỏi về học bổng"], "học bổng")
     assert isinstance(docs, list)

@@ -58,7 +58,6 @@ for key, q in queries.items():
         all_results[key] = []
     time.sleep(3)
 
-# Summary
 print("\n" + "="*60)
 print("DONG NAI SUMMARY")
 print("="*60)
@@ -70,7 +69,6 @@ for key, items in all_results.items():
 total = sum(len(v) for v in all_results.values())
 print(f"  TOTAL: {total}")
 
-# Save
 with open("crawled_data/dongnai_detailed.json", "w", encoding="utf-8") as f:
     json.dump(all_results, f, ensure_ascii=False, indent=2)
 print("\nSaved to crawled_data/dongnai_detailed.json")

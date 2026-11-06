@@ -15,9 +15,9 @@ from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
-# ── Disable all AI providers to force regex fallback ──────────────────────
-# Match the pattern from test_ai_fallbacks.py: blank out every provider env
-# var so LLMService.is_ready is False.
+
+
+
 _PROVIDER_ENV_VARS = [
     "XKIRO_API_KEY", "XKIRO_MODEL", "XKIRO_BASE_URL",
     "NVIDIA_API_KEY", "NVIDIA_BASE_URL", "KIMI_API_KEY", "KIMI_BASE_URL",
@@ -62,8 +62,8 @@ def llm_enabled_parser():
     return NLQueryParser(llm_service=mock_llm)
 
 
-# ── 10 Vietnamese test sentences (3-miền) ─────────────────────────────────
-# (sentence, expected_facility_types_exact, expected_conditions_exact, expected_radius)
+
+
 TEST_SENTENCES = [
     ("Tìm nơi học miễn phí gần trường, có Wi-Fi, mở cửa buổi tối.",
      [], ["free", "wifi", "open_evening"], None),
@@ -88,7 +88,7 @@ TEST_SENTENCES = [
 ]
 
 
-# ── Tests: regex fallback ─────────────────────────────────────────────────
+
 
 class TestRegexFallback:
     """When LLM is unavailable, the regex parser must still work."""
@@ -112,15 +112,15 @@ class TestRegexFallback:
         assert isinstance(result["raw_text"], str)
         assert 0.0 <= result["confidence"] <= 1.0
 
-        # Facility types: exact match (set equality)
+
         assert set(result["facility_types"]) == set(expected_facilities), \
             f"Expected facilities {set(expected_facilities)}, got {set(result['facility_types'])} for: {sentence}"
 
-        # Conditions: exact match (set equality)
+
         assert set(result["conditions"]) == set(expected_conditions), \
             f"Expected conditions {set(expected_conditions)}, got {set(result['conditions'])} for: {sentence}"
 
-        # Radius
+
         if expected_radius is not None:
             assert result["radius_km"] == pytest.approx(expected_radius), \
                 f"Expected radius {expected_radius}, got {result['radius_km']} for: {sentence}"
@@ -163,7 +163,7 @@ class TestRegexFallback:
         assert result["confidence"] >= 0.0
 
 
-# ── Tests: LLM enrichment ─────────────────────────────────────────────────
+
 
 class TestLLMEnrichment:
     """When LLM is available, enrichment should be attempted."""
@@ -183,7 +183,7 @@ class TestLLMEnrichment:
         from services.nl_query_parser import NLQueryParser
         p = NLQueryParser(llm_service=mock_llm)
         result = p.parse("Tìm thư viện gần trường")
-        assert result["method"] == "regex"  # falls back
+        assert result["method"] == "regex"
         assert "library" in result["facility_types"]
 
     def test_llm_enrichment_invalid_json(self, parser):
@@ -199,7 +199,7 @@ class TestLLMEnrichment:
         assert result["method"] == "regex"
 
 
-# ── Tests: dialect keywords (3 miền) ──────────────────────────────────────
+
 
 class TestDialectKeywords:
     """Keywords from miền Bắc, Trung, Nam should all be recognized."""
@@ -235,7 +235,7 @@ class TestDialectKeywords:
         assert "cafe" in result_south["facility_types"]
 
 
-# ── Tests: explanation generation ─────────────────────────────────────────
+
 
 class TestExplanation:
     def test_explanation_generated(self, parser):
@@ -253,7 +253,7 @@ class TestExplanation:
         assert len(explanation) > 5
 
 
-# ── Tests: async parse (router compatibility) ─────────────────────────────
+
 
 class TestAsyncParse:
     def test_parse_async_returns_same_as_sync(self, parser):

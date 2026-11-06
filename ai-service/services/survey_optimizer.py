@@ -36,29 +36,29 @@ import time
 from datetime import date as _date
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-# ── Constants ────────────────────────────────────────────────────────────────
 
-EARTH_RADIUS_KM = 6371.0  # mirrors climate_guardian._haversine_km
 
-# Default Biên Hòa / Đồng Nai centroid (the HF Spaces runtime seed region).
+EARTH_RADIUS_KM = 6371.0
+
+
 _DEFAULT_CENTER_LAT = 10.9567
 _DEFAULT_CENTER_LNG = 107.1825
 
-# Hard caps protect the 1-vCPU container from runaway compute.
-MAX_GRID_CELLS = 900        # 30 x 30 — adjust grid_size_km up if exceeded
-MAX_POIS = 800             # cap POI list used for nearest-distance/density
-MAX_RESULTS_DEFAULT = 15   # mirror ImpactMatch MAX_PAIRS_TO_LLM = 15
+
+MAX_GRID_CELLS = 900
+MAX_POIS = 800
+MAX_RESULTS_DEFAULT = 15
 MAX_RESULTS_CEIL = 50
 
-# Distance (km) over which known POIs influence the existence probability.
+
 DEFAULT_INFLUENCE_RADIUS_KM = 2.0
-# Spatial coupling weight for info_value (neighbourhood entropy bonus).
+
 DEFAULT_SPATIAL_WEIGHT = 0.25
-# Fixed survey overhead per candidate (hours): parking + setup + forms.
+
 DEFAULT_SURVEY_TIME_HOURS = 1.0
-# Surveyor ground speed between cells (km/h) — motorbike / walking.
+
 DEFAULT_SURVEYOR_SPEED_KMH = 30.0
-# Grid cell side length (km).
+
 DEFAULT_GRID_SIZE_KM = 1.0
 
 
@@ -104,13 +104,13 @@ def _deg_lng_km(lat: float) -> float:
     return 111.132 * math.cos(math.radians(lat))
 
 
-# ── Real Vietnamese survey-candidate cells (graceful-degradation fallback) ───
-# When the live POI feed is empty we still want to surface *real* locations
-# where a field survey is valuable — the edges of known educational clusters
-# in Biên Hòa / Đồng Nai. Coordinates are grounded in the real Biên Hòa
-# built-up area (between DNTU campus ~10.95/106.88 and the city centre
-# ~10.95/106.86) and the Hòa-Đông/Hòa-Đông-nội transition belts.
-# Source + verification_date provenance is preserved per AGENTS.md §6.
+
+
+
+
+
+
+
 STATIC_SURVEY_CANDIDATES: List[Dict[str, Any]] = [
     {
         "id": "static-dntu-edge-1",
@@ -195,7 +195,7 @@ class SurveyOptimizerService:
     survey overhead.
     """
 
-    # Class-level tunables (env-overridable where it makes sense).
+
     DEFAULT_GRID_SIZE_KM = float(
         os.environ.get("SURVEY_GRID_SIZE_KM", DEFAULT_GRID_SIZE_KM)
     )
@@ -214,9 +214,9 @@ class SurveyOptimizerService:
     )
 
     def __init__(self) -> None:
-        self._env_loaded = True  # placeholder for future env validation
+        self._env_loaded = True
 
-    # ── Public API ───────────────────────────────────────────────────────────
+
 
     def compute_priorities(
         self,
@@ -273,11 +273,11 @@ class SurveyOptimizerService:
             0.0, 2.0, self.DEFAULT_SPATIAL_WEIGHT
         )
 
-        # Normalise + cap the POI feed.
+
         points = [p for p in (points or []) if p is not None]
         poi_count = len(points)
 
-        # Resolve bbox.
+
         cur = self._resolve_current_location(current_location, bbox)
         min_lat, max_lat, min_lng, max_lng = self._resolve_bbox(bbox, cur)
         if min_lat > max_lat:
@@ -286,11 +286,11 @@ class SurveyOptimizerService:
             min_lng, max_lng = max_lng, min_lng
         bbox_tuple = (min_lat, max_lat, min_lng, max_lng)
 
-        # Cap POIs to MAX_POIS nearest the bbox centre (cheaper + sufficient).
+
         pts = self._extract_points(points)
         pts = self._nearest_n(pts, (min_lat + max_lat) / 2.0, (min_lng + max_lng) / 2.0, MAX_POIS)
 
-        # Build the grid.
+
         cells = self._build_grid(min_lat, max_lat, min_lng, max_lng, grid_size_km)
 
         has_points = len(pts) > 0
@@ -298,8 +298,8 @@ class SurveyOptimizerService:
         reason: Optional[str] = None
 
         if not has_points:
-            # Graceful fallback: no live POI data. We still emit real VN
-            # candidate cells (honest empty-state beats fake rows).
+
+
             features = self._static_candidates_as_features(cur, survey_time_hours,
                                                            surveyor_speed_kmh, top_n)
             next_point = features[0] if features else None
@@ -315,12 +315,12 @@ class SurveyOptimizerService:
                 reason="Không có dữ liệu POI — dùng ứng cử viên khảo sát tĩnh (Biên Hòa, Đồng Nai).",
                 elapsed_ms=round((time.time() - t0) * 1000))
 
-        # Compute per-cell nearest-POI distance (km). Density is implicitly
-        # captured via distance-decay in the existence-probability model.
+
+
         nearest_grid = self._cell_nearest_distances(cells, pts)
 
-        # Pass 1: compute per-cell uncertainty (entropy) — stored in a 2-D grid
-        # so the spatial coupling term can read neighbours.
+
+
         unc_grid = [[0.0] * len(cells[0]) for _ in range(len(cells))] if cells else []
         in_cell_grid = [[False] * len(cells[0]) for _ in range(len(cells))] if cells else []
         for iy, row in enumerate(cells):
@@ -332,7 +332,7 @@ class SurveyOptimizerService:
                 unc = _binary_entropy(p)
                 unc_grid[iy][ix] = unc
 
-        # Pass 2: score each cell = info_value / cost.
+
         scored: List[Dict[str, Any]] = []
         evaluated = 0
         for iy, row in enumerate(cells):
@@ -340,20 +340,20 @@ class SurveyOptimizerService:
                 evaluated += 1
                 nearest_km = nearest_grid[iy][ix]
                 in_cell = in_cell_grid[iy][ix]
-                # Skip cells that already host a mapped POI (already surveyed
-                # → entropy ≈ 0 → no information to gain).
+
+
                 if in_cell:
                     continue
                 unc = unc_grid[iy][ix]
-                # Spatial information value: surveying here also resolves
-                # uncertainty in neighbouring cells (spatial coupling).
+
+
                 neighbour_avg = self._neighbour_avg_uncertainty(unc_grid, iy, ix)
                 info_value = unc * (1.0 + spatial_weight * neighbour_avg)
-                # Cost = travel time + fixed survey overhead (hours).
+
                 dist_km = _haversine_km(cur["lat"], cur["lng"], c["lat"], c["lng"])
                 travel_hours = dist_km / surveyor_speed_kmh if surveyor_speed_kmh > 0 else 0.0
                 cost = travel_hours + survey_time_hours
-                iv = min(info_value, 1.25)  # cap for clean scoring
+                iv = min(info_value, 1.25)
                 score = iv / cost if cost > 0 else 0.0
                 scored.append({
                     "id": f"cell-{iy}-{ix}",
@@ -369,7 +369,7 @@ class SurveyOptimizerService:
                     "p_exist": round(p, 6),
                 })
 
-        # Only retain cells that still carry uncertainty to resolve.
+
         considered = len(scored)
         scored.sort(key=lambda s: s["priority_score"], reverse=True)
         scored = scored[:top_n]
@@ -383,8 +383,8 @@ class SurveyOptimizerService:
             "rank": 1 if features else None,
         }
 
-        # Mark degradation if we ended up with fewer candidates than requested
-        # (sparse POI coverage) — an honest signal, not a crash.
+
+
         if len(features) == 0:
             degraded = True
             reason = (
@@ -442,7 +442,7 @@ class SurveyOptimizerService:
             },
         }
 
-    # ── Cell scoring helpers ────────────────────────────────────────────────
+
 
     @staticmethod
     def _existence_prob(nearest_km: float, in_cell: bool,
@@ -456,11 +456,11 @@ class SurveyOptimizerService:
         most plausible.
         """
         if in_cell:
-            # Already surveyed / mapped → certain.
+
             return 1.0 - 1e-6
         r = max(influence_radius_km, 1e-6)
         p = math.exp(-nearest_km / r)
-        # Floor prevents total certainty in data voids (keeps a small prior).
+
         return float(min(max(p, 0.02), 1.0 - 1e-6))
 
     @staticmethod
@@ -482,7 +482,7 @@ class SurveyOptimizerService:
                     count += 1
         return total / count if count else 0.0
 
-    # ── Grid + geometry helpers ─────────────────────────────────────────────
+
 
     @staticmethod
     def _build_grid(min_lat: float, max_lat: float, min_lng: float,
@@ -503,7 +503,7 @@ class SurveyOptimizerService:
         n_y = max(1, int(math.ceil(lat_km / grid_size_km)))
         n_x = max(1, int(math.ceil(lng_km / grid_size_km)))
 
-        # Auto-inflate grid_size if the cell count would explode.
+
         while n_y * n_x > MAX_GRID_CELLS and n_y > 1 and n_x > 1:
             n_y = max(1, n_y // 2)
             n_x = max(1, n_x // 2)
@@ -562,14 +562,14 @@ class SurveyOptimizerService:
                     d = _haversine_km(c["lat"], c["lng"], plat, plng)
                     if d < nearest:
                         nearest = d
-                # No POIs at all → push a large sentinel (kept out of the
-                # existence-probability decay by the uniform-prior branch, but
-                # the caller guards has_points == False separately).
+
+
+
                 out_row.append(nearest if nearest != float("inf") else 1e9)
             result.append(out_row)
         return result
 
-    # ── Assembly / output shaping ───────────────────────────────────────────
+
 
     @staticmethod
     def _scored_to_features(scored: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -689,7 +689,7 @@ class SurveyOptimizerService:
             },
         }
 
-    # ── Resolution helpers ─────────────────────────────────────────────────
+
 
     @staticmethod
     def _resolve_current_location(
@@ -718,11 +718,11 @@ class SurveyOptimizerService:
                 _safe_float(bbox["min_lng"], cur["lng"] - 0.05),
                 _safe_float(bbox["max_lng"], cur["lng"] + 0.05),
             )
-        # Default 5 km box (~0.045 deg) around current location.
+
         span = 0.045
         return (cur["lat"] - span, cur["lat"] + span, cur["lng"] - span, cur["lng"] + span)
 
-    # ── Tiny validation helpers ────────────────────────────────────────────
+
 
     @staticmethod
     def _clamp(v: Optional[float], lo: float, hi: float, default: float) -> float:
@@ -740,5 +740,5 @@ class SurveyOptimizerService:
         return min(max(v, lo), hi)
 
 
-# Module-level singleton — mirrors climate_guardian.climate_guardian.
+
 survey_optimizer = SurveyOptimizerService()

@@ -8,7 +8,6 @@ AI_URL = "http://localhost:8000"
 def test_system_health():
     print("Kiem tra he thong EduMap...")
 
-    # 1. Backend (NestJS)
     try:
         resp = requests.get(f"{BASE_URL}/api/docs")
         if resp.status_code == 200:
@@ -16,7 +15,6 @@ def test_system_health():
     except Exception:
         print("[FAIL] Cannot reach backend.")
 
-    # 2. AI Service (Python FastAPI)
     try:
         resp = requests.get(f"{AI_URL}/docs")
         if resp.status_code == 200:
@@ -24,13 +22,11 @@ def test_system_health():
     except Exception:
         print("[FAIL] Cannot reach AI service.")
 
-    # 3. DB seeding status
     try:
         print("Database structure ready.")
     except Exception:
         pass
 
-    # 4. Smoke test: Opportunity Radar endpoint (F-16b)
     try:
         payload = {
             "user_profile": {

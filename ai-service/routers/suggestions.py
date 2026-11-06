@@ -21,7 +21,7 @@ async def get_suggestions():
         raise HTTPException(status_code=503, detail="AI Service chưa được khởi tạo.")
     try:
         result = await llm_service.get_suggestions()
-        # Detect degraded fallback
+
         degraded = any(
             isinstance(item, dict) and item.get("_degraded", False)
             for item in result
@@ -31,7 +31,7 @@ async def get_suggestions():
              if isinstance(item, dict) and "_reason" in item),
             None,
         ) if isinstance(result, list) else None
-        # Strip internal markers
+
         clean = [
             {k: v for k, v in item.items() if k not in ("_degraded", "_reason")}
             for item in result if item and isinstance(item, dict)

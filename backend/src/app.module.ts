@@ -13,8 +13,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/adapters/handlebars.adapter';
 import { join } from 'path';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
-
-// === CORE MODULES ===
 import { HealthController } from './modules/health/health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { AIModule } from './modules/ai/ai.module';
@@ -23,8 +21,6 @@ import { MapModule } from './modules/map/map.module';
 import { LibraryModule } from './modules/library/library.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CrawlerModule } from './modules/crawler/crawler.module';
-
-// === RESTORED MODULES ===
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { GreenModule } from './modules/green/green.module';
 import { ScholarshipModule } from './modules/scholar/scholarship.module';
@@ -50,176 +46,143 @@ import { LearningCommunityModule } from './modules/learning-community/learning-c
 import { HackathonModule } from './modules/hackathon/hackathon.module';
 import { IntlModule } from './modules/intl/intl.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { AuditLogModule } from './modules/audit-log/audit-log.module';
-import { ModuleModule } from './modules/module/module.module';
-import { FeatureModule } from './modules/feature/feature.module';
 import { RoleModule } from './modules/role/role.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { PinModule } from './modules/pin/pin.module';
-import { BlockchainModule } from './modules/blockchain/blockchain.module';
 import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 import { ImpactMatchModule } from './modules/impact-match/impact-match.module';
 import { ImpactMeasurementModule } from './modules/impact-measurement/impact-measurement.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { ResourceExchangeModule } from './modules/resource-exchange/resource-exchange.module';
-
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    // ScheduleModule (cron jobs) is only needed in PostgreSQL mode —
-    // HF Spaces uses pre-seeded SQLite, no periodic crawling needed.
-    ScheduleModule.forRoot(),
-    // Cache falls back to an in-memory store if Redis is unavailable instead of
-    // crashing the whole application at bootstrap (mirrors the graceful
-    // degradation already used by RedisIoAdapter for the socket layer).
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: async () => {
-        // HF Spaces mode: skip Redis entirely, use in-memory LRU cache
-        if (!process.env.REDIS_HOST) {
-          console.log(
-            '[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)',
-          );
-          return { store: memoryStore(), ttl: 300 } as any;
-        }
-        try {
-          return {
-            store: await redisStore({
-              socket: {
-                host: process.env.REDIS_HOST || 'localhost',
-                port: Number(process.env.REDIS_PORT) || 6379,
-              },
-            }),
-          } as any;
-        } catch (err) {
-          console.warn(
-            '[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:',
-            (err as Error).message,
-          );
-          return { store: memoryStore() } as any;
-        }
-      },
-    }),
-    ...(process.env.REDIS_HOST
-      ? [BullModule.forRoot({
-          redis: {
-            host: process.env.REDIS_HOST,
-            port: Number(process.env.REDIS_PORT) || 6379,
-          },
-        })]
-      : []),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      // Supabase direct connection (5432) is IPv6-only; default to the
-      // IPv4-capable transaction pooler (6543) when targeting Supabase and
-      // DB_PORT is not explicitly set.
-      port: parseInt(process.env.DB_PORT) || ((process.env.DB_HOST || '').includes('supabase') ? 6543 : 5432),
-      username: process.env.DB_USERNAME || 'admin',
-      password: process.env.DB_PASSWORD
-        ? process.env.DB_PASSWORD
-        : process.env.NODE_ENV === 'production'
-          ? (() => {
-              throw new Error('DB_PASSWORD environment variable is required in production.');
-            })()
-          : 'password123',
-      database: process.env.DB_DATABASE || 'edumap_db',
-      // Supabase (and most managed Postgres) require TLS. Enable SSL for any
-      // non-localhost host so local docker-compose (plain) keeps working.
-      // `servername` is required by the Supabase transaction pooler to route
-      // to the correct tenant (SNI) — without it the pooler returns
-      // "no tenant identifier provided (external_id or sni_hostname required)".
-      ssl:
-        process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
-          ? ({ rejectUnauthorized: false, servername: process.env.DB_HOST } as any)
-          : false,
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
-      migrationsRun: false,
-      synchronize: process.env.DB_SYNC !== 'false',
-    }),
-    HttpModule,
-    MailerModule.forRoot({
-      transport: {
-        host: process.env.MAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.MAIL_PORT) || 587,
-        secure: false,
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS,
-        },
-      },
-      defaults: {
-        from: '"EduMap Support" <support@edumap.vn>',
-      },
-      template: {
-        dir: join(__dirname, 'modules/notifications/templates'),
-        // 🛠️ FIX: Use correct subpath for HandlebarsAdapter as defined in package.json exports
-        adapter: new HandlebarsAdapter(),
-        options: {
-          strict: true,
-        },
-      },
-    }),
-    AuthModule,
-    AIModule,
-    OfflineTutorModule,
-    MapModule,
-    LibraryModule,
-    StorageModule,
-    GamificationModule,
-    GreenModule,
-    ScholarshipModule,
-    VolunteerModule,
-    NotificationsModule,
-    EventsModule,
-    DonateModule,
-    CommunityModule,
-    InternshipModule,
-    BusinessModule,
-    StemModule,
-    SurveyModule,
-    WifiModule,
-    SummerModule,
-    HsConnectionModule,
-    CareerModule,
-    DashboardModule,
-    MentorModule,
-    OpportunityModule,
-    ShareModule,
-    CertificateModule,
-    LearningCommunityModule,
-    HackathonModule,
-    IntlModule,
-    AdminModule,
-    AuditLogModule,
-    ModuleModule,
-    FeatureModule,
-    RoleModule,
-    CrawlerModule,
-    AnalyticsModule,
-    PaymentModule,
-    PinModule,
-    BlockchainModule,
-    BookmarksModule,
-    ImpactMatchModule,
-    ImpactMeasurementModule,
-    GeoModule,
-    ResourceExchangeModule,
-  ],
-  controllers: [
-    // Liveness probe used by the healthcheck (GET /api/health).
-    HealthController,
-  ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+    imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        ScheduleModule.forRoot(),
+        CacheModule.registerAsync({
+            isGlobal: true,
+            useFactory: async () => {
+                if (!process.env.REDIS_HOST) {
+                    console.log('[CacheModule] SQLite/HF Spaces mode — using in-memory cache (Redis disabled)');
+                    return { store: memoryStore(), ttl: 300 } as any;
+                }
+                try {
+                    return {
+                        store: await redisStore({
+                            socket: {
+                                host: process.env.REDIS_HOST || 'localhost',
+                                port: Number(process.env.REDIS_PORT) || 6379,
+                            },
+                        }),
+                    } as any;
+                }
+                catch (err) {
+                    console.warn('[CacheModule] Redis unavailable — falling back to in-memory cache. Reason:', (err as Error).message);
+                    return { store: memoryStore() } as any;
+                }
+            },
+        }),
+        ...(process.env.REDIS_HOST
+            ? [BullModule.forRoot({
+                    redis: {
+                        host: process.env.REDIS_HOST,
+                        port: Number(process.env.REDIS_PORT) || 6379,
+                    },
+                })]
+            : []),
+        ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+        TypeOrmModule.forRoot({
+            type: 'postgres',
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT) || ((process.env.DB_HOST || '').includes('supabase') ? 6543 : 5432),
+            username: process.env.DB_USERNAME || 'admin',
+            password: process.env.DB_PASSWORD
+                ? process.env.DB_PASSWORD
+                : process.env.NODE_ENV === 'production'
+                    ? (() => {
+                        throw new Error('DB_PASSWORD environment variable is required in production.');
+                    })()
+                    : 'password123',
+            database: process.env.DB_DATABASE || 'edumap_db',
+            ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
+                ? ({ rejectUnauthorized: false, servername: process.env.DB_HOST } as any)
+                : false,
+            entities: [__dirname + '*.entity{.ts,.js}'],
+            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+            migrationsRun: false,
+            synchronize: process.env.DB_SYNC === 'true',
+        }),
+        HttpModule,
+        MailerModule.forRoot({
+            transport: {
+                host: process.env.MAIL_HOST || 'smtp.gmail.com',
+                port: parseInt(process.env.MAIL_PORT) || 587,
+                secure: false,
+                auth: {
+                    user: process.env.MAIL_USER,
+                    pass: process.env.MAIL_PASS,
+                },
+            },
+            defaults: {
+                from: '"EduMap Support" <support@edumap.vn>',
+            },
+            template: {
+                dir: join(__dirname, 'modules/notifications/templates'),
+                adapter: new HandlebarsAdapter(),
+                options: {
+                    strict: true,
+                },
+            },
+        }),
+        AuthModule,
+        AIModule,
+        OfflineTutorModule,
+        MapModule,
+        LibraryModule,
+        StorageModule,
+        GamificationModule,
+        GreenModule,
+        ScholarshipModule,
+        VolunteerModule,
+        NotificationsModule,
+        EventsModule,
+        DonateModule,
+        CommunityModule,
+        InternshipModule,
+        BusinessModule,
+        StemModule,
+        SurveyModule,
+        WifiModule,
+        SummerModule,
+        HsConnectionModule,
+        CareerModule,
+        DashboardModule,
+        MentorModule,
+        OpportunityModule,
+        ShareModule,
+        CertificateModule,
+        LearningCommunityModule,
+        HackathonModule,
+        IntlModule,
+        AdminModule,
+        RoleModule,
+        CrawlerModule,
+        AnalyticsModule,
+        PaymentModule,
+        PinModule,
+        BookmarksModule,
+        ImpactMatchModule,
+        ImpactMeasurementModule,
+        GeoModule,
+        ResourceExchangeModule,
+    ],
+    controllers: [
+        HealthController,
+    ],
+    providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    // Activate the single HTTP request logger + correlation ID.
-    // Replaces LoggingInterceptor (now unused, kept on disk) which
-    // duplicated this logging without a request id.
-    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
-  }
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+    }
 }

@@ -23,7 +23,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real providers are configured before importing
+
 for _v in ["GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
            "HF_TOKEN", "HUGGINGFACE_HUB_TOKEN", "DEEPSEEK_API_KEY",
            "OWM_API_KEY"]:
@@ -47,7 +47,7 @@ from services.auto_scheduler import (
 )
 
 
-# ─── AutoCache ────────────────────────────────────────────────────────────────
+
 
 class TestAutoCache:
     def test_set_and_get(self):
@@ -79,8 +79,8 @@ class TestAutoCache:
         AutoCache.clear()
         AutoCache.set("a", 1, ttl_seconds=60)
         AutoCache.set("b", 2, ttl_seconds=60)
-        AutoCache.get("a")  # hit
-        AutoCache.get("c")  # miss
+        AutoCache.get("a")
+        AutoCache.get("c")
         stats = AutoCache.stats()
         assert stats["live"] >= 1
         assert stats["hits"] >= 1
@@ -94,7 +94,7 @@ class TestAutoCache:
         assert AutoCache.get("x") is None
 
 
-# ─── Task registry ────────────────────────────────────────────────────────────
+
 
 class TestTaskRegistry:
     def test_all_tasks_registered(self):
@@ -121,7 +121,7 @@ class TestTaskRegistry:
             assert len(r["bbox"]) == 4
 
 
-# ─── AutoScheduler ────────────────────────────────────────────────────────────
+
 
 class TestAutoScheduler:
     def test_get_result_returns_cached(self):
@@ -158,7 +158,7 @@ class TestAutoScheduler:
         def _fail_task():
             raise RuntimeError("intentional test failure")
 
-        # Monkey-patch the task registry temporarily
+
         original = TASK_REGISTRY.get("question_gaps")
         TASK_REGISTRY["question_gaps"] = _fail_task
         try:
@@ -184,9 +184,9 @@ class TestAutoScheduler:
         """Slow tasks (chroma_seed, climate_risk, impact_measure) may time out
         in test env (no internet for curl/API calls) but should have valid
         structure when run. We verify structure via direct call with timeout."""
-        # These tasks call external APIs (curl to Open-Meteo, ChromaDB init, etc.)
-        # which may hang in test env. We verify the _wrap_result structure
-        # instead of running the full task.
+
+
+
         from services.auto_scheduler import AUTO_INTERVALS
         for name in ["chroma_seed", "climate_risk", "impact_measure"]:
             assert name in TASK_REGISTRY
@@ -194,7 +194,7 @@ class TestAutoScheduler:
             assert AUTO_INTERVALS[name]["interval_s"] > 0
 
 
-# ─── Task implementations (fast paths) ────────────────────────────────────────
+
 
 class TestTaskImplementations:
     def test_chroma_seed_wrap_structure(self):
@@ -225,7 +225,7 @@ class TestTaskImplementations:
         assert "data" in result
         data = result["data"]
         assert "ranked_matches" in data
-        # If there are matches, each pair must have matching types
+
         for m in data.get("ranked_matches", []):
             assert "match_score" in m
             assert 0 <= m["match_score"] <= 100
@@ -237,7 +237,7 @@ class TestTaskImplementations:
         assert "data" in result
         data = result["data"]
         assert "ranked_matches" in data
-        # If there are matches, sponsor budget must cover need cost
+
         for m in data.get("ranked_matches", []):
             assert "match_score" in m
             assert 0 <= m["match_score"] <= 100
@@ -282,8 +282,8 @@ class TestTaskImplementations:
             req_loc = (m.get("request", {}).get("location") or "").lower().strip()
             pfs = m.get("pre_filter_score", m.get("match_score", 0))
             if not res_loc and not req_loc:
-                # proximity=30 → 30*0.4=12 max contribution
-                # max total = 12 + 25 (need_level) + 50 (condition) + 10 (availability) = 97
+
+
                 assert pfs <= 97.0, (
                     f"BUG 4: pre_filter_score={pfs} with empty locations exceeds 97 — "
                     f"proximity=60 bug not fixed (res_loc='{res_loc}', req_loc='{req_loc}')"
@@ -333,9 +333,9 @@ class TestTaskImplementations:
         assert result["task"] == "daily_insight"
         assert "data" in result
         assert "degraded" in result
-        # Verify education_stats query doesn't crash — stats should be in the
-        # payload sent to generate_daily_insight (degraded=False means it worked)
-        # Even if LLM fails (no API keys), the stats loading itself should succeed
+
+
+
         assert result["degraded"] is False or "reason" in result
 
     def test_impact_match_pre_filter_score_nonzero(self):
@@ -354,8 +354,8 @@ class TestTaskImplementations:
         data = result.get("data", {})
         matches = data.get("ranked_matches", [])
         if matches:
-            # With the bug, ALL pre_filter_score values were 0.
-            # After the fix, at least some should be non-zero.
+
+
             has_nonzero = any(m.get("pre_filter_score", 0) > 0 for m in matches)
             assert has_nonzero, (
                 "BUG: pre_filter_score is 0 for all impact_match pairs — "
@@ -380,26 +380,26 @@ class TestTaskImplementations:
         for m in matches:
             res_loc = (m.get("resource", {}).get("location") or "").lower()
             req_loc = (m.get("request", {}).get("location") or "").lower()
-            # When both locations are empty, proximity should be 30.0, not 60.0
+
             if not res_loc and not req_loc:
-                # proximity_score * 0.40 = either 24.0 (60*0.4) or 12.0 (30*0.4)
-                # condition + availability + need_level = at most ~88
-                # With proximity=60: max_total = 24 + need_level(0-25) + condition(0-50) + 10 = up to 109 → capped 100
-                # With proximity=30: max_total = 12 + need_level(0-25) + condition(0-50) + 10 = up to 97
-                # So with proximity=30 and empty locations, max score should be <= 97 (not 100)
+
+
+
+
+
                 assert m["match_score"] <= 97.0, (
                     "BUG: proximity_score=60 given for empty locations — "
                     "operator precedence bug not fixed"
                 )
 
 
-# ─── GET endpoints (via TestClient) ───────────────────────────────────────────
+
 
 class TestAutoRouter:
     def setup_method(self, method):
         """Pre-populate cache so GET endpoints return 200 (not 202 warming)."""
         AutoCache.clear()
-        # Pre-populate with mock data
+
         mock_rex = {
             "task": "resource_exchange", "data": {"ranked_matches": [], "transport_plan": []},
             "degraded": True, "reason": "test", "last_updated": "2026-10-30T00:00:00Z", "cache_ttl_seconds": 86400,

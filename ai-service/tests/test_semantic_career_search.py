@@ -15,7 +15,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure NO real API providers are configured before importing
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
@@ -54,15 +54,15 @@ def _make_vector_store():
     svc._embed_cache_meta = {}
     svc._embed_cache_max = 128
     svc._embed_cache_ttl = 1800.0
-    svc.has_api = False  # disable real embedding by default
+    svc.has_api = False
     svc.has_gemini_api = False
     svc.has_cf_api = False
     svc._gemini_embed_down_until = 0.0
     svc._cf_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 4.0
-    # Local embedding + reranker attributes (disabled = True in tests to avoid
-    # loading sentence_transformers/CrossEncoder which aren't installed locally)
+
+
     svc.local_embedding_disabled = True
     svc._local_embedder = None
     svc._local_embedder_failed = False
@@ -95,7 +95,7 @@ def test_semantic_career_search_returns_structured_results():
 
     svc = _make_vector_store()
     svc.collection = _FakeCollection(query_result, collection_count=2)
-    svc.has_api = False  # use raw text query (no embedding)
+    svc.has_api = False
 
     results = svc.semantic_career_search(
         skills=["python", "machine learning"],
@@ -110,9 +110,9 @@ def test_semantic_career_search_returns_structured_results():
     assert first["category"] == "career"
     assert isinstance(first["match_score"], int)
     assert first["match_score"] > 0
-    # Matched skills: python, machine learning → both present
+
     assert "python" in [s.lower() for s in first["matched_skills"]]
-    # Missing: statistics not in user's skills
+
     assert "statistics" in [s.lower() for s in first["missing_skills"]]
 
     second = results[1]
@@ -146,7 +146,7 @@ def test_semantic_career_search_filters_non_career_docs():
 
     results = svc.semantic_career_search(skills=["python"], n_results=5)
 
-    # Only the career category doc should be returned
+
     assert len(results) == 1
     assert results[0]["title"] == "AI Engineer"
     print("✓ test_semantic_career_search_filters_non_career_docs")
@@ -226,10 +226,10 @@ def test_semantic_career_search_missing_skills_correctness():
 
     assert len(results) == 1
     missing = [s.lower() for s in results[0]["missing_skills"]]
-    # Python and SQL are present → not missing
+
     assert "python" not in missing
     assert "sql" not in missing
-    # Statistics and Machine Learning are missing
+
     assert "statistics" in missing
     assert "machine learning" in missing
     print("✓ test_semantic_career_search_missing_skills_correctness")
@@ -274,7 +274,7 @@ def test_semantic_career_search_handles_embedding_path():
         embed_calls.append(text)
         return [0.1] * 768
 
-    # Mock get_embedding directly to avoid spinning up real provider chain
+
     svc.get_embedding = mock_embed
     svc.has_api = True
 
@@ -291,7 +291,7 @@ def test_semantic_career_search_handles_embedding_path():
 
     results = svc.semantic_career_search(skills=["python"], n_results=3)
 
-    assert len(embed_calls) == 1  # get_embedding called once for the combined query
+    assert len(embed_calls) == 1
     assert len(results) == 1
     assert results[0]["title"] == "AI Engineer"
     print("✓ test_semantic_career_search_handles_embedding_path")

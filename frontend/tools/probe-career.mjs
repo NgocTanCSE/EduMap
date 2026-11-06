@@ -24,7 +24,7 @@ const tok = `${b64url(JSON.stringify({alg:'HS256',typ:'JWT'}))}.${b64url(JSON.st
         }
         return out;
       };
-      // career tab buttons — they are <button> with role/tab or the border-b bg-card
+      
       return {
         vp:{w,h}, url:window.location.href,
         bodyText: (document.body.innerText||'').slice(0,120).replace(/\n/g,' '),

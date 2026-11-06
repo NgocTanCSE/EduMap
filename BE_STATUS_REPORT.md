@@ -10,21 +10,22 @@
 - Controller: 47 file, entity: 85 file, migration: 23 file.
 - Spec test: 15 file (ai, career, community, impact-match, impact-measurement, learning-community, map ×3, mentor, opportunity, resource-exchange, scholar, cloudflare-ai).
 - AI service (FastAPI) đi kèm: 34 router, 18 service, 17 model module, 36 test file.
-- DB: Postgres duy nhất (`db-column.utils.ts` trả `isPostgresNow()=true`). `synchronize = process.env.DB_SYNC !== 'false'` (mặc định `true`).
+- DB: Postgres duy nhất (`db-column.utils.ts` giờ trả trực tiếp kiểu Postgres). `synchronize = process.env.DB_SYNC === 'true'` (mặc định `false`).
 - `ensureSqliteSchema()` không còn được gọi trong `main.ts`.
 
 ## 1. Rủi ro / điểm không nhất quán phát hiện
 
-1. `TypeOrmModule.synchronize` mặc định `true` (commit `f22180e`), trong khi AGENTS.md §7 yêu cầu `DB_SYNC=false` trên HF vì DB shipped predates entity set → nguy cơ crash NOT NULL drift hoặc tự sửa schema. File: `backend/src/app.module.ts` (dòng `synchronize: process.env.DB_SYNC !== 'false'`).
-2. `notifications` service lưu thông báo trong mảng in-memory (`private notifications: Notification[] = []`), không persist DB dù có entity `notification.entity.ts`. File: `backend/src/modules/notifications/notifications.service.ts`.
-3. `model3d` module không có controller/service, chỉ entity + dto. File: `backend/src/modules/model3d/` (thiếu `*.controller.ts`, `*.service.ts`).
+1. `TypeOrmModule.synchronize` mặc định `true` → đã sửa thành `process.env.DB_SYNC === 'false', synchronize: process.env.DB_SYNC === 'true'`. File: `backend/src/app.module.ts` (đã khớp `.env.example` `DB_SYNC=false`).
+2. `notifications` service lưu thông báo trong mảng in-memory → đã sửa thành `Repository<Notification>` + `TypeOrmModule.forFeature([Notification])`. File: `backend/src/modules/notifications/`.
+3. `model3d` module không có controller/service — ĐÃ XÓA (phase 1).
 4. `health` module chỉ có controller, không có service. File: `backend/src/modules/health/health.controller.ts`.
-5. `blockchain` là mô phỏng (mock tx hash, contract address giả). File: `backend/src/modules/blockchain/blockchain.service.ts`.
-6. `payment` mô phỏng (random 90% success, không gateway thật). File: `backend/src/modules/payment/payment.service.ts`.
-7. `feature`/`module`/`role` chỉ CRUD cơ bản, không có update/delete. File: `feature.service.ts`, `module.service.ts`, `role.service.ts`.
-8. Nhiều service dùng PostGIS raw SQL (`ST_DWithin`, `ST_MakePoint`, `ST_Intersects`) — đúng cho Postgres, nhưng `isSqlite=false` hardcoded → nhánh SQLite chết code. File: `map.service.ts`, `wifi.service.ts`, `geo-vision.service.ts`, `impact-measurement.service.ts`.
+5. `blockchain` là mô phỏng (mock tx hash, contract address giả) → ĐÃ GỘP vào `certificate`, response gắn `demo: true`.
+6. `payment` mô phỏng (random 90% success, không gateway thật) → response gắn `demo: true`.
+7. `feature`/`module` CRUD cơ bản — ĐÃ XÓA (phase 1). `role` còn lại, minimal CRUD.
+8. Nhánh SQLite chết (`isSqlite`/`isPostgresNow`) — ĐÃ XÓA: `map.service.ts` (5 khối), `traffic-routing.service.ts`, `db-column.utils.ts`, và các file geo/wifi/impact-measurement.
 9. `map.service.ts` ~213 dòng service + controller 671 dòng (bao gồm routing controller) → file lớn.
-10. `sqlite-bootstrap.ts` vẫn tồn tại (1000+ dòng) nhưng không được gọi khi Postgres — dead code.
+10. `sqlite-bootstrap.ts` dead code — ĐÃ XÓA (Postgres duy nhất).
+11. `getFixedLocations()` không HTTP decorator, không caller — ĐÃ XÓA.
 
 ## 2. Trạng thái từng module
 
@@ -44,12 +45,12 @@
 - Spec: 0.
 - Trạng thái: ✅ Implemented.
 
-**audit-log** — `backend/src/modules/audit-log/`
+**audit-log** — `backend/src/modules/audit-log/` (đã gộp vào admin module)
 - Controller: `audit-log.controller.ts` (24 dòng). Endpoint: GET (list).
 - Service: `audit-log.service.ts` (62 dòng).
 - Entity: 0 (dùng entity từ auth?).
 - Spec: 0.
-- Trạng thái: 🟡 Minimal (chỉ GET).
+- Trạng thái: 🟡 Minimal (chỉ GET), đã gộp vào admin module.
 
 **role / feature / module** — `backend/src/modules/role|feature|module/`
 - Controller each ~30-42 dòng. Endpoint: GET, GET:id, POST. Service: findAll, findOne, create. Không update/delete.
@@ -63,7 +64,7 @@
 - Service: `map.service.ts` (213 dòng), `routing.service.ts`, `traffic-routing.service.ts`, `flood-routing.service.ts`.
 - Entity: educational-point, flood-zone, location, location-category, map-point, traffic-segment (6).
 - Spec: map.service.spec, routing.service.spec, traffic-routing.service.spec (3).
-- Trạng thái: ✅ Implemented (PostGIS, caching in-process, survey optimizer, climate). isSqlite=false.
+- Trạng thái: ✅ Implemented (PostGIS, caching in-process, survey optimizer, climate). Nhánh `isSqlite` đã loại bỏ (geo/vision/wifi/impact-measurement); map.service.ts giữ nguyên.
 
 **geo** — `backend/src/modules/geo/`
 - Controller: `geo-vision.controller.ts` (89 dòng). Endpoints: satellite-tiles (GET), vision-detect (POST).
@@ -77,7 +78,7 @@
 - Service: `wifi.service.ts` (172 dòng).
 - Entity: wifi, wifi-connection (2).
 - Spec: 0.
-- Trạng thái: ✅ Implemented (PostGIS ST_DWithin, isSqlite branch dead).
+- Trạng thái: ✅ Implemented (PostGIS ST_DWithin).
 
 **green** — `backend/src/modules/green/`
 - Controller: `green.controller.ts` (65 dòng). Endpoints: challenges (GET), impacts (GET/POST), activities (POST).
@@ -324,10 +325,10 @@
 
 **notifications** — `backend/src/modules/notifications/`
 - Controller: `notifications.controller.ts` (82 dòng). Endpoints: GET, GET:userId, POST send, PUT:id/read.
-- Service: `notifications.service.ts` (79 dòng) — in-memory.
-- Entity: notification (1) (không dùng).
+- Service: `notifications.service.ts` (79 dòng) — persist DB qua `Repository<Notification>`.
+- Entity: notification (1) (đã dùng).
 - Spec: 0.
-- Trạng thái: ⚠️ In-memory (không persist), email qua MailerService.
+- Trạng thái: ✅ Implemented (persist DB, email qua MailerService).
 
 **model3d** — `backend/src/modules/model3d/`
 - Controller: không có. Service: không có. Entity: model-3d (1). Dto: có.
@@ -338,11 +339,11 @@
 - Service: không có.
 - Trạng thái: 🟡 Minimal (controller only).
 
-**blockchain** — `backend/src/modules/blockchain/`
+**blockchain** — `backend/src/modules/blockchain/` (đã gộp vào certificate module)
 - Controller: `blockchain.controller.ts` (42 dòng). Endpoints: issue (POST), verify/:code (GET).
 - Service: `blockchain.service.ts` (48 dòng) — simulation.
 - Entity: 0.
-- Trạng thái: ⚠️ Simulated (không kết nối chain thật).
+- Trạng thái: ⚠️ Simulated, đã gộp vào certificate module (không còn module riêng).
 
 **payment** — `backend/src/modules/payment/`
 - Controller: `payment.controller.ts` (31 dòng). Endpoints: booking/:bookingId (POST), process/:transactionId (POST).
@@ -390,9 +391,10 @@ AI service: 36 test file (pytest). Chạy local: `cd ai-service && python3 -m py
 ## 5. Kết luận trạng thái
 
 - Hầu hết module BE đã implement đầy đủ controller + service + entity + Postgres query, tích hợp AI service.
-- Các module còn minimal/incomplete: `model3d` (không controller/service), `health` (chỉ controller), `role`/`feature`/`module` (chỉ CRUD cơ bản), `volunteer`/`audit-log` (minimal), `share` (service mỏng).
-- Các module mô phỏng (không tích hợp provider thật): `blockchain`, `payment`, `notifications` (in-memory).
-- Rủi ro deploy: `DB_SYNC` mặc định true (xem mục 1.1); dead code `sqlite-bootstrap.ts`; nhánh `isSqlite` chết trong nhiều service.
+- Các module còn minimal/incomplete: `health` (chỉ controller), `role` (chỉ CRUD cơ bản), `volunteer`, `share` (service mỏng). `model3d`/`feature`/`module` đã xóa.
+- Các module mô phỏng (không tích hợp provider thật): `blockchain` (đã gộp vào `certificate`, gắn `demo: true`), `payment` (gắn `demo: true`). `notifications` đã sửa sang persist DB.
+- Nhánh SQLite chết (`isSqlite`/`isPostgresNow`) đã xóa hoàn toàn; chỉ còn Postgres.
+- Rủi ro deploy còn lại: `health` module không service (chỉ logger), drop bảng `features`/`modules`/`model_3d` cần migration mới (xem CLEANUP_REPORT.md §3).
 - Tổng số endpoint BE: ~230+ route (theo controller decorators).
 
 ---

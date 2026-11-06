@@ -31,7 +31,7 @@ def force_ipv4() -> None:
         return
 
     def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-        if family == 0:  # socket.AF_UNSPEC
+        if family == 0:
             family = socket.AF_INET
         return _ORIGINAL_GETADDRINFO(host, port, family, type, proto, flags)
 

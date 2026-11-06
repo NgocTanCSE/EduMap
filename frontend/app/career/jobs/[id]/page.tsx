@@ -2,97 +2,74 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { careerService } from '@/src/services/career.service';
-import { 
-  Building2, 
-  MapPin, 
-  Briefcase, 
-  Calendar, 
-  ArrowLeft, 
-  Send, 
-  FileUp,
-  CheckCircle2,
-  X
-} from 'lucide-react';
+import { Building2, MapPin, Briefcase, Calendar, ArrowLeft, Send, FileUp, CheckCircle2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-
 export default function JobDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [job, setJob] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
-  
-  // Application form state
-  const [coverLetter, setCoverLetter] = useState('');
-  const [cvFile, setCvFile] = useState<File | null>(null);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-
-  useEffect(() => {
-    if (params.id) {
-      fetchJobDetails();
-    }
-  }, [params.id]);
-
-  const fetchJobDetails = async () => {
-    try {
-      setLoading(true);
-      const data = await careerService.getJobById(params.id as string);
-      setJob(data?.data ?? data);
-    } catch (err) {
-      console.error('Error fetching job details:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setApplying(true);
-      
-      let resume_url = '';
-      if (cvFile) {
-        // 1. Upload CV file
-        const formData = new FormData();
-        formData.append('file', cvFile);
-        
-        const uploadRes = await fetch('/api/career/upload-resume', {
-            method: 'POST',
-            body: formData,
-        });
-        const uploadData = await uploadRes.json();
-        resume_url = uploadData.url;
-      }
-
-      // 2. Submit application
-      await careerService.applyToJob({
-        job_id: job.id,
-        cover_letter: coverLetter,
-        resume_url: resume_url
-      });
-
-      setApplied(true);
-      setShowApplyModal(false);
-      toast.success('Application submitted successfully!');
-    } catch (err) {
-      toast.error('Failed to submit application. Please try again.');
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  if (loading) return <div className="text-foreground text-center mt-20">Loading opportunity details...</div>;
-  if (!job) return <div className="text-foreground text-center mt-20">Opportunity not found.</div>;
-
-  return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
+    const params = useParams();
+    const router = useRouter();
+    const [job, setJob] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [applying, setApplying] = useState(false);
+    const [applied, setApplied] = useState(false);
+    const [coverLetter, setCoverLetter] = useState('');
+    const [cvFile, setCvFile] = useState<File | null>(null);
+    const [showApplyModal, setShowApplyModal] = useState(false);
+    useEffect(() => {
+        if (params.id) {
+            fetchJobDetails();
+        }
+    }, [params.id]);
+    const fetchJobDetails = async () => {
+        try {
+            setLoading(true);
+            const data = await careerService.getJobById(params.id as string);
+            setJob(data?.data ?? data);
+        }
+        catch (err) {
+            console.error('Error fetching job details:', err);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const handleApply = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            setApplying(true);
+            let resume_url = '';
+            if (cvFile) {
+                const formData = new FormData();
+                formData.append('file', cvFile);
+                const { url } = await careerService.uploadResume(cvFile);
+                resume_url = url;
+            }
+            await careerService.applyToJob({
+                job_id: job.id,
+                cover_letter: coverLetter,
+                resume_url: resume_url
+            });
+            setApplied(true);
+            setShowApplyModal(false);
+            toast.success('Application submitted successfully!');
+        }
+        catch (err) {
+            toast.error('Failed to submit application. Please try again.');
+        }
+        finally {
+            setApplying(false);
+        }
+    };
+    if (loading)
+        return <div className="text-foreground text-center mt-20">Loading opportunity details...</div>;
+    if (!job)
+        return <div className="text-foreground text-center mt-20">Opportunity not found.</div>;
+    return (<div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 sm:py-8">
       <div className="w-full mx-auto space-y-8">
-        
+
         <Link href="/career/jobs" className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors mb-4">
-            <ArrowLeft size={16} /> Back to Search
+            <ArrowLeft size={16}/> Back to Search
         </Link>
 
         <header className="bg-card border border-border p-8 rounded-xl space-y-6">
@@ -106,27 +83,25 @@ export default function JobDetailPage() {
                     <h1 className="text-2xl font-semibold">{job.title}</h1>
                     <div className="flex flex-wrap gap-6 text-muted-foreground/60">
                         <div className="flex items-center gap-2">
-                            <Building2 size={20} className="text-primary" />
+                            <Building2 size={20} className="text-primary"/>
                             <span className="font-bold text-muted-foreground/70">{job.company_name}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <MapPin size={20} className="text-primary" />
+                            <MapPin size={20} className="text-primary"/>
                             <span>{job.location}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Briefcase size={20} className="text-primary" />
+                            <Briefcase size={20} className="text-primary"/>
                             <span className="text-primary font-bold">{job.salary_range}</span>
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <BookmarkButton targetType="job" targetId={job.id} size="sm" />
-                  {job.views > 0 && (
-                    <div className="text-right">
+                  <BookmarkButton targetType="job" targetId={job.id} size="sm"/>
+                  {job.views > 0 && (<div className="text-right">
                         <p className="text-xs text-muted-foreground uppercase font-semibold">Views</p>
                         <p className="text-2xl font-semibold text-foreground">{job.views}</p>
-                    </div>
-                  )}
+                    </div>)}
                 </div>
             </div>
         </header>
@@ -141,64 +116,50 @@ export default function JobDetailPage() {
                 <section className="bg-card/50 border border-border p-8 rounded-xl space-y-4">
                     <h2 className="text-xl font-bold border-b border-border pb-2">Kỹ năng yêu cầu</h2>
                     <div className="flex flex-wrap gap-3">
-                        {job.required_skills?.map((skill: string) => (
-                            <span key={skill} className="bg-card text-foreground px-4 py-2 rounded-xl border border-border font-medium">
+                        {job.required_skills?.map((skill: string) => (<span key={skill} className="bg-card text-foreground px-4 py-2 rounded-xl border border-border font-medium">
                                 {skill}
-                            </span>
-                        ))}
+                            </span>))}
                     </div>
                 </section>
             </div>
 
             <div className="space-y-6">
-                {!applied ? (
-                    <aside className="bg-card border border-border p-8 rounded-xl space-y-6 text-center sticky top-8">
+                {!applied ? (<aside className="bg-card border border-border p-8 rounded-xl space-y-6 text-center sticky top-8">
                         <h2 className="text-2xl font-semibold">Ứng tuyển ngay</h2>
                         <p className="text-xs text-muted-foreground/60">
                             Gửi hồ sơ ứng tuyển cùng CV và thư giới thiệu.
                         </p>
-                        <button
-                            onClick={() => setShowApplyModal(true)}
-                            className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
-                        >
-                            <Send size={18} /> Nộp hồ sơ ứng tuyển
+                        <button onClick={() => setShowApplyModal(true)} className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]">
+                            <Send size={18}/> Nộp hồ sơ ứng tuyển
                         </button>
-                    </aside>
-                ) : (
-                    <aside className="bg-primary/10 border border-accent/30 p-8 rounded-xl space-y-4 text-center">
+                    </aside>) : (<aside className="bg-primary/10 border border-accent/30 p-8 rounded-xl space-y-4 text-center">
                         <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle2 size={32} className="text-foreground" />
+                            <CheckCircle2 size={32} className="text-foreground"/>
                         </div>
                         <h2 className="text-2xl font-semibold text-primary">Applied Successfully!</h2>
                         <p className="text-muted-foreground/60 text-sm">Your application has been sent to {job.company_name}. You can track its status in your dashboard.</p>
                         <Link href="/career/jobs" className="block w-full bg-card py-3 rounded-xl font-bold mt-4">
                             Back to Search
                         </Link>
-                    </aside>
-                )}
-                
+                    </aside>)}
+
                 <div className="bg-card/30 border border-border p-6 rounded-lg space-y-2">
                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Mô tả công việc</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground/60">
-                        <Calendar size={16} />
+                        <Calendar size={16}/>
                         <span>Posted on {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'N/A'}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        {/* Apply Modal */}
-        {showApplyModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+        {showApplyModal && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-card border border-border rounded-xl p-8 max-w-2xl w-full shadow-lg relative">
-              <button
-                onClick={() => setShowApplyModal(false)}
-                className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
+              <button onClick={() => setShowApplyModal(false)} className="absolute top-6 right-6 text-muted-foreground/60 hover:text-foreground">
+                <X className="w-5 h-5"/>
               </button>
               <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                <Send className="text-primary/80 w-5 h-5" /> Nộp hồ sơ ứng tuyển
+                <Send className="text-primary/80 w-5 h-5"/> Nộp hồ sơ ứng tuyển
               </h3>
               <p className="text-sm text-primary/70 mb-6 font-bold">{job.title}</p>
 
@@ -207,13 +168,7 @@ export default function JobDetailPage() {
                   <label className="block text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-2">
                     Thư giới thiệu (Cover Letter)
                   </label>
-                  <textarea
-                    placeholder="Introduce yourself briefly..."
-                    className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[120px]"
-                    value={coverLetter}
-                    onChange={e => setCoverLetter(e.target.value)}
-                    disabled={applying}
-                  />
+                  <textarea placeholder="Introduce yourself briefly..." className="w-full bg-card/40 border border-border rounded-xl p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[120px]" value={coverLetter} onChange={e => setCoverLetter(e.target.value)} disabled={applying}/>
                 </div>
 
                 <div>
@@ -221,15 +176,9 @@ export default function JobDetailPage() {
                     Upload CV (PDF)
                   </label>
                   <div className="relative group">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      onChange={e => setCvFile(e.target.files?.[0] || null)}
-                      disabled={applying}
-                    />
+                    <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={e => setCvFile(e.target.files?.[0] || null)} disabled={applying}/>
                     <div className="bg-card/40 border border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 group-hover:border-primary/50 transition-all">
-                      <FileUp className="text-muted-foreground group-hover:text-primary" />
+                      <FileUp className="text-muted-foreground group-hover:text-primary"/>
                       <span className="text-xs text-muted-foreground/60">
                         {cvFile ? cvFile.name : "Select your CV file"}
                       </span>
@@ -237,19 +186,13 @@ export default function JobDetailPage() {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={applying}
-                  className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
-                >
-                  {applying ? "Submitting..." : <><Send size={18} /> Send Application</>}
+                <button type="submit" disabled={applying} className="w-full bg-primary hover:bg-primary py-4 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50">
+                  {applying ? "Submitting..." : <><Send size={18}/> Send Application</>}
                 </button>
               </form>
             </div>
-          </div>
-        )}
+          </div>)}
 
       </div>
-    </div>
-  );
+    </div>);
 }

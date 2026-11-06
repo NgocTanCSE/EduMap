@@ -1,6 +1,6 @@
 """Router for /api/ai/resource/* endpoints.
 
-Idea #1: AI Education Resource Optimizer (MCLP).
+Idea
 
 POST /api/ai/resource/optimize   →  runs the MCLP solver and returns a
                                     GeoJSON FeatureCollection with three
@@ -13,8 +13,8 @@ from typing import List, Optional, Dict, Any
 
 router = APIRouter(prefix="/api/ai/resource", tags=["13. AI Resource Optimizer"])
 
-# Lazy-load the solver so a missing scipy dependency does not prevent the
-# entire ai-service from importing (mirrors geo.py / predictive.py pattern).
+
+
 _solver = None
 _solver_loaded = False
 
@@ -82,15 +82,15 @@ async def optimize_resources(data: ResourceOptimizeRequest):
         )
 
     try:
-        # Convert Pydantic model → plain dict for the solver
+
         request_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else data.dict(exclude_unset=True)
 
         result = solver.optimize(request_data)
 
-        # The solver always returns a valid dict; surface any embedded error
-        # as a degraded 200 (not a 503) so the frontend can still render the
-        # map with a fallback message — mirrors the RAG degradation philosophy
-        # in AGENTS.md ("answer LLM-only, never crash chat").
+
+
+
+
         if result.get("summary", {}).get("error"):
             return {
                 **result,

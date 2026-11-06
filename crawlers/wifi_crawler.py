@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 WiFi Hotspots Crawler for Dong Nai Province
 Crawls WiFi locations, internet cafes, public WiFi areas
@@ -169,7 +167,6 @@ class WiFiCrawler:
         each hotspot with its scope layer and emit the crawl-year window.
         """
         all_wifi = self.get_bienhoa_wifi_locations() + self.get_dong_nai_wifi_zones()
-        # Tag each WiFi location with its scope layer (all Đồng Nai-sourced here).
         for loc in all_wifi:
             loc.setdefault("location_scope", "dong_nai")
         _CY = crawl_years()
@@ -211,7 +208,6 @@ class WiFiCrawler:
             lat = loc.get("lat", 0)
             lng = loc.get("lng", 0)
 
-            # PostgreSQL SQL với PostGIS
             sql = f"INSERT INTO map_points (id, name, description, location) VALUES ('{point_id}', '{name.replace(chr(39), chr(39)*2)}', '{desc}', ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326)::geography);"
             sql_statements.append(sql)
 
@@ -246,7 +242,6 @@ if __name__ == "__main__":
     for loc in result['locations']:
         print(f"  - {loc['name']} ({loc['area']})")
 
-    # Tạo SQL
     sql_statements = crawler.to_map_points_sql(result['locations'])
     print(f"\n\nGenerated {len(sql_statements)} SQL statements")
     with open("wifi_locations.sql", "w", encoding="utf-8") as f:

@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminService } from './admin.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogController } from '../audit-log/audit-log.controller';
+import { AuditLog } from '../auth/entities/audit-log.entity';
 import { AdminController } from './admin.controller';
 import { BackupService } from './backup.service';
 import { User } from '../auth/entities/user.entity';
@@ -9,15 +12,15 @@ import { AIModule } from '../ai/ai.module';
 import { DonationCampaign } from '../donate/entities/donation.entity';
 import { Scholarship } from '../scholar/entities/scholarship.entity';
 import { Event } from '../events/entities/event.entity';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, DonationCampaign, Scholarship, Event]),
-    CrawlerModule,
-    AIModule,
-  ],
-  providers: [AdminService, BackupService],
-  controllers: [AdminController],
-  exports: [AdminService, BackupService],
+    imports: [
+        TypeOrmModule.forFeature([User, DonationCampaign, Scholarship, Event, AuditLog]),
+        CrawlerModule,
+        AIModule,
+    ],
+    providers: [AdminService, BackupService, AuditLogService],
+    controllers: [AdminController, AuditLogController],
+    exports: [AdminService, BackupService],
 })
-export class AdminModule {}
+export class AdminModule {
+}

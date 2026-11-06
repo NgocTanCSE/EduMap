@@ -26,7 +26,7 @@ logger = logging.getLogger("language_bridge")
 router = APIRouter(prefix="/api/ai/language", tags=["15. AI Language Bridge"])
 
 
-# ── Request models ───────────────────────────────────────────────────────────
+
 
 class SimplifyRequest(BaseModel):
     """POST body for /api/ai/language/simplify."""
@@ -92,7 +92,7 @@ class TTSResponse(BaseModel):
     created_at: str
 
 
-# ── In-process 24 h cache (HF Spaces: no Redis) ──────────────────────────────
+
 
 _CACHE_TTL_SECONDS = 24 * 3600
 
@@ -135,7 +135,7 @@ def _empty_tts_degraded(reason: str, language: str) -> Dict[str, Any]:
     }
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/simplify", response_model=SimplifyResponse)
 async def simplify_text(request_data: SimplifyRequest):

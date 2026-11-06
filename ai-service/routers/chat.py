@@ -6,19 +6,19 @@ from services.db_service import db_service
 import json
 import asyncio
 
-# NOTE: the prefix is the FULL public path, like every other router in this
-# service (survey, knowledge, talk2map, …). Do NOT rely on main.py adding
-# "/api/ai" for this module: that special case produced
-# `POST /api/ai/chat/stream -> 404` in production because the deployed
-# main.py did not apply the extra prefix. Keeping the full path here makes
-# the route independent of how the router is mounted.
+
+
+
+
+
+
 router = APIRouter(prefix="/api/ai/chat", tags=["1. AI RAG Chat"])
 
 @router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
-    # On HF Spaces free plan, providers may be absent — let chat_with_rag
-    # handle the degraded fallback internally instead of returning 503.
+
+
     try:
         history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
 
@@ -38,9 +38,9 @@ async def chat_endpoint(request: ChatRequest):
 
         reply = response_data.get("reply", "Lỗi phản hồi")
 
-        # Only save chat history when db_service is available (skipped in SQLite mode
-        # where PostgreSQL is disabled — prevents 'NoneType' crash that returned 503
-        # even though the LLM reply was successfully generated).
+
+
+
         if request.user_id and db_service is not None:
             db_service.save_chat_history(
                 user_id=request.user_id,
@@ -58,7 +58,7 @@ async def chat_endpoint(request: ChatRequest):
 @router.get("/history")
 async def get_chat_history(user_id: str, limit: int = 50):
     try:
-        # db_service is None in SQLite mode (PostgreSQL disabled) — gracefully return empty history
+
         if db_service is None:
             return {"history": []}
         history = db_service.get_chat_history(user_id, limit)
@@ -95,16 +95,16 @@ async def chat_stream_endpoint(request: ChatRequest):
             ):
                 yield sse_chunk
 
-            # Chat history persistence for the streaming path is handled by the
-            # NestJS backend (ai.service.ts chatStream()), which reconstructs the
-            # full streamed reply from the SSE chunks and saves it via the SQLite
-            # historyRepo. The Python ai-service does NOT duplicate this here
-            # because:
-            #   1. In HF Spaces SQLite mode (DB_TYPE=sqlite), db_service is None.
-            #   2. In PostgreSQL mode, the NestJS backend already persists the
-            #      complete reply — saving here too would create a duplicate row
-            #      with a misleading "[streamed response]" placeholder instead
-            #      of the real answer.
+
+
+
+
+
+
+
+
+
+
         except Exception as e:
             print(f"Error in chat_stream: {e}")
             error_chunk = {

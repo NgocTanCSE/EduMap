@@ -6,19 +6,19 @@ import { HsQuestion, HsAnswer } from './entities/hs-qa.entity';
 import { User } from '../auth/entities/user.entity';
 import { HsConnectionService } from './hs-connection.service';
 import { HsConnectionController } from './hs-connection.controller';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      UniversityCounseling, 
-      StudentConnection, 
-      HsQuestion, 
-      HsAnswer, 
-      User
-    ])
-  ],
-  controllers: [HsConnectionController],
-  providers: [HsConnectionService],
-  exports: [HsConnectionService],
+    imports: [
+        TypeOrmModule.forFeature([
+            UniversityCounseling,
+            StudentConnection,
+            HsQuestion,
+            HsAnswer,
+            User
+        ])
+    ],
+    controllers: [HsConnectionController],
+    providers: [HsConnectionService],
+    exports: [HsConnectionService],
 })
-export class HsConnectionModule {}
+export class HsConnectionModule {
+}

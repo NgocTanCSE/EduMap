@@ -34,7 +34,6 @@ import re
 import sys
 
 
-# ── SQL parsing ──────────────────────────────────────────────────────────
 
 _COL_NAME_RE = re.compile(
     r'^\s*(?:"([^"]+)"|(?:"([^"]+)"\s)|`?(\w+)`?|(\w+))\b',
@@ -70,7 +69,6 @@ def parse_sql_tables(path: str) -> dict[str, set[str]]:
     for m in table_re.finditer(text):
         name = (m.group(1) or m.group(2) or m.group(3)).lower()
 
-        # Extract the column block between the outer parens.
         start = m.end()
         depth = 1
         i = start
@@ -88,14 +86,12 @@ def parse_sql_tables(path: str) -> dict[str, set[str]]:
             line = line.strip().rstrip(",")
             if not line:
                 continue
-            # Skip constraint / key declarations.
             if re.match(
                 r"(?:CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|KEY|ALTER)",
                 line,
                 re.IGNORECASE,
             ):
                 continue
-            # Column definition: [optional quotes] col_name TYPE [constraints...]
             col_m = _COL_NAME_RE.match(line)
             if col_m and col_m.group(0).strip():
                 col = col_m.group(1) or col_m.group(2) or col_m.group(3) or col_m.group(4)
@@ -123,7 +119,6 @@ def parse_sql_extra_tables(migration_dir: str) -> dict[str, set[str]] | None:
     return merged if merged else None
 
 
-# ── Entity parsing ───────────────────────────────────────────────────────
 
 _ENTITY_RE = re.compile(r"""@Entity\(\s*(['"])([^'"]+)\1\s*\)""")
 
@@ -171,7 +166,7 @@ def parse_entity_tables(entities_dir: str) -> dict[str, set[str]]:
                 cols.add("id")
             elif dec in ("CreateDateColumn", "UpdateDateColumn"):
                 cols.add(prop.lower())
-            else:  # Column or JoinColumn
+            else:
                 name = _extract_name(args)
                 cols.add((name or prop).lower())
         result[table] = cols
@@ -179,7 +174,6 @@ def parse_entity_tables(entities_dir: str) -> dict[str, set[str]]:
     return result
 
 
-# ── Comparison ───────────────────────────────────────────────────────────
 
 
 def _sorted(items: set[str]) -> list[str]:
@@ -197,7 +191,6 @@ def run_drift_check(
     schema_tables = parse_sql_tables(schema_path)
     entity_tables = parse_entity_tables(entities_dir)
 
-    # --- Table-level drift ---
     schema_set = set(schema_tables)
     entity_set = set(entity_tables)
 
@@ -228,7 +221,6 @@ def run_drift_check(
     else:
         print("✅ All entities have schema.sql tables.")
 
-    # --- Column-level drift (only for tables present in BOTH) ---
     shared = sorted((schema_set & entity_set) - ignore)
     col_issues = 0
     for table in shared:
@@ -250,7 +242,6 @@ def run_drift_check(
     else:
         print("\n✅ All shared tables have matching column names.")
 
-    # --- Migration files (informational) ---
     if migrations_dir:
         extra = parse_sql_extra_tables(migrations_dir)
         if extra:
@@ -261,7 +252,6 @@ def run_drift_check(
                 for t in mig_only:
                     print(f"     - {t}")
 
-    # --- Summary ---
     print("\n" + "=" * 64)
     if drift_found:
         print("❌ DRIFT DETECTED — fail (review above).")
@@ -277,7 +267,6 @@ def main() -> int:
     ignore_csv = os.environ.get("DRIFT_IGNORE_TABLES", "")
     ignore = {t.strip().lower() for t in ignore_csv.split(",") if t.strip()}
 
-    # Resolve relative to backend/ (script lives in backend/scripts/)
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if not os.path.isabs(schema_path):
         schema_path = os.path.join(base, schema_path)

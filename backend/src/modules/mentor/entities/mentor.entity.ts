@@ -1,92 +1,61 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
-
 @Entity('mentors')
 export class Mentor {
-  @PrimaryColumn('uuid')
-  user_id: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
-
-  @Column({ type: 'text', nullable: true })
-  bio: string;
-
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
-  specialties: string[];
-
-  /**
-   * Khu vực / tỉnh thành mentor đang hoạt động.
-   * Dùng cho pre-filter theo cự ly (distance) ở DB level — tránh gửi
-   * toàn bộ mentor vào prompt LLM. VD: "TP. Hồ Chí Minh", "Đồng Nai".
-   * Được bổ sung từ ADR-006 (geographic pre-filter gap).
-   */
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  location: string;
-
-  @Column({ default: 0 })
-  experience_years: number;
-
-  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
-  rating_avg: number;
-
-  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-  hourly_rate: number;
-
-  @Column({ default: false })
-  is_verified: boolean;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
+    @PrimaryColumn('uuid')
+    user_id: string;
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'user_id' })
+    user: User;
+    @Column({ type: 'text', nullable: true })
+    bio: string;
+    @Column({ type: process.env.DB_TYPE === 'postgres' ? 'jsonb' : 'json', nullable: true })
+    specialties: string[];
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    location: string;
+    @Column({ default: 0 })
+    experience_years: number;
+    @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+    rating_avg: number;
+    @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+    hourly_rate: number;
+    @Column({ default: false })
+    is_verified: boolean;
+    @CreateDateColumn()
+    created_at: Date;
+    @UpdateDateColumn()
+    updated_at: Date;
 }
-
 @Entity('bookings')
 export class Booking {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @ManyToOne(() => Mentor)
-  @JoinColumn({ name: 'mentor_id' })
-  mentor: Mentor;
-
-  @Column()
-  mentor_id: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'student_id' })
-  student: User;
-
-  @Column()
-  student_id: string;
-
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
-  slot_start: Date;
-
-  @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
-  slot_end: Date;
-
-  @Column({ default: 'pending' })
-  status: string; // pending/confirmed/completed/cancelled
-
-  @Column({ default: 'unpaid' })
-  payment_status: string; // unpaid/paid/refunded
-
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-  amount: number;
-
-  @Column({ nullable: true })
-  transaction_id: string;
-
-  @Column({ nullable: true })
-  meeting_url: string;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+    @ManyToOne(() => Mentor)
+    @JoinColumn({ name: 'mentor_id' })
+    mentor: Mentor;
+    @Column()
+    mentor_id: string;
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'student_id' })
+    student: User;
+    @Column()
+    student_id: string;
+    @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
+    slot_start: Date;
+    @Column({ type: process.env.DB_TYPE === 'postgres' ? 'timestamp with time zone' : 'datetime' })
+    slot_end: Date;
+    @Column({ default: 'pending' })
+    status: string;
+    @Column({ default: 'unpaid' })
+    payment_status: string;
+    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+    amount: number;
+    @Column({ nullable: true })
+    transaction_id: string;
+    @Column({ nullable: true })
+    meeting_url: string;
+    @CreateDateColumn()
+    created_at: Date;
+    @UpdateDateColumn()
+    updated_at: Date;
 }

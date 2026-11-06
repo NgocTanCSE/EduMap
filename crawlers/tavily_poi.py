@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 tavily_poi.py — Tavily-based POI crawler for Vietnamese map_points.
 
@@ -23,10 +21,9 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tavily_client import TavilyClient, tavily_search_and_extract  # noqa: E402
-from tavily_parse import clean_text, extract_coords, _location_layer  # noqa: E402
+from tavily_client import TavilyClient, tavily_search_and_extract  
+from tavily_parse import clean_text, extract_coords, _location_layer  
 
-# Coordinate validation for Vietnam (AGENTS.md §9 coordinate fix).
 _LAT_MIN, _LAT_MAX = 8.0, 24.0
 _LNG_MIN, _LNG_MAX = 102.0, 109.5
 
@@ -46,8 +43,6 @@ def _extract_name_and_coords(text: str) -> Tuple[Optional[str], Optional[float],
     """
     lat, lng = extract_coords(text)
     if lat is not None and lng is not None:
-        # Try to find a name near the coordinates.
-        # Pattern: "Tên địa điểm (tọa độ 10.xxxx, 106.yyyy)"
         m = re.search(
             r"([^\n,;{}\[\]]{3,80}?)\s*(?:tọa\s*độ|lat|latitude)"
             r"[:\s]*([\d.\s,]+)",
@@ -56,7 +51,6 @@ def _extract_name_and_coords(text: str) -> Tuple[Optional[str], Optional[float],
         if m:
             name = clean_text(m.group(1))[:200]
             return name, lat, lng
-        # Pattern: "Tên — 10.xxxx, 106.yyyy"
         m = re.search(r"([^\n,;{}\[\]]{3,80}?)\s*[-–]\s*(\d{1,3}\.\d{3,8})\s*,\s*(\d{1,3}\.\d{3,8})", text)
         if m:
             name = clean_text(m.group(1))[:200]
@@ -101,13 +95,11 @@ def search_pois_tavily(
         title = clean_text(r.get("title", ""))[:255]
         url = r.get("url", "")
 
-        # Try to extract coordinates from content.
         blob = clean_text(raw_content) or clean_text(title)
         lat, lng = extract_coords(blob)
         if lat is None or lng is None or not _valid_coords(lat, lng):
             continue
 
-        # Try to find a name.
         name = title if title else None
         if not name or len(name) < 3:
             name, _, _ = _extract_name_and_coords(blob)
@@ -119,7 +111,6 @@ def search_pois_tavily(
             continue
         seen.add(key)
 
-        # Try to extract address from content.
         addr = ""
         m = re.search(r"(?:địa chỉ|địa chỉ:|address)[:\s]+((?:[^\n,;]{5,80}?)(?:,|\n))", blob, re.IGNORECASE)
         if m:
@@ -155,7 +146,6 @@ class TavilyPoiClient:
         print(f"  [tavily_poi] configured={self.client.is_configured()} "
               f"circuit_breaker={self.client._cb.state()}")
 
-    # -- Vietnamese POI queries per category/scope --
 
     _EDU_HEALTH_QUERIES = [
         "trường học Đồng Nai tọa độ",
@@ -178,7 +168,7 @@ class TavilyPoiClient:
         "quán cà phê Biên Hòa",
         "Bách hóa Xanh địa chỉ Đồng Nai",
         "siêu thị Mini miền Nam",
-        "chợ Tuấn Ngãi Đà Nẵng",  # example specific market
+        "chợ Tuấn Ngãi Đà Nẵng",  
     ]
 
     _TOURISM_TRANSPORT_QUERIES = [
@@ -204,7 +194,7 @@ class TavilyPoiClient:
         for q in queries:
             results = search_pois_tavily(q, category=category, location_scope=scope)
             pois.extend(results)
-            time.sleep(0.5)  # gentle rate-limiting
+            time.sleep(0.5)  
         return pois
 
     def fetch_all_education_health(self, bbox: str) -> List[Dict]:

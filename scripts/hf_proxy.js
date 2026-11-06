@@ -1,16 +1,3 @@
-// hf_proxy.js — thin reverse proxy for HF Spaces.
-//
-// Replaces the Next.js frontend on the single public port (7680) once the UI
-// moves to Vercel. Routes:
-//   /api/ai/*  -> 127.0.0.1:8000  (FastAPI ai-service)
-//   /api/*     -> 127.0.0.1:3000  (NestJS backend)
-//   /health    -> 200 {"status":"ok"}
-//   anything else -> 404
-//
-// Handles both plain HTTP and WebSocket upgrades (Socket.IO realtime).
-//
-// Node stdlib only — no npm dependency. Keeps the HF image small and the
-// proxy's own memory footprint negligible (~30 MB).
 'use strict';
 
 const http = require('http');
@@ -21,14 +8,12 @@ const BACKEND = { host: '127.0.0.1', port: Number(process.env.BACKEND_PORT || 30
 const AI = { host: '127.0.0.1', port: Number(process.env.AI_SERVICE_PORT || 8000) };
 
 function targetFor(path) {
-  if (path === '/health' || path === '/healthz') return null; // handled locally
+  if (path === '/health' || path === '/healthz') return null;
   if (path.startsWith('/api/ai/') || path === '/api/ai') return AI;
   if (path.startsWith('/api/')) return BACKEND;
-  return undefined; // 404
+  return undefined;
 }
 
-// Rewrite the public socket.io path (/api/socket.io) to the backend's
-// default Engine.IO path (/socket.io).
 function rewritePath(url) {
   if (url.startsWith('/api/socket.io')) {
     return url.replace(/^\/api\/socket\.io/, '/socket.io');
@@ -47,7 +32,6 @@ function pipeUpgrade(req, socket, head, target) {
     headers,
   });
   proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
-    // Write the 101 response back to the client.
     let raw = `HTTP/${proxyRes.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n`;
     for (let i = 0; i < proxyRes.rawHeaders.length; i += 2) {
       raw += `${proxyRes.rawHeaders[i]}: ${proxyRes.rawHeaders[i + 1]}\r\n`;
@@ -78,42 +62,7 @@ const server = http.createServer((req, res) => {
     const body = JSON.stringify({
       status: 'ok',
       service: 'hf-proxy',
-      note: 'Frontend is hosted on Vercel; this Space serves /api/* only.',
-    });
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
-    res.end(body);
-    return;
-  }
-
-  const target = targetFor(url);
-  if (!target) {
-    const body = JSON.stringify({ message: 'Not found', path: url });
-    res.writeHead(404, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
-    res.end(body);
-    return;
-  }
-
-  const path = rewritePath(url);
-  const opts = {
-    host: target.host,
-    port: target.port,
-    path,
-    method: req.method,
-    headers: Object.assign({}, req.headers, { host: `${target.host}:${target.port}` }),
-  };
-
-  const proxyReq = http.request(opts, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
-    proxyRes.pipe(res, { end: true });
-  });
-
-  proxyReq.on('error', (err) => {
-    if (!res.headersSent) {
-      const body = JSON.stringify({ message: 'Upstream unavailable', error: err.code || err.message });
-      res.writeHead(502, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
-      res.end(body);
-    } else {
-      try { res.end(); } catch (e) { /* ignore */ }
+      note: 'Frontend is hosted on Vercel; this Space serves /api }
     }
   });
 

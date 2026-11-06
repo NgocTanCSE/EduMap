@@ -11,7 +11,7 @@ that the rest of the service relies on:
   3. Auth failures open a 5-minute circuit breaker instead of hammering the
      API on every request.
   4. ``_deepseek_generate_stream`` parses OpenAI SSE deltas.
-  5. Chat output is flattened to plain text (no ``**``/``#``/``` markers),
+  5. Chat output is flattened to plain text (no ``**``/``
      because the UI has no markdown renderer.
   6. The TinyLlama entry points are gone.
 """
@@ -30,11 +30,11 @@ if _AI_DIR not in sys.path:
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 
-import services.llm_service as llm_module  # noqa: E402
-from services.llm_service import LLMService, _strip_markdown  # noqa: E402
+import services.llm_service as llm_module
+from services.llm_service import LLMService, _strip_markdown
 
 
-# ── helpers ────────────────────────────────────────────────────────────────
+
 
 def _deepseek_only(monkeypatch, key="sk-test-deepseek"):
     """Build an LLMService where DeepSeek is the only configured provider."""
@@ -53,7 +53,7 @@ class _Completed:
         self.returncode = returncode
 
 
-# ── configuration ──────────────────────────────────────────────────────────
+
 
 def test_deepseek_key_alone_makes_service_ready(monkeypatch):
     svc = _deepseek_only(monkeypatch)
@@ -72,7 +72,7 @@ def test_deepseek_model_cascade_is_configurable(monkeypatch):
     assert svc.deepseek_base_url == "https://proxy.example.com/v1"
 
 
-# ── generation ─────────────────────────────────────────────────────────────
+
 
 def test_deepseek_generate_parses_openai_response(monkeypatch):
     svc = _deepseek_only(monkeypatch)
@@ -151,7 +151,7 @@ def test_deepseek_auth_error_opens_circuit_breaker(monkeypatch):
         svc._deepseek_generate("hi")
     assert svc._deepseek_down_until > 0
 
-    # Second call short-circuits without touching the network.
+
     def _explode(*args, **kwargs):
         raise AssertionError("must not call curl while the breaker is open")
 
@@ -200,7 +200,7 @@ def test_deepseek_stream_parses_sse_deltas(monkeypatch):
     assert tokens == ["Xin ", "chào"]
 
 
-# ── cascade order ──────────────────────────────────────────────────────────
+
 
 def test_cascade_prefers_deepseek(monkeypatch):
     svc = _deepseek_only(monkeypatch)
@@ -248,7 +248,7 @@ def test_cascade_falls_back_to_gemini_then_cloudflare(monkeypatch):
     assert "DeepSeek" in message and "Gemini" in message and "Cloudflare" in message
 
 
-# ── TinyLlama removal ──────────────────────────────────────────────────────
+
 
 def test_tinyllama_is_gone(monkeypatch):
     svc = _deepseek_only(monkeypatch)
@@ -258,7 +258,7 @@ def test_tinyllama_is_gone(monkeypatch):
     assert not hasattr(llm_module, "_TUTOR_TEMPLATES")
 
 
-# ── markdown stripping ─────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "raw,expected",

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Verify edumap.db is a valid SQLite database.
 
 If the file in the Docker build context is corrupted (e.g., 132 bytes —
@@ -15,7 +14,7 @@ import urllib.request
 
 DB_PATH = './data/edumap.db'
 GITHUB_URL = 'https://raw.githubusercontent.com/NgocTanCSE/EduMap/main/frontend/public/edumap.db'
-MIN_SIZE = 1_000_000  # 1 MB minimum for a valid SQLite DB
+MIN_SIZE = 1_000_000  
 
 
 def _ensure_table(conn, table_name, ddl):
@@ -43,7 +42,6 @@ def main():
     size = os.path.getsize(DB_PATH)
     print(f'  edumap.db initial size: {size} bytes')
 
-    # If file is too small, download from GitHub (repo is public)
     if size < MIN_SIZE:
         print(f'  ⚠️  edumap.db is only {size} bytes — corrupted, downloading from GitHub...')
         urllib.request.urlretrieve(GITHUB_URL, DB_PATH)
@@ -54,7 +52,6 @@ def main():
         print(f'  ❌ CRITICAL: edumap.db is still only {size} bytes after GitHub fallback!')
         sys.exit(1)
 
-    # Verify it's valid SQLite with tables
     conn = sqlite3.connect(DB_PATH)
     n_tables = conn.execute(
         "SELECT count(*) FROM sqlite_master WHERE type='table'"
@@ -65,12 +62,6 @@ def main():
         print('  ❌ CRITICAL: edumap.db has no tables — invalid SQLite!')
         sys.exit(1)
 
-    # ── Ensure runtime tables/columns exist in SQLite mode ──────────────────
-    # The pre-seeded edumap.db may be missing tables/columns added to the
-    # NestJS entity layer AFTER the DB build (e.g. chat_histories, image_url).
-    # CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS are idempotent.
-    # This runs during Docker build (before supervisord starts), so the
-    # baked-in DB is always schema-complete for runtime.
     _ensure_table(conn, "chat_histories", """
         id TEXT PRIMARY KEY,
         user_id TEXT,
@@ -83,7 +74,6 @@ def main():
     _ensure_column(conn, "learning_materials", "thumbnail_url", "TEXT")
     conn.close()
 
-    # Re-open to confirm tables persisted
     conn2 = sqlite3.connect(DB_PATH)
     has_chat = conn2.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_histories'"

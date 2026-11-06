@@ -1,5 +1,5 @@
 """
-Pydantic models for the Resource Exchange AI matching endpoint (Idea #18).
+Pydantic models for the Resource Exchange AI matching endpoint (Idea
 
 Flow:
   Backend ResourceMatchService pre-filters resource×request pairs at the SQLite
@@ -27,7 +27,7 @@ class ResourceInfo(BaseModel):
     type: str
     title: str
     description: Optional[str] = None
-    condition: int = 5          # 0–5 sao
+    condition: int = 5
     location: str
     lat: Optional[float] = None
     lng: Optional[float] = None

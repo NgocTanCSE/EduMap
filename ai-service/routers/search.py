@@ -10,7 +10,7 @@ async def semantic_search(q: str, limit: int = 5):
             raise HTTPException(status_code=503, detail="Vector store chưa sẵn sàng. Hãy seed dữ liệu vào ChromaDB.")
         results = vector_store.search_similar(query=q, top_k=limit)
 
-        # "Không tìm thấy" là kết quả thật (empty) — giữ lại; chỉ bỏ thông báo "tạm thời không khả dụng"
+
         if not results:
             return {"status": "success", "message": "Không tìm thấy tài liệu phù hợp.", "data": []}
 

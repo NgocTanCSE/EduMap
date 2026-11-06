@@ -19,7 +19,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# No real LLM providers → narrative falls back to the deterministic template.
+
 os.environ["DB_TYPE"] = "sqlite"
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["DB_SQLITE_PATH"] = os.path.abspath(
@@ -29,8 +29,8 @@ for _v in ["GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
            "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"]:
     os.environ[_v] = ""
 
-from main import app  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -48,7 +48,7 @@ def test_smoke_measure_endpoint_returns_valid_report():
     assert response.status_code == 200, response.text
     data = response.json()
 
-    # Core shape (mirrors ImpactMeasureResponse).
+
     assert "impact_score" in data
     assert 0.0 <= data["impact_score"] <= 100.0
     assert "confidence_interval" in data

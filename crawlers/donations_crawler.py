@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Donations / fundraising campaigns crawler -> `donation_campaigns` table
 (title UNIQUE).
@@ -38,20 +37,14 @@ NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# Tavily search queries — Vietnamese, location-scoped (Đồng Nai → miền Nam → VN)
-# plus keyword-focussed fundraising queries.
 _TAVILY_DONATION_QUERIES = [
-    # Đồng Nai
     "quyên góp từ thiện giáo dục Đồng Nai",
     "chiến dịch gây quỹ trường học Biên Hòa",
-    # miền Nam
     "quyên góp giáo dục TP Hồ Chí Minh",
     "gây quỹ từ thiện miền Nam",
-    # Việt Nam
     "quyên góp xây trường học Việt Nam",
     "chiến dịch từ thiện giáo dục 2025",
     "gây quỹ đầu tư trang thiết bị giáo dục",
-    # keyword-focussed
     "học bổng từ thiện sinh viên nghèo",
     "quyên góp xây nhà trường vùng sâu",
     "gây quỹ sách cho thư viện trường học",
@@ -85,7 +78,6 @@ def _parse_amounts(text):
     if not text:
         return None, None
     cur = tgt = None
-    # "Đã quyên góp X / mục tiêu Y", "raised X of Y", "X / Y"
     m = re.search(r"(?:đã\s*quyên\s*góp|raised|quyên\s*góp|hiện\s*có)\s*([\d\.,\s]*(?:triệu|đ|vnd|usd|eur|$)?)",
                   text, re.IGNORECASE)
     if m and m.group(1):
@@ -95,7 +87,6 @@ def _parse_amounts(text):
     if m2 and m2.group(1):
         tgt = _money(m2.group(1))
     if cur is None:
-        # Look for a monetary amount in the text.
         m3 = re.search(r"([\d\.,]+\s*(?:triệu|đ|vnd|usd|eur|\$))", text, re.IGNORECASE)
         if m3:
             cur = _money(m3.group(1))
@@ -111,7 +102,6 @@ def _donation_row(title, description, source_url, query=None):
     cur, tgt = _parse_amounts(desc)
     suffix = f" (tìm theo '{query}')" if query else ""
     banner = None
-    # Look for image URL in the raw content.
     m = re.search(r'(https?://[^\s"\'<>]+?\.(?:jpg|jpeg|png|gif|webp))', desc[:2000])
     if m:
         banner = m.group(1)

@@ -40,8 +40,8 @@ def test_start_script_has_valid_bash_syntax():
 def test_start_script_recovers_secrets_in_a_loop():
     text = START_SH.read_text(encoding="utf-8")
 
-    # The list must be a closed string and the loop must exist, otherwise bash
-    # swallows the following lines into the string literal.
+
+
     assert 'DB_SYNC"\n    for var in $SECRET_VARS; do' in text
     assert "uvicorn main:app" in text
 
@@ -49,7 +49,7 @@ def test_start_script_recovers_secrets_in_a_loop():
 def test_startup_hooks_use_the_check_oom_dict_contract():
     source = MAIN_PY.read_text(encoding="utf-8")
 
-    # check_oom() returns a non-empty dict, so ``if not check_oom():`` is
-    # always False. Guard on the explicit boolean instead.
+
+
     assert "if not check_oom():" not in source
     assert 'oom["safe_to_load_models"]' in source

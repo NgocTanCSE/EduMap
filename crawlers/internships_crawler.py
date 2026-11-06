@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Internships crawler -> `internships` table (title UNIQUE).
 
@@ -33,33 +32,25 @@ from crawl_scope import (
 from tavily_client import TavilyClient, tavily_search_and_extract
 from tavily_parse import parse_tavily_jobs, clean_text, _location_layer
 
-# 2 consecutive years (e.g. 2026 -> [2025, 2026])
 _CRAWL_YEARS = crawl_years()
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 _DEFAULT_DEADLINE = datetime.datetime(_YEAR_MAX, 12, 31, 23, 59, 59)
 
-# Tavily search queries — location-scoped (Đồng Nai → miền Nam → VN → ĐNA)
-# plus keyword-focussed queries for specific intern roles.  Vietnamese so
-# Tavily returns Vietnamese job boards.
 _TAVILY_INTERN_QUERIES = [
-    # Đồng Nai
     "tuyển thực tập sinh lập trình viên Đồng Nai 2025",
     "tuyển intern developer Biên Hòa Đồng Nai",
     "thực tập phần mềm Bình Dương",
-    # miền Nam
     "tuyển thực tập IT TP Hồ Chí Minh",
     "intern lập trình viên Cần Thơ",
-    # Việt Nam
     "tuyển thực tập sinh đại học lập trình Hà Nội",
     "intern software engineer Việt Nam 2025",
-    # keyword-focussed
     "thực tập data analyst Việt Nam",
     "thực tập frontend developer Việt Nam",
     "thực tập devops engineer Việt Nam",
     "thực tập UI UX designer giáo dục",
 ]
 
-TARGET = 100  # soft cap on distinct internships
+TARGET = 100  
 
 
 def _location_layer(location_str):
@@ -76,8 +67,6 @@ def _intern_row(title, company, description, field, tags, salary, logo=None, dea
     desc = clean_text(description or "")
     if tags:
         desc = f"{desc} | Tags: {','.join(str(t) for t in tags)}"[:2000]
-    # Year scope: keep items whose deadline falls in the 2-year crawl window;
-    # absent an explicit deadline, inherit the crawl-year boundary.
     if deadline is None or not in_year_scope(deadline):
         deadline = _DEFAULT_DEADLINE
     return {
@@ -132,7 +121,6 @@ def crawl():
             print(f"  [internships] [warn] Tavily query failed '{q[:50]}...': {e}")
             continue
 
-    # Parse Tavily results — filter to intern/thực tập postings.
     jobs = parse_tavily_jobs(all_results, source_name="tavily")
     for j in jobs:
         title_lower = j["title"].lower()
@@ -175,8 +163,7 @@ def run():
         conn.close()
 
 
-# Late import for json (used by parse_tavily_jobs output).
-import json  # noqa: E402
+import json  
 
 
 if __name__ == "__main__":

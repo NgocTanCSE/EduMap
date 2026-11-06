@@ -23,7 +23,7 @@ async def system_status() -> Dict[str, Any]:
     """Full system status: RAM, loaded models, provider chain, OOM guard."""
     ram = _get_ram_info()
 
-    # Model loading state (singletons across modules)
+
     models = {
         "gemma_2b_chat": {
             "loaded": _local_llm_loaded and _local_llm_model is not None,
@@ -42,7 +42,7 @@ async def system_status() -> Dict[str, Any]:
         },
     }
 
-    # Provider chain status (order matters: DeepSeek is primary)
+
     providers = {
         "deepseek": {
             "configured": bool(getattr(llm_service, "has_deepseek", False)),
@@ -63,8 +63,8 @@ async def system_status() -> Dict[str, Any]:
         },
     }
 
-    # OOM guard status (RAM threshold comparison only; no need to re-invoke
-    # check_oom() here — it is already reflected via the OOM_STATUS counters)
+
+
     oom_risk = "LOW" if ram["available_gb"] > RAM_THRESHOLD_GB else "HIGH"
 
     return {

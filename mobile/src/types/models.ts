@@ -1,8 +1,4 @@
-/**
- * TypeScript models mirroring the EduMap backend resources (Bảng 6.2).
- * Types are intentionally permissive (responses are `{ success, data, ... }`)
- * to match the backend's actual shape without a live DB to introspect from.
- */
+
 
 export type UUID = string;
 export type ISODate = string;

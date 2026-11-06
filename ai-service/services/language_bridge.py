@@ -36,9 +36,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("language_bridge")
 
-# ── Constants ────────────────────────────────────────────────────────────────
 
-# Reading-level labels keyed by difficulty tier.
+
+
 DIFFICULTY_LEVELS = {
     "elementary": {
         "label": "Tiểu học (lớp 1-3)",
@@ -63,7 +63,7 @@ DIFFICULTY_LEVELS = {
 }
 DEFAULT_DIFFICULTY = "middle"
 
-# Supported translation languages (code → label).
+
 SUPPORTED_LANGUAGES = {
     "vi": "Tiếng Việt",
     "en": "English",
@@ -77,10 +77,10 @@ SUPPORTED_LANGUAGES = {
     "tl": "Tagalog (Filipino)",
 }
 
-# Google Cloud TTS (optional — set GOOGLE_TTS_API_KEY as HF Space secret).
+
 GOOGLE_TTS_API_KEY = (os.getenv("GOOGLE_TTS_API_KEY") or "").strip().strip('"').strip("'")
 
-# 24h TTL cache (mirrors climate_guardian.py).
+
 _CACHE_TTL = 24 * 3600
 _CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
@@ -98,11 +98,11 @@ def _cache_set(key: str, value: Dict[str, Any]) -> None:
     _CACHE[key] = (time.time(), value)
 
 
-# ── LLM text-generation helpers ──────────────────────────────────────────────
 
-# Prompts are in Vietnamese to match the EduMap user base.  Each prompt asks
-# the LLM to produce a JSON object with the simplified / translated text and,
-# for simplification, a dict of explained terms.
+
+
+
+
 
 _SIMPLIFY_PROMPT_TEMPLATE = """Bạn là trợ lý giáo dục chuyên làm cho văn bản trở nên dễ hiểu.
 
@@ -133,8 +133,8 @@ Văn bản nguồn ({source_name}):
 Trả về **duy nhất** JSON sau (không có markdown, không có văn bản khác):
 {{"translated": "<văn bản đã dịch>"}}"""
 
-# Fallback prompt (when LLM providers are all down — should not be needed since
-# _generate_text_with_fallback already raises and we catch it).
+
+
 _TRANSLATE_FALLBACK_PROMPT_TEMPLATE = _TRANSLATE_PROMPT_TEMPLATE
 
 
@@ -191,7 +191,7 @@ def _curl_post_json(url: str, payload: Any, timeout: float,
         return None
 
 
-# ── Main service ─────────────────────────────────────────────────────────────
+
 
 class LanguageBridgeService:
     """AI Language Bridge service (Idea #15).
@@ -207,8 +207,8 @@ class LanguageBridgeService:
     """
 
     def __init__(self):
-        # Lazy-import the shared LLM singleton.  It may be None if the service
-        # failed to initialise at startup (e.g., no API keys at all).
+
+
         self._llm = None
         try:
             from services.llm_service import llm_service
@@ -217,7 +217,7 @@ class LanguageBridgeService:
             logger.warning(f"LLM service not available: {e}")
         self.llm_ready = bool(self._llm and getattr(self._llm, "is_ready", False))
 
-    # ── Text simplification ──────────────────────────────────────────────────
+
 
     def simplify_text(
         self,
@@ -248,7 +248,7 @@ class LanguageBridgeService:
         if difficulty not in DIFFICULTY_LEVELS:
             difficulty = DEFAULT_DIFFICULTY
 
-        # Cache lookup — same text + difficulty → cached result.
+
         cache_key = f"simplify:{difficulty}:{hash_text(text)}"
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -260,7 +260,7 @@ class LanguageBridgeService:
         prompt = _SIMPLIFY_PROMPT_TEMPLATE.format(
             grade=info["grade"],
             label=info["label"],
-            text=text[:8000],  # cap input to avoid token overflow
+            text=text[:8000],
         )
 
         result: Dict[str, Any] = {}
@@ -276,7 +276,7 @@ class LanguageBridgeService:
                     max_tokens=2048,
                     top_p=0.8,
                 )
-                # Extract JSON: the LLM is asked to return *only* JSON.
+
                 extracted = self._llm._extract_json(response)
                 if extracted and isinstance(extracted, dict):
                     result["simplified"] = (extracted.get("simplified") or "").strip()
@@ -294,8 +294,8 @@ class LanguageBridgeService:
             degraded = True
             reason = "AI chưa sẵn sàng (chưa cấu hình LLM provider). Dùng fallback."
 
-        # Always produce *some* simplified text via the fallback heuristic if
-        # the LLM path produced nothing useful.
+
+
         if not result.get("simplified"):
             fb = self._simplify_fallback(text, difficulty)
             result["simplified"] = fb["simplified"] or _truncate(text, 500)
@@ -321,14 +321,14 @@ class LanguageBridgeService:
         import re
         sentences = re.split(r'(?<=[.!?।])\s+', text.strip())
         if difficulty == "elementary":
-            # Keep the first ~3 sentences; that's the simplest heuristic we can
-            # do without an LLM.
+
+
             simple = " ".join(sentences[:3])
         else:
             simple = text.strip()[:500]
         return {"simplified": simple}
 
-    # ── Translation ─────────────────────────────────────────────────────────
+
 
     def translate_text(
         self,
@@ -354,7 +354,7 @@ class LanguageBridgeService:
             }
 
         target_language = target_language or "en"
-        # Normalise language code (accept 'vi-VN' → 'vi', 'en-US' → 'en').
+
         target_language = target_language.split("-")[0].lower()
         target_name = SUPPORTED_LANGUAGES.get(target_language, target_language)
         source_name = SUPPORTED_LANGUAGES.get(source_language, source_language or "tự động")
@@ -401,12 +401,12 @@ class LanguageBridgeService:
             reason = "AI chưa sẵn sàng — dùng fallback bản sao."
 
         if not result.get("translated"):
-            # Last-resort: pass-through (honest empty-ish state rather than fake translation)
+
             result["translated"] = text.strip()
             degraded = True
             reason = reason or "LLM không dịch được — trả về văn bản gốc."
 
-        result["detected_source"] = source_language  # LLM didn't reliably detect, but keep contract
+        result["detected_source"] = source_language
         result["target_language"] = target_language
         result["created_at"] = datetime.now(timezone.utc).isoformat()
         result["degraded"] = degraded
@@ -415,7 +415,7 @@ class LanguageBridgeService:
         _cache_set(cache_key, result)
         return result
 
-    # ── Text-to-Speech ┟�─────────────────────────────────────────────────────
+
 
     def synthesize_speech(
         self,
@@ -446,7 +446,7 @@ class LanguageBridgeService:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        # Cap text length for TTS (avoid hitting API limits).
+
         text = text.strip()[:5000]
         language = (language or "vi").split("-")[0].lower()
         cache_key = f"tts:{language}:{voice or 'default'}:{hash_text(text)}"
@@ -456,7 +456,7 @@ class LanguageBridgeService:
             cached["cached"] = True
             return cached
 
-        # Provider chain: Google Cloud TTS (curl) → edge-tts → gTTS → degraded.
+
         providers = [
             ("google_cloud", self._tts_google_cloud),
             ("edge_tts", self._tts_edge_tts),
@@ -481,14 +481,14 @@ class LanguageBridgeService:
                     _cache_set(cache_key, result)
                     return result
             except ImportError:
-                # Library not installed — skip silently.
+
                 logger.debug(f"TTS provider {name} not available (ImportError)")
             except Exception as e:
                 last_error = str(e)
                 logger.warning(f"TTS provider {name} failed: {e}")
                 continue
 
-        # All providers failed — degrade gracefully.
+
         result = {
             "audio_base64": None,
             "audio_format": "mp3",
@@ -511,7 +511,7 @@ class LanguageBridgeService:
         if not GOOGLE_TTS_API_KEY:
             return None
 
-        # Build voice name: vi-VN → vi-VN-Wavenet-A (standard voices also exist).
+
         lang_code = language.upper()
         voice_name = voice or f"{lang_code}-Wavenet-A"
         url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={GOOGLE_TTS_API_KEY}"
@@ -541,7 +541,7 @@ class LanguageBridgeService:
         """
         import edge_tts
 
-        # Pick a Vietnamese or English voice if none specified.
+
         voice_map = {
             "vi": "vi-VN-HoaNeural",
             "en": "en-US-AriaNeural",
@@ -562,18 +562,18 @@ class LanguageBridgeService:
                 return base64.b64encode(mp3_bytes).decode("ascii")
             return None
 
-        # edge-tts is async — run in an event loop.  If one is already running
-        # (e.g. this was called from async context), fall back to creating a
-        # new thread with its own loop.
+
+
+
         try:
             loop = asyncio.get_running_loop()
-            # We're in a running loop — use a thread to avoid nested asyncio.
+
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(asyncio.run, _run())
                 return future.result(timeout=25)
         except RuntimeError:
-            # No running loop — safe to use asyncio.run directly.
+
             return asyncio.run(_run())
 
     def _tts_gtts(self, text: str, language: str, voice: Optional[str]) -> Optional[str]:
@@ -594,7 +594,7 @@ class LanguageBridgeService:
             return base64.b64encode(mp3_bytes).decode("ascii")
         return None
 
-    # ── Utility ──────────────────────────────────────────────────────────────
+
 
     @staticmethod
     def _extract_json(text: str):
@@ -621,7 +621,7 @@ class LanguageBridgeService:
             return None
 
 
-# ── Module-level helpers ─────────────────────────────────────────────────────
+
 
 def hash_text(text: str) -> str:
     """Short deterministic hash of text for cache keys (first 16 hex chars)."""
@@ -649,6 +649,6 @@ def _estimate_duration_ms(text: str) -> int:
     return int(seconds * 1000)
 
 
-# ── Singleton ────────────────────────────────────────────────────────────────
+
 
 language_bridge = LanguageBridgeService()

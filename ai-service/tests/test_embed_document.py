@@ -15,7 +15,7 @@ _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-# Ensure no real API providers are configured
+
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
     "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
@@ -111,8 +111,8 @@ def _fresh_service(collection=None):
     svc._cf_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 4.0
-    # Local embedding attributes (for has_embedding property resilience)
-    svc.local_embedding_disabled = True  # default: disabled in tests (no sentence_transformers)
+
+    svc.local_embedding_disabled = True
     svc._local_embedder = None
     svc._local_embedder_failed = False
     svc._local_embedder_loaded = False
@@ -122,7 +122,7 @@ def _fresh_service(collection=None):
     svc._local_reranker_failed = False
     svc._local_reranker_loaded = False
     svc.collection = collection
-    # Mock get_embedding to return a fixed 768-dim vector
+
     svc.get_embedding = lambda text: [0.01] * 768
     return svc
 
@@ -155,7 +155,7 @@ def test_embed_document_no_api_upserts_text_only():
     )
     assert ok is True
     assert svc.collection.count() == 1
-    # No embedding should have been stored
+
     assert len(svc.collection.embeddings) == 0
     print("✓ test_embed_document_no_api_upserts_text_only")
 
@@ -173,7 +173,7 @@ def test_embed_document_pads_wrong_dim():
     """If get_embedding returns a different dim, embed_document should pad."""
     MockCollection = _mock_chromadb()
     svc = _fresh_service(collection=MockCollection())
-    # Return a 512-dim vector when collection expects 768
+
     svc.get_embedding = lambda text: [0.05] * 512
     ok = svc.embed_document("padded doc", {"category": "library"}, "pad_test")
     assert ok is True
@@ -199,11 +199,11 @@ def test_embed_document_caches_embedding():
     MockCollection = _mock_chromadb()
     svc = _fresh_service(collection=MockCollection())
 
-    # Use the REAL get_embedding method (not the lambda override) so that
-    # the internal _embed_cache + provider-chain logic is exercised.
-    del svc.get_embedding  # remove lambda override, fall back to class method
 
-    # Enable Gemini provider and mock the provider-level call
+
+    del svc.get_embedding
+
+
     svc.has_api = True
     svc.has_gemini_api = True
     svc.has_cf_api = False
@@ -217,17 +217,17 @@ def test_embed_document_caches_embedding():
     svc._gemini_embed_down_until = 0.0
     svc._cf_embed_down_until = 0.0
 
-    # Embed the same text twice
+
     svc.embed_document("cached doc", {"category": "library"}, "cache_001")
     svc.embed_document("cached doc", {"category": "library"}, "cache_002")
-    # get_embedding should call the provider only once (second hit is cached)
+
     assert call_count[0] == 1, f"Expected 1 provider call (cached), got {call_count[0]}"
 
-    # The cache should now have the embedding
+
     import hashlib as _hl
     cache_key = _hl.md5("cached doc".encode("utf-8")).hexdigest()
     assert cache_key in svc._embed_cache, "Embedding should be cached after embed_document"
-    # A direct get_embedding call for the same text should NOT hit the provider
+
     svc.get_embedding("cached doc")
     assert call_count[0] == 1, "Cached embedding should not trigger another provider call"
     print("✓ test_embed_document_caches_embedding")
@@ -238,11 +238,11 @@ def test_embed_document_for_book_and_location():
     MockCollection = _mock_chromadb()
     svc = _fresh_service(collection=MockCollection())
 
-    # Simulate library.service.ts create() calling embedDocument
+
     book_text = "Tai lieu hoc tap: Gioi thieu Machine Learning. The loai / Nganh: AI. Lop / khoi: Dai hoc. Tac gia: DNTU. Tom tat: Khoa hoc AI ung dung."
     svc.embed_document(book_text, {"title": "Gioi thieu ML", "category": "library", "source": "db_learning_materials", "type": "book"}, "material_new_book")
 
-    # Simulate map.service.ts createPoi() calling embedDocument
+
     poi_text = "Dia diem (library): Phong thi nghiem A. Dia chi: Tang 2, nha B. Thong tin: Phong thuc hanh chuyen nghanh."
     svc.embed_document(poi_text, {"title": "Phong thi nghiem A", "category": "location", "source": "db_locations"}, "location_new_poi")
 

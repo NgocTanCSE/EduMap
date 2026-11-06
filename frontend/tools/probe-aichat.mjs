@@ -23,7 +23,7 @@ const probe = (sel) => `(() => { const el = document.querySelector('${sel}'); re
       const appContent = g('#app-content');
       const chat = g('.flex.flex-col.h-full.w-full.p-4.bg-background');
       const header = g('header');
-      // count overflowing elements
+      
       const over = [];
       for (const el of document.querySelectorAll('*')) {
         const r = el.getBoundingClientRect();

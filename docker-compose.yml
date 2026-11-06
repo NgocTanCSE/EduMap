@@ -136,7 +136,7 @@ services:
       - DB_USERNAME=${DB_USERNAME}
       - DB_PASSWORD=${DB_PASSWORD}
     command: >
-      sh -c "pip install psycopg2-binary python-dotenv && 
+      sh -c "pip install psycopg2-binary python-dotenv &&
              python scripts/execute_db_setup.py"
     depends_on:
       postgres:

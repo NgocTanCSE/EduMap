@@ -7,15 +7,15 @@ import { ScholarshipService } from './scholarship.service';
 import { ScholarshipController } from './scholarship.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AIModule } from '../ai/ai.module';
-
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Scholarship, ScholarshipApplication, User]),
-    NotificationsModule,
-    AIModule
-  ],
-  providers: [ScholarshipService],
-  controllers: [ScholarshipController],
-  exports: [ScholarshipService],
+    imports: [
+        TypeOrmModule.forFeature([Scholarship, ScholarshipApplication, User]),
+        NotificationsModule,
+        AIModule
+    ],
+    providers: [ScholarshipService],
+    controllers: [ScholarshipController],
+    exports: [ScholarshipService],
 })
-export class ScholarshipModule {}
+export class ScholarshipModule {
+}

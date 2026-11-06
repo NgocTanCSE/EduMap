@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Add all columns that exist in SQLite but are missing in Supabase Postgres.
 
 Idempotent: uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
@@ -16,7 +15,6 @@ except ImportError:
     print("ERROR: psycopg2 not available")
     sys.exit(1)
 
-# (table, column, type_sql)
 MISSING = [
     ("borrow_requests", "updated_at", "TIMESTAMP"),
     ("business_profiles", "address", "TEXT"),

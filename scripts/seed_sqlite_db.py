@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 EduMap — portable SQLite content seeder for HF Spaces (DB_TYPE=sqlite).
 
@@ -28,7 +27,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from migrate_real_data import main as migrate_main  # noqa: E402
+from migrate_real_data import main as migrate_main  
 
 
 def main() -> int:

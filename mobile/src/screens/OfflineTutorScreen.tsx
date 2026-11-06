@@ -1,20 +1,4 @@
-/**
- * Mobile screen: OfflineTutorScreen
- *
- * Edge AI Tutor (Idea #7) — AI tutoring powered by the ai-service text
- * cascade (DeepSeek → Gemini → Cloudflare) with Vietnamese template fallback.
- *
- * Three modes:
- *  - Explain: explain a concept
- *  - Practice: generate practice questions
- *  - Suggest: suggest next learning step
- *
- * Usage:
- *  1. Select a tutor action (Explain / Practice / Suggest)
- *  2. Enter a topic
- *  3. (Optional) Add material context, difficulty, or progression info
- *  4. Send — the request goes to the BFF → backend → ai-service offline endpoint
- */
+
 
 import React, { useState, useCallback } from 'react';
 import {
@@ -68,7 +52,7 @@ export default function OfflineTutorScreen({ navigation }: OfflineTutorScreenPro
 
     Keyboard.dismiss();
 
-    // Build request payload based on selected action
+
     const payload: Record<string, any> = {
       action: selectedAction,
       topic: trimmedTopic,
@@ -87,7 +71,7 @@ export default function OfflineTutorScreen({ navigation }: OfflineTutorScreenPro
       };
     }
 
-    // Add user message
+
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -193,13 +177,13 @@ export default function OfflineTutorScreen({ navigation }: OfflineTutorScreenPro
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      
       <View style={styles.header}>
         <Text style={styles.headerTitle}>📚 Trợ lý ngoại tuyến</Text>
         <Text style={styles.headerSubtitle}>AI cục bộ — không cần internet</Text>
       </View>
 
-      {/* Messages */}
+      
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -215,7 +199,7 @@ export default function OfflineTutorScreen({ navigation }: OfflineTutorScreenPro
         }
       />
 
-      {/* Input area */}
+      
       <View style={styles.inputContainer}>
         {renderActionSelector()}
 

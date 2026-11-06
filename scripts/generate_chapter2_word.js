@@ -63,7 +63,6 @@ function createSizedImage(fileName, maxW = 570, maxH = 460) {
   });
 }
 
-// Đoạn văn thông thường
 function p(text, options = {}) {
   return new Paragraph({
     alignment: options.align || AlignmentType.JUSTIFIED,
@@ -73,7 +72,7 @@ function p(text, options = {}) {
       new TextRun({
         text,
         font: FONT,
-        size: 26, // 13pt
+        size: 26,
         color: COLOR_BLACK,
         bold: options.bold || false,
         italics: options.italics || false,
@@ -82,7 +81,6 @@ function p(text, options = {}) {
   });
 }
 
-// Gạch đầu dòng "-" (không dùng chấm tròn)
 function dash(boldPrefix, content) {
   return new Paragraph({
     alignment: AlignmentType.JUSTIFIED,
@@ -95,7 +93,6 @@ function dash(boldPrefix, content) {
   });
 }
 
-// Chú thích Hình (Hình 2.X: ...)
 function figCaption(label, title) {
   return new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -107,7 +104,6 @@ function figCaption(label, title) {
   });
 }
 
-// Tiêu đề cấp 1 (2.X. TÊN MỤC IN HOA)
 function h1(title) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_1,
@@ -118,9 +114,7 @@ function h1(title) {
   });
 }
 
-// Tiêu đề cấp 2 (2.X.Y. Tên mục in thường)
 
-// Tiêu đề cấp 3
 function h3(title) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_3,
@@ -141,7 +135,6 @@ function h2(title) {
   });
 }
 
-// Bảng theo phong cách khung nét đứt / chấm như ảnh chụp của người dùng
 function createAcademicTable(headers, rowsData, widths = []) {
   const borderDotted = { style: BorderStyle.DOTTED, size: 8, color: '4B88BE' };
 
@@ -191,13 +184,11 @@ function createAcademicTable(headers, rowsData, widths = []) {
   });
 }
 
-// Bảng đặc tả chi tiết một Ca sử dụng theo chuẩn OOAD
 function createUseCaseSpecTable(specData) {
   const borderDotted = { style: BorderStyle.DOTTED, size: 8, color: '4B88BE' };
 
   const tableRows = [];
 
-  // Dòng tiêu đề gộp 2 cột
   tableRows.push(
     new TableRow({
       tableHeader: true,
@@ -312,10 +303,8 @@ function createUseCaseSpecTable(specData) {
 }
 
 
-// Bắt đầu lắp ráp nội dung
 const children = [];
 
-// Tiêu đề Chương 2
 children.push(
   new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -327,9 +316,6 @@ children.push(
   p('Chương này trình bày chi tiết quá trình phân tích yêu cầu, mô hình hóa nghiệp vụ và thiết kế kiến trúc kỹ thuật cho Hệ sinh thái Bản đồ Giáo dục Thông minh EduMap. Toàn bộ thiết kế được xây dựng theo chuẩn UML 2.5 và mô hình C4, gắn kết trực tiếp với mã nguồn và dữ liệu thực nghiệm của dự án.', { firstLine: true })
 );
 
-// -----------------------------------------------------------------------------
-// 2.1. Phân tích Yêu cầu Chức năng & Sơ đồ Ca Sử Dụng Tổng quan
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.1. Phân tích Yêu cầu Chức năng và Sơ đồ Ca Sử Dụng Tổng quan'),
   p('Hệ thống EduMap phục vụ 4 nhóm tác nhân người dùng chính và 2 tác nhân ngoại vi thông qua 6 phân hệ nghiệp vụ trọng tâm:', { firstLine: true }),
@@ -421,9 +407,6 @@ children.push(
 
 );
 
-// -----------------------------------------------------------------------------
-// 2.2. Đánh giá & So sánh Công nghệ Hệ thống
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.2. Khảo sát và Đánh giá Lựa chọn Công nghệ Hệ thống'),
   p('Bảng 2.8 tổng hợp đánh giá và đối chiếu các công nghệ được lựa chọn trong quá trình xây dựng hệ thống:', { firstLine: true }),
@@ -451,9 +434,6 @@ children.push(
   )
 );
 
-// -----------------------------------------------------------------------------
-// 2.3. Thiết kế Kiến trúc Tổng thể C4 Container
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.3. Thiết kế Kiến trúc Tổng thể Hệ thống (C4 Container Diagram)'),
   p('Hệ thống EduMap được tổ chức theo mô hình kiến trúc phân tầng dọc (Vertical 5-Tier Architecture):', { firstLine: true }),
@@ -466,9 +446,6 @@ children.push(
   figCaption('Hình 2.2', 'Sơ đồ Kiến trúc C4 Mức 2 (Container Diagram) Hệ thống EduMap')
 );
 
-// -----------------------------------------------------------------------------
-// 2.4. Thiết kế Phân hệ Backend NestJS
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.4. Thiết kế Phân hệ Backend NestJS'),
   p('Phân hệ Backend được tổ chức theo mô hình Hub-and-Spoke 3 cột, loại bỏ phụ thuộc vòng và bảo đảm tính độc lập giữa các miền nghiệp vụ:', { firstLine: true }),
@@ -479,9 +456,6 @@ children.push(
   figCaption('Hình 2.3', 'Sơ đồ Thành phần và Phụ thuộc Mô-đun Backend NestJS')
 );
 
-// -----------------------------------------------------------------------------
-// 2.5. Thiết kế Vi dịch vụ Trí tuệ Nhân tạo FastAPI
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.5. Thiết kế Vi dịch vụ Trí tuệ Nhân tạo FastAPI'),
   p('Phân hệ AI Service được xây dựng theo kiến trúc Clean Architecture 3 tầng phục vụ hỏi đáp thông minh và kiểm duyệt tự động:', { firstLine: true }),
@@ -492,9 +466,6 @@ children.push(
   figCaption('Hình 2.4', 'Sơ đồ Kiến trúc Thành phần Vi dịch vụ Trí tuệ Nhân tạo FastAPI')
 );
 
-// -----------------------------------------------------------------------------
-// 2.6. Thiết kế Ứng dụng Di động React Native
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.6. Thiết kế Ứng dụng Di động React Native / Expo SDK 50'),
   p('Ứng dụng di động được phân thành 4 tầng kiến trúc phục vụ sinh viên di chuyển và định vị GPS ngoài thực địa:', { firstLine: true }),
@@ -506,9 +477,6 @@ children.push(
   figCaption('Hình 2.5', 'Sơ đồ Kiến trúc Thành phần Ứng dụng Di động React Native')
 );
 
-// -----------------------------------------------------------------------------
-// 2.7. Thiết kế Pipeline Thu thập GIS & Nạp Vector
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.7. Thiết kế Đường ống Thu thập Dữ liệu GIS và Nạp Vector'),
   p('Quy trình xử lý dữ liệu không gian tỉnh Đồng Nai được thực hiện qua 4 giai đoạn khép kín:', { firstLine: true }),
@@ -520,9 +488,6 @@ children.push(
   figCaption('Hình 2.6', 'Sơ đồ Luồng Hoạt động Pipeline Thu thập Dữ liệu GIS và Nạp Vector')
 );
 
-// -----------------------------------------------------------------------------
-// 2.8. Thiết kế Cơ sở Dữ liệu & 7 Bounded Contexts
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.8. Thiết kế Cơ sở Dữ liệu và 7 Bounded Contexts (DDD)'),
   p('Cơ sở dữ liệu EduMap được thiết kế theo tư duy Domain-Driven Design (DDD) gồm 85 thực thể và 12 enum chia thành 7 miền nghiệp vụ độc lập:', { firstLine: true }),
@@ -537,9 +502,6 @@ children.push(
   figCaption('Hình 2.7', 'Sơ đồ Thực thể Liên kết (Entity Relationship Diagram - 85 Thực thể)')
 );
 
-// -----------------------------------------------------------------------------
-// 2.9. Thiết kế Luồng Xác thực & Bảo mật Hệ thống
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.9. Thiết kế Luồng Nghiệp vụ Động: Xác thực và Bảo mật Hệ thống'),
   p('Quy trình xác thực bảo vệ hệ thống trước tấn công dò mật khẩu và đảm bảo an toàn phiên làm việc:', { firstLine: true }),
@@ -550,9 +512,6 @@ children.push(
   figCaption('Hình 2.8', 'Sơ đồ Tuần tự Luồng Xác thực và Đăng nhập Hệ thống')
 );
 
-// -----------------------------------------------------------------------------
-// 2.10. Thiết kế Luồng Trợ lý Ảo RAG AI Chatbot
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.10. Thiết kế Luồng Nghiệp vụ Động: Trợ lý Ảo RAG AI Chatbot'),
   p('Luồng hỏi đáp thông minh kết hợp RAG loại bỏ hiện tượng ảo giác ngôn ngữ và cung cấp thông tin chuẩn xác:', { firstLine: true }),
@@ -564,9 +523,6 @@ children.push(
   figCaption('Hình 2.9', 'Sơ đồ Tuần tự Luồng Hỏi đáp Trợ lý Ảo RAG AI Chatbot')
 );
 
-// -----------------------------------------------------------------------------
-// 2.11. Thiết kế Luồng Kiểm duyệt Nội dung Cộng đồng 2 Tầng
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.11. Thiết kế Luồng Nghiệp vụ Động: Kiểm duyệt Nội dung Cộng đồng 2 Tầng'),
   p('Hệ thống tự động rà soát nội dung bài viết trước khi hiển thị lên bảng tin công cộng:', { firstLine: true }),
@@ -577,9 +533,6 @@ children.push(
   figCaption('Hình 2.10', 'Sơ đồ Tuần tự Luồng Đăng bài và Kiểm duyệt Nội dung Cộng đồng 2 Tầng')
 );
 
-// -----------------------------------------------------------------------------
-// 2.12. Thiết kế Luồng Đặt hàng & Thanh toán Thương mại 2 Pha
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.12. Thiết kế Luồng Nghiệp vụ Động: Đặt hàng và Thanh toán 2 Pha'),
   p('Thiết kế giao dịch bảo đảm nguyên tắc ACID và chống gian lận thanh toán trực tuyến:', { firstLine: true }),
@@ -589,9 +542,6 @@ children.push(
   figCaption('Hình 2.11', 'Sơ đồ Tuần tự Luồng Đặt hàng và Thanh toán Thương mại Điện tử 2 Pha')
 );
 
-// -----------------------------------------------------------------------------
-// 2.13. Thiết kế Luồng Ghép đôi Cố vấn & Đặt lịch Jitsi Meet
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.13. Thiết kế Luồng Nghiệp vụ Động: Ghép đôi Cố vấn và Đặt lịch Jitsi Meet'),
   p('Quy trình kết nối chuyên gia hướng nghiệp và kích hoạt phòng họp trực tuyến:', { firstLine: true }),
@@ -602,9 +552,6 @@ children.push(
   figCaption('Hình 2.12', 'Sơ đồ Tuần tự Luồng Ghép đôi Cố vấn và Đặt lịch Buổi tư vấn Trực tuyến')
 );
 
-// -----------------------------------------------------------------------------
-// 2.14. Thiết kế Luồng Đánh giá Đủ điều kiện Học bổng
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.14. Thiết kế Luồng Nghiệp vụ Động: Đánh giá Đủ điều kiện và Nộp hồ sơ Học bổng'),
   p('Hệ thống hỗ trợ sinh viên nhanh chóng sàng lọc cơ hội học bổng và nộp minh chứng điện tử:', { firstLine: true }),
@@ -614,9 +561,6 @@ children.push(
   figCaption('Hình 2.13', 'Sơ đồ Tuần tự Luồng Đánh giá Đủ điều kiện và Nộp hồ sơ Học bổng')
 );
 
-// -----------------------------------------------------------------------------
-// 2.15. Thiết kế Máy Trạng thái: Vòng đời Đơn hàng & Dịch vụ Số
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.15. Thiết kế Máy Trạng thái: Vòng đời Đơn hàng và Dịch vụ Số'),
   p('Vòng đời đơn hàng tuân thủ máy trạng thái hữu hạn kiểm soát chuyển dịch chặt chẽ:', { firstLine: true }),
@@ -630,9 +574,6 @@ children.push(
   figCaption('Hình 2.14', 'Sơ đồ Máy Trạng thái Vòng đời Đơn hàng và Kích hoạt Dịch vụ Số')
 );
 
-// -----------------------------------------------------------------------------
-// 2.16. Thiết kế Máy Trạng thái: Vòng đời Lịch hẹn Cố vấn
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.16. Thiết kế Máy Trạng thái: Vòng đời Lịch hẹn Cố vấn và Buổi tư vấn 1-1'),
   p('Quản lý trạng thái buổi tư vấn đồng bộ giữa lịch làm việc và dòng tiền ký quỹ:', { firstLine: true }),
@@ -646,9 +587,6 @@ children.push(
   figCaption('Hình 2.15', 'Sơ đồ Máy Trạng thái Vòng đời Đặt lịch Cố vấn và Buổi tư vấn Trực tuyến')
 );
 
-// -----------------------------------------------------------------------------
-// 2.17. Thiết kế Triển khai Hạ tầng Cụm Kubernetes Sản xuất
-// -----------------------------------------------------------------------------
 children.push(
   h1('2.17. Thiết kế Triển khai Hạ tầng Cụm Kubernetes Sản xuất (edumap-prod)'),
   p('Hạ tầng thực tế được triển khai trên cụm Kubernetes đảm bảo khả năng sẵn sàng cao và tự động co giãn:', { firstLine: true }),
@@ -660,14 +598,13 @@ children.push(
   figCaption('Hình 2.16', 'Sơ đồ Triển khai Hạ tầng Cụm Kubernetes Sản xuất')
 );
 
-// Cấu hình tài liệu hoàn chỉnh (Không header rườm rà, footer số trang đơn giản)
 const doc = new Document({
   styles: {
     default: {
       document: {
         run: {
           font: FONT,
-          size: 26, // 13pt chuẩn
+          size: 26,
           color: COLOR_BLACK,
         },
       },
@@ -678,10 +615,10 @@ const doc = new Document({
       properties: {
         page: {
           margin: {
-            top: 1134, // 20mm
-            bottom: 1134, // 20mm
-            left: 1417, // 25mm
-            right: 1134, // 20mm
+            top: 1134,
+            bottom: 1134,
+            left: 1417,
+            right: 1134,
           },
         },
       },

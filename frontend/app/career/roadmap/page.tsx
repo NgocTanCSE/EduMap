@@ -1,140 +1,94 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { 
-  Users, 
-  ChevronRight, 
-  Clock,
-  BookOpen,
-  CheckCircle2,
-  GraduationCap,
-  Map as MapIcon,
-  TrendingUp,
-  BrainCircuit,
-  Loader2,
-  Sparkles
-} from 'lucide-react';
+import { Users, ChevronRight, Clock, BookOpen, CheckCircle2, GraduationCap, Map as MapIcon, TrendingUp, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { authService } from '@/src/services/auth.service';
 import { CareerTabBar } from '@/components/career/CareerTabBar';
-
+import { aiService } from '@/src/services/ai.service';
 export default function CareerRoadmapPage() {
-  const [roadmap, setRoadmap] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  
-  // Form states
-  const [targetRole, setTargetRole] = useState('Fullstack Developer');
-  const [currentLevel, setCurrentLevel] = useState('Beginner');
-  const [hoursPerWeek, setHoursPerWeek] = useState(15);
-
-  const generateRoadmap = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    
-    const token = authService.getAccessToken();
-    if (!token) {
-      toast.error('Vui lòng đăng nhập để sử dụng tính năng tạo lộ trình AI.');
-      window.location.href = '/auth/login?redirect=/career/roadmap';
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await fetch('/api/ai/learning-path', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          target_role: targetRole,
-          current_level: currentLevel,
-          time_commitment_hours_per_week: hoursPerWeek
-        })
-      });
-      
-      if (!res.ok) throw new Error('Không thể tạo lộ trình');
-      const data = await res.json();
-      setRoadmap((data as any)?.data ?? data);
-      toast.success('Lộ trình AI đã được khởi tạo!');
-    } catch (error) {
-      console.error(error);
-      toast.error('Lỗi khi kết nối với AI Service');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background text-foreground">
+    const [roadmap, setRoadmap] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [targetRole, setTargetRole] = useState('Fullstack Developer');
+    const [currentLevel, setCurrentLevel] = useState('Beginner');
+    const [hoursPerWeek, setHoursPerWeek] = useState(15);
+    const generateRoadmap = async (e?: React.FormEvent) => {
+        if (e)
+            e.preventDefault();
+        const token = authService.getAccessToken();
+        if (!token) {
+            toast.error('Vui lòng đăng nhập để sử dụng tính năng tạo lộ trình AI.');
+            window.location.href = '/auth/login?redirect=/career/roadmap';
+            return;
+        }
+        try {
+            setLoading(true);
+            const data = await aiService.getLearningPath({
+                target_role: targetRole,
+                current_level: currentLevel,
+                time_commitment_hours_per_week: hoursPerWeek
+            });
+            setRoadmap((data as any)?.data ?? data);
+            toast.success('Lộ trình AI đã được khởi tạo!');
+        }
+        catch (error) {
+            console.error(error);
+            toast.error('Lỗi khi kết nối với AI Service');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    return (<div className="min-h-screen bg-background text-foreground">
       <CareerTabBar />
       <div className="w-full mx-auto p-8">
-        
-        {/* Input Section */}
+
         <div className="mb-12 p-8 rounded-lg bg-card/50 border border-border">
            <div className="flex items-center gap-2 text-primary mb-6 uppercase text-[10px] font-semibold tracking-[0.2em]">
-              <BrainCircuit className="w-4 h-4" /> AI Personalized Generator
+              <BrainCircuit className="w-4 h-4"/> AI Personalized Generator
            </div>
            <h2 className="text-3xl font-semibold mb-8">Bạn muốn trở thành ai?</h2>
-           
+
            <form onSubmit={generateRoadmap} className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground/60 ml-2">Mục tiêu nghề nghiệp</label>
-                 <input 
-                    value={targetRole}
-                    onChange={(e) => setTargetRole(e.target.value)}
-                    className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm"
-                    placeholder="VD: Data Scientist"
-                 />
+                 <input value={targetRole} onChange={(e) => setTargetRole(e.target.value)} className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm" placeholder="VD: Data Scientist"/>
               </div>
               <div className="space-y-2">
                  <label className="text-[10px] uppercase font-bold text-muted-foreground/60 ml-2">Trình độ hiện tại</label>
-                 <select 
-                    value={currentLevel}
-                    onChange={(e) => setCurrentLevel(e.target.value)}
-                    className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm appearance-none"
-                 >
+                 <select value={currentLevel} onChange={(e) => setCurrentLevel(e.target.value)} className="w-full bg-card/40 border border-border rounded-lg py-4 px-6 outline-none focus:ring-1 focus:ring-primary transition-all text-sm appearance-none">
                     <option value="Beginner">Beginner</option>
                     <option value="Intermediate">Intermediate</option>
                     <option value="Advanced">Advanced</option>
                  </select>
               </div>
               <div className="flex items-end">
-                 <button 
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-primary/80 hover:bg-primary/80 text-primary-foreground font-semibold py-4 rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                 >
-                    {loading ? <Loader2 className="animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                 <button type="submit" disabled={loading} className="w-full bg-primary/80 hover:bg-primary/80 text-primary-foreground font-semibold py-4 rounded-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50">
+                    {loading ? <Loader2 className="animate-spin"/> : <Sparkles className="w-4 h-4"/>}
                     {loading ? "Đang xử lý..." : "Tạo lộ trình"}
                  </button>
               </div>
            </form>
         </div>
 
-        {roadmap && (
-          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-            {/* Header */}
+        {roadmap && (<div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="flex items-center gap-6 mb-12 p-8 rounded-xl bg-primary/10 border border-primary/20 relative overflow-hidden">
               <div className="p-4 bg-primary rounded-lg shadow-lg">
-                <TrendingUp className="w-8 h-8 text-foreground" />
+                <TrendingUp className="w-8 h-8 text-foreground"/>
               </div>
               <div className="flex-1">
                 <h1 className="text-2xl font-bold">Lộ trình: {roadmap.target_role}</h1>
                 <p className="text-sm text-muted-foreground/65">Dự kiến hoàn thành trong {roadmap.total_estimated_months} tháng</p>
               </div>
               <div className="absolute top-0 right-0 p-8 opacity-10">
-                 <MapIcon className="w-32 h-32" />
+                 <MapIcon className="w-32 h-32"/>
               </div>
             </div>
 
-            {/* Roadmap Path */}
             <div className="space-y-4 relative">
-              <div className="absolute left-[39px] top-8 bottom-8 w-0.5 bg-primary/80" />
+              <div className="absolute left-[39px] top-8 bottom-8 w-0.5 bg-primary/80"/>
 
-              {roadmap.steps?.map((step: any, index: number) => (
-                <div key={index} className="flex gap-8 relative group">
-                  <div className={`w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center border-4 z-10 transition-all ${
-                    index === 0 ? 'bg-primary border-primary/60' : 'bg-card border-border group-hover:border-primary/50'
-                  }`}>
+              {roadmap.steps?.map((step: any, index: number) => (<div key={index} className="flex gap-8 relative group">
+                  <div className={`w-20 h-20 rounded-full flex-shrink-0 flex items-center justify-center border-4 z-10 transition-all ${index === 0 ? 'bg-primary border-primary/60' : 'bg-card border-border group-hover:border-primary/50'}`}>
                     <span className="text-xl font-bold text-foreground">{step.step_number}</span>
                   </div>
 
@@ -143,8 +97,8 @@ export default function CareerRoadmapPage() {
                        <div>
                           <h3 className="text-xl font-semibold mb-1 text-primary/90">{step.title}</h3>
                           <div className="flex gap-4 text-[10px] text-muted-foreground/45 uppercase font-semibold tracking-widest">
-                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {step.estimated_weeks} tuần</span>
-                             <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> AI Curated Resources</span>
+                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> {step.estimated_weeks} tuần</span>
+                             <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5"/> AI Curated Resources</span>
                           </div>
                        </div>
                     </div>
@@ -152,18 +106,13 @@ export default function CareerRoadmapPage() {
                       {step.description}
                     </p>
                   </div>
-                </div>
-              ))}
+                </div>))}
             </div>
-          </div>
-        )}
+          </div>)}
 
-        {!roadmap && !loading && (
-            <div className="text-center py-12 border border-dashed border-border rounded-lg">
+        {!roadmap && !loading && (<div className="text-center py-12 border border-dashed border-border rounded-lg">
                 <p className="text-muted-foreground/20 font-semibold uppercase tracking-widest text-xs">Vui lòng nhập mục tiêu để bắt đầu</p>
-            </div>
-        )}
+            </div>)}
       </div>
-    </div>
-  );
+    </div>);
 }

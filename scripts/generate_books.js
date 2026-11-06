@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const author_id = '0b1a55ca-e332-49f7-8ad0-6118bcb6199d'; // existing user id
+const author_id = '0b1a55ca-e332-49f7-8ad0-6118bcb6199d';
 const subjects = ['Toán học', 'Vật lý', 'Hóa học', 'Sinh học', 'Ngữ văn', 'Tiếng Anh', 'Lịch sử', 'Địa lý', 'Tin học', 'Khoa học dữ liệu', 'Trí tuệ nhân tạo', 'Thiết kế đồ họa', 'Marketing', 'Quản trị kinh doanh', 'Kinh tế vĩ mô', 'Lập trình Web', 'Lập trình di động', 'Cơ điện tử', 'Kỹ thuật ô tô'];
 const grades = ['Lớp 10', 'Lớp 11', 'Lớp 12', 'Đại học', 'Cao đẳng'];
 const types = ['pdf', 'video', 'document'];
@@ -22,17 +22,15 @@ for (let i = 0; i < 100; i++) {
   const grade = grades[Math.floor(Math.random() * grades.length)];
   const type = types[Math.floor(Math.random() * types.length)];
   const titlePrefix = titles[Math.floor(Math.random() * titles.length)];
-  
+
   const title = `${titlePrefix} ${subject} - ${grade} (Tập ${Math.floor(Math.random() * 5) + 1})`;
   const description = `Tài liệu chất lượng cao phục vụ việc học tập và nghiên cứu chuyên môn ngành ${subject} dành cho ${grade}.`;
-  
+
   sqlInserts += `INSERT INTO learning_materials (id, title, description, type, subject, grade, status, author_id) VALUES ('${crypto.randomUUID()}', '${title}', '${description}', '${type}', '${subject}', '${grade}', 'published', '${author_id}');\n`;
 }
 
-// read seed.sql
 const content = fs.readFileSync(seedSqlPath, 'utf8');
 
-// Insert the books right after the existing books (around line 184)
 const lines = content.split('\n');
 const insertIndex = lines.findIndex(line => line.includes("INSERT INTO groups")) || lines.length;
 

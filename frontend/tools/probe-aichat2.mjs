@@ -15,7 +15,7 @@ const tok = `${b64url(JSON.stringify({alg:'HS256',typ:'JWT'}))}.${b64url(JSON.st
   await page.goto('http://localhost:3000/ai-chat', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(()=>{});
   await page.waitForTimeout(3000);
 
-  // Find the tallest non-fixed elements (the ones causing page scroll)
+  
   const info = await page.evaluate(() => {
     const w = window.innerWidth, h = window.innerHeight;
     const tall = [];
@@ -28,7 +28,7 @@ const tok = `${b64url(JSON.stringify({alg:'HS256',typ:'JWT'}))}.${b64url(JSON.st
       }
     }
     tall.sort((a,b)=>b.height-a.height);
-    // app-content + chat
+    
     const ac = document.querySelector('#app-content');
     const acRect = ac ? (({top,bottom,left,right,width,height})=>({top:+top.toFixed(0),bottom:+bottom.toFixed(0),left:+left.toFixed(0),right:+right.toFixed(0),width:+width.toFixed(0),height:+height.toFixed(0)})(ac.getBoundingClientRect())) : null;
     const chat = document.querySelector('#app-content > div');

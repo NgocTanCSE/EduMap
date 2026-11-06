@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 crawl_pois_vietnam.py — Nightly crawler for "nơi tiện ích sinh viên"
 (chợ / markets + Bách hóa Xanh / convenience stores) into EduMap's `map_points`.
@@ -29,7 +28,7 @@ Design
 Run
 ---
   python3 /app/scripts/crawl_pois_vietnam.py --db frontend/public/edumap.db
-  CRAWL_DRY_RUN=1 python3 /app/scripts/crawl_pois_vietnam.py   # summary only
+  CRAWL_DRY_RUN=1 python3 /app/scripts/crawl_pois_vietnam.py
 
 Scheduled (cron in Docker container) via run_overpass_seed.sh — loops
 forever, sleeping until 00:30 each night, then runs once.
@@ -44,15 +43,13 @@ import urllib.request
 from datetime import datetime, timezone
 from typing import Iterable
 
-# Share path with the crawler package.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
-from crawl_scope import (  # noqa: E402
+from crawl_scope import (  
     crawl_years, year_scope_range, LOCATION_LAYERS,
     DONG_NAI_BBOX, SOUTHERN_VN_BBOX, VIETNAM_BBOX,
 )
-from tavily_poi import search_pois_tavily, crawl_pois_markets  # noqa: E402
+from tavily_poi import search_pois_tavily, crawl_pois_markets  
 
-# Location expansion: start from Đồng Nai, then southern VN, then full Vietnam.
 SCOPE_BBOXES = [
     ("dong_nai", DONG_NAI_BBOX),
     ("southern_vn", SOUTHERN_VN_BBOX),
@@ -60,27 +57,20 @@ SCOPE_BBOXES = [
 ]
 _YEAR_MIN, _YEAR_MAX = year_scope_range()
 
-# --------------------------------------------------------------------------- #
-# CONFIG (env override friendly)                                            #
-# --------------------------------------------------------------------------- #
-DEFAULT_BBOX = (8.0, 102.0, 23.5, 109.5)  # Vietnam fallback bbox
+DEFAULT_BBOX = (8.0, 102.0, 23.5, 109.5)  
 DRY_RUN = os.getenv("CRAWL_DRY_RUN", "0") == "1"
 LOG_FILE = os.getenv("CRAWL_LOG", "/data/crawl_pois.log")
 DEDUP_M = float(os.getenv("CRAWL_DEDUP_METERS", "50"))
 TARGET = int(os.getenv("CRAWL_TARGET_POIS", "300"))
 CAP = int(os.getenv("CRAWL_CAP_POIS", "500"))
 
-# EduMap type_id mapping (must match backend MapPoint entity).
 TYPE_MAP = {
-    "market": 10,      # amenity=marketplace (chợ)
-    "convenience": 11, # shop=convenience  (Bách hóa Xanh + other convenience)
+    "market": 10,      
+    "convenience": 11, 
 }
 BX_PATTERNS = ("bách hóa xanh", "bach hoa xanh", "bx", "bhc", "b.h.x")
 
 
-# --------------------------------------------------------------------------- #
-# LOGGING                                                                     #
-# --------------------------------------------------------------------------- #
 def log(msg: str) -> None:
     line = f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}] {msg}"
     print(line, flush=True)
@@ -89,12 +79,9 @@ def log(msg: str) -> None:
         with open(LOG_FILE, "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
     except OSError:
-        pass  # container fs not ready yet — stdout is enough
+        pass  
 
 
-# --------------------------------------------------------------------------- #
-# Tavily-based POI fetching (replaces Overpass tile fetch)                    #
-# --------------------------------------------------------------------------- #
 
 def fetch_tile(scope_label: str, layer_label: str, category: str,
                location_scope: str = "vietnam") -> list[dict]:
@@ -124,13 +111,10 @@ def fetch_tile(scope_label: str, layer_label: str, category: str,
         pois = search_pois_tavily(q, category=category, location_scope=location_scope,
                                   max_results=8)
         results.extend(pois)
-        time.sleep(0.5)  # Rate-limiting
+        time.sleep(0.5)  
     return results
 
 
-# --------------------------------------------------------------------------- #
-# DB UPSERT (SQLite — AGENTS.md §7: no PostGIS on SQLite)                     #
-# --------------------------------------------------------------------------- #
 DB_PATH = os.getenv("DB_SQLITE_PATH", os.getenv("DB_PATH", "/app/data/edumap.db"))
 
 
@@ -150,7 +134,6 @@ def upsert_sqlite(conn, pois: list[dict]) -> tuple[int, int]:
         lat = round(p["lat"], 7)
         lng = round(p["lng"], 7)
         name = p["name"][:255]
-        # Check for existing row with same name + approximate coordinates.
         cur.execute(
             "SELECT 1 FROM map_points WHERE name = ? AND location = ? LIMIT 1",
             (name, f"POINT({lng} {lat})"),
@@ -181,9 +164,6 @@ def upsert_sqlite(conn, pois: list[dict]) -> tuple[int, int]:
     return inserted, skipped
 
 
-# --------------------------------------------------------------------------- #
-# MAIN                                                                        #
-# --------------------------------------------------------------------------- #
 def parse_args(argv: list[str]) -> dict:
     cfg = {"DRY_RUN": DRY_RUN, "BBOX": DEFAULT_BBOX, "TARGET": TARGET, "CAP": CAP}
     i = 1
@@ -222,15 +202,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             conn = sqlite3.connect(db_path)
 
-    # Crawl markets + convenience stores, walking the location expansion layers.
     pois = crawl_pois_markets(SCOPE_BBOXES)
 
-    # Filter to the specified bbox (if custom bbox provided).
     if cfg.get("BBOX") and cfg["BBOX"] != DEFAULT_BBOX:
         s, w, n, e = cfg["BBOX"]
         pois = [p for p in pois if s <= p["lat"] <= n and w <= p["lng"] <= e]
 
-    # De-dup by category + lowercase name + 6-decimal coords.
     by_key: set[tuple] = set()
     uniq: list[dict] = []
     for p in pois:
