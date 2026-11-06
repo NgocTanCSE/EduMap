@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { BrainCircuit, Star, Compass, ArrowRight, ShieldCheck, Zap, Activity, Book, Loader2, AlertCircle } from 'lucide-react';
-import { careerService } from '@/src/services/career.service';
-import { authService } from '@/src/services/auth.service';
+import { careerService } from '../../../src/services/career.service';
+import { authService } from '../../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import { CareerTabBar } from '@/components/career/CareerTabBar';
 interface CareerPath {

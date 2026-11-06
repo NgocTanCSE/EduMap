@@ -5,7 +5,7 @@ import { toast } from "@/src/lib/toast";
 import { logger } from '@/src/lib/logger';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { useRequireAuth } from '@/src/lib/require-auth';
-import { languageBridgeService, Difficulty, SimplifyResult, TranslateResult, TTSResult, } from '@/src/services/language-bridge.service';
+import { languageBridgeService, Difficulty, SimplifyResult, TranslateResult, TTSResult, } from '../../src/services/language-bridge.service';
 const DIFFICULTY_OPTIONS: {
     value: Difficulty;
     label: string;

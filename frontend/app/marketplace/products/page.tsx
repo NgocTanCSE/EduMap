@@ -3,8 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Filter, Loader2, Package, Search, ShoppingBag, ShoppingCart, Tag, } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
-import { AuthRequiredError, businessService, type BusinessProduct, } from '@/src/services/business.service';
-import { authService } from '@/src/services/auth.service';
+import { AuthRequiredError, businessService, type BusinessProduct, } from '../../../src/services/business.service';
+import { authService } from '../../../src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
 type ProductRow = BusinessProduct & {

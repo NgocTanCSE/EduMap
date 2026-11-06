@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Globe, PlaneTakeoff, GraduationCap, MapPin, Users, Loader2, ArrowRight, Search, Navigation } from 'lucide-react';
-import { intlService, InternationalProgram, AlumniNetwork } from '@/src/services/intl.service';
-import { authService } from '@/src/services/auth.service';
+import { intlService, InternationalProgram, AlumniNetwork } from '../../src/services/intl.service';
+import { authService } from '../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';

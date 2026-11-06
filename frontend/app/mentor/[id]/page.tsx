@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { mentorService } from '@/src/services/mentor.service';
-import { authService } from '@/src/services/auth.service';
+import { mentorService } from '../../../src/services/mentor.service';
+import { authService } from '../../../src/services/auth.service';
 import { Star, Calendar, Clock, Award, Briefcase, ArrowLeft, CheckCircle2, X, Video } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from "@/src/lib/toast";

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService, User } from '@/src/services/admin.service';
+import { adminService, User } from '../../../src/services/admin.service';
 import { toast } from "@/src/lib/toast";
 import { Users, Search, MoreVertical, CheckCircle, XCircle, AlertTriangle, Shield, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 export default function AdminUsersPage() {

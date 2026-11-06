@@ -6,8 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Bot, User, Loader2, BookOpen, Mic, MicOff, Trash2, Sparkles, Compass, Lightbulb, GraduationCap, Atom } from "lucide-react";
 import { toast } from "@/src/lib/toast";
-import { authService } from '@/src/services/auth.service';
-import { aiService } from '@/src/services/ai.service';
+import { authService } from '../../src/services/auth.service';
+import { aiService } from '../../src/services/ai.service';
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
 const SUGGESTIONS = [
     { icon: GraduationCap, text: "Tìm học bổng toàn phần du học tại Đức hoặc Nhật Bản?" },

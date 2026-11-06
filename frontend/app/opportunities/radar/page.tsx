@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Target, RefreshCw, CheckCircle2, ExternalLink, Clock, MapPin, GraduationCap, Briefcase, Trophy, Calendar, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { authService } from '@/src/services/auth.service';
+import { authService } from '../../../src/services/auth.service';
 import { fetchWithRetry } from '@/src/lib/fetch-with-retry';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
 import { toast } from "@/src/lib/toast";

@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import FileUpload from '@/src/components/ui/FileUpload';
-import { authService } from '@/src/services/auth.service';
-import { eventsService, type Event as EventData } from '@/src/services/events.service';
+import { authService } from '../../../src/services/auth.service';
+import { eventsService, type Event as EventData } from '../../../src/services/events.service';
 import { eventIllustration } from '@/src/lib/illustrations';
 function toLocalInput(date: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0');

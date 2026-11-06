@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Shield, Plus, Edit, Trash2 } from "lucide-react";
-import { adminService } from "@/src/services/admin.service";
+import { adminService } from "../../../src/services/admin.service";
 export default function AdminRolesPage() {
     const [roles, setRoles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

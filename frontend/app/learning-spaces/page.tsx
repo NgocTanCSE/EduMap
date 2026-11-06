@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { MapPin, Navigation, Wifi, Star, Clock, Users, Filter, Wind, Search, Loader2, SlidersHorizontal, Info, RefreshCw, } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-import { learningSpaceService, RecommendParams, RecommendResponse, ScoredSpot, } from '@/src/services/learning-space.service';
+import { learningSpaceService, RecommendParams, RecommendResponse, ScoredSpot, } from '../../src/services/learning-space.service';
 const InteractiveMap = dynamic(() => import('@/components/ui/MapComponent'), {
     ssr: false,
     loading: () => (<div className="h-full w-full flex items-center justify-center bg-background">

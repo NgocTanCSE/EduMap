@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
 import Link from 'next/link';
-import { donateService, DonationCampaign } from '@/src/services/donate.service';
+import { donateService, DonationCampaign } from '../../src/services/donate.service';
 import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';

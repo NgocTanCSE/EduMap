@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Wifi, MapPin, ArrowRight, ShieldCheck, Gauge } from 'lucide-react';
 import Link from 'next/link';
-import { wifiService } from '@/src/services/wifi.service';
+import { wifiService } from '../../src/services/wifi.service';
 import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';

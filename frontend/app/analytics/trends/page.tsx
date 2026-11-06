@@ -6,7 +6,7 @@ import { toast } from "@/src/lib/toast";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { analyticsService } from "@/src/services/analytics.service";
+import { analyticsService } from "../../../src/services/analytics.service";
 import { cn } from "@/src/lib/utils";
 import { CareerTabBar } from "@/components/career/CareerTabBar";
 type HistoricalPoint = {

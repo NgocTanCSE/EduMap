@@ -8,7 +8,7 @@ const TileLayer: any = nextDynamic(() => import('react-leaflet').then((mod: any)
 const CircleMarker: any = nextDynamic(() => import('react-leaflet').then((mod: any) => ({ default: mod.CircleMarker })), { ssr: false });
 const Popup: any = nextDynamic(() => import('react-leaflet').then((mod: any) => ({ default: mod.Popup })), { ssr: false });
 import 'leaflet/dist/leaflet.css';
-import { adminService, Anomaly, DataQualityReport } from '@/src/services/admin.service';
+import { adminService, Anomaly, DataQualityReport } from '../../../src/services/admin.service';
 import { toast } from "@/src/lib/toast";
 const CATEGORY_OPTIONS: Array<{
     value: string;

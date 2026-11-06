@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { GraduationCap, Users, User, Briefcase, Shield, Heart, Loader2, ArrowRight, Check, } from 'lucide-react';
-import { authService } from '@/src/services/auth.service';
-import { configService } from '@/src/services/config.service';
+import { authService } from '../../../src/services/auth.service';
+import { configService } from '../../../src/services/config.service';
 import { UserRole } from '@/src/types/auth-types';
 import { EduMapLogo, EduMapWordmark } from '@/components/ui/Logo';
 const ROLES = [

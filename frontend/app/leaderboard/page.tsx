@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Trophy, Medal, Crown, Star, TrendingUp, Users, Loader2, Target, Award } from 'lucide-react';
-import { gamificationService, LeaderboardUser, UserProgress } from '@/src/services/gamification.service';
-import { authService, CurrentUser } from '@/src/services/auth.service';
+import { gamificationService, LeaderboardUser, UserProgress } from '../../src/services/gamification.service';
+import { authService, CurrentUser } from '../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import Pagination from '@/components/ui/Pagination';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';

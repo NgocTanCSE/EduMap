@@ -2,8 +2,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Clock, Filter, GraduationCap, Loader2, MapPin, Search, ShoppingCart, Tag, } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
-import { AuthRequiredError, businessService, type BusinessServiceItem, } from '@/src/services/business.service';
-import { authService } from '@/src/services/auth.service';
+import { AuthRequiredError, businessService, type BusinessServiceItem, } from '../../../src/services/business.service';
+import { authService } from '../../../src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
 type ServiceRow = BusinessServiceItem & {

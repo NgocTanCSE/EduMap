@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Sun, MapPin, Calendar, Users, Loader2, CheckCircle2, TrendingUp, Activity, Leaf, ShieldCheck, HeartHandshake, ArrowRight } from 'lucide-react';
-import { summerService, SummerCampaign } from '@/src/services/summer.service';
-import { authService } from '@/src/services/auth.service';
+import { summerService, SummerCampaign } from '../../src/services/summer.service';
+import { authService } from '../../src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';
 import { Input } from '@/components/ui/input';

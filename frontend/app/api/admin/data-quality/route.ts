@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-import { authService } from '@/src/services/auth.service';
+import { authService } from '../../../../src/services/auth.service';
 export async function POST(req: NextRequest) {
     const token = authService.getAccessToken();
     if (!token) {

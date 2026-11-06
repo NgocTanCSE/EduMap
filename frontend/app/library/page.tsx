@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, BookMarked, Bookmark, Database, Download, ExternalLink, FileText, Info, Library, Loader2, Search, Video, } from 'lucide-react';
 import Link from 'next/link';
-import { libraryService } from '@/src/services/library.service';
+import { libraryService } from '../../src/services/library.service';
 import { CardSkeleton } from '../../src/components/ui/Skeleton';
 import { toast } from "@/src/lib/toast";
 import SectionHeader from '@/components/ui/SectionHeader';

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Users, Shield, Activity, LayoutDashboard, Settings, LogOut, ChevronRight, Globe, Lock, Database, BrainCircuit } from 'lucide-react';
-import { authService } from '@/src/services/auth.service';
+import { authService } from '../../src/services/auth.service';
 const menuItems = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Người dùng', href: '/admin/users', icon: Users },

@@ -5,7 +5,7 @@ import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { useRequireAuth } from "@/src/lib/require-auth";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { impactMeasurementService, type ImpactReport, type RegionParams } from "@/src/services/impact-measurement.service";
+import { impactMeasurementService, type ImpactReport, type RegionParams } from "../../../src/services/impact-measurement.service";
 const DEFAULT_BBOX = { minLat: 10.9, maxLat: 11.0, minLng: 106.8, maxLng: 107.0 };
 function fmt(n: number | undefined | null, digits = 1): string {
     if (n === undefined || n === null || Number.isNaN(n))

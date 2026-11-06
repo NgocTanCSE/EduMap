@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Map as MapIcon, Layers, Info, Filter, Download } from 'lucide-react';
-import { adminService } from '@/src/services/admin.service';
+import { adminService } from '../../../../src/services/admin.service';
 const MapWithNoSSR = dynamic(() => import('@/components/ui/MapComponent'), {
     ssr: false,
     loading: () => <div className="h-full w-full bg-card animate-pulse rounded-xl"/>

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Code, Users, Calendar, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
+import { hackathonService, Hackathon } from '../../src/services/hackathon.service';
 import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';

@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { avatarFallback, onImageError } from '@/src/lib/illustrations';
 import { MessageSquare, Heart, Share2, MoreHorizontal, ArrowLeft, Send, AlertTriangle, CheckCircle2, Clock, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { communityService, Post, Comment } from '@/src/services/community.service';
-import { authService } from '@/src/services/auth.service';
+import { communityService, Post, Comment } from '../../../../src/services/community.service';
+import { authService } from '../../../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 export default function PostDetailPage({ params }: {

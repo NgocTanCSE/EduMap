@@ -7,7 +7,7 @@ import { SIDEBAR_EXPANDED_WIDTH, } from "@/src/lib/layout-constants";
 import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Home as HomeIcon, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Heart, ShoppingCart, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
-import { authService } from "@/src/services/auth.service";
+import { authService } from "../../src/services/auth.service";
 import { useRequireAuth } from "@/src/lib/require-auth";
 import { fetchWithRetry } from "@/src/lib/fetch-with-retry";
 import { unwrapApiResponse } from "@/src/lib/api-utils";

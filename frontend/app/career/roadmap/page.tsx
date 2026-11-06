@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { Users, ChevronRight, Clock, BookOpen, CheckCircle2, GraduationCap, Map as MapIcon, TrendingUp, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
-import { authService } from '@/src/services/auth.service';
+import { authService } from '../../../src/services/auth.service';
 import { CareerTabBar } from '@/components/career/CareerTabBar';
-import { aiService } from '@/src/services/ai.service';
+import { aiService } from '../../../src/services/ai.service';
 export default function CareerRoadmapPage() {
     const [roadmap, setRoadmap] = useState<any>(null);
     const [loading, setLoading] = useState(false);

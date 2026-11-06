@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, LogOut, User, Settings, ShieldCheck, BookOpen, Award, Users, Heart, MapPin, Sparkles, ArrowUpRight, Calendar, Compass, } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { dashboardService } from "@/src/services/dashboard.service";
+import { dashboardService } from "../../src/services/dashboard.service";
 import { PersonalHub } from "@/components/dashboard/PersonalHub";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 export default function DashboardPage() {

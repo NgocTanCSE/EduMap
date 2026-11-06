@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Settings, Trophy, Star, Target, Flame, ChevronRight, Award, Shield, Zap, Edit2, Save, X, Camera, Globe, Bell, Lock, Loader2, MapPin, Activity, Clock, LogOut, Medal, Calendar, Briefcase, Check, CheckCircle2, User, Sparkles, ArrowRight, Mail, Phone } from 'lucide-react';
-import { authService, CurrentUser } from '@/src/services/auth.service';
-import { gamificationService, UserProgress, LeaderboardUser } from '@/src/services/gamification.service';
-import { storageService } from '@/src/services/storage.service';
+import { authService, CurrentUser } from '../../src/services/auth.service';
+import { gamificationService, UserProgress, LeaderboardUser } from '../../src/services/gamification.service';
+import { storageService } from '../../src/services/storage.service';
 import FileUpload from '@/src/components/ui/FileUpload';
 import { toast } from "@/src/lib/toast";
 import Link from 'next/link';

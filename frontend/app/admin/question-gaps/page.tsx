@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService, QuestionGapReport, QuestionGapCluster, QuestionGapItem } from '@/src/services/admin.service';
+import { adminService, QuestionGapReport, QuestionGapCluster, QuestionGapItem } from '../../../src/services/admin.service';
 import { toast } from "@/src/lib/toast";
 import { BrainCircuit, RefreshCw, Search, BarChart3, AlertTriangle, FileText, Tag, TrendingUp, Database, Clock, CheckCircle, XCircle, HelpCircle, Info } from 'lucide-react';
 export const dynamic = 'force-dynamic';

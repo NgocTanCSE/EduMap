@@ -11,8 +11,8 @@ import SectionHeader from "@/components/ui/SectionHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { toast } from "@/src/lib/toast";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { resourceExchangeService, Resource, ResourceRequest, ResourceMatch, MatchResult, TransportSlot, MatchResourcesResponse, CreateResourcePayload, CreateResourceRequestPayload, } from "@/src/services/resource-exchange.service";
-import { authService } from "@/src/services/auth.service";
+import { resourceExchangeService, Resource, ResourceRequest, ResourceMatch, MatchResult, TransportSlot, MatchResourcesResponse, CreateResourcePayload, CreateResourceRequestPayload, } from "../../src/services/resource-exchange.service";
+import { authService } from "../../src/services/auth.service";
 const RESOURCE_TYPES: {
     value: string;
     label: string;

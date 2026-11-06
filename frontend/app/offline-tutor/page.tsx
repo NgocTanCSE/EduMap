@@ -3,7 +3,7 @@ import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPat
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AlertTriangle, BookOpen, CheckCircle2, CloudOff, Loader2, PencilLine, Target, Timer, } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { offlineTutorService, type TutorStatus } from '@/src/services/offline-tutor.service';
+import { offlineTutorService, type TutorStatus } from '../../src/services/offline-tutor.service';
 interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';

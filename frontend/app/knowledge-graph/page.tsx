@@ -8,9 +8,9 @@ import { Card } from "@/components/ui/card";
 import ContentShell from "@/components/ui/ContentShell";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { toast } from "@/src/lib/toast";
-import { authService } from "@/src/services/auth.service";
+import { authService } from "../../src/services/auth.service";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { knowledgeGraphService, KnowledgeNode, KnowledgeEdge, PartnerSuggestion, } from "@/src/services/knowledge.service";
+import { knowledgeGraphService, KnowledgeNode, KnowledgeEdge, PartnerSuggestion, } from "../../src/services/knowledge.service";
 import ForceGraph from "@/components/knowledge/ForceGraph";
 export interface KnowledgeNodeWithLinks extends KnowledgeNode {
     linked_nodes?: any[];

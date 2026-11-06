@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Rocket, Search, UserCircle, Sparkles, ChevronRight, Briefcase, Target, TrendingUp, BrainCircuit, Compass, BarChart3, LogIn, } from 'lucide-react';
-import { careerService } from '@/src/services/career.service';
-import { authService } from '@/src/services/auth.service';
+import { careerService } from '../../src/services/career.service';
+import { authService } from '../../src/services/auth.service';
 import { StatSkeleton, CardSkeleton } from '../../src/components/ui/Skeleton';
 import { CareerTabBar } from '@/components/career/CareerTabBar';
 function CareerDashboard() {

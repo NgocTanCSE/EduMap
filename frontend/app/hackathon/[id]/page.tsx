@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Code, Users, Calendar, Trophy, ArrowLeft, Loader2, CheckCircle2, FileCode2, PlaySquare } from 'lucide-react';
 import Link from 'next/link';
-import { hackathonService, Hackathon } from '@/src/services/hackathon.service';
-import { authService } from '@/src/services/auth.service';
+import { hackathonService, Hackathon } from '../../../src/services/hackathon.service';
+import { authService } from '../../../src/services/auth.service';
 import { toast } from "@/src/lib/toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';

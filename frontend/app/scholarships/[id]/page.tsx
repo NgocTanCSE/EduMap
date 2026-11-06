@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GraduationCap, MapPin, DollarSign, Clock, ArrowLeft, Share2, Loader2, CheckCircle2, AlertTriangle, FileText, UploadCloud, X } from 'lucide-react';
-import { scholarshipService, Scholarship, EligibilityResponse } from '@/src/services/scholarship.service';
-import { authService } from '@/src/services/auth.service';
-import { aiService } from '@/src/services/ai.service';
+import { scholarshipService, Scholarship, EligibilityResponse } from '../../../src/services/scholarship.service';
+import { authService } from '../../../src/services/auth.service';
+import { aiService } from '../../../src/services/ai.service';
 import { shareLink } from '@/src/lib/share';
 import { toast } from "@/src/lib/toast";
 import Link from 'next/link';

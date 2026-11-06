@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { adminService } from '@/src/services/admin.service';
-import { aiService } from '@/src/services/ai.service';
+import { adminService } from '../../../src/services/admin.service';
+import { aiService } from '../../../src/services/ai.service';
 import { Users, Activity, TrendingUp, Shield, MapPin, BookOpen, Heart, Leaf, BrainCircuit } from 'lucide-react';
-import { authService } from '@/src/services/auth.service';
+import { authService } from '../../../src/services/auth.service';
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<any>(null);
     const [aiStats, setAiStats] = useState<any>(null);

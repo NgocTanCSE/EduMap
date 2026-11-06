@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, MapPin, Ticket, ArrowLeft, Share2, ShieldCheck, Loader2, CheckCircle2, Download, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { eventsService, Event, EventRegistrationResponse } from '@/src/services/events.service';
-import { authService } from '@/src/services/auth.service';
+import { eventsService, Event, EventRegistrationResponse } from '../../../src/services/events.service';
+import { authService } from '../../../src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
 import { toast } from "@/src/lib/toast";
 import Thumb from '@/components/ui/Thumb';

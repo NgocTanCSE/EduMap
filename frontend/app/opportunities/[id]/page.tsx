@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { Target, MapPin, Calendar, Users, ArrowLeft, Loader2, Share2, Compass, Tag } from 'lucide-react';
-import { opportunityService, Opportunity } from '@/src/services/opportunity.service';
-import { authService } from '@/src/services/auth.service';
+import { opportunityService, Opportunity } from '../../../src/services/opportunity.service';
+import { authService } from '../../../src/services/auth.service';
 import { shareLink } from '@/src/lib/share';
 import { toast } from "@/src/lib/toast";
 import Link from 'next/link';

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { careerService } from '@/src/services/career.service';
+import { careerService } from '../../../../src/services/career.service';
 import { Building2, MapPin, Briefcase, Calendar, ArrowLeft, Send, FileUp, CheckCircle2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from "@/src/lib/toast";

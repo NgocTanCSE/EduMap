@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, CreditCard, GraduationCap, Loader2, MapPin, ShoppingCart, Trash2, } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { marketplaceIllustration, onImageError } from '@/src/lib/illustrations';
-import { AuthRequiredError, businessService, type CartItem, type CheckoutResult, type PaymentMethod, } from '@/src/services/business.service';
-import { authService } from '@/src/services/auth.service';
+import { AuthRequiredError, businessService, type CartItem, type CheckoutResult, type PaymentMethod, } from '../../../src/services/business.service';
+import { authService } from '../../../src/services/auth.service';
 import { MarketplaceNav } from '@/components/marketplace/MarketplaceNav';
 type OrderInfo = CheckoutResult & {
     paymentStatus: string;

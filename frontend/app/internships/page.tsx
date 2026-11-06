@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Briefcase, MapPin, DollarSign, Clock, Building2, ArrowUpRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { internshipService, Internship } from '@/src/services/internship.service';
+import { internshipService, Internship } from '../../src/services/internship.service';
 import { toast } from "@/src/lib/toast";
 import ContentShell from '@/components/ui/ContentShell';
 import SectionHeader from '@/components/ui/SectionHeader';
