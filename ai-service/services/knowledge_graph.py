@@ -108,12 +108,21 @@ class KnowledgeGraphService:
 
     def __init__(self, db_path: str = None):
         self.db_path = db_path or os.getenv("DB_SQLITE_PATH", DB_PATH)
-        self._init_schema()
+        # Knowledge graph storage is SQLite-only. On Postgres (Supabase) we
+        # degrade gracefully: no crash, empty graph, so the frontend shows an
+        # honest empty state instead of a 500.
+        self._available = os.getenv("DB_TYPE", "sqlite") == "sqlite"
+        if self._available:
+            self._init_schema()
+        else:
+            self._available = False
 
     # ── SQLite helpers ───────────────────────────────────────────────────
 
     def _connect(self) -> sqlite3.Connection:
         """Open a SQLite connection (row factory + foreign keys on)."""
+        if not self._available:
+            raise RuntimeError("KnowledgeGraphService requires SQLite; not supported on Postgres yet.")
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
@@ -124,6 +133,8 @@ class KnowledgeGraphService:
 
         Idempotent — safe to call on every startup / every request.
         """
+        if not self._available:
+            return
         conn = self._connect()
         try:
             conn.executescript(
@@ -194,6 +205,8 @@ class KnowledgeGraphService:
 
         Returns a summary dict with counts.
         """
+        if not self._available:
+            return {"nodes": 0, "edges": 0, "status": "degraded", "reason": "SQLite-only feature; Postgres not supported yet."}
         conn = self._connect()
         summary: Dict[str, int] = {"nodes": 0, "edges": 0, "skipped": 0}
         try:
@@ -669,6 +682,8 @@ class KnowledgeGraphService:
         total node count to keep the GraphQL payload small for the force
         layout on HF Spaces.
         """
+        if not self._available:
+            return {"nodes": [], "edges": [], "meta": {"degraded": True}}
         conn = self._connect()
         try:
             type_filter = ""
@@ -723,6 +738,8 @@ class KnowledgeGraphService:
         limit : int
             Max neighbor nodes returned.
         """
+        if not self._available:
+            return {"start_node": None, "neighbors": [], "edges": [], "meta": {"degraded": True}}
         depth = min(max(1, int(depth or 1)), 1)  # enforced 1-degree cap
 
         conn = self._connect()
@@ -797,6 +814,8 @@ class KnowledgeGraphService:
 
         Returns: {entities: [...], linked_nodes: [...], confidence: float, degraded: bool}
         """
+        if not self._available:
+            return {"entities": [], "linked_nodes": [], "confidence": 0, "degraded": True}
         if not text or not text.strip():
             return {"entities": [], "linked_nodes": [], "confidence": 0.0, "degraded": True}
 
@@ -956,6 +975,8 @@ Chỉ trả về JSON, không giải thích thêm.
 
         This implements the "Gợi ý tài trợ/đối tác phù hợp" output from the idea spec.
         """
+        if not self._available:
+            return []
         suggestions: List[Dict[str, Any]] = []
         conn = self._connect()
         try:
@@ -1063,6 +1084,8 @@ Chỉ trả về JSON, không giải thích thêm.
 
     def approve_extraction(self, review_id: str, note: str = None) -> bool:
         """Mark an extraction as approved (reviewer action)."""
+        if not self._available:
+            return []
         conn = self._connect()
         try:
             conn.execute(
@@ -1122,6 +1145,8 @@ Chỉ trả về JSON, không giải thích thêm.
     @staticmethod
     def _parse_json(text: str) -> Optional[Any]:
         """Parse JSON from an LLM reply (handles markdown fences)."""
+        if not self._available:
+            return False
         if not text:
             return None
         cleaned = text.strip()
