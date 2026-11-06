@@ -463,16 +463,12 @@ export default function InteractiveMap({
     }
   }, [routingMode, onMapClick]);
 
-  // ─── Featured pins: hide categories rendered by active tool overlays ─────
-  // When the GreenTool or WifiTool tab is active, their overlays render their
-  // own markers — so we tell FeaturedPinsLayer to suppress that category to
-  // avoid duplicate pins on top of each other.
-  const hiddenPinCategories = useMemo(() => {
-    const hidden = new Set<string>();
-    if (activeToolId === "green") hidden.add("green");
-    if (activeToolId === "wifi") hidden.add("wifi");
-    return hidden;
-  }, [activeToolId]);
+  // ─── Featured pins: always show all categories ───────────────────────────
+  // Previously, green/wifi categories were hidden when the corresponding tool
+  // tab was active to "avoid duplicates". But the tool overlays render
+  // different data (green_challenges / wifi_locations), so hiding caused the
+  // featured "ghim" pins to vanish when switching tools. Always show them.
+  const hiddenPinCategories = useMemo(() => new Set<string>(), []);
 
   const fetchRoute = useCallback(async (originPoint: { lat: number; lng: number }, destPoint: { lat: number; lng: number }, options?: { avoidFlood?: boolean; avoidTraffic?: boolean }) => {
     setIsLoadingRoute(true);
