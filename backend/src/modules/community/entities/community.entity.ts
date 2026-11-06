@@ -35,7 +35,7 @@ export class Post {
   @JoinColumn({ name: 'author_id' })
   author: User;
 
-  @Column()
+  @Column({ nullable: true })
   author_id: string;
 
   @ManyToOne(() => Group, { nullable: true, onDelete: 'CASCADE' })
@@ -83,7 +83,7 @@ export class Comment {
   @JoinColumn({ name: 'author_id' })
   author: User;
 
-  @Column()
+  @Column({ nullable: true })
   author_id: string;
 
   @Column({ type: 'text' })
