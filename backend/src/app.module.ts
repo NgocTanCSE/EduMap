@@ -107,7 +107,7 @@ import { ResourceExchangeModule } from './modules/resource-exchange/resource-exc
             ssl: process.env.DB_HOST && process.env.DB_HOST !== 'localhost'
                 ? ({ rejectUnauthorized: false, servername: process.env.DB_HOST } as any)
                 : false,
-            entities: [__dirname + '*.entity{.ts,.js}'],
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
             migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
             migrationsRun: false,
             synchronize: process.env.DB_SYNC === 'true',

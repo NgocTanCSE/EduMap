@@ -9,7 +9,7 @@ const globals = require('globals');
 module.exports = [
   js.configs.recommended,
   {
-    files: ['src*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     plugins: {
       '@typescript-eslint': ts,
       'react-hooks': reactHooks,

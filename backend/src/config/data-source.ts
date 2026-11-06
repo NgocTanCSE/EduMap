@@ -15,7 +15,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_DATABASE || 'edumap_db',
     synchronize: false,
     logging: true,
-    entities: [path.join(__dirname, '..*.entity{.ts,.js}')],
+    entities: [path.join(__dirname, '../**/*.entity{.ts,.js}')],
     migrations: [path.join(__dirname, '../database/migrations/*{.ts,.js}')],
     subscribers: [],
 });

@@ -1289,3 +1289,33 @@ comments with a string-aware scanner (selectors and declarations untouched).
 Verified with PostCSS: 2 files parsed, 0 errors; `npx tsc --noEmit` = 0 errors.
 Rule going forward: CSS comment removal must use a real CSS parser/scanner, never
 line-based deletion.
+### Unstyled UI + 500s on the live site (2026-11-07)
+
+Two independent problems showed up together in the browser:
+
+1. **Whole app rendered unstyled** (Tailwind utilities missing).
+   `frontend/tailwind.config.ts` had its `content` globs mangled by the earlier
+   regex-based comment strip — `/**/` inside every glob was deleted:
+   `"./app/**/*.{...}"` → `"./app*.{...}"`. Tailwind therefore saw ~0 source
+   files and emitted an empty stylesheet. Fixed by restoring the four globs
+   (`pages|components|app|src` → `./**/*.{js,ts,jsx,tsx,mdx}`); a glob check now
+   matches 370 files. The same `/**/` deletion also broke TypeORM entity globs
+   and eslint file globs:
+   - `backend/src/config/data-source.ts`: `'..*.entity{.ts,.js}'` →
+     `'../**/*.entity{.ts,.js}'`
+   - `backend/src/app.module.ts`: `__dirname + '*.entity{.ts,.js}'` →
+     `__dirname + '/**/*.entity{.ts,.js}'`
+   - `backend/eslint.config.js`: `['src*.ts']` → `['src/**/*.ts']`
+   - `mobile/eslint.config.js`: `['src*.{ts,tsx}']` → `['src/**/*.{ts,tsx}']`
+   Without the entity glob, TypeORM registers no entities on Postgres, so every
+   repository-backed route fails.
+
+2. **`/api/internships` 500 + socket.io WebSocket failure** — not code. The HF
+   Space runtime reports `stage: PAUSED`, `errorMessage: "Flagged as abusive"`
+   (`https://huggingface.co/api/spaces/tancse2005/Edumap/runtime`). Every BFF
+   route that proxies to `BACKEND_URL` (`https://tancse2005-edumap.hf.space`)
+   and the realtime gateway therefore fail until the Space is restarted/unpaused
+   by the owner in the HF UI.
+
+Rule reinforced: comment stripping must never be regex-based over arbitrary
+text; `/**/` appears inside real globs, and `/*`/`*/` appear inside strings.

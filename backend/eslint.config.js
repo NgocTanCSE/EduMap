@@ -8,7 +8,7 @@ const globals = require('globals');
 module.exports = [
   js.configs.recommended,
   {
-    files: ['src*.ts'],
+    files: ['src/**/*.ts'],
     plugins: { '@typescript-eslint': ts },
     languageOptions: {
       parser: tsParser,
