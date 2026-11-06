@@ -114,7 +114,7 @@ export default function OfflineTutorPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/offline/tutor/status');
+      const res = await fetch('/api/offline/tutor', { method: 'GET' });
       if (res.ok) {
         const data = await res.json();
         setModelStatus(data);

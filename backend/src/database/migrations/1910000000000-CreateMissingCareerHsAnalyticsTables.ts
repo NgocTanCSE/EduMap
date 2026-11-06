@@ -183,6 +183,46 @@ export class CreateMissingCareerHsAnalyticsTables1910000000000 implements Migrat
     `);
 
     await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "bookmarks" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "user_id" uuid NOT NULL,
+        "target_type" character varying(50) NOT NULL,
+        "target_id" character varying(255) NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_bookmarks" PRIMARY KEY ("id")
+      )
+    `);
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "IDX_bookmarks_user_target" ON "bookmarks" ("user_id", "target_type", "target_id")
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_bookmarks_user') THEN
+          ALTER TABLE "bookmarks" ADD CONSTRAINT "FK_bookmarks_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "chat_histories" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "user_id" uuid,
+        "message" text NOT NULL,
+        "response" text NOT NULL,
+        "context" jsonb,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_chat_histories" PRIMARY KEY ("id")
+      )
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_chat_histories_user') THEN
+          ALTER TABLE "chat_histories" ADD CONSTRAINT "FK_chat_histories_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;
+        END IF;
+      END $$
+    `);
+
+    await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "user_events" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "user_id" uuid,
@@ -203,6 +243,8 @@ export class CreateMissingCareerHsAnalyticsTables1910000000000 implements Migrat
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "user_events"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "chat_histories"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "bookmarks"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "hs_answers"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "hs_questions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "university_counseling"`);
