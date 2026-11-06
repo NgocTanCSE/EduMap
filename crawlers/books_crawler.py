@@ -1,20 +1,4 @@
-"""
-Books & Libraries Crawler for EduMap
-------------------------------------
-Crawls books from OpenLibrary catalog (hardcoded snapshot of real OpenLibrary
-works/edition records so the pipeline has zero external API dependencies at
-runtime, but every book carries a real OpenLibrary link + cover image).
 
-Coverage: subjects from foundational (basic) to advanced levels — not only IT/CS.
-Books are NOT PDFs: the OpenLibrary link is stored in `learning_materials.file_url`
-and the cover thumbnail in `thumbnail_url`.
-
-Subjects (basic -> advanced):
-    information_technology, computer_science, digital_transformation,
-    mathematics, physics, chemistry, literature, history, geography,
-    economics, foreign_language, engineering, philosophy, psychology,
-    environmental_science, professional_development, education
-"""
 
 import json
 import os

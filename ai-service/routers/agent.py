@@ -1,17 +1,4 @@
-"""
-FastAPI router for the EduMap AI Agent (NL → GIS).
 
-Endpoints (router prefix=/api/ai, route paths /agent/chat):
-  POST /api/ai/agent/chat          — non-streaming agent reply
-  POST /api/ai/agent/chat-stream   — SSE streaming agent reply (token-by-token)
-
-Both endpoints receive:
-  { "message": "Tìm khu vực cách thư viện trên 5km...", "history": [...],
-    "context": {...}, "session_id": "..." }
-
-and return / stream a ChatResponse-like payload:
-  { "reply": "...", "sources": [...], "tools_used": [...], "degraded": false }
-"""
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse

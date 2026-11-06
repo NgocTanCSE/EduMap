@@ -1,10 +1,4 @@
-"""GET endpoints cho AI Auto-Scheduler kết quả (cached).
 
-Mỗi endpoint trả về kết quả đã được scheduler tính toán định kỳ.
-Nếu cache chưa có (lần đầu), endpoint sẽ trả về status "warming" +
-dữ liệu rỗng, và trigger background refresh. Frontend hiển thị
-empty state → khi scheduler hoàn tất, lần request sau sẽ nhận full data.
-"""
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse

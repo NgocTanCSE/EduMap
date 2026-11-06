@@ -1,22 +1,4 @@
-"""Regression tests for ``NameError`` bugs found in the HF Spaces runtime log.
 
-These four bugs all raised ``NameError`` inside a request handler and were only
-visible in production (the unit tests mocked the broken code path away):
-
-  1. ``services/climate_guardian._get_elevation`` referenced the undefined
-     ``_get_elevation_local_enabled`` → every climate risk/alternatives call
-     degraded, so the Climate Guardian map showed no elevation-based risk.
-  2. ``routers/geo._hf_vision_detect`` body existed but its ``def`` line was
-     missing → NameError (not RuntimeError) whenever ``HF_TOKEN`` was set.
-  3. ``routers/system.system_status`` called ``check_oom`` without importing
-     it → ``GET /api/ai/system/status`` returned 500.
-  4. ``LLMService.recommend_career_semantic`` built an f-string prompt whose
-     ``{title, match_score, ...}`` JSON schema was parsed as a set literal →
-     ``NameError: name 'title' is not defined``.
-
-Every test below fails with ``NameError`` (or ``AttributeError`` for the
-missing function) before the fix and passes after it.
-"""
 
 import asyncio
 import contextlib

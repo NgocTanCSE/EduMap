@@ -1,16 +1,4 @@
-"""Unit tests for the AI Impact Measurement service (Idea #19).
 
-Verifies:
-  - measure() returns a response that round-trips through ImpactMeasureResponse.
-  - Impact score is in [0, 100] and the confidence interval is well-ordered.
-  - Before/after diff is self-consistent (after.access_rate >= 0).
-  - Synthetic baseline flag is set when no real "before" data exists.
-  - Causal notes are returned (transparent risk caveats).
-  - Graceful degradation: a request far from any facility still returns a
-    valid-shaped report with degraded=True (never a crash / 502).
-  - 24 h in-process cache returns consistent results on repeat calls.
-  - Refusal markers in an LLM narrative fall back to the deterministic template.
-"""
 
 import os
 import sys

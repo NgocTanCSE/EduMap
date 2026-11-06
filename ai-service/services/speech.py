@@ -1,26 +1,4 @@
-"""
-Voice-to-Geo AI — server-side Speech-to-Text service (Idea
 
-This module is the Whisper fallback used when the client-side Web Speech API
-cannot recognise Vietnamese reliably.
-
-Provider model:
-  XKIRO STT (https://api.xkiro.com/v1/audio/transcriptions) was the original
-  server-side STT provider, but:
-    1. XKIRO has been removed from the provider chain (consolidated to
-       Cloudflare Workers AI + Google Gemini only).
-    2. XKIRO does NOT natively support speech-to-text — the /audio/transcriptions
-       endpoint returns 404.
-
-  There is currently **no** server-side STT provider configured. The service
-  degrades gracefully: it always returns ``degraded=True`` with an empty
-  ``text`` and a human-readable ``error``, so the frontend can fall back to
-  the client-side Web Speech API (which captures audio in-browser and never
-  sends it to a server — privacy-first).
-
-  If a server-side STT provider is added later, wire it in here and remove
-  the always-degrade path.
-"""
 from __future__ import annotations
 
 import os

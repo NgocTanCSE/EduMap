@@ -1,22 +1,22 @@
 #!/bin/bash
-# Job Crawler — runs the FULL feature crawl suite + Overpass POI upsert.
-# Used by supervisord as [program:crawler] (24h safety-net loop) AND by
-# cron (nightly at 00:00 / 01:00 via crawlers/crontab).
-#
-# Design: cron is the primary scheduler on HF Spaces (installs at build time
-# via Dockerfile).  This supervisord loop is a backstop that ensures the
-# feature crawlers still run even if cron fails to start.
+
+
+
+
+
+
+
 set -euo pipefail
 
-# Postgres (Supabase) is the primary DB now. SQLite is only a legacy fallback.
+
 export DB_TYPE="${DB_TYPE:-postgres}"
 export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/data/edumap.db}"
 
 DB_PATH="${DB_SQLITE_PATH}"
 CRAWLERS_DIR="/app/crawlers"
 
-# Crawl year window — 2 consecutive years (e.g. EDUMAP_CRAWL_YEAR=2027 → [2026,2027]).
-# Defaults to current UTC year.  All Python crawlers read this via crawl_scope.
+
+
 export EDUMAP_CRAWL_YEAR="${EDUMAP_CRAWL_YEAR:-$(date -u +%Y)}"
 
 sleep_time="${CRAWL_INTERVAL_SECONDS:-86400}"  # 24h default

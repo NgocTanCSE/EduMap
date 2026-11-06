@@ -1,19 +1,4 @@
-"""Unit tests for crawlers/tavily_client.py and crawlers/tavily_parse.py.
 
-Covers:
-  * Graceful degradation when TAVILY_API_KEY is unset (returns []).
-  * Circuit breaker (after N consecutive failures).
-  * IPv4 monkeypatch (socket.getaddrinfo returns AF_INET only).
-  * parse_tavily_jobs / parse_tavily_posts / parse_tavily_map_points schema mapping.
-  * clean_text preserves Vietnamese diacritics.
-  * extract_coords validates VN bbox (returns (None, None) tuple for invalid).
-  * Row builders produce dicts matching the existing SQLite schema.
-
-Run:
-  cd /home/ngoctan/Downloads/EduMap && python3 -m pytest crawlers/test_tavily_client.py -v
-
-These tests are local-only (AGENTS.md §1 — unit tests only on the dev machine).
-"""
 import os
 import sys
 import json
@@ -386,10 +371,10 @@ class TestParseTavilyJobs:
     def test_parse_basic_results(self):
         mock_results = [
             {"title": "Tuyển lập trình viên Python | Công ty ABC | Đồng Nai | 15-20 triệu | full_time",
-             "content": "Tìm ứng viên lập trình Python tại Đồng Nai. Lương 15-20 triệu/tháng. "
+             "content": 
                         "Cập nhật: 15/06/2025. Yêu cầu: ít nhất 2 năm kinh nghiệm.",
              "url": "https://example.com/job/1",
-             "raw_content": "Tìm ứng viên lập trình Python tại Đồng Nai. Lương 15-20 triệu/tháng. "
+             "raw_content": 
                             "Cập nhật: 15/06/2025. Yêu cầu: ít nhất 2 năm kinh nghiệm.",
              "score": 0.95},
         ]

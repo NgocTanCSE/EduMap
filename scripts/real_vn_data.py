@@ -1,30 +1,4 @@
-"""
-EduMap — curated, verifiable Vietnamese datasets.
 
-WHY THIS FILE EXISTS
---------------------
-The shipped `frontend/public/edumap.db` used to contain rows fabricated by
-earlier demo seeders (`EduMap Foundation`, `EduMap Academy`, `Test Campaign`,
-`EduMap Smart Cities Hackathon`, synthetic mentors on `@edumap.vn`, …). Users
-verified the live HF Space and correctly reported the data as "not real".
-
-This module is the single source of truth for the replacement content. Every
-row here points at a **real, official Vietnamese or Vietnam-facing
-organisation** and stores its official URL in the description so the UI can
-show provenance.
-
-RULES
------
-1. Never invent an organisation, a programme, or a deadline.
-2. If a deadline is not officially published yet, store `None` and say
-   "Hạn nộp: xem trang chính thức" in the description.
-3. Every description ends with `Nguồn: <official url> · Cập nhật: <date>`.
-4. Volatile data (jobs, …) must come from a live crawler, not from here.
-
-Used by:
-  - `scripts/migrate_real_data.py`  (cleans + seeds the shipped SQLite file)
-  - `scripts/seed_sqlite_db.py`     (no longer injects demo rows)
-"""
 
 from __future__ import annotations
 

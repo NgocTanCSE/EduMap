@@ -1,9 +1,4 @@
-"""Unit tests for the ImpactMatch LLM ranking method and graceful degradation.
 
-Mirrors ``tests/test_ai_fallbacks.py``: when ALL LLM providers are disabled
-(empty API keys), ``rank_impact_matches`` must return a valid-shaped dict
-with template-based fallback scores instead of raising a 502.
-"""
 
 import asyncio
 import os

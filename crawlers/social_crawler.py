@@ -1,34 +1,4 @@
-"""
-Social crawler -> `posts` table (tag='social').
 
-Replaces ALL HTTP-based sources (Facebook Graph API, Instagram Basic Display,
-LinkedIn, X/Twitter, Reddit, Hacker News) which are **blocked on Hugging
-Face Spaces free tier** (egress port blackhole) with Tavily AI search +
-extract.
-
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
-  version of this crawler made direct HTTP calls to Facebook, Instagram,
-  LinkedIn, Twitter, Reddit and HN APIs — all blocked/unreliable at HF egress.
-  This version uses a single Tavily API call (https://api.tavily.com —
-  reachable from HF).
-
-  Social-platform tokens (FB_TOKEN, IG_TOKEN, etc.) are still imported for
-  completeness but the Tavily path is the primary one. When TAVILY_API_KEY
-  is absent, the crawler returns 0 rows (graceful), never crashes.
-
-Sources:
-  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
-  - Optional (if Tavily keyless yields nothing): HN public API fallback
-
-Scope rules (see crawlers/crawl_scope.py):
-  • Years   — 2 consecutive years centred on the crawl year.
-  • Location — Đồng Nai → miền Nam → VN → ĐNA.
-
-Graceful degradation:
-  - TAVILY_API_KEY absent → 0 rows (or HN fallback), logged, no crash.
-  - Tavily unreachable → 0 rows, no crash.
-"""
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, upsert_rows, Jsonb, ensure_column

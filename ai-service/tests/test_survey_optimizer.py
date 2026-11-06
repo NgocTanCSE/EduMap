@@ -1,22 +1,4 @@
-"""Unit tests for the AI Active Learning Field Survey optimiser (Idea #20).
 
-Verifies:
-  * Entropy (binary entropy) helper is correct and bounded in [0, 1].
-  * Haversine helper matches the known Biên Hòa ↔ DNTU distance.
-  - compute_priorities returns a valid GeoJSON FeatureCollection whose features
-    are ranked by priority_score (descending) and whose scores equal
-    info_value / cost.
-  - Cells that already host a mapped POI are excluded (already surveyed).
-  - info_value incorporates the spatial-neighbourhood coupling.
-  - Empty / sparse POI input degrades gracefully: real static VN candidate cells
-    are returned with metadata.degraded == True (honest fallback, not fake rows).
-  - compute_next returns the single best cell.
-  - max_results / top_n cap is honoured.
-
-These tests make NO LLM provider calls (the survey optimiser is pure
-server-side scoring), so no provider env vars are needed. They run in the same
-PEP 668 venv used by the rest of the ai-service tests.
-"""
 
 import os
 import sys

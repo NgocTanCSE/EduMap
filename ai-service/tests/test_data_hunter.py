@@ -1,18 +1,4 @@
-"""Unit tests for Idea #6: Missing Data Hunter.
 
-Tests:
-  - identify_data_gaps: returns a valid GeoJSON FeatureCollection
-  - identify_data_gaps: spatial gap detection (empty grid cells flagged)
-  - identify_data_gaps: features carry required properties (gap_score, priority, …)
-  - identify_data_gaps: attributes gaps aggregation correct
-  - identify_data_gaps: gap_score ordering and priority levels
-  - identify_data_gaps: Polygon coordinates are [lng, lat] (RFC 7946)
-  - identify_data_gaps: polygon rings are closed
-  - identify_data_gaps: empty / None / single-point inputs degrade gracefully
-  - identify_data_gaps: grid_size_km clamping
-  - _safe_float and _haversine_vectorized helpers
-  - router importable + POST /gaps returns valid shape
-"""
 
 import os
 import sys

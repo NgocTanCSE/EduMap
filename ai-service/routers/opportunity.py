@@ -1,18 +1,4 @@
-"""F-16b: Opportunity Radar — NLP opportunity matching endpoint.
 
-POST /api/ai/opportunity/match
-
-The NestJS backend (OpportunityMatchingService, T1) has already pre-filtered
-candidates by SQLite (status, deadline > today, soft-delete, optional type/
-field keyword) and forwards a normalised candidate payload here. This router
-delegates to ``LLMService.match_opportunities`` which:
-
-  * Extracts eligibility criteria (GPA, major, skills, language, experience)
-    from each opportunity's free-text via the LLM provider chain.
-  * Computes a match_score (0-100) and confidence (0-1, threshold 0.6).
-  * Filters expired deadlines (defence-in-depth) and builds a checklist.
-  * Degrades to a keyword heuristic when all providers are unreachable.
-"""
 
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional

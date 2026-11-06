@@ -1,37 +1,4 @@
-"""AI Impact Measurement — Idea #19.
 
-Measures whether a deployment (wifi spots, libraries, STEM labs, …) actually
-improved educational *access*. Produces a before/after report with:
-
-  * before/after diff  — access_rate, usage_count, coverage_improvement
-  * people-in-5 km-radius diff (before vs. after deployment)
-  * trend analysis     — monthly deployment timeline + linear growth rate
-  * impact score       — weighted 0–100 composite
-  * confidence interval — Wilson score interval on the post-deployment access
-    rate (widened when the "before" cohort is a synthetic baseline)
-  * narrative          — LLM explanation (causal-inference caveat + RCT
-    recommendation) with a template fallback so the endpoint never 502s.
-
-Architecture notes (HF Spaces Free plan):
-  * SQLite is the only data source (mirrors analytics.py / climate_guardian.py).
-    ``DB_TYPE=sqlite`` and ``DB_SQLITE_PATH`` are read from the PID 1 environ;
-    the service degrades gracefully (valid-shaped response, ``degraded=true``)
-    when the DB is absent.
-  * A 24-hour in-process TTL cache (mirrors forecast.py / climate.py) bounds
-    CPU on the 1-vCPU HF Spaces container — repeated identical requests hit
-    memory, not the re-computation.
-  * The LLM narrative uses ``LLMService._generate_text_with_fallback`` with
-    ``temperature=0.3``. When every provider is down, a template narrative is
-    rendered so the dashboard always shows a coherent explanation.
-  * "Before" data is often missing (facilities pre-date the tracking system).
-    Per AGENTS.md §19 risk mitigation, the synthetic baseline is:
-    ``population_estimate * 0.70`` (i.e. ~70 % access rate before deployment).
-    The confidence interval is widened and ``before.synthetic_baseline`` is
-    set to ``true`` so the UI can flag the assumption honestly.
-
-Data policy (AGENTS.md §6): only real Vietnamese facilities from the verified
-``map_points`` table. No fabricated organisations.
-"""
 from __future__ import annotations
 
 import json

@@ -1,11 +1,4 @@
-"""
-Dong Nai Detailed School Crawler — Tavily-based (Overpass API blocked on HF).
 
-Crawls schools, libraries, universities, WiFi locations in Đồng Nai → miền Nam
-→ Việt Nam via Tavily Search + Extract.  Falls back to a curated snapshot of
-real Đồng Nai locations when Tavily returns nothing (AGENTS.md §6: honest data
-policy — never fabricate coordinates).
-"""
 import os
 import sys
 import uuid

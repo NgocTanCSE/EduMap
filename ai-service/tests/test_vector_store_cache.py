@@ -1,11 +1,4 @@
-"""Tests for the VectorStoreService embedding cache optimization.
 
-Verifies that get_embedding() caches results to avoid redundant
-(slow) curl/subprocess embedding calls for identical queries — the
-single biggest ChromaDB/LLM optimization for chat.
-
-Provider cascade is now: Cloudflare Workers AI → Google Gemini → Local SentenceTransformer.
-"""
 
 import os
 import sys

@@ -1,4 +1,4 @@
-"""Quality check on consolidated crawled data SQL"""
+
 import re
 from collections import Counter
 

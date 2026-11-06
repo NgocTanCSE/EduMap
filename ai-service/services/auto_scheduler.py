@@ -1,26 +1,4 @@
-"""AI Auto-Scheduler — chạy tự động các tính năng AI định kỳ (Idea: auto-run).
 
-Thay vì phải ấn từng nút "Ghép nối" / "Đo lường" / "Phân tích" như hiện tại,
-trung tâm lịch trình này tự động chạy các tính toán AI nặng trong background
-(trên daemon thread của ai-service) và lưu kết quả vào cache in-process.
-Frontend chỉ cần gọi GET để lấy cache — không bao giờ chờ LLM động.
-
-Kiến trúc (tuân nguyên AGENTS.md):
-  • Daemon thread trong main.py startup hook (giống `_startup_seed_knowledge_graph`)
-  • In-process TTL cache (HF Spaces: không có Redis)
-  • Graceful degradation — mỗi task đều bắt exception, trả về degraded=true
-  • Env-tunable intervals (AUTO_SCHEDULER_*)
-  • SQLite query trực tiếp trong ai-service (pattern của impact_measure.py)
-
-Các task tự động:
-  1. chroma_seed        — re-seed ChromaDB (6h)  [trước đây chỉ 1 lần ở startup]
-  2. question_gaps      — phân tích khoảng trống câu hỏi (6h)
-  3. resource_exchange   — ghép nối nguồn lực ↔ yêu cầu (6h)
-  4. impact_match        — ghép nối nhu cầu ↔ nhà tài trợ (12h)
-  5. impact_measure      — đo lường tác động trước/sau (24h)
-  6. climate_risk        — bản đồ rủi ro khí hậu theo vùng (12h)
-  7. daily_insight       — gợi ý hằng ngày cho dashboard (24h)
-"""
 
 import os
 import time

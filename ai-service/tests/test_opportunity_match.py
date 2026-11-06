@@ -1,10 +1,4 @@
-"""Unit tests for the Opportunity Radar (F-16b) AI matching path.
 
-Mirrors the preamble in ``test_ai_fallbacks.py``: every provider env var is
-blanked and ``AI_PREFLIGHT=false`` so the LLMService starts with no
-providers configured. This exercises the keyword-based degradation fallback
-(``_opportunity_match_fallback``) which is the *real* path on HF Spaces.
-"""
 
 import asyncio
 import os

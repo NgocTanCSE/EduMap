@@ -1,15 +1,4 @@
-"""
-Talk2Map router — POST /api/ai/map/query
 
-Converts a Vietnamese natural-language query into a structured GIS search
-object (facility types, conditions, radius, location reference, etc.).
-
-The parser (``NLQueryParser``) runs regex first (always works, zero
-dependencies) and optionally enriches with LLM when providers are available.
-This mirrors the graceful-degradation pattern used across all ai-service
-routers: never return 503 just because the LLM is down — return a valid
-``degraded`` result instead.
-"""
 from fastapi import APIRouter, HTTPException
 from models.talk2map_models import Talk2MapQueryRequest
 

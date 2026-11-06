@@ -1,4 +1,4 @@
-"""Pydantic models for Talk2Map NL→GIS query parsing endpoints."""
+
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 

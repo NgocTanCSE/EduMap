@@ -1,18 +1,4 @@
-"""
-OverpassCrawler → **renamed** to TavilyCrawler (compat shim keeps the class name).
 
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The Overpass API
-  (https://overpass-api.de) is **blocked on HF Spaces egress**, so the original
-  overpass_crawler.py returned 0 POIs every night.  This module is a drop-in
-  replacement: the ``OverpassCrawler`` class name is preserved so that
-  ``crawlers/aggregator.py`` (which imports it) works unchanged; the internals
-  now use Tavily Search + Extract via ``crawlers/tavily_poi.py``.
-
-  When TAVILY_API_KEY is absent or Tavily is unreachable, the crawler returns
-  ``[]`` — the curated snapshots in schools_crawler / wifi_crawler /
-  green_spaces_crawler fill the gaps (AGENTS.md §6 honest-empty-state rule).
-"""
 import os
 import sys
 import time

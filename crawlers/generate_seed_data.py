@@ -1,7 +1,4 @@
-"""
-Unified Data Processing for EduMap
-Combines crawled data and seeds both database and vector DB
-"""
+
 
 import os
 import sys

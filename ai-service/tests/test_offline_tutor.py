@@ -1,17 +1,4 @@
-"""Unit tests for the Edge AI Tutor (offline) — Idea #7.
 
-These tests run WITHOUT any network access (the LLM cascade is disabled) —
-they verify:
-
-  1. Template fallback works for all three actions (explain, practice, suggest)
-  2. The cache returns cached results on repeat calls
-  3. Graceful degradation: every method returns a valid dict with
-     degraded=True when no text provider is reachable
-  4. Input validation / safety clamps (num_questions in 1-5 range)
-  5. The FastAPI router returns 200 with degraded=True when model is absent
-
-Run:  cd ai-service && python3 -m pytest tests/test_offline_tutor.py -q
-"""
 
 import asyncio
 import os

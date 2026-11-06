@@ -1,6 +1,4 @@
-"""
-Fix geography/geometry columns: wrap spatialFeatureType/srid in conditional spread.
-"""
+
 import re, glob, os
 
 BASE = "/home/ngoctan/Downloads/EduMap/backend/src"

@@ -1,17 +1,4 @@
-"""Smoke test #14 — End-to-end test for AI Impact Measurement (Idea #19).
 
-Exercises the full FastAPI router → ImpactMeasurementService pipeline via
-TestClient, verifying that POST /api/ai/impact/measure returns a valid
-response with before/after diff, impact_score, confidence_interval, trend,
-and a narrative.
-
-Smoke integration tying together T1 + T2:
-  - T2: ai-service services/impact_measure.py + routers/impact_measure.py
-  - T1: backend ImpactMeasurementService computes the before/after diff that
-        the dashboard renders; this smoke test pins the ai-service shape.
-
-Run:  cd ai-service && python3 -m pytest tests/test_smoke_impact_measure.py -v -s
-"""
 import os
 import sys
 

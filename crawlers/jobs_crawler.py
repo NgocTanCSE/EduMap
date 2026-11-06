@@ -1,32 +1,4 @@
-"""
-Jobs crawler  -> `jobs` table.
 
-Replaces ALL HTTP-based sources (RemoteOK, Remotive, ITviec, TopCV, Adzuna)
-which are **blocked on Hugging Face Spaces free tier** (egress port blackhole)
-with a single Tavily AI search+extract call.
-
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  Direct HTTP to
-  job boards is unreachable from HF egress.  Tavily's single HTTPS endpoint
-  (https://api.tavily.com) is reachable, so we search for Vietnamese job
-  postings there and parse the extracted article content into the standardized
-  jobs-row schema.
-
-Sources:
-  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
-
-Graceful degradation:
-  - When TAVILY_API_KEY is absent → 0 rows, logged, no crash.
-  - When Tavily is unreachable → 0 rows, circuit breaker engaged, no crash.
-
-Scope rules (see crawlers/crawl_scope.py):
-  • Years   — 2 consecutive years centred on the crawl year.
-  • Location — Đồng Nai → miền Nam → VN → ĐNA (tag per-job via location_scope).
-
-Runs as:
-  - One-shot: python3 crawlers/jobs_crawler.py
-  - Cron daily via run_feature_crawlers.sh
-"""
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import (get_conn, upsert_rows, Jsonb, ensure_column)  

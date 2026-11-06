@@ -1,10 +1,4 @@
-"""Tests for the incremental embed_document() method.
 
-Verifies that when a new book or location is created, the backend can
-embed a SINGLE document into the ChromaDB vector store without triggering
-a full re-sync (seed_data). This is the "TỰ ĐỘNG NHÚNG (Embed) vào Vector DB
-ngay khi có sách hay địa điểm mới" feature.
-"""
 
 import os
 import sys

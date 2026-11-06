@@ -1,20 +1,4 @@
-"""DeepSeek primary provider + markdown stripping tests (2026-10-30).
 
-DeepSeek replaced Cloudflare Workers AI as the primary text-generation
-provider; TinyLlama was removed completely. These tests cover the contract
-that the rest of the service relies on:
-
-  1. ``DEEPSEEK_API_KEY`` alone makes the service ready, and DeepSeek is tried
-     before Gemini/Cloudflare.
-  2. ``_deepseek_generate`` speaks the OpenAI-compatible ``/chat/completions``
-     shape and calls ``curl --ipv4 --insecure`` (HF Spaces TLS workaround).
-  3. Auth failures open a 5-minute circuit breaker instead of hammering the
-     API on every request.
-  4. ``_deepseek_generate_stream`` parses OpenAI SSE deltas.
-  5. Chat output is flattened to plain text (no ``**``/``
-     because the UI has no markdown renderer.
-  6. The TinyLlama entry points are gone.
-"""
 
 import json
 import os

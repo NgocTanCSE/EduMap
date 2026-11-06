@@ -1,7 +1,4 @@
-"""
-PostgreSQL → SQLite migration for EduMap HF Spaces deployment.
-Simplified, robust version using information_schema.
-"""
+
 import argparse
 import json
 import os

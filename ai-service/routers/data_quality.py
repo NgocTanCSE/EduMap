@@ -1,44 +1,4 @@
-"""AI Data Trust & Anomaly Detector router.
 
-Endpoint: POST /api/ai/data/quality/report
-
-Phân tích toàn bộ POI (map_points + locations) và trả về danh sách anomaly
-được xếp thứ hạng ưu tiên, kèm lý do và mức độ tin cậy.
-
-Response shape:
-{
-  "summary": {
-    "total_checked": int,
-    "total_anomalies": int,
-    "anomaly_rate": float,
-    "by_category": { <rule_key>: count, ... },
-    "priority_breakdown": { "high": n, "medium": n, "low": n },
-    "degraded": false
-  },
-  "anomalies": [
-    {
-      "id": str,
-      "name": str | null,
-      "category": str,
-      "lat": float | null,
-      "lng": float | null,
-      "address": str | null,
-      "city": str | null,
-      "district": str | null,
-      "source": str,
-      "updated_at": str | null,
-      "created_at": str | null,
-      "anomaly_types": [str, ...],
-      "reasons": [str, ...],
-      "confidence": float,
-      "priority": "high"|"medium"|"low",
-      "iforest_score": float | null
-    },
-    ...
-  ],
-  "source_counts": { "map_points": n, "locations": n }
-}
-"""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field

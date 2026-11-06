@@ -1,13 +1,4 @@
-"""Unit tests for the synced predictive_service.
 
-Verifies that predictive_service.py — now synced with analytics.py's Holt's
-Linear Exponential Smoothing — produces time-series forecasts instead of the
-old static `return {}` and if-else keyword matching.
-
-Tests run with DB_TYPE=sqlite and a local SQLite file seeded with
-seed_education_stats.sql data so Holt's forecasts can be exercised end-to-end
-without a PostgreSQL connection.
-"""
 
 import os
 import sys

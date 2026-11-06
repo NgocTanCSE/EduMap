@@ -1,18 +1,4 @@
-"""Integration tests for the Tavily-based crawl pipeline (Idea: replace blocked
-HTTP sources with Tavily AI search + extract).
 
-Tests (AI service side):
-  - parse_tavily_jobs produces schema-valid row dicts with Vietnamese location_scope
-  - parse_tavily_posts correctly tags community/hackathon posts
-  - parse_tavily_map_points skips results without valid coords, dedups by name
-  - TavilyClient returns [] gracefully when TAVILY_API_KEY is absent (no crash)
-  - tavily_search/tavily_extract/tavily_search_and_extract module helpers degrade
-  - IPv4 monkeypatch is applied at import time (socket.AF_INET only)
-  - Circuit breaker opens after N failures, preventing repeated urlopen calls
-
-Run:
-  cd /home/ngoctan/Downloads/EduMap/ai-service && python3 -m pytest tests/test_tavily_crawler.py -v
-"""
 
 import os
 import sys
@@ -64,7 +50,7 @@ MOCK_JOB_RESULTS = [
         "title": "Tuyển lập trình viên Python tại Đồng Nai | Công ty TNHH Tech ABC",
         "content": "Lương 15-20 triệu. Địa chỉ: Biên Hòa, Đồng Nai. Hạn nộp 30/06/2025.",
         "url": "https://example.com/job/1",
-        "raw_content": "Công ty TNHH Tech ABC tuyển lập trình viên Python. "
+        "raw_content": 
                        "Lương 15-20 triệu/tháng. Làm việc tại Biên Hòa, Đồng Nai. "
                        "Yêu cầu: Python 3+, Django, SQL. Hạn nộp đơn: 30/06/2025.",
         "score": 0.97,
@@ -73,7 +59,7 @@ MOCK_JOB_RESULTS = [
         "title": "Tuyển DevOps Engineer tại TP Hồ Chí Minh",
         "content": "Lương 25-35 triệu. Full-time. TP.HCM.",
         "url": "https://example.com/job/2",
-        "raw_content": "Công ty TNHH Cloud VN tuyển DevOps Engineer. "
+        "raw_content": 
                        "Lương 25-35 triệu. TP.HCM. Python, Docker, Kubernetes.",
         "score": 0.93,
     },
@@ -81,7 +67,7 @@ MOCK_JOB_RESULTS = [
         "title": "Thực tập sinh thiết kế UX tại Hà Nội",
         "content": "Lương 8-12 triệu. Thực tập 3-6 tháng. HN.",
         "url": "https://example.com/intern/1",
-        "raw_content": "Công ty TNHH Design VN thực tập thiết kế UX. "
+        "raw_content": 
                        "Lương 8-12 triệu. Hà Nội. Thời hạn 31/05/2025.",
         "score": 0.88,
     },
@@ -94,7 +80,7 @@ MOCK_JOB_RESULTS = [
         "title": "Duplicate Job | Công ty TNHH Tech ABC",
         "content": "duplicate entry same company",
         "url": "https://example.com/job/dup",
-        "raw_content": "Công ty TNHH Tech ABC tuyển lập trình. Lương 15-20 triệu. "
+        "raw_content": 
                        "Biên Hòa, Đồng Nai. Hạn nộp 30/06/2025.",
         "score": 0.90,
     },
@@ -105,7 +91,7 @@ MOCK_POST_RESULTS = [
         "title": "Hội thảo AI giáo dục tại Đà Nẵng",
         "content": "Hội thảo trí tuệ nhân tạo trong giáo dục tại Đà Nẵng.",
         "url": "https://example.com/event/1",
-        "raw_content": "Hội thảo AI giáo dục tại Đà Nẵng. Ngày 15/06/2025. "
+        "raw_content": 
                        "Diễn giả: TS. Nguyễn. Đăng ký tại edumap.vn.",
         "score": 0.94,
     },
@@ -123,7 +109,7 @@ MOCK_MAP_POINTS = [
         "title": "Trường Đại học Công nghệ Đồng Nai",
         "content": "trường đại học hàng đầu",
         "url": "https://example.com/dntu",
-        "raw_content": "Đại học Công nghệ Đồng Nai (DNTU). Tọa độ: 10.9835, 106.8686. "
+        "raw_content": 
                        "Trường kỹ thuật lớn nhất miền Nam.",
         "score": 0.99,
     },

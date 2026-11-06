@@ -1,17 +1,4 @@
-"""Unit tests cho AI Auto-Scheduler — auto-run features.
 
-Test coverage:
-  - AutoCache get/set/is_stale/stats/clear
-  - AutoScheduler task registry (7 tasks present, correct intervals)
-  - AutoScheduler.run_once + get_result + health
-  - Graceful degradation: task failure → degraded=true, non-fatal
-  - _run_resource_exchange SQLite pre-filter (type/condition match, cap 15)
-  - _run_impact_match SQLite pre-filter (budget >= cost, cap 15)
-  - Fast tasks: question_gaps, daily_insight (no external API deps)
-  - GET endpoints return cached results via FastAPI TestClient (pre-populated cache)
-
-Run:  cd ai-service && python3 -m pytest tests/test_auto_scheduler.py -v -s
-"""
 
 import os
 import sys

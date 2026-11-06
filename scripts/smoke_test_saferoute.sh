@@ -1,14 +1,14 @@
 #!/bin/bash
-# Smoke test for SafeRoute AI (Idea #12)
-#
-# Tests the full request path on the deployed HF Space:
-#   Frontend BFF → Backend NestJS (safeRoute) → AI FastAPI (route/explain)
-#
-# Usage:
-#   ./scripts/smoke_test_saferoute.sh [BASE_URL]
-#   BASE_URL defaults to the public HF Space URL.
-#
-# Exit codes: 0 = all checks passed, 1 = at least one check failed.
+
+
+
+
+
+
+
+
+
+
 set -euo pipefail
 
 BASE_URL="${1:-https://tancse2005-edumap.hf.space}"
@@ -27,7 +27,7 @@ check() {
   fi
 }
 
-# Biên Hòa, Đồng Nai → Vĩ tự, Đồng Nai (real Vietnamese coords)
+
 ORIGIN_LNG="106.843"
 ORIGIN_LAT="10.957"
 DEST_LNG="106.870"
@@ -38,7 +38,7 @@ echo "Target: $BASE_URL"
 echo "Origin: ($ORIGIN_LNG, $ORIGIN_LAT)  Destination: ($DEST_LNG, $DEST_LAT)"
 echo ""
 
-# ── Test 1: GET /api/map/safe-route ─────────────────────────────────────
+
 echo "Test 1: GET /api/map/safe-route (backend SafeRoute)"
 SAFE_URL="$BASE_URL/api/map/safe-route?lng1=$ORIGIN_LNG&lat1=$ORIGIN_LAT&lng2=$DEST_LNG&lat2=$DEST_LAT&avoidFlood=true&avoidTraffic=true&safetyWeight=0.3"
 RESP=$(curl -sS --max-time 30 -X GET "$SAFE_URL" 2>/dev/null || echo '{"error":"curl_failed"}')
@@ -63,15 +63,15 @@ check "Provider field present" "echo '$RESP' | python3 -c \"import sys,json; d=j
 
 echo ""
 
-# ── Test 2: POST /api/ai/route/explain ──────────────────────────────────
+
 echo "Test 2: POST /api/ai/route/explain (AI explain)"
-# Extract routes from Test 1 response for the explain request
+
 ROUTES_JSON=$(echo "$RESP" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 data = d.get('data', d)
 routes = data.get('routes', [])
-# Build minimal route summaries for the explain endpoint
+
 summaries = []
 for i, r in enumerate(routes[:3]):
     summaries.append({
@@ -109,7 +109,7 @@ check "Has source field" "echo '$EXPLAIN_RESP' | python3 -c \"import sys,json; d
 
 echo ""
 
-# ── Test 3: SafeRoute without avoid flags (both false) ──────────────────
+
 echo "Test 3: GET /api/map/safe-route (avoidFlood=false, avoidTraffic=false)"
 RESP3=$(curl -sS --max-time 30 -X GET "$BASE_URL/api/map/safe-route?lng1=$ORIGIN_LNG&lat1=$ORIGIN_LAT&lng2=$DEST_LNG&lat2=$DEST_LAT&avoidFlood=false&avoidTraffic=false" 2>/dev/null || echo '{"error":"curl_failed"}')
 
@@ -119,7 +119,7 @@ check "Still returns routes" "echo '$RESP3' | python3 -c \"import sys,json; d=js
 
 echo ""
 
-# ── Summary ──────────────────────────────────────────────────────────────
+
 echo "=== Summary ==="
 echo "  Passed: $PASS"
 echo "  Failed: $FAIL"

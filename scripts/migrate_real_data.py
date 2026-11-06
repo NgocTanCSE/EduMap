@@ -1,26 +1,4 @@
-"""
-EduMap — replace fabricated demo rows in the shipped SQLite DB with verified
-Vietnamese data.
 
-WHAT IT DOES
-------------
-1. Backs up the DB (`edumap.db.bak-realdata`).
-2. Empties the content tables that were filled with demo/fabricated rows.
-3. Inserts the curated, source-backed rows from `scripts/real_vn_data.py`.
-4. Seeds verified Vietnamese mentors, community posts, comments, system
-   modules/features, and role-permission mappings (previously authored in
-   PostgreSQL seed.sql/seed-base.sql but never loaded into SQLite due to
-   syntax incompatibility).
-5. Leaves truly user-generated features (shared_items, surveys, green_activities,
-   summer_activities) empty — the UI renders an honest empty state for them.
-
-RUN
----
-    python3 scripts/migrate_real_data.py
-    python3 scripts/migrate_real_data.py --db frontend/public/edumap.db
-
-Idempotent: safe to run repeatedly.
-"""
 
 from __future__ import annotations
 

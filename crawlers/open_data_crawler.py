@@ -1,9 +1,4 @@
-"""
-OpenDataCrawler – fetches datasets from the Vietnam Open Data portal (data.gov.vn).
-It supports automatic detection of CSV/JSON resources and basic normalization of fields
-(name, address, lat, lng, category). Missing coordinates are optionally geocoded via
-Nominatim (subject to rate limits).
-"""
+
 
 import os
 import csv

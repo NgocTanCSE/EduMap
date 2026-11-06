@@ -1,7 +1,4 @@
-"""
-Bulk-fix entity column types for SQLite compatibility in HF Spaces deployment.
-Replaces PostgreSQL-specific types with conditional DB_TYPE-aware expressions.
-"""
+
 import os, re, glob
 
 BASE = "/home/ngoctan/Downloads/EduMap/backend/src"

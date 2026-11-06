@@ -1,17 +1,4 @@
-"""Unit tests for the MCLP Resource Optimizer (Idea #1).
 
-Verifies:
-  * The solver produces a valid GeoJSON FeatureCollection.
-  * Three budget plans (A / B / C) are returned, with coverage increasing
-    monotonically as budget grows.
-  * Candidate pre-filtering caps at 200 points.
-  * The greedy fallback works when scipy.milp is unavailable.
-  * Gap (uncovered demand) features are emitted.
-  * Empty / minimal inputs degrade gracefully.
-
-These tests exercise the REAL scipy / numpy / pandas stack — no LLM
-providers required.  Run with:  cd ai-service && python3 -m pytest tests/test_resource_optimizer.py -q
-"""
 
 import os
 import sys

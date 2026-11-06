@@ -1,14 +1,4 @@
-"""
-AI Learning Space Recommender — Explain endpoint (Idea
 
-POST /api/ai/learning-space/explain
-  Accepts a single learning spot + the user's search preferences, returns
-  a human-readable explanation of why the spot was recommended.
-
-  - 24h cache (TTL=86400s) inside llm_service.explain_learning_space_recommendation.
-  - Falls back to a static template explanation when all LLM providers are down.
-  - Never returns 5xx — degrades gracefully with ``degraded: true``.
-"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any

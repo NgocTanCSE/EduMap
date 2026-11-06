@@ -1,17 +1,4 @@
-"""Regression tests for the ai-service launcher and startup memory guards.
 
-The Tavily commit (7fc9bb0) dropped the closing quote of ``SECRET_VARS`` and
-the ``for var in $SECRET_VARS; do`` line from ``start.sh``. ``bash`` then
-rejected the whole script with a syntax error, so uvicorn never started:
-supervisord restarted the program until FATAL, every ``/api/ai/chat/stream``
-request returned ECONNREFUSED, and the NestJS proxy answered with its
-"Máy chủ AI đang khởi động lại" degraded reply.
-
-``main.py`` has a second, latent variant of the same class of bug: its startup
-hooks treated ``check_oom()`` (a dict) as a boolean, so the RAM guard never
-triggered and the log line indexed a key (``available_gb``) that only exists
-inside ``check_oom()["ram"]``.
-"""
 import shutil
 import subprocess
 from pathlib import Path

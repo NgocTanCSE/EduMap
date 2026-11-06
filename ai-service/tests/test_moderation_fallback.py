@@ -1,10 +1,4 @@
-"""Unit tests for the moderation graceful-degradation path in LLMService.
 
-These tests verify that when every AI provider is unreachable the moderation
-flow still returns a safe result (instead of raising a 503 that blocks all
-community posts). They also cover the Cloudflare circuit breaker so that
-repeated auth/429 failures are short-circuited.
-"""
 
 import asyncio
 import os

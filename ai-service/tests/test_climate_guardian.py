@@ -1,12 +1,4 @@
-"""Unit tests for the AI Climate Learning Guardian (Idea #11).
 
-Verifies:
-  - Risk heatmap produces valid GeoJSON FeatureCollection with expected fields.
-  - Risk scores are in [0, 1] for a synthetic flood scenario.
-  - Alternatives finds safe locations outside high-risk zones.
-  - Graceful degradation: returns valid GeoJSON even with no data / missing keys.
-  - Cache returns cached results on repeat calls.
-"""
 
 import os
 import sys

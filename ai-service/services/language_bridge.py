@@ -1,27 +1,4 @@
-"""AI Language Bridge (Idea #15).
 
-Makes documents accessible at different reading levels: summarisation by
-difficulty, jargon explanation, text-to-speech and translation with an
-optional glossary so domain-specific terms are preserved across languages.
-
-Architecture notes (HF Spaces Free plan):
-  - Text generation (simplify / translate) uses the shared
-    ``llm_service._generate_text_with_fallback`` cascade:
-    Cloudflare Workers AI → Google Gemini.  Template-based fallback
-    guarantees the endpoint returns valid content even when *every* provider
-    is unreachable (the common case on HF Spaces where Cloudflare TLS is
-    blocked and no key is set on the free plan).
-  - TTS uses ``curl --ipv4 --insecure`` for Google Cloud TTS (when
-    ``GOOGLE_TTS_API_KEY`` is configured), then falls back to the pure-Python
-    ``gTTS`` and ``edge-tts`` libraries (which benefit from the global
-    ``force_ipv4()`` already applied at startup), then degrades gracefully to
-    a text-only response with ``degraded=True`` so the frontend never 502s.
-  - 24-hour in-process TTL cache (mirrors climate_guardian.py / forecast.py)
-    so repeated requests for the same text don't re-hit the LLM or TTS APIs.
-
-Data policy (AGENTS.md §6): only real Vietnamese / Vietnam-facing content.
-No fabricated data.  All prompts are in Vietnamese to match the user base.
-"""
 from __future__ import annotations
 
 import base64

@@ -1,14 +1,14 @@
 #!/bin/bash
-# Smoke test #18 — AI Learning Space Recommender (Idea #13)
-#
-# Tests the full request path on the deployed HF Space:
-#   Frontend BFF → Backend NestJS → ai-service FastAPI → SQLite
-#
-# Usage:
-#   ./scripts/smoke_test_learning_space.sh [BASE_URL]
-#   BASE_URL defaults to the public HF Space URL.
-#
-# Exit codes: 0 = all checks passed, 1 = at least one check failed.
+
+
+
+
+
+
+
+
+
+
 set -euo pipefail
 
 BASE_URL="${1:-https://tancse2005-edumap.hf.space}"
@@ -31,7 +31,7 @@ echo "=== Learning Space Recommender — Smoke Test #18 ==="
 echo "Target: $BASE_URL"
 echo ""
 
-# ── Test 1: BFF GET /api/learning-spaces/recommend ─────────────────────
+
 echo "Test 1: BFF GET /api/learning-spaces/recommend (Backend scoring)"
 RESP=$(curl -sS --max-time 20 -X GET "$BASE_URL/api/learning-spaces/recommend" \
   -G --data-urlencode "lat=21.0279" --data-urlencode "lng=105.8342" \
@@ -53,7 +53,7 @@ check "spot has open_now field" "echo '$RESP' | python3 -c \"import sys,json; d=
 
 echo ""
 
-# ── Test 2: AI service explain (direct) ─────────────────────────────────
+
 echo "Test 2: AI service POST /api/ai/learning-space/explain (direct)"
 SPOT_JSON='{"id":"spot-1","name":"Thư viện Quốc gia Việt Nam","type":"library","rating_avg":4.5,"quietness":5,"has_wifi":true,"distance_km":2.3,"open_now":true,"matching_criteria":{"distance":0.8,"rating":0.9,"quietness":1.0,"wifi":1.0}}'
 RESP2=$(curl -sS --max-time 30 -X POST "$BASE_URL/api/ai/learning-space/explain" \
@@ -69,7 +69,7 @@ check "Never 500 — graceful degrade" "echo '$RESP2' | python3 -c \"import sys,
 
 echo ""
 
-# ── Test 3: BFF POST /api/learning-spaces/explain (full path) ───────────
+
 echo "Test 3: BFF POST /api/learning-spaces/explain (full BFF → backend → AI)"
 RESP3=$(curl -sS --max-time 30 -X POST "$BASE_URL/api/learning-spaces/explain" \
   -H 'Content-Type: application/json' \
@@ -82,7 +82,7 @@ check "Has degraded flag" "echo '$RESP3' | python3 -c \"import sys,json; d=json.
 
 echo ""
 
-# ── Test 4: Real data check (no fake rows) ─────────────────────────────
+
 echo "Test 4: Real Vietnamese data only (no synthetic rows)"
 RESP4=$(curl -sS --max-time 20 -X GET "$BASE_URL/api/learning-spaces/recommend" \
   -G --data-urlencode "lat=21.0" --data-urlencode "lng=105.8" \
@@ -106,7 +106,7 @@ sys.exit(0 if len(spots)>=1 and all('address' in s.get('spot',{}) or s['spot'].g
 
 echo ""
 
-# ── Summary ─────────────────────────────────────────────────────────────
+
 echo "=== Summary ==="
 echo "  Passed: $PASS / $((PASS + FAIL))"
 echo "  Failed: $FAIL"

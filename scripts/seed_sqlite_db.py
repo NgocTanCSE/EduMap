@@ -1,24 +1,4 @@
-"""
-EduMap — portable SQLite content seeder for HF Spaces (DB_TYPE=sqlite).
 
-HISTORY / WHY THIS FILE IS NOW A THIN WRAPPER
----------------------------------------------
-This script used to inject *demo* feature data into `frontend/public/edumap.db`:
-"EduMap Foundation" scholarships, "EduMap Academy" courses, "Test Campaign"
-summer rows, EduMap-branded hackathons, synthetic mentors on `@edumap.vn`, …
-Users verified the live HF Space and reported that data as fabricated.
-
-All content now lives in `scripts/real_vn_data.py` (verified Vietnamese
-organisations with official source URLs) and is applied by
-`scripts/migrate_real_data.py`. This script simply forwards to that migration so
-existing regeneration pipelines (`scripts/regenerate_sqlite_db.sh`) keep
-working.
-
-USAGE
------
-    python3 scripts/seed_sqlite_db.py
-    EDUMAP_SQLITE_DB=/path/to/edumap.db python3 scripts/seed_sqlite_db.py
-"""
 
 from __future__ import annotations
 

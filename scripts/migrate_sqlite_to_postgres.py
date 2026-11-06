@@ -1,16 +1,4 @@
-"""Migrate data from the shipped SQLite DB into a Supabase/Postgres DB.
 
-Usage:
-    DB_TYPE=postgres DB_HOST=... DB_PORT=5432 DB_USERNAME=postgres \
-      DB_PASSWORD=... DB_DATABASE=postgres \
-      python3 scripts/migrate_sqlite_to_postgres.py --sqlite frontend/public/edumap.db
-
-Idempotent: uses INSERT ... ON CONFLICT DO NOTHING on the table's primary key,
-so re-running will not duplicate rows. Tables that do not exist in Postgres
-(or are SQLite-internal) are skipped with a warning.
-
-Dependencies: psycopg2 (available in the ai-deps stage / ai-service venv).
-"""
 import argparse
 import os
 import sqlite3

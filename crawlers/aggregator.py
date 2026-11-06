@@ -1,7 +1,4 @@
-"""
-Master Crawler Aggregator for EduMap
-Combines all crawlers and generates consolidated seed data
-"""
+
 
 import os
 import sys

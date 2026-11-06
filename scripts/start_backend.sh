@@ -1,9 +1,9 @@
 #!/bin/bash
-# Backend Wrapper Script - runs backend with full error visibility
+
 
 echo "=== Backend Pre-flight Check ==="
 
-# Test PostgreSQL connection
+
 echo -n "Testing PostgreSQL connection... "
 if PGPASSWORD="${DB_PASSWORD:-password123}" psql -h localhost -U "${DB_USERNAME:-admin}" -d "${DB_DATABASE:-edumap_db}" -c "SELECT 1;" > /dev/null 2>&1; then
     echo "OK ✅"
@@ -13,7 +13,7 @@ else
     sleep 5
 fi
 
-# Test Redis connection
+
 echo -n "Testing Redis connection... "
 if redis-cli -h localhost ping 2>/dev/null | grep -q PONG; then
     echo "OK ✅"

@@ -1,18 +1,4 @@
-"""Router for /api/ai/language/* endpoints — Idea #15: Language Bridge AI.
 
-Exposes three capabilities that make educational documents accessible:
-
-* ``POST /api/ai/language/simplify``  — LLM summarisation by reading level,
-  with jargon explanation (difficulty selector).
-* ``POST /api/ai/language/translate`` — translation with optional glossary
-  so domain terms are preserved (context-aware).
-* ``POST /api/ai/language/tts``       — text-to-speech via Google Cloud TTS /
-  gTTS / edge-tts; degrades gracefully (frontend falls back to Web Speech API).
-
-All endpoints return a ``degraded`` flag + ``reason`` so the frontend can show
-a helpful message instead of a 502.  Results are cached 24 h in-process
-(mirrors climate_guardian.py / forecast.py).
-"""
 
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException

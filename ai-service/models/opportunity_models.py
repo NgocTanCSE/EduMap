@@ -1,10 +1,4 @@
-"""Pydantic models for the Opportunity Radar (F-16b) matching endpoint.
 
-These models travel from the NestJS backend (which has already pre-filtered
-the candidate set against SQLite) to the ai-service, which performs NLP-based
-criteria extraction + semantic scoring on top of the budget / deadline
-hard-filters applied upstream.
-"""
 
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field

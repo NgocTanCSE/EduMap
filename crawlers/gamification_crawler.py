@@ -1,13 +1,4 @@
-"""
-Gamification crawler -> `badges` + `green_challenges` tables (STATIC definitions).
 
-Badges & green challenges are NOT web-crawled — they are curated achievement
-rules. This crawler upserts a canonical set of badge/challenge definitions so the
-gamification feature always has content (idempotent, no web source needed).
-
-badges.name            UNIQUE -> upsert by name
-green_challenges.title  (no unique) -> upsert by (title, type)
-"""
 import os, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, upsert_rows, Jsonb, sync_seq

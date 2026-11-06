@@ -1,4 +1,4 @@
-"""Pydantic models for SafeRoute AI explain endpoint (Idea #12)."""
+
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 

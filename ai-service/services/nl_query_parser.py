@@ -1,33 +1,4 @@
-"""
-Talk2Map — Vietnamese Natural Language → Structured GIS Query Parser.
 
-Two-tier architecture (mirrors the provider-cascade pattern in ``llm_service.py``):
-
-1. **Regex fallback** (always works, zero API-key / zero network required).
-   This is the primary path on HF Spaces where LLM providers are frequently
-   unreachable (Cloudflare TLS blocked, HF 401, etc.).
-
-2. **LLM enrichment** (optional — when ``llm_service.is_ready`` is ``True``).
-   The regex parse is run first; the LLM result is *merged* with it so a
-   partial LLM failure never loses the regex baseline.
-
-Returns a dict with this shape::
-
-    {
-      "location": str | None,
-      "radius_km": float | None,
-      "facility_types": List[str],
-      "conditions": List[str],
-      "reference_location": str | None,
-      "confidence": float,
-      "method": str,
-      "suggestions": List[str],
-      "raw_text": str,
-    }
-
-The ``facility_types`` values match ``PointOfInterest.category`` on the NestJS
-backend so the backend can filter SQLite rows directly.
-"""
 
 from __future__ import annotations
 

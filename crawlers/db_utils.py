@@ -1,15 +1,4 @@
-"""
-Shared DB + HTTP helpers for EduMap feature crawlers (B).
 
-Design rules
-------------
-* Read connection params from environment (loaded via `set -a; . ./.env; set +a`
-  by the runner / docker entrypoint).
-* ONLY upsert (SELECT-then-UPDATE / INSERT) — NEVER DROP SCHEMA / full refresh.
-  Safe to run on the live dev DB at 00:00 every night.
-* Graceful degradation: every external source is wrapped so a network/HTTP
-  failure returns 0 rows instead of crashing the nightly run.
-"""
 import os
 import re
 import time

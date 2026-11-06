@@ -1,23 +1,4 @@
-"""Regression tests for the RAG chat SSE time budget (HF Spaces free tier).
 
-Production log evidence (2026-10-30):
-
-    INFO: ... "POST /api/ai/chat/stream HTTP/1.1" 200 OK
-    [stream] Provider timeout — falling back: Provider timeout after 8.0s
-    [Nest] WARN [AIService] SSE stream error from ai-service: aborted
-
-The NestJS proxy closes the SSE request at 10s (``ai.service.ts``
-``timeout: 10000``). A hung provider used to consume the whole budget and the
-connection was aborted before the template fallback reply was streamed,
-leaving the chat bubble empty.
-
-Fix under test:
-  1. Every non-streaming provider call is wrapped in ``asyncio.wait_for`` with
-     the remaining proxy budget, so a hung provider is cut and the template
-     reply is still delivered.
-  2. ``_stream_word_by_word`` accepts ``max_duration`` and shrinks its per-word
-     delay so a long reply still arrives before the deadline.
-"""
 
 import asyncio
 import os

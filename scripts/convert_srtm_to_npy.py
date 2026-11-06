@@ -1,14 +1,4 @@
-"""Convert SRTM GeoTIFF → NumPy .npy array aligned to Vietnam bounding box.
 
-Usage (build-time, in elevation-builder Docker stage):
-    python3 convert_srtm_to_npy.py input.tif output.npy
-
-The output .npy array is a float32 grid of shape (1500, 1400) covering
-Vietnam bounding box: 8°N–23.5°N, 102°E–109.5°E at ~30m resolution.
-
-This replaces the Open-Meteo elevation API for the Climate Guardian
-(Idea
-"""
 import sys
 import numpy as np
 

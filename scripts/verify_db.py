@@ -1,12 +1,4 @@
-"""Verify edumap.db is a valid SQLite database.
 
-If the file in the Docker build context is corrupted (e.g., 132 bytes —
-a git-lfs pointer or .gitignore-mangled version from HF Spaces upload),
-download the correct 1.3MB file from the public GitHub repo.
-
-This makes the Docker build resilient to HF Spaces file upload issues
-where binary .db files may be stored as 132-byte git-lfs pointers.
-"""
 import sqlite3
 import os
 import sys

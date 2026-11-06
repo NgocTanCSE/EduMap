@@ -1,14 +1,4 @@
-"""
-SafeRoute AI explain router — POST /api/ai/route/explain
 
-Receives the scored route alternatives from the backend and uses the LLM
-cascade (Cloudflare Workers AI → Google Gemini) to generate a
-Vietnamese explanation of why each route was ranked as it was.
-
-Graceful degradation: when every LLM provider is unavailable, a template
-explanation is returned with ``degraded=True`` so the frontend always has
-something to show.
-"""
 import asyncio
 import json
 from fastapi import APIRouter

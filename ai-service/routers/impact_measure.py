@@ -1,22 +1,4 @@
-"""Router for /api/ai/impact/* endpoints — Idea #19: AI Impact Measurement.
 
-Exposes the before/after impact measurement produced by
-``services/impact_measure.py``:
-
-* ``POST /api/ai/impact/measure`` — compute a full impact report for a region:
-  before/after diff (access_rate, usage_count, coverage_improvement),
-  people-in-5 km-radius diff, trend analysis with growth rate, an impact
-  score (0–100) + Wilson confidence interval, causal-inference notes, and an
-  LLM narrative (template fallback when no provider is configured).
-
-Like forecast.py / climate.py, the endpoint runs the (CPU-bound) computation
-off the FastAPI event loop via ``asyncio.to_thread`` and keeps a 24-hour
-in-process TTL cache so repeated requests hit memory, not the model.
-
-The request is self-sufficient: when called directly (e.g. the curl smoke
-test) the service loads ``map_points`` from SQLite itself, so the backend
-proxy is an optimization rather than a hard dependency.
-"""
 
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException
@@ -100,7 +82,7 @@ def _empty_degraded_report(region: str, reason: str, bbox: List[float]) -> Dict[
             "Dịch vụ đo lường tác động đang gián đoạn — kết quả trống.",
             "Để khẳng định nguyên nhân, đề xuất nghiên cứu RCT.",
         ],
-        "narrative": "Hiện chưa thể tính toán tác động (dịch vụ đang giảm tốc). "
+        "narrative": 
                      "Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
         "degraded": True,
         "reason": reason,

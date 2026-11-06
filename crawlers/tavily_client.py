@@ -1,47 +1,4 @@
-"""
-tavily_client.py — Tavily AI search/extract HTTP client for EduMap crawlers.
 
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The existing
-  crawlers made direct HTTP calls to Overpass API, Eventbrite, ITviec,
-  Remotive, RemoteOK, Dev.to, Hacker News, Reddit, Facebook Graph API,
-  etc.  On HF Spaces these external endpoints are blocked/blackholed at the
-  egress port level, so those crawlers returned 0 rows every night.
-
-  Tavily exposes ONE standard HTTPS endpoint (``https://api.tavily.com``)
-  which is reachable from HF Spaces egress.  This module replaces every
-  blocked source with a single Tavily Search + Extract client, using
-  ``curl -ipv4`` semantics (force IPv4 — AGENTS.md §3).
-
-Design rules
-------------
-* **Stdlib only** — uses ``urllib.request`` / ``json`` / ``socket``.  No
-  ``requests`` dependency, so the client works in the lean cron environment
-  that runs ``scripts/crawl_jobs.py``.
-* **IPv4-forced** — monkeypatches ``socket.getaddrinfo`` to ``AF_INET`` (same
-  technique as ``ai-service/services/net.py:force_ipv4``) to avoid the HF
-  Spaces IPv6/TLS blackhole.
-* **Graceful degradation** — when ``TAVILY_API_KEY`` is unset the client
-  returns empty results and logs a warning.  Every network failure returns
-  ``[]`` / ``None``; the calling crawler never crashes.
-* **Circuit breaker** — after ``TAVILY_CIRCUIT_BREAKER_FAILURES`` consecutive
-  failures (default 5) the client short-circuits for
-  ``TAVILY_CIRCUIT_BREAKER_TTL`` seconds (default 300) so we don't burn the
-  1 000-credit monthly budget hammering an unreachable endpoint.
-* **Keyless mode** — Tavily Search + Extract work without a key for limited
-  use.  When ``TAVILY_API_KEY`` is absent we still attempt a keyless call
-  (useful locally / on HF Spaces egress that might be restricted but not
-  fully blocking Tavily).
-
-API surface
------------
-    client = TavilyClient()
-    client.is_configured()           -> bool   (key present)
-    client.search(query, ...)        -> list[dict]  (search result dicts)
-    client.extract(urls, ...)        -> list[dict]  (extracted content dicts)
-    client.search_and_extract(query, ...) -> list[dict]  (combined)
-    client.healthcheck()             -> dict   (status for monitoring)
-"""
 import os
 import sys
 import json

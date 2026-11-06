@@ -1,18 +1,4 @@
-"""
-Pydantic models for the Resource Exchange AI matching endpoint (Idea
 
-Flow:
-  Backend ResourceMatchService pre-filters resource×request pairs at the SQLite
-  layer (type match, condition >= min, status available/open) and sends at most
-  15 candidate pairs with a SQLite-side score. This endpoint asks the LLM to:
-    1. Re-rank pairs by semantic fit and assign a 0–100 score.
-    2. Explain WHY each resource is a good match for the request.
-    3. Run a greedy scheduling algorithm to build a transport/pickup plan,
-       avoiding time-slot conflicts across the ranked matches.
-
-Graceful degradation: if every LLM provider is unreachable, returns
-``degraded=true`` with a template-based cost-fit ranking + simple schedule.
-"""
 
 from __future__ import annotations
 

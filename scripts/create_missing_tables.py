@@ -1,16 +1,4 @@
-"""Create Supabase tables that exist in SQLite but not in Postgres.
 
-Derives column definitions from the SQLite schema (PRAGMA table_info) with
-type mapping: TEXT->TEXT, INTEGER->INTEGER/SERIAL, REAL->DOUBLE PRECISION.
-Primary-key columns named 'id' with TEXT values become UUID (matching the
-backend entities); integer 'id' PKs become SERIAL.
-
-Foreign-key constraints are intentionally omitted (application-level integrity)
-to avoid ordering/dependency issues. Run after migrations, before data migration.
-
-Usage:
-    DB_TYPE=postgres DB_HOST=... ... python3 scripts/create_missing_tables.py
-"""
 import os
 import sqlite3
 import sys

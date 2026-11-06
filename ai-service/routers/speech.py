@@ -1,20 +1,4 @@
-"""
-Voice-to-Geo AI — Speech-to-Text router (Idea
 
-``POST /api/ai/speech/to-text`` is the server-side STT fallback. The
-frontend prefers the client-side Web Speech API (T1) for privacy, but when
-Chrome's Vietnamese recognition is unreliable the browser uploads the
-recorded audio here and we transcribe it server-side.
-
-The SpeechService (services/speech.py) attempts a Whisper-style transcription
-via the configured STT provider. On HF Spaces free plan no server-side STT
-provider is configured, so the service degrades to client-side Web Speech API.
-
-Graceful degradation: this endpoint NEVER returns 503. When STT cannot
-run (no provider configured, circuit breaker open, network failure) it returns
-200 with ``degraded=True`` and an empty ``text`` — the frontend then falls
-back to the Web Speech API transcript it already captured.
-"""
 from fastapi import APIRouter
 from models.speech_models import SpeechToTextRequest, SpeechToTextResponse
 

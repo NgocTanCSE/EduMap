@@ -22,22 +22,16 @@ export interface PointOfInterest {
   verified?: boolean;
 }
 
-/**
- * A "ghim" (featured pin) displayed on the interactive map that links
- * directly to one of the Trải nghiệm & Tiện íu / Chợ & Đóng góp feature pages.
- * Each pin's position is sourced from the SAME backend table the feature page
- * reads from, so the pin and the feature detail stay in sync automatically
- * (the same sync model used by WiFi: locations table → /wifi page + /map page).
- */
+
 export interface FeaturedPin {
   id: string;
   name: string;
-  category: string;   // 'stem' | 'green' | 'summer' | 'wifi' | 'market' | 'donate'
+  category: string;   
   lat: number;
   lng: number;
   description?: string;
   address?: string;
-  featureLink: string; // e.g. '/stem', '/green', '/summer', '/wifi', '/marketplace', '/donate'
+  featureLink: string; 
 }
 
 const FEATURE_LINK_MAP: Record<string, string> = {
@@ -67,41 +61,34 @@ export class MapService {
     this.logger.log(`MapService initialized. DB_SQLITE_PATH=${process.env.DB_SQLITE_PATH}`);
   }
 
-  // ─── In-process TTL cache for resource-optimization (HF Spaces safe) ──────
-  /** TTL for cached resource-optimization results: 3600 seconds. */
+  
+  
   private static readonly RESOURCE_OPT_CACHE_TTL_MS = 3600 * 1000;
-  /** Max entries before LRU-style eviction. */
+  
   private static readonly RESOURCE_OPT_CACHE_MAX = 120;
   private readonly _resourceOptCache = new Map<string, { data: any; expires: number }>();
 
-  // ─── Educational Gap Forecast: 24 h in-process cache (HF Spaces: no Redis) ─
-  // Per AGENTS.md, Redis is replaced by an in-process cache on HF Spaces. The
-  // predictive pipeline (Holt + DBSCAN) is CPU-bound, so caching the GeoJSON
-  // result for 24 h prevents re-running it on every map view.
+  
+  
+  
+  
   private static readonly GAP_FORECAST_CACHE_TTL_MS = 24 * 3600 * 1000;
   private static readonly GAP_FORECAST_CACHE_MAX = 60;
   private readonly _gapForecastCache = new Map<string, { data: any; expires: number }>();
 
-  // ─── POI read cache: in-process TTL (HF Spaces has no Redis) ──────────────
-  // findAllPois / findPoisByCategory hit Postgres (locations + map_points) on
-  // every map view and are the dominant cost of "data loading" (~3s). POIs
-  // change rarely (only on createPoi), so a short TTL cache removes the
-  // repeated DB round-trips. Invalidated on createPoi.
+  
+  
+  
+  
+  
   private static readonly POI_CACHE_TTL_MS = 300 * 1000;
   private static readonly POI_CACHE_MAX = 80;
   private readonly _poiCache = new Map<string, { data: any; expires: number }>();
 
-  /**
-   * Parse a geography value that may arrive in one of several formats:
-   *  - PostGIS (TypeORM): GeoJSON { type:'Point', coordinates:[lng,lat] }
-   *  - SQLite / raw SQL:  EWKT string  'SRID=4326;POINT(lng lat)'
-   *  - SQLite JSON column: plain JSON  '{"type":"Point","coordinates":[lng,lat]}'
-   *  - Already-parsed array [lng, lat]
-   * Returns [lng, lat] or null if it can't be resolved.
-   */
+  
   private parseCoords(value: any): [number, number] | null {
     if (!value) return null;
-    // Already a GeoJSON object / array
+    
     if (typeof value === 'object') {
       if (Array.isArray(value) && value.length >= 2) return [Number(value[0]), Number(value[1])];
       if (value.type === 'Point' && Array.isArray(value.coordinates) && value.coordinates.length >= 2) {
@@ -113,30 +100,24 @@ export class MapService {
       if (typeof value.lat === 'number' && typeof value.lng === 'number') return [value.lng, value.lat];
       if (typeof value.lat === 'number' && typeof value.lon === 'number') return [value.lon, value.lat];
     }
-    // String — could be EWKT or a JSON string
+    
     if (typeof value === 'string') {
-      // EWKT: SRID=4326;POINT(106.86965 10.98448)
+      
       const ewktMatch = value.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
       if (ewktMatch) return [Number(ewktMatch[1]), Number(ewktMatch[2])];
-      // GeoJSON JSON string
+      
       try {
         return this.parseCoords(JSON.parse(value));
-      } catch { /* fall through */ }
-      // NOTE: deliberately DO NOT support ambiguous "lat,lng" / "lng,lat"
-      // shorthand strings — the same digit sequence can be valid coordinates
-      // in two different places on Earth. Only GeoJSON [lng,lat] and EWKT are
-      // accepted so a crawled record can never silently swap lat/lng.
+      } catch {  }
+      
+      
+      
+      
     }
     return null;
   }
 
-  /**
-   * Defensive guard against swapped / out-of-range lat/lng values.
-   * Vietnam lives in lat 8–23, lng 102–109; anything outside
-   * [-90, 90] / [-180, 180] is a data error (e.g. swapped columns)
-   * and must never become a Leaflet pin — Leaflet silently drops
-   * NaN coordinates, leading to "ghim vô đâu" (pins in nowhere land).
-   */
+  
   private isValidLatLng(lat: number, lng: number): boolean {
     return Number.isFinite(lat) && Number.isFinite(lng)
       && lat >= -90 && lat <= 90
@@ -209,14 +190,11 @@ export class MapService {
     };
   }
 
-  /**
-   * Normalize a POI name for deduplication: lowercase, strip parenthetical
-   * suffixes (e.g. "DNTU (Campus A)" → "dntu"), trim.
-   */
+  
   private normalizePoiName(name: string): string {
     return (name || '')
       .toLowerCase()
-      // Chuẩn hóa viết tắt địa điểm Việt Nam trước khi so sánh tên
+      
       .replace(/\bđh\b/g, 'đại học')
       .replace(/\bđntu\b/g, 'đại học nông lâm')
       .replace(/\bđhql\b/g, 'đại học quốc gia')
@@ -226,16 +204,13 @@ export class MapService {
       .replace(/\bp\.\s*/g, 'phường ')
       .replace(/\bkhu\b/g, '')
       .replace(/\bcampus\b/g, '')
-      // Bỏ nội dung trong ngoặc (ví dụ "ĐNTU (Campus A)" → "đntu")
+      
       .replace(/\s*\(.*?\)\s*/g, '')
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  /**
-   * Simple Levenshtein-based name similarity ratio [0,1].
-   * Two names are considered equivalent if ratio >= 0.8.
-   */
+  
   private nameSimilarity(a: string, b: string): number {
     const sa = this.normalizePoiName(a);
     const sb = this.normalizePoiName(b);
@@ -261,7 +236,7 @@ export class MapService {
     return m[b.length][a.length];
   }
 
-  /** Haversine distance in metres between two lat/lng pairs. */
+  
   private haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371000;
     const toRad = (v: number) => (v * Math.PI) / 180;
@@ -272,21 +247,15 @@ export class MapService {
     return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * R;
   }
 
-  /**
-   * Deduplicate POIs from both tables. Entries from `map_points` (manually
-   * verified, `verified=true`) are prioritized over `locations` (crawled,
-   * may have coordinate drift). Two POIs are considered duplicates when:
-   *  - Their *exact* normalised names match (handles crawled coordinate drift), OR
-   *  - Their names are similar (≥80%) AND they are within 200 m of each other.
-   */
+  
   private deduplicatePois(allPois: PointOfInterest[]): PointOfInterest[] {
-    // Sort so verified/approved map_points come first (kept over nearby duplicates)
+    
     const sorted = [...allPois].sort((a, b) => {
       const score = (p: PointOfInterest) => (p.verified ? 2 : 0) + (p.status === 'approved' ? 1 : 0);
       return score(b) - score(a);
     });
 
-    // Spatial grid (~1.1 km cells) so we only Levenshtein-compare nearby POIs — O(n·k) instead of O(n²)
+    
     const CELL_SIZE = 0.01;
     const grid: Map<string, PointOfInterest[]> = new Map();
     const unique: PointOfInterest[] = [];
@@ -299,7 +268,7 @@ export class MapService {
       const latBase = parseInt(key.split(',')[0]);
       const lngBase = parseInt(key.split(',')[1]);
 
-      // Gather candidates from same + 8 adjacent cells
+      
       const candidates: PointOfInterest[] = [];
       for (let dLat = -1; dLat <= 1; dLat++) {
         for (let dLng = -1; dLng <= 1; dLng++) {
@@ -310,16 +279,16 @@ export class MapService {
       }
 
       const isDup = candidates.some(ex => {
-        // Deliberately NOT deduping on shared UUID alone: the same id can exist
-        // in both `map_points` (verified) and `locations` (crawled) with drifted
-        // coordinates. Identity here is resolved by name+geometry; any surviving
-        // same-id collision is collapsed deterministically by `mergeDuplicateIds`
-        // (verified coordinate always wins) so a POI's position never jumps
-        // between renders — which is what caused the "click DNTU → lands on
-        // Lotte" mis-jump on SQLite.
+        
+        
+        
+        
+        
+        
+        
         const normEx = this.normalizePoiName(ex.name);
         const normPoi = this.normalizePoiName(poi.name);
-        if (normEx && normPoi && normEx === normPoi) return true; // exact name → dup
+        if (normEx && normPoi && normEx === normPoi) return true; 
         if (this.haversine(ex.lat, ex.lng, poi.lat, poi.lng) < 200) {
           return this.nameSimilarity(ex.name, poi.name) >= 0.8;
         }
@@ -335,17 +304,7 @@ export class MapService {
     return unique;
   }
 
-  /**
-   * Coordinate-stable id collapse. `map_points` and `locations` can share a
-   * UUID for the same landmark; when a crawled row drifts, the SAME id may
-   * carry different coordinates in the two tables. The frontend renders markers
-   * with `key={p.id}`, so two records for one id would make React reuse a
-   * single marker DOM node and silently paint the "other" coordinate — making
-   * the selected POI visibly jump between renders. Collapse each id to exactly
-   * one record, always preferring the verified `map_points` source (sorted
-   * first by `deduplicatePois`) so the position is stable regardless of which
-   * table the refetch returned first.
-   */
+  
   private mergeDuplicateIds(pois: PointOfInterest[]): PointOfInterest[] {
     const score = (p: PointOfInterest) => (p.verified ? 2 : 0) + (p.status === 'approved' ? 1 : 0);
     const byId = new Map<string, PointOfInterest>();
@@ -369,20 +328,20 @@ export class MapService {
     }
     if (cached) this._poiCache.delete(key);
 
-    // Fetch from both map_points and locations tables for proper data sync
+    
     const [mapPoints, locations] = await Promise.all([
       this.fetchMapPoints(bounds),
       this.fetchLocations(bounds)
     ]);
 
-    // Merge and deduplicate by name+geometry, then collapse any surviving
-    // duplicate UUIDs (shared between map_points and locations) deterministically
-    // so a given id never resolves to two different coordinates across renders.
-    // map_points (verified) are sorted first so their coordinates win.
+    
+    
+    
+    
     const allPois = [...mapPoints, ...locations];
     const result = this.mergeDuplicateIds(this.deduplicatePois(allPois));
 
-    // LRU-style eviction
+    
     if (this._poiCache.size >= MapService.POI_CACHE_MAX) {
       const oldestKey = this._poiCache.keys().next().value;
       if (oldestKey) this._poiCache.delete(oldestKey);
@@ -456,13 +415,13 @@ export class MapService {
     const catLower = category.toLowerCase();
     const typeId = typeIdsMap[catLower];
     
-    // Fetch from both tables
+    
     const [mapPoints, locations] = await Promise.all([
       this.fetchMapPointsByCategory(typeId, catLower, bounds),
       this.fetchLocationsByCategory(catLower, bounds)
     ]);
     
-    // Merge and deduplicate by id AND name+proximity (map_points verified first)
+    
     const allPois = [...mapPoints, ...locations];
     const result = this.deduplicatePois(allPois);
 
@@ -496,7 +455,7 @@ export class MapService {
     return points.map(p => this.mapPointToPoi(p)).filter((p): p is PointOfInterest => p !== null);
   }
 
-  /** Filter POIs that fall within a bounding box (SQLite fallback since ST_Intersects isn't available). */
+  
   private filterInBounds(pois: PointOfInterest[], bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }): PointOfInterest[] {
     return pois.filter(p => p.lat >= bounds.minLat && p.lat <= bounds.maxLat && p.lng >= bounds.minLng && p.lng <= bounds.maxLng);
   }
@@ -556,8 +515,8 @@ export class MapService {
     });
 
     const saved = await this.mapPointRepo.save(point);
-    // TỰ ĐỘNG NHÚNG (Embed) địa điểm/POI mới vào Vector DB ngay — thay vì
-    // trigger full re-sync, chỉ nhúng POI vừa tạo để RAG tìm thấy ngay lập tức.
+    
+    
     try {
       const poiData = this.mapPointToPoi(saved);
       const categoryName = poiData?.category || data.category || 'Tien ich';
@@ -583,7 +542,7 @@ export class MapService {
         error: (err: any) => this.logger.warn(`[Auto-Embed] Failed to embed POI '${saved.id}': ${err.message}`),
       });
     } catch (e) {
-      // Không làm gián đoạn luồng tạo — chỉ log cảnh báo
+      
       this.logger.warn(`Auto-embed POI failed (non-fatal): ${e}`);
     }
     this._poiCache.clear();
@@ -591,11 +550,11 @@ export class MapService {
   }
 
   async analyzeWithAI(query: string, context?: any): Promise<any> {
-    // A valid, empty GeoJSON FeatureCollection used as a safe default whenever
-    // the AI service cannot produce boundary polygons (Issue #7: GeoAI → GeoJSON).
-    // Declared at method scope so it is reachable from both the inner and outer
-    // catch blocks below (consts are block-scoped and would otherwise be
-    // invisible to the outer catch).
+    
+    
+    
+    
+    
     const emptyGeoJson = { type: 'FeatureCollection', features: [] };
 
     try {
@@ -609,7 +568,7 @@ export class MapService {
         lng: p.lng
       }));
 
-      // Try AI Service first, fallback to Cloudflare direct
+      
       try {
         const response = await firstValueFrom(
           this.httpService.post(`${this.aiServiceUrl}/api/ai/geo/analyze`, {
@@ -619,10 +578,10 @@ export class MapService {
           }, { timeout: 45000 })
         );
         const payload = response.data;
-        // Issue #7: surface the GeoJSON boundary FeatureCollection (hubs) that
-        // identify_education_hubs() now produces, alongside the text analysis.
-        // toFeatureCollection() also tolerates a legacy list-of-dicts / single
-        // Feature shape so the frontend always gets a valid FeatureCollection.
+        
+        
+        
+        
         const geojson = this.toFeatureCollection(payload && payload.hubs);
         const analysis = (payload && payload.ai_analysis) ? payload.ai_analysis : {};
         return { ...analysis, geojson };
@@ -644,11 +603,7 @@ export class MapService {
     }
   }
 
-  /**
-   * Coerce an arbitrary value into a GeoJSON FeatureCollection (Issue #7).
-   * Used by callers that may receive either the new GeoJSON shape (a dict with
-   * type=FeatureCollection) or a legacy list of hub dicts / a single Feature.
-   */
+  
   private toFeatureCollection(value: any): any {
     if (!value) return { type: 'FeatureCollection', features: [] };
     if (value.type === 'FeatureCollection' && Array.isArray(value.features)) return value;
@@ -677,18 +632,7 @@ export class MapService {
     }
   }
 
-  /**
-   * AI Educational Gap Forecast (Idea #3).
-   *
-   * GET /api/map/gap-forecast?region=...&steps=... → proxies the request to the
-   * ai-service POST /api/ai/forecast/gaps and caches the GeoJSON result for
-   * 24 h in an in-process TTL cache (HF Spaces has no Redis).
-   *
-   * On ai-service failure the call degrades gracefully — it returns a valid but
-   * empty/degraded GeoJSON FeatureCollection instead of throwing, so the
-   * frontend map never hard-fails (matching the project's "degrade, never
-   * crash" policy from AGENTS.md).
-   */
+  
   async getGapForecast(region: string | undefined, stepsAhead: number): Promise<any> {
     const key = `gap:${(region || 'all').trim().toLowerCase()}:${stepsAhead}`;
     const now = Date.now();
@@ -709,7 +653,7 @@ export class MapService {
       );
       const result = response.data || {};
 
-      // Lazy LRU-style eviction.
+      
       if (this._gapForecastCache.size >= MapService.GAP_FORECAST_CACHE_MAX) {
         const oldestKey = this._gapForecastCache.keys().next().value;
         if (oldestKey) this._gapForecastCache.delete(oldestKey);
@@ -722,7 +666,7 @@ export class MapService {
       return result;
     } catch (error: any) {
       this.logger.error(`AI gap-forecast unavailable: ${error.message}`);
-      // Degraded fallback so the UI shows a friendly warning instead of a 500.
+      
       return {
         type: 'FeatureCollection',
         features: [],
@@ -747,21 +691,17 @@ export class MapService {
     }
   }
 
-  // ─── AI Climate Learning Guardian: 24 h in-process cache (Idea #11) ─────────
+  
   private static readonly CLIMATE_RISK_CACHE_TTL_MS = 24 * 3600 * 1000;
   private static readonly CLIMATE_RISK_CACHE_MAX = 60;
   private readonly _climateRiskCache = new Map<string, { data: any; expires: number }>();
 
-  /**
-   * GET /api/map/climate-risk → proxy to ai-service POST /api/ai/climate/risk.
-   * Caches the GeoJSON result for 24 h. On failure, returns a degraded but
-   * valid FeatureCollection so the frontend map never hard-fails.
-   */
+  
   async getClimateRisk(params: {
     minLat?: number; maxLat?: number; minLng?: number; maxLng?: number;
     lat?: number; lng?: number; radiusKm?: number; date?: string;
   }): Promise<any> {
-    // Build cache key from resolved bbox.
+    
     let key: string;
     if (params.minLat !== undefined && params.maxLat !== undefined &&
         params.minLng !== undefined && params.maxLng !== undefined) {
@@ -819,10 +759,7 @@ export class MapService {
     }
   }
 
-  /**
-   * POST /api/map/climate/alternatives → proxy to ai-service POST /api/ai/climate/alternatives.
-   * On failure, returns a degraded but valid GeoJSON with empty features.
-   */
+  
   async getClimateAlternatives(params: {
     lat: number; lng: number;
     minLat?: number; maxLat?: number; minLng?: number; maxLng?: number;
@@ -882,20 +819,7 @@ export class MapService {
     }
   }
 
-  /**
-   * GET /api/map/data-gaps → proxy + cache (TTL 3600 s).
-   * Idea #6: Missing Data Hunter.
-   *
-   * Fetches live POI data from the DB, builds the points payload, and POSTs
-   * them to the ai-service POST /api/ai/data/gaps (grid-based coverage +
-   * attribute gap detection). Results are cached per parameter-set so
-   * repeated map views are served from cache instead of recomputing the
-   * grid on a 1-vCPU HF Spaces container.
-   *
-   * On ai-service failure: returns a valid-but-degraded GeoJSON FeatureCollection
-   * so the frontend map never hard-fails (matching the "degrade, never crash"
-   * policy from AGENTS.md).
-   */
+  
   async getDataGaps(params: {
     grid_size_km?: number;
     top_n?: number;
@@ -907,7 +831,7 @@ export class MapService {
     const categories = params.categories;
     const bounds = params.bounds;
 
-    // Deterministic cache key from the input parameters.
+    
     const cacheKey = `data-gaps:${gridSizeKm}:${topN}:${JSON.stringify(bounds || {})}:${JSON.stringify(categories || [])}`;
 
     const now = Date.now();
@@ -917,7 +841,7 @@ export class MapService {
       return cached.data;
     }
 
-    // ── On cache miss: fetch POI data from the DB ──────────────────────
+    
     let pois: PointOfInterest[] = [];
     try {
       if (bounds) {
@@ -929,7 +853,7 @@ export class MapService {
       this.logger.warn(`DB fetch for data gaps failed: ${dbErr.message}`);
     }
 
-    // Apply category filter if specified.
+    
     let points = pois.map((p) => ({
       ...p,
       lat: p.lat,
@@ -940,7 +864,7 @@ export class MapService {
       points = points.filter((p) => catsLower.includes(String(p.category || '').toLowerCase()));
     }
 
-    // ── Proxy POST to ai-service data hunter ───────────────────────────
+    
     const requestBody: any = {
       points: points,
       grid_size_km: gridSizeKm,
@@ -959,8 +883,8 @@ export class MapService {
       const detail = aiError?.response?.data?.detail || aiError.message || 'AI service unavailable';
       this.logger.error(`AI data gaps failed: ${detail}`);
 
-      // Graceful degradation: return a minimal valid GeoJSON so the frontend
-      // map shows an empty-state instead of crashing.
+      
+      
       result = {
         type: 'FeatureCollection',
         features: [],
@@ -981,7 +905,7 @@ export class MapService {
       };
     }
 
-    // Cache the result (reuse the resource-opt cache slot).
+    
     this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
     if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
       const oldestKey = this._resourceOptCache.keys().next().value;
@@ -991,21 +915,8 @@ export class MapService {
     return result;
   }
 
-  // ─── AI Active Learning Survey Planner (Idea #20) ──────────────────────────
-  /**
-   * GET /api/map/survey/priorities → proxy + cache (TTL 3600 s).
-   *
-   * Fetches live POI data from SQLite, POSTs them (plus the current-location,
-   * bbox and tunables) to the ai-service POST /api/ai/survey/priorities, and
-   * caches the ranked GeoJSON result for 3600 s (reused resource-opt cache
-   * slot, HF Spaces has no Redis). The ai-service computation is pure
-   * server-side entropy + cost scoring (NO LLM), so the only latency is the
-   * grid solve — kept well under the 30 s proxy timeout.
-   *
-   * On failure: returns a valid-but-degraded GeoJSON so the frontend survey
-   * planner shows an empty-state + warning instead of a 502 (per AGENTS.md
-   * "degrade, never crash").
-   */
+  
+  
   async getSurveyPriorities(params: {
     current_lat?: number; current_lng?: number;
     min_lat?: number; max_lat?: number; min_lng?: number; max_lng?: number;
@@ -1022,18 +933,18 @@ export class MapService {
     const influenceKm = params.influence_radius_km ? Number(params.influence_radius_km) : 2.0;
     const spatialW = params.spatial_weight !== undefined ? Number(params.spatial_weight) : 0.25;
 
-    // Resolve a bounding box (default 11 km box around current location).
+    
     let minLat: number, maxLat: number, minLng: number, maxLng: number;
     if (params.min_lat != null && params.max_lat != null && params.min_lng != null && params.max_lng != null) {
       minLat = Number(params.min_lat); maxLat = Number(params.max_lat);
       minLng = Number(params.min_lng); maxLng = Number(params.max_lng);
     } else {
-      const span = 0.05; // ~5.5 km half-width
+      const span = 0.05; 
       minLat = centerLat - span; maxLat = centerLat + span;
       minLng = centerLng - span; maxLng = centerLng + span;
     }
 
-    // Deterministic cache key from the resolved parameters.
+    
     const cacheKey = `survey:prior:${minLat.toFixed(5)}:${maxLat.toFixed(5)}:${minLng.toFixed(5)}:${maxLng.toFixed(5)}:${centerLat.toFixed(5)}:${centerLng.toFixed(5)}:${gridSizeKm}:${topN}:${surveyTime}:${speedKmh}:${influenceKm}:${spatialW}`;
     const now = Date.now();
     const cached = this._resourceOptCache.get(cacheKey);
@@ -1046,7 +957,7 @@ export class MapService {
       };
     }
 
-    // ── Fetch POI data from the DB (bounded to the resolved bbox) ──────
+    
     let pois: PointOfInterest[] = [];
     try {
       pois = await this.findAllPois({ minLat, maxLat, minLng, maxLng });
@@ -1060,7 +971,7 @@ export class MapService {
       description: p.description || '',
     }));
 
-    // ── Proxy POST to ai-service (pure entropy+cost, no LLM) ───────────
+    
     let result: any;
     try {
       const response = await firstValueFrom(
@@ -1107,11 +1018,7 @@ export class MapService {
     return result;
   }
 
-  /**
-   * GET /api/map/survey/next → proxy to ai-service POST /api/ai/survey/next.
-   * Returns the single best next survey point (top-1 of the priority ranking).
-   * Caches for 3600 s; degrades to a valid empty result on failure.
-   */
+  
   async getSurveyNext(params: {
     current_lat?: number; current_lng?: number;
     min_lat?: number; max_lat?: number; min_lng?: number; max_lng?: number;
@@ -1135,7 +1042,7 @@ export class MapService {
       };
     }
 
-    // Reuse getSurveyPriorities so POIs/bbox/caching logic is shared.
+    
     const priorities = await this.getSurveyPriorities(params);
     const nextPoint = priorities.next_point || null;
     const feature = priorities.features?.[0] || null;
@@ -1168,31 +1075,14 @@ export class MapService {
     };
   }
 
-  /**
-   * Aggregates "ghim" (featured pins) from ALL feature tables so they appear
-   * on the interactive map with direct links to their feature pages.
-   *
-   * This mirrors the WiFi pattern: the WiFi page reads from `locations` (LIKE
-   * '%wifi%') and the map reads the same table — the pin and the feature page
-   * always show the same coordinates. Here we extend that to every feature:
-   *   - STEM Labs  → stem_labs.location_point  (GeoJSON, already has coords)
-   *   - Green      → green_challenges.lat/lng  (new columns, backfilled)
-   *   - Summer     → summer_campaigns.lat/lng (new columns, backfilled)
-   *   - Wifi       → locations.coordinates      (existing, LIKE '%wifi%')
-   *   - Marketplace→ shared_items.lat/lng       (new columns, backfilled)
-   *   - Donate     → donation_campaigns.location_point (existing column,
-   *                   backfilled for the 4 NULL rows)
-   *
-   * Returns pins with a `featureLink` field so the frontend popup can
-   * render a "Đến" button that navigates directly to the feature page.
-   */
+  
   async getFeaturedPins(bounds?: { minLat: number, maxLat: number, minLng: number, maxLng: number }): Promise<FeaturedPin[]> {
     try {
       const pins: FeaturedPin[] = [];
 
       
-      // --- Postgres mode ---
-      // Stem labs
+      
+      
       const stemLabs = await this.mapPointRepo.query(
         'SELECT id, name, location_point, location_point_text as address, description FROM stem_labs WHERE location_point IS NOT NULL LIMIT 5000'
       );
@@ -1208,7 +1098,7 @@ export class MapService {
         if (!bounds || this.isInBounds(pin.lat, pin.lng, bounds)) pins.push(pin);
       }
 
-      // Green challenges
+      
       const greenLabs = await this.mapPointRepo.query(
         'SELECT id, title as name, description, lat, lng, address FROM green_challenges WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'active\' LIMIT 5000'
       );
@@ -1222,7 +1112,7 @@ export class MapService {
         });
       }
 
-      // Summer campaigns
+      
       const summerLabs = await this.mapPointRepo.query(
         'SELECT id, name, description, location as address, lat, lng FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000'
       );
@@ -1236,7 +1126,7 @@ export class MapService {
         });
       }
 
-      // Wifi
+      
       const wifiLabs = await this.locationRepo.query(
         'SELECT id, name, coordinates, address, description FROM locations WHERE (LOWER(description) LIKE \'%wifi%\' OR LOWER(name) LIKE \'%wifi%\') AND coordinates IS NOT NULL LIMIT 5000'
       );
@@ -1251,7 +1141,7 @@ export class MapService {
         });
       }
 
-      // Donation campaigns
+      
       const donateLabs = await this.mapPointRepo.query(
         'SELECT id, title as name, description, location_point FROM donation_campaigns WHERE location_point IS NOT NULL AND status = \'active\' LIMIT 5000'
       );
@@ -1266,7 +1156,7 @@ export class MapService {
         });
       }
 
-      // Marketplace (shared items)
+      
       const marketLabs = await this.mapPointRepo.query(
         'SELECT id, name, description, category, lat, lng, address FROM shared_items WHERE lat IS NOT NULL AND lng IS NOT NULL AND status = \'available\' LIMIT 5000'
       );
@@ -1291,34 +1181,15 @@ export class MapService {
     }
   }
 
-  /** Simple bounds check used by getFeaturedPins to avoid creating POI objects for out-of-viewport pins. */
+  
   private isInBounds(lat: number, lng: number, bounds: { minLat: number, maxLat: number, minLng: number, maxLng: number }): boolean {
     return lat >= bounds.minLat && lat <= bounds.maxLat && lng >= bounds.minLng && lng <= bounds.maxLng;
   }
 
-  // ─── Resource Optimization (MCLP) proxy + cache ──────────────────────────
-  /**
-   * GET /api/map/resource-optimization  →  proxy + cache (TTL 3600 s).
-   *
-   * Accepts query params (budget, coverage_radius_km, center_lat, center_lng,
-   * region_radius_km) and returns a cached (TTL 3600 s) GeoJSON
-   * FeatureCollection of A/B/C facility-placement plans + gap areas.
-   * The heavy lifting (scipy MCLP) is delegated to the ai-service via
-   * MapService.getResourceOptimization().
-   */
+  
+  
 
-  /**
-   * GET /api/map/resource-optimization  →  proxy + cache (TTL 3600 s).
-   *
-   * Fetches live POI data from the DB, builds demand-points + candidate
-   * locations, and POSTs them to the ai-service's
-   * POST /api/ai/resource/optimize (MCLP solver).  Results are cached per
-   * parameter-set so repeated slider values on the frontend are served from
-   * cache instead of re-running scipy on a 1-vCPU HF Spaces container.
-   *
-   * The cache key is derived from (budget, radius, center, region) so each
-   * distinct plan combination is cached independently.
-   */
+  
   async getResourceOptimization(params: {
     budget?: number;
     coverage_radius_km?: number;
@@ -1332,10 +1203,10 @@ export class MapService {
     const centerLng = params.center_lng ? Number(params.center_lng) : 107.1825;
     const regionRadius = params.region_radius_km ? Number(params.region_radius_km) : 10;
 
-    // Build a deterministic cache key from the input parameters.
+    
     const cacheKey = `resource-opt:${budget}:${radius ?? 'auto'}:${centerLat}:${centerLng}:${regionRadius}`;
 
-    // Check in-process TTL cache — return immediately on hit (no DB/ai-service round-trip).
+    
     const now = Date.now();
     const cached = this._resourceOptCache.get(cacheKey);
     if (cached && now < cached.expires) {
@@ -1343,7 +1214,7 @@ export class MapService {
       return cached.data;
     }
 
-    // ── On cache miss: fetch POI data from the DB ──────────────────────
+    
     let pois: PointOfInterest[] = [];
     try {
       pois = await this.findAllPois();
@@ -1351,7 +1222,7 @@ export class MapService {
       this.logger.warn(`DB fetch for resource optimization failed: ${dbErr.message}`);
     }
 
-    // Build demand_points (weighted by rating as a proxy for importance)
+    
     const demandPoints = pois.map((p) => ({
       lat: p.lat,
       lng: p.lng,
@@ -1360,8 +1231,8 @@ export class MapService {
       weight: Math.max(10, (p.rating_avg || 3) * 20),
     }));
 
-    // Candidate locations come from existing POIs — expanding/adding facilities
-    // at sites that already have educational infrastructure is realistic.
+    
+    
     const candidateLocations = pois.map((p) => {
       const ftype = p.category === 'wifi' ? 'wifi'
         : p.category === 'lab' || p.category === 'stem' ? 'computer'
@@ -1377,7 +1248,7 @@ export class MapService {
       };
     });
 
-    // ── Proxy POST to ai-service MCLP solver ───────────────────────────
+    
     const requestBody: any = {
       budget,
       center: { lat: centerLat, lng: centerLng },
@@ -1397,8 +1268,8 @@ export class MapService {
       const detail = aiError?.response?.data?.detail || aiError.message || 'AI service unavailable';
       this.logger.error(`AI resource optimize failed: ${detail}`);
 
-      // Graceful degradation: return a minimal valid GeoJSON so the frontend
-      // map doesn't crash — it can show a "no data" state instead of erroring.
+      
+      
       result = {
         type: 'FeatureCollection',
         features: [],
@@ -1417,10 +1288,10 @@ export class MapService {
       };
     }
 
-    // Cache the result for subsequent identical requests (TTL 3600 s).
+    
     this._resourceOptCache.set(cacheKey, { data: result, expires: now + MapService.RESOURCE_OPT_CACHE_TTL_MS });
 
-    // Simple LRU-style eviction: drop oldest entry when over capacity.
+    
     if (this._resourceOptCache.size > MapService.RESOURCE_OPT_CACHE_MAX) {
       const oldestKey = this._resourceOptCache.keys().next().value;
       if (oldestKey) this._resourceOptCache.delete(oldestKey);
@@ -1429,31 +1300,18 @@ export class MapService {
     return result;
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Talk2Map (Idea #4): NL → GIS query
-  // ──────────────────────────────────────────────────────────────────────────
+  
+  
+  
 
-  /**
-   * POST/GET /api/map/nl-search?q=<vietnamese query>
-   *
-   * 1. Calls the ai-service POST /api/ai/map/query to parse the Vietnamese
-   *    natural-language query into structured entities (facility types,
-   *    conditions, radius, location reference).
-   * 2. Queries SQLite for matching POIs.
-   * 3. Filters by detected conditions (wifi, free, parking, etc.).
-   * 4. Returns `{ query, parsed_query, explanation, degraded, results, total }`.
-   *
-   * On ai-service failure: falls back to a regex keyword parse + basic
-   * category filter so Talk2Map keeps working on HF Spaces when LLM
-   * providers are unreachable.
-   */
+  
   async nLSearch(query: string, limit: number = 20): Promise<any> {
-    // ── 1. Parse the Vietnamese query via ai-service ───────────────────
+    
     let parsedQuery: any = null;
     let explanation = '';
     let degraded = false;
-    // Voice-to-Geo (Idea #16): intent classification from the ai-service
-    // parser. Falls back to geo_recommend when the ai-service path fails.
+    
+    
     let intentResult: any = { intent: 'geo_recommend', confidence: 0 };
 
     try {
@@ -1468,7 +1326,7 @@ export class MapService {
       parsedQuery = payload.parsed_query || payload;
       explanation = payload.explanation || '';
       degraded = payload.degraded || false;
-      // ai-service returns intent as a top-level field (Voice-to-Geo #16).
+      
       if (payload.intent && payload.intent.intent) {
         intentResult = payload.intent;
       }
@@ -1479,12 +1337,12 @@ export class MapService {
       parsedQuery = this._fallbackParse(query);
       explanation = `Tìm kiếm: "${query}"`;
       degraded = true;
-      // Fallback: classify intent from the fallback-parsed query so the
-      // frontend still knows whether to show search results or a report form.
+      
+      
       intentResult = this._classifyIntentFallback(parsedQuery, query);
     }
 
-    // ── 2. Query SQLite for matching POIs ───────────────────────────────
+    
     let pois: PointOfInterest[] = [];
     try {
       const facilityTypes: string[] = parsedQuery?.facility_types || [];
@@ -1493,11 +1351,11 @@ export class MapService {
           ? await this._findPoisByCategories(facilityTypes)
           : await this.findAllPois();
 
-      // ── 3. Apply condition filters ────────────────────────────────
+      
       const conditions: string[] = parsedQuery?.conditions || [];
       pois = this._filterByConditions(allPois, conditions);
 
-      // ── 4. Deduplicate + sort by rating ────────────────────────────
+      
       pois = this.deduplicatePois(pois);
       pois.sort((a, b) => (b.rating_avg || 0) - (a.rating_avg || 0));
       pois = pois.slice(0, limit);
@@ -1505,7 +1363,7 @@ export class MapService {
       this.logger.error(`Error querying POIs for nl-search: ${dbError.message}`);
     }
 
-    // ── 5. Return combined result ─────────────────────────────────────
+    
     return {
       query,
       parsed_query: parsedQuery,
@@ -1513,17 +1371,13 @@ export class MapService {
       degraded,
       results: pois,
       total: pois.length,
-      // Voice-to-Geo (Idea #16): intent classification from the ai-service
-      // parser. Falls back to geo_recommend when the ai-service path fails.
+      
+      
       intent: intentResult,
     };
   }
 
-  /**
-   * Regex-only fallback parser used when the ai-service is unreachable.
-   * Mirrors the keyword dictionaries in ai-service/services/nl_query_parser.py
-   * but in TypeScript so the backend can self-serve on HF Spaces.
-   */
+  
   private _fallbackParse(query: string): Record<string, any> {
     const text = query.toLowerCase().trim();
     const facilities: string[] = [];
@@ -1568,16 +1422,11 @@ export class MapService {
     };
   }
 
-  /**
-   * Voice-to-Geo (Idea #16): lightweight TypeScript intent classifier
-   * mirroring ai-service/services/nl_query_parser.py:extract_intent().
-   * Used when the ai-service is unreachable so the frontend still knows
-   * whether to show search results or a report form.
-   */
+  
   private _classifyIntentFallback(parsed: Record<string, any>, text: string): Record<string, any> {
     const raw = text.toLowerCase().trim();
 
-    // Priority 1: report keywords
+    
     const reportKw = ['hỏng', 'đứt', 'lỗi', 'ngập', 'gửi báo cáo', 'báo cáo',
       'báo cáo sự cố', 'báo lỗi', 'báo wifi', 'mạng yếu', 'không hoạt động',
       'không kết nối', 'đóng góp thông tin'];
@@ -1585,23 +1434,23 @@ export class MapService {
       return { intent: 'report_form', confidence: 0.8, detail: 'Có từ khóa báo cáo' };
     }
 
-    // Priority 2: explicit find verbs → geo_recommend
+    
     const findVerbs = ['tìm', 'tìm kiếm', 'tìm nơi', 'tìm đường'];
     if (findVerbs.some((v) => raw.includes(v))) {
       return { intent: 'geo_recommend', confidence: 0.7, detail: 'Có động từ tìm' };
     }
 
-    // Priority 3: question words without a find verb → geo_query
+    
     const questionWords = ['ở đâu', 'là gì', 'thế nào', 'bao nhiêu', 'giờ mở cửa', 'giờ đóng cửa'];
     if (questionWords.some((qw) => raw.includes(qw))) {
       return { intent: 'geo_query', confidence: 0.7, detail: 'Câu hỏi thông tin địa lý' };
     }
 
-    // Default
+    
     return { intent: 'geo_recommend', confidence: 0.3, detail: 'Mặc định tìm gợi ý' };
   }
 
-  /** Fetch POIs for multiple categories (union), then deduplicate. */
+  
   private async _findPoisByCategories(categories: string[]): Promise<PointOfInterest[]> {
     const seen = new Set<string>();
     const all: PointOfInterest[] = [];
@@ -1617,11 +1466,7 @@ export class MapService {
     return all;
   }
 
-  /**
-   * Filter POIs by detected conditions (regex-level heuristics).
-   * Conditions that cannot be reliably checked (open_evening, open_now)
-   * are pass-through so they don't over-filter results.
-   */
+  
   private _filterByConditions(pois: PointOfInterest[], conditions: string[]): PointOfInterest[] {
     if (!conditions || conditions.length === 0) return pois;
 
@@ -1636,7 +1481,7 @@ export class MapService {
         if (cond === 'wifi') {
           if (cat !== 'wifi' && !combined.includes('wifi') && !combined.includes('internet')) return false;
         } else if (cond === 'free') {
-          // Free categories (library, green, park) OR explicit "miễn phí" in description
+          
           if (!['library', 'green', 'park'].includes(cat) && !combined.includes('miễn phí') && !combined.includes('free')) return false;
         } else if (cond === 'parking') {
           if (!combined.includes('đậu xe') && !combined.includes('parking') && !combined.includes('chỗ đỗ')) return false;
@@ -1649,7 +1494,7 @@ export class MapService {
         } else if (cond === 'aircon') {
           if (!combined.includes('điều hòa') && !combined.includes('máy lạnh')) return false;
         }
-        // open_evening, open_now: pass-through (no reliable opening-hours data)
+        
       }
 
       return true;

@@ -1,22 +1,4 @@
-"""Regression tests for the ChromaDB collection recovery path (HF free tier).
 
-Production log evidence (2026-10-30):
-
-    Vector store collection is None — returning empty RAG results (graceful degradation).
-
-That line means the one-shot ChromaDB init at import time failed (15 s SIGALRM
-on a cold 2-vCPU boot, corrupt ``/tmp/chroma_db``, …) and ``collection`` stayed
-``None`` for the whole process lifetime → RAG was permanently empty.
-
-Fix under test:
-  1. ``_init_collection()`` is retryable and only arms ``signal.SIGALRM`` in the
-     main thread (previously ``signal.signal()`` raised ``ValueError`` when the
-     service was imported from a worker thread and aborted initialization).
-  2. ``_ensure_collection()`` retries lazily, at most once per
-     ``CHROMA_RETRY_SECONDS`` (cooldown respected).
-  3. ``query()`` / ``add_documents()`` / ``semantic_career_search()`` call it
-     before degrading.
-"""
 
 import os
 import sys

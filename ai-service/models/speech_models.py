@@ -1,16 +1,4 @@
-"""
-Pydantic models for the Voice-to-Geo AI speech endpoints (Idea
 
-These models describe the request/response shape for the server-side
-Speech-to-Text fallback (``POST /api/ai/speech/to-text``).
-
-Client-side STT via the Web Speech API (T1) is preferred for privacy; this
-endpoint is the Whisper-via-XKIRO fallback used when the browser cannot
-recognise Vietnamese reliably.
-
-XKIRO STT API reference:
-https://docs.xkiro.com/api/api-reference/stt/create-transcription.md
-"""
 from pydantic import BaseModel, Field
 from typing import Optional
 

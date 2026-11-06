@@ -1,31 +1,4 @@
-"""Resource Optimizer service — MCLP (Maximum Coverage Location Problem).
 
-Idea
-  Given a budget and a set of learner / POI demand points plus candidate
-  facility sites, decide where to place Wi-Fi, computers, bookcases (library)
-  and study-space facilities so the maximum number of learners is covered.
-
-Solver: ``scipy.optimize.milp`` (Mixed-Integer Linear Programming).
-  - Demand point *i* is "covered" when at least one selected facility *j* is
-    within ``coverage_radius_km`` of it.
-  - Facility *j* has a cost; the total cost of selected facilities must not
-    exceed the (sub-)budget for that plan.
-  - Objective: maximise the *weighted* number of covered demand points, where
-    the weight is the learner population at each demand point.
-
-Budget plans A / B / C:
-  The frontend exposes a single budget slider.  We derive three plans from it:
-    A  → 40 % of budget   (conservative / pilot)
-    B  → 70 % of budget   (balanced)
-    C  → 100 % of budget  (full deployment)
-  This gives planners an at-a-glance A/B/C comparison on the same map.
-
-Robustness (per AGENTS.md):
-  * Candidate pre-filtering to <= 200 points (cap on scipy problem size for a
-    1-vCPU HF Spaces container).
-  * Demand-point cap to 500 (keeps the coverage matrix small).
-  * Greedy fallback when milp is unavailable / fails / times out.
-"""
 
 import os
 import math

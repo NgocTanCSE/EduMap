@@ -1,22 +1,4 @@
-"""AI Data Trust & Anomaly Detector.
 
-Phát hiện điểm dữ liệu sai, trùng lặp, lỗi thời, tọa độ bất thường trên
-các POI (map_points / locations).
-
-Kết hợp hai tầng:
-  1. **Rule-based checks (luật kiểm tra)** — nhanh, giải thích được lý do
-     ngoại lệ: tọa độ thiếu / sai, trùng tên gần nhau, dữ liệu lỗi thời,
-     trường bắt buộc rỗng, trạng thái không hợn lệ, nguồn chưa gán.
-  2. **IsolationForest (scikit-learn)** — phát hiện outlier không gian (spatial
-     anomaly) mà luật không bắt được. Chạy theo chunk 1000 hàng để tránh
-     timeout (xem *Risks* trong AGENTS.md).
-
-Đầu ra: danh sách anomaly được xếp thứ hạng ưu tiên (priority ranking) với
-mức confidence [0–1].
-
-HF Spaces: đọc SQLite trực tiếp (db_service = None trong chế độ sqlite).
-Local/Dev: dùng db_service (PostgreSQL + PostGIS).
-"""
 
 from __future__ import annotations
 

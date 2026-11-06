@@ -1,23 +1,4 @@
-"""Router for /api/ai/climate/* endpoints — Idea #11: AI Climate Learning
-Guardian.
 
-Exposes the flood/weather risk heatmap and safe-alternative recommendations
-produced by ``services/climate_guardian.py``:
-
-* ``POST /api/ai/climate/risk``      — compute a fresh risk heatmap GeoJSON
-  for a bounding box (with optional date).
-* ``POST /api/ai/climate/alternatives`` — recommend safe alternative learning
-  locations near a point, ranked by safety.
-
-Both return a GeoJSON ``FeatureCollection`` with ``heat_points`` (for
-leaflet.heat), ``risk_ranking`` / ``nearest_safe`` and ``metadata`` (which
-carries the ``degraded`` flag used by the frontend to show the
-"dữ liệu hiếm → degraded" warning).
-
-Like forecast.py, both endpoints use ``asyncio.to_thread`` to run the
-CPU-bound risk computation off the FastAPI event loop, and a 24-hour
-in-process TTL cache so repeated requests hit memory, not the model.
-"""
 
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException, Query

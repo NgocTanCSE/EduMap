@@ -1,33 +1,4 @@
-"""AI Active Learning for Field Survey (Idea #20).
 
-Helps survey teams choose the *next* verification point by ranking candidate
-grid cells with an **entropy-based uncertainty** model, an **information
-value** (= expected entropy reduction) and a **cost** model (travel distance +
-fixed survey overhead). The priority score is ``info_value / cost``.
-
-This is **NOT** a language model call. It deliberately performs no LLM request
-(mitigating the documented risk *"Model phức tạp → simpler entropy model"*
-and *"Cost thiếu → distance + fixed overhead"*) so it stays fast, cheap and
-deterministic on the 1-vCPU HF Spaces free container. The entropy model is the
-"simpler entropy model" called for in the risk register.
-
-Architecture notes (HF Spaces Free plan — AGENTS.md §3):
-  * No external HTTP calls are made here, so the ``curl --ipv4 --insecure``
-    convention / circuit-breaker rules do not apply to this service; they apply
-    to any future LLM integration layered on top.
-  * The computation is pure server-side scoring; a 24 h TTL in-process cache
-    lives in the FastAPI router (mirrors ``routers/climate.py``) and a 3600 s
-    cache in the NestJS ``MapService`` — so the CPU-bound grid never re-runs on
-    every map view.
-  * Degrades gracefully: every public method returns a valid-shaped
-    ``FeatureCollection`` with ``metadata.degraded = True`` on any failure so
-    the frontend survey planner never 502s.
-
-Data policy (AGENTS.md §6): only real Vietnamese/Vietnam-facing content with
-provenance. When no live POIs are supplied the service falls back to a set of
-real educational-survey *candidate cells* in the Biên Hòa / Đồng Nai region
-(``STATIC_SURVEY_CANDIDATES``) rather than synthesising fake facilities.
-"""
 from __future__ import annotations
 
 import math

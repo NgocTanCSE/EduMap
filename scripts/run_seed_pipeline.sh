@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# =============================================================================
-# EduMap — Seed Data Pipeline (HF Spaces compatible)
-#
-# Since HF Spaces free tier has NO terminal access, all seed data must be
-# baked into the Docker image. This script regenerates the SQLite database
-# from PostgreSQL (when available) or uses the pre-built edumap.db.
-#
-# Optionally runs the job crawler to populate the `jobs` table
-# (only when network is available at runtime — not during Docker build).
-#
-# Usage:
-#   scripts/run_seed_pipeline.sh              # SQLite mode, uses pre-built DB
-#   DB_TYPE=postgres DB_HOST=... scripts/run_seed_pipeline.sh  # PostgreSQL mode
-#   CRAWL_ON_START=true scripts/run_seed_pipeline.sh  # Also run job crawler
-# =============================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,7 +24,7 @@ SQLITE_PATH="${DB_SQLITE_PATH:-$SQLITE_DB}"
 echo "[seed] $(date -Iseconds) Starting seed pipeline"
 echo "[seed] Mode: ${DB_TYPE:-sqlite}"
 
-# Always ensure the output directory exists
+
 mkdir -p "$(dirname "$SQLITE_DB")"
 
 if [ "${DB_TYPE:-sqlite}" = "postgres" ] && [ -n "${DB_HOST:-}" ]; then
@@ -47,7 +47,7 @@ else
   fi
 fi
 
-# Optionally run job crawler (network required — safe to fail at runtime)
+
 if [ "${CRAWL_ON_START:-false}" = "true" ] && [ -f "$SCRIPT_DIR/crawl_jobs.py" ]; then
   echo "[seed] Running job crawler..."
   python3 "$SCRIPT_DIR/crawl_jobs.py" --db "$SQLITE_DB" 2>&1 || \

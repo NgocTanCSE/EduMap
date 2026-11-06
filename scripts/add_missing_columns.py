@@ -1,11 +1,4 @@
-"""Add all columns that exist in SQLite but are missing in Supabase Postgres.
 
-Idempotent: uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
-Run after create_missing_tables.py / migration:run.
-
-Usage:
-    DB_TYPE=postgres DB_HOST=... ... python3 scripts/add_missing_columns.py
-"""
 import os
 import sys
 

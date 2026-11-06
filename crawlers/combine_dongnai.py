@@ -1,6 +1,4 @@
-"""
-Combine all Dong Nai data into a single SQL file
-"""
+
 import json
 import uuid
 import os

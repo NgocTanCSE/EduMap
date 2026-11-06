@@ -1,25 +1,4 @@
-"""
-Pydantic models for the AI Impact Measurement endpoint (Idea
 
-Flow:
-  The backend ``ImpactMeasurementService`` pre-computes a before/after diff
-  from the ``map_points`` table (facility counts, access rate, coverage
-  improvement — T1), then sends the region + deployment cut-off to the AI
-  service. This endpoint enriches the diff with:
-
-    * a people-in-5 km-radius diff (before vs. after deployment),
-    * trend analysis over the monthly deployment timeline (growth rate),
-    * an impact score (weighted composite, 0–100) + Wilson-score confidence
-      interval (reflecting the synthetic-baseline caveat when "before" data
-      is missing),
-    * an LLM narrative (causal-inference caveat + RCT recommendation),
-      with a template fallback so the feature never 502s when every provider
-      is down.
-
-The request is self-sufficient: when called directly (curl smoke test) the
-service loads ``map_points`` from SQLite itself, so the backend proxy is an
-optimization, not a hard dependency.
-"""
 
 from __future__ import annotations
 

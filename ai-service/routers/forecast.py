@@ -1,19 +1,4 @@
-"""Router for /api/ai/forecast/* endpoints — Idea #3: AI Educational Gap
-Predictor.
 
-Exposes the Holt's Linear + DBSCAN risk heatmap produced by
-``predictive_service.predict_educational_gaps``:
-
-* ``POST /api/ai/forecast/gaps`` — compute a fresh risk heatmap for a region.
-* ``GET /api/ai/forecast/gaps/{region}`` — cached shortcut (24 h in-process
-  LRU on the ai-service). The NestJS backend additionally caches the POST
-  result for 24 h, so repeated region lookups hit memory, not the model.
-
-Both return the GeoJSON FeatureCollection verbatim (the predictive service
-already shapes the payload), plus ``heat_points`` for leaflet.heat,
-``risk_ranking`` and ``metadata`` (which carries the ``degraded`` flag used by
-the frontend to show the "dữ liệu hiếm → degraded" warning).
-"""
 
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException, Query

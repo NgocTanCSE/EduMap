@@ -1,12 +1,4 @@
-"""
-Tests for Talk2Map NL parser (ai-service/services/nl_query_parser.py).
 
-Covers:
-  1. Regex fallback (all LLM providers disabled) — always works on HF Spaces.
-  2. LLM enrichment path (mocked llm_service).
-  3. 10 Vietnamese test sentences across 3 miền (North / Central / South) dialect.
-  4. Degraded mode, fuzzy location suggestions, edge cases.
-"""
 
 import os
 import asyncio

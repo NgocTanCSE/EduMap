@@ -1,17 +1,4 @@
-"""Unit tests cho KnowledgeGraphService (T1) — Idea #8: AI Knowledge Graph.
 
-Test coverage:
-  - Service khởi tạo (lazy load, _get_kg pattern)
-  - seed_graph() idempotent, tạo các bảng kg_nodes / kg_edges
-  - get_graph() trả về struk hợp lệ (nodes, edges, meta)
-  - query() 1-degree traversal (depth clamp, edge_types filter)
-  - suggest_partners() keyword matching + ranking
-  - extract_entities() LLM + rule-based fallback
-  - Circuit breaker + human review queue (kg_extraction_review)
-  - Degraded paths không crash
-
-Run:  cd ai-service && python3 -m pytest tests/test_knowledge_graph.py -v -s
-"""
 import os
 import sys
 import sqlite3

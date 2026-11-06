@@ -1,13 +1,4 @@
-"""Unit tests for the AI Data Trust & Anomaly Detector service.
 
-Kiểm tra:
-  - parse_coords: mọi định dạng tọa độ (EWKT, GeoJSON, JSON string, array)
-  - _run_rules: luật thiếu tọa độ, tọa độ sai, trùng lặp, lỗi thời, thiếu trường
-  - _compute_confidence: confidence >= 0.7 cho IsolationForest-only (risk mitigation)
-  - _run_isolation_forest: chunking + trả về scores cho điểm bất thường
-  - report(): degraded khi không có dữ liệu, cấu trúc response đúng shape
-  - _haversine: độ chính xác khoảng cách
-"""
 
 import asyncio
 import os

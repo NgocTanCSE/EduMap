@@ -1,13 +1,4 @@
-"""Unit tests for clustering_service.identify_education_hubs (Issue #7: GeoAI → GeoJSON).
 
-Verifies that education hubs are returned as a GeoJSON ``FeatureCollection``
-with valid ``Polygon``/``Point`` geometries (cluster boundaries) and that hub
-metadata survives in ``properties`` so the frontend can both *draw* the
-boundary and *display* the summary.
-
-These tests use the REAL sklean/scipy stack (no LLM providers required) and
-run under the same PEP 668 venv used by the rest of the ai-service tests.
-"""
 
 import os
 import sys

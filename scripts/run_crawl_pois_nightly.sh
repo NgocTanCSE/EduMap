@@ -1,6 +1,6 @@
 #!/bin/bash
-# Nightly countrywide POI crawler (chợ + Bách hóa Xanh / convenience stores).
-# Sleeps until 00:30 local time, runs one crawl, then loops for the next night.
+
+
 
 set -euo pipefail
 

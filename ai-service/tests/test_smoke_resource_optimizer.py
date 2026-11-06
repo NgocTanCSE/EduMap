@@ -1,15 +1,4 @@
-"""Smoke test #12 — End-to-end test for the MCLP Resource Optimizer (Idea #1).
 
-Exercises the full FastAPI router → ResourceOptimizer pipeline via
-TestClient, verifying that POST /api/ai/resource/optimize returns a valid
-GeoJSON response with three plans, gap features, and metadata.
-
-This is the integration smoke test that ties together T1 + T2:
-  - T1: services/resource_optimizer.py  (scipy.milp MCLP solver)
-  - T2: routers/resource.py             (FastAPI POST endpoint)
-
-Run:  cd ai-service && python3 -m pytest tests/test_smoke_resource_optimizer.py -v -s
-"""
 import os
 import sys
 

@@ -1,38 +1,4 @@
-"""
-crawl_pois_vietnam.py — Nightly crawler for "nơi tiện ích sinh viên"
-(chợ / markets + Bách hóa Xanh / convenience stores) into EduMap's `map_points`.
 
-Replaces the Overpass API (blocked on HF Spaces egress) with Tavily AI
-search + extract (https://api.tavily.com — reachable from HF Spaces).
-
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous version
-  of this script POSTed Overpass QL queries to https://overpass-api.de which
-  is **blocked at HF Spaces egress**.  This version uses Tavily Search + Extract
-  to find Vietnamese web pages listing markets and convenience stores, then
-  parses coordinates from the extracted article text.
-
-  When TAVILY_API_KEY is absent or Tavily is unreachable, the script returns
-  0 POIs (graceful — never crashes).  The curated snapshots in the seed data
-  provide the core Đồng Nai coverage.
-
-Design
-------
-* Data source: Tavily Search + Extract API (Bearer: TAVILY_API_KEY).
-* Location expansion: Đồng Nai → miền Nam → VN (scope layers from crawl_scope).
-* Deduplication: by name + 6-decimal coordinates.
-* SQLite upsert (not PostGIS): the on-disk SQLite DB stores WKT ``POINT(lng lat)``
-  in the ``location`` column (AGENTS.md §7: no PostGIS on SQLite).
-* Configurable via environment.
-
-Run
----
-  python3 /app/scripts/crawl_pois_vietnam.py --db frontend/public/edumap.db
-  CRAWL_DRY_RUN=1 python3 /app/scripts/crawl_pois_vietnam.py
-
-Scheduled (cron in Docker container) via run_overpass_seed.sh — loops
-forever, sleeping until 00:30 each night, then runs once.
-"""
 from __future__ import annotations
 
 import json

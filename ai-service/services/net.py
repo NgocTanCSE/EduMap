@@ -1,18 +1,4 @@
-"""Outbound-network compatibility helpers for HF Spaces.
 
-WHY THIS EXISTS
-HF Spaces containers can expose an IPv6 default route that blackholes
-traffic. When a hostname (e.g. ``api.cloudflare.com``) resolves to IPv6 first,
-TCP/TLS connects hang until timeout — which showed up as::
-
-    <urlopen error _ssl.c:975: The handshake operation timed out>
-    curl: (28) SSL connection timeout
-
-even though the same host is reachable over IPv4. Forcing IPv4 for outbound
-DNS resolution makes those calls complete normally.
-
-Set ``AI_FORCE_IPV4=false`` to disable (e.g. on an IPv6-only network).
-"""
 
 import os
 import socket

@@ -1,18 +1,4 @@
-"""Router cho /api/ai/knowledge/* — AI Knowledge Graph (Idea #8).
 
-Endpoints:
-  GET  /api/ai/knowledge/graph                        — trả về toàn bộ graph (nodes + edges)
-  POST /api/ai/knowledge/query                      — duyệt 1-degree từ một node
-  POST /api/ai/knowledge/suggest-partners           — gợi ý nhà tài trợ/đối tác phù hợp
-  POST /api/ai/knowledge/extract                    — NLP entity extraction (+ human-review queue)
-  GET  /api/ai/knowledge/reviews                    — lấy hàng đợi NLP extraction review
-  POST /api/ai/knowledge/reviews/{id}/approve       — duyệt một extraction
-
-AGENTS.md rules:
-  - Graph lớn → subgraph query (1-degree only).
-  - NLP extraction sai → human review queue (kg_extraction_review).
-  - RAG failure / LLM unavailable → graceful degradation (rule-based extraction).
-"""
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field

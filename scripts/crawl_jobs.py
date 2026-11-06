@@ -1,40 +1,4 @@
-"""
-Job Crawler — Vietnamese job boards via Tavily AI search/extract → SQLite 'jobs' table.
 
-Crawls Vietnamese tech/finance/education job postings via the Tavily search+extract
-API, parses each result into the standardized jobs-row schema, and upserts into the
-SQLite jobs table.
-
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous version of
-  this crawler made direct HTTP calls to ITviec, TopCV, VietnamWorks, RemoteOK,
-  Remotive and Adzuna — all of which are blocked/blackholed at the HF Spaces egress
-  port level.  This version replaces every source with a single Tavily API call
-  (https://api.tavily.com — reachable from HF Spaces egress).
-
-SCOPE RULES (applied uniformly — see crawlers/crawl_scope.py):
-  • Years   — 2 consecutive years centred on the crawl year.
-               crawl_year = EDUMAP_CRAWL_YEAR env (or current UTC year).
-               Window = [crawl_year - 1, crawl_year], e.g. 2026 -> [2025, 2026].
-               Items whose deadline / posting date falls outside the window
-               are filtered out; undated items inherit the window default.
-  • Location — Đồng Nai → các tỉnh phía Nam → Việt Nam → Đông Nam Á.
-               Each job is tagged with its matched location scope; jobs are
-               collected from all layers but the tighter layers take priority.
-
-Sources (Tavily):
-  - Tavily Search + Extract: https://api.tavily.com/search + /extract
-    (Bearer auth via TAVILY_API_KEY HF Space Secret; keyless mode as fallback)
-
-Graceful degradation:
-  - When TAVILY_API_KEY is absent, the client returns 0 rows (no crash).
-  - When Tavily is unreachable, the same — 0 rows, error logged.
-  - Every error is caught so the cron loop always exits 0.
-
-Runs as:
-  - One-shot: python3 scripts/crawl_jobs.py --db frontend/public/edumap.db
-  - Cron daily via supervisord
-"""
 import sys
 import os
 import json

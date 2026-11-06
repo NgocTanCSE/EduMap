@@ -1,14 +1,14 @@
 #!/bin/bash
-# Smoke test for Talk2Map (Idea #4: NL → GIS queries, Vietnamese)
-#
-# Tests the full request path on the deployed HF Space:
-#   Frontend BFF → Backend NestJS → ai-service FastAPI → SQLite
-#
-# Usage:
-#   ./scripts/smoke_test_talk2map.sh [BASE_URL]
-#   BASE_URL defaults to the public HF Space URL.
-#
-# Exit codes: 0 = all checks passed, 1 = at least one check failed.
+
+
+
+
+
+
+
+
+
+
 set -euo pipefail
 
 BASE_URL="${1:-https://tancse2005-edumap.hf.space}"
@@ -31,7 +31,7 @@ echo "=== Talk2Map Smoke Test ==="
 echo "Target: $BASE_URL"
 echo ""
 
-# ── Test 1: POST /api/ai/map/query (ai-service direct) ───────────────────
+
 echo "Test 1: ai-service POST /api/ai/map/query"
 QUERY='Tìm thư viện gần trường có wifi ở Biên Hòa'
 RESP=$(curl -sS --max-time 30 -X POST "$BASE_URL/api/ai/map/query" \
@@ -48,7 +48,7 @@ check "Parsed location includes Biên Hòa" "echo '$RESP' | python3 -c \"import 
 
 echo ""
 
-# ── Test 2: GET /api/map/nl-search (full BFF → backend → ai-service path) ─
+
 echo "Test 2: BFF GET /api/map/nl-search"
 ENCODED_QUERY=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$QUERY'))")
 RESP2=$(curl -sS --max-time 30 "$BASE_URL/api/map/nl-search?q=$ENCODED_QUERY" 2>/dev/null || echo '{"error":"curl_failed"}')
@@ -63,7 +63,7 @@ check "Explanation present" "echo '$RESP2' | python3 -c \"import sys,json; d=jso
 
 echo ""
 
-# ── Test 3: Vietnamese dialect coverage (3 miền) ───────────────────────
+
 echo "Test 3: Vietnamese dialect (3 miền)"
 DIALECT_QUERY='Tìm trường học ở miền Trung có internet'
 ENCODED_DIALECT=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$DIALECT_QUERY'))")
@@ -75,7 +75,7 @@ check "Miền Trung location detected" "echo '$RESP3' | python3 -c \"import sys,
 
 echo ""
 
-# ── Summary ──────────────────────────────────────────────────────────────
+
 echo "=== Summary ==="
 echo "  Passed: $PASS"
 echo "  Failed: $FAIL"

@@ -1,15 +1,4 @@
-"""Unit tests for the AI Language Bridge (Idea #15).
 
-Verifies:
-  - simplify_text returns valid JSON-shaped output for each difficulty level.
-  - simplify degrades gracefully (template fallback) when all LLM providers
-    are disabled (empty API keys — the HF Spaces free-plan default).
-  - translate_text returns valid output and degrades gracefully.
-  - synthesize_speech returns a valid response shape; degrades to degraded=True
-    when no TTS provider is available (text-only so frontend can use Web Speech API).
-  - 24-hour cache returns cached results on repeat calls.
-  - Explained terms dict and glossary handling.
-"""
 import asyncio
 import os
 import sys

@@ -1,14 +1,4 @@
-"""Unit tests for Idea #17: AI Question Gap Report.
 
-Verifies:
-  - _is_gap() correctly flags queries with failed retrieval, zero docs, or low quality.
-  - analyze_gaps() clusters queries into topic groups (TF-IDF + KMeans).
-  - Doc recommendations use LLM when available, template fallback otherwise.
-  - Graceful degradation: empty / no-DB / no-sklearn still returns a valid report.
-  - The 10 000-query hard cap is enforced (MAX_QUERY_LIMIT).
-  - In-process 24 h cache returns cached results on repeat calls.
-  - Privacy: user_id_hash is preserved (not plain user_id), TTL 30 days reported.
-"""
 
 import os
 import sys

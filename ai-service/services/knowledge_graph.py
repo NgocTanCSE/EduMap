@@ -1,23 +1,4 @@
-"""AI Knowledge Graph service for EduMap (Idea #8).
 
-Liên kết các thực thể: trường học, nhu cầu, học bổng, nhà tài trợ, tài nguyên.
-
-Kiến trúc:
-  - Dữ liệu lưu trong **SQLite adjacency list** (``kg_nodes`` / ``kg_edges``),
-    không dùng Neo4j — phù hợp với môi trường HF Spaces single-container.
-  - Node types: school, university, scholarship, sponsor, opportunity,
-    career_path, learning_material, internship, international_program.
-  - Edge types: SPONSORED_BY, OFFERS_SCHOLARSHIP, LINKED_TO, REQUIRES_SKILL,
-    STUDY_AT, HAS_PROGRAM, APPLY_TO, HAS_MATERIAL, RELATED_TO.
-  - NLP entity extraction (trích xuất thực thể) qua LLM service với graceful
-    degradation — khi LLM không khả dụng, trả về rule-based extraction.
-  - Graph traversal giới hạn **1-degree** để tránh query lớn trên HF Spaces.
-  - NLP extraction sai → hàng đợi `kg_extraction_review` (human review queue).
-
-AGENTS.md rules:
-  - Dữ liệu phải là dữ liệu thực tế của Việt Nam, luôn kèm provenance.
-  - RAG/thành phần AI thất bại → degrade gracefully, không crash.
-"""
 
 from __future__ import annotations
 

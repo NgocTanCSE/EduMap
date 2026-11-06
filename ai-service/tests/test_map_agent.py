@@ -1,20 +1,4 @@
-"""
-Tests for the MapAgent (Edumap AI Agent — NL → GIS).
 
-Covers:
-  1. SQL injection prevention in query_sqlite (block DROP/INSERT/etc., reject
-     non-SELECT, reject non-allowlisted tables, read-only DB).
-  2. geo_recommend — valid radius search + Haversine filtering + category filter.
-  3. geo_density — delegates to clustering_service.identify_education_hubs.
-  4. query_sqlite — happy-path SELECT on allowlisted table (map_points).
-  5. run_agent_loop — graceful degradation when LLM not configured.
-  6. _extract_sources — verifies source extraction from tools_used.
-
-Follows the existing test pattern in tests/test_ai_fallbacks.py:
-  - sys.path.insert(0, _AI_DIR)
-  - set env vars to "" + AI_PREFLIGHT=false
-  - import and test
-"""
 
 import json
 import os

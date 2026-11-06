@@ -1,11 +1,4 @@
-"""Router for /api/ai/resource/* endpoints.
 
-Idea
-
-POST /api/ai/resource/optimize   →  runs the MCLP solver and returns a
-                                    GeoJSON FeatureCollection with three
-                                    budget plans (A / B / C) plus gap areas.
-"""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field

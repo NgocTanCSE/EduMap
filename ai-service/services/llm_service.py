@@ -2909,7 +2909,7 @@ Trả về **mảng JSON** sau:
                 {
                     "title": "Chưa có dữ liệu ngành nghề",
                     "match_score": 0,
-                    "explanation": "Hệ thống đang ở chế độ ngoại tuyến và chưa có dữ liệu ngành nghề trong SQLite. "
+                    "explanation": 
                                    "Vui lòng cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết.",
                     "missing_skills": [],
                     "demand_level": "Chưa rảnh",
@@ -3035,7 +3035,7 @@ Trả về **mảng JSON** sau:
                 "user_id": "empty",
                 "name": "Chưa có mentor phù hợp",
                 "match_score": 0,
-                "explanation": "Hiện chưa có mentor nào trong hệ thống phù hợp với yêu cầu của bạn. "
+                "explanation": 
                                "Hãy quay lại sau hoặc điều chỉnh từ khóa tìm kiếm.",
                 "specialties": [],
                 "rating": 0,

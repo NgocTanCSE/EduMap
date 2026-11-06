@@ -1,15 +1,4 @@
-"""OOM guard — monitors RAM and prevents model loading when memory is too tight.
 
-Integrated into all local model loaders (Gemma 2B, embeddings,
-reranker, vision) to prevent the 16GB HF Spaces free-tier container from
-being OOM-killed by the kernel.
-
-Usage in model loaders:
-    ram = _get_ram_info()
-    if ram["available_gb"] < RAM_THRESHOLD_GB:
-        return False
-    ...
-"""
 import os
 import time
 import threading

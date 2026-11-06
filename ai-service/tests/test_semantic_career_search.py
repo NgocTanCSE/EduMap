@@ -1,12 +1,4 @@
-"""Unit tests for VectorStoreService.semantic_career_search().
 
-Verifies that cosine-similarity semantic career matching returns properly
-structured results with match_score, missing_skills, and field names that
-match the backend CareerService.suggestCareer() output format.
-
-Replaces the previous if-else keyword-matching approach with vector-based
-similarity search via ChromaDB.
-"""
 
 import os
 import sys

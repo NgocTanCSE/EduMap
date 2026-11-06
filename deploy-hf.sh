@@ -1,16 +1,16 @@
 #!/bin/bash
-# Deploy script for HuggingFace Spaces — MIRRORS the local tree (deletions included).
-#
-# Why mirror: the Space repo accumulates files that were deleted locally
-# (e.g. `frontend/components/AgentationToolbar.tsx`). A plain push can be
-# rejected as non-fast-forward, and `upload_folder` without mirroring only
-# overwrites files — it never removes them. Orphan .tsx files still get
-# type-checked by `next build` (tsconfig `include: **/*.tsx`), so a deleted
-# component can fail the production build even though nothing imports it.
-#
-# Usage: HF_TOKEN=<your_token> ./deploy-hf.sh [--git]
-#   default   : huggingface_hub mirror upload (delete_patterns=["*"])
-#   --git     : force-push git HEAD:main (also mirrors deletions)
+
+
+
+
+
+
+
+
+
+
+
+
 set -e
 
 cd "$(dirname "$0")"
@@ -34,8 +34,8 @@ if [ "$1" = "--git" ]; then
     exit 0
 fi
 
-# Default: mirror upload. `delete_patterns=["*"]` removes every remote file
-# that is not part of this folder, so deletions propagate.
+
+
 HF_TOKEN="$HF_TOKEN" SPACE="$SPACE" python3 - <<'PY'
 import os, sys
 from huggingface_hub import HfApi

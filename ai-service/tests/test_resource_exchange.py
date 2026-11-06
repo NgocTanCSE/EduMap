@@ -1,10 +1,4 @@
-"""Unit tests for the Resource Exchange AI ranking + greedy scheduling.
 
-Mirrors ``tests/test_impact_match.py``: when ALL LLM providers are disabled
-(empty API keys), ``rank_resource_matches`` must return a valid-shaped dict
-with template-based fallback scores + a conflict-free transport plan
-instead of raising a 502.
-"""
 
 import asyncio
 import os

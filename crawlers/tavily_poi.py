@@ -1,19 +1,4 @@
-"""
-tavily_poi.py — Tavily-based POI crawler for Vietnamese map_points.
 
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The existing POI
-  crawlers (overpass_crawler.py, crawl_poi_vietnam.py, dongnai_schools_crawler.py,
-  green_spaces_crawler.py) used the Overpass API (https://overpass-api.de) which
-  is **blocked on HF Spaces egress**.  This module provides a Tavily-based
-  replacement: Tavily Search returns web pages listing Vietnamese POIs, and
-  we parse coordinates from the extracted article text via regex.
-
-  When TAVILY_API_KEY is absent, or when a result page doesn't contain
-  parseable coordinates, the POI is skipped — the curated snapshots in
-  schools_crawler.py / wifi_crawler.py / green_spaces_crawler.py fill the gaps
-  (AGENTS.md §6: honest-empty-state rule — never fake coordinates).
-"""
 import os
 import re
 import sys

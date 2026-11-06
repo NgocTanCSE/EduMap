@@ -1,19 +1,4 @@
-"""AI Question Gap Report — Idea #17 service (MEDIUM).
 
-Reads anonymized query_logs from the shared SQLite DB, clusters the queries
-by topic (TF-IDF + K-Means, with a keyword-based fallback when scikit-learn
-is unavailable), identifies knowledge gaps (queries that retrieved zero
-documents or received a low-quality response), and recommends documents
-to fill each gap.
-
-Privacy / risk compliance (per AGENTS.md):
-  * ``user_id_hash`` is already anonymized upstream (SHA-256). We never
-    re-identify users here.
-  * Clustering is capped at **10 000 queries** (``MAX_QUERY_LIMIT``) so the
-    TF-IDF + K-Means pass stays well under the NestJS stream timeout.
-  * Results are cached 24 h in-process (HF Spaces has no Redis).
-  * Graceful degradation: returns a valid-but-empty report on any failure.
-"""
 
 from __future__ import annotations
 

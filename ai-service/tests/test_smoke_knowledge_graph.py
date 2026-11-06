@@ -1,15 +1,4 @@
-"""Smoke test — End-to-end test for Knowledge Graph router (T2).
 
-Exercises the full FastAPI router → KnowledgeGraphService pipeline via
-TestClient, verifying all /api/ai/knowledge/* endpoints return 200 and valid
-response structures.
-
-This is the integration smoke test tying together T1 + T2:
-  - T1: services/knowledge_graph.py  (KnowledgeGraphService)
-  - T2: routers/knowledge.py          (FastAPI endpoints)
-
-Run:  cd ai-service && python3 -m pytest tests/test_smoke_knowledge_graph.py -v -s
-"""
 import os
 import sys
 

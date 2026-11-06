@@ -1,28 +1,4 @@
-"""
-Community posts crawler -> `posts` table (tag='community').
 
-Replaces ALL HTTP-based sources (Hacker News, Dev.to) which are
-**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
-Tavily AI search + extract.
-
-Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
-  version of this crawler made direct HTTP calls to Hacker News Firebase API
-  and Dev.to API — both blocked at HF egress (HN is reachable but Dev.to and
-  other sources are not).  This version uses a single Tavily API call
-  (https://api.tavily.com — reachable from HF).
-
-Sources:
-  - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)
-
-Scope rules (see crawlers/crawl_scope.py):
-  • Years   — 2 consecutive years centred on the crawl year.
-  • Location — Đồng Nai → miền Nam → VN → ĐNA.
-
-Graceful degradation:
-  - TAVILY_API_KEY absent → 0 rows, logged, no crash.
-  - Tavily unreachable → 0 rows, no crash.
-"""
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from db_utils import get_conn, upsert_rows, Jsonb, ensure_column

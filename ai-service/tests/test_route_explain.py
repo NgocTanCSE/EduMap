@@ -1,14 +1,4 @@
-"""
-Tests for the SafeRoute AI explain endpoint (Idea
 
-Covers:
-  1. Degraded fallback when all LLM providers are disabled — returns valid
-     template explanation with ``degraded=True``.
-  2. LLM enrichment path (mocked llm_service) — returns LLM explanation with
-     ``degraded=False``.
-  3. Empty routes list edge case.
-  4. LLM returns non-JSON → fallback triggered.
-"""
 
 import os
 import asyncio

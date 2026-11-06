@@ -1,11 +1,4 @@
-"""
-Pydantic models for the ImpactMatch ranking endpoint (Idea
 
-Flow:
-  Backend ImpactMatchService pre-filters need×sponsor pairs at the SQLite
-  layer (cost, location, category — LIMIT 15) and sends the survivors here.
-  The LLM then assigns a 0-100 match score + explanations + next steps.
-"""
 
 from __future__ import annotations
 

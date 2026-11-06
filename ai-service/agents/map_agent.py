@@ -1,18 +1,4 @@
-"""
-MapAgent — NL → GIS agent for EduMap.
 
-Chuyển câu hỏi người dùng (ngôn ngữ tự nhiên) thành truy vấn GIS bằng cách:
-  1. LLM lập kế hoạch (plan-then-execute) — gọi tool để thu thập dữ liệu.
-  2. Thực thi tool (query_sqlite / geo_recommend / geo_density / rag_search).
-  3. Tóm tắt kết quả kèm bằng chứng.
-
-Tuân thủ AGENTS.md:
-  - Production chỉ chạy trên HF Spaces (single Docker container).
-  - Mọi HTTP call dùng curl --ipv4 --insecure (đã có trong LLMService).
-  - SQL injection → chỉ cho phép SELECT trên allowlist tables.
-  - XKIRO tool calling → Gemini fallback (prompt-based plan & execute).
-  - RAG failure → LLM-only answer, never crash.
-"""
 
 from __future__ import annotations
 

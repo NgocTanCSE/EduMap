@@ -1,11 +1,4 @@
-"""Tests for the AI Learning Space Recommender explain endpoint (Idea #13, T2).
 
-Covers:
-  - LLM service fallback method returns valid explanation structure
-  - FastAPI router POST /api/ai/learning-space/explain returns 200 + text
-  - Degraded flag surfaces when no providers are configured
-  - Cache key determinism (same input → same cache key)
-"""
 import asyncio
 import os
 import sys

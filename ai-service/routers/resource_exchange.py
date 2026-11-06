@@ -1,21 +1,4 @@
-"""Router for /api/ai/resource-exchange/* endpoints (Idea #18).
 
-POST /api/ai/resource-exchange/match-rank  →  LLM re-ranks resource↔request
-                                              pairs, explains each match, and
-                                              builds a greedy transport
-                                              (pickup) schedule.
-
-The backend ResourceMatchService pre-filters at the SQLite layer (type match,
-condition >= min, status available/open) and sends at most 15 candidate pairs
-with a SQLite-side score. This endpoint asks the LLM to:
-  1. Re-rank pairs by semantic fit (0–100).
-  2. Explain why each resource matches the request.
-  3. Greedy-schedule pickup slots avoiding time conflicts.
-
-Graceful degradation: if every LLM provider is unreachable, returns
-``degraded=true`` with template-based cost-fit scores + a simple schedule
-(never 502 — mirrors the ImpactMatch degradation philosophy).
-"""
 
 from fastapi import APIRouter, HTTPException
 from models.resource_exchange_models import (

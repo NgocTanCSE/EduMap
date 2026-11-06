@@ -1,15 +1,4 @@
-"""
-Stdlib-only Overpass helper (urllib — NO `requests`/`psycopg2` dependency).
 
-Why stdlib-only: crawlers/green_spaces_crawler.py, schools_crawler.py and
-wifi_crawler.py are run by the *manual* nationwide aggregation pipeline
-(aggregator.py -> combine_dongnai.py) which ships a leaner environment. They
-must not pull in psycopg2 just to do an Overpass HTTP POST.
-
-Reused by: green_spaces_crawler (parks), schools_crawler (schools),
-           wifi_crawler (wifi/cafe spots). crawl_pois_vietnam.py keeps its own
-grid+dedup logic but can adopt overpass_query() in Phase G.
-"""
 import json
 import time
 from urllib.parse import urlencode

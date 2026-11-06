@@ -1,9 +1,4 @@
-"""Pre-cache local AI model weights into HF cache directory.
 
-Uses huggingface_hub.snapshot_download to fetch model weights into the
-HF cache directory — avoids loading models into RAM, which would cause
-OOMKilled (exit 137) on HF Spaces Docker build (Gemma 2B = ~4GB RAM).
-"""
 from huggingface_hub import snapshot_download
 
 MODELS = [
