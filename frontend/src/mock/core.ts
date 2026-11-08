@@ -40,7 +40,7 @@ export interface MockRoute {
     handler: MockHandler;
 }
 
-export const STORAGE_KEY = 'edumap-mock-db-v3';
+export const STORAGE_KEY = 'edumap-mock-db-v4';
 
 const DEFAULT_USER: MockUser = {
     id: 'usr-demo-admin',

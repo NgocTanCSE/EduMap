@@ -75,7 +75,7 @@ const provenance = (url: string, verified = '2026-11-08') => `Nguồn chính th�
 
 export function createSeed(): MockDb {
     return {
-        version: 3,
+        version: 4,
         generated_at: new Date().toISOString(),
 
         pois: [
