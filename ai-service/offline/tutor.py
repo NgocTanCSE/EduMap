@@ -1,21 +1,16 @@
 """
 Edge AI Tutor — offline-first LLM tutor (Idea
 
-The bundled TinyLlama 1.1B local model was **removed** (2026-10-30): loading it
-needed ~1.5 GB RAM and produced ~2-5 tokens/s on the 2-vCPU HF free tier, i.e.
-30-60 s per answer. The tutor now generates through the shared text cascade
-(DeepSeek → Gemini → Cloudflare) and falls back to curated Vietnamese templates
-when no provider is configured or every provider fails.
+No local models are loaded anymore: the tutor answers through the shared text
+cascade (DeepSeek → Gemini → Cloudflare) and falls back to curated Vietnamese
+templates when no provider is configured or every provider fails.
 
 Every method still degrades gracefully: it never raises and always returns a
 valid response with ``degraded=True`` when the text came from a template.
 
 Design goals (per AGENTS.md):
-  * Lazy loading — the model is instantiated only on the first request so
-    that ai-service startup stays fast (ChomaDB seeding happens in parallel).
-  * Singleton — only one model instance lives in memory at a time.
-  * Thread-safe — all public methods are synchronous and guarded so that
-    concurrent FastAPI requests don't trigger duplicate loads.
+  * Lazy loading — no model is instantiated at all, so ai-service startup
+    stays fast (ChromaDB seeding happens in parallel).
   * TTL cache — identical requests are served from an in-memory dict cache
     (default 1 hour) to amortise the cost of CPU generation.
   * Graceful degradation — never raises; always returns a valid response.

@@ -1,17 +1,13 @@
 """AI service system status router — /api/ai/system/status
 
-Provides RAM usage monitoring, model loading state, and provider chain
-status for OOM guard + observability on HF Spaces free tier.
+Provides RAM monitoring and provider chain status for OOM guard +
+observability. No local models are loaded anymore — AI answers come from
+remote APIs (DeepSeek / Gemini / Cloudflare) or template fallbacks.
 """
 from fastapi import APIRouter
 from typing import Dict, Any
 
-from services.llm_service import (
-    llm_service,
-    _local_llm_loaded,
-    _local_llm_model,
-    _local_llm_load_failed,
-)
+from services.llm_service import llm_service
 from services.vector_store import vector_store
 from utils.memory_guard import _get_ram_info, check_oom, OOM_STATUS, RAM_THRESHOLD_GB
 
@@ -25,20 +21,11 @@ async def system_status() -> Dict[str, Any]:
 
 
     models = {
-        "gemma_2b_chat": {
-            "loaded": _local_llm_loaded and _local_llm_model is not None,
-            "load_failed": _local_llm_load_failed,
-            "model": "google/gemma-2b-it (4-bit NF4, ~1.5GB)",
-        },
         "embedding_model": {
-            "loaded": getattr(vector_store, "_local_embedder_loaded", False)
-            and getattr(vector_store, "_local_embedder", None) is not None,
-            "model": "intfloat/multilingual-e5-small (~300MB)",
+            "note": "Embeddings come from Gemini/Cloudflare API — no local model now"
         },
         "reranker_model": {
-            "loaded": getattr(vector_store, "_local_reranker_loaded", False)
-            and getattr(vector_store, "_local_reranker", None) is not None,
-            "model": "cross-encoder/ms-marco-MiniLM-L6-v2 (~100MB)",
+            "note": "Reranking no longer used — ChromaDB returns results unchanged"
         },
     }
 
@@ -56,10 +43,6 @@ async def system_status() -> Dict[str, Any]:
         "cloudflare_workers_ai": {
             "configured": bool(getattr(vector_store, "has_cf_api", False)),
             "note": "Second fallback (free tier)",
-        },
-        "local_gemma_2b": {
-            "enabled": models["gemma_2b_chat"]["loaded"],
-            "note": "Local text generation — no API key required",
         },
     }
 

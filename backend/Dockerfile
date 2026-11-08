@@ -15,9 +15,9 @@ RUN npm run build
 # 🏃 STAGE 2: Runtime (development) with full dependencies and source
 FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 # Default to SQLite for environments without a PostgreSQL instance
-ENV DB_TYPE=sqlite
+ENV DB_TYPE=postgres
 ENV DB_SYNC=false
 
 COPY package*.json ./

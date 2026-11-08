@@ -1,10 +1,7 @@
 
 import os
-import time
 import threading
 from typing import Dict, Any
-
-
 
 
 RAM_THRESHOLD_GB = float(os.getenv("RAM_THRESHOLD_GB", "4.0"))
@@ -20,7 +17,11 @@ _OOM_LOCK = threading.Lock()
 
 
 def _read_meminfo() -> Dict[str, float]:
-    """Read /proc/meminfo (Linux). Returns {total_gb, available_gb, used_gb, free_gb}."""
+    """Read /proc/meminfo (Linux). Returns {total_gb, available_gb, used_gb, free_gb}.
+
+    Cross-platform: falls back to 16GB total / 6GB available if /proc/meminfo
+    is unavailable (e.g., macOS test env).
+    """
     try:
         with open("/proc/meminfo", "r") as f:
             lines = f.readlines()
@@ -69,27 +70,5 @@ def check_oom() -> Dict[str, Any]:
     }
 
 
-def guard_load(model_name: str, estimated_ram_gb: float = 1.5) -> bool:
-    """Pre-flight guard: should we load this model given current RAM?
-
-    Args:
-        model_name: human-readable name for logging.
-        estimated_ram_gb: RAM this model needs (default 1.5GB for 4-bit LLM).
-
-    Returns True if safe to load, False if RAM too tight.
-    """
-    ram = _read_meminfo()
-    needed = RAM_THRESHOLD_GB + estimated_ram_gb
-    if ram["available_gb"] < needed:
-        with _OOM_LOCK:
-            OOM_STATUS["oom_prevented"] += 1
-            OOM_STATUS["last_triggered"] = time.time()
-        print(f"[OOM-GUARD] REFUSING to load {model_name} — only "
-              f"{ram['available_gb']:.1f}GB free (need {needed:.1f}GB)")
-        return False
-    print(f"[OOM-GUARD] RAM OK for {model_name} — {ram['available_gb']:.1f}GB free")
-    return True
-
-
-__all__ = ["_get_ram_info", "_read_meminfo", "check_oom", "guard_load",
+__all__ = ["_get_ram_info", "_read_meminfo", "check_oom",
            "RAM_THRESHOLD_GB", "OOM_STATUS"]

@@ -57,7 +57,6 @@ class VectorStoreService:
 
 
 
-    _model_load_lock: threading.Lock = threading.Lock()
 
     def __init__(self):
 
@@ -109,20 +108,7 @@ class VectorStoreService:
 
 
 
-        self.local_embed_model_name = os.getenv(
-            "LOCAL_EMBEDDING_MODEL", "intfloat/multilingual-e5-small"
-        )
-        self.local_embedding_disabled = os.getenv(
-            "LOCAL_EMBEDDING_DISABLED", "false"
-        ).lower() in ("1", "true", "yes", "on")
-        self.local_embed_threads = int(os.getenv("LOCAL_EMBEDDING_THREADS", "1"))
-        self._local_embedder = None
-        self._local_embedder_loaded = False
-        self._local_embedder_failed = False
 
-
-
-        self.local_embed_dim = 768
 
 
 
@@ -136,11 +122,8 @@ class VectorStoreService:
 
 
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
-        if not self.has_api and not self.local_embedding_disabled:
-
-            print("INFO: No external embedding API configured — will use local SentenceTransformer model as fallback.")
-        elif not self.has_api and self.local_embedding_disabled:
-            print("WARNING: Vector store without any embeddings (no API keys + local disabled). Set GEMINI_API_KEY or enable LOCAL_EMBEDDING_DISABLED=false.")
+        if not self.has_api:
+            print("WARNING: Vector store without any embedding API — RAG semantic search is unstable (set GEMINI_API_KEY or CLOUDFLARE_API_TOKEN).")
         if self.has_gemini_api:
             print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
         if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
@@ -150,13 +133,6 @@ class VectorStoreService:
             f"per-provider={self.embed_provider_timeout}s "
             f"(EMBED_GLOBAL_TIMEOUT_SECONDS / EMBED_PROVIDER_TIMEOUT_SECONDS)"
         )
-        print(
-            f"INFO: Local embedding fallback: "
-            f"model={self.local_embed_model_name}, "
-            f"disabled={self.local_embedding_disabled}, "
-            f"threads={self.local_embed_threads}, "
-            f"dim={self.local_embed_dim}"
-        )
 
 
 
@@ -166,18 +142,7 @@ class VectorStoreService:
 
 
 
-        self.local_reranker_model_name = os.getenv(
-            "LOCAL_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L6-v2"
-        )
-        self.local_reranker_disabled = os.getenv(
-            "LOCAL_RERANKER_DISABLED", "false"
-        ).lower() in ("1", "true", "yes", "on")
-        self.local_reranker_threshold = float(
-            os.getenv("LOCAL_RERANKER_THRESHOLD", "0.0")
-        )
-        self._local_reranker = None
-        self._local_reranker_loaded = False
-        self._local_reranker_failed = False
+
 
 
         self.collection = None
@@ -287,21 +252,12 @@ class VectorStoreService:
 
     @property
     def has_embedding(self) -> bool:
-        """True if ANY embedding path is available (external API OR local model).
+        """True when an embedding API (Gemini / Cloudflare) is configured.
 
-        Unlike ``has_api`` (which only checks external APIs), this also
-        considers the local SentenceTransformer fallback. Methods that gate
-        on ``has_api`` should use ``has_embedding`` so they don't bail out
-        when only the local model is available.
-
-        Uses getattr() with defaults so that partially-constructed mock objects
-        (e.g. in tests via object.__new__) don't raise AttributeError.
+        The local SentenceTransformer fallback was removed — only external
+        embedding APIs produce vector data now.
         """
-        if getattr(self, "has_api", False):
-            return True
-        _disabled = getattr(self, "local_embedding_disabled", False)
-        _failed = getattr(self, "_local_embedder_failed", False)
-        return not _disabled and not _failed
+        return bool(getattr(self, "has_api", False))
 
     _EMBED_MODEL_NOT_FOUND_REASONS = (
         "not found", "not supported", "no longer available",
@@ -484,7 +440,7 @@ class VectorStoreService:
 
 
         if not self.has_embedding:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary), CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, hoặc bật local embedding (LOCAL_EMBEDDING_DISABLED=false).")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary), CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         if not text:
             return []
 
@@ -697,12 +653,6 @@ class VectorStoreService:
 
 
 
-        if not getattr(self, "local_embedding_disabled", False):
-            local_vec = self._local_get_embedding(text, _cache_key)
-            if local_vec is not None:
-                print(f"  -> Local SentenceTransformer embedding OK (dim={len(local_vec)})")
-                return local_vec
-
         raise RuntimeError(
             f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
             f"Cloudflare: {cf_last_err or ('khong cau hinh' if not self.has_cf_api else 'khong kha dung')}, "
@@ -715,202 +665,6 @@ class VectorStoreService:
 
 
 
-
-    def _load_local_embedder(self):
-        """Lazily load and cache the SentenceTransformer model (singleton).
-
-        Returns the model instance or None if loading fails. On failure, sets
-        ``_local_embedder_failed`` so subsequent calls skip the expensive retry.
-        Uses getattr() for resilience with partially-constructed mock objects.
-        Thread-safe via ``_model_load_lock`` — prevents the seeding thread and
-        the staggered-warmup thread from loading the same ~600 MB model twice.
-        """
-        with self._model_load_lock:
-            if self._local_embedder is not None:
-                return self._local_embedder
-        if getattr(self, "_local_embedder_failed", False):
-            return None
-        if getattr(self, "local_embedding_disabled", False):
-            return None
-        try:
-            from sentence_transformers import SentenceTransformer
-            import torch as _torch
-
-
-            _torch.set_num_threads(self.local_embed_threads)
-            print(f"  [embed] Loading local model {self.local_embed_model_name} ...")
-            self._local_embedder = SentenceTransformer(self.local_embed_model_name)
-            self._local_embedder_loaded = True
-            self._embed_dim = self._embed_dim or self.local_embed_dim
-            print(f"  -> Local embedding model loaded (dim={self.local_embed_dim})")
-            return self._local_embedder
-        except Exception as e:
-            print(f"  [embed] Local model load FAILED: {type(e).__name__}: {e}")
-            self._local_embedder_failed = True
-            return None
-
-    def _local_get_embedding(self, text: str, cache_key: str) -> Optional[List[float]]:
-        """Get embedding from local SentenceTransformer model (offline fallback).
-
-        Returns a 768-dim list[float] or None if the model cannot be loaded/used.
-        Results are cached in the shared _embed_cache so repeated queries
-        (same md5 key) don't hit the model again.
-        """
-        import time as _local_time
-
-        model = self._load_local_embedder()
-        if model is None:
-            return None
-
-        try:
-
-
-
-
-            vec = model.encode(text, normalize_embeddings=True)
-            vec = [float(x) for x in vec]
-
-
-            if self._embed_dim and len(vec) != self._embed_dim:
-                if len(vec) > self._embed_dim:
-                    vec = vec[:self._embed_dim]
-                else:
-                    vec = vec + [0.0] * (self._embed_dim - len(vec))
-            self._embed_dim = self._embed_dim or len(vec)
-
-
-            self._store_embed_cache(cache_key, vec)
-            print(f"  -> Local embedding OK (dim={len(vec)}, source=local_model)")
-            return vec
-        except Exception as e:
-            print(f"  [embed] Local model inference failed: {type(e).__name__}: {e}")
-            return None
-
-
-
-
-
-
-
-    def _load_local_reranker(self):
-        """Lazily load and cache the cross-encoder reranker (singleton).
-
-        Returns the model instance or None if loading fails/disabled.
-        RAM: ~100MB. Download: ~80MB (cached by huggingface_hub on disk).
-        Uses getattr() for resilience with partially-constructed mock objects.
-        Thread-safe via ``_model_load_lock``.
-        """
-        with self._model_load_lock:
-            if self._local_reranker is not None:
-                return self._local_reranker
-        if getattr(self, "_local_reranker_failed", False):
-            return None
-        if getattr(self, "local_reranker_disabled", False):
-            return None
-        try:
-            from sentence_transformers import CrossEncoder
-            print(f"  [rerank] Loading local reranker {self.local_reranker_model_name} ...")
-            self._local_reranker = CrossEncoder(self.local_reranker_model_name)
-            self._local_reranker_loaded = True
-            print(f"  -> Local reranker loaded (model={self.local_reranker_model_name})")
-            return self._local_reranker
-        except Exception as e:
-            print(f"  [rerank] Local reranker load FAILED: {type(e).__name__}: {e}")
-            self._local_reranker_failed = True
-            return None
-
-    def _warmup_local_embedding(self):
-        """Pre-load the local embedding model (no-op if disabled or already loaded)."""
-        if getattr(self, "local_embedding_disabled", False):
-            print("[warmup] Local embedding disabled — skipping warmup")
-            return
-        if getattr(self, "_local_embedder_loaded", False):
-            print("[warmup] Local embedding already loaded")
-            return
-        self._load_local_embedder()
-
-    def _warmup_local_reranker(self):
-        """Pre-load the local reranker (no-op if disabled or already loaded)."""
-        if getattr(self, "local_reranker_disabled", False):
-            print("[warmup] Local reranker disabled — skipping warmup")
-            return
-        if getattr(self, "_local_reranker_loaded", False):
-            print("[warmup] Local reranker already loaded")
-            return
-        self._load_local_reranker()
-
-    def rerank_results(
-        self, query: str, results: Dict[str, Any], top_k: int = 5
-    ) -> Dict[str, Any]:
-        """Re-rank ChromaDB query results using the local cross-encoder.
-
-        Args:
-            query: The user's query string.
-            results: The dict returned by ChromaDB's collection.query() —
-                must contain "documents", "metadatas", "ids", "distances".
-            top_k: Number of top results to return after re-ranking.
-
-        Returns:
-            Same dict structure but with entries re-ordered by reranker score.
-            If the reranker fails to load, returns results unchanged (graceful).
-        """
-        if not results or not results.get("documents"):
-            return results
-
-        docs_list = results.get("documents", [[]])
-        if not docs_list or not docs_list[0]:
-            return results
-
-        docs = docs_list[0]
-        if len(docs) <= 1:
-            return results
-
-        reranker = self._load_local_reranker()
-        if reranker is None:
-            return results
-
-        try:
-
-            pairs = [(query, doc) for doc in docs]
-            scores = reranker.predict(pairs)
-
-
-            ranked = sorted(
-                enumerate(scores), key=lambda x: float(x[1]), reverse=True
-            )[:top_k]
-
-
-
-
-            ranked_indices = [i for i, _ in ranked]
-            docs = docs_list[0]
-            new_docs = [[docs[i] for i in ranked_indices]]
-
-            _metas_raw = results.get("metadatas", [])
-            if _metas_raw and isinstance(_metas_raw[0], list):
-                _metas_flat = _metas_raw[0]
-            else:
-                _metas_flat = _metas_raw
-            new_metas = [[_metas_flat[i] for i in ranked_indices]] if _metas_flat else [[]]
-
-            _ids_raw = results.get("ids", [])
-            if _ids_raw and isinstance(_ids_raw[0], list):
-                _ids_flat = _ids_raw[0]
-            else:
-                _ids_flat = _ids_raw
-            new_ids = [_ids_flat[i] for i in ranked_indices] if _ids_flat else []
-
-            new_dist = [float(s) for _, s in ranked]
-
-            return {
-                "documents": new_docs,
-                "metadatas": new_metas,
-                "ids": new_ids,
-                "distances": new_dist,
-            }
-        except Exception as e:
-            print(f"  [rerank] Failed to re-rank: {type(e).__name__}: {e}")
-            return results
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
         """Upsert documents into ChromaDB, tolerating per-document failures.
@@ -1106,8 +860,6 @@ class VectorStoreService:
                     )
 
 
-                if not getattr(self, "local_reranker_disabled", False):
-                    _results = self.rerank_results(query_text, _results, top_k=n_results)
 
                 return _results
 
@@ -1126,9 +878,6 @@ class VectorStoreService:
 
 
 
-            if not getattr(self, "local_reranker_disabled", False):
-                _results = self.rerank_results(query_text, _results, top_k=n_results)
-
             return _results
         except Exception as e:
             print(f"Error querying vector store: {e}")
@@ -1146,11 +895,7 @@ class VectorStoreService:
         if not self.collection and not self._ensure_collection():
             print("Vector store collection is None — semantic search disabled.")
             return []
-        if not self.has_embedding:
-
-            query_text = " ".join(skills) if skills else ""
-        else:
-            query_text = " ".join(skills) if skills else ""
+        query_text = " ".join(skills) if skills else ""
         if not query_text.strip():
             return []
 

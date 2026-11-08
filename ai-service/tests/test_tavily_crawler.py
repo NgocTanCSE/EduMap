@@ -110,7 +110,7 @@ MOCK_MAP_POINTS = [
         "content": "trường đại học hàng đầu",
         "url": "https://example.com/dntu",
         "raw_content": 
-                       "Trường kỹ thuật lớn nhất miền Nam.",
+                       "Trường kỹ thuật lớn nhất miền Nam. Tọa độ 10.9835, 106.8686.",
         "score": 0.99,
     },
     {

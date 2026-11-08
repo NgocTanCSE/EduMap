@@ -747,17 +747,3 @@ def parse_tavily_map_points(
         if row:
             rows.append(row)
     return rows
-
-
-def parse_tavily_poi_from_results(
-    tavily_results: List[Dict[str, Any]],
-    *,
-    category: str = "poi",
-    location_scope: str = "dong_nai",
-) -> Dict[str, Any]:
-    """Parse a single Tavily result into one ``wifi_locations`` or ``map_points`` row.
-
-    Returns a row dict (possibly empty if coords can't be parsed) or ``None``.
-    This is used by the POI crawlers that need one POI per result.
-    """
-    pass  

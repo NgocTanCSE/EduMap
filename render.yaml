@@ -1,0 +1,124 @@
+# Render Blueprint — EduMap tách service (free tier)
+# Deploy: Render Dashboard → New → Blueprint → chọn repo này.
+# Sau khi tạo, điền các biến có `sync: false` trong tab Environment.
+
+services:
+  # ---------------------------------------------------------------- NestJS API
+  - type: web
+    name: edumap-api
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
+
+      # --- Database (Supabase, session pooler) ---
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_SYNC
+        value: "false"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "6543"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DATABASE
+        value: postgres
+
+      # --- Auth ---
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ENABLE_DEV_LOGIN
+        value: "true"
+
+      # --- Service-to-service ---
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: OSRM_URL
+        value: https://router.project-osrm.org
+
+      # --- AI provider keys (tuỳ chọn) ---
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OWM_API_KEY
+        sync: false
+      - key: GOOGLE_TTS_API_KEY
+        sync: false
+
+  # ------------------------------------------------------------- FastAPI (AI)
+  - type: web
+    name: edumap-ai
+    runtime: docker
+    plan: free
+    region: singapore
+    rootDir: ai-service
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "8000"
+
+      # --- Database (cùng Supabase) ---
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_SYNC
+        value: "false"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "6543"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DATABASE
+        value: postgres
+
+      # --- Vector store (ephemeral trên Render) ---
+      - key: CHROMA_DB_PATH
+        value: /tmp/chroma_db
+      - key: AUTO_SCHEDULER_ENABLED
+        value: "false"
+
+      # --- AI provider keys (tuỳ chọn) ---
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OWM_API_KEY
+        sync: false
+      - key: GOOGLE_TTS_API_KEY
+        sync: false

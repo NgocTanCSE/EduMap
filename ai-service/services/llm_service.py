@@ -11,7 +11,6 @@ import sqlite3
 import urllib.request
 import urllib.error
 import urllib.parse
-import contextlib
 from dotenv import load_dotenv
 from typing import List, Any, Optional, Dict
 
@@ -76,175 +75,6 @@ for _p in _load_paths:
 
 
 
-_local_llm_model = None
-_local_llm_tokenizer = None
-_local_llm_loaded = False
-_local_llm_load_failed = False
-_local_llm_down_until = 0.0
-
-
-def _get_ram_info() -> Dict[str, float]:
-    """Read /proc/meminfo (Linux) — returns {total_gb, available_gb, used_gb}.
-
-    Cross-platform: falls back to 16GB total / 6GB available if /proc/meminfo
-    is unavailable (e.g., macOS test env).
-    """
-    try:
-        with open("/proc/meminfo", "r") as f:
-            lines = f.readlines()
-        info = {}
-        for line in lines:
-            parts = line.split(":")
-            if len(parts) == 2:
-                key = parts[0].strip()
-                val = parts[1].strip().split()[0]
-                info[key] = int(val) * 1024
-        total = info.get("MemTotal", 0)
-        available = info.get("MemAvailable", info.get("MemFree", 0))
-        return {
-            "total_gb": total / (1024 ** 3),
-            "available_gb": available / (1024 ** 3),
-            "used_gb": (total - available) / (1024 ** 3),
-        }
-    except Exception:
-
-        return {"total_gb": 16.0, "available_gb": 6.0, "used_gb": 10.0}
-
-
-
-
-
-
-MIN_RAM_GB_FOR_LLM = float(os.getenv("MIN_RAM_GB_FOR_LLM", "4.0"))
-
-
-def _load_local_llm(model_name: str = "google/gemma-2b-it"):
-    """Lazy-load the local Gemma 2B model + tokenizer.
-
-    Uses BitsAndBytes 4-bit quantization (NF4) to keep RAM at ~1.5GB on the
-    2-vCPU HF Spaces free tier. Transformer weights must be pre-baked in the
-    HF cache during Docker build (COPY --from=ai-model-builder).
-    Singleton — never reloaded after first success.
-    """
-    global _local_llm_model, _local_llm_tokenizer, _local_llm_loaded, _local_llm_load_failed
-    if _local_llm_loaded:
-        return _local_llm_model is not None
-    _local_llm_loaded = True
-
-
-    ram = _get_ram_info()
-    print(f"[LocalLLM] RAM check: {ram['available_gb']:.1f}GB available / "
-          f"{ram['total_gb']:.1f}GB total (need >{MIN_RAM_GB_FOR_LLM}GB free)")
-    if ram["available_gb"] < MIN_RAM_GB_FOR_LLM:
-        print(f"[LocalLLM] ABORT load — only {ram['available_gb']:.1f}GB free "
-              f"(need {MIN_RAM_GB_FOR_LLM}GB). Will use template fallback for now.")
-        _local_llm_load_failed = True
-        return False
-
-    try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-        import torch
-
-
-        HAS_BNB = False
-        try:
-            import bitsandbytes
-            HAS_BNB = True
-        except ImportError:
-            pass
-
-        if HAS_BNB:
-
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-            )
-            print(f"[LocalLLM] Loading {model_name} (4-bit NF4, ~1.5GB RAM)...")
-            _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            _local_llm_model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=bnb_config,
-                device_map="auto",
-                torch_dtype=torch.float16,
-                trust_remote_code=False,
-            )
-            print(f"[LocalLLM] {model_name} loaded OK (4-bit NF4, RAM ~1.5GB)")
-        else:
-
-            print(f"[LocalLLM] bitsandbytes not available — loading {model_name} (FP16, ~3GB RAM)...")
-            _local_llm_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            _local_llm_model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.float16,
-                device_map="auto",
-                trust_remote_code=False,
-            )
-            print(f"[LocalLLM] {model_name} loaded OK (FP16, RAM ~3GB)")
-        return True
-    except Exception as e:
-        print(f"[LocalLLM] Load FAILED: {type(e).__name__}: {e}")
-        _local_llm_load_failed = True
-        return False
-
-
-def _local_llm_generate(
-    prompt: str, temperature=0.7, max_tokens=None, top_p=None, self_ref=None
-) -> str:
-    """Generate text using the LOCAL Gemma 2B model.
-
-    Called as step 3 in the fallback chain (Cloudflare → Gemini → Local LLM).
-    The response cache in LLMService wraps this, so repeated prompts hit cache.
-    Returns non-empty text on success; raises RuntimeError on failure so the
-    caller (template fallback) takes over.
-    """
-    global _local_llm_down_until
-
-
-    import time as _time
-    if _time.monotonic() < _local_llm_down_until:
-        raise RuntimeError("Local LLM circuit breaker open — skipping (recent OOM)")
-
-    if not _local_llm_model or not _local_llm_loaded or _local_llm_load_failed:
-
-        model_name = getattr(self_ref, "local_llm_model_name", "google/gemma-2b-it") if self_ref else "google/gemma-2b-it"
-        if not _load_local_llm(model_name):
-            raise RuntimeError("Local Gemma 2B model could not be loaded (transformers/torch missing or weights not baked)")
-
-    try:
-
-        chat_prompt = (
-            f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-        )
-        inputs = _local_llm_tokenizer(chat_prompt, return_tensors="pt", truncation=True)
-
-        input_ids = inputs.input_ids
-        max_new = max_tokens or 512
-        with _time_limit(seconds=30):
-            output = _local_llm_model.generate(
-                input_ids=input_ids,
-                max_new_tokens=max_new,
-                temperature=temperature,
-                top_p=top_p or 0.9,
-                do_sample=True,
-                pad_token_id=_local_llm_tokenizer.eos_token_id,
-            )
-        generated = _local_llm_tokenizer.decode(
-            output[0][input_ids.shape[-1]:], skip_special_tokens=True
-        )
-        text = generated.strip()
-        if not text:
-            raise RuntimeError("Local LLM produced empty response")
-        return text
-    except RuntimeError:
-        raise
-    except Exception as e:
-
-        _local_llm_down_until = _time.monotonic() + 300
-        raise RuntimeError(f"Local LLM inference failed: {type(e).__name__}: {e}")
-
-
 _MD_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+.-]*\n?")
 _MD_INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s*", re.M)
@@ -294,47 +124,6 @@ def _strip_markdown(text: str) -> str:
 
     out = re.sub(r"\n{3,}", "\n\n", out)
     return out.strip()
-
-
-def _time_limit(seconds: int):
-    """Timeout context manager for local LLM generation.
-
-    Uses signal.SIGALRM when running in the main thread (precise interrupt).
-    In worker threads (the asyncio.to_thread path used by
-    _generate_text_with_fallback) signal is unavailable — the previous dead
-    ``try/except`` never caught the ValueError because signal.signal() runs
-    inside _ctx.__enter__(), not when _ctx() is called. We now check the
-    thread explicitly and return a no-op context manager, since generation is
-    already bounded by ``max_new_tokens``.
-
-    Fixes "signal only works in main thread of the main interpreter" which
-    broke local LLM generation on HF Spaces.
-    """
-    import signal
-    import threading
-
-
-
-
-    if threading.current_thread() is not threading.main_thread():
-        return contextlib.nullcontext()
-
-    class _Timeout(Exception):
-        pass
-
-    def _handler(signum, frame):
-        raise _Timeout(f"Local LLM generation exceeded {seconds}s")
-
-    @contextlib.contextmanager
-    def _ctx():
-        old = signal.signal(signal.SIGALRM, _handler)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old)
-    return _ctx()
 
 
 class LLMService:
@@ -454,51 +243,6 @@ class LLMService:
 
 
 
-
-        self.local_llm_model_name = os.getenv(
-            "LOCAL_LLM_MODEL", "google/gemma-2b-it"
-        )
-        self.local_llm_enabled = os.getenv(
-            "LOCAL_LLM_ENABLED", "true"
-        ).lower() in ("1", "true", "yes", "on")
-        self.local_llm_temperature = float(os.getenv("LOCAL_LLM_TEMPERATURE", "0.3"))
-        self.local_llm_max_tokens = int(os.getenv("LOCAL_LLM_MAX_TOKENS", "512"))
-        self.has_local_llm = self.local_llm_enabled
-        self._local_llm_model: Optional[Any] = None
-        self._local_llm_tokenizer: Optional[Any] = None
-        self._local_llm_loaded = False
-        self._local_llm_load_failed = False
-        self._local_llm_down_until = 0.0
-        if self.local_llm_enabled:
-            print(f"INFO: Local LLM fallback configured: {self.local_llm_model_name} (~1.5GB RAM, lazy-load)")
-            print("INFO: Provider chain: DeepSeek -> Gemini -> Cloudflare -> Local Gemma 2B -> template")
-
-
-
-        if self.is_ready and os.getenv("AI_PREFLIGHT", "true").lower() not in ("0", "false", "no", "off"):
-            try:
-                from services.net import probe_tls
-                targets = []
-                if self.has_deepseek:
-                    targets.append(urllib.parse.urlparse(self.deepseek_base_url).hostname or "api.deepseek.com")
-                if self.has_cf:
-                    targets.append("api.cloudflare.com")
-                if self.has_gemini:
-                    targets.append("generativelanguage.googleapis.com")
-                for host in targets:
-                    ok, ms, err = probe_tls(host)
-                    print(f"[preflight] {host}: {'reachable' if ok else 'UNREACHABLE'} ({ms}ms){(' ' + err) if err else ''}")
-            except Exception as e:
-                print(f"[preflight] skipped: {e}")
-
-
-
-
-
-    _MODEL_NOT_FOUND_REASONS = (
-        "not found", "not supported", "no longer available",
-        "model not found", "could not find", "deprecated", "does not exist",
-    )
 
     def _is_model_not_found(self, code, message):
         low = (message or "").lower()
@@ -1185,21 +929,6 @@ class LLMService:
 
 
 
-        if self.has_local_llm:
-            try:
-                result = _local_llm_generate(
-                    prompt, temperature=temperature, max_tokens=max_tokens,
-                    top_p=top_p, self_ref=self,
-                )
-                if result:
-                    self._store_response_cache(_cache_key, result)
-                    print("  -> Local Gemma 2B generate OK")
-                    return result
-            except Exception as e:
-                errors["local_llm"] = str(e)
-                print(f"Local Gemma 2B generate failed: {e}")
-
-
         parts = []
         if not self.has_deepseek:
             parts.append("DeepSeek: không cấu hình")
@@ -1213,8 +942,6 @@ class LLMService:
             parts.append("Cloudflare: không cấu hình")
         elif errors.get("Cloudflare"):
             parts.append(f"Cloudflare: {errors['Cloudflare'][:150]}")
-        if self.has_local_llm and errors.get("local_llm"):
-            parts.append(f"Local Gemma: {errors['local_llm'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 

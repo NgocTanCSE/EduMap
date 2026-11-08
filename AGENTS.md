@@ -517,26 +517,17 @@ HF_TOKEN=<token> ./deploy-hf.sh
   (browser Web Speech API). The Language Bridge LLM endpoints (simplify,
   translate) do NOT require this key — they use the same `_generate_text_with_fallback`
   cascade as all other AI features.
-- **Local model env vars** (all default to enabled):
+- **No local model env vars** (the local models were deleted on 2026-11-08 — see
+  §6.5): `ai-service` runs on remote APIs only:
   - `DEEPSEEK_API_KEY` — primary text-generation provider (HF Space secret)
   - `DEEPSEEK_BASE_URL=https://api.deepseek.com`, `DEEPSEEK_MODEL=deepseek-chat,deepseek-reasoner`
   - `DEEPSEEK_TIMEOUT_SECONDS=20` (wide budget because the reasoner is slow)
-  - `LOCAL_LLM_ENABLED=true` — Gemma 2B IT 4-bit text generation (offline fallback #4)
-  - `LOCAL_LLM_MODEL=google/gemma-2b-it` — model name (gated — usually a no-op on HF)
-  - `LOCAL_LLM_TEMPERATURE=0.3`, `LOCAL_LLM_MAX_TOKENS=512`
   - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
     set `false` to force template-only answers (instant, no network call)
-  - `LOCAL_VISION_ENABLED=true` — owlv2-base-patch16-ensemble vision (GeoVision fallback)
-  - `LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble`
-  - `LOCAL_VISION_THRESHOLD=0.25`, `LOCAL_VISION_IMAGE_MAX=1024`
-  - `LOCAL_EMBEDDING_ENABLED=true` (default false if unset — see AGENTS §3)
-  - `LOCAL_EMBEDDING_MODEL=intfloat/multilingual-e5-small`
-  - `LOCAL_RERANKER_ENABLED=true`
-  - `LOCAL_RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2`
-  - `LOCAL_ELEVATION_ENABLED=true` — SRTM 30m VN elevation (.npy) offline
-  - `LOCAL_ELEVATION_MODEL_PATH=/app/ai-service/models/elevation/srtm_vn.npy`
-  - `MIN_RAM_GB_FOR_LLM=4.0` — refuse to load LLM below this much free RAM
-  - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold
+  - `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — LLM + embeddings fallback
+    (Cloudflare is blackholed from HF Spaces; Gemini is the primary)
+  - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold, still used by the startup
+    hooks (no longer gates a model load that no longer exists)
 
 ## 6. Data policy (verified Vietnamese content only)
 
@@ -570,46 +561,39 @@ fabricated. The following rules now apply to every feature:
 - `@edumap.vn` accounts (96) are **demo login accounts**, not feature content.
   Keep `admin@edumap.vn` — it is the admin login on HF.
 
-## 6.5. Local models bundle (2026-10-30) — zero external keys required
+## 6.5. Local models — REMOVED (2026-11-08)
 
-All AI features degrade through DeepSeek/Gemini/Cloudflare → local Gemma →
-template fallbacks, so the app **works with ZERO API keys set** (DeepSeek/Gemini
-are optional secrets; without any key it answers from templates + cached
-SQLite data). The only bundled local model is Gemma 2B (gated, so it is usually
-a no-op on the free tier); TinyLlama was removed.
+On 2026-11-08 the ai-service shed every bundled CPU model: **Gemma 2B (text),
+intfloat/multilingual-e5-small (embeddings), cross-encoder/ms-marco-MiniLM-L6-v2
+(reranker), google/owlv2-base-patch16-ensemble (vision), SRTM 30m VN elevation
+(numpy)** were deleted along with their loading code, globals, constants and
+the staggered startup warm-up thread. `ai-service` now runs a **pure API stack**:
 
-| Component | Model | Size (disk) | RAM | Env disable |
-|-----------|-------|-------------|-----|-------------|
-| Text generation | Gemma 2B IT (4-bit NF4) | ~850MB | ~1.5GB | `LOCAL_LLM_ENABLED=false` |
-| Edge AI Tutor | (text cascade) | 0 | 0 | `OFFLINE_TUTOR_USE_LLM=false` |
-| Embeddings | intfloat/multilingual-e5-small | ~270MB | ~600MB | `LOCAL_EMBEDDING_DISABLED=true` |
-| Reranker | cross-encoder/ms-marco-MiniLM-L6-v2 | ~80MB | ~100MB | `LOCAL_RERANKER_ENABLED=false` |
-| Vision (GeoVision) | google/owlv2-base-patch16-ensemble | ~440MB | ~600MB | `LOCAL_VISION_ENABLED=false` |
-| Elevation | SRTM 30m VN tile (.npy) | ~8.4MB | ~8.4MB | `LOCAL_ELEVATION_ENABLED=false` |
-| Routing | OSRM CH graph (OSM-VN) | ~500-800MB | ~256MB | N/A (always local) |
+- Text: `DeepSeek → Google Gemini → Cloudflare Workers AI → template fallback`
+- Embeddings: `Cloudflare → Google Gemini → RuntimeError (RAG returns no
+  results; chat falls back to the LLM)`
+- GeoVision: `HF Inference API (HF_TOKEN required) → degraded = true + empty
+  detections (never 502)`
+- Elevation: `Open-Meteo (no key)`
+- ChromaDB still lives in `/tmp/chroma_db` (re-seeded at startup by `main.py`);
+  RAG requires an embedding API key — without one, chat answers from the LLM
+  and `degraded=true` is false (the model still answers, RAG just adds no
+  sources).
 
-**Provider chain** (`_generate_text_with_fallback`):
-`DeepSeek → Google Gemini → Cloudflare Workers AI → Local Gemma 2B → template`
-TinyLlama was removed on 2026-10-30: 2-vCPU CPU inference needed 30-60 s per
-answer, exceeding both the chat UX budget and the NestJS proxy deadline.
-The tutor (`offline/tutor.py`) now calls the shared cascade; when no provider
-is reachable it returns curated Vietnamese templates with `degraded=True`.
+`requirements.txt` dropped: `transformers`, `accelerate`, `sentencepiece`,
+`sentence-transformers`, `Pillow` (edge-tts/gTTS remain — they are remote TTS,
+not local models). `torch` is gone from the whole codebase (no `import torch`
+outside of `tests/` and `node_modules`).
 
-**Staggered startup** (`main.py` `@app.on_event("startup")`): each model
-pre-loads 15s after the prior (embeddings → reranker → vision → Gemma).
-All models also lazy-load on first request. TinyLlama is no longer in the
-staggered warmup (the Edge AI Tutor no longer bundles a local LLM).
+**Implications for deployment:**
 
-**Memory-aware guards** (`utils/memory_guard.py`):
-- `RAM_THRESHOLD_GB` (default 4.0) — refuse to load any LLM if free RAM < threshold.
-- `check_oom()` / `guard_load()` — thread-safe RAM checks before model init.
-- `GET /api/ai/system/status` — full status: RAM, loaded models, provider chain.
-
-**Total worst-case RAM** (all models loaded simultaneously):
-~7.7GB / 16GB ✅ (within budget with ~8.3GB headroom for Next.js + NestJS + OSRM).
-
-**Dockerfile multi-stage build** pre-downloads ALL model weights in the
-`vision-model-dl` stage so cold-start never hits the HF Hub download path.
+- RAM budget of ai-service ≈ 200-400 MB with ChromaDB warm — fit for a 512 MB
+  plan (if ChromaDB isn't needed, drop it → ~150 MB).
+- Disk image ≈ 300-400 MB (Docker image, no model weights).
+- Cold start ≈ 20-40 s on a 1 vCPU box (uvicorn + FastAPI + ChromaDB import).
+- The cascade degrades to **template replies** with no external keys — the
+  features still answer questions from the LLM even when every provider is
+  unreachable.
 
 ## 7. Current known limitations on HF (free plan)
 
@@ -812,15 +796,11 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
   silently skipped the embeddings + reranker warm-up on every boot). If RAG is
   still empty after a deploy, look for `Vector store initialization failed: …`
   in the boot log.
-- `Local Gemma 2B model could not be loaded (… weights not baked)`: `google/gemma-2b-it`
-  is **gated**, so `scripts/cache_models.py` skips it during the Docker build
-  (see the comment in that file). The Gemma step is therefore a permanent no-op
-  on the free plan; Gemma 2B is the only bundled local text model, but it is
-  gated (needs `HF_TOKEN`), so on the free tier it is usually a no-op and the
-  tutor falls through to the DeepSeek/Gemini cascade or the template fallback.
-  **Resolved (2026-10-31):** `LOCAL_LLM_ENABLED=false` is now set in the Dockerfile,
-  so Gemma is never loaded at runtime. Saves ~1.5 GB RAM. The cascade is
-  `DeepSeek → Gemini → Cloudflare → template` (Gemma was step 4 of 5).
+- `Local Gemma 2B model could not be loaded (… weights not baked)`: Gemma 2B was
+  **removed** entirely on 2026-11-08 (all bundled local models were deleted as
+  the app moves to API-only). No local text model exists now, so this log
+  message can never appear. The cascade is `DeepSeek → Gemini → Cloudflare →
+  template`.
 - `Local Gemma 2B slow on CPU (_Timeout: generation exceeded 35s)`: CPU-only
   generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
   non-streaming endpoints (`/api/ai/language/simplify`, geo analysis, …) pay

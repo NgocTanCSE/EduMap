@@ -1,7 +1,6 @@
 'use strict';
 
 const http = require('http');
-const net = require('net');
 
 const PORT = Number(process.env.HF_PROXY_PORT || 7680);
 const BACKEND = { host: '127.0.0.1', port: Number(process.env.BACKEND_PORT || 3000) };
@@ -62,9 +61,62 @@ const server = http.createServer((req, res) => {
     const body = JSON.stringify({
       status: 'ok',
       service: 'hf-proxy',
-      note: 'Frontend is hosted on Vercel; this Space serves /api }
+      note: 'Frontend is hosted on Vercel; this Space serves /api',
+    });
+    res.writeHead(200, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': Buffer.byteLength(body),
+      'cache-control': 'no-store',
+    });
+    res.end(body);
+    return;
+  }
+
+  const target = targetFor(url);
+  if (!target) {
+    const body = JSON.stringify({ error: 'not_found' });
+    res.writeHead(404, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': Buffer.byteLength(body),
+    });
+    res.end(body);
+    return;
+  }
+
+  const headers = Object.assign({}, req.headers, {
+    host: `${target.host}:${target.port}`,
+    'x-forwarded-host': req.headers.host || '',
+    'x-forwarded-proto': 'https',
+  });
+
+  const proxyReq = http.request({
+    host: target.host,
+    port: target.port,
+    path: rewritePath(url),
+    method: req.method,
+    headers,
+  });
+
+  proxyReq.on('response', (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', () => {
+    if (!res.headersSent) {
+      const body = JSON.stringify({
+        error: 'bad_gateway',
+        message: 'Dịch vụ nội bộ đang khởi động, vui lòng thử lại sau ít giây.',
+      });
+      res.writeHead(502, {
+        'content-type': 'application/json; charset=utf-8',
+        'content-length': Buffer.byteLength(body),
+      });
+      res.end(body);
+    } else {
+      res.destroy();
     }
   });
+  req.on('aborted', () => proxyReq.destroy());
 
   req.pipe(proxyReq, { end: true });
 });

@@ -37,19 +37,6 @@ def _fresh_service():
     svc._gemini_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 4.0
-
-    svc.local_embedding_disabled = False
-    svc._local_embedder = None
-    svc._local_embedder_failed = False
-    svc._local_embedder_loaded = False
-    svc.local_embed_dim = 768
-
-    svc.local_reranker_model_name = "cross-encoder/ms-marco-MiniLM-L6-v2"
-    svc.local_reranker_disabled = True
-    svc.local_reranker_threshold = 0.0
-    svc._local_reranker = None
-    svc._local_reranker_loaded = False
-    svc._local_reranker_failed = False
     return svc
 
 
@@ -130,87 +117,69 @@ def test_embedding_cache_does_not_store_empty():
 
 
 def test_get_embedding_raises_without_any_provider():
-    """Should raise RuntimeError when NO embedding provider is available
-    (no external API + local embedding disabled or failed)."""
+    """Should raise RuntimeError when NO embedding provider is available.
+
+    Local embedding (SentenceTransformer) was removed — only external APIs
+    (Gemini / Cloudflare) power RAG now, so has_embedding is purely ``has_api``.
+    """
     svc = _fresh_service()
     svc.has_api = False
-    svc.local_embedding_disabled = True
 
     try:
         svc.get_embedding("test")
         assert False, "Should have raised RuntimeError"
-    except RuntimeError:
-        pass
+    except RuntimeError as e:
+        assert "Embedding service chưa sẵn sàng" in str(e)
 
     print("✓ test_get_embedding_raises_without_any_provider")
 
 
-def test_local_embedding_fallback_when_no_api():
-    """When no external API is configured (has_api=False), the local
-    SentenceTransformer fallback should be used and return its vector."""
+def test_get_embedding_requires_external_api_only():
+    """has_embedding must be False when no API key is configured."""
     svc = _fresh_service()
     svc.has_api = False
-    svc.has_gemini_api = False
     svc.has_cf_api = False
-
-    svc._local_get_embedding = lambda text, cache_key: [0.5, 0.6, 0.7] + [0.0] * 765
-
-    vec = svc.get_embedding("xin chào thế giới")
-
-    assert vec is not None
-    assert len(vec) == 768
-    assert vec[0] == 0.5
-    assert vec[1] == 0.6
-    assert vec[2] == 0.7
-
-
-    vec2 = svc.get_embedding("xin chào thế giới")
-    assert vec2 == vec
-
-    print("✓ test_local_embedding_fallback_when_no_api")
-
-
-def test_local_fallback_tried_after_gemini_failure():
-    """When Gemini raises an exception, the local fallback must be tried."""
-    svc = _fresh_service()
-    svc.has_api = False
     svc.has_gemini_api = False
-    svc.has_cf_api = False
 
-    local_calls = [0]
+    assert svc.has_embedding is False
 
-    def mock_local(text, cache_key):
-        local_calls[0] += 1
-        return [0.1] * 768
-
-    svc._local_get_embedding = mock_local
-
-    vec = svc.get_embedding("tìm học bổng")
-    assert vec is not None
-    assert len(vec) == 768
-    assert local_calls[0] == 1
-
-    print("✓ test_local_fallback_tried_after_gemini_failure")
-
-
-def test_local_fallback_disabled_raises():
-    """When local embedding is disabled and no API exists, raise RuntimeError."""
-    svc = _fresh_service()
-    svc.has_api = False
-    svc.local_embedding_disabled = True
-
+    # The chain must not hang trying a local model that no longer exists.
     try:
-        svc.get_embedding("test query")
+        svc.get_embedding("nơ-ron")
         assert False, "Should have raised RuntimeError"
-    except RuntimeError as e:
-        assert "Embedding service" in str(e)
-    except AttributeError:
-
-
-
+    except RuntimeError:
         pass
 
-    print("✓ test_local_fallback_disabled_raises")
+    print("✓ test_get_embedding_requires_external_api_only")
+
+
+def test_embed_chain_calls_gemini_when_cf_disabled():
+    """When Cloudflare is not configured, Gemini should be called exactly once.
+
+    There is no local fallback: the chain stops after the last external API.
+    """
+    svc = _fresh_service()
+    svc.has_api = True
+    svc.has_cf_api = False
+    svc.has_gemini_api = True
+    svc._cf_embed_down_until = 0.0
+    svc._gemini_embed_down_until = 0.0
+    svc.embed_global_timeout = 6.0
+    svc.embed_provider_timeout = 3.0
+
+    gemini_calls = [0]
+
+    def mock_gemini(text, timeout_override=None):
+        gemini_calls[0] += 1
+        return [0.4] * 768
+
+    svc._gemini_get_embedding = mock_gemini
+
+    vec = svc.get_embedding("xin chào")
+    assert vec == [0.4] * 768
+    assert gemini_calls[0] == 1, "Gemini should be called exactly once"
+
+    print("✓ test_embed_chain_calls_gemini_when_cf_disabled")
 
 
 def test_store_embed_cache_respects_max():
@@ -282,84 +251,60 @@ def test_slow_cloudflare_still_reaches_gemini_fallback():
     print("✓ test_slow_cloudflare_still_reaches_gemini_fallback")
 
 
-def test_rerank_results_graceful_when_model_fails():
-    """rerank_results should return results unchanged when reranker can't load."""
-    svc = _fresh_service()
-    svc.local_reranker_disabled = True
-    svc._local_reranker_failed = True
+def test_query_returns_results_without_reranker():
+    """``query()`` must return ChromaDB results unchanged — the local
+    sentence-transformer reranker no longer exists in this repo.
 
-    mock_results = {
+    Patched via ``where=`` to avoid touching a real ChromaDB collection.
+    """
+    from unittest.mock import MagicMock
+
+    svc = _fresh_service()
+    svc.has_api = True
+    svc.has_gemini_api = True
+    svc.has_cf_api = False
+
+    svc._gemini_get_embedding = lambda text, **kw: [0.3] * 768
+
+    collection = MagicMock()
+    collection.query.return_value = {
         "documents": [["doc1", "doc2", "doc3"]],
         "metadatas": [[{"id": "1"}, {"id": "2"}, {"id": "3"}]],
         "ids": ["1", "2", "3"],
         "distances": [0.1, 0.2, 0.3],
     }
+    svc.collection = collection
 
-    result = svc.rerank_results("query", mock_results, top_k=3)
+    results = svc.query("test query", n_results=3, where={"id": "1"})
 
-    assert result == mock_results
+    # The same documents/ids must surface in the same order (no reranking).
+    assert results["documents"] == collection.query.return_value["documents"]
+    assert results["ids"] == collection.query.return_value["ids"]
+    assert results["distances"] == collection.query.return_value["distances"]
 
-    print("✓ test_rerank_results_graceful_when_model_fails")
-
-
-def test_rerank_results_reorders_by_score():
-    """rerank_results should re-order documents by cross-encoder scores
-    when the reranker model is available."""
-    svc = _fresh_service()
-    svc.local_reranker_disabled = False
-    svc._local_reranker_failed = False
-
-
-    class _MockReranker:
-        def predict(self, pairs):
-            return [0.3, 0.9, 0.1]
-
-    svc._local_reranker = _MockReranker()
-
-    mock_results = {
-        "documents": [["doc1", "doc2", "doc3"]],
-        "metadatas": [[{"id": "1"}, {"id": "2"}, {"id": "3"}]],
-        "ids": ["1", "2", "3"],
-        "distances": [0.1, 0.2, 0.3],
-    }
-
-    result = svc.rerank_results("query", mock_results, top_k=3)
-
-
-    assert result["documents"][0] == ["doc2", "doc1", "doc3"]
-    assert result["ids"] == ["2", "1", "3"]
-
-    print("✓ test_rerank_results_reorders_by_score")
-
-
-def test_rerank_results_empty_input():
-    """rerank_results should return empty input unchanged."""
-    svc = _fresh_service()
-    svc.local_reranker_disabled = True
-
-    empty_results = {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
-    result = svc.rerank_results("query", empty_results, top_k=3)
-    assert result == empty_results
-
-    print("✓ test_rerank_results_empty_input")
+    print("✓ test_query_returns_results_without_reranker")
 
 
 def test_has_embedding_property():
-    """has_embedding should be True when external API OR local model available."""
+    """has_embedding is True only when an external API is configured.
+
+    There is no local SentenceTransformer fallback anymore — an embedding
+    model only becomes available when an API key is configured.
+    """
     svc = _fresh_service()
     svc.has_api = True
     assert svc.has_embedding is True
 
     svc.has_api = False
-    svc.local_embedding_disabled = False
-    svc._local_embedder_failed = False
+    svc.has_cf_api = False
+    svc.has_gemini_api = False
+    assert svc.has_embedding is False
+
+    # Re-computed exactly like __init__ does (has_api = has_gemini_api or has_cf_api
+    svc.has_cf_api = False
+    svc.has_gemini_api = True
+    svc.has_api = svc.has_gemini_api or svc.has_cf_api
     assert svc.has_embedding is True
-
-    svc._local_embedder_failed = True
-    assert svc.has_embedding is False
-
-    svc.local_embedding_disabled = True
-    assert svc.has_embedding is False
 
     print("✓ test_has_embedding_property")
 
@@ -369,14 +314,11 @@ if __name__ == "__main__":
     test_embedding_cache_evicts_oldest()
     test_embedding_cache_does_not_store_empty()
     test_get_embedding_raises_without_any_provider()
-    test_local_embedding_fallback_when_no_api()
-    test_local_fallback_tried_after_gemini_failure()
-    test_local_fallback_disabled_raises()
+    test_get_embedding_requires_external_api_only()
+    test_embed_chain_calls_gemini_when_cf_disabled()
     test_store_embed_cache_respects_max()
     test_gemini_fallback_when_cloudflare_disabled()
     test_slow_cloudflare_still_reaches_gemini_fallback()
-    test_rerank_results_graceful_when_model_fails()
-    test_rerank_results_reorders_by_score()
-    test_rerank_results_empty_input()
+    test_query_returns_results_without_reranker()
     test_has_embedding_property()
     print("\n✅ All vector store cache tests passed!")

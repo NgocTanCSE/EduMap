@@ -1,10 +1,9 @@
 
 
 import asyncio
-import contextlib
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 _AI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _AI_DIR not in sys.path:
@@ -27,8 +26,8 @@ from services.llm_service import LLMService
 
 
 
-def test_get_elevation_uses_defined_local_flag(monkeypatch, tmp_path):
-    """``_get_elevation`` must not raise when the local SRTM model is absent.
+def test_get_elevation_uses_open_meteo_api(monkeypatch, tmp_path):
+    """``_get_elevation`` must fetch from Open-Meteo — no local SRTM model exists.
 
     Before the fix this raised ``NameError: name '_get_elevation_local_enabled'
     is not defined`` and the router swallowed it into a degraded (empty)
@@ -36,32 +35,33 @@ def test_get_elevation_uses_defined_local_flag(monkeypatch, tmp_path):
     """
     monkeypatch.setattr(climate_guardian_module, "ELEV_CACHE_PATH",
                         str(tmp_path / "elev_cache.json"))
-    monkeypatch.setattr(climate_guardian_module, "LOCAL_ELEVATION_ENABLED", True)
-    monkeypatch.setattr(climate_guardian_module, "_load_local_elevation",
-                        lambda: False)
     monkeypatch.setattr(climate_guardian_module, "_curl_get_json",
                         lambda url, timeout=6: {"elevation": [12.5]})
+
+    # No leftover local-elevation names may be referenced anywhere.
+    assert not hasattr(climate_guardian_module, "LOCAL_ELEVATION_ENABLED")
+    assert not hasattr(climate_guardian_module, "_get_elevation_local")
+    assert not hasattr(climate_guardian_module, "_load_local_elevation")
 
     assert climate_guardian_module._get_elevation(10.95, 106.88) == 12.5
 
 
-def test_get_elevation_skips_local_when_disabled(monkeypatch, tmp_path):
-    """``LOCAL_ELEVATION_ENABLED=false`` must skip the local model entirely."""
-    calls = {"local": 0}
+def test_get_elevation_reuses_disk_cache(monkeypatch, tmp_path):
+    """``_get_elevation`` must cache to disk and avoid repeated API calls."""
+    calls = [0]
 
-    def _fake_local(lat, lng):
-        calls["local"] += 1
-        return 99.0
+    def _fake_curl(url, timeout=6):
+        calls[0] += 1
+        return {"elevation": [3.0]}
 
     monkeypatch.setattr(climate_guardian_module, "ELEV_CACHE_PATH",
                         str(tmp_path / "elev_cache.json"))
-    monkeypatch.setattr(climate_guardian_module, "LOCAL_ELEVATION_ENABLED", False)
-    monkeypatch.setattr(climate_guardian_module, "_get_elevation_local", _fake_local)
-    monkeypatch.setattr(climate_guardian_module, "_curl_get_json",
-                        lambda url, timeout=6: {"elevation": [3.0]})
+    monkeypatch.setattr(climate_guardian_module, "_curl_get_json", _fake_curl)
 
     assert climate_guardian_module._get_elevation(10.95, 106.88) == 3.0
-    assert calls["local"] == 0
+    assert calls[0] == 1
+    assert climate_guardian_module._get_elevation(10.95, 106.88) == 3.0
+    assert calls[0] == 1
 
 
 
@@ -101,87 +101,36 @@ def test_system_status_resolves_check_oom():
 
 
 
-def test_local_llm_generate_decodes_output(monkeypatch):
-    """``_local_llm_generate`` must decode model output via ``tokenizer.decode``.
+def test_llm_chain_has_no_local_model(monkeypatch):
+    """``_generate_text_with_fallback`` must not reference any local model.
 
-    Before the fix, the function body had ``text = generated.strip()`` without
-    ever assigning ``generated`` — the ``decode`` call was lost when the code
-    was refactored from TinyLlama to Gemma in commit ``0d12ee7``.  Every local
-    LLM invocation raised ``NameError``, which the outer ``except`` turned into
-    a ``RuntimeError`` + 5-minute circuit breaker, wasting ~1.5 GB of RAM
-    holding a model that could never produce output.
+    `_local_llm_generate`, `_load_local_llm` and `_time_limit` were removed:
+    the chain is DeepSeek → Google Gemini → Cloudflare Workers AI → template.
+    When no provider is configured, it must raise RuntimeError so callers
+    (chat, LLMBridge) degrade to a template reply instead of 502ing.
     """
     import services.llm_service as llm_mod
 
+    # Ensure no external provider is configured while the test module is
+    # imported (process-wide os.environ cannot be blanked here without
+    # breaking other test modules — see test_deepseek_provider.py).
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DEEPSEEK_BASE_URL", "")
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "")
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "")
 
-    monkeypatch.setattr(llm_mod, "_local_llm_down_until", 0.0)
-    monkeypatch.setattr(llm_mod, "_local_llm_loaded", True)
-    monkeypatch.setattr(llm_mod, "_local_llm_load_failed", False)
+    for name in ("_local_llm_generate", "_load_local_llm", "_time_limit",
+                 "has_local_llm"):
+        assert not hasattr(llm_mod, name), f"{name} still exists in llm_service"
 
+    svc = LLMService()
+    assert not svc.has_deepseek and not svc.has_gemini and not svc.has_cf
 
-    mock_tokenizer = MagicMock()
-    mock_tokenizer.eos_token_id = 1
-    mock_tokenizer.decode.return_value = "  Hello from Gemma  "
+    with pytest.raises(RuntimeError, match="Không thể sinh nội dung"):
+        svc._generate_text_with_fallback("test prompt")
 
-
-    mock_input_ids = MagicMock()
-    mock_input_ids.shape = (1, 5)
-
-
-    mock_inputs = MagicMock()
-    mock_inputs.input_ids = mock_input_ids
-    mock_tokenizer.return_value = mock_inputs
-
-
-    mock_model = MagicMock()
-    mock_output = MagicMock()
-    mock_output.__getitem__ = MagicMock(return_value=MagicMock())
-    mock_model.generate.return_value = mock_output
-
-    monkeypatch.setattr(llm_mod, "_local_llm_model", mock_model)
-    monkeypatch.setattr(llm_mod, "_local_llm_tokenizer", mock_tokenizer)
-
-    _dummy_ctx = contextlib.nullcontext()
-    monkeypatch.setattr(llm_mod, "_time_limit", lambda *a, **kw: _dummy_ctx)
-
-    result = llm_mod._local_llm_generate("test prompt")
-
-
-    mock_tokenizer.decode.assert_called_once()
-    assert result == "Hello from Gemma"
-
-
-def test_local_llm_generate_raises_on_empty_output(monkeypatch):
-    """Empty decode output must raise RuntimeError (not NameError)."""
-    import services.llm_service as llm_mod
-
-    monkeypatch.setattr(llm_mod, "_local_llm_down_until", 0.0)
-    monkeypatch.setattr(llm_mod, "_local_llm_loaded", True)
-    monkeypatch.setattr(llm_mod, "_local_llm_load_failed", False)
-
-    mock_tokenizer = MagicMock()
-    mock_tokenizer.eos_token_id = 1
-    mock_tokenizer.decode.return_value = ""
-
-    mock_input_ids = MagicMock()
-    mock_input_ids.shape = (1, 3)
-
-
-    mock_inputs = MagicMock()
-    mock_inputs.input_ids = mock_input_ids
-    mock_tokenizer.return_value = mock_inputs
-
-    mock_model = MagicMock()
-    mock_output = MagicMock()
-    mock_output.__getitem__ = MagicMock(return_value=MagicMock())
-    mock_model.generate.return_value = mock_output
-
-    monkeypatch.setattr(llm_mod, "_local_llm_model", mock_model)
-    monkeypatch.setattr(llm_mod, "_local_llm_tokenizer", mock_tokenizer)
-    monkeypatch.setattr(llm_mod, "_time_limit", lambda *a, **kw: contextlib.nullcontext())
-
-    with pytest.raises(RuntimeError, match="empty response"):
-        llm_mod._local_llm_generate("test prompt")
+    print("✓ test_llm_chain_has_no_local_model")
 
 
 def test_recommend_career_semantic_prompt_builds_json_schema():

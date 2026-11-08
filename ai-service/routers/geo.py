@@ -34,16 +34,6 @@ GEO_VISION_DEFAULT_LABELS = [
 
 
 
-LOCAL_VISION_MODEL = os.getenv("LOCAL_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
-LOCAL_VISION_ENABLED = os.getenv("LOCAL_VISION_ENABLED", "true").lower() not in ("0", "false", "no", "off")
-LOCAL_VISION_THRESHOLD = float(os.getenv("LOCAL_VISION_THRESHOLD", "0.25"))
-LOCAL_VISION_IMAGE_MAX = int(os.getenv("LOCAL_VISION_IMAGE_MAX", "1024"))
-
-
-_local_vision_model = None
-_local_vision_processor = None
-_local_vision_loaded = False
-_local_vision_load_failed = False
 
 
 def _strip_data_uri(b64: str) -> str:
@@ -53,118 +43,6 @@ def _strip_data_uri(b64: str) -> str:
     if "," in b64 and b64.startswith("data:"):
         return b64.split(",", 1)[1]
     return b64
-
-
-def _load_local_vision_model():
-    """Lazy-load the local zero-shot object detection model (google/owlv2-base-patch16-ensemble).
-
-    Runs on CPU via torch (no GPU needed). Singleton — loads once and caches.
-    Uses getattr for resilience if partially-constructed in tests.
-
-    Model size: ~120MB download, ~200-300MB RAM (tiny variant).
-    Inference: ~3-8s per 1024×1024 image on 2-vCPU HF Spaces.
-    """
-    global _local_vision_model, _local_vision_processor
-    global _local_vision_loaded, _local_vision_load_failed
-
-    if _local_vision_loaded:
-        return _local_vision_model is not None, _local_vision_processor
-    if _local_vision_load_failed:
-        return False, None
-
-    try:
-        import torch
-        from transformers import Owlv2ForObjectDetection, Owlv2Processor
-        from PIL import Image
-        import base64
-        import io
-        import numpy as np
-
-        print(f"[GeoVision] Loading local vision model: {LOCAL_VISION_MODEL} ...")
-        _local_vision_processor = Owlv2Processor.from_pretrained(LOCAL_VISION_MODEL)
-        _local_vision_model = Owlv2ForObjectDetection.from_pretrained(LOCAL_VISION_MODEL)
-        torch.set_num_threads(int(os.getenv("LOCAL_VISION_THREADS", "1")))
-        _local_vision_loaded = True
-        print(f"[GeoVision] Local vision model loaded OK ({LOCAL_VISION_MODEL})")
-        return True, _local_vision_processor
-    except Exception as e:
-        print(f"[GeoVision] Local vision model load FAILED: {type(e).__name__}: {e}")
-        _local_vision_load_failed = True
-        _local_vision_loaded = True
-        return False, None
-
-
-def _b64_to_image(image_b64: str, max_px: int = 1024):
-    """Decode base64 image → PIL Image, resized to max_px square for CPU speed."""
-    import base64 as _b64
-    import io
-    from PIL import Image
-    raw = _b64.b64decode(image_b64)
-    img = Image.open(io.BytesIO(raw)).convert("RGB")
-
-    ratio = min(max_px / img.width, max_px / img.height, 1.0)
-    if ratio < 1.0:
-        img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.BICUBIC)
-    return img
-
-
-def _local_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
-    """Run object detection locally on CPU via OwlV2-tiny.
-
-    Mirrors the HF Inference API response shape:
-    [{score, label, box:{xmin,ymin,xmax,ymax}}, ...]
-
-    Degrades gracefully: if torch/transformers unavailable, the model fails
-    to load, or inference errors out, returns [] (empty detections).
-    """
-    ok, processor = _load_local_vision_model()
-    if not ok or _local_vision_model is None or processor is None:
-        raise RuntimeError(
-            f"Local vision model '{LOCAL_VISION_MODEL}' could not be loaded "
-            "(torch/transformers unavailable or model download failed)"
-        )
-
-    try:
-        import torch
-        from PIL import Image
-
-        img = _b64_to_image(image_b64, LOCAL_VISION_IMAGE_MAX)
-        inputs = processor(images=img, return_tensors="pt")
-        with torch.no_grad():
-            outputs = _local_vision_model(**inputs)
-
-
-        target_sizes = torch.tensor([img.size[::-1]])
-        results = processor.post_process_object_detection(
-            outputs, target_sizes=target_sizes, threshold=LOCAL_VISION_THRESHOLD
-        )[0]
-
-        detections = []
-
-        label_map = {i: lbl for i, lbl in enumerate(labels)}
-        for box, score, label_id in zip(results["boxes"], results["scores"], results["labels"]):
-            lbl = label_map.get(int(label_id), str(label_id))
-            x1, y1, x2, y2 = box.tolist()
-            detections.append({
-                "score": float(score),
-                "label": lbl,
-                "box": {
-                    "xmin": int(x1),
-                    "ymin": int(y1),
-                    "xmax": int(x2),
-                    "ymax": int(y2),
-                },
-            })
-
-        detections.sort(key=lambda d: d["score"], reverse=True)
-        return detections
-    except ImportError:
-        raise RuntimeError("Local vision requires torch + transformers (not installed)")
-    except RuntimeError as e:
-        raise
-    except Exception as e:
-        print(f"[GeoVision] Local detection error: {type(e).__name__}: {e}")
-        return []
 
 
 def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
@@ -441,28 +319,11 @@ async def vision_detect(request: VisionDetectRequest):
     try:
 
         if HF_TOKEN:
-            try:
-                detections = _hf_vision_detect(image_b64, labels)
-                used_model = GEO_VISION_MODEL
-                detection_source = "hf_api"
-            except RuntimeError as hf_err:
-                print(f"[GeoVision] HF vision failed ({hf_err}), falling back to local model ...")
-
-                detections = _local_vision_detect(image_b64, labels)
-                used_model = LOCAL_VISION_MODEL
-                detection_source = "local"
+            detections = _hf_vision_detect(image_b64, labels)
+            used_model = GEO_VISION_MODEL
+            detection_source = "hf_api"
         else:
-
-
-
-
-            if not LOCAL_VISION_ENABLED:
-                raise RuntimeError("HF_TOKEN not set and LOCAL_VISION_ENABLED=false — no vision provider available")
-            detections = _local_vision_detect(image_b64, labels)
-            used_model = LOCAL_VISION_MODEL
-            detection_source = "local"
-
-
+            raise RuntimeError("HF_TOKEN not set — no HF Inference API available for vision detection")
         normalised = []
         for d in detections:
             box = d.get("box", {})
@@ -489,7 +350,7 @@ async def vision_detect(request: VisionDetectRequest):
         print(f"[GeoVision] vision detection degraded: {e}")
         return {
             "detections": [],
-            "model": LOCAL_VISION_MODEL if not HF_TOKEN else GEO_VISION_MODEL,
+            "model": GEO_VISION_MODEL,
             "degraded": True,
             "error": str(e)[:300],
             "source": "none",
@@ -498,7 +359,7 @@ async def vision_detect(request: VisionDetectRequest):
         print(f"[GeoVision] Unexpected error: {e}")
         return {
             "detections": [],
-            "model": LOCAL_VISION_MODEL if not HF_TOKEN else GEO_VISION_MODEL,
+            "model": GEO_VISION_MODEL,
             "degraded": True,
             "error": str(e)[:300],
             "source": "none",
