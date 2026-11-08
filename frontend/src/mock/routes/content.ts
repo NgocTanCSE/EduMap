@@ -1074,7 +1074,7 @@ export const contentRoutes: MockRoute[] = [
             if (!item) return notFound('Tài liệu');
             const request = { id: uid('sharereq'), item_id: item.id, requester_id: user.id, message: String(ctx.body?.message || ''), status: 'pending', created_at: nowIso(), item };
             ctx.db.shareRequests.unshift(request);
-            return ok({ message: 'Đã gửi yêu cầu mượn.', ...request });
+            return ok({ success: true, ...request });
         },
     },
     {
