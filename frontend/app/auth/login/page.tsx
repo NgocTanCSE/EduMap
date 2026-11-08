@@ -191,7 +191,7 @@ function GoogleLoginContent() {
         setLoading(true);
         setErrorMessage('');
         try {
-            await authService.devLogin();
+            await authService.devLogin(selectedRole);
             router.replace(redirectUrl);
         }
         catch (err: any) {

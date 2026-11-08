@@ -212,10 +212,11 @@ class AuthService {
             window.location.href = '/auth/login';
         }
     }
-    async devLogin(): Promise<CurrentUser> {
+    async devLogin(role?: string): Promise<CurrentUser> {
         const response = await fetchWithRetry('/api/auth/dev-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(role ? { role } : {}),
         });
         const data = await response.json();
         if (!response.ok) {
