@@ -1,0 +1,55 @@
+name: Rust backend build + compile check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Build gate only — never deploys, never exposes secrets.
+permissions:
+  contents: read
+  actions: upload-artifact
+
+jobs:
+  build:
+    name: cargo check (musl, x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Rust toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
+          source "$HOME/.cargo/env"
+          rustup target add x86_64-unknown-linux-musl
+          echo "RUSTC: $(rustc --version)"
+          echo "CARGO: $(cargo --version)"
+          [ -f backend/rust-toolchain.toml ] && cat backend/rust-toolchain.toml
+
+      - name: Install musl link tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends musl-tools
+          echo "musl-gcc: $(musl-gcc --version | head -1)"
+
+      - name: cargo check --release --target x86_64-unknown-linux-musl
+        run: |
+          cd backend
+          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
+          echo "---- summary ----"
+          grep -q "^error" /tmp/check.log \
+            && echo "COMPILE FAILED" \
+            || echo "COMPILE OK"
+
+      - name: Store build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/check.log
+          retention-days: 1
