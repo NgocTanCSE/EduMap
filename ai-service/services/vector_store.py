@@ -52,11 +52,48 @@ class VectorStoreService:
     On the host Cloudflare is blackholed so Gemini is the primary path.
     """
 
+    # Default values for every instance, stored on the CLASS so that an object
+    # created without __init__ (e.g. object.__new__() — a test artifact) can
+    # still read them instead of blowing up with AttributeError.  __init__
+    # always re-reads them from env and overwrites them, so production
+    # behaviour is identical.  Mutable state (dicts) is created on demand by
+    # _store_embed_cache / get_embedding into the instance.
+    cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
+    cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
 
+    cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
+    cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
+    embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
+    embedding_model = embed_models[0] if embed_models else "@cf/baai/bge-base-en-v1.5"
+    has_cf_api = bool(cf_api_token) and bool(cf_account_id)
 
+    _cf_embed_down_until = 0.0
 
+    gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
+    gemini_embedding_models = [
+        m.strip()
+        for m in os.getenv(
+            "GEMINI_EMBEDDING_MODEL",
+            "gemini-embedding-001",
+        ).split(",")
+        if m.strip()
+    ]
+    gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
+    has_gemini_api = bool(gemini_key)
+    _gemini_embed_down_until = 0.0
 
+    embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
+    embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
+    has_api = has_gemini_api or has_cf_api
 
+    _embed_dim = None
+
+    _embed_cache_max = int(os.getenv("EMBED_CACHE_MAX", "1024"))
+    _embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
+
+    collection = None
+    _collection_next_retry = 0.0
+    _collection_init_attempts = 0
 
     def __init__(self):
 
@@ -417,21 +454,31 @@ class VectorStoreService:
         if not (vec and isinstance(vec, list)):
             return
 
-        if len(self._embed_cache) >= self._embed_cache_max:
+        _cache = getattr(self, "_embed_cache", None)
+        _meta = getattr(self, "_embed_cache_meta", None)
+        _max = getattr(self, "_embed_cache_max", 1024)
+        _ttl = getattr(self, "_embed_cache_ttl", 1800.0)
+        if _cache is None or _meta is None:
+            _cache = {}
+            _meta = {}
+            self._embed_cache = _cache
+            self._embed_cache_meta = _meta
+
+        if len(_cache) >= _max:
             now = time.monotonic()
 
-            expired = [k for k, ts in self._embed_cache_meta.items() if now - ts > self._embed_cache_ttl]
+            expired = [k for k, ts in _meta.items() if now - ts > _ttl]
             for k in expired:
-                self._embed_cache.pop(k, None)
-                self._embed_cache_meta.pop(k, None)
+                _cache.pop(k, None)
+                _meta.pop(k, None)
 
-            while len(self._embed_cache) >= self._embed_cache_max:
-                oldest = next(iter(self._embed_cache))
-                self._embed_cache.pop(oldest, None)
-                self._embed_cache_meta.pop(oldest, None)
+            while len(_cache) >= _max:
+                oldest = next(iter(_cache))
+                _cache.pop(oldest, None)
+                _meta.pop(oldest, None)
         now = time.monotonic()
-        self._embed_cache[cache_key] = vec
-        self._embed_cache_meta[cache_key] = now
+        _cache[cache_key] = vec
+        _meta[cache_key] = now
 
     def get_embedding(self, text: str) -> List[float]:
         if not text:
@@ -454,15 +501,22 @@ class VectorStoreService:
 
         import time as _embed_time
         _cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
-        _cached = self._embed_cache.get(_cache_key)
+        _cache = getattr(self, "_embed_cache", None)
+        _meta = getattr(self, "_embed_cache_meta", None)
+        _cached = _cache.get(_cache_key) if isinstance(_cache, dict) else None
+        _cached_ts = (_meta.get(_cache_key, 0.0) if isinstance(_meta, dict) else 0.0)
         if _cached is not None:
-            _cached_ts = self._embed_cache_meta.get(_cache_key, 0.0)
-            if _embed_time.monotonic() - _cached_ts <= self._embed_cache_ttl:
+            ttl = getattr(self, "_embed_cache_ttl", 1800.0)
+            if _embed_time.monotonic() - _cached_ts <= ttl:
                 return _cached
             else:
 
-                self._embed_cache.pop(_cache_key, None)
-                self._embed_cache_meta.pop(_cache_key, None)
+                _cache = getattr(self, "_embed_cache", None) or {}
+                _meta = getattr(self, "_embed_cache_meta", None) or {}
+                _cache.pop(_cache_key, None)
+                _meta.pop(_cache_key, None)
+                self._embed_cache = _cache
+                self._embed_cache_meta = _meta
 
         import time
         _embed_start = time.monotonic()

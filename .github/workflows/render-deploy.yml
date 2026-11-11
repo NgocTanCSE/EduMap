@@ -1,0 +1,114 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Một workflow duy nhất: Render build cho 2 service (Rust backend + FastAPI AI).
+# Trigger: mỗi push lên `main` (hoặc chạy tay từ Actions tab).
+concurrency:
+  group: render-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Render (Rust + AI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- 1. Cài Render CLI (pinned) ---
+      - name: Install the Render CLI
+        run: |
+          set -euo pipefail
+          version="v2.7.0"
+          curl -sSfL \
+            "https://github.com/render-oss/cli/releases/download/${version}/cli_2.7.0_linux_amd64.zip" \
+            -o /tmp/render.zip
+          unzip -q /tmp/render.zip -d /tmp/render
+          sudo mv "/tmp/render/cli_${version}" /usr/local/bin/render
+          render --version
+
+      # --- 2. Kích hoạt build (chờ build + restart hoàn tất) cho từng service ---
+      - name: Deploy api service (Rust)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SRV: ${{ secrets.RENDER_SERVICE_ID_API }}
+        run: |
+          set -euo pipefail
+          echo "🚀 Deploying edumap-api (Rust backend)..."
+          render deploys create "$SRV" \
+            --wait \
+            --confirm \
+            --commit "$GITHUB_SHA" \
+            > /tmp/api-deploy.json || { echo "DEPLOY FAILED"; exit 1; }
+          jq -r '.deploy.status' /tmp/api-deploy.json
+          echo "edumap-api deploy id: $(jq -r '.deploy.id' /tmp/api-deploy.json)"
+
+      - name: Deploy ai service (FastAPI)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SRV: ${{ secrets.RENDER_SERVICE_ID_AI }}
+        run: |
+          set -euo pipefail
+          echo "🚀 Deploying edumap-ai (FastAPI, port 8000)..."
+          render deploys create "$SRV" \
+            --wait \
+            --confirm \
+            --commit "$GITHUB_SHA" \
+            > /tmp/ai-deploy.json || { echo "DEPLOY FAILED"; exit 1; }
+          jq -r '.deploy.status' /tmp/ai-deploy.json
+          echo "edumap-ai deploy id: $(jq -r '.deploy.id' /tmp/ai-deploy.json)"
+
+      # --- 3. Smoke test nhanh khi cả hai đã chạy ---
+      # URL lấy từ GitHub → Settings → Variables (tuỳ chọn). Nếu để trống thì
+      # dùng tên service mặc định trong render.yaml.
+      - name: Smoke test (post-deploy)
+        env:
+          API_URL: ${{ vars.RENDER_API_PUBLIC_URL || 'https://edumap-api.onrender.com' }}
+          AI_URL: ${{ vars.RENDER_AI_PUBLIC_URL || 'https://edumap-ai.onrender.com' }}
+        run: |
+          set -euo pipefail
+          for url in "$API_URL/api/health" "$AI_URL/health"; do
+            code=""
+            for i in $(seq 1 24); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
+              if [ "$code" = "200" ]; then echo "OK  $url"; break; fi
+              echo "  wait ($i/24) HTTP $code"
+              sleep 5
+            done
+            if [ "$code" != "200" ]; then echo "TIMEOUT: $url"; exit 1; fi
+          done
+
+      # --- 4. Dump log khi deploy thất bại ---
+      - name: Dump recent logs on failure
+        if: failure()
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SRV_API: ${{ secrets.RENDER_SERVICE_ID_API }}
+          SRV_AI: ${{ secrets.RENDER_SERVICE_ID_AI }}
+        run: |
+          echo "::group::edumap-api (last 100)"
+          render logs -r "$SRV_API" --start 30m --limit 100 || true
+          echo "::endgroup::"
+          echo "::group::edumap-ai (last 100)"
+          render logs -r "$SRV_AI" --start 30m --limit 100 || true
+          echo "::endgroup::"
+
+      # --- 5. Trích xuất thông tin deploy cho khóa ... ---
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "### Render deploy"
+            echo ""
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Vercel: https://<app>.vercel.app"
+            echo "- edumap-api: https://edumap-api.onrender.com"
+            echo "- edumap-ai: https://edumap-ai.onrender.com"
+          } >> "$GITHUB_STEP_SUMMARY"

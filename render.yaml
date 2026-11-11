@@ -1,15 +1,17 @@
 # Render Blueprint — EduMap (free tier)
-# Deploy: Render Dashboard → New → Blueprint → chọn repo này.
-# Sau khi tạo, điền các biến có `sync: false` trong tab Environment.
 #
-# Build context (Render Blueprint): mỗi service có `rootDir: <thư mục>` →
-# Render lấy chính thư mục đó làm Docker build context, vì vậy `dockerfilePath`
-# (`./Dockerfile`) là tương đối với thư mục đó, và mọi dòng `COPY` trong
-# Dockerfile phải dựa vào `backend/` (hoặc `ai-service/`).
+# Cấu hình dịch vụ: Render đang dùng Blueprint `render.yaml` → Dashboard
+# tự tạo 2 service (edumap-api / edumap-ai) nếu chưa tồn tại.
 #
-# Gate biên dịch: GitHub Actions `.github/workflows/backend-build.yml`
-# `cargo check --release --target x86_64-unknown-linux-musl` (musl-tools).
-# Render build ảnh từ Dockerfile này.
+# Cách deploy chính thức (2026-11-11): GitHub Actions →
+#   `.github/workflows/render-deploy.yml`
+#   • trigger: `push` lên `main` + `workflow_dispatch`
+#   • dùng Render CLI (render deploys create) → Render build cho bạn
+#   • Đợi build + restart xong, smoke test (xem `scripts/smoke_render.sh`).
+#
+# QUAN TRỌNG: Tắt Auto-Deploy trong Render Dashboard của 2 service
+# (Settings -> Build and Deploy -> Auto-Deploy: OFF) để chỉ GitHub Actions
+# thực thi deploy, tránh 2 deploy đua nhau (racing) trên cùng một service.
 # ---------------------------------------------------------------------------
 
 services:
@@ -22,13 +24,15 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
-    autoDeploy: true
     envVars:
       # --- Port / runtime (Rust: BACKEND_PORT, mặc định 3000) ---
       - key: BACKEND_PORT
         value: "3000"
+      # KHÔNG dùng generateValue: FE trên Vercel verify JWT bằng cùng secret
+      # (`frontend/src/lib/auth-utils.ts`), secret ngẫu nhiên → mọi route
+      # requireAuth() trả 401. Điền đúng giá trị đã đặt trên Vercel.
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: ENABLE_DEV_LOGIN
@@ -71,6 +75,11 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      # Dùng chung với Vercel (BFF app/api/career/jobs) — career trends cần cả 2.
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
       - key: OWM_API_KEY
         sync: false
       - key: GOOGLE_TTS_API_KEY
@@ -85,7 +94,6 @@ services:
     rootDir: ai-service
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
-    autoDeploy: true
     envVars:
       - key: PORT
         value: "8000"

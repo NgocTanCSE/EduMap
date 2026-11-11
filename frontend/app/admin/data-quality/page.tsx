@@ -8,6 +8,7 @@ const TileLayer: any = nextDynamic(() => import('react-leaflet').then((mod: any)
 const CircleMarker: any = nextDynamic(() => import('react-leaflet').then((mod: any) => ({ default: mod.CircleMarker })), { ssr: false });
 const Popup: any = nextDynamic(() => import('react-leaflet').then((mod: any) => ({ default: mod.Popup })), { ssr: false });
 import 'leaflet/dist/leaflet.css';
+import { getTileAttribution, getTileUrl, darkTileClass } from '@/src/lib/map-tiles';
 import { adminService, Anomaly, DataQualityReport } from '../../../src/services/admin.service';
 import { toast } from "@/src/lib/toast";
 const CATEGORY_OPTIONS: Array<{
@@ -308,8 +309,8 @@ function MapComponentWithAnomalies({ points }: {
             points.reduce((s, p) => s + p.lng, 0) / points.length,
         ]
         : [10.9567, 107.1825];
-    return (<MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }}>
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'/>
+    return (<MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} className={`z-0 ${darkTileClass()}`}>
+      <TileLayer url={getTileUrl()} attribution={getTileAttribution()} />
       {points.map((pt) => (<CircleMarker key={pt.id} center={[pt.lat, pt.lng]} radius={Math.max(5, 5 + (pt.confidence * 8))} color={pt.priority === 'high' ? '#ef4444' : pt.priority === 'medium' ? '#f59e0b' : '#3b82f6'} weight={2} fillOpacity={0.6}>
           <Popup>
             <div className="text-sm">

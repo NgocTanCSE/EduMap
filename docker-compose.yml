@@ -88,6 +88,7 @@ services:
       - NEXT_PUBLIC_API_URL=/api
       - BACKEND_URL=http://backend:3000
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+      - NEXT_PUBLIC_CARTO_API_KEY=${NEXT_PUBLIC_CARTO_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     # NO DIRECT PORTS - secure through Nginx
     depends_on:

@@ -63,7 +63,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - AI_SERVICE_URL=http://ai-service:8000
+      - ROUTING_SERVICE_URL=https://router.project-osrm.org
       - OSRM_URL=https://router.project-osrm.org
+      - BACKEND_PORT=3000
       - NODE_ENV=development
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-me}
       - JWT_EXPIRES_IN=7d
@@ -100,6 +102,7 @@ services:
       - NEXT_PUBLIC_API_URL=/api
       - BACKEND_URL=http://backend:3000
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+      - NEXT_PUBLIC_CARTO_API_KEY=${NEXT_PUBLIC_CARTO_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-me}
       - NODE_ENV=development

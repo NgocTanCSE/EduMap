@@ -923,6 +923,18 @@ Verification: `python3 -m py_compile` OK on all modified files;
   Verified: `npx tsc --noEmit` = 0.
 
 ### UX consistency: apply forms as popups (2026-11-01)
+- **Base map tiles (2026-11-12):** tile URLs/attribution/dark filter are now
+  centralized in `frontend/src/lib/map-tiles.ts` (`getTileUrl()`,
+  `getTileAttribution()`, `darkTileClass()`, `needsTileInvertFilter()`).
+  Cartography style is `MAP_TILE_STYLE = 'dark_nolabels'` (CARTO) at
+  `https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png?api_key=KEY`
+  when `NEXT_PUBLIC_CARTO_API_KEY` is set (Vercel `deploy/vercel.env.example`);
+  when unset, falls back to OpenStreetMap. **No `TileLayer` may embed its own
+  `url`/`attribution`** — retrofitted `components/ui/MapComponent.tsx` and
+  `app/admin/data-quality/page.tsx`. Regression check on a green deploy: grep
+  `openstreetmap.org/{z}/{x}/{y}` over `frontend/` finds only the fallback in
+  `map-tiles.ts`.
+
 
 Following the `/scholarships/[id]` popup pattern, the inline apply forms on two
 detail pages were converted to popup modals so the form degrades gracefully and
@@ -1374,6 +1386,44 @@ Rust binary, and the NestJS TypeScript source has been removed (only
 `config/optimize_indexes.sql` survive as reference). The old `dist/main.js` backend no longer exists, so the BFF proxies
 must now land on the Rust server.
 
+**Frontend ≠ backend connection verified (2026-11-12):** an automated scan over
+every fetch URL in `frontend/src/services/*`, `frontend/src/components/**/*.tsx`,
+`frontend/app/**/page.tsx`, and `frontend/src/lib/**/*.ts` (all `const API_*`
+constants substituted into their template-literal calls) resolves every request
+to either a direct Rust route or a Next.js BFF proxy, with **0 genuine gaps**:
+
+- `backend/src/router.rs`: **244** `.route()` call sites, 244 unique route
+  strings, all under `/api/`.
+- `backend/src/common/auth.rs` `PUBLIC_PATHS`: **242** entries — all **21 map
+  hub routes** are public (`guest`-facing): `map/pois`, `locations`,
+  `categories`, `poi/:id`, `featured-pins`, `stats`, `gap-forecast`,
+  `resource-optimization`, `nl-search`, `safe-route`, `climate-risk`,
+  `climate/alternatives`, `data-gaps`, `survey/priorities`, `survey/next`,
+  `routing/route`, `routing/nearest`, `routing/table`, `routing/flood-zones`,
+  `routing/traffic-segments`, `ai-analysis`.
+- Frontend `167` BFF proxy slots (`app/api/*/route.ts`) cover the remaining
+  `auth`, `ai` (llm/chat/stream/history), `business`, `bookmarks`, `storage`,
+  `notifications`, `scholarships`, etc. — all verified to follow to BE routes.
+- `frontend/next.config.js` rewrites `/api/:path` → `${BACKEND_URL}/api/:path`
+  for **all** paths except the `ai/*` (chat, chat-stream, agent/chat,
+  agent/chat-stream, history, learning-path, search, analytics,
+  pdf-transcript), `gamification`, `offline/tutor`, `offline/status`,
+  `config`, and `notifications/subscribe` exclusions — the 21 map routes flow
+  through.
+- Public reroute fix: the 21 map hub routes were mounted on `/map/*`
+  (broken) → now all under `/api/map/` in `router.rs`; the `PUBLIC_PATHS` list
+  was rebuilt to include exactly those 21; `donations/campaigns/:id/donors`
+  (public donor list on the guest-facing campaign page) was also added.
+- `/api/notifications/subscribe` is the only route outside `PUBLIC_PATHS` —
+  documented "JWT authenticated", always sent with the client's token.
+- Verified with `/tmp/scan_gaps.py` (FE→BE scanner) and `/tmp/verify_scan.py`
+  (route/PUBLIC_PATHS/BFF table); both scripts live in `/tmp` and are wiped on
+  container restart. `/tmp/be_routes.txt` holds the 244-route table.
+- One artifact worth knowing: a scan artifact in `impact-measurement.service.ts`
+  (`/api/dashboard/impact${qs`) resolved the BFF proxy
+  `app/api/dashboard/impact/route.ts` → BE `/impact-measurement/measure` —
+  confirmed reachable, not a gap.
+
 **Known open item:** no websocket layer in the Rust backend — the old
 socket.io `realtime` gateway (`identity`, `notify`, `webrtc-*`) was replaced by
 the SSE notification hub (`common/notifications.rs` + `GET /api/notifications/subscribe`,
@@ -1473,4 +1523,83 @@ still referenced in `backend/Dockerfile` was replaced on this date.
   Blueprint (autoDeploy) → smoke `./scripts/smoke_render.sh <API_URL> <AI_URL>`.
 - **Traps:** free tier sleeps after ~15 min (first request 30–60 s cold start);
   750 h/month budget across all services; `/tmp/chroma_db` is wiped per restart.
+
+### 19.7.1 Deploy via GitHub Actions (2026-11-11)
+
+`render.yaml` only holds the Blueprint config. Every push to `main` triggers
+`.github/workflows/render-deploy.yml`, which runs the Render CLI
+(`render deploys create --wait --confirm --commit $GITHUB_SHA`) → **Render
+builds and restarts** the docker image for each service (no local docker build).
+
+Prerequisites:
+
+```bash
+# GitHub repo Secrets (Settings → Secrets and variables → Actions):
+RENDER_API_KEY=rkr_...              # Render account settings, API Keys
+RENDER_SERVICE_ID_API=srv-xxxx      # edumap-api dashboard URL
+RENDER_SERVICE_ID_AI=srv-xxxx       # edumap-ai dashboard URL
+```
+
+Steps before pushing:
+
+1. **Disable Auto-Deploy in Render Dashboard** of both services
+   (Settings → Build and Deploy → Auto-Deploy: OFF) so the blueprint doesn't
+   race against the workflow.
+2. Fill real values into env templates (`deploy/render-api.env.example`,
+   `deploy/render-ai.env.example`) — especially `DB_*` and `JWT_SECRET` (must
+   match Vercel).
+
+After push → Actions tab → `backend-build` + `ci-cd` green → `deploy` job →
+log dump displays last 100 lines of each service on failure. Verify:
+`https://edumap-api.onrender.com/api/health` + `https://edumap-ai.onrender.com/health`,
+then `./scripts/smoke_render.sh <API> <AI>`.
+
+Rollback: reopen the dispatched run → "Run workflow" and select the commit/tag
+to roll back.
+
+## 20. Env sync — one file per platform (2026-11-11)
+
+Vercel hosts **only** the Next.js app + BFF. The Rust backend and the FastAPI
+ai-service are long-lived processes (Postgres pool, in-process caches, SSE
+notification hub, auto-scheduler) and cannot run as Vercel functions. Deploy
+targets: Vercel (FE) + Render (2 docker services) + Supabase (Postgres).
+
+Copy-paste env templates (no secrets committed):
+
+| Platform | File |
+|---|---|
+| Vercel (FE + BFF) | `deploy/vercel.env.example` |
+| Render `edumap-api` (Rust) | `deploy/render-api.env.example` |
+| Render `edumap-ai` (FastAPI) | `deploy/render-ai.env.example` |
+| Docker Compose local | `.env.example` |
+| `next dev` local | `frontend/.env.example` |
+| Mapping / rationale table | `deploy/ENV_SYNC.md` |
+
+Rules that came out of this pass:
+
+- **`JWT_SECRET` must be identical on Vercel and `edumap-api`.**
+  `render.yaml` previously used `generateValue: true`, which produced a random
+  secret the frontend cannot verify (`frontend/src/lib/auth-utils.ts`) → every
+  `requireAuth()` BFF route answered 401. It is now `sync: false`.
+- **Vercel env whitelist:** `BACKEND_URL`, `AI_SERVICE_URL`, `JWT_SECRET`,
+  `ENABLE_DEV_LOGIN`, `NEXT_PUBLIC_USE_MOCK_API`, `NEXT_PUBLIC_TOASTS_ENABLED`,
+  `NEXT_PUBLIC_AI_API_URL`, `NEXT_PUBLIC_API_URL` (fallback cho
+  `src/lib/api-config.ts::getBackendUrl`), `GOOGLE_CLIENT_ID` /
+  `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `ADZUNA_APP_ID` / `ADZUNA_APP_KEY`, optional
+  `TICKETMASTER_API_KEY` and `NEXT_PUBLIC_SENTRY_DSN`. **`NEXT_PUBLIC_CARTO_API_KEY` (CARTO tile key,
+  required by `frontend/src/lib/map-tiles.ts`)**. Nothing under `frontend/` reads
+  `DB_*`,
+  `DEEPSEEK_*`, `GEMINI_*`, `TAVILY_*`, `CLOUDFLARE_*`, `OWM_*`, `HF_TOKEN`,
+  `ORS_API_KEY`.
+- **Dead secrets:** `HF_TOKEN`, `ORS_API_KEY`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_PROJECT_ID`, `GOOGLE_AUTH_URI`, `GOOGLE_TOKEN_URI`,
+  `GOOGLE_AUTH_PROVIDER_CERT_URL` are read by **no** code (Google login uses the
+  GIS `credential` decoded in `backend/src/modules/auth.rs`; routing uses
+  `ROUTING_SERVICE_URL`; local models were removed 2026-11-08). Templates keep
+  them only as explicit "không dùng" markers.
+- **`ROUTING_SERVICE_URL`** (Rust) is now exported by the root `Dockerfile`,
+  `docker-compose.override.yml` and `.env.example`; `OSRM_URL` stays only for
+  legacy crawler scripts.
+- `docs/` and any `env/` directory are gitignored — deployment templates live
+  in `deploy/`, not `docs/` or `deploy/env/`.
 

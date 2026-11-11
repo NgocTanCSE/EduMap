@@ -118,33 +118,34 @@ pub fn create_router(pool: DbPool) -> Router {
         .with_state(pool);
 
     // `GET /api/map/*` + `POST /api/map/*` — the map hub (POIs, locations,
-    // routing, climate, survey, gap-forecast, NL search). `/map` is public
-    // (the map page answers for guests); the write handlers (`POST /map/pois`,
-    // `POST /map/ai-analysis`) authenticate themselves and return 401 when
-    // the token is missing.
+    // routing, climate, survey, gap-forecast, NL search). All read endpoints
+    // are public (`/api/map/*` listed in `PUBLIC_PATHS` — the map page answers
+    // for guests); the write handlers (`POST /api/map/pois`,
+    // `POST /api/map/ai-analysis`) authenticate themselves and return 401
+    // when the token is missing.
     let map_routes = Router::new()
-        .route("/map/pois", get(map::get_pois).post(map::create_poi))
-        .route("/map/locations", get(map::get_locations))
-        .route("/map/categories", get(map::get_categories))
-        .route("/map/poi/:id", get(map::get_poi_details))
-        .route("/map/featured-pins", get(map::get_featured_pins))
-        .route("/map/stats", get(map::get_stats))
-        .route("/map/gap-forecast", get(map::gap_forecast))
-        .route("/map/resource-optimization", get(map::resource_optimization))
-        .route("/map/nl-search", get(map::nl_search))
-        .route("/map/safe-route", get(map::get_safe_route))
-        .route("/map/climate-risk", get(map::get_climate_risk))
-        .route("/map/ai-analysis", post(map::ai_analysis))
-        .route("/map/climate/alternatives", post(map::post_climate_alternatives))
-        .route("/map/data-gaps", get(map::get_data_gaps))
-        .route("/map/survey/priorities", get(map::get_survey_priorities))
-        .route("/map/survey/next", get(map::get_survey_next))
-        // routing (`/map/routing/*`)
-        .route("/map/routing/route", get(map::get_route))
-        .route("/map/routing/nearest", get(map::get_nearest_road))
-        .route("/map/routing/table", get(map::get_distance_table))
-        .route("/map/routing/flood-zones", get(map::get_flood_zones))
-        .route("/map/routing/traffic-segments", get(map::traffic_segments))
+        .route("/api/map/pois", get(map::get_pois).post(map::create_poi))
+        .route("/api/map/locations", get(map::get_locations))
+        .route("/api/map/categories", get(map::get_categories))
+        .route("/api/map/poi/:id", get(map::get_poi_details))
+        .route("/api/map/featured-pins", get(map::get_featured_pins))
+        .route("/api/map/stats", get(map::get_stats))
+        .route("/api/map/gap-forecast", get(map::gap_forecast))
+        .route("/api/map/resource-optimization", get(map::resource_optimization))
+        .route("/api/map/nl-search", get(map::nl_search))
+        .route("/api/map/safe-route", get(map::get_safe_route))
+        .route("/api/map/climate-risk", get(map::get_climate_risk))
+        .route("/api/map/ai-analysis", post(map::ai_analysis))
+        .route("/api/map/climate/alternatives", post(map::post_climate_alternatives))
+        .route("/api/map/data-gaps", get(map::get_data_gaps))
+        .route("/api/map/survey/priorities", get(map::get_survey_priorities))
+        .route("/api/map/survey/next", get(map::get_survey_next))
+        // routing (`/api/map/routing/*`)
+        .route("/api/map/routing/route", get(map::get_route))
+        .route("/api/map/routing/nearest", get(map::get_nearest_road))
+        .route("/api/map/routing/table", get(map::get_distance_table))
+        .route("/api/map/routing/flood-zones", get(map::get_flood_zones))
+        .route("/api/map/routing/traffic-segments", get(map::traffic_segments))
         .with_state(pool);
 
     // `/api/certificates/*` — cấp chứng nhận số, xác thực, hồ sơ năng lực
