@@ -1,7 +1,7 @@
 /// Application configuration — read from env vars, validated.
 ///
 /// The backend already ran on env vars (`DB_*`, `JWT_SECRET`, `AI_SERVICE_URL`,
-/// `ROUTING_SERVICE_URL`); these are preserved so the deployed `.env`/HF
+/// `ROUTING_SERVICE_URL`); these are preserved so the deployed `.env`/host
 /// Secrets work unchanged.
 use once_cell::sync::Lazy;
 

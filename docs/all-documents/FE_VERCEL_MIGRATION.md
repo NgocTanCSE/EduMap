@@ -38,13 +38,13 @@ Vercel (Next.js 14 + BFF routes)
 ## 4. Vấn đề cần giải quyết
 
 - Backend (:3000) và ai-service (:8000) không public. host free tier chỉ expose 1 port (7680).
-- Vercel BFF là server-side, gọi HF qua HTTPS. Không cần CORS cho browser→HF.
+- Vercel BFF là server-side, gọi host qua HTTPS. Không cần CORS cho browser→host.
 - SQLite (`edumap.db`) nằm trong image; backend đọc qua `DB_SQLITE_PATH`. Giữ nguyên.
 - Vercel serverless có timeout (Hobby: 10s Node / 30s Edge). Chat streaming BFF dùng `fetch` + `TransformStream` — cần runtime Node và không vượt timeout.
 
-## 5. Giải pháp: proxy công khai trên HF port 7680
+## 5. Giải pháp: proxy công khai trên host port 7680
 
-Thay Next.js trên HF bằng một reverse proxy Node nhỏ (không dependency) lắng nghe :7680:
+Thay Next.js trên host bằng một reverse proxy Node nhỏ (không dependency) lắng nghe :7680:
 
 - `/api/ai/*` → `http://127.0.0.1:8000` (path giữ nguyên, ai-service routes đều có prefix `/api/ai`).
 - `/api/*` → `http://127.0.0.1:3000` (backend routes đều có prefix `/api`).
@@ -58,7 +58,7 @@ File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòn
 ### 6.1 Tạo proxy
 
 - Thêm `backend/src/modules/proxy.rs` (Node-free Rust proxy, listen `0.0.0.0:7680`, routing theo prefix trên).
-- Xóa `scripts/run_hf_proxy.sh` (bỏ proxy, stack chạy bản địa).
+- Xóa `scripts/run_proxy.sh` (bỏ proxy, stack chạy bản địa).
 
 ### 6.2 supervisord.conf
 
@@ -126,7 +126,7 @@ File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòn
 ## 9. Rủi ro / lưu ý
 
 - Vercel Hobby function timeout 10s: chat streaming có thể bị cắt nếu backend chậm. Cân nhắc Edge runtime cho `chat-stream` route hoặc tăng `maxDuration` (Pro). AGENTS §13 đã có budget 10s — khớp.
-- host free tier sleep sau 48h inactivity → Vercel BFF gọi HF sẽ nhận cold start (ECONNREFUSED) → backend degraded reply (đã có). Chấp nhận.
+- host free tier sleep sau 48h inactivity → Vercel BFF gọi host sẽ nhận cold start (ECONNREFUSED) → backend degraded reply (đã có). Chấp nhận.
 - SQLite ghi trên host ephemeral: crawler nightly ghi vào `/app/data/edumap.db` (writable trong container) nhưng mất khi restart. Hiện tại cũng mất (`/tmp`? không — edumap.db trong image là read-only-ish, crawler ghi vào image copy trong container → ephemeral). Không thay đổi hành vi này.
 - Không deploy FE lên Vercel nếu backend vẫn localhost-only — phải hoàn thành 6.1–6.3 trước.
 

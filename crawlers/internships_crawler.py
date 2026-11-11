@@ -69,8 +69,8 @@ def _intern_row(title, company, description, field, tags, salary, logo=None, dea
 def crawl():
     """Crawl Vietnamese internships via Tavily Search + Extract.
 
-    Replaces RemoteOK + Remotive + ITviec + TopCV + Adzuna (all blocked on
-    HF Spaces egress).  Builds location-scoped Vietnamese queries, fetches
+    Replaces RemoteOK + Remotive + ITviec + TopCV + Adzuna (all blocked on host
+    egress).  Builds location-scoped Vietnamese queries, fetches
     search+extract results, and parses them into ``_intern_row()`` row dicts.
 
     Returns a flat list of internship dicts (deduped by caller via

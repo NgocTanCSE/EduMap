@@ -89,7 +89,6 @@ const STALE_FILES = [
   "test-results/.last-run.json",
 
 
-  "Dockerfile.hf",
 ];
 
 

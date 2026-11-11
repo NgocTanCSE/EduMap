@@ -107,7 +107,7 @@
 - [x] P5.2 `cd ai-service && python3 -m pytest tests -q` (mục tiêu ≥ baseline).
 - [ ] P5.3 `cd backend && npx tsc --noEmit` (0 lỗi).
 - [ ] P5.4 `cd frontend && npx tsc --noEmit` (0 lỗi).
-- [ ] P5.5 `cd frontend && npm run build` (chỉ user chạy trên HF; local không chạy per §1).
+- [ ] P5.5 `cd frontend && npm run build` (chỉ user chạy trên host; local không chạy per §1).
 - [x] P5.6 Kiểm tra không còn import tới file đã xóa (grep) — OK.
 - [x] P5.7 Kiểm tra không còn comment giải thích (grep sample).
 

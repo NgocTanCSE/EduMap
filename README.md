@@ -54,7 +54,7 @@ docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
 
 ### Embedding / RAG trên host
 
-Chuỗi embedding: `Gemini → Cloudflare → HF → NVIDIA → 01.ai`.
+Chuỗi embedding: `Gemini → Cloudflare → local → NVIDIA → 01.ai`.
 (XKIRO được thử trước nếu `XKIRO_EMBEDDING_MODEL` được cấu hình, nhưng XKIRO
 không hỗ trợ `/v1/embeddings` — sẽ nhận 404 và fallback ngay sang Gemini.)
 Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm hỏng chat):

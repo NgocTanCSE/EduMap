@@ -75,7 +75,7 @@ def _fallback_hn(n=80):
 def crawl():
     """Crawl Vietnamese social/community content via Tavily.
 
-    Replaces FB/IG/LinkedIn/Twitter/Reddit/HN (all blocked on HF Spaces egress).
+    Replaces FB/IG/LinkedIn/Twitter/Reddit/HN (all blocked on host egress).
     Falls back to HN public API when Tavily yields nothing.
     Returns a flat list of posts row dicts (tag=social), deduped by (title, source).
     """

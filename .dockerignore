@@ -47,9 +47,9 @@ mobile
 # The root Dockerfile only COPYs backend/frontend/ai-service/scripts/... so
 # including crawlers/ in the context is harmless for the root image build.
 
-# ── Stale files (removed from repo but may persist on HF Space) ──
-# `hf upload` never deletes files, so old/deleted files can linger on HF Space
-# and get picked up by Docker COPY. These patterns exclude them from build context.
+# ── Stale files (removed from repo but may persist on host) ──
+# docker build copies files from context, so old/deleted files can linger
+# unless excluded by pattern. These patterns exclude them from build context.
 backend/src/services/google-ai.service.ts
 backend/backup_modules/
 ai-service/app/
@@ -93,7 +93,7 @@ frontend/next.config.mjs
 frontend/test-app/
 frontend/test-results/
 # Stale ChromaDB data from earlier uploads — *.bin files were excluded by
-# upload_folder ignore_patterns but older .bin files linger on HF Space.
+# upload_folder ignore_patterns but older .bin files linger on host.
 # A fresh chromadb (cache invalidated) can't read stale data → init hangs.
 # Let the AI service create a new chroma_db at runtime instead.
 ai-service/chroma_db/
@@ -105,7 +105,7 @@ package-lock.json
 .DS_Store
 Thumbs.db
 
-# Env files — never needed in Docker image (HF Spaces injects secrets via env vars,
+# Env files — never needed in Docker image (host injects secrets via env vars,
 # not .env files). Excluding prevents Next.js build from scanning .env.local etc.
 .env
 .env.local

@@ -53,7 +53,7 @@ urlPattern: /\/api\/offline\/tutor\                                → thiếu /
 
 **Verified:** quét toàn bộ frontend JS/JSX/TS/TSX/MJS/CJS — 0 regex literal bị cắt; `npx tsc` frontend/backend = 0.
 
-**Lỗi `scripts/test_hf_ai*.js`, `hf_proxy.js` (SyntaxError):** là **tiền tồn trong HEAD** — 2 file này **đã được xóa** trong sweep này (`git rm`); `node --check` trên bản pristine cũng fail. Next không compile thư mục `scripts/` nên không blok build. Lỗi đã được xóa cùng file.
+**Lỗi `test_hf_ai*.js`, `proxy.js` (SyntaxError):** là **tiền tồn trong HEAD** — 2 file này **đã được xóa** trong sweep này (`git rm`); `node --check` trên bản pristine cũng fail. Next không compile thư mục `scripts/` nên không blok build. Lỗi đã được xóa cùng file.
 
 ## 2. Các Gộp được ĐÁNH GIÁ, KHÔNG thực thi
 

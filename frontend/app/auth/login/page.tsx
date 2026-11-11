@@ -115,7 +115,7 @@ function GoogleLoginContent() {
             }
             if (!clientId) {
                 if (!cancelled) {
-                    setErrorMessage('Google OAuth chưa được cấu hình. Thiết lập secret GOOGLE_CLIENT_ID trong môi trường (HF Spaces → Settings → Secrets).');
+                    setErrorMessage('Google OAuth chưa được cấu hình. Thiết lập secret GOOGLE_CLIENT_ID trong môi trường (host → Settings → Secrets).');
                 }
                 return;
             }
@@ -296,7 +296,7 @@ function GoogleLoginContent() {
 
             {errorMessage && !googleReady && (<div className="text-center text-[11px] text-muted-foreground">
                 Kiểm tra secret <code className="bg-muted/50 px-1.5 py-0.5 rounded">GOOGLE_CLIENT_ID</code>{' '}
-                trên HF Spaces và Authorized JavaScript origins trong Google Cloud Console.
+                trên host và Authorized JavaScript origins trong Google Cloud Console.
               </div>)}
 
             

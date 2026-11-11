@@ -1535,7 +1535,7 @@ class LLMService:
 
         Primary:  Adzuna API (dữ liệu việc làm thật, nếu có ADZUNA_APP_ID/KEY).
         Fallback: SQLite edumap.db (jobs, career_paths — luôn có sẵn trên Space).
-        Không bao giờ gọi LLM — hoạt động ngay cả khi Cloudflare & HF bị chặn TLS.
+        Không bao giờ gọi LLM — hoạt động ngay cả khi Cloudflare & all providers bị chặn TLS.
         """
 
         keywords = []
@@ -2847,8 +2847,7 @@ Trả về **mảng JSON** sau:
     async def moderate_text(self, text: str) -> dict:
         """Moderate user-generated content.
 
-        Uses the primary provider cascade (Cloudflare Workers AI ->
-        HF). When EVERY provider is unavailable at runtime, returns a
+        Uses the primary provider cascade (Cloudflare Workers AI ). When EVERY provider is unavailable at runtime, returns a
         conservative safe result (rather than raising) so the community
         router can keep operating. Content reaching this method has already
         passed the regex Layer-1 pre-filter in ``moderation.py`` which catches

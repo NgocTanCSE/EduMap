@@ -15,7 +15,7 @@ The EduMap platform exposes three API layers:
 
 ### 1. NestJS Backend API (BE)
 - **Location:** `backend/src/modules/`
-- **Port:** 3001 (HF Docker via supervisord)
+- **Port:** 3001 (host docker via supervisord)
 - **Prefix:** `/api`
 - Full REST API with Swagger docs at `/api/docs`
 - Modules: auth, map, library, career, community, mentor, gamification, etc.
@@ -31,7 +31,7 @@ The EduMap platform exposes three API layers:
 - **Route:** `/api/*`
 - Next.js route handlers that proxy requests to the NestJS backend
 
-## Nginx Routing (HF Docker)
+## Nginx Routing (host docker)
 ```
 /api              → Backend (NestJS, port 3001)
 /ai-service/      → AI Service (FastAPI, port 8000)

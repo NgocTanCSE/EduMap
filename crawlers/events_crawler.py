@@ -8,7 +8,7 @@ Tavily AI search + extract.
 Deployment context (see AGENTS.md §1):
   EduMap runs ONLY on the host container (free CPU tier).  The previous
   version of this crawler made direct HTTP calls to Eventbrite and Ticketmaster
-  APIs — both blocked at HF egress.  This version uses a single Tavily API call
+  APIs — both blocked at host egress.  This version uses a single Tavily API call
   (https://api.tavily.com — reachable from the host container).
 
 Sources:
@@ -115,7 +115,8 @@ def _event_row(title, description, address, start_date=None, banner_url=None,
 def crawl():
     """Crawl Vietnamese events via Tavily Search + Extract.
 
-    Replaces Eventbrite + Ticketmaster (both blocked on HF Spaces egress).
+    Replaces Eventbrite + Ticketmaster (both blocked on host egress).
+
     Returns a flat list of event row dicts, deduped by title.
     """
     by_title = {}

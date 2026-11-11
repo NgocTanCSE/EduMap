@@ -11,7 +11,7 @@
 - Single container, public port 7680; internal services 3000/8000/5000; frontends reach them through the Next.js BFF, never directly.
 - `/tmp` (ChromaDB, uploads, caches) is wiped on restart; features must degrade gracefully and re-seed on boot.
 - All AI calls go through remote APIs (DeepSeek → Gemini → Cloudflare Workers AI) with template fallbacks; no GPU/bundled models required for core operation.
-- `DB_TYPE=postgres` in production (Supabase); the bundled SQLite file is the migration/seed source and HF fallback. `DB_SYNC=false`.
+- `DB_TYPE=postgres` in production (Supabase); the bundled SQLite file is the migration/seed source and host fallback. `DB_SYNC=false`.
 
 ## 2. Database analysis
 

@@ -1,7 +1,7 @@
 """
 Green Spaces & Parks Crawler for Đông Nai / miền Nam / Việt Nam.
 
-Replaces the Overpass API (blocked on HF Spaces egress) with Tavily AI search
+Replaces the Overpass API (blocked on host egress) with Tavily AI search
 + extract as the live source.  Falls back to a curated snapshot of real
 Đồng Nai parks when Tavily returns nothing (AGENTS.md §6: honest-empty-state).
 """
@@ -47,7 +47,7 @@ def _features(tags):
 class GreenSpacesCrawler:
     """Crawler để lấy không gian xanh từ Đồng Nai → miền Nam → cả Việt Nam.
 
-    Live crawl uses Tavily Search + Extract (Overpass API is blocked on HF).
+    Live crawl uses Tavily Search + Extract (Overpass API is blocked on host).
     Falls back to a curated Đồng Nai snapshot when Tavily yields nothing.
     """
 

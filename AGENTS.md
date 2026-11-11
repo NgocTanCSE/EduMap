@@ -423,7 +423,7 @@ Rules that must be preserved:
   (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
   Google Gemini (`gemini-3.8-flash`, etc.) are the three text-generation
   providers. Each has a 5-minute circuit breaker after auth (401/403) or
-  network failure. `curl --ipv4 --insecure` is used for all API calls (HF
+  network failure. `curl --ipv4 --insecure` is used for all API calls (host
   Spaces IPv6/TLS quirk).
 - **Local embedding fallback**: `intfloat/multilingual-e5-small` (~270MB,
   ~600MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
@@ -716,7 +716,7 @@ because every climate test mocked `_get_elevation` and no test touched
 | # | Symptom in the log | Root cause | Fix |
 |---|---|---|---|
 | 1 | `Error in climate/risk: name '_get_elevation_local_enabled' is not defined` (same for `climate/alternatives`) → 200 + degraded empty heatmap | `climate_guardian._get_elevation()` referenced an identifier that was never defined; the flag is the module constant `LOCAL_ELEVATION_ENABLED` | use `LOCAL_ELEVATION_ENABLED` (`services/climate_guardian.py`) |
-| 2 | GeoVision would 500 whenever the provider was set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the HF code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
+| 2 | GeoVision would 500 whenever the provider was set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the host code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
 | 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
 | 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
 | 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | a slow/dead provider could run past the 8 s generation budget + word-by-word streaming, exceeding the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): every provider call is wrapped in `asyncio.wait_for`, the provider list skips when time is exhausted, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
@@ -1196,7 +1196,7 @@ for every question, including the seeded suggestion
   - `learning-community`: `POST /` (create spot) requires login.
   - `scholarship`: `POST /`, `PUT /:id` admin/mod.
   - `ai`: `POST /speech/to-text` explicitly `@Public()`.
-- **P2.1** `.env.example` `DB_SYNC=false` (matches Dockerfile/HF; `app.module.ts` already `process.env.DB_SYNC === 'true'`).
+- **P2.1** `.env.example` `DB_SYNC=false` (matches Dockerfile/host; `app.module.ts` already `process.env.DB_SYNC === 'true'`).
 - **P2.2** Provider hints in `scholarship.py`/`route.py` updated to `DEEPSEEK_API_KEY → GEMINI_API_KEY → CLOUDFLARE_API_TOKEN`.
 - **P4** Source already comment-free in `backend/src`, `frontend` (TS/TSX/JS) and `ai-service`/`crawlers`/`scripts` (Python) except preserved directives (shebang, `type: ignore`, `noqa`, pragmas, license/SPDX, `@ts-*`, etc.). Stripped remaining comments in root JS config/scripts and mobile placeholders. Shell scripts left with operational docs.
 - **Merges executed (P3)**: `question_gaps` → `analytics` router; `data_hunter` → `data_quality` router. Router files deleted; `main.py` `router_names` updated; tests updated; self-merged "Merged from data_hunter.py" marker removed. Remaining merge candidates (reported): BFF proxy factory, duplicate embed/tutor/geo namespaces, routing controllers, planning docs.

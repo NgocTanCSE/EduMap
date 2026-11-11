@@ -5,8 +5,8 @@
 ## 1. Mục tiêu
 
 - Chuyển persistent DB từ SQLite file trong Docker image sang Supabase Postgres (free tier: 500 MB DB, 2 GB bandwidth/tháng).
-- Giảm reliance vào file SQLite ephemeral trên HF; dữ liệu sống sót qua restart.
-- Giữ backend (NestJS) + ai-service (FastAPI) trên HF; chỉ đổi DB backend.
+- Giảm reliance vào file SQLite ephemeral trên host; dữ liệu sống sót qua restart.
+- Giữ backend (NestJS) + ai-service (FastAPI) trên host; chỉ đổi DB backend.
 
 ## 2. Kiến trúc mục tiêu
 
@@ -17,14 +17,14 @@ Vercel (Next.js UI + BFF)
               └─ Supabase Postgres (DB_TYPE=postgres)
 ```
 
-ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral) — không thuộc Supabase.
+ChromaDB (RAG) vẫn trên `/tmp` host (ephemeral) — không thuộc Supabase.
 
 ## 3. Các bước thực hiện
 
 ### 3.1 Tạo project Supabase
 1. Tạo project mới trên supabase.com (region gần VN: Singapore).
 2. Lấy connection string: Settings → Database → Connection string (URI) → Transaction pooler (port 6543) cho serverless, hoặc direct (port 5432) cho long-lived.
-3. Tạo user/password; lưu vào HF Secrets: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
+3. Tạo user/password; lưu vào host secrets: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
 
 ### 3.2 Cấu hình host (Secrets)
 | Secret | Value |
@@ -49,7 +49,7 @@ cd backend
 # set env vars trỏ Supabase
 npm run migration:run
 ```
-Hoặc chạy 1 lần trên HF qua exec (nếu có shell). Migrations nằm trong `backend/src/database/migrations/` (21 file).
+Hoặc chạy 1 lần trên host qua exec (nếu có shell). Migrations nằm trong `backend/src/database/migrations/` (21 file).
 
 ### 3.5 Migrate dữ liệu SQLite → Supabase
 Dùng script `scripts/migrate_sqlite_to_postgres.py`:
@@ -78,16 +78,16 @@ Khuyến nghị: bắt đầu với A, chuyển B dần.
 ## 4. Rủi ro / lưu ý
 
 - Supabase free tier pause sau 7 ngày không hoạt động → cần keep-alive (cron ping) hoặc nâng plan.
-- Connection pooling: HF backend là long-lived → dùng direct connection (port 5432), không pooler. Nếu dùng serverless (Vercel BFF trực tiếp) → pooler (6543).
+- Connection pooling: host backend là long-lived → dùng direct connection (port 5432), không pooler. Nếu dùng serverless (Vercel BFF trực tiếp) → pooler (6543).
 - `DB_SYNC` phải false trên Supabase (AGENTS.md §7) — schema qua migrations.
 - Crawlers SQLite-centric: nếu không refactor, dữ liệu crawl chỉ tồn tại trong SQLite ephemeral; Supabase giữ snapshot cuối cùng. Chấp nhận cho free tier.
-- ai-service (`/tmp/chroma_db`) vẫn ephemeral trên HF — không thuộc Supabase.
+- ai-service (`/tmp/chroma_db`) vẫn ephemeral trên host — không thuộc Supabase.
 
 ## 5. Thứ tự thực hiện
 
-1. Tạo Supabase project + secrets HF.
+1. Tạo Supabase project + secrets host.
 2. Đổi Dockerfile `DB_TYPE=postgres`.
-3. Chạy migrations (local hoặc HF exec).
+3. Chạy migrations (local hoặc host exec).
 4. Chạy `migrate_sqlite_to_postgres.py` để seed Supabase.
 5. Deploy via the user's tooling (`git push` → host rebuild).
 6. Verify: backend log `DB_TYPE=postgres`, query `/api/map/locations` trả dữ liệu, Supabase dashboard thấy rows.

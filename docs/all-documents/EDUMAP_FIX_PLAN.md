@@ -19,7 +19,7 @@
 - [x] Thêm green_challenges mẫu (3 thử thách)
 - [x] Thêm green_challenge_activities mẫu
 
-### Todo 1.3: Cập nhật docker-compose.hf.yml ✅ HOÀN THIỆN
+### Todo 1.3: Cập nhật docker-compose.yml ✅ HOÀN THIỆN
 - [x] Thêm mount seed-base.sql vào container postgres (03-seed-base.sql)
 
 ---

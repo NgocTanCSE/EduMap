@@ -8,7 +8,7 @@
 /// Authentication, profile, 2FA + account management.
 pub mod auth;
 
-/// Database and health probes (the `AuthLayer` and HF proxy rely on them).
+/// Database and health probes (the `AuthLayer` and host proxy rely on them).
 pub mod health;
 
 /// AI proxy: `/api/ai/*` forwarded to the FastAPI ai-service (`chat`,

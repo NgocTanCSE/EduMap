@@ -34,7 +34,7 @@ def clean(t):
 def crawl():
     """Crawl Vietnamese education/community content via Tavily.
 
-    Replaces Hacker News + Dev.to (both blocked on HF Spaces egress).
+    Replaces Hacker News + Dev.to (both blocked on host egress).
     Returns a flat list of posts row dicts (tag=community), deduped by title.
     Falls back to HN public API when Tavily yields nothing and HN is reachable.
     """

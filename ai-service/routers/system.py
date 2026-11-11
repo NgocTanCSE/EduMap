@@ -34,11 +34,11 @@ async def system_status() -> Dict[str, Any]:
         "deepseek": {
             "configured": bool(getattr(llm_service, "has_deepseek", False)),
             "model": getattr(llm_service, "deepseek_model_name", None),
-            "note": "Primary text generation (set DEEPSEEK_API_KEY as HF Secret)",
+            "note": "Primary text generation (set DEEPSEEK_API_KEY as host secret)",
         },
         "google_gemini": {
             "configured": bool(getattr(vector_store, "has_gemini_api", False)),
-            "note": "First fallback (set GEMINI_API_KEY as HF Secret)",
+            "note": "First fallback (set GEMINI_API_KEY as host secret)",
         },
         "cloudflare_workers_ai": {
             "configured": bool(getattr(vector_store, "has_cf_api", False)),

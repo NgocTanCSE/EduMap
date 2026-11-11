@@ -15,7 +15,7 @@ EduMap/
 ├── Dockerfile                    # Unified host Docker (builds BE + FE + AI)
 ├── docker-compose.yml            # Full local dev stack (PostgreSQL, Redis, MinIO, nginx, OSRM)
 ├── docker-compose.yml         # local preview (mirrors single-container setup)
-├── .env / .env.example / .env.hf.example
+├── .env / .env.example
 ├── .gitignore / .gitattributes
 ├── README.md                     # host README (with frontmatter)
 │

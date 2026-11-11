@@ -31,8 +31,8 @@ Key Decisions
 - Sử dụng Gemini API key (biến môi trường GEMINI_API_KEY) để chuyển từ chế độ mock sang chế độ thực cho AI Suggestions.
 - Đưa CI/CD vào CI pipeline GitHub Actions, sử dụng secret deploy_token để tự động redeploy trên host.
 Next Steps
-- Kiểm thử đầy đủ UI Dashboard, Notification Center, Admin Roles trên môi trường HF.
-- Đặt biến môi trường GEMINI_API_KEY trong cấu hình Space để kích hoạt đề xuất AI thực.
+- Kiểm thử đầy đủ UI Dashboard, Notification Center, Admin Roles trên môi trường container.
+- Đặt biến môi trường GEMINI_API_KEY trong cấu hình host để kích hoạt đề xuất AI thực.
 - Theo dõi logs Nginx/Backend để xác nhận không còn 404 cho các route mới.
 - (Nếu cần) Bổ sung unit/integration tests cho các endpoint mới và UI components.
 Critical Context

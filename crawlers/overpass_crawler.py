@@ -38,7 +38,7 @@ def _respect_rate_limit(last_ts: float, min_delay: float = 1.0) -> float:
 
 
 class OverpassCrawler:
-    """Nationwide Vietnam crawler — **Tavily-based** (Overpass API is blocked on HF).
+    """Nationwide Vietnam crawler — **Tavily-based** (Overpass API is blocked on host).
 
     The class name ``OverpassCrawler`` is preserved for backward compatibility
     with ``crawlers/aggregator.py`` which imports it.  Internally it delegates

@@ -11,7 +11,7 @@ def crawl_year() -> int:
     """The calendar year this crawl run targets.
 
     Defaults to the current UTC year.  Override with the ``EDUMAP_CRAWL_YEAR``
-    environment variable (set by the nightly cron / HF Space secret) so a run
+    environment variable (set by the nightly cron / host secret) so a run
     in early January can still target the *previous* crawl year if data is
     not yet ready.
     """
