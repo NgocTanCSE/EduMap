@@ -37,6 +37,14 @@ def _fresh_service():
     svc._gemini_embed_down_until = 0.0
     svc.embed_global_timeout = 6.0
     svc.embed_provider_timeout = 4.0
+
+    # The collection can be None on purpose (graceful-degradation path); start
+    # the bookkeeping attributes that __init__ would have set so that
+    # _init_collection / _ensure_collection can never Attribute-Error when an
+    # instance was built with object.__new__ (tests) rather than __init__.
+    svc.collection = None
+    svc._collection_next_retry = 0.0
+    svc._collection_init_attempts = 0
     return svc
 
 

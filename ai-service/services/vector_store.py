@@ -167,7 +167,7 @@ class VectorStoreService:
 
         Previously a failed first attempt (15 s SIGALRM on a cold 2-vCPU boot,
         corrupt/stale ``/tmp/chroma_db``, chromadb import error) latched
-        ``collection = None`` **for the lifetime of the process** — the HF log
+        ``collection = None`` **for the lifetime of the process** — the host log
         then printed ``Vector store collection is None — returning empty RAG
         results`` on every chat request, so RAG was permanently empty. Retrying
         at most once per ``CHROMA_RETRY_SECONDS`` lets a slow boot recover
@@ -175,13 +175,15 @@ class VectorStoreService:
 
         Returns True when the collection is usable.
         """
-        if self.collection is not None:
+        if getattr(self, "collection", None) is not None:
             return True
         if chromadb is None:
             print("ChromaDB module not available. Vector store disabled.")
             return False
 
-        self._collection_init_attempts += 1
+        # (getattr-safe: an instance built without __init__ -- tests use
+        # object.__new__ -- would not have this attribute yet.)
+        self._collection_init_attempts = getattr(self, "_collection_init_attempts", 0) + 1
 
 
         self._collection_next_retry = time.monotonic() + self.CHROMA_RETRY_SECONDS
@@ -242,7 +244,7 @@ class VectorStoreService:
 
     def _ensure_collection(self) -> bool:
         """Lazily (re)initialize ChromaDB if the first attempt failed."""
-        if self.collection is not None:
+        if getattr(self, "collection", None) is not None:
             return True
         if chromadb is None:
             return False
@@ -671,7 +673,7 @@ class VectorStoreService:
 
         Previous behaviour embedded the WHOLE batch in one list comprehension,
         so a single slow/unavailable embedding provider lost every document and
-        `seed_data()` reported `0 documents, status=error` (observed on HF
+        `seed_data()` reported `0 documents, status=error` (observed on host
         Spaces free tier). Now each document is embedded independently:
         documents whose embedding succeeds are stored, failures are skipped and
         counted, and the caller can report an honest partial sync.
@@ -892,7 +894,7 @@ class VectorStoreService:
         """
         import json as _json
 
-        if not self.collection and not self._ensure_collection():
+        if not getattr(self, "collection", None) and not self._ensure_collection():
             print("Vector store collection is None — semantic search disabled.")
             return []
         query_text = " ".join(skills) if skills else ""
