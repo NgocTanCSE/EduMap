@@ -49,7 +49,7 @@ def _hackathon_row(title, content, url, media_urls=None):
 def crawl():
     """Crawl Vietnamese hackathons via Tavily Search + Extract.
 
-    Replaces Devpost + Eventbrite (both blocked on HF Spaces egress).
+    Replaces Devpost + Eventbrite (both blocked on host egress).
     Returns a flat list of post row dicts (tag=hackathon), deduped by (title, source).
     """
     by_key = {}

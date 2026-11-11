@@ -35,8 +35,8 @@ def map_agent():
 def db_path():
     """Use the real bundled SQLite DB if available, else skip."""
     local_db = "/home/ngoctan/Downloads/EduMap/frontend/public/edumap.db"
-    hf_db = "/app/frontend/public/edumap.db"
-    p = local_db if os.path.exists(local_db) else (hf_db if os.path.exists(hf_db) else None)
+    container_db = "/app/frontend/public/edumap.db"
+    p = local_db if os.path.exists(local_db) else (container_db if os.path.exists(container_db) else None)
     if p is None:
         pytest.skip("No SQLite database available for testing")
     return p

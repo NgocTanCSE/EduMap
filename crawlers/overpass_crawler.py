@@ -43,7 +43,7 @@ class OverpassCrawler:
     The class name ``OverpassCrawler`` is preserved for backward compatibility
     with ``crawlers/aggregator.py`` which imports it.  Internally it delegates
     to ``TavilyPoiClient`` which uses the Tavily Search + Extract API
-    (https://api.tavily.com — reachable from HF Spaces egress).
+    (https://api.tavily.com — reachable from host egress).
     """
 
     def __init__(self, proxy_url: str = None):
@@ -118,7 +118,7 @@ class OverpassCrawler:
         """Crawl all of Vietnam by regions, walking the location expansion
         (Đồng Nai → miền Nam → southern → central → northern).
 
-        Uses Tavily Search + Extract (Overpass API is blocked on HF Spaces).
+        Uses Tavily Search + Extract (Overpass API is blocked on host).
         """
         all_locations = []
         print(f"  [scope] crawl_years={_CRAWL_YEARS} | scope_order={SCOPE_ORDER}")

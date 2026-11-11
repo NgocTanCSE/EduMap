@@ -86,7 +86,7 @@ def crawl():
     """Crawl Vietnamese jobs via Tavily Search + Extract.
 
     Replaces RemoteOK + Remotive + ITviec + TopCV + Adzuna (all blocked on
-    HF Spaces egress).  Builds location-scoped Vietnamese queries, fetches
+    host egress).  Builds location-scoped Vietnamese queries, fetches
     search+extract results, and parses them into ``_base_row()`` row dicts.
 
     Returns a flat list of job dicts (deduped by caller via upsert_rows key).

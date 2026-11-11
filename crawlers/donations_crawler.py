@@ -94,7 +94,7 @@ def _donation_row(title, description, source_url, query=None):
 def crawl():
     """Crawl Vietnamese fundraising campaigns via Tavily Search + Extract.
 
-    Replaces Eventbrite (blocked on HF Spaces egress).
+    Replaces Eventbrite (blocked on host egress).
     Returns a flat list of donation_campaigns row dicts, deduped by title.
     """
     by_title = {}

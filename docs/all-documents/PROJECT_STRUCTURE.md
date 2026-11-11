@@ -12,12 +12,12 @@ on the **host** using a unified Docker container (single `Dockerfile`).
 
 ```
 EduMap/
-├── Dockerfile                    # Unified HF Spaces Docker (builds BE + FE + AI)
+├── Dockerfile                    # Unified host Docker (builds BE + FE + AI)
 ├── docker-compose.yml            # Full local dev stack (PostgreSQL, Redis, MinIO, nginx, OSRM)
-├── docker-compose.hf.yml         # HF-style local preview (mirrors single-container setup)
+├── docker-compose.yml         # local preview (mirrors single-container setup)
 ├── .env / .env.example / .env.hf.example
 ├── .gitignore / .gitattributes
-├── README.md                     # HF Spaces README (with frontmatter)
+├── README.md                     # host README (with frontmatter)
 │
 ├── frontend/                     # Next.js 14 frontend application (production UI)
 │   ├── test-app/                 # 🧪 Mock app for testing features locally (NOT in Docker)
@@ -71,7 +71,7 @@ EduMap/
 ├── backend/                     # NestJS API server (BE) — top-level, split from backend-ai/
 │   ├── .env → ../.env           # Symlink to root .env
 │   ├── .dockerignore
-│   ├── Dockerfile / Dockerfile.hf
+│   ├── Dockerfile / Dockerfile
 │   ├── package.json, tsconfig.json
 │   ├── backups/                  # (empty — manual DB backups)
 │   └── src/
@@ -119,7 +119,7 @@ EduMap/
 │   └── scripts/                  # Asset generation scripts
 │
 ├── infrastructure/               # Docker, nginx, monitoring, k8s configs
-│   ├── docker/                   # supervisord.conf (HF container process manager)
+│   ├── docker/                   # supervisord.conf (container process manager)
 │   ├── nginx/                    # default.conf reverse proxy config
 │   └── monitoring/               # Prometheus config
 │
@@ -134,11 +134,11 @@ EduMap/
 │
 ├── scripts/                      # All utility scripts (consolidated from scripts/ + scratch/)
 │   ├── *.py / *.sql              # DB setup, seeding, analytics, sheet generation
-│   ├── *.sh                      # HF entrypoint, crawl pipeline, start scripts
+│   ├── *.sh                      # entrypoint, crawl pipeline, start scripts
 │   ├── *.js                      # Data generation scripts
 │   ├── *.bat                     # Windows batch scripts
 │   ├── *.txt                     # Data/Excel reference files
-│   ├── hf_entrypoint.sh          # HF Spaces container entrypoint (Postgres + Redis + supervisord)
+│   ├── entrypoint.sh          # host container entrypoint (Postgres + Redis + supervisord)
 │   ├── start_backend.sh          # Backend wrapper (pre-flight checks + node dist/main)
 │   ├── start_backend_with_migrations.sh  # Alt starter (migrations + start:prod)
 │   ├── execute_db_setup.py       # Post-deployment DB initialization

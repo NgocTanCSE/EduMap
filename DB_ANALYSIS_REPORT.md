@@ -6,8 +6,8 @@
 
 ## 1. Deployment model (remembered)
 
-- Production runs only on HF Spaces Docker, free CPU basic (2 vCPU / 16 GB RAM, ephemeral disk, sleeps ~48 h).
-- Local machine is code-edit + unit-test only. A local green run is never proof; verification is a request against the HF Space after deploy.
+- Production runs only on host Docker, free CPU basic (2 vCPU / 16 GB RAM, ephemeral disk, sleeps ~48 h).
+- Local machine is code-edit + unit-test only. A local green run is never proof; verification is a request against the host after deploy.
 - Single container, public port 7680; internal services 3000/8000/5000; frontends reach them through the Next.js BFF, never directly.
 - `/tmp` (ChromaDB, uploads, caches) is wiped on restart; features must degrade gracefully and re-seed on boot.
 - All AI calls go through remote APIs (DeepSeek → Gemini → Cloudflare Workers AI) with template fallbacks; no GPU/bundled models required for core operation.

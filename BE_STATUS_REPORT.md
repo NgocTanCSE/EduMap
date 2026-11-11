@@ -71,7 +71,7 @@
 - Service: `geo-vision.service.ts` (508 dòng).
 - Entity: 0 (dùng MapPoint).
 - Spec: 0.
-- Trạng thái: ✅ Implemented (HF Inference + local owlv2 fallback). isSqlite=false.
+- Trạng thái: ✅ Implemented (inference + local owlv2 fallback). isSqlite=false.
 
 **wifi** — `backend/src/modules/wifi/`
 - Controller: `wifi.controller.ts` (48 dòng). Endpoints: locations (GET/GET nearby/POST), locations/:id/speed-test (POST).
@@ -366,7 +366,7 @@ Thư mục `ai-service/`. 34 router mount trong `main.py`. Các endpoint chính:
 - question-gaps, auto/* (health, regions, cached results)
 - offline-tutor, library, suggestions, moderation, system/status
 
-LLM chain: DeepSeek → Gemini → Cloudflare Workers AI → (Gemma disabled) → template. Embeddings: Cloudflare → Gemini → local SentenceTransformer. Vision: HF Inference → local owlv2. TTS: Google Cloud TTS → edge-tts → gTTS → browser fallback.
+LLM chain: DeepSeek → Gemini → Cloudflare Workers AI → (Gemma disabled) → template. Embeddings: Cloudflare → Gemini → local SentenceTransformer. Vision: inference → local owlv2. TTS: Google Cloud TTS → edge-tts → gTTS → browser fallback.
 
 Auto-scheduler daemon: 7 tasks (chroma_seed, question_gaps, resource_exchange, impact_match, impact_measure ×5 regions, climate_risk ×5 regions, daily_insight), cache TTL 24h.
 

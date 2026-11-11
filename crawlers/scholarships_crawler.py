@@ -96,7 +96,7 @@ def _scholarship_row(title, description, provider, deadline=None, image_url=None
 def crawl():
     """Crawl Vietnamese scholarships via Tavily Search + Extract.
 
-    Replaces Eventbrite + Dev.to (both blocked on HF Spaces egress).
+    Replaces Eventbrite + Dev.to (both blocked on host egress).
     Returns a flat list of scholarship row dicts, deduped by title.
     """
     by_title = {}

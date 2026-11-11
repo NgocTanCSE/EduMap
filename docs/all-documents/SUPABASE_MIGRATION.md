@@ -1,4 +1,4 @@
-# Chuyển Database từ SQLite (HF) sang Supabase (PostgreSQL)
+# Chuyển Database từ SQLite (host) sang Supabase (PostgreSQL)
 
 > Kế hoạch + cấu hình. DB hiện tại: `frontend/public/edumap.db` (SQLite, 1.8 MB, 98 bảng, ~4.500 dòng).
 
@@ -13,7 +13,7 @@
 ```
 Vercel (Next.js UI + BFF)
   └─ BACKEND_URL → https://<host>
-        └─ HF Spaces (hf-proxy :7680 → backend :3000 / ai :8000)
+        └─ host (proxy :7680 → backend :3000 / ai :8000)
               └─ Supabase Postgres (DB_TYPE=postgres)
 ```
 
@@ -26,7 +26,7 @@ ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral) — không thuộc Supabase.
 2. Lấy connection string: Settings → Database → Connection string (URI) → Transaction pooler (port 6543) cho serverless, hoặc direct (port 5432) cho long-lived.
 3. Tạo user/password; lưu vào HF Secrets: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
 
-### 3.2 Cấu hình HF Spaces (Secrets)
+### 3.2 Cấu hình host (Secrets)
 | Secret | Value |
 |---|---|
 | `DB_TYPE` | `postgres` |
@@ -61,7 +61,7 @@ Script copy từng bảng (INSERT ... ON CONFLICT DO NOTHING theo PK). Idempoten
 
 ### 3.6 Crawlers
 Crawlers hiện ghi SQLite trực tiếp (`sqlite3`). Hai lựa chọn:
-- **A (đơn giản):** Giữ crawlers ghi SQLite trên HF (ephemeral), nightly chạy `migrate_sqlite_to_postgres.py` để push lên Supabase. Dữ liệu crawl mất khi restart nhưng Supabase giữ bản cuối.
+- **A (đơn giản):** Giữ crawlers ghi SQLite trên host (ephemeral), nightly chạy `migrate_sqlite_to_postgres.py` để push lên Supabase. Dữ liệu crawl mất khi restart nhưng Supabase giữ bản cuối.
 - **B (đúng):** Refactor crawlers dùng `crawlers/db_client.py` (helper psycopg2) khi `DB_TYPE=postgres`. Cần sửa từng crawler (jobs, internships, events, scholarships, map_points, ...).
 
 Khuyến nghị: bắt đầu với A, chuyển B dần.

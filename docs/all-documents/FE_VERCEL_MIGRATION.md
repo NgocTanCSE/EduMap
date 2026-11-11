@@ -1,17 +1,17 @@
-# Tách Frontend từ HF Spaces sang Vercel
+# Tách Frontend từ host sang Vercel
 
-> Kế hoạch triển khai. Runtime hiện tại: HF Spaces free tier (single container, public port 7680). Mục tiêu: chuyển Next.js UI + BFF sang Vercel, giữ backend (NestJS :3000) và ai-service (FastAPI :8000) + OSRM (:5000) trên HF.
+> Kế hoạch triển khai. Runtime hiện tại: host free tier (single container, public port 7680). Mục tiêu: chuyển Next.js UI + BFF sang Vercel, giữ backend (NestJS :3000) và ai-service (FastAPI :8000) + OSRM (:5000) trên host.
 
 ## 1. Mục tiêu
 
-- Giảm tải CPU/RAM/disk trên HF Spaces free tier (bỏ Next.js build + runtime ~1 GB RAM, ~500 MB image).
+- Giảm tải CPU/RAM/disk trên host free tier (bỏ Next.js build + runtime ~1 GB RAM, ~500 MB image).
 - Frontend được phục vụ qua Vercel CDN/Edge, cold start nhanh hơn cho người dùng.
-- Backend và ai-service vẫn chạy trên HF; chỉ expose qua một proxy công khai trên port 7680.
+- Backend và ai-service vẫn chạy trên host; chỉ expose qua một proxy công khai trên port 7680.
 
 ## 2. Kiến trúc hiện tại
 
 ```
-HF Spaces container (public :7680)
+host container (public :7680)
 ├─ frontend  Next.js 14  :7680  (public)
 ├─ backend   NestJS      :3000  (internal)
 ├─ ai-service FastAPI    :8000  (internal)
@@ -26,8 +26,8 @@ BFF routes trong `frontend/app/api/*` gọi `getBackendUrl()` / `getAIServiceUrl
 ```
 Vercel (Next.js 14 + BFF routes)
   └─ BACKEND_URL / AI_SERVICE_URL → https://<host>
-        └─ HF Spaces container (public :7680)
-            ├─ hf-proxy (Node, :7680)  ← NEW, thay Next.js
+        └─ host container (public :7680)
+            ├─ proxy (Node, :7680)  ← NEW, thay Next.js
             │     /api/ai/*  → 127.0.0.1:8000
             │     /api/*    → 127.0.0.1:3000
             ├─ backend   NestJS      :3000
@@ -37,7 +37,7 @@ Vercel (Next.js 14 + BFF routes)
 
 ## 4. Vấn đề cần giải quyết
 
-- Backend (:3000) và ai-service (:8000) không public. HF free tier chỉ expose 1 port (7680).
+- Backend (:3000) và ai-service (:8000) không public. host free tier chỉ expose 1 port (7680).
 - Vercel BFF là server-side, gọi HF qua HTTPS. Không cần CORS cho browser→HF.
 - SQLite (`edumap.db`) nằm trong image; backend đọc qua `DB_SQLITE_PATH`. Giữ nguyên.
 - Vercel serverless có timeout (Hobby: 10s Node / 30s Edge). Chat streaming BFF dùng `fetch` + `TransformStream` — cần runtime Node và không vượt timeout.
@@ -48,7 +48,7 @@ Thay Next.js trên HF bằng một reverse proxy Node nhỏ (không dependency) 
 
 - `/api/ai/*` → `http://127.0.0.1:8000` (path giữ nguyên, ai-service routes đều có prefix `/api/ai`).
 - `/api/*` → `http://127.0.0.1:3000` (backend routes đều có prefix `/api`).
-- `/health` → trả `{"status":"ok"}` (cho HF health check / Vercel probe).
+- `/health` → trả `{"status":"ok"}` (cho host health check / Vercel probe).
 - Tất cả path khác → 404.
 
 File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòng.
@@ -63,7 +63,7 @@ File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòn
 ### 6.2 supervisord.conf
 
 - Xóa `[program:frontend]` (Next.js).
-- Xóa `[program:hf-proxy]`:
+- Xóa `[program:proxy]`:
   ```
   command=next start --host 0.0.0.0
   directory=/app
@@ -100,7 +100,7 @@ File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòn
 
 - `getBackendUrl()` / `getAIServiceUrl()` đã normalize trailing `/api` → không đổi.
 - BFF routes đã proxy qua backend/ai-service → không đổi.
-- Kiểm tra direct fetch tới HF trong frontend (OSRM, images). Hiện tại dùng BFF `/api/map/*` → OK.
+- Kiểm tra direct fetch tới host trong frontend (OSRM, images). Hiện tại dùng BFF `/api/map/*` → OK.
 
 ### 6.7 DB path
 
@@ -117,23 +117,23 @@ File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòn
 
 ## 8. Kiểm chứng sau deploy
 
-1. HF Space log: `hf-proxy` listening on :7680; `backend` + `ai-service` started; không có `ECONNREFUSED`.
+1. host log: `proxy` listening on :7680; `backend` + `ai-service` started; không có `ECONNREFUSED`.
 2. `curl -s https://<host>/health` → `{"status":"ok"}`.
 3. `curl -s -o /dev/null -w '%{http_code}' https://<host>/api/ai/health` → 200 (hoặc degraded, không 502/503).
 4. Vercel deploy thành công; mở URL Vercel, gửi 1 câu hỏi trên `/ai-chat` → nhận trả lời (không phải template degraded).
-5. HF Spaces RAM usage giảm (không còn Next.js). Kiểm tra qua `/api/ai/system/status` (qua proxy).
+5. host RAM usage giảm (không còn Next.js). Kiểm tra qua `/api/ai/system/status` (qua proxy).
 
 ## 9. Rủi ro / lưu ý
 
 - Vercel Hobby function timeout 10s: chat streaming có thể bị cắt nếu backend chậm. Cân nhắc Edge runtime cho `chat-stream` route hoặc tăng `maxDuration` (Pro). AGENTS §13 đã có budget 10s — khớp.
-- HF Spaces free tier sleep sau 48h inactivity → Vercel BFF gọi HF sẽ nhận cold start (ECONNREFUSED) → backend degraded reply (đã có). Chấp nhận.
-- SQLite ghi trên HF ephemeral: crawler nightly ghi vào `/app/data/edumap.db` (writable trong container) nhưng mất khi restart. Hiện tại cũng mất (`/tmp`? không — edumap.db trong image là read-only-ish, crawler ghi vào image copy trong container → ephemeral). Không thay đổi hành vi này.
+- host free tier sleep sau 48h inactivity → Vercel BFF gọi HF sẽ nhận cold start (ECONNREFUSED) → backend degraded reply (đã có). Chấp nhận.
+- SQLite ghi trên host ephemeral: crawler nightly ghi vào `/app/data/edumap.db` (writable trong container) nhưng mất khi restart. Hiện tại cũng mất (`/tmp`? không — edumap.db trong image là read-only-ish, crawler ghi vào image copy trong container → ephemeral). Không thay đổi hành vi này.
 - Không deploy FE lên Vercel nếu backend vẫn localhost-only — phải hoàn thành 6.1–6.3 trước.
 
 ## 10. Thứ tự thực hiện
 
-1. 6.1 proxy + 6.2 supervisord + 6.3 Dockerfile (HF side) — commit + deploy.
-2. Verify 8.1–8.3 trên HF.
+1. 6.1 proxy + 6.2 supervisord + 6.3 Dockerfile (host side) — commit + deploy.
+2. Verify 8.1–8.3 trên host.
 3. 6.5 Vercel env + deploy frontend.
 4. Verify 8.4–8.5.
 5. Cập nhật AGENTS.md §2 architecture diagram + §7 env.

@@ -37,7 +37,6 @@ MANIFEST
 
 # Environments
 .env
-.env.hf
 .env.local
 .env.development.local
 .env.test.local
@@ -79,9 +78,9 @@ ios/Pods/
 # Databases / Data
 *.sqlite3
 *.db
-# EXCEPT the committed SQLite DB that powers the frontend SQLite layer (HF Spaces)
+# EXCEPT the committed SQLite DB that powers the frontend SQLite layer (host)
 !frontend/public/*.db
-# SQLite journal/WAL files (HF Spaces restarts recreate these)
+# SQLite journal/WAL files (host restarts recreate these)
 *.db-shm
 *.db-wal
 *.db.bak

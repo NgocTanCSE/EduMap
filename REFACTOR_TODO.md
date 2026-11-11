@@ -35,7 +35,7 @@
 
 ### 1.3 Backend dead code
 - [x] P1.3.1 Xóa `backend/src/sqlite-bootstrap.ts` (dead under Postgres) — trước đó grep refs.
-- [x] P1.3.2 Giữ `backend/src/modules/health/` (health check cho HF Spaces); không có frontend call `/health`.
+- [x] P1.3.2 Giữ `backend/src/modules/health/` (health check cho host); không có frontend call `/health`.
 - [x] P1.3.3 `model3d` không tồn tại trong src (chỉ dist, đã dọn).
 - [x] P1.3.4 Xóa `backend/dist/` khỏi repo (build artifact) — thêm vào `.gitignore` nếu chưa.
 - [x] P1.3.5 Xóa `frontend/.next/` khỏi repo nếu tracked (kiểm tra git ls-files).

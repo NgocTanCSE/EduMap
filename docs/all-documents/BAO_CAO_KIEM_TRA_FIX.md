@@ -33,7 +33,7 @@
 | `storage/storage.service.ts` | `onModuleInit()` gọi `bucketExist()` của MinIO → **treo vòng lặp retry SDK** khi MinIO vắng | `Promise.race 5s timeout` → MinIO vắng log WARN "storage disabled", không chặn boot |
 | `modules/auth/entities/user.entity.ts` + 5 entity khác (learning-history, map/traffic-segment, mentor/mentor-session, wifi/wifi-connection) | `@Column({ type: 'datetime' })` — `datetime` không tồn tại trên PostgreSQL 16 | Đổi thành `'timestamp'` |
 | `modules/career/entities/career.entity.ts` | Entity khai báo `field` (dùng filter `@Query('field')`) nhưng DB chưa có cột → `GET /api/career/paths` 500 `column "field" does not exist` | **Schema gap**: `ALTER TABLE career_paths ADD COLUMN field VARCHAR` (nullable) |
-| `modules/health/health.controller.ts` **(MỚI)** | `Dockerfile.hf` HEALTHCHECK gọi `GET /api/health` nhưng route không tồn tại → healthcheck always fail | Thêm `HealthController` (`@Get('health')` → `{status:'ok'}`) + đăng ký trong `AppModule` |
+| `modules/health/health.controller.ts` **(MỚI)** | `Dockerfile` HEALTHCHECK gọi `GET /api/health` nhưng route không tồn tại → healthcheck always fail | Thêm `HealthController` (`@Get('health')` → `{status:'ok'}`) + đăng ký trong `AppModule` |
 | `modules/ai/ai.service.ts` | Backend proxy tới ai-service bị timeout 15s (quan hệ RAG Gemini mất 10–15s) | Tăng `timeout` 15000 → `30000` cho `chat` và `predictCareerPath` |
 | `modules/admin/backup.service.ts` | Hardcoded fallback `'password123'` khi `DB_PASSWORD` chưa resolve qua ConfigService → rò rỉ credential | Dùng `process.env.DB_PASSWORD` (trùng nguồn với `data-source.ts` đã hoạt động) + bỏ fallback hardcoded |
 

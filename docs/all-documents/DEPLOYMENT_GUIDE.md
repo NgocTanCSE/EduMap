@@ -187,13 +187,13 @@ curl http://localhost:8000/docs
 
 2. **Automatic deployment**
    - GitHub Actions triggers automatically
-   - Host container dùng `Dockerfile` gốc (Unified) ở thư mục gốc repo để build toàn bộ stack (Postgres + Redis + Backend + Frontend + AI). Các module con không còn giữ `Dockerfile.hf` riêng.
-   - Code pushed to HF Space
+   - Host container dùng `Dockerfile` gốc (Unified) ở thư mục gốc repo để build toàn bộ stack (Postgres + Redis + Backend + Frontend + AI). Các module con không còn giữ `Dockerfile` riêng.
+   - Code pushed to host
    - Database initialized with seed data
 
 3. **Monitor deployment**
    - Check GitHub Actions tab for workflow status
-   - View HF Space logs for build/startup issues
+   - View host logs for build/startup issues
    - Access via the host container URL (`https://<host>`),
 
 ## 🔍 Verification

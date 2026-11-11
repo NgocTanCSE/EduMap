@@ -67,8 +67,8 @@ def test_get_elevation_reuses_disk_cache(monkeypatch, tmp_path):
 
 
 
-def test_hf_vision_detect_removed(monkeypatch):
-    """``_hf_vision_detect`` no longer exists (the vision provider was removed)."""
+def test_vision_detect_removed(monkeypatch):
+    """``_hf_vision_detect`` no longer exists (the external vision provider was removed)."""
     assert not hasattr(geo, "_hf_vision_detect")
 
 

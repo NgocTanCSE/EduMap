@@ -11,7 +11,7 @@ share the same workflow:
        -> list of row dicts matching the target SQLite schema.
 
 The parsers use regex + heuristics (not a live LLM) so they work on the
-2-vCPU HF Spaces free tier with zero latency.  They preserve Vietnamese
+2-vCPU host free tier with zero latency.  They preserve Vietnamese
 diacritics (AGENTS.md §6: ``clean_text`` must not ASCII-fold).
 
 Graceful by design: every parser returns ``[]`` on empty/invalid input
@@ -441,7 +441,7 @@ def make_map_point_row(
 ) -> Dict[str, Any]:
     """Build a ``map_points`` row dict (SQLite WKT POINT geometry).
 
-    On SQLite (HF Spaces) the ``location`` column stores WKT
+    On SQLite (host) the ``location`` column stores WKT
     ``POINT(lng lat)`` which ``db_utils.upsert_rows`` can handle
     (AGENTS.md §7: no PostGIS ``ST_MakePoint`` on SQLite).
     """

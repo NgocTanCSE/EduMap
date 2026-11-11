@@ -500,7 +500,7 @@ Danh sách todo đã được tạo với 29 mục, sắp xếp theo thứ tự 
 `cache-manager-redis-yet@4.2.0` được thiết kế cho cache-manager v4. cache-manager v5 (dùng bởi `@nestjs/cache-manager@2.3.0`) thay đổi hoàn toàn store API. `redisStore()` trả về đối tượng không tương thích với cache-manager v5.
 
 - **Chỉ ảnh hưởng** khi `DB_TYPE === 'postgres'` + Redis available (production)
-- **Không ảnh hưởng** trong SQLite mode (HF Spaces) — Redis store không được khởi tạo
+- **Không ảnh hưởng** trong SQLite mode (host) — Redis store không được khởi tạo
 - **Cách sửa:** Replace `cache-manager-redis-yet` bằng `@cache-manager/redis-store` (official v5-compatible)
 
 ### Backend `tsconfig.json` relaxation
@@ -536,14 +536,14 @@ Danh sách todo đã được tạo với 29 mục, sắp xếp theo thứ tự 
 | 21 | Mobile `RootNavigation`: bỏ `@ts-ignore` + `as any` | `RootNavigation.tsx` | ✅ Done |
 | 22 | Xóa `mobile/src/screens/LoginScreen.tsx` (dead code) | `LoginScreen.tsx` | ✅ Done |
 | 23 | ESLint + Prettier config cho backend & mobile | `eslint.config.js`, `.prettierrc`, `.prettierignore` (×2) | ✅ Done |
-| 24 | `cache-manager-redis-yet` v4.2.0 incompatible — verified. Fallback: chạy SQLite mode cho HF Spaces, Redis mode chỉ dùng Postgres. | `app.module.ts` | ✅ Verified |
+| 24 | `cache-manager-redis-yet` v4.2.0 incompatible — verified. Fallback: chạy SQLite mode cho host, Redis mode chỉ dùng Postgres. | `app.module.ts` | ✅ Verified |
 
 ### Mobile-specific fixes (Round 2)
 - `ProfileScreen.tsx`: xóa dead `Routes` variable, fix type annotation thành `ProfileMenuRoute` union type
 
 ---
 
-## Phần bổ sung — HF Spaces AI Connectivity Fix (2026-10-25)
+## Phần bổ sung — host AI Connectivity Fix (2026-10-25)
 
 ### Vấn đề 1: career/roadmap "gọi AI không được"
 
@@ -551,11 +551,11 @@ Danh sách todo đã được tạo với 29 mục, sắp xếp theo thứ tự 
 
 **Fix**: Thêm `authService.getAccessToken()` + `Authorization: Bearer ${token}` header, đồng nhất với pattern của trang ai-chat.
 
-**Thứ phụ trợ**: `AI_SERVICE_URL` fallback trong BFF route dùng `http://ai-service:8000` (Docker Compose hostname), sai với HF Spaces. Đã đổi thành `http://127.0.0.1:8000`.
+**Thứ phụ trợ**: `AI_SERVICE_URL` fallback trong BFF route dùng `http://ai-service:8000` (Docker Compose hostname), sai với host. Đã đổi thành `http://127.0.0.1:8000`.
 
 ### Vấn đề 2: Library AI summary "không hiện dữ liệu"
 
-**Root cause**: `summarize_material` dùng `_generate_text_with_fallback` với provider order: OpenRouter → NVIDIA → Cloudflare. OpenRouter dùng `urllib.request.urlopen` (không qua `curl --ipv4 --insecure`), thất bại trên HF Spaces (IPv6 blackhole/TLS timeout). Mất ~20s timeout rồi mới rơi về Cloudflare → Gemini.
+**Root cause**: `summarize_material` dùng `_generate_text_with_fallback` với provider order: OpenRouter → NVIDIA → Cloudflare. OpenRouter dùng `urllib.request.urlopen` (không qua `curl --ipv4 --insecure`), thất bại trên host (IPv6 blackhole/TLS timeout). Mất ~20s timeout rồi mới rơi về Cloudflare → Gemini.
 
 **Fix**: 
 - Đổi provider order trong `_generate_text_with_fallback` thành: Gemini → OpenRouter → NVIDIA → Cloudflare (trùng khớp với `chat_with_rag` đã hoạt động)

@@ -43,7 +43,7 @@ if [ -f "$SQLITE_DB" ]; then
   SIZE=$(du -h "$SQLITE_DB" | cut -f1)
   TABLES=$(python3 -c "import sqlite3;print(len(sqlite3.connect('$SQLITE_DB').execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()))")
   echo "✅ [regenerate] xong: $SQLITE_DB ($SIZE, $TABLES bảng)"
-  echo "🎉 [regenerate] Hoàn tất. Commit & push để HF rebuild với dữ liệu mới."
+  echo "🎉 [regenerate] Hoàn tất. Commit & push để host rebuild với dữ liệu mới."
   exit 0
 fi
 

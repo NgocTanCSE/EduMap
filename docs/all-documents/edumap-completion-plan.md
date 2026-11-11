@@ -327,7 +327,7 @@ User -> Frontend (Next.js pages)
 - GitHub Actions workflow cho backend (lint, test, build)
 - GitHub Actions workflow cho frontend (lint, build, test)
 - GitHub Actions workflow cho AI service
-- Auto deployment lên HF Spaces hoặc VPS
+- Auto deployment lên host hoặc VPS
 
 #### Todo 5.2: Monitoring & Logging
 - Prometheus + Grafana (đã có trong docker-compose)
@@ -470,7 +470,7 @@ User -> Frontend (Next.js pages)
 95. Tạo .github/workflows/backend.yml - lint, test, build backend
 96. Tạo .github/workflows/frontend.yml - lint, build, test frontend
 97. Tạo .github/workflows/ai-service.yml - lint, test AI service
-98. Tạo .github/workflows/deploy.yml - auto deploy lên HF Spaces
+98. Tạo .github/workflows/deploy.yml - auto deploy lên host
 99. Tạo .github/workflows/db-migration.yml - auto run migration
 
 ### DEVOPS - Monitoring

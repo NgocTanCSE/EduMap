@@ -279,7 +279,7 @@ has no embeddings API, so embeddings stay on their own chain below.
 
 Embeddings (`ai-service/services/vector_store.py`):
 `Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
-(XKIRO, NVIDIA, Kimi, and HF Inference API have been removed as
+(XKIRO, NVIDIA, Kimi, and inference API have been removed as
 text-generation and embedding providers. Cloudflare TLS is
 blackholed from the host so Gemini is the effective primary.)
 
@@ -1413,7 +1413,7 @@ wired into the frontend. Replaced with:
   `Authorization` header passes through Next.js's `rewrites` exclusion on
   `notifications/subscribe`), gets a `text/event-stream` whose events are
   `data: {"title","body","channel","sent_at"}`. Keep-alive every 20 s (defeats
-  `hf-proxy` + Vercel timeouts). The hub is installed in `main.rs` and resets
+  `proxy` + Vercel timeouts). The hub is installed in `main.rs` and resets
   on every container restart; dead streams are dropped on the next broadcast.
 - **`POST /api/notifications/send`** (`modules/notifications.rs`) broadcasts the
   stored row into the user's SSE streams.

@@ -38,7 +38,7 @@
 ### 1.4 Đánh dấu demo
 - `payment.service.ts` (3 response) + `blockchain.service.ts` (2 response) → gắn `demo: true`.
 
-## 1.5 Build error trên HF Spaces (vừa sửa)
+## 1.5 Build error trên host (vừa sửa)
 
 **Triệu chứng:** `next build` → `SyntaxError: Invalid regular expression: missing /` tại `next.config.js:44`, blok toàn bộ deploy.
 

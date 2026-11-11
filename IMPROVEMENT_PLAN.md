@@ -46,12 +46,12 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 **Đề xuất**: Kết nối nguồn dữ liệu tuyển dụng thực (Adzuna).
 
 **Phân tích**:
-- `.env` đã có `ADZUNA_APP_ID` và `ADZUNA_APP_KEY` (cấu hình cho HF Spaces)
+- `.env` đã có `ADZUNA_APP_ID` và `ADZUNA_APP_KEY` (cấu hình cho host)
 - `ai-service/main.py` có probe Adzuna tại startup
-- Tuy nhiên trên HF Spaces, `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` chưa được set → fallback SQLite
+- Tuy nhiên trên host, `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` chưa được set → fallback SQLite
 
 **Kế hoạch**:
-- Set `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` làm HF Spaces secrets
+- Set `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` làm host secrets
 - Implement `trend_analysis` để gọi Adzuna API thực tế
 - Cache kết quả trong SQLite local để giảm số lượt gọi
 
@@ -64,7 +64,7 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 **Kế hoạch**:
 - Sử dụng Prophet hoặc ARIMA từ thư viện `statsmodels`/`pmdarima`
 - Train model từ lịch sử dữ liệu giáo dục (số trường, số sinh viên theo năm)
-- Deploy model dưới dạng serialized pickle trên HF Spaces
+- Deploy model dưới dạng serialized pickle trên host
 
 ### 2.4. Chatbot RAG (Streaming + Session Memory)
 
@@ -164,7 +164,7 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 | File | Thay đổi |
 |------|----------|
 | `ai-service/services/llm_service.py` | **Switch primary LLM provider từ Gemini → OpenRouter** (theo yêu cầu người dùng: "loại bỏ AI của gemini, để lại openrouter"). OpenRouter được thử đầu tiên trong cả `_generate_text_with_fallback` và `chat_with_rag`. |
-| `ai-service/services/llm_service.py` | Fix `_openrouter_generate`: dùng `curl --ipv4 --insecure` thay vì `urllib.request.urlopen` (bypass IPv6 blackhole trên HF Spaces). |
+| `ai-service/services/llm_service.py` | Fix `_openrouter_generate`: dùng `curl --ipv4 --insecure` thay vì `urllib.request.urlopen` (bypass IPv6 blackhole trên host). |
 | `ai-service/services/llm_service.py` | Fix `_nvidia_generate`: dùng `curl --ipv4 --insecure` thay vì `urllib.request.urlopen`. |
 | `ai-service/services/llm_service.py` | Xóa block "Phan 0: Google Gemini" khỏi `_cloudflare_generate` (Gemini không còn được gọi ở bất kỳ đâu trong text generation chain). Cập nhật docstrings, error messages, preflight check. |
 | `frontend/app/api/ai/learning-path/route.ts` | Fix `AI_SERVICE_URL` fallback: `http://ai-service:8000` → `http://127.0.0.1:8000`. Ép `user_id: String(userId)`. |
@@ -196,7 +196,7 @@ Tác giả đề xuất 8 cải tiến AI + UI optimization + tính năng vẽ �
 Text Generation (chat, learning-path, summary, career, geo):
   1. OpenRouter  (curl --ipv4 --insecure) ← PRIMARY
   2. NVIDIA NIM  (curl --ipv4 --insecure)
-  3. Cloudflare Workers AI (curl) → HF Inference API (curl)
+  3. Cloudflare Workers AI (curl) → inference API (curl)
   4. Template fallback (degraded content)
 
 Embeddings (vector_store.py):

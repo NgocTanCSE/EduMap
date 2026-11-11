@@ -32,7 +32,7 @@ except ImportError:
 def Jsonb(obj):
     """Wrap a dict/list as a PostgreSQL jsonb value (old + new psycopg2).
 
-    On SQLite (HF Spaces), stores as JSON TEXT string instead.
+    On SQLite (host), stores as JSON TEXT string instead.
     """
     if _IS_SQLITE:
         return json.dumps(obj, ensure_ascii=False) if obj is not None else None
@@ -44,7 +44,7 @@ def ensure_column(conn, table, column, col_type="TEXT"):
     """Add a column to a table if it doesn't already exist.
 
     Uses ALTER TABLE ... ADD COLUMN IF NOT EXISTS (PostgreSQL).
-    On SQLite (used in HF Spaces / local Docker), falls back to
+    On SQLite (used in host / local Docker), falls back to
     checking PRAGMA table_info and ALTER TABLE ADD COLUMN.
     Safe to call every run — no-op if column already exists.
     """
