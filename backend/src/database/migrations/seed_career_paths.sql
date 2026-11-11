@@ -73,7 +73,7 @@ INSERT INTO career_paths (title, description, skills_required, roadmap_json, sal
   "prerequisites": ["Kiến thức cơ bản về lập trình", "Đại số tuyến tính", "Xác suất thống kê"]
 }',
 '$1,500 - $5,000/tháng', 'very_high',
-'["https://www.coursera.org/specializations/machine-learning-introduction", "https://www.fast.ai/", "https://huggingface.co/learn"]'
+'["https://www.coursera.org/specializations/machine-learning-introduction", "https://www.fast.ai/", "https://www.educative.io/"]'
 ),
 
 -- 2. Data Scientist

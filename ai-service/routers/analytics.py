@@ -29,7 +29,7 @@ def _sqlite_path() -> Optional[str]:
 
 
 def _query_sqlite(sql: str) -> List[Dict[str, Any]]:
-    """Run a read-only query against the shared SQLite DB (HF Spaces mode)."""
+    """Run a read-only query against the shared SQLite DB (container mode)."""
     path = _sqlite_path()
     if not path:
         return []
@@ -54,7 +54,7 @@ def _query_sqlite(sql: str) -> List[Dict[str, Any]]:
 def _load_education_stats() -> List[Dict[str, Any]]:
     """Load education stats from PostgreSQL when configured, else from SQLite.
 
-    In HF Spaces mode `db_service` is intentionally disabled (DB_TYPE=sqlite),
+    In container mode `db_service` is intentionally disabled (DB_TYPE=sqlite),
     which used to make this endpoint return 503 and left /analytics/trends
     empty even though the rest of the AI service was healthy. The SQLite file
     is the same pre-seeded database the NestJS backend uses, so we can read it
@@ -169,12 +169,12 @@ def _fetch_adzuna_hot_skills(
     """Fetch REAL job postings from the Adzuna API and extract hot skills.
 
     Adzuna provides live Vietnam job postings (free tier: 5,000 req/month).
-    On HF Spaces we shell out to ``curl --ipv4 --insecure`` — the exact same
+    On the host we shell out to ``curl --ipv4 --insecure`` — the exact same
     pattern already used by ``llm_service._fetch_adzuna_jobs`` and the
     embedding chain — to bypass the Python ssl/urllib IPv6 blackhole that
-    makes TLS handshakes to Cloudflare/HF hang on HF Spaces.
+    makes TLS handshakes to Cloudflare/HF hang on the host.
 
-    The Adzuna keys are read from container env (set as HF Spaces secrets via
+    The Adzuna keys are read from container env (set as container secrets via
     start.sh's PID-1 environ recovery) and are NEVER sent to the browser.
 
     Returns ``[]`` when keys are missing or the request fails so the caller
@@ -254,11 +254,11 @@ def _load_trending_skills(limit: int = 5) -> Tuple[List[Dict[str, Any]], str]:
 
     PRIMARY: real-time job postings scraped from the Adzuna API (Vietnam) —
       this is the actual recruitment data source. When
-      ``ADZUNA_APP_ID``/``ADZUNA_APP_KEY`` are set on HF Spaces, hot skills are
+      ``ADZUNA_APP_ID``/``ADZUNA_APP_KEY`` are set on the host, hot skills are
       extracted from live job titles + descriptions instead of the small seeded
       ``jobs`` table.
 
-    FALLBACK: active rows of the local ``jobs`` table (SQLite on HF Spaces,
+    FALLBACK: active rows of the local ``jobs`` table (SQLite on the host,
       PostgreSQL in local/provisioned envs), seeded by seed_crawled_data.sql and
       optionally refreshed by the ITviec/Adzuna job crawler.
 
@@ -399,7 +399,7 @@ def _holt_linear_forecast(years: List[int], values: List[float],
     """Holt's linear exponential smoothing (double exponential smoothing).
 
     Dự báo time-series dựa trên numpy duy nhất — không cần statsmodels/prophet.
-    Thích hợp với HF Spaces môi trường lightweight + numpy-only.
+    Thích hợp với container môi trường lightweight + numpy-only.
 
     Trả về danh sách `steps_ahead` giá trị dự báo.
     """
@@ -530,7 +530,7 @@ async def get_forecast(steps: int = 3):
     """Dự báo tăng trưởng giáo dục dựa trên Holt's Linear Exponential Smoothing.
 
     Trả về dự báo `steps` năm tiếp theo cho mỗi sector. Phù hợp với môi trường
-    HF Spaces không có statsmodels/prophet.
+    container không có statsmodels/prophet.
     """
     try:
         stats_data = await asyncio.to_thread(_load_education_stats)

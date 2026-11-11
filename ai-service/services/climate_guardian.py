@@ -3,9 +3,9 @@
 Provides flood/weather risk heatmaps for educational facilities in Vietnam
 and recommends safe alternative learning locations.
 
-Architecture notes (HF Spaces Free plan):
+Architecture notes (container Free plan):
   - External API calls use ``curl --ipv4 --insecure`` (mirrors vector_store.py
-    / analytics.py patterns) because HF Spaces IPv6 is blackholed.
+    / analytics.py patterns) because container IPv6 is blackholed.
   - Weather data comes from OpenWeatherMap (key from ``OWM_API_KEY`` env).
     When the key is absent, falls back to a *static flood-hazard map* built
     from real Vietnamese flood-zone polygons (historical Mekong/Đồng Nai
@@ -13,7 +13,7 @@ Architecture notes (HF Spaces Free plan):
   - Elevation data comes from the free Open-Meteo elevation API
     (no key required). Results are cached in ``/tmp/edumap_elevation_cache``.
   - A 24-hour TTL in-process cache (mirrors forecast.py) bounds CPU on the
-    1-vCPU HF Spaces container.
+    1-vCPU container container.
   - Degrades gracefully: every public method returns a valid GeoJSON
     ``FeatureCollection`` with ``metadata.degraded = true`` on any failure
     so the map page never shows a blank state or crashes chat.
@@ -263,7 +263,7 @@ def _risk_level(score: float) -> str:
 
 
 def _curl_get_json(url: str, timeout: float, headers: Optional[Dict[str, str]] = None) -> Optional[Dict]:
-    """Execute an HTTP GET via ``curl --ipv4 --insecure`` (HF Spaces workaround).
+    """Execute an HTTP GET via ``curl --ipv4 --insecure`` (container workaround).
 
     Returns parsed JSON dict, or None on failure.
     """
@@ -311,7 +311,7 @@ def _get_elevation(lat: float, lng: float) -> Optional[float]:
     """Fetch elevation (m) for a point from the Open-Meteo elevation API.
 
     Results are cached to disk in ``_save_elevation_cache`` (ephemeral on
-    HF Spaces — the cache is rebuilt on the next call).
+    container — the cache is rebuilt on the next call).
     """
     cache: Dict[str, float] = {}
     try:

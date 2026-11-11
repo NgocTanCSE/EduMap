@@ -16,7 +16,7 @@ if _AI_DIR not in sys.path:
 
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
+    ,
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"
@@ -173,7 +173,7 @@ def test_analyze_geo_density_fallback_accepts_geojson_hubs():
     """Issue #7: when all providers are down, the geo fallback must still
     correctly count hubs delivered as a GeoJSON FeatureCollection (the new
     shape produced by identify_education_hubs). This is the *real* degraded
-    path on HF Spaces where AI keys are typically absent.
+    path on the host where AI keys are typically absent.
 
     Regression guard: a 3-feature collection must yield hub_count=3. The old
     code used ``len(hubs)`` on the dict (==2 for {type,features}) which would

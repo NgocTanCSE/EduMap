@@ -50,9 +50,9 @@ def get_db_connection():
 
 
 def get_sqlite_connection():
-    """Ket noi SQLite — dung trong che do HF Spaces (DB_TYPE=sqlite).
+    """Ket noi SQLite — dung trong che do container (DB_TYPE=sqlite).
 
-    HF Spaces chay single-container voi SQLite thay the PostgreSQL.
+    container chay single-container voi SQLite thay the PostgreSQL.
     File DB nam tai DB_SQLITE_PATH (mac dinh: /app/frontend/public/edumap.db).
     """
     db_path = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")

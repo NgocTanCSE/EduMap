@@ -2,9 +2,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import os
-import json
-import time
-import subprocess
 
 from models.geo_models import GeoDensityAnalysisRequest, VisionDetectRequest
 
@@ -12,8 +9,6 @@ router = APIRouter(prefix="/api/ai/geo", tags=["8. AI Geo-Education Analysis"])
 
 
 GEO_VISION_MODEL = os.getenv("GEO_VISION_MODEL", "google/owlv2-base-patch16-ensemble")
-HF_TOKEN = (os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN") or "").strip().strip('"').strip("'")
-HF_ROUTER_URL = os.getenv("HF_ROUTER_URL", "https://router.huggingface.co").rstrip("/")
 
 _geo_vision_down_until = 0.0
 GEO_VISION_TIMEOUT = float(os.getenv("GEO_VISION_TIMEOUT_SECONDS", "25"))
@@ -43,93 +38,6 @@ def _strip_data_uri(b64: str) -> str:
     if "," in b64 and b64.startswith("data:"):
         return b64.split(",", 1)[1]
     return b64
-
-
-def _hf_vision_detect(image_b64: str, labels: List[str]) -> List[dict]:
-    """Call HF Inference API (google/owlv2) via curl — IPv4 + --insecure
-    for HF Spaces compatibility (same pattern as vector_store.py embeddings).
-
-    Returns: [{score, label, box:{xmin,ymin,xmax,ymax}}, ...]
-    Raises RuntimeError on auth error or persistent failure.
-    """
-    global _geo_vision_down_until
-
-
-    if time.monotonic() < _geo_vision_down_until:
-        raise RuntimeError("HF vision inference temporarily disabled (circuit breaker — 5 min cooldown)")
-
-    if not HF_TOKEN:
-        raise RuntimeError("HF_TOKEN not set — cannot use HuggingFace Inference API for vision detection")
-
-    url = f"{HF_ROUTER_URL}/models/{GEO_VISION_MODEL}"
-    payload = json.dumps({
-        "image": image_b64,
-        "candidate_labels": labels,
-        "options": {"wait_for_model": True},
-    }).encode("utf-8")
-
-    try:
-        proc = subprocess.run(
-            ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-             "-H", f"Authorization: Bearer {HF_TOKEN}",
-             "-H", "Content-Type: application/json",
-             "-d", payload.decode("utf-8"),
-             "--connect-timeout", "5",
-             "--max-time", str(int(GEO_VISION_TIMEOUT)),
-             url],
-            capture_output=True, text=True, timeout=GEO_VISION_TIMEOUT + 5,
-        )
-    except subprocess.TimeoutExpired:
-        _geo_vision_down_until = time.monotonic() + 300
-        raise RuntimeError(f"HF vision curl timed out after {GEO_VISION_TIMEOUT}s")
-    except Exception as e:
-        raise RuntimeError(f"HF vision connection failed: {type(e).__name__}: {e}")
-
-    if proc.returncode != 0:
-        body = (proc.stderr or "").strip()[:300] or f"curl exit {proc.returncode}"
-        stdout = (proc.stdout or "").strip()
-        if stdout:
-            try:
-                partial = json.loads(stdout)
-                if isinstance(partial, dict) and "error" in partial:
-                    err = partial["error"]
-                    err_str = str(err) if not isinstance(err, dict) else str(err.get("message", err))
-                    low = err_str.lower()
-                    if "401" in str(partial) or "api key" in low or "invalid" in low or "unauthorized" in low or "unauthenticated" in low:
-                        _geo_vision_down_until = time.monotonic() + 300
-                        print("[GeoVision] HF vision circuit breaker set (auth error) — 5 min cooldown")
-                        raise RuntimeError(f"HF vision auth error: {err_str[:200]}")
-                    body = f"{body} | body: {err_str[:120]}"
-            except json.JSONDecodeError:
-                pass
-        _geo_vision_down_until = time.monotonic() + 300
-        raise RuntimeError(f"HF Inference API connection failed: {body}")
-
-    try:
-        data = json.loads(proc.stdout or "{}")
-    except Exception:
-        raise RuntimeError(f"HF Inference API invalid JSON: {(proc.stdout or '')[:200]}")
-
-
-    if isinstance(data, dict) and "error" in data and not data.get("detections"):
-        err_str = str(data.get("error", ""))
-        low = err_str.lower()
-        if "loading" in low and "wait" in low:
-            raise RuntimeError("HF vision model is loading — please retry in a few seconds")
-        if "401" in str(data) or "api key" in low or "invalid" in low or "unauthorized" in low or "unauthenticated" in low:
-            _geo_vision_down_until = time.monotonic() + 300
-            print("[GeoVision] HF vision circuit breaker set (HTTP 401) — 5 min cooldown")
-            raise RuntimeError(f"HF vision auth error: {err_str[:200]}")
-        raise RuntimeError(f"HF Inference API error: {data.get('error')}")
-
-
-    if isinstance(data, list):
-        return data
-
-    if isinstance(data, dict) and "detections" in data:
-        return data["detections"]
-    return []
-
 
 
 _services_loaded = False
@@ -290,18 +198,13 @@ async def recommend_nearby_opportunities(data: GeoRecommendRequest):
 @router.post("/vision-detect")
 async def vision_detect(request: VisionDetectRequest):
     """
-    GeoVision AI (Idea
+    GeoVision AI (Idea #10) — satellite imagery facility detection.
 
-    Sends a base64-encoded satellite/map image to the HF Inference API
-    (google/owlv2 — zero-shot object detection) and returns detection
-    results: [{score, label, box:{xmin,ymin,xmax,ymax}}].
+    Returns detection results: [{score, label, box:{xmin,ymin,xmax,ymax}}].
 
-    Uses curl --ipv4 --insecure for HF Spaces IPv6/TLS compatibility
-    (same pattern as vector_store.py embeddings).
-
-    Degrades gracefully: on HF API failure, returns an empty detections
-    list with degraded=True — the backend orchestrator will surface this
-    to the frontend as "AI unavailable, 0 detections found".
+    Degrades gracefully when no vision provider is configured: on provider
+    absence, returns an empty detections list with degraded=True — the
+    frontend orchestrator surfaces "AI unavailable, 0 detections found".
     """
     labels = request.labels or GEO_VISION_DEFAULT_LABELS
     image_b64 = _strip_data_uri(request.image_base64)
@@ -318,33 +221,18 @@ async def vision_detect(request: VisionDetectRequest):
 
     try:
 
-        if HF_TOKEN:
-            detections = _hf_vision_detect(image_b64, labels)
-            used_model = GEO_VISION_MODEL
-            detection_source = "hf_api"
-        else:
-            raise RuntimeError("HF_TOKEN not set — no HF Inference API available for vision detection")
-        normalised = []
-        for d in detections:
-            box = d.get("box", {})
-            normalised.append({
-                "score": float(d.get("score", 0.0)),
-                "label": str(d.get("label", "unknown")),
-                "box": {
-                    "xmin": int(box.get("xmin", 0)),
-                    "ymin": int(box.get("ymin", 0)),
-                    "xmax": int(box.get("xmax", 0)),
-                    "ymax": int(box.get("ymax", 0)),
-                },
-            })
-        source_str = "local" if detection_source == "local" else "HF API"
-        print(f"[GeoVision] {used_model} ({source_str}): {len(normalised)} detections from {len(image_b64)} base64 chars")
+        # Vision provider: the external vision API path (HF_TOKEN) has been
+        # removed from this project. GeoVision AI now degrades (never 502):
+        # the frontend surfaces "AI unavailable — requesting a vision provider
+        # in project settings" instead of a crash.
+        print("[GeoVision] degraded — no vision provider configured for this host")
         return {
-            "detections": normalised,
-            "model": used_model,
-            "degraded": False if len(normalised) > 0 else True,
-            "degradation_reason": None if len(normalised) > 0 else "No objects detected above threshold",
-            "source": detection_source,
+            "detections": [],
+            "model": GEO_VISION_MODEL,
+            "degraded": True,
+            "degradation_reason": "No external vision provider configured on this host.",
+            "error": None,
+            "source": "none",
         }
     except RuntimeError as e:
         print(f"[GeoVision] vision detection degraded: {e}")

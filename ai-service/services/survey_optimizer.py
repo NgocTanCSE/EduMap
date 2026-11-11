@@ -160,7 +160,7 @@ class SurveyOptimizerService:
     """Singleton active-learning survey prioritiser (Idea #20).
 
     Pure server-side entropy + cost model. No LLM is invoked, keeping the
-    computation cheap and deterministic on the HF Spaces free plan. The model
+    computation cheap and deterministic on the container free plan. The model
     follows the documented risk mitigation: a *simpler* entropy model
     (binary facility-existence entropy) with a *cost* of distance + fixed
     survey overhead.

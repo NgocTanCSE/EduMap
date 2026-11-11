@@ -26,7 +26,7 @@ class QualityReportRequest(BaseModel):
         ge=1,
         le=50000,
         description="Giới hạn số POI kiểm tra. Mặc định 500 để tránh timeout "
-                    "trên HF Spaces. Tăng lên để kiểm tra toàn bộ.",
+                    "trên container. Tăng lên để kiểm tra toàn bộ.",
     )
     include_clean: Optional[bool] = Field(
         False,

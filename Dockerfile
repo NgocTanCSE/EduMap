@@ -65,9 +65,6 @@ RUN ( \
 RUN pip install --no-cache-dir fastapi uvicorn pydantic python-dotenv requests python-multipart && \
     pip install --no-cache-dir psycopg2-binary pandas numpy==1.26.4 pypdf redis && \
     pip install --no-cache-dir posthog httpx tqdm Pillow gTTS && \
-    pip install --no-cache-dir huggingface_hub accelerate sentencepiece && \
-    pip install --no-cache-dir transformers && \
-    pip install --no-cache-dir sentence-transformers scikit-learn==1.4.2 scipy==1.13.1 && \
     pip install --no-cache-dir edge-tts && \
     echo "[ai-deps] core + ML + TTS packages installed"
 
@@ -86,14 +83,6 @@ RUN python3 /tmp/convert_srtm_to_npy.py /tmp/srtm_vn.tif /data/srtm_vn.npy 2>/de
     python3 -c "import numpy as np; np.save('/data/srtm_vn.npy', np.zeros((1500,1400), dtype=np.float32))" && \
     echo "[elevation-builder] SRTM .npy created (or zero-padded placeholder)"
 
-FROM python:3.11-slim AS vision-model-dl
-WORKDIR /data
-RUN pip install --no-cache-dir huggingface_hub
-COPY scripts/cache_models.py /tmp/cache_models.py
-RUN python3 /tmp/cache_models.py \
-    && echo "[vision-dl] all models cached successfully" \
-    && rm -f /tmp/cache_models.py
-RUN cp -r ~/.cache/huggingface /data/hf-cache 2>/dev/null || mkdir -p /data/hf-cache
 FROM debian:bookworm-slim AS osm-downloader
 WORKDIR /data
 ENV DEBIAN_FRONTEND=noninteractive
@@ -204,7 +193,6 @@ RUN mkdir -p /usr/local/osrm-lib && \
     echo "/usr/local/osrm-lib" > /etc/ld.so.conf.d/99-osrm-lib.conf && \
     ldconfig
 COPY --from=elevation-builder /data/srtm_vn.npy /app/ai-service/models/elevation/srtm_vn.npy
-COPY --from=vision-model-dl /data/hf-cache /root/.cache/huggingface
 
 ARG CACHEBUST=20261030_osrm-boost-chroma-fix
 
@@ -227,10 +215,6 @@ ENV GEMINI_MODEL=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-
 ENV GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 ENV ANONYMIZED_TELEMETRY=False
 ENV LOCAL_LLM_ENABLED=false
-ENV GEO_VISION_MODEL=google/owlv2-base-patch16-ensemble
-ENV GEO_VISION_TIMEOUT_SECONDS=25
-ENV LOCAL_VISION_MODEL=google/owlv2-base-patch16-ensemble
-ENV LOCAL_VISION_ENABLED=false
 ENV BING_MAPS_API_KEY=""
 ENV EMBED_GLOBAL_TIMEOUT_SECONDS=6
 ENV EMBED_PROVIDER_TIMEOUT_SECONDS=4
@@ -249,5 +233,5 @@ ENV TAVILY_MAX_RESULTS=8
 ENV TAVILY_CIRCUIT_BREAKER_FAILURES=5
 ENV TAVILY_CIRCUIT_BREAKER_TTL=300
 
-EXPOSE 7680
+EXPOSE 3000
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -16,7 +16,7 @@ os.environ["DB_TYPE"] = "sqlite"
 os.environ["DB_SQLITE_PATH"] = "/tmp/edumap_test.db"
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "XKIRO_API_KEY",
+    "XKIRO_API_KEY",
     "NVIDIA_API_KEY", "XKIRO_EMBEDDING_MODEL",
 ]:
     os.environ[_v] = ""

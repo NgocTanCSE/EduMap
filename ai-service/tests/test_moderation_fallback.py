@@ -16,7 +16,7 @@ if _AI_DIR not in sys.path:
 
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
+    ,
 ]:
     os.environ[_v] = ""
 os.environ["AI_PREFLIGHT"] = "false"

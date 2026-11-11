@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-BASE_URL="${1:-https://tancse2005-edumap.hf.space}"
+BASE_URL="${1:-}"
 PASS=0
 FAIL=0
 

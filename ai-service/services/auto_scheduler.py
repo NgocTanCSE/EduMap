@@ -68,7 +68,7 @@ URGENCY_WEIGHT = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
 class AutoCache:
-    """Shared in-process TTL cache cho toàn bộ auto-scheduler (HF Spaces: no Redis).
+    """Shared in-process TTL cache cho toàn bộ auto-scheduler (container: no Redis).
 
     Cache key format: ``"<task_name>"`` hoặc ``"<task_name>:<sub_key>"``
     (ví dụ: ``"climate_risk:dong_nai"``, ``"impact_measure:hcmc"``).

@@ -38,7 +38,7 @@ class PredictiveService:
         """Load education_stats rows from PostgreSQL or SQLite fallback.
 
         Delegates to analytics._load_education_stats() so both modules read
-        from the same data source — consistent in HF Spaces (SQLite) and
+        from the same data source — consistent in container (SQLite) and
         production (PostgreSQL) modes.
         """
         try:

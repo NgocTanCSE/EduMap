@@ -49,7 +49,7 @@ class VectorStoreService:
 
     - Embedding -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL
     - Embedding -> Google Gemini       : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
-    On HF Spaces Cloudflare is blackholed so Gemini is the primary path.
+    On the host Cloudflare is blackholed so Gemini is the primary path.
     """
 
 
@@ -283,7 +283,7 @@ class VectorStoreService:
 
 
     def _gemini_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Get an embedding from Google Gemini (primary on HF Spaces)."""
+        """Get an embedding from Google Gemini (primary on the host)."""
         import subprocess
         import time
 

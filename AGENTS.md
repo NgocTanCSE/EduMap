@@ -6,21 +6,22 @@
 
 ## 1. Deployment model (IMPORTANT — do not forget)
 >
-> - **Runtime = Hugging Face Spaces, FREE plan, and nowhere else.**
->   The Space (`tancse2005/Edumap`) runs on the **free CPU tier**: 2 vCPU /
->   16 GB RAM, **ephemeral disk**, **sleeps after ~48 h of inactivity**, and
->   every restart wipes `/tmp`. There is **no** paid hardware, no persistent
+> - **Runtime = the user's host, FREE plan, and nowhere else.** The remote
+>   container runs the docker-compose stack (`Dockerfile` + `supervisord.conf`,
+>   1 vCPU / 16 GB RAM, **ephemeral disk**, **sleeps after idle**, and every
+>   restart wipes `/tmp`). There is **no** paid hardware, no persistent
 >   volume, no external Postgres/Redis/MinIO/Chroma server.
 > - **Local machine = code editing only.** `/home/ngoctan/Downloads/EduMap`
 >   exists to write code, read code, and run **Python unit tests only**
 >   (`py_compile`, `pytest ai-service/tests`, AST/`grep` inspection). A local
 >   run (even a green one) is **never** proof that the feature works: the only
->   accepted verification is a request against
->   <https://tancse2005-edumap.hf.space> after a deploy.
+>   accepted verification is a request against the deployed host after a
+>   deploy.
 > - **Never start the local stack.** Do NOT run `npm install` / `npm run dev`
 >   / `npm run build`, `nest start`, `docker build`, `docker compose`,
 >   `supervisord`, or any local server on this machine (user rule, 2026-10-30).
->   Fixes are prepared as code + tests; the user deploys and verifies on HF.
+>   Fixes are prepared as code + tests; the user deploys and verifies on their
+>   host.
 >   If a change seems to need a local runtime check, say so and stop — do not
 >   start processes.
 > - Consequences that shape every design decision:
@@ -34,38 +35,25 @@
 >   - Only one container, one public port (7680) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
-- **Production runs ONLY on Hugging Face Spaces (Docker, free plan).**
-  - Space: <https://huggingface.co/spaces/tancse2005/Edumap>
-  - Public URL: <https://tancse2005-edumap.hf.space>
+- **Production runs ONLY on the user's host (Docker, free plan).**
   - Hardware: **free CPU basic** — no GPU, no persistent storage.
 - **Local (`/home/ngoctan/Downloads/EduMap`) is for code editing, unit tests,
   and inspection only.** Do not treat a local run as the source of truth for
-  runtime behaviour. Validate runtime fixes on the HF Space.
-- Deploy with:
-  ```bash
-  HF_TOKEN=<token> ./deploy-hf.sh
-  ```
-  (`deploy-hf.sh` pushes `HEAD:main` to the `hf` remote.)
-  > **Verified caveat (2026-10-27):** the HF Space repository has its own
-  > commit history ("chore: upload project files…") that is unrelated to this
-  > local git history, so a plain push can be rejected as non-fast-forward.
-  > If that happens, upload the tree with `huggingface_hub.HfApi().upload_folder`
-  > (or `huggingface-cli upload`), or force-push only after confirming you
-  > intend to replace the Space tree. The deployed files themselves did match
-  > local HEAD when this note was written.
-  > **No deploys from the agent:** there is no `HF_TOKEN` in this environment.
-  > The user (tan) performs the deploy; the agent only prepares the commit.
-- HF Spaces rebuilds the Docker image automatically on push. A Space restart
-  wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
-- **Secrets live in HF Spaces → Settings → Secrets**, not in the repo.
+  runtime behaviour. Validate runtime fixes on the deployed host.
+- Deploy with the user's own tooling (push → host rebuild).
+  > **No deploys from the agent:** there is no `HF_TOKEN` in this environment,
+  > and the repo contains no deploy script. The user (tan) performs the deploy;
+  > the agent only prepares the commit.
+- A Space restart wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
+- **Secrets live in the host → Secret Settings**, not in the repo.
   `.env` is gitignored and is only a local template; an empty key in `.env`
   does NOT mean the provider is disabled in production.
 
-## 2. Architecture (single HF container)
+## 2. Architecture (single container)
 
 ```
-HF Spaces Docker container (public port 7680)
-├─ hf-proxy   Node reverse proxy :7680  ← public (replaces Next.js; routes /api/*)
+Docker container (public port 3000)
+├─ backend    Rust (axum)     :3000  ← public (routes /api/*)
 ├─ backend    Rust (axum)     :3000  ← internal (Phase 0 scaffold written 2026-11-09)
 ├─ ai-service FastAPI          :8000  ← internal
 ├─ osrm       osrm-routed     :5000  ← internal
@@ -73,8 +61,8 @@ HF Spaces Docker container (public port 7680)
 ├─ SQLite     /app/data/edumap.db
 └─ ChromaDB   /tmp/chroma_db (ephemeral)
 
-Frontend (Next.js 14) is hosted on Vercel and calls the HF proxy via
-BACKEND_URL / AI_SERVICE_URL = https://tancse2005-edumap.hf.space.
+Frontend (Next.js 14) is hosted on Vercel and calls the container via
+BACKEND_URL / AI_SERVICE_URL = the host's URL.
 ```
 
 - Process manager: `supervisord.conf`.
@@ -244,7 +232,7 @@ Multiple standalone pages that share a domain have been consolidated into
   -> 200 + ordered FeatureCollection (`priority_score = info_value / cost`,
   descending, real POIs `degraded=false`; empty DB `degraded=true`); cache miss ->
   `metadata.cached=null`, repeat -> `metadata.cached=true`.
-  **Runtime truth = HF Spaces free tier** (`https://tancse2005-edumap.hf.space`).
+  **Runtime truth = THE_HOST free tier** (`THE_HOST`).
 
 ## 2.1 AI Knowledge Graph (Idea #8)
 
@@ -285,14 +273,14 @@ Text generation (`ai-service/services/llm_service.py`):
 `DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → Cloudflare Workers AI → template fallback`.
 DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as an HF Space
 secret); Gemini is the first fallback and the one that reliably works on
-HF Spaces egress; Cloudflare Workers AI is the last remote fallback.
-All calls use `curl --ipv4 --insecure` (HF Spaces IPv6/TLS quirk). DeepSeek
+THE_HOST egress; Cloudflare Workers AI is the last remote fallback.
+All calls use `curl --ipv4 --insecure` (THE_HOST IPv6/TLS quirk). DeepSeek
 has no embeddings API, so embeddings stay on their own chain below.
 
 Embeddings (`ai-service/services/vector_store.py`):
 `Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
 (XKIRO, NVIDIA, Kimi, and HF Inference API have been removed as
-text-generation and embedding providers. On HF Spaces, Cloudflare TLS is
+text-generation and embedding providers. On THE_HOST, Cloudflare TLS is
 blackholed so Gemini is the effective primary.)
 
 The Local SentenceTransformer fallback (`intfloat/multilingual-e5-small`,
@@ -305,7 +293,7 @@ reranker (~80MB) further improves precision by 15-30% on the returned top-k resu
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
 `curl --ipv4 --insecure` → HF Inference Router
-(`https://router.huggingface.co/models/{GEO_VISION_MODEL}`).
+(`A_REMOTE_INFERENCE_PROVIDER/models/{GEO_VISION_MODEL}`).
 
 **GeoVision AI (Idea #10 — unlisted school/educational-facility detection):**
 
@@ -315,7 +303,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 - **Local fallback** (NEW, 2026-10-29): when `HF_TOKEN` is absent, falls back to
   `google/owlv2-base-patch16-ensemble` (~440MB model, ~400-600MB RAM) — zero-shot object detection
   that runs on CPU via `transformers` + `torch` (already in requirements). Lazy-loaded
-  on first call (~3-8s inference on 2-vCPU HF Spaces). Env-tunable:
+  on first call (~3-8s inference on 2-vCPU THE_HOST). Env-tunable:
   `LOCAL_VISION_MODEL` (default `google/owlv2-base-patch16-ensemble`),
   `LOCAL_VISION_ENABLED` (default true), `LOCAL_VISION_THRESHOLD` (default 0.25),
   `LOCAL_VISION_IMAGE_MAX` (default 1024px).
@@ -336,7 +324,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 - RAG/vision failure degrades gracefully: returns `degraded: true` with empty
   detections — the frontend shows a warning, never a crash.
 - `ai-service/start.sh` recovers `GEO_VISION_MODEL`, `GEO_VISION_TIMEOUT_SECONDS`,
-  and `BING_MAPS_API_KEY` from PID 1 environ (HF Spaces secret propagation fix).
+  and `BING_MAPS_API_KEY` from PID 1 environ (THE_HOST secret propagation fix).
 
 - **AI Climate Learning Guardian (Idea #11):** `ai-service/services/climate_guardian.py`
   (`ClimateGuardianService` singleton) + `ai-service/routers/climate.py`
@@ -365,7 +353,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   - Simplify/translate use `_generate_text_with_fallback` cascade
     (DeepSeek → Google Gemini → Cloudflare Workers AI) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
-    never 502s when all providers are down (HF Spaces free plan).
+    never 502s when all providers are down (THE_HOST free plan).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
     `high` (THPT), `college` (đại học). LLM explains jargon per level.
   - Translation supports an optional **glossary** dict so domain terms are
@@ -399,7 +387,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   - **Never 503/502**: returns 200 with `degraded=True` + empty `text` +
     human-readable `error` when no STT provider is available.
   - Intent classification: `NLQueryParser.extract_intent()` — regex baseline
-    (no LLM needed, works on HF Spaces free plan). Three intents:
+    (no LLM needed, works on THE_HOST free plan). Three intents:
     `geo_recommend` (find query: "Tìm thư viện gần đây"),
     `report_form` (issue report: "Báo wifi hỏng ở trường X"),
     `geo_query` (info question: "Trường DNTU ở đâu?").
@@ -429,7 +417,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 Rules that must be preserved:
 
 - Every embedding provider is called through `curl --ipv4 --insecure` because
-  HF Spaces has an IPv6/TLS quirk.
+  THE_HOST has an IPv6/TLS quirk.
 - Per-provider circuit breakers (5 minutes) prevent re-burning timeouts.
 - **Embedding budget** (seconds, env-tunable):
   - `EMBED_GLOBAL_TIMEOUT_SECONDS` (default 6) — whole chain.
@@ -525,7 +513,7 @@ HF_TOKEN=<token> ./deploy-hf.sh
   - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
     set `false` to force template-only answers (instant, no network call)
   - `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — LLM + embeddings fallback
-    (Cloudflare is blackholed from HF Spaces; Gemini is the primary)
+    (Cloudflare is blackholed from THE_HOST; Gemini is the primary)
   - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold, still used by the startup
     hooks (no longer gates a model load that no longer exists)
 
@@ -609,7 +597,7 @@ outside of `tests/` and `node_modules`).
   - multilingual-e5-small + ms-marco-MiniLM-L6-v2: ~350MB
   - SRTM elevation .npy: ~8.4MB
   - Code + SQLite DB: ~150MB
-  - **Total ≈ 2.5-2.8GB** (< 5GB HF Spaces Docker limit ✅)
+  - **Total ≈ 2.5-2.8GB** (< 5GB THE_HOST Docker limit ✅)
 - **RAM budget (runtime, worst case all models loaded):**
   - System (Next.js + NestJS + OSRM + FastAPI): ~5-6GB
   - Gemma 2B 4-bit: ~1.5GB
@@ -723,7 +711,7 @@ inventing new values.
 
 ## 9. Runtime fixes from the 2026-10-30 HF log (NameError sweep)
 
-The user pasted a production log from <https://tancse2005-edumap.hf.space>.
+The user pasted a production log from <THE_HOST>.
 Four `NameError`s plus one SSE-budget bug were found; all are fixed and
 covered by regression tests (`ai-service/tests/test_undefined_name_regressions.py`,
 `ai-service/tests/test_chat_stream_budget.py`). The unit tests had hidden them
@@ -747,7 +735,7 @@ still the HF Space after deploy.
 ### Build-time OOM fix (2026-10-31 — exit 137)
 
 The `35f39b0` commit changed `CACHEBUST` which invalidated the Docker layer cache,
-triggering a full rebuild on HF Spaces. During a cold rebuild, multiple build
+triggering a full rebuild on THE_HOST. During a cold rebuild, multiple build
 stages run in parallel via BuildKit:
 
 | Phase | Parallel stages | Est. RAM |
@@ -755,7 +743,7 @@ stages run in parallel via BuildKit:
 | Phase 1 (cold) | frontend-builder npm ci + backend-builder npm ci + frontend-deps npm ci + **ai-deps torch** + elevation-builder + vision-model-dl + osm-downloader | ~5.2 GB ⚡ |
 
 The torch install (~2.5 GB peak) ran in parallel with three `npm ci` steps
-(~1 GB + 500 MB + 500 MB), exceeding HF Spaces' ~4 GB build RAM budget.
+(~1 GB + 500 MB + 500 MB), exceeding THE_HOST' ~4 GB build RAM budget.
 The 2 GB swap inside `ai-deps` Step 1 may fail silently in `python:3.11-slim`,
 leaving 2.5 GB of physical RAM for torch.
 
@@ -876,7 +864,7 @@ Verification: `python3 -m py_compile` OK on all modified files;
   (`{user.email}`, `{analysis.summary}`, card `line-clamp` descriptions, form-helper copy,
   `eligibility.message`) were intentionally KEPT per §6 honest-empty-states + §8 card system.
 - Verified locally: `cd frontend && npx tsc --noEmit` → exit 0; `npm run build` → exit 0.
-  Runtime truth = HF Spaces free CPU tier; no `HF_TOKEN` locally, user deploys.
+  Runtime truth = THE_HOST free CPU tier; no `HF_TOKEN` locally, user deploys.
 - **/ai-chat auto-scroll + clear (2026-10-31):** the page rendered the message list in a
   `ScrollArea` but never scrolled to the bottom while tokens streamed, so the AI's reply
   was "stuck" above the fold. Added a scroll-sentinel `<div ref={messagesEndRef} />`
@@ -1190,8 +1178,8 @@ for every question, including the seeded suggestion
 - **Regression tests:** `ai-service/tests/test_start_script.py` (3 tests) —
   `bash -n` on `start.sh`, the restored `SECRET_VARS` loop, and a guard
   against reintroducing `if not check_oom():` in `main.py`.
-- **Deploy reminder (unchanged):** runtime is HF Spaces free tier only
-  (`https://tancse2005-edumap.hf.space`); local is edit + Python tests only —
+- **Deploy reminder (unchanged):** runtime is THE_HOST free tier only
+  (`THE_HOST`); local is edit + Python tests only —
   no `npm`/`docker`/dev servers. The user deploys (`HF_TOKEN=… ./deploy-hf.sh`);
   the agent has no token. After deploy, the Space log must show
   `AI SERVICE READY` for the `ai-service` program (and no
@@ -1219,7 +1207,7 @@ for every question, including the seeded suggestion
 - **Merges executed (P3)**: `question_gaps` → `analytics` router; `data_hunter` → `data_quality` router. Router files deleted; `main.py` `router_names` updated; tests updated; self-merged "Merged from data_hunter.py" marker removed. Remaining merge candidates (reported): BFF proxy factory, duplicate embed/tutor/geo namespaces, routing controllers, planning docs.
 - **Unsuitable/stale items (reported)**: `module`/`feature` backend folders already absent (stale report entries), build artifacts (`backend/dist`, `frontend/.next`) not tracked, `.env.example` corrected, lockfile `agentation` residue.
 - **P1 public-timeline extension** (after the initial guard sweep): endpoints whose product intent is genuinely public were annotated explicitly rather than left accidentally open — `resource-exchange/match`, `map/climate/alternatives`, `analytics/track` all got `@Public()`, and `ai/speech/to-text` already had it.
-- Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = HF Spaces free tier after user deploy.
+- Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = THE_HOST free tier after user deploy.
 
 ## 18. Vercel build fix — strip-stale-sources deleted used services (2026-11-07)
 
@@ -1292,8 +1280,8 @@ Two independent problems showed up together in the browser:
 
 2. **`/api/internships` 500 + socket.io WebSocket failure** — not code. The HF
    Space runtime reports `stage: PAUSED`, `errorMessage: "Flagged as abusive"`
-   (`https://huggingface.co/api/spaces/tancse2005/Edumap/runtime`). Every BFF
-   route that proxies to `BACKEND_URL` (`https://tancse2005-edumap.hf.space`)
+   (`THE_HOST_RUNTIME`). Every BFF
+   route that proxies to `BACKEND_URL` (`THE_HOST`)
    and the realtime gateway therefore fail until the Space is restarted/unpaused
    by the owner in the HF UI.
 
@@ -1311,7 +1299,7 @@ ai-service (8000), OSRM (5000), `supervisord.conf`, `Dockerfile` and
 **Hard local constraint (AGENTS.md §1):** this machine has **no `cargo`/`rustc`**
 toolchain. Agents edit Rust sources and run Python checks only. `cargo check` /
 `cargo build --release --target x86_64-unknown-linux-musl` is the **user's** job;
-runtime truth is the HF Space after deploy (`https://tancse2005-edumap.hf.space`).
+runtime truth is the HF Space after deploy (`THE_HOST`).
 
 ### 19.1 Rules that every Rust module must follow
 
@@ -1402,17 +1390,18 @@ frontend anymore.
 
 **Next steps (user-side):**
 
-1. Compile: `cd backend && cargo build --release --target x86_64-unknown-linux-musl`
-   (no `cargo` on this machine — check for compile errors, then fix `backend/src`).
-   Pay attention to `common/auth.rs` (JWT decode + `AuthLayer`) and
-   `common/error.rs`/`common/response.rs` (re-authored on 2026-11-11).
+1. Compile: `cargo build --release --target x86_64-unknown-linux-musl` runs on
+   GitHub Actions, **not** this machine (no `cargo` here): the new
+   `.github/workflows/backend-build.yml` job (`cargo check` on musl) fails the
+   build on compile errors and logs the failure in the Actions tab. Push to
+   `origin main` to trigger it.
 2. Deploy: `HF_TOKEN=<token> ./deploy-hf.sh` (pushes `HEAD:main` to the `hf`
    remote; the Space rebuilds the Docker image automatically).
 3. Verify the boot log: `AI SERVICE READY` for `ai-service`, no `syntax error`
    for `start.sh`, `database pool connected` for the Rust backend, no `503`
    on the first request (cold start).
 4. Smoke-test the Rust routes on
-   `https://tancse2005-edumap.hf.space` (e.g. `GET /api/health`,
+   `THE_HOST` (e.g. `GET /api/health`,
    `POST /api/auth/dev-login`, `GET /api/impact-match/needs`,
    `POST /api/impact-match/rank`, `GET /api/career/jobs`, `GET /api/map/pois`,
    `GET /api/resource-exchange/resources`, `GET /api/share/items`, `GET /api/stem/labs`,

@@ -88,7 +88,7 @@ async def query_graph(data: GraphQueryRequest):
     Duyệt knowledge graph **1-degree** từ một node, trả về node bắt đầu,
     các node hàng xóm (neighbors) và các edge kết nối.
 
-    Depth luôn bị clamp về 1 ở server-side để tránh query lớn trên HF Spaces
+    Depth luôn bị clamp về 1 ở server-side để tránh query lớn trên container
     (xem Risks trong Idea
     """
     kg = _get_kg()

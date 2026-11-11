@@ -12,7 +12,7 @@ if _AI_DIR not in sys.path:
 
 for _v in [
     "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
+    ,
 ]:
     os.environ[_v] = ""
 os.environ["DB_TYPE"] = "sqlite"
@@ -251,7 +251,7 @@ def test_add_documents_partial_failure_is_tolerated():
     """A single failing embedding must NOT discard the whole batch.
 
     Production symptom this guards against: seed_data() reported
-    `0 documents, status=error` on HF Spaces because one slow provider made the
+    `0 documents, status=error` on the host because one slow provider made the
     old batch-wide list comprehension raise. Now the failing document is
     skipped and the rest are stored.
     """

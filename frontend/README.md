@@ -30,9 +30,9 @@ Mở trình duyệt truy cập: **`http://localhost:3000`**
 
 Trong file `.env.local` đã được cấu hình sẵn:
 ```env
-BACKEND_URL=https://tancse2005-edumap.hf.space
+BACKEND_URL=https://edumap.your-host.com
 ```
-* **Ưu điểm lớn:** Bạn **KHÔNG CẦN** phải cài đặt PostgreSQL, Redis, NestJS hay Python AI-service nặng nề trên máy. Mọi API (bản đồ 184 điểm trường, AI Chat, lộ trình nghề nghiệp...) sẽ tự động kết nối qua Backend Cloud của EduMap trên Hugging Face Spaces!
+* **Ưu điểm lớn:** Bạn **KHÔNG CẦN** phải cài đặt PostgreSQL, Redis, NestJS hay Python AI-service nặng nề trên máy. Mọi API (bản đồ 184 điểm trường, AI Chat, lộ trình nghề nghiệp...) sẽ tự động kết nối qua Backend Cloud của EduMap!
 * Nếu bạn có chạy Backend NestJS trên máy local (cổng 3000): Hãy đổi thành `BACKEND_URL=http://127.0.0.1:3000` và đổi cổng frontend sang cổng khác ví dụ `npm run dev -- -p 3001`.
 
 ---

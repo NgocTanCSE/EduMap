@@ -123,7 +123,7 @@ def _build_glossary_block(glossary: Optional[Dict[str, str]]) -> str:
 
 
 def _curl_get_json(url: str, timeout: float, headers: Optional[Dict[str, str]] = None) -> Optional[Dict]:
-    """Execute an HTTP GET via ``curl --ipv4 --insecure`` (HF Spaces workaround).
+    """Execute an HTTP GET via ``curl --ipv4 --insecure`` (container workaround).
     Mirrors climate_guardian._curl_get_json.  Returns parsed JSON dict or None.
     """
     import subprocess
@@ -179,7 +179,7 @@ class LanguageBridgeService:
       3. ``synthesize_speech`` — TTS via Google Cloud TTS / gTTS / edge-tts.
 
     All three degrade gracefully: when the LLM or TTS providers are unavailable
-    (common on HF Spaces free plan), the service returns valid-shaped content
+    (common on the host free plan), the service returns valid-shaped content
     with ``degraded=True`` instead of raising a 502.
     """
 
@@ -481,7 +481,7 @@ class LanguageBridgeService:
         return result
 
     def _tts_google_cloud(self, text: str, language: str, voice: Optional[str]) -> Optional[str]:
-        """Google Cloud TTS via ``curl --ipv4 --insecure`` (HF Spaces compatible).
+        """Google Cloud TTS via ``curl --ipv4 --insecure`` (container compatible).
 
         Requires ``GOOGLE_TTS_API_KEY`` env var.  Returns base64-encoded MP3.
         """
@@ -557,7 +557,7 @@ class LanguageBridgeService:
         """Google Text-to-Speech (free, via gTTS library).  No API key needed.
 
         Requires the ``gTTS`` Python package.  Benefits from the global
-        ``force_ipv4()`` applied at startup (fixes the HF Spaces IPv6 blackhole).
+        ``force_ipv4()`` applied at startup (fixes the container IPv6 blackhole).
         """
         from gtts import gTTS
         import io

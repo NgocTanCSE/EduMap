@@ -13,7 +13,6 @@ sys.path.insert(0, _AI_DIR)
 os.environ["AI_PREFLIGHT"] = "false"
 os.environ["XKIRO_API_KEY"] = ""
 os.environ["NVIDIA_API_KEY"] = ""
-os.environ["HF_TOKEN"] = ""
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["CLOUUDLFLARE_API_TOKEN"] = ""
 os.environ["DB_TYPE"] = "sqlite"

@@ -67,22 +67,23 @@ def test_get_elevation_reuses_disk_cache(monkeypatch, tmp_path):
 
 
 
-def test_hf_vision_detect_requires_token(monkeypatch):
-    """``_hf_vision_detect`` must exist and raise RuntimeError without a token."""
-    monkeypatch.setattr(geo, "HF_TOKEN", "")
-    monkeypatch.setattr(geo, "_geo_vision_down_until", 0.0)
-
-    with pytest.raises(RuntimeError, match="HF_TOKEN"):
-        geo._hf_vision_detect("ZmFrZQ==", ["school"])
+def test_hf_vision_detect_removed(monkeypatch):
+    """``_hf_vision_detect`` no longer exists (HF Inference API was removed)."""
+    assert not hasattr(geo, "_hf_vision_detect")
 
 
-def test_hf_vision_detect_respects_circuit_breaker(monkeypatch):
-    """An open circuit breaker raises RuntimeError instead of calling HF."""
-    monkeypatch.setattr(geo, "HF_TOKEN", "fake-token")
-    monkeypatch.setattr(geo, "_geo_vision_down_until", 10 ** 12)
+def test_green_vision_degrades_cleanly():
+    """``vision_detect`` never 502s — returns degraded empty detections."""
+    from fastapi.testclient import TestClient  # noqa: PLC0415
 
-    with pytest.raises(RuntimeError, match="circuit breaker"):
-        geo._hf_vision_detect("ZmFrZQ==", ["school"])
+    from main import app
+
+    client = TestClient(app)
+    res = client.post("/api/ai/geo/vision-detect", json={"image_base64": "ZmFrZQ=="})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["degraded"] is True
+    assert body["detections"] == []
 
 
 

@@ -106,7 +106,7 @@ impl NotificationHub {
 
 /// `GET /api/notifications/subscribe` — an SSE stream of JSON events for the
 /// logged-in user. The hub keeps the connection alive with a keep-alive event
-/// every 20 s (defeats the proxy timeouts of `hf-proxy` + Vercel).
+/// every 20 s (defeats the reverse proxy timeouts).
 pub async fn subscribe_sse(
     State(_pool): State<DbPool>,
     req: Request,

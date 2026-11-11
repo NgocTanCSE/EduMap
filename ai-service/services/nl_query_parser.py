@@ -156,7 +156,7 @@ class NLQueryParser:
         An instance of the project's ``LLMService`` (or any object exposing
         ``is_ready``, ``_generate_text_with_fallback`` and ``_extract_json``).
         When ``None`` or ``is_ready == False`` the parser runs in pure regex
-        mode — this is the normal state on HF Spaces without API keys.
+        mode — this is the normal state on the host without API keys.
     """
 
     def __init__(self, llm_service: Optional[Any] = None) -> None:
@@ -199,7 +199,7 @@ class NLQueryParser:
 
         Reuses the Talk2Map regex baseline (facility_types / conditions /
         location already extracted by :meth:`parse`) so intent detection works
-        on HF Spaces even when the LLM is down.
+        on the host even when the LLM is down.
 
         Returns::
 

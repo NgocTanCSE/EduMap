@@ -84,82 +84,21 @@ jobs:
           path: frontend/public/edumap.db
           retention-days: 7
 
-  # === Stage 2: Deploy to HF Spaces ===
-  deploy-to-hf:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      packages: write  # ← Required for GHCR push
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Download SQLite DB artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: edumap-db
-          path: frontend/public
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ghcr.io/ngoctancse/edumap-hf-spaces:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Trigger HF Spaces redeploy
+      - name: Set up Rust toolchain
         run: |
-          echo "Image pushed to GHCR. HF Spaces will auto-rebuild from GitHub on next commit."
-          echo "Or push image digest to trigger HF Spaces rebuild."
-          echo "See: https://huggingface.co/docs/hub/spaces-docker"
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
+          source "$HOME/.cargo/env"
+          rustup target add x86_64-unknown-linux-musl
+          echo "RUSTC: $(rustc --version)"
 
-  # === Stage 3: Post-deploy verification ===
-  verify:
-    needs: [build-and-test]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install k6 (load testing)
+      - name: Rust backend compile check (musl)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gnupg
-          curl -s https://dl.k6.io/key.gpg | sudo apt-key add -
-          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install -y k6
+          cd backend
+          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
+          grep -q "^error" /tmp/check.log \
+            && { echo "COMPILE FAILED"; exit 1; } \
+            || echo "COMPILE OK"
 
-      - name: Checkout HF Space for testing
+      - name: Python AI service tests
         run: |
-          echo "HF_SPACE_URL=${{ secrets.HF_SPACE_URL }}" >> $GITHUB_ENV
-
-      - name: Run smoke tests
-        run: |
-          echo "Smoke tests will run against the HF Space after deploy completes."
-          echo "1. curl https://$HF_SPACE_URL/"
-          echo "2. curl https://$HF_SPACE_URL/hackathon"
-          echo "3. curl https://$HF_SPACE_URL/api/map/pois"
-          echo "4. curl https://$HF_SPACE_URL/api/health"
+          cd ai-service && python3 -m pytest tests -q

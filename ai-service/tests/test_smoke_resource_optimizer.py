@@ -8,7 +8,6 @@ if _AI_DIR not in sys.path:
 
 
 os.environ.setdefault("XKIRO_API_KEY", "")
-os.environ.setdefault("HF_TOKEN", "")
 from main import app
 from fastapi.testclient import TestClient
 

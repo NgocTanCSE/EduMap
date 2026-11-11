@@ -1,7 +1,7 @@
 //! Router: mounts `/api/*` endpoints and applies `AuthLayer` (routes that are
 //! `@Public()` such as `GET /api/health` are skipped by the middleware).
 //!
-//! Routing table (public entry point = `scripts/hf_proxy.js` on port 7680):
+//! Routing table (public entry point):
 //!
 //! ```text
 //! GET  /api/health, /api/health/db, /api/ping, /api/config, /api/ai/search,
@@ -12,9 +12,8 @@
 //! ```
 //!
 //! The AI routes (`/api/ai/*`) are the routing topology change for Phase 1:
-//! `/api/ai/*` no longer goes to the FastAPI ai-service via the hf-proxy; the
-//! Rust backend owns it and forwards verbatim into the ai-service (the proxy
-//! then routes `/api/ai/*` → BACKEND). See `scripts/hf_proxy.js` + the plan.
+//! `/api/ai/*` no longer goes to the FastAPI ai-service; the Rust backend
+//! owns it and forwards verbatim into the ai-service.
 use axum::Router;
 use axum::routing::get;
 use axum::routing::post;

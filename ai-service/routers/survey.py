@@ -3,7 +3,7 @@
 Exposes the entropy + information-value / cost prioritiser from
 ``services/survey_optimizer.py``. **No LLM is called** — the ranking is pure
 server-side scoring (binary facility-existence entropy), which keeps the whole
-computation cheap and fast on the HF Spaces free (1-vCPU) container.
+computation cheap and fast on the container free (1-vCPU) container.
 
 Endpoints:
 
@@ -32,7 +32,7 @@ Response shape (``/priorities``):
   "metadata": { "method", "degraded", "reason", "last_updated", "elapsed_ms", "cached"? }
 }
 
-Architecture notes (HF Spaces Free plan — AGENTS.md):
+Architecture notes (container Free plan — AGENTS.md):
   - 24 h in-process TTL cache keyed by the input hash so repeated identical
     surveys hit memory, not the CPU-bound grid.
   - Degrades gracefully: any failure returns a valid ``FeatureCollection``

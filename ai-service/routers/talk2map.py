@@ -33,7 +33,7 @@ async def parse_map_query(request: Talk2MapQueryRequest):
 
     **Always returns 200** with a valid structured payload. When the LLM is
     unavailable the ``degraded`` flag is set to ``True`` and the regex-only
-    result is returned. This ensures Talk2Map keeps working on HF Spaces
+    result is returned. This ensures Talk2Map keeps working on the host
     even when every AI provider is unreachable.
 
     Example response::

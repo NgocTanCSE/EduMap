@@ -1,9 +1,8 @@
 //! AI proxy — the Rust port of `backend/src/modules/ai/ai.controller.ts` +
 //! `ai.service.ts`.
 //!
-//! The frontend BFF (`frontend/app/api/ai/*`) calls `getBackendUrl() + '/ai/...'`
-//! — through the HF proxy, `/api/ai/*` now lands on the Rust backend (`see
-//! scripts/hf_proxy.js`), so the handlers relay them into the FastAPI ai-service
+//! The frontend BFF (`frontend/app/api/ai/*`) calls `getBackendUrl() + '/ai/...'`.
+//! The Rust backend owns it and relays the requests to the FastAPI ai-service
 //! (port 8000) with the exact same contracts as the old NestJS backend:
 //!
 //! ```text

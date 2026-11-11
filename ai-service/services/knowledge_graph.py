@@ -661,7 +661,7 @@ class KnowledgeGraphService:
 
         ``node_types`` filters which node types to include. ``limit`` caps the
         total node count to keep the GraphQL payload small for the force
-        layout on HF Spaces.
+        layout on the host.
         """
         if not self._available:
             return {"nodes": [], "edges": [], "meta": {"degraded": True}}
@@ -706,7 +706,7 @@ class KnowledgeGraphService:
 
         Returns the starting node, its immediate neighbors (via edges), and
         the connecting edges. ``depth`` is clamped to 1 (see Risks in the idea
-        spec — large graphs must not produce huge recursive queries on HF Spaces).
+        spec — large graphs must not produce huge recursive queries on the host).
 
         Parameters
         ----------

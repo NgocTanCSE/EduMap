@@ -13,7 +13,7 @@ os.environ["DB_SQLITE_PATH"] = os.path.abspath(
     os.path.join(_AI_DIR, "..", "frontend", "public", "edumap.db")
 )
 for _v in ["GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-           "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"]:
+           ]:
     os.environ[_v] = ""
 
 from main import app

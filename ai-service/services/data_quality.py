@@ -206,7 +206,7 @@ def _levenshtein(a: str, b: str) -> int:
 
 
 def _sqlite_path() -> Optional[str]:
-    """Trả về đường dẫn SQLite file (chế độ HF Spaces) hoặc None."""
+    """Trả về đường dẫn SQLite file (chế độ container) hoặc None."""
     if os.getenv("DB_TYPE", "postgres").lower() != "sqlite":
         return None
     path = os.getenv("DB_SQLITE_PATH", "/app/frontend/public/edumap.db")
@@ -214,7 +214,7 @@ def _sqlite_path() -> Optional[str]:
 
 
 def _query_sqlite(sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
-    """Chạy query read-only trên SQLite (HF Spaces mode)."""
+    """Chạy query read-only trên SQLite (container mode)."""
     path = _sqlite_path()
     if not path:
         return []
@@ -404,7 +404,7 @@ def _run_isolation_forest(
     """Chạy IsolationForest trên tọa độ [lng, lat], trả về {id: score}.
 
     Chunk 1000 hàng/chunk theo *Risks* trong AGENTS.md để tránh timeout
-    trên HF Spaces. Chỉ các POI có tọa độ hợp lệ mới được đưa vào.
+    trên container. Chỉ các POI có tọa độ hợp lệ mới được đưa vào.
     """
 
     valid_points = [p for p in points if p.get("lat") is not None and p.get("lng") is not None]

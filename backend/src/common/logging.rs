@@ -1,4 +1,4 @@
-//! Logging initialisation — JSON output so HF Spaces logs stay structured.
+//! Logging initialisation — JSON output for structured production logs.
 //!
 //! Mirrors the previous NestJS logging setup (`logging.interceptor.ts` +
 //! `request-logging.middleware.ts`); request-level tracing is now handled by

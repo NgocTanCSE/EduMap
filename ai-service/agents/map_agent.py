@@ -44,9 +44,9 @@ def _sqlite_path() -> Optional[str]:
     """Resolve the SQLite DB path across environments.
 
     Priority:
-      1. DB_SQLITE_PATH env var (set by Docker / HF Spaces)
+      1. DB_SQLITE_PATH env var (set by Docker / container)
       2. Local dev path (relative to repo root, for pytest run from ai-service/)
-      3. HF Spaces default (/app/frontend/public/edumap.db)
+      3. container default (/app/frontend/public/edumap.db)
     """
     candidates = []
     if _DB_ENV_PATH:
@@ -364,7 +364,7 @@ class MapAgent:
     ) -> Dict[str, Any]:
         """Find educational locations within *radius_km* of (lat, lng).
 
-        In SQLite mode (HF Spaces) ``db_service`` is ``None`` and PostGIS is
+        In SQLite mode (container) ``db_service`` is ``None`` and PostGIS is
         unavailable, so we query all candidate points and filter with the
         Haversine formula in Python — exactly the same approach used by
         ``clustering_service._haversine_distance``.

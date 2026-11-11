@@ -64,7 +64,7 @@ def _sqlite_path() -> Optional[str]:
 
 
 def _query_sqlite(sql: str, params: Optional[Tuple] = None) -> List[Dict[str, Any]]:
-    """Run a read-only query against the shared SQLite DB (HF Spaces mode)."""
+    """Run a read-only query against the shared SQLite DB (container mode)."""
     path = _sqlite_path()
     if not path:
         return []

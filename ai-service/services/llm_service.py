@@ -257,7 +257,7 @@ class LLMService:
         """Call DeepSeek's OpenAI-compatible ``/chat/completions`` endpoint.
 
         DeepSeek is the primary text provider (``DEEPSEEK_API_KEY``). Requests
-        go through ``curl --ipv4 --insecure`` for the same HF Spaces IPv6/TLS
+        go through ``curl --ipv4 --insecure`` for the same container IPv6/TLS
         reason as Cloudflare/Gemini. Any OpenAI-compatible gateway can be used
         by pointing ``DEEPSEEK_BASE_URL`` at it.
         """
@@ -441,7 +441,7 @@ class LLMService:
         """Call Google Gemini generateContent.
 
         Gemini is the fallback text-generation provider (invoked after
-        Cloudflare Workers AI fails). On HF Spaces, Cloudflare's TLS is
+        Cloudflare Workers AI fails). On the host, Cloudflare's TLS is
         blackholed so Gemini is effectively the primary. Requests use curl
         so they follow the same IPv4/TLS workaround as the Cloudflare provider.
         """
@@ -846,8 +846,8 @@ class LLMService:
         """Try LLM providers in priority order: Cloudflare Workers AI → Google Gemini.
 
         Cloudflare is the primary provider (curl --ipv4 --insecure for
-        HF Spaces compatibility). Gemini is the fallback — reachable from
-        HF Spaces when Cloudflare's TLS is blackholed.
+        container compatibility). Gemini is the fallback — reachable from
+        container when Cloudflare's TLS is blackholed.
 
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError so the caller can use a
@@ -1342,7 +1342,7 @@ class LLMService:
             If True, the last word chunk also carries ``is_final`` and ``done``.
         delay : float
             Seconds to sleep between word chunks (default 30 ms → ~readable but
-            not painfully slow; tuned for 1 vCPU HF Spaces).
+            not painfully slow; tuned for 1 vCPU container).
         max_duration : float, optional
             Upper bound (seconds) for the whole stream. The per-word delay is
             shrunk so ``len(words) * delay <= max_duration``. Callers pass the
@@ -1371,7 +1371,7 @@ class LLMService:
             yield f"data: {json.dumps({'done': True})}\n\n"
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-        """Fallback trả lời khi tất cả LLM provider đều thất bại (Cloudflare/Gemini unreachable từ HF Spaces).
+        """Fallback trả lời khi tất cả LLM provider đều thất bại (Cloudflare/Gemini unreachable từ container).
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
         available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
@@ -1566,7 +1566,7 @@ class LLMService:
         """Fetch live job listings from Adzuna API via curl (--ipv4 --insecure).
 
         Uses curl with --ipv4 --insecure to bypass the Python ssl/urllib IPv6
-        blackhole that causes hangs/timeouts on HF Spaces — the exact same
+        blackhole that causes hangs/timeouts on the host — the exact same
         pattern used by the providers in this file providers.
         Returns list of dicts or None on failure (falls back to local SQLite).
         """
@@ -2572,9 +2572,9 @@ Trả về **mảng JSON** sau:
     def _resolve_db_path(self) -> Optional[str]:
         """Resolve the SQLite DB path across environments.
 
-        Tries the configured ``self.sqlite_path`` first (HF Spaces), then
+        Tries the configured ``self.sqlite_path`` first (container), then
         common local-dev relative paths, so fallback methods work both on
-        HF Spaces and under ``pytest`` run from ``ai-service/``.
+        container and under ``pytest`` run from ``ai-service/``.
         """
         if self._resolved_db_path is not None:
             return self._resolved_db_path
@@ -2600,7 +2600,7 @@ Trả về **mảng JSON** sau:
         overlap. Returns up to 3 best matches with computed scores + radar
         charts — the same shape as the LLM response, just computed locally.
 
-        On HF Spaces free plan (no API keys) this is the primary path, not a
+        On the host free plan (no API keys) this is the primary path, not a
         degraded fallback.
         """
 
@@ -2920,7 +2920,7 @@ Trả về **mảng JSON** sau:
           4. Filter expired deadlines (defence-in-depth) and sort by score.
 
         Candidates are processed in batches of <=8 to keep each LLM call within
-        the embedding/RAG timeout budget on the free HF Spaces plan.
+        the embedding/RAG timeout budget on the free container plan.
 
         On any failure (all providers down, JSON parse error, timeout) the
         method degrades to a pure keyword heuristic

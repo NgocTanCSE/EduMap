@@ -3,7 +3,7 @@ Tests for Voice-to-Geo AI (Idea
 
 Covers:
   1. SpeechService.transcribe — always degrades (no server-side STT provider
-     configured on HF Spaces free plan); returns degraded=True with empty text.
+     configured on the host free plan); returns degraded=True with empty text.
   2. NLQueryParser.extract_intent — intent classification (geo_recommend /
      report_form / geo_query) reusing the Talk2Map regex baseline.
   3. Intent classification against the 5 voice-sample scenarios from the plan:
