@@ -1,7 +1,7 @@
 # EduMap — DB Analysis & Feature Status Report
 
 > Generated from repository `/home/ngoctan/Downloads/EduMap` (branch `main`).
-> Runtime target: Hugging Face Spaces free CPU tier only (`https://tancse2005-edumap.hf.space`).
+> Runtime target: the host container free CPU tier only.
 > Local usage: code editing + Python unit tests only. No local npm/docker/dev servers.
 
 ## 1. Deployment model (remembered)

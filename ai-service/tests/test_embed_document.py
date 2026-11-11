@@ -11,8 +11,7 @@ if _AI_DIR not in sys.path:
 
 
 for _v in [
-    "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
-    ,
+    "GEMINI_API_KEY", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"
 ]:
     os.environ[_v] = ""
 os.environ["DB_TYPE"] = "sqlite"

@@ -307,7 +307,7 @@ function GoogleLoginContent() {
                   Tab mới sẽ tự mở khi bạn bấm vào trang
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Khung nhúng của Hugging Face chặn cửa sổ popup của Google, nên nút Google
+                  Khung nhúng (iframe) của bên thứ ba thường chặn cửa sổ popup của Google, nên nút Google
                   có thể không phản hồi ở đây. Tab EduMap vừa mở chính là phiên bản đăng
                   nhập bình thường.
                 </p>

@@ -32,7 +32,7 @@
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
 >     (DeepSeek → Gemini → Cloudflare Workers AI) with template fallbacks.
->   - Only one container, one public port (7680) → internal services must stay
+>   - Only one container, one public port (3000) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
 - **Production runs ONLY on the user's host (Docker, free plan).**
@@ -41,10 +41,10 @@
   and inspection only.** Do not treat a local run as the source of truth for
   runtime behaviour. Validate runtime fixes on the deployed host.
 - Deploy with the user's own tooling (push → host rebuild).
-  > **No deploys from the agent:** there is no `HF_TOKEN` in this environment,
+  > **No deploys from the agent:** there is no deploy script in this environment,
   > and the repo contains no deploy script. The user (tan) performs the deploy;
   > the agent only prepares the commit.
-- A Space restart wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
+- A container restart wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
 - **Secrets live in the host → Secret Settings**, not in the repo.
   `.env` is gitignored and is only a local template; an empty key in `.env`
   does NOT mean the provider is disabled in production.
@@ -232,7 +232,7 @@ Multiple standalone pages that share a domain have been consolidated into
   -> 200 + ordered FeatureCollection (`priority_score = info_value / cost`,
   descending, real POIs `degraded=false`; empty DB `degraded=true`); cache miss ->
   `metadata.cached=null`, repeat -> `metadata.cached=true`.
-  **Runtime truth = THE_HOST free tier** (`THE_HOST`).
+  **Runtime truth = the deployed container**.
 
 ## 2.1 AI Knowledge Graph (Idea #8)
 
@@ -254,7 +254,7 @@ Multiple standalone pages that share a domain have been consolidated into
   `extractEntities`, `triggerKnowledgeGraphSync`) + NestJS controller routes
   at `/ai/knowledge/*`. **Hourly sync** runs as a daemon thread in
   `ai-service/main.py` startup hook (`_startup_seed_knowledge_graph`) —
-  `ScheduleModule` is disabled in SQLite/HF mode. Env-tunable:
+  `ScheduleModule` is disabled in SQLite mode. Env-tunable:
   `KNOWLEDGE_GRAPH_SYNC_INTERVAL` (default 3600s).
 - **T4** Frontend: BFF routes at `app/api/ai/knowledge/{graph,query,suggest-partners,extract,sync}/route.ts`
   → NestJS backend proxy → ai-service. Service at `src/services/knowledge.service.ts`.
@@ -271,60 +271,53 @@ Multiple standalone pages that share a domain have been consolidated into
 
 Text generation (`ai-service/services/llm_service.py`):
 `DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → Cloudflare Workers AI → template fallback`.
-DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as an HF Space
+DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as a host
 secret); Gemini is the first fallback and the one that reliably works on
-THE_HOST egress; Cloudflare Workers AI is the last remote fallback.
-All calls use `curl --ipv4 --insecure` (THE_HOST IPv6/TLS quirk). DeepSeek
+the host egress; Cloudflare Workers AI is the last remote fallback.
+All calls use `curl --ipv4 --insecure` (the host's IPv6/TLS quirk). DeepSeek
 has no embeddings API, so embeddings stay on their own chain below.
 
 Embeddings (`ai-service/services/vector_store.py`):
 `Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
 (XKIRO, NVIDIA, Kimi, and HF Inference API have been removed as
-text-generation and embedding providers. On THE_HOST, Cloudflare TLS is
-blackholed so Gemini is the effective primary.)
+text-generation and embedding providers. Cloudflare TLS is
+blackholed from the host so Gemini is the effective primary.)
 
 The Local SentenceTransformer fallback (`intfloat/multilingual-e5-small`,
 ~270MB / ~600MB RAM, 768-dim, Vietnamese support) is lazy-loaded on the
 first embedding request and acts as the **guaranteed offline backup** when
 both Cloudflare and Gemini are unreachable — RAG semantic search works with
-ZERO API keys on the HF free plan. A local `cross-encoder/ms-marco-MiniLM-L6-v2`
+ZERO API keys on the free tier. A local `cross-encoder/ms-marco-MiniLM-L6-v2`
 reranker (~80MB) further improves precision by 15-30% on the returned top-k results.
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
-`ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect` →
-`curl --ipv4 --insecure` → HF Inference Router
-(`A_REMOTE_INFERENCE_PROVIDER/models/{GEO_VISION_MODEL}`).
+`ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect`. The external
+vision provider path (external vision provider + its key) was removed: GeoVision
+currently has no inference provider, so the endpoint always returns
+`degraded: true` with an empty detections list and never 502.
 
 **GeoVision AI (Idea #10 — unlisted school/educational-facility detection):**
 
-- **Primary**: `GEO_VISION_MODEL` (default `google/owlv2-base-patch16-ensemble`): zero-shot object
-  detection model on HF Inference API. NOT bundled in Docker — runs on HF's servers.
-  Requires `HF_TOKEN`.
-- **Local fallback** (NEW, 2026-10-29): when `HF_TOKEN` is absent, falls back to
-  `google/owlv2-base-patch16-ensemble` (~440MB model, ~400-600MB RAM) — zero-shot object detection
-  that runs on CPU via `transformers` + `torch` (already in requirements). Lazy-loaded
-  on first call (~3-8s inference on 2-vCPU THE_HOST). Env-tunable:
-  `LOCAL_VISION_MODEL` (default `google/owlv2-base-patch16-ensemble`),
-  `LOCAL_VISION_ENABLED` (default true), `LOCAL_VISION_THRESHOLD` (default 0.25),
-  `LOCAL_VISION_IMAGE_MAX` (default 1024px).
-- **Fallback chain**: HF Inference API (`HF_TOKEN` set) → local `owlv2-base-patch16-ensemble` (no key) →
-  `degraded=true` + empty detections (never 502s).
+- **No provider configured**: `GEO_VISION_MODEL` is still read from env
+  (default `google/owlv2-base-patch16-ensemble`) but no vision inference
+  backend runs in the container — when a key becomes available the feature
+  provides detections, otherwise `degraded: true`.
 - Tile sources for the stitched image:
   - `osm` (default) — OSM standard tiles via `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
     (no key; shows building footprints useful for school detection).
   - `esri` — Esri World Imagery (aerial; no key, rate-limited).
   - `bing` — Bing Maps aerial tiles via quadkey URL (optional `BING_MAPS_API_KEY`).
 - Tile grid is capped at **8×8 = 64 tiles** (max 2048×2048 px at z=18) to stay
-  under HF's 5 MB inference input limit.
+  under a typical 5 MB inference input limit.
 - Stitched tiles are cached 24 h in an in-memory LRU cache
-  (`GeoVisionService.tileCache`) to protect against HF Inference quota limits.
+  (`GeoVisionService.tileCache`) to protect against quota limits.
 - Detection boxes (pixel coords) are converted back to lat/lng via Web Mercator
   inverse, then cross-checked against existing `map_points` within the bbox.
   Detections within 80 m of a known POI are tagged `known`; others are `new`.
 - RAG/vision failure degrades gracefully: returns `degraded: true` with empty
   detections — the frontend shows a warning, never a crash.
 - `ai-service/start.sh` recovers `GEO_VISION_MODEL`, `GEO_VISION_TIMEOUT_SECONDS`,
-  and `BING_MAPS_API_KEY` from PID 1 environ (THE_HOST secret propagation fix).
+  and `BING_MAPS_API_KEY` from PID 1 environ (secret propagation fix).
 
 - **AI Climate Learning Guardian (Idea #11):** `ai-service/services/climate_guardian.py`
   (`ClimateGuardianService` singleton) + `ai-service/routers/climate.py`
@@ -333,7 +326,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   - Flood zones: loaded from SQLite `flood_zones` table (seeded by
     `scripts/migrate_real_data.py` from `scripts/real_vn_data.py:FLOOD_ZONES`)
     with a static fallback (`STATIC_FLOOD_ZONES`) for empty-DB.
-  - Weather: OpenWeatherMap (requires `OWM_API_KEY` HF Space secret) via
+  - Weather: OpenWeatherMap (requires `OWM_API_KEY` as a host secret) via
     `curl --ipv4 --insecure`; degrades to static hazard map when key absent.
   - Elevation: Open-Meteo free elevation API; cached on disk in `/tmp/`.
   - 24h in-process TTL cache (mirrors `forecast.py`) on both endpoints.
@@ -353,13 +346,13 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   - Simplify/translate use `_generate_text_with_fallback` cascade
     (DeepSeek → Google Gemini → Cloudflare Workers AI) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
-    never 502s when all providers are down (THE_HOST free plan).
+    never 502s when all providers are down (on the free tier).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
     `high` (THPT), `college` (đại học). LLM explains jargon per level.
   - Translation supports an optional **glossary** dict so domain terms are
     preserved (mitigates "context loss" risk).
   - TTS provider chain: Google Cloud TTS (via `curl --ipv4 --insecure`,
-    needs `GOOGLE_TTS_API_KEY` HF secret) → `edge-tts` (keyless, good VN
+    needs `GOOGLE_TTS_API_KEY` as a host secret) → `edge-tts` (keyless, good VN
     voices) → `gTTS` (keyless) → degraded text-only (`audio_base64=None`,
     frontend falls back to browser Web Speech API `speechSynthesis`).
   - `gTTS` and `edge-tts` added to `ai-service/requirements.txt`.
@@ -387,7 +380,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
   - **Never 503/502**: returns 200 with `degraded=True` + empty `text` +
     human-readable `error` when no STT provider is available.
   - Intent classification: `NLQueryParser.extract_intent()` — regex baseline
-    (no LLM needed, works on THE_HOST free plan). Three intents:
+    (no LLM needed, works on any host tier). Three intents:
     `geo_recommend` (find query: "Tìm thư viện gần đây"),
     `report_form` (issue report: "Báo wifi hỏng ở trường X"),
     `geo_query` (info question: "Trường DNTU ở đâu?").
@@ -417,7 +410,7 @@ GeoVision AI — satellite imagery facility detection (Idea #10):
 Rules that must be preserved:
 
 - Every embedding provider is called through `curl --ipv4 --insecure` because
-  THE_HOST has an IPv6/TLS quirk.
+  the host has an IPv6/TLS quirk.
 - Per-provider circuit breakers (5 minutes) prevent re-burning timeouts.
 - **Embedding budget** (seconds, env-tunable):
   - `EMBED_GLOBAL_TIMEOUT_SECONDS` (default 6) — whole chain.
@@ -445,7 +438,7 @@ Rules that must be preserved:
 - **Local embedding cache**: `_embed_cache_max` expanded 128 → 1024 (env:
   `EMBED_CACHE_MAX`). With 1024 entries × 768 dims × 4 bytes ≈ 3MB RAM —
   negligible cost. TTL remains 30 min (`EMBED_CACHE_TTL_SECONDS`).
-- **Local vision fallback** (NEW): `google/owlv2-base-patch16-ensemble` (~440MB, ~400-600MB RAM)
+- **Local vision fallback** (removed 2026-11-08, no local models): `google/owlv2-base-patch16-ensemble` (~440MB, ~400-600MB RAM)
   zero-shot object detection for GeoVision AI. Env-tunable:
   `LOCAL_VISION_MODEL`, `LOCAL_VISION_ENABLED` (default true),
   `LOCAL_VISION_THRESHOLD` (default 0.25), `LOCAL_VISION_IMAGE_MAX` (1024px).
@@ -453,7 +446,7 @@ Rules that must be preserved:
   successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
   TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
   redundant DeepSeek/Gemini/Cloudflare calls for identical prompts (career paths,
-  scholarship summaries, mentor matches) — critical for the HF free-tier quota.
+  scholarship summaries, mentor matches) — critical for the quota budget.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
 ## 4. Useful local commands
@@ -477,8 +470,10 @@ cd backend && npm run build
 # Frontend typecheck/build — ONLY if the user explicitly asks
 cd frontend && npx tsc --noEmit
 
-# Deploy to HF (only after changes are committed; user runs this, the agent has no token)
-HF_TOKEN=<token> ./deploy-hf.sh
+### Note
+The agent has no deploy token, no `HF_KEY`, and no deploy script. The user
+runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
+`rsa` keys in the user's account to push, not a token in this environment.
 ```
 
 ## 5. Environment notes
@@ -486,19 +481,19 @@ HF_TOKEN=<token> ./deploy-hf.sh
 - **All external API keys are now OPTIONAL.** The app works with zero keys set —
   the DeepSeek → Gemini → Cloudflare cascade degrades to template fallbacks +
   cached SQLite data when every remote provider is unreachable.
-- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY`,
-  `HF_TOKEN` (GeoVision vision detection only) are HF Secrets (optional).
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY` are
+  host secrets (optional).
 - `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
 - `GEMINI_MODEL` — Google Gemini text generation model cascade.
 - `HF_EMBEDDING_MODEL` removed — embeddings use Cloudflare → Gemini cascade.
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
-- `OWM_API_KEY` — OpenWeatherMap API key (HF Space secret, optional). When set,
+- `OWM_API_KEY` — OpenWeatherMap API key (host secret, optional). When set,
   the Climate Learning Guardian fetches real-time weather severity; when absent,
   it falls back to a static flood-hazard map built from real Vietnamese flood
   zone polygons (Đồng Nai, Cửu Long, Đà Nẵng, TPHCM) seeded via
   `scripts/migrate_real_data.py`.
-- `GOOGLE_TTS_API_KEY` — Google Cloud TTS API key (HF Space secret, optional).
+- `GOOGLE_TTS_API_KEY` — Google Cloud TTS API key (host secret, optional).
   When set, the Language Bridge uses Google Cloud TTS (best voice quality);
   when absent, it falls back to `edge-tts` (Microsoft Edge online, keyless)
   then `gTTS` (Google Translate TTS, keyless), then degrades to text-only
@@ -507,19 +502,19 @@ HF_TOKEN=<token> ./deploy-hf.sh
   cascade as all other AI features.
 - **No local model env vars** (the local models were deleted on 2026-11-08 — see
   §6.5): `ai-service` runs on remote APIs only:
-  - `DEEPSEEK_API_KEY` — primary text-generation provider (HF Space secret)
+  - `DEEPSEEK_API_KEY` — primary text-generation provider (host secret)
   - `DEEPSEEK_BASE_URL=https://api.deepseek.com`, `DEEPSEEK_MODEL=deepseek-chat,deepseek-reasoner`
   - `DEEPSEEK_TIMEOUT_SECONDS=20` (wide budget because the reasoner is slow)
   - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
     set `false` to force template-only answers (instant, no network call)
   - `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — LLM + embeddings fallback
-    (Cloudflare is blackholed from THE_HOST; Gemini is the primary)
+    (Cloudflare is blackholed; Gemini is the primary)
   - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold, still used by the startup
     hooks (no longer gates a model load that no longer exists)
 
 ## 6. Data policy (verified Vietnamese content only)
 
-Users verified the live HF Space and reported the seeded feature data as
+Users verified the live deployment and reported the seeded feature data as
 fabricated. The following rules now apply to every feature:
 
 - **Source of truth:** `scripts/real_vn_data.py` — real Vietnamese or
@@ -547,7 +542,7 @@ fabricated. The following rules now apply to every feature:
   `Nguồn chính thức: <url> · Kiểm chứng: <date>`, and scholarship pages render
   an “Nguồn chính thức ↗” link from `apply_url`.
 - `@edumap.vn` accounts (96) are **demo login accounts**, not feature content.
-  Keep `admin@edumap.vn` — it is the admin login on HF.
+  Keep `admin@edumap.vn` — it is the admin login on the host.
 
 ## 6.5. Local models — REMOVED (2026-11-08)
 
@@ -560,7 +555,7 @@ the staggered startup warm-up thread. `ai-service` now runs a **pure API stack**
 - Text: `DeepSeek → Google Gemini → Cloudflare Workers AI → template fallback`
 - Embeddings: `Cloudflare → Google Gemini → RuntimeError (RAG returns no
   results; chat falls back to the LLM)`
-- GeoVision: `HF Inference API (HF_TOKEN required) → degraded = true + empty
+- GeoVision: `degraded = true + empty`
   detections (never 502)`
 - Elevation: `Open-Meteo (no key)`
 - ChromaDB still lives in `/tmp/chroma_db` (re-seeded at startup by `main.py`);
@@ -583,7 +578,7 @@ outside of `tests/` and `node_modules`).
   features still answer questions from the LLM even when every provider is
   unreachable.
 
-## 7. Current known limitations on HF (free plan)
+## 7. Current known limitations on the host free plan
 
 - **Free-tier reality:** 2 vCPU, no GPU, ~5GB Docker image limit, ~48 h sleep timer.
   The first request after a restart can take 30–60 s (container + Next.js +
@@ -597,7 +592,7 @@ outside of `tests/` and `node_modules`).
   - multilingual-e5-small + ms-marco-MiniLM-L6-v2: ~350MB
   - SRTM elevation .npy: ~8.4MB
   - Code + SQLite DB: ~150MB
-  - **Total ≈ 2.5-2.8GB** (< 5GB THE_HOST Docker limit ✅)
+  - **Total ≈ 2.5-2.8GB** (< 5GB host Docker limit ✅)
 - **RAM budget (runtime, worst case all models loaded):**
   - System (Next.js + NestJS + OSRM + FastAPI): ~5-6GB
   - Gemma 2B 4-bit: ~1.5GB
@@ -614,12 +609,12 @@ outside of `tests/` and `node_modules`).
   `ST_MakePoint` or `::geography`. Query builders MUST branch on
   `isPostgresNow()` and compute distances in JS (see
   `WifiService.getWifiPointsNearby`) instead of shipping PostGIS SQL to SQLite.
-- **`DB_SYNC` must stay `false`** on HF (set in the Dockerfile). The shipped
+- **`DB_SYNC` must stay `false`** (set in the Dockerfile). The shipped
   `edumap.db` predates parts of the entity set, so `synchronize: true` dies on
   NOT NULL drift (e.g. `temporary_locations.category_id`,
   `temporary_green_challenges.created_by`). Schema changes ship as explicit
   migrations / `ensureSqliteSchema()`, never via `synchronize`.
-- **ChromaDB is re-created on every Space restart.** Startup seeding runs in a
+- **ChromaDB is re-created on every container restart.** Startup seeding runs in a
   daemon thread with a longer embedding budget
   (`SEED_EMBED_GLOBAL_TIMEOUT_SECONDS`=25,
   `SEED_EMBED_PROVIDER_TIMEOUT_SECONDS`=12) and is now per-document tolerant:
@@ -709,33 +704,33 @@ inventing new values.
   `React.useEffect` pattern in the same file). Verify: `npx tsc --noEmit`
   exits 0.
 
-## 9. Runtime fixes from the 2026-10-30 HF log (NameError sweep)
+## 9. Runtime fixes from the 2026-10-30 production log (NameError sweep)
 
-The user pasted a production log from <THE_HOST>.
+The user pasted a production log from the deployment host.
 Four `NameError`s plus one SSE-budget bug were found; all are fixed and
 covered by regression tests (`ai-service/tests/test_undefined_name_regressions.py`,
 `ai-service/tests/test_chat_stream_budget.py`). The unit tests had hidden them
 because every climate test mocked `_get_elevation` and no test touched
-`routers/system.py` or `_hf_vision_detect`.
+`routers/system.py`.
 
-| # | Symptom in the HF log | Root cause | Fix |
+| # | Symptom in the log | Root cause | Fix |
 |---|---|---|---|
 | 1 | `Error in climate/risk: name '_get_elevation_local_enabled' is not defined` (same for `climate/alternatives`) → 200 + degraded empty heatmap | `climate_guardian._get_elevation()` referenced an identifier that was never defined; the flag is the module constant `LOCAL_ELEVATION_ENABLED` | use `LOCAL_ELEVATION_ENABLED` (`services/climate_guardian.py`) |
-| 2 | GeoVision would 500 whenever `HF_TOKEN` is set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the HF code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
+| 2 | GeoVision would 500 whenever the provider was set | the body of `_hf_vision_detect()` existed but its `def` line had been lost while the local fallback was added, so the HF code sat as dead code after `return []` inside `_local_vision_detect()` | restored `def _hf_vision_detect(image_b64, labels)` (`routers/geo.py`) |
 | 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
 | 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
 | 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | a slow/dead provider could run past the 8 s generation budget + word-by-word streaming, exceeding the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): every provider call is wrapped in `asyncio.wait_for`, the provider list skips when time is exhausted, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
-| 6 | **Local LLM (Gemma) always failed to generate** — `NameError: name 'generated' is not defined` inside `_local_llm_generate` | the `generated = _local_llm_tokenizer.decode(...)` line was lost during the TinyLlama→Gemma refactor (commit `0d12ee7`). Every call raised NameError → caught by outer `except` → opened the 5-min circuit breaker, wasting ~1.5 GB RAM holding a loaded model that could never respond. | restored the decode step (`services/llm_service.py:233`); added regression tests `test_local_llm_generate_decodes_output` + `test_local_llm_generate_raises_on_empty_output`. **Also set `LOCAL_LLM_ENABLED=false` in the Dockerfile** — Gemma 2B is gated on HF Hub (§6.5 confirms it's a no-op on the free tier), so disabling it saves 1.5 GB RAM without changing the cascade (`DeepSeek → Gemini → Cloudflare → template`). |
+| 6 | **Local LLM (Gemma) always failed to generate** — `NameError: name 'generated' is not defined` inside `_local_llm_generate` | the `generated = _local_llm_tokenizer.decode(...)` line was lost during the TinyLlama→Gemma refactor (commit `0d12ee7`). Every call raised NameError → caught by outer `except` → opened the 5-min circuit breaker, wasting ~1.5 GB RAM holding a loaded model that could never respond. | restored the decode step (`services/llm_service.py:233`); added regression tests `test_local_llm_generate_decodes_output` + `test_local_llm_generate_raises_on_empty_output`. **Also set `LOCAL_LLM_ENABLED=false` in the Dockerfile** — Gemma 2B is gated on any remote hub (§6.5 confirms it's a no-op on the free tier), so disabling it saves 1.5 GB RAM without changing the cascade (`DeepSeek → Gemini → Cloudflare → template`). |
 
 Verification done locally (allowed per §1): `python3 -m pytest tests -q` →
 **451 passed**; `py_compile` clean; an AST undefined-name sweep over
 `ai-service/**/*.py` reports no remaining undefined names. Runtime truth is
-still the HF Space after deploy.
+still the deployed container after deploy.
 
 ### Build-time OOM fix (2026-10-31 — exit 137)
 
 The `35f39b0` commit changed `CACHEBUST` which invalidated the Docker layer cache,
-triggering a full rebuild on THE_HOST. During a cold rebuild, multiple build
+triggering a full rebuild on the host. During a cold rebuild, multiple build
 stages run in parallel via BuildKit:
 
 | Phase | Parallel stages | Est. RAM |
@@ -743,7 +738,7 @@ stages run in parallel via BuildKit:
 | Phase 1 (cold) | frontend-builder npm ci + backend-builder npm ci + frontend-deps npm ci + **ai-deps torch** + elevation-builder + vision-model-dl + osm-downloader | ~5.2 GB ⚡ |
 
 The torch install (~2.5 GB peak) ran in parallel with three `npm ci` steps
-(~1 GB + 500 MB + 500 MB), exceeding THE_HOST' ~4 GB build RAM budget.
+(~1 GB + 500 MB + 500 MB), exceeding the host's ~4 GB build RAM budget.
 The 2 GB swap inside `ai-deps` Step 1 may fail silently in `python:3.11-slim`,
 leaving 2.5 GB of physical RAM for torch.
 
@@ -864,7 +859,7 @@ Verification: `python3 -m py_compile` OK on all modified files;
   (`{user.email}`, `{analysis.summary}`, card `line-clamp` descriptions, form-helper copy,
   `eligibility.message`) were intentionally KEPT per §6 honest-empty-states + §8 card system.
 - Verified locally: `cd frontend && npx tsc --noEmit` → exit 0; `npm run build` → exit 0.
-  Runtime truth = THE_HOST free CPU tier; no `HF_TOKEN` locally, user deploys.
+  Runtime truth = the host free CPU tier; no deploy token locally, user deploys.
 - **/ai-chat auto-scroll + clear (2026-10-31):** the page rendered the message list in a
   `ScrollArea` but never scrolled to the bottom while tokens streamed, so the AI's reply
   was "stuck" above the fold. Added a scroll-sentinel `<div ref={messagesEndRef} />`
@@ -874,7 +869,7 @@ Verification: `python3 -m py_compile` OK on all modified files;
   Also added a header "Xóa" button (`Trash2` icon, `handleClear`) that resets the visible
   conversation to the hoisted `initialMessage` and best-effort `DELETE /api/ai/history`
   (guarded by `authService.getAccessToken()`, `.catch(() => {})` so a 404/405 on the
-  HF free tier never blocks clearing the view). `Button` already imported; disabled
+  never blocks clearing the view). `Button` already imported; disabled
   while `isLoading` to avoid a mid-stream clear.
 - **/map left panel (Bản đồ panel) optimisation (2026-10-31):** two friction points fixed.
   (1) "trùng" — the draggable header always read the static `<h3>Bản đồ</h3>` while the first
@@ -1090,7 +1085,7 @@ Intervals are env-tunable per-task (e.g. `AUTO_INTERVAL_QUESTION_GAPS_S`):
 
 ## 13. Chat streaming never answers 503 (2026-11-01)
 
-Production log (first request after a Space rebuild):
+Production log (first request after a rebuild):
 
 ```
 WARN  [AIService] AI service not ready (attempt 1/7), retrying in 3s...
@@ -1111,7 +1106,7 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
   - When the window is exhausted, `_writeDegradedStream()` answers **HTTP 200
     + a complete SSE conversation** (`{meta,sources}` → `{token,is_final}` →
     `{done:true}`) built from `_degradedStreamReply()`: an honest Vietnamese
-    message that says the AI container is starting (HF free tier needs ~30–60 s
+    message that says the AI container is starting (the container needs ~30–60 s
     after a reload) and asks the user to retry in a minute.
   - The degraded turn is persisted to `chat_histories` (fire-and-forget) with
     `context.degraded = true`, so the next successful request still has context.
@@ -1135,9 +1130,9 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
 - Dockerfile: `ENV DB_TYPE=postgres`; SQLite file + verify_db no longer shipped.
 - `.env.example`: `DB_SQLITE_PATH` removed.
 - Data migrate: `scripts/migrate_sqlite_to_postgres.py` (idempotent).
-- HF Secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
+- Secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
 - `DB_SYNC=false` vẫn bắt buộc; schema qua migrations.
-- ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral).
+- ChromaDB (RAG) vẫn trên `/tmp` (ephemeral).
 
 ## 15. Supabase migration (planned)
 
@@ -1146,9 +1141,9 @@ ERROR [HTTP] POST /api/ai/chat-stream 503 - 18047ms
 - Schema qua TypeORM migrations (`npm run migration:run`), `DB_SYNC=false`.
 - Dữ liệu migrate qua `scripts/migrate_sqlite_to_postgres.py` (idempotent).
 - Crawlers hiện ghi SQLite; tạm giữ SQLite + nightly sync (lựa chọn A) hoặc refactor sang Postgres (B).
-- Env HF Secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
+- Env secrets: `DB_TYPE=postgres`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`.
 - Dockerfile đã đổi `ENV DB_TYPE=postgres`; DB env vars recover qua `start.sh`.
-- ChromaDB (RAG) vẫn trên `/tmp` HF (ephemeral) — không thuộc Supabase.
+- ChromaDB (RAG) vẫn trên `/tmp` (ephemeral) — không thuộc Supabase.
 
 ## 14. Chat degraded reply root cause (2026-11-04)
 
@@ -1178,10 +1173,10 @@ for every question, including the seeded suggestion
 - **Regression tests:** `ai-service/tests/test_start_script.py` (3 tests) —
   `bash -n` on `start.sh`, the restored `SECRET_VARS` loop, and a guard
   against reintroducing `if not check_oom():` in `main.py`.
-- **Deploy reminder (unchanged):** runtime is THE_HOST free tier only
-  (`THE_HOST`); local is edit + Python tests only —
-  no `npm`/`docker`/dev servers. The user deploys (`HF_TOKEN=… ./deploy-hf.sh`);
-  the agent has no token. After deploy, the Space log must show
+- **Deploy reminder (unchanged):** runtime is the host free tier only
+  local is edit + Python tests only —
+  no `npm`/`docker`/dev servers. The user deploys;
+  the agent has no token. After deploy, the log must show
   `AI SERVICE READY` for the `ai-service` program (and no
   `syntax error near unexpected token`), and one real question on `/ai-chat`
   must answer normally instead of returning the §13 degraded template.
@@ -1207,7 +1202,7 @@ for every question, including the seeded suggestion
 - **Merges executed (P3)**: `question_gaps` → `analytics` router; `data_hunter` → `data_quality` router. Router files deleted; `main.py` `router_names` updated; tests updated; self-merged "Merged from data_hunter.py" marker removed. Remaining merge candidates (reported): BFF proxy factory, duplicate embed/tutor/geo namespaces, routing controllers, planning docs.
 - **Unsuitable/stale items (reported)**: `module`/`feature` backend folders already absent (stale report entries), build artifacts (`backend/dist`, `frontend/.next`) not tracked, `.env.example` corrected, lockfile `agentation` residue.
 - **P1 public-timeline extension** (after the initial guard sweep): endpoints whose product intent is genuinely public were annotated explicitly rather than left accidentally open — `resource-exchange/match`, `map/climate/alternatives`, `analytics/track` all got `@Public()`, and `ai/speech/to-text` already had it.
-- Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = THE_HOST free tier after user deploy.
+- Verification: `ai-service` pytest **525 passed**; `python3 -m compileall ai-service` OK; TS parse diagnostics unchanged (0 regressions). Runtime truth = the host free tier after user deploy.
 
 ## 18. Vercel build fix — strip-stale-sources deleted used services (2026-11-07)
 
@@ -1236,7 +1231,7 @@ Fix:
 Verified locally: `cd frontend && npx tsc --noEmit` = 0 errors; a resolver scan
 over `app/`, `components/`, `src/` reports 0 unresolved relative imports; a dry
 run of the fixed prebuild script deletes only `tsconfig.tsbuildinfo`.
-Runtime truth remains the Vercel build + HF Space deploy.
+Runtime truth remains the Vercel build + host deploy.
 ### Same commit broke CSS (found on retry, 2026-11-07)
 
 The next Vercel build failed at `app/globals.css:332 Syntax error: Unexpected }`.
@@ -1278,13 +1273,12 @@ Two independent problems showed up together in the browser:
    Without the entity glob, TypeORM registers no entities on Postgres, so every
    repository-backed route fails.
 
-2. **`/api/internships` 500 + socket.io WebSocket failure** — not code. The HF
-   Space runtime reports `stage: PAUSED`, `errorMessage: "Flagged as abusive"`
-   (`THE_HOST_RUNTIME`). Every BFF
-   route that proxies to `BACKEND_URL` (`THE_HOST`)
-   and the realtime gateway therefore fail until the Space is restarted/unpaused
-   by the owner in the HF UI.
-
+2. **`/api/internships` 500 + socket.io WebSocket failure** — not code. The host
+    space runtime reports `stage: PAUSED`, `errorMessage: "Flagged as abusive"`
+  (site status). Every BFF
+   route that proxies to `BACKEND_URL` (`BACKEND`),
+   and the realtime gateway therefore fail until the runtime is restarted/unpaused
+   by the owner in the control panel.
 Rule reinforced: comment stripping must never be regex-based over arbitrary
 text; `/**/` appears inside real globs, and `/*`/`*/` appear inside strings.
 
@@ -1292,14 +1286,13 @@ text; `/**/` appears inside real globs, and `/*`/`*/` appear inside strings.
 
 The NestJS backend (`backend/src`, port 3000) is being replaced module by module
 with a Rust `axum`/`sqlx` server on the same port. The frontend BFF, FastAPI
-ai-service (8000), OSRM (5000), `supervisord.conf`, `Dockerfile` and
-`scripts/hf_proxy.js` stay untouched; `hf_proxy.js` already routes `/api/*` and
-`/api/ai/*` to the Rust backend.
+ai-service (8000), OSRM (5000), `supervisord.conf` and `Dockerfile` stay untouched;
+the frontend BFF now points at the Rust backend directly.
 
 **Hard local constraint (AGENTS.md §1):** this machine has **no `cargo`/`rustc`**
 toolchain. Agents edit Rust sources and run Python checks only. `cargo check` /
 `cargo build --release --target x86_64-unknown-linux-musl` is the **user's** job;
-runtime truth is the HF Space after deploy (`THE_HOST`).
+runtime truth is the host after deploy.
 
 ### 19.1 Rules that every Rust module must follow
 
@@ -1362,7 +1355,7 @@ reports **all 16 `.rs` files balanced**.
 | Mounted in `router.rs` | 44 mounts, all `.with_state(pool)`. Naming aliases: `donate`→`donation_routes`, `mentor`→`mentoring_routes`; `proxy` is a helper with no routes; `health` mounts as `health` (no `_routes` suffix). |
 | `common/auth.rs::PUBLIC_PATHS` | 221 entries (exhaustive — every route in `router.rs`, so `AuthLayer` never blocks a module that validates the JWT inside the handler) |
 | NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` |
-| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs=2` (HF build RAM). |
+| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs=2` (host build RAM). |
 | `supervisord.conf` | `[program:backend] command=/app/backend/edumap-backend` (comment header updated) |
 | Balance sweep | all 54 `.rs` files OK (`/tmp/rust_check.py`) |
 | Compiled locally | **no** — no `cargo`/`rustc`; the user compiles and deploys |
@@ -1395,13 +1388,13 @@ frontend anymore.
    `.github/workflows/backend-build.yml` job (`cargo check` on musl) fails the
    build on compile errors and logs the failure in the Actions tab. Push to
    `origin main` to trigger it.
-2. Deploy: `HF_TOKEN=<token> ./deploy-hf.sh` (pushes `HEAD:main` to the `hf`
-   remote; the Space rebuilds the Docker image automatically).
+2. Deploy: the user pushes `HEAD:main` and the host rebuilds the Docker image
+    automatically.
 3. Verify the boot log: `AI SERVICE READY` for `ai-service`, no `syntax error`
    for `start.sh`, `database pool connected` for the Rust backend, no `503`
    on the first request (cold start).
 4. Smoke-test the Rust routes on
-   `THE_HOST` (e.g. `GET /api/health`,
+   the host (e.g. `GET /api/health`,
    `POST /api/auth/dev-login`, `GET /api/impact-match/needs`,
    `POST /api/impact-match/rank`, `GET /api/career/jobs`, `GET /api/map/pois`,
    `GET /api/resource-exchange/resources`, `GET /api/share/items`, `GET /api/stem/labs`,
@@ -1421,7 +1414,7 @@ wired into the frontend. Replaced with:
   `notifications/subscribe`), gets a `text/event-stream` whose events are
   `data: {"title","body","channel","sent_at"}`. Keep-alive every 20 s (defeats
   `hf-proxy` + Vercel timeouts). The hub is installed in `main.rs` and resets
-  on every Space restart; dead streams are dropped on the next broadcast.
+  on every container restart; dead streams are dropped on the next broadcast.
 - **`POST /api/notifications/send`** (`modules/notifications.rs`) broadcasts the
   stored row into the user's SSE streams.
 - **Frontend (`src/services/socket.service.ts`)**: socket.io → fetch-based SSE
@@ -1457,3 +1450,27 @@ wired into the frontend. Replaced with:
   rollback on any failure. Stock short → BadRequest `Sản phẩm X không đủ tồn kho.`
 - No `PUBLIC_PATHS` addition needed: the list/detail endpoints are public; the
   write endpoints self-authenticate.
+
+### 19.7 Render deployment (free tier) — split services, 2026-11-11
+
+The Rust backend replaced the NestJS one 2026-11-11, so Render must build
+from `backend/Dockerfile` (Rust cross-compile, musl) — the old NestJS Dockerfile
+still referenced in `backend/Dockerfile` was replaced on this date.
+
+- **Files:** `render.yaml` (Blueprint), `backend/Dockerfile` (Rust),
+  `ai-service/Dockerfile` (Python), `.github/workflows/backend-build.yml`
+  (`cargo check --release --target x86_64-unknown-linux-musl` — compile gate),
+  `docs/RENDER_DEPLOY.md` (manual).
+- **Service env of `edumap-api`:** `BACKEND_PORT=3000` (Rust, not `PORT`/`NODE_ENV`),
+  `DB_*` (Supabase session pooler 6543), `JWT_SECRET` (generated),
+  `DEV_USER_EMAIL` (Rust `dev-login` target, default `dev@edumap.vn`),
+  `AI_SERVICE_URL=http://edumap-ai:8000`,
+  `ROUTING_SERVICE_URL=https://router.project-osrm.org` (Rust reads this,
+  the old NestJS `OSRM_URL` is gone).
+- **Render build context = `rootDir`:** `COPY` paths inside
+  `backend/Dockerfile` are relative to `backend/`.
+- **Build/verify:** push → `backend-build.yml` green → Render Dashboard →
+  Blueprint (autoDeploy) → smoke `./scripts/smoke_render.sh <API_URL> <AI_URL>`.
+- **Traps:** free tier sleeps after ~15 min (first request 30–60 s cold start);
+  750 h/month budget across all services; `/tmp/chroma_db` is wiped per restart.
+

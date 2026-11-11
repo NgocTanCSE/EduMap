@@ -17,7 +17,7 @@ Dựa trên việc phân tích mã nguồn, cấu trúc thư viện (`package.js
 
 ### C. Hạ tầng (Infrastructure)
 - **Microservices-ready:** Đã có thư mục `k8s/` (Kubernetes) và `docker-compose.yml`, cho phép tách rời Frontend, Backend, AI, Database ra các máy chủ vật lý khác nhau khi có hàng triệu người dùng.
-- **Hugging Face / VPS Deployment:** Kiến trúc gom tất cả vào 1 container (trên HF Spaces) được quản lý cực kỳ gọn gàng bởi Supervisord và Nginx đóng vai trò Reverse Proxy định tuyến luồng mạng.
+- **Host / VPS Deployment:** Kiến trúc gom tất cả vào 1 container (trên host container) được quản lý cực kỳ gọn gàng bởi Supervisord và Nginx đóng vai trò Reverse Proxy định tuyến luồng mạng.
 
 ---
 
@@ -36,7 +36,7 @@ Mặc dù hệ thống đã có bộ khung xuất sắc, nhưng để chạy th�
    - *Giải pháp:* Cần tích hợp nền tảng như **Sentry.io** (cho cả Frontend và Backend). Khi người dùng gặp lỗi trắng trang hoặc API sập, hệ thống sẽ tự động gửi thông báo về điện thoại của lập trình viên kèm theo chính xác dòng code gây lỗi.
 
 3. **Sao lưu dữ liệu tự động (Backup Database):**
-   - *Hiện trạng:* Chạy trên Hugging Face Spaces hoặc Docker Local nếu bị reset container có rủi ro mất mát dữ liệu Database (Postgres) và File (MinIO).
+   - *Hiện trạng:* Chạy trên container host hoặc Docker Local nếu bị reset container có rủi ro mất mát dữ liệu Database (Postgres) và File (MinIO).
    - *Giải pháp:* Viết một Cronjob (`@nestjs/schedule` đã có sẵn trong dự án) để hàng đêm tự động sao lưu (dump) CSDL và đẩy lên một máy chủ khác (như AWS S3 hoặc Google Drive).
 
 ### Các tính năng Nâng cao (Có thể bổ sung ở giai đoạn mở rộng)

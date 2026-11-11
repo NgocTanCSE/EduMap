@@ -20,7 +20,7 @@ tags:
 
 # 🎓 EduMap — Vietnam Education & Career Map
 
-Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web full-stack chạy trên **Hugging Face Spaces Docker** (single container).
+Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web full-stack chạy trên **container Docker** (single container).
 
 ## 🏗️ Kiến trúc hệ thống
 
@@ -38,7 +38,7 @@ Bản đồ giáo dục & cơ hội việc làm Việt Nam — ứng dụng web 
 
 ## 🐳 Chạy local
 
-> **📌 Chính sách triển khai (bắt buộc):** Dự án **chỉ chạy production trên Hugging Face Spaces**. Môi trường local **chỉ dùng để code, đọc code và chạy unit test** — không phải môi trường tham chiếu cho hành vi runtime. Mọi fix phải được kiểm chứng trên HF Space sau khi deploy. Secrets production nằm ở **HF Spaces → Settings → Secrets**, không nằm trong `.env` local. Xem thêm `AGENTS.md`.
+> **📌 Chính sách triển khai (bắt buộc):** Dự án **chỉ chạy production trên container của host**. Môi trường local **chỉ dùng để code, đọc code và chạy unit test** — không phải môi trường tham chiếu cho hành vi runtime. Mọi fix phải được kiểm chứng sau khi deploy. Secrets production nằm ở **host → Secret Settings**, không nằm trong `.env` local. Xem thêm `AGENTS.md`.
 
 > Một số tính năng cần external services (PostgreSQL, Redis) sẽ không khả dụng trong single-container SQLite mode của HF Spaces.
 

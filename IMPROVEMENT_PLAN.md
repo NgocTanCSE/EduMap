@@ -202,6 +202,6 @@ Text Generation (chat, learning-path, summary, career, geo):
 Embeddings (vector_store.py):
   1. Gemini (gemini-embedding-001) ← giữ nguyên, không bị ảnh hưởng
   2. Cloudflare baai/gge-base-en-v1.5
-  3. HuggingFace Inference API
+  3. Template fallback
   4. OpenRouter embeddings (tuỳ chọn)
 ```

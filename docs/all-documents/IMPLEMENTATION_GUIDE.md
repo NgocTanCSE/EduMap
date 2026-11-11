@@ -142,12 +142,12 @@ psql -U postgres -d edumap -c "SELECT COUNT(*) FROM map_points;"
 docker-compose up --build
 ```
 
-#### Step 5: Deploy to Hugging Face (optional)
+#### Step 5: Deploy to the host container (optional)
 ```bash
 git add seed_crawled_data.sql
 git commit -m "Add crawled data - WiFi, parks, books, schools"
 git push origin main
-# GitHub Actions automatically deploys to HF Spaces
+# The user's deploy pipeline builds and runs the container
 ```
 
 ---
@@ -355,7 +355,7 @@ cp seed_crawled_data_new.sql seed_crawled_data.sql
 docker-compose up --build
 ```
 
-### Deploy to Hugging Face
+### Deploy to the host container
 ```bash
 git add .
 git commit -m "Add crawled data"
@@ -398,7 +398,7 @@ SELECT title FROM learning_materials WHERE subject = 'Computer Science';
 - [ ] Copy seed file to project root
 - [ ] Run database initialization
 - [ ] Test with Docker
-- [ ] Deploy to Hugging Face
+- [ ] Deploy to the host container
 - [ ] Verify in production
 
 ---
@@ -422,7 +422,7 @@ SELECT title FROM learning_materials WHERE subject = 'Computer Science';
 3. Verify data in frontend map view
 
 ### Short-term (This Month)
-1. Deploy to Hugging Face Spaces
+1. Deploy to the host container
 2. Gather user feedback
 3. Fix any data issues
 

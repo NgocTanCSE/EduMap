@@ -1,6 +1,6 @@
 # REFACTOR TODO — EduMap (Đại cải cách)
 
-> Môi trường: Hugging Face Spaces free plan only; local chỉ code/test, không chạy server.
+> Môi trường: container (Docker, free plan) only; local chỉ code/test, không chạy server.
 > Nguồn: `UX_UI_REPORT.md`, `BE_STATUS_REPORT.md`, quét tĩnh repo.
 > Nguyên tắc: không xóa directive comments (`eslint-disable`, `ts-ignore`, `istanbul ignore`, `# noqa`, `# type: ignore`); không xóa license/copyright headers; chỉ xóa comment giải thích.
 

@@ -21,7 +21,7 @@
 //! and only parse it on top of it so the frontend can read `sources` +
 //! `fullReply`. When the retry window is exhausted the degraded reply is
 //! emitted instead: the frontend never renders the 503 bubble that used to
-//! appeared on every cold start of the HF free tier.
+//! appeared on every cold start of the container.
 
 use crate::common::auth::AuthUser;
 use crate::common::error::AppError;

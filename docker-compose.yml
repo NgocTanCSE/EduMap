@@ -66,24 +66,19 @@ services:
       - DB_DATABASE=${DB_DATABASE}
       - DB_TYPE=postgres
       - DB_SYNC=false
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MINIO_ENDPOINT=minio
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
       - AI_SERVICE_URL=http://ai-service:8000
-      - OSRM_URL=http://osrm:5000
-      - NODE_ENV=${NODE_ENV}
+      # Rust: ROUTING_SERVICE_URL (các cũ `OSRM_URL` là của NestJS)
+      - ROUTING_SERVICE_URL=http://osrm:5000
+      - BACKEND_PORT=3000
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - PORT=3000
+      - DEV_USER_EMAIL=${DEV_USER_EMAIL:-dev@edumap.vn}
     # NO DIRECT PORTS - secure through Nginx
     depends_on:
       postgres:
         condition: service_started
-      redis:
-        condition: service_healthy
+      osrm:
+        condition: service_started
     restart: unless-stopped
 
   frontend:

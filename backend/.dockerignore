@@ -4,5 +4,8 @@ npm-debug.log
 .git
 .venv
 
+# cargo build output (→ backend/Dockerfile copies only the binary)
+target/
+
 # Local environment files (secrets)
 .env*

@@ -1,5 +1,5 @@
  Chào bạn, tôi là Elite Coder. Đây là một câu hỏi rất quan trọng về mặt
-  kiến trúc hệ thống (System Architecture) khi triển khai trên Hugging Face
+  kiến trúc hệ thống (System Architecture) khi triển khai trên container host
   (HF) Spaces.
 
   Dưới đây là phân tích chi tiết về cấu hình DB hiện tại và tư vấn giải pháp
@@ -47,7 +47,7 @@
 
   Hướng A: Nếu bạn muốn dùng DB nội bộ (Internal)
   Bạn BẮT BUỘC phải bật tính năng "Persistent Storage" trong cài đặt của
-  Hugging Face Space (thường tốn phí hoặc yêu cầu xác thực).
+  host container (thường tốn phí hoặc yêu cầu xác thực).
    * Sau đó, tôi sẽ chỉnh sửa để PostgreSQL lưu dữ liệu vào thư mục /data
      (thư mục được HF gắn đĩa cứng vĩnh viễn).
    * Ưu điểm: Bạn làm chủ hoàn toàn dữ liệu, không phụ thuộc bên ngoài.

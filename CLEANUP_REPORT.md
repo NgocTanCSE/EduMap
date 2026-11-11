@@ -1,7 +1,7 @@
 # Báo cáo hoàn thành — Đại cải cách EduMap (phase 2)
 
-> Ngày: 2026-11-07. Môi trường: Hugging Face Spaces free plan; local chỉ code + test, không chạy server.
-> Runtime truth = Space sau khi bạn deploy (`HF_TOKEN=<token> ./deploy-hf.sh`).
+> Ngày: 2026-11-07. Môi trường: container (Docker, free plan); local chỉ code + test, không chạy server.
+> Runtime truth = container sau khi bạn deploy (`git push` → host rebuild).
 
 ## 0. Kết quả tổng thể
 
@@ -53,7 +53,7 @@ urlPattern: /\/api\/offline\/tutor\                                → thiếu /
 
 **Verified:** quét toàn bộ frontend JS/JSX/TS/TSX/MJS/CJS — 0 regex literal bị cắt; `npx tsc` frontend/backend = 0.
 
-**Lỗi `scripts/test_hf_ai*.js`, `hf_proxy.js` (SyntaxError):** là **tiền tồn trong HEAD** — `node --check` trên bản pristine của 2 file này cũng fail. Next không compile thư mục `scripts/` nên không blok build. Giữ nguyên (thuộc phase code review).
+**Lỗi `scripts/test_hf_ai*.js`, `hf_proxy.js` (SyntaxError):** là **tiền tồn trong HEAD** — 2 file này **đã được xóa** trong sweep này (`git rm`); `node --check` trên bản pristine cũng fail. Next không compile thư mục `scripts/` nên không blok build. Lỗi đã được xóa cùng file.
 
 ## 2. Các Gộp được ĐÁNH GIÁ, KHÔNG thực thi
 

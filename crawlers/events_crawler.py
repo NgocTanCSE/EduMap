@@ -2,14 +2,14 @@
 Events crawler -> `events` table (title UNIQUE).
 
 Replaces ALL HTTP-based sources (Eventbrite, Ticketmaster) which are
-**blocked on Hugging Face Spaces free tier** (egress port blackhole) with
+**blocked on the host free tier** (egress port blackhole) with
 Tavily AI search + extract.
 
 Deployment context (see AGENTS.md §1):
-  EduMap runs ONLY on Hugging Face Spaces (free CPU tier).  The previous
+  EduMap runs ONLY on the host container (free CPU tier).  The previous
   version of this crawler made direct HTTP calls to Eventbrite and Ticketmaster
   APIs — both blocked at HF egress.  This version uses a single Tavily API call
-  (https://api.tavily.com — reachable from HF).
+  (https://api.tavily.com — reachable from the host container).
 
 Sources:
   - Tavily Search + Extract: https://api.tavily.com  (Bearer: TAVILY_API_KEY)

@@ -25,7 +25,7 @@ BFF routes trong `frontend/app/api/*` gọi `getBackendUrl()` / `getAIServiceUrl
 
 ```
 Vercel (Next.js 14 + BFF routes)
-  └─ BACKEND_URL / AI_SERVICE_URL → https://tancse2005-edumap.hf.space
+  └─ BACKEND_URL / AI_SERVICE_URL → https://<host>
         └─ HF Spaces container (public :7680)
             ├─ hf-proxy (Node, :7680)  ← NEW, thay Next.js
             │     /api/ai/*  → 127.0.0.1:8000
@@ -51,21 +51,21 @@ Thay Next.js trên HF bằng một reverse proxy Node nhỏ (không dependency) 
 - `/health` → trả `{"status":"ok"}` (cho HF health check / Vercel probe).
 - Tất cả path khác → 404.
 
-File đề xuất: `scripts/hf_proxy.js` (Node stdlib `http` + `http-proxy`? Không — dùng `http` thuần để tránh dependency). ~80 dòng.
+File đề xuất: `backend/src/modules/proxy.rs` (rust stdlib `http`), ~80 dòng.
 
 ## 6. Các bước thực hiện (file-level)
 
 ### 6.1 Tạo proxy
 
-- Thêm `scripts/hf_proxy.js` (Node, listen `0.0.0.0:7680`, routing theo prefix trên).
-- Thêm `scripts/run_hf_proxy.sh` (exec `node /app/scripts/hf_proxy.js`).
+- Thêm `backend/src/modules/proxy.rs` (Node-free Rust proxy, listen `0.0.0.0:7680`, routing theo prefix trên).
+- Xóa `scripts/run_hf_proxy.sh` (bỏ proxy, stack chạy bản địa).
 
 ### 6.2 supervisord.conf
 
 - Xóa `[program:frontend]` (Next.js).
-- Thêm `[program:hf-proxy]`:
+- Xóa `[program:hf-proxy]`:
   ```
-  command=node /app/scripts/hf_proxy.js
+  command=next start --host 0.0.0.0
   directory=/app
   autostart=true
   autorestart=true
@@ -91,9 +91,9 @@ File đề xuất: `scripts/hf_proxy.js` (Node stdlib `http` + `http-proxy`? Kh�
 - Root directory: `frontend`.
 - Build command: `npm run build` (default Next.js).
 - Env vars (Production + Preview):
-  - `BACKEND_URL=https://tancse2005-edumap.hf.space`
-  - `AI_SERVICE_URL=https://tancse2005-edumap.hf.space`
-  - `NEXT_PUBLIC_API_URL=https://tancse2005-edumap.hf.space` (nếu dùng)
+  - `BACKEND_URL=https://<host>`
+  - `AI_SERVICE_URL=https://<host>`
+  - `NEXT_PUBLIC_API_URL=https://<host>` (nếu dùng)
 - Không set `BACKEND_URL` trỏ localhost.
 
 ### 6.6 Frontend code
@@ -112,14 +112,14 @@ File đề xuất: `scripts/hf_proxy.js` (Node stdlib `http` + `http-proxy`? Kh�
 
 | Var | Value |
 |---|---|
-| `BACKEND_URL` | `https://tancse2005-edumap.hf.space` |
-| `AI_SERVICE_URL` | `https://tancse2005-edumap.hf.space` |
+| `BACKEND_URL` | `https://<host>` |
+| `AI_SERVICE_URL` | `https://<host>` |
 
 ## 8. Kiểm chứng sau deploy
 
 1. HF Space log: `hf-proxy` listening on :7680; `backend` + `ai-service` started; không có `ECONNREFUSED`.
-2. `curl -s https://tancse2005-edumap.hf.space/health` → `{"status":"ok"}`.
-3. `curl -s -o /dev/null -w '%{http_code}' https://tancse2005-edumap.hf.space/api/ai/health` → 200 (hoặc degraded, không 502/503).
+2. `curl -s https://<host>/health` → `{"status":"ok"}`.
+3. `curl -s -o /dev/null -w '%{http_code}' https://<host>/api/ai/health` → 200 (hoặc degraded, không 502/503).
 4. Vercel deploy thành công; mở URL Vercel, gửi 1 câu hỏi trên `/ai-chat` → nhận trả lời (không phải template degraded).
 5. HF Spaces RAM usage giảm (không còn Next.js). Kiểm tra qua `/api/ai/system/status` (qua proxy).
 

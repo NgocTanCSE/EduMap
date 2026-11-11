@@ -1,11 +1,11 @@
 # EduMap Test App (Giả ứng dụng để test tính năng)
 
 Mock application for testing EduMap frontend features **locally** without requiring
-the full Docker/Hugging Face stack (NestJS backend, AI service, PostgreSQL, Redis,
+the full Docker stack (NestJS backend, AI service, PostgreSQL, Redis,
 MinIO).
 
 > ⚠️ **This is a development-only mock.** It is **NOT** used in the Docker or
-> Hugging Face Spaces deployment. The production deployment always uses the real
+> Host deployment. The production deployment always uses the real
 > NestJS backend (`backend/`) and AI service (`ai-service/`).
 
 ## What It Provides

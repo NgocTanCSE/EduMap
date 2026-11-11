@@ -123,7 +123,7 @@ sequenceDiagram
 | File | Chức năng chi tiết |
 | :--- | :--- |
 | `Dockerfile` | Hướng dẫn đóng gói và triển khai ứng dụng NestJS Backend lên container Docker. |
-| `Dockerfile.hf` | Cấu hình Dockerfile tối ưu triển khai Backend lên Hugging Face Spaces. |
+| `Dockerfile.hf` | **Đã gỡ bỏ** — không còn file cấu hình riêng cho Space. |
 | `package.json` | Khai báo toàn bộ thư viện dependencies, scripts thực thi và thông tin dự án. |
 | `package-lock.json` | Khóa phiên bản chi tiết của các packages phụ thuộc. |
 | `tsconfig.json` | Cấu hình trình biên dịch TypeScript (target ES2021, moduleResolution node...). |
@@ -470,7 +470,7 @@ sequenceDiagram
 | `sentry.server.config.ts` | Cấu hình Sentry bắt lỗi phía Node.js Server của Next.js. |
 | `sentry.edge.config.ts` | Cấu hình Sentry cho môi trường Edge Runtime. |
 | `Dockerfile` | Hướng dẫn build image Docker đa tầng tối ưu dung lượng khi deploy. |
-| `Dockerfile.hf` | **Đã gỡ bỏ** — Frontend build được thực hiện bởi `Dockerfile` gốc (Unified) ở thư mục gốc repo khi triển khai lên Hugging Face Spaces; file này không còn được build pipeline nào tham chiếu nên đã bị xóa để tránh nhầm lẫn. |
+| `Dockerfile.hf` | **Đã gỡ bỏ** — Frontend build được thực hiện bởi `Dockerfile` gốc (Unified) ở thư mục gốc repo; file này không còn được build pipeline nào tham chiếu nên đã bị xóa để tránh nhầm lẫn. |
 | `README.md` | Tài liệu hướng dẫn cài đặt và khởi chạy Frontend. |
 
 ---

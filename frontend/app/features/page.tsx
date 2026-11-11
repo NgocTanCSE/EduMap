@@ -105,7 +105,7 @@ export default function FeaturesHubPage() {
         </div>)}
 
       <p className="border-t border-border pt-4 text-xs text-foreground/40">
-        EduMap chạy trên Hugging Face Spaces (gói miễn phí): lần truy cập đầu tiên sau khi
+        EduMap chạy trên container (gói miễn phí): lần truy cập đầu tiên sau khi
         khởi động lại có thể chậm 30–60 giây. Tính năng AI tự chuyển sang phương án dự phòng
         khi nhà cung cấp tạm thời không phản hồi.
       </p>

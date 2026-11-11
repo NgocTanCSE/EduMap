@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide walks through integrating the crawled data into EduMap and deploying to Hugging Face Spaces.
+This guide walks through integrating the crawled data into EduMap and deploying to the host container.
 
 ## 📊 Data Generated
 
@@ -158,23 +158,22 @@ curl http://localhost:3000/
 curl http://localhost:8000/docs
 ```
 
-## 🤗 Hugging Face Deployment
+## 🚀 Host Deployment
 
 ### Prerequisites
 
 1. **GitHub Repository Setup**
    - Fork or clone EduMap repo
-   - Add HF_TOKEN to GitHub Secrets
+   - Add the host secrets in the container's Secret Settings
 
-2. **Hugging Face Space Created**
+2. **Container Deployment**
    - Name: `EduMap` (or your choice)
    - Type: Docker
    - Private/Public: Choose based on needs
 
 3. **Configure Deploy Workflow**
-   - File: `.github/workflows/deploy-hf.yml`
-   - Update Space URL with your HF username
-   - Verify HF_TOKEN is available in secrets
+   - The user deploys via git push → host rebuild (deploy script is not required)
+   - Verify the secret settings are populated on the host
 
 ### Deploy Steps
 
@@ -188,14 +187,14 @@ curl http://localhost:8000/docs
 
 2. **Automatic deployment**
    - GitHub Actions triggers automatically
-   - Hugging Face Spaces dùng `Dockerfile` gốc (Unified) ở thư mục gốc repo để build toàn bộ stack (Postgres + Redis + Backend + Frontend + AI). Các module con không còn giữ `Dockerfile.hf` riêng.
+   - Host container dùng `Dockerfile` gốc (Unified) ở thư mục gốc repo để build toàn bộ stack (Postgres + Redis + Backend + Frontend + AI). Các module con không còn giữ `Dockerfile.hf` riêng.
    - Code pushed to HF Space
    - Database initialized with seed data
 
 3. **Monitor deployment**
    - Check GitHub Actions tab for workflow status
    - View HF Space logs for build/startup issues
-   - Access via `https://huggingface.co/spaces/YOUR_USERNAME/EduMap`
+   - Access via the host container URL (`https://<host>`),
 
 ## 🔍 Verification
 
@@ -358,7 +357,7 @@ For issues:
 - [ ] WiFi locations marked
 - [ ] Schools categorized
 - [ ] Green spaces visible
-- [ ] Deployed to Hugging Face Spaces
+- [ ] Deployed to the host container
 - [ ] Public access verified
 - [ ] Performance tested
 

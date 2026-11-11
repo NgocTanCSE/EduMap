@@ -148,7 +148,7 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py && \
 
 
 WORKDIR /app/backend
-COPY --from=backend-builder /app/backend/target/x86_64-unknown-linux-musl/edumap-backend ./edumap-backend
+COPY --from=backend-builder /app/backend/target/x86_64-unknown-linux-musl/release/edumap-backend ./edumap-backend
 RUN chmod +x /app/backend/edumap-backend
 
 WORKDIR /app/ai-service

@@ -8,7 +8,7 @@
 //!   * `GET    /api/storage/media/:objectName` — phục vụ file tĩnh (public)
 //!   * `DELETE /api/storage/:id`              — xóa file khỏi DB và filesystem (JWT)
 //!
-//! Old backend dùng MinIO (S3); HF free tier không có S3, nên file được ghi
+//! Old backend dùng MinIO (S3); no local S3 on the host, so files are written
 //! xuống `STORAGE_DIR` (env, mặc định `/app/uploads`) qua `fs` và phục vụ lại
 //! từ filesystem. `file_url` luôn là `/api/storage/media/<objectName>` để
 //! route công cộng này phục vụ chúng.

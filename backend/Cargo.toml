@@ -2,7 +2,6 @@
 name = "edumap-backend"
 version = "1.0.0"
 edition = "2021"
-homepage = "https://github.com/tancse2005/Edumap"
 description = "EduMap backend â replaced NestJS with axum/sqlx (Rust) on port 3000."
 
 [dependencies]

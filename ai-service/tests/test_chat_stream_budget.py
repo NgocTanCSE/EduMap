@@ -165,7 +165,7 @@ def test_chat_with_rag_strips_markdown(monkeypatch):
 
 
 def test_stream_template_fallback_strips_markdown_when_no_provider(monkeypatch):
-    """No provider configured (HF free tier) → the streaming template fallback
+    """No provider configured → the streaming template fallback
     must still be plain text.
 
     Regression: ``chat_with_rag_stream`` had an early-exit branch for

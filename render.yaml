@@ -1,9 +1,19 @@
-# Render Blueprint — EduMap tách service (free tier)
+# Render Blueprint — EduMap (free tier)
 # Deploy: Render Dashboard → New → Blueprint → chọn repo này.
 # Sau khi tạo, điền các biến có `sync: false` trong tab Environment.
+#
+# Build context (Render Blueprint): mỗi service có `rootDir: <thư mục>` →
+# Render lấy chính thư mục đó làm Docker build context, vì vậy `dockerfilePath`
+# (`./Dockerfile`) là tương đối với thư mục đó, và mọi dòng `COPY` trong
+# Dockerfile phải dựa vào `backend/` (hoặc `ai-service/`).
+#
+# Gate biên dịch: GitHub Actions `.github/workflows/backend-build.yml`
+# `cargo check --release --target x86_64-unknown-linux-musl` (musl-tools).
+# Render build ảnh từ Dockerfile này.
+# ---------------------------------------------------------------------------
 
 services:
-  # ---------------------------------------------------------------- NestJS API
+  # --------------------------------------------------------------- Rust API
   - type: web
     name: edumap-api
     runtime: docker
@@ -14,12 +24,17 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
+      # --- Port / runtime (Rust: BACKEND_PORT, mặc định 3000) ---
+      - key: BACKEND_PORT
         value: "3000"
-      - key: NODE_OPTIONS
-        value: --max-old-space-size=384
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ENABLE_DEV_LOGIN
+        value: "true"
+      - key: DEV_USER_EMAIL
+        value: dev@edumap.vn
 
       # --- Database (Supabase, session pooler) ---
       - key: DB_TYPE
@@ -37,18 +52,12 @@ services:
       - key: DB_DATABASE
         value: postgres
 
-      # --- Auth ---
-      - key: JWT_SECRET
-        generateValue: true
-      - key: JWT_EXPIRES_IN
-        value: 7d
-      - key: ENABLE_DEV_LOGIN
-        value: "true"
-
-      # --- Service-to-service ---
+      # --- Service-to-service (mạng nội bộ Render) ---
+      # Rust: AI_SERVICE_URL (FastAPI 8000), ROUTING_SERVICE_URL (OSRM/ORS)
+      # — thay thế `OSRM_URL` (NestJS cũ) bằng ROUTING_SERVICE_URL (Rust).
       - key: AI_SERVICE_URL
-        sync: false
-      - key: OSRM_URL
+        value: http://edumap-ai:8000
+      - key: ROUTING_SERVICE_URL
         value: https://router.project-osrm.org
 
       # --- AI provider keys (tuỳ chọn) ---

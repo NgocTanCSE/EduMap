@@ -12,7 +12,7 @@
 
 ```
 Vercel (Next.js UI + BFF)
-  └─ BACKEND_URL → https://tancse2005-edumap.hf.space
+  └─ BACKEND_URL → https://<host>
         └─ HF Spaces (hf-proxy :7680 → backend :3000 / ai :8000)
               └─ Supabase Postgres (DB_TYPE=postgres)
 ```
@@ -89,6 +89,6 @@ Khuyến nghị: bắt đầu với A, chuyển B dần.
 2. Đổi Dockerfile `DB_TYPE=postgres`.
 3. Chạy migrations (local hoặc HF exec).
 4. Chạy `migrate_sqlite_to_postgres.py` để seed Supabase.
-5. Deploy HF (`HF_TOKEN=... ./deploy-hf.sh`).
+5. Deploy via the user's tooling (`git push` → host rebuild).
 6. Verify: backend log `DB_TYPE=postgres`, query `/api/map/locations` trả dữ liệu, Supabase dashboard thấy rows.
 7. (Tùy chọn) Refactor crawlers sang Postgres (lựa chọn B).

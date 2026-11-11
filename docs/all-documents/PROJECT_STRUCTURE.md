@@ -1,12 +1,12 @@
 # EduMap Project Structure
 
-> **Updated:** October 2025 — Reorganized for Docker/Hugging Face Spaces deployment.
+> **Updated:** October 2025 — Reorganized for Docker deployment.
 
 ## Overview
 
 EduMap is a comprehensive educational mapping platform for Đồng Nai province, Vietnam,
 combining geographic data, AI, and community learning features. The project is deployed
-on **Hugging Face Spaces** using a unified Docker container (single `Dockerfile`).
+on the **host** using a unified Docker container (single `Dockerfile`).
 
 ## Top-Level Structure
 
@@ -16,7 +16,7 @@ EduMap/
 ├── docker-compose.yml            # Full local dev stack (PostgreSQL, Redis, MinIO, nginx, OSRM)
 ├── docker-compose.hf.yml         # HF-style local preview (mirrors single-container setup)
 ├── .env / .env.example / .env.hf.example
-├── .gitignore / .gitattributes / .huggingfaceignore
+├── .gitignore / .gitattributes
 ├── README.md                     # HF Spaces README (with frontmatter)
 │
 ├── frontend/                     # Next.js 14 frontend application (production UI)
@@ -155,9 +155,9 @@ EduMap/
 └── seed_crawled_data.sql         # Seed SQL for database initialization
 ```
 
-## Deployment Architecture (Hugging Face Spaces)
+## Deployment Architecture (host container)
 
-The project runs in a **single Docker container** on Hugging Face Spaces (port 7860).
+The project runs in a **single Docker container** on the host (port 7680 public).
 Inside the container, `supervisord` manages all processes:
 
 ```

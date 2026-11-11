@@ -264,7 +264,7 @@ To update data:
 
 ## Deployment
 
-### For Hugging Face Spaces
+### For host (Docker container) deployment
 
 1. Generate all crawled data:
 ```bash
@@ -284,7 +284,7 @@ git push origin main
 ```
 
 4. GitHub Actions will automatically:
-   - Deploy to Hugging Face Spaces
+   - Deploy to the host container
    - Initialize database with new seed data
 
 ## Statistics

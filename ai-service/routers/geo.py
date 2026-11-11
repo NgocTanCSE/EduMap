@@ -221,10 +221,9 @@ async def vision_detect(request: VisionDetectRequest):
 
     try:
 
-        # Vision provider: the external vision API path (HF_TOKEN) has been
-        # removed from this project. GeoVision AI now degrades (never 502):
-        # the frontend surfaces "AI unavailable — requesting a vision provider
-        # in project settings" instead of a crash.
+        # No external vision provider is configured for this host. GeoVision
+        # AI degrades gracefully (never 502): the frontend surfaces "AI
+        # unavailable, requesting a vision provider" instead of a crash.
         print("[GeoVision] degraded — no vision provider configured for this host")
         return {
             "detections": [],

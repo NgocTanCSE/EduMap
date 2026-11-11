@@ -6,28 +6,64 @@ on:
   pull_request:
     branches: [main]
 
+# Gate biên dịch + kiểm tra — không deploy, không tiết lộ secret.
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  # === Stage 1: Build & Test ===
-  build-and-test:
+  # === 1. Rust backend: biên dịch tĩnh musl (mặc định Render / CI) ===
+  rust-backend-check:
+    name: Rust backend compile check (musl, x86_64)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
+      - name: Set up Rust toolchain (1.82.0 per backend/rust-toolchain.toml)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
+          . "$HOME/.cargo/env"
+          rustup target add x86_64-unknown-linux-musl
+          echo "RUSTC: $(rustc --version)"
+          echo "CARGO: $(cargo --version)"
+
+      - name: Install musl link tools (per backend/.cargo/config.toml)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends musl-tools
+          echo "musl-gcc: $(musl-gcc --version | head -1)"
+
+      - name: cargo check --release --target x86_64-unknown-linux-musl
+        run: |
+          cd backend
+          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
         env:
-          POSTGRES_USER: edumap
-          POSTGRES_PASSWORD: password123
-          POSTGRES_DB: edumap_db
-        ports: ['5433:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports: ['6380:6379']
+          RUST_BACKTRACE: "0"
 
+      - name: Check compile result
+        run: |
+          if grep -q "^error" /tmp/check.log; then
+            echo "COMPILE FAILED"
+            tail -20 /tmp/check.log
+            exit 1
+          fi
+          echo "COMPILE OK"
+
+      - name: Save build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/check.log
+          retention-days: 1
+
+  # === 2. AI service (FastAPI): unit tests ===
+  ai-service-tests:
+    name: AI service tests (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,32 +74,29 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python deps
-        run: pip install psycopg2-binary
-        # sqlite3 is a built-in Python module — no pip install needed
+        run: pip install -r ai-service/requirements.txt --no-cache-dir
 
-      - name: Generate SQLite DB (PostgreSQL → SQLite migration)
-        run: |
-          python scripts/migrate-pg-to-sqlite.py \
-            --pg-host 127.0.0.1 --pg-port 5433 \
-            --pg-db edumap_db --pg-user edumap --pg-password password123 \
-            --output frontend/public/edumap.db
+      - name: Run ai-service tests
+        run: cd ai-service && python3 -m pytest tests -q
+
+  # === 3. Frontend (Next.js/Vercel): type check + build ===
+  frontend-check:
+    name: Frontend type check + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Install backend deps
-        run: npm ci --legacy-peer-deps
-        working-directory: backend
-
-      - name: Build backend
-        run: npx nest build
-        working-directory: backend
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend deps
-        run: npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps --no-audit --no-fund --jobs=1
         working-directory: frontend
 
       - name: Run frontend type check
@@ -75,30 +108,4 @@ jobs:
         working-directory: frontend
         env:
           BACKEND_URL: http://127.0.0.1:3000
-          NEXT_PUBLIC_API_URL: http://localhost:3000/api
-
-      - name: Upload SQLite artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: edumap-db
-          path: frontend/public/edumap.db
-          retention-days: 7
-
-      - name: Set up Rust toolchain
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
-          source "$HOME/.cargo/env"
-          rustup target add x86_64-unknown-linux-musl
-          echo "RUSTC: $(rustc --version)"
-
-      - name: Rust backend compile check (musl)
-        run: |
-          cd backend
-          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
-          grep -q "^error" /tmp/check.log \
-            && { echo "COMPILE FAILED"; exit 1; } \
-            || echo "COMPILE OK"
-
-      - name: Python AI service tests
-        run: |
-          cd ai-service && python3 -m pytest tests -q
+          NEXT_PUBLIC_API_URL: /api

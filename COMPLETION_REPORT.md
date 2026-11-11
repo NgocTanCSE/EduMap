@@ -1,7 +1,7 @@
 # Báo cáo hoàn thành — Đại cải cách EduMap
 
 > Ngày: 2026-11-07. Git HEAD: `f22180e` + working tree refactor.
-> Môi trường: local chỉ code/test; runtime = Hugging Face Spaces free plan (user deploy).
+> Môi trường: local chỉ code/test; runtime = container host (free plan) (user deploy).
 
 ## 0. Kết quả tổng thể
 
@@ -69,4 +69,4 @@ frontend    npx tsc --noEmit              → 0 lỗi
 - Chuyển `notifications` sang persist DB.
 - Drop bảng `features`/`modules`/`model_3d` qua migration mới.
 - Gộp các module còn lại trong §1c.
-- **Deploy runtime:** `HF_TOKEN=<token> ./deploy-hf.sh` — kiểm tra log Space có `AI SERVICE READY` và không có `syntax error near unexpected token`.
+- **Deploy runtime:** `git push origin main` → host rebuild — kiểm tra log container có `AI SERVICE READY` và không có `syntax error near unexpected token`.

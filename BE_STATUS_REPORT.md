@@ -1,6 +1,6 @@
 # Backend Status Report — EduMap
 
-> Phạm vi: phân tích code BE tại `backend/src` (NestJS). Môi trường deploy: Hugging Face Spaces free plan (Postgres/Supabase làm DB chính, SQLite đã loại bỏ). Local chỉ đọc code/test, không chạy server.
+> Phạm vi: phân tích code BE tại `backend/src` (Rust/axum). Môi trường deploy: container host (Postgres/Supabase làm DB chính). Local chỉ đọc code/test, không chạy server.
 >
 > Ngày phân tích: 2026-11-06. Git HEAD: `f22180e`. Working tree sạch.
 
@@ -398,4 +398,4 @@ AI service: 36 test file (pytest). Chạy local: `cd ai-service && python3 -m py
 - Tổng số endpoint BE: ~230+ route (theo controller decorators).
 
 ---
-*Report generated from static code inspection. Runtime verification requires deploy to HF Spaces (https://tancse2005-edumap.hf.space).*
+*Report generated from static code inspection. Runtime verification requires deploy to the host container.*

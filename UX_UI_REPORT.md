@@ -1,6 +1,6 @@
 # UX/UI Report — EduMap
 
-> Phạm vi: phân tích tĩnh (grep, kích thước file) các trang frontend (`frontend/app`). Môi trường runtime: Hugging Face Spaces free plan; local chỉ đọc code. Không chạy server, không deploy.
+> Phạm vi: phân tích tĩnh (grep, kích thước file) các trang frontend (`frontend/app`). Môi trường runtime: container (free plan); local chỉ đọc code. Không chạy server, không deploy.
 > Git HEAD: f22180e. Ngày: 2026-11-06.
 
 ## 0. Tổng quan

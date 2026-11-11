@@ -338,7 +338,7 @@ Documents created for AI search:
   - [ ] Copy seed file to project root
   - [ ] Run database initialization
   - [ ] Update vector database
-  - [ ] Deploy to Hugging Face Spaces
+  - [ ] Deploy to the host container
   - [ ] Verify in production environment
 
 ---
@@ -515,7 +515,7 @@ A: Follow `DEPLOYMENT_GUIDE.md` (5 simple steps)
 - **Date:** June 6, 2026
 - **Version:** 1.0 (Initial Release)
 - **Status:** Production Ready ✅
-- **Next Review:** After Hugging Face deployment
+- **Next Review:** After host deployment
 
 ---
 
@@ -542,4 +542,4 @@ EduMap/
 
 **Ready for Deployment! 🚀**
 
-Next step: Follow the DEPLOYMENT_GUIDE.md for production deployment to Hugging Face Spaces.
+Next step: Follow the DEPLOYMENT_GUIDE.md for production deployment to the host container.
