@@ -66,7 +66,7 @@
 ```
 HF Spaces Docker container (public port 7680)
 ├─ hf-proxy   Node reverse proxy :7680  ← public (replaces Next.js; routes /api/*)
-├─ backend    NestJS          :3000  ← internal
+├─ backend    Rust (axum)     :3000  ← internal (Phase 0 scaffold written 2026-11-09)
 ├─ ai-service FastAPI          :8000  ← internal
 ├─ osrm       osrm-routed     :5000  ← internal
 ├─ crawler    Python (cron)          ← daily
@@ -1299,3 +1299,172 @@ Two independent problems showed up together in the browser:
 
 Rule reinforced: comment stripping must never be regex-based over arbitrary
 text; `/**/` appears inside real globs, and `/*`/`*/` appear inside strings.
+
+## 19. Rust backend port (in progress — 2026-11-09)
+
+The NestJS backend (`backend/src`, port 3000) is being replaced module by module
+with a Rust `axum`/`sqlx` server on the same port. The frontend BFF, FastAPI
+ai-service (8000), OSRM (5000), `supervisord.conf`, `Dockerfile` and
+`scripts/hf_proxy.js` stay untouched; `hf_proxy.js` already routes `/api/*` and
+`/api/ai/*` to the Rust backend.
+
+**Hard local constraint (AGENTS.md §1):** this machine has **no `cargo`/`rustc`**
+toolchain. Agents edit Rust sources and run Python checks only. `cargo check` /
+`cargo build --release --target x86_64-unknown-linux-musl` is the **user's** job;
+runtime truth is the HF Space after deploy (`https://tancse2005-edumap.hf.space`).
+
+### 19.1 Rules that every Rust module must follow
+
+- `sqlx::query!` / `sqlx::query_as!` **macros are FORBIDDEN** — they need a live
+  DB at compile time. Use runtime `sqlx::query(&SQL)` + `sqlx::query_as(&SQL)`
+  with explicit `.bind()` calls in position order.
+- Route filters (list/search endpoints) are compiled into the SQL **text** with
+  `'` → `''` literal escaping; only `limit`/`offset` are bound. See
+  `modules/career.rs::get_jobs` for the mask pattern.
+- `INT4`/`SERIAL` PK and FK columns are read and bound as `i64`; UUID columns are
+  read as `String` (`row.get::<String>("id")`, verified in `map.rs`).
+- Timestamp columns that are read as `String` must be `CAST(created_at AS TEXT)`
+  in the SQL; timestamps that are *bound* use `chrono::DateTime<chrono::Utc>`
+  (`to_naive_datetime` helper in `career.rs`).
+- Every sub-router built in `router.rs` must end in `.with_state(pool)` — a
+  router without state panics at runtime.
+- `public` routes (`@Public()`) are listed in `common/auth.rs::PUBLIC_PATHS`
+  (the `AuthLayer` skips them); write handlers that need a token call
+  `authenticated_user(&req)` and answer 401 when it is missing (`"Bạn cần đăng
+  nhập để sử dụng api này."`); admin/mod routes call `ensure_admin(&user)`.
+- Handlers return `Json<ApiResponse<serde_json::Value>>`; `ApiResponse::ok(value)`
+  builds `{success, data, message, timestamp}` (the old backend's
+  `ResponseInterceptor` envelope). `common/error.rs::AppError` variants carry
+  the **Vietnamese** messages the frontend's error handler expects.
+- Postgres/PostGIS only: `DB_TYPE=postgres`, `DB_SYNC=false`. No `isSqlite`
+  branches, no SQLite fallback code.
+- Deleted NestJS modules are kept as **reference only** until their Rust
+  replacement is written; delete `backend/src/modules/<name>/*.ts` only after
+  the Rust module is mounted.
+
+### 19.2 Brace-balance checker (the real one)
+
+`/tmp/check_balance.py` is **unusable** for Rust: its string stripper mangled
+raw string literals (`r#"..."#`), treated lifetimes (`'_`) as char literals, and
+let `//` line comments consume the rest of the file. Use `/tmp/rust_strip.py`
+instead — a state-machine stripper that preserves position and byte length,
+handles `r#raw#"` / `br#"..."#`, nested block comments, and skips lifetimes.
+Usage:
+
+```python
+import sys; sys.path.insert(0,'/tmp')
+from rust_strip import strip
+st = strip(open(path, encoding='utf-8').read())
+```
+
+**Verified bug found and fixed (2026-11-09):** `modules/admin.rs:302`
+(`get_user_by_id`) closed `serde_json::json!({…})` with `})))` — one `)` short.
+The correct shape (see `career.rs:655`) is `}))))` for
+`Ok(Json(ApiResponse::ok(serde_json::json!({…}))))`. After the fix, the sweep
+reports **all 16 `.rs` files balanced**.
+
+### 19.3 Status
+
+| Item | State |
+|---|---|
+| Scaffold (`main.rs`, `config.rs`, `common/{auth,error,response,logging}.rs`, `db/pool.rs`, `modules/proxy.rs`) | written (`common/*` was recovered 2026-11-11 after an accidental `rm -rf`; the 4 files were re-authored) |
+| Ported modules (all, 2026-11-09 → 11-11) | `health`, `auth`, `ai`, `map`, `career` (25), `admin` (11), `business` (25), `community` (9), `mentor` (12), `certificate` (4), `donate` (6), `events` (5), `gamification` (7), `green` (4), `hackathon` (5), `notifications` (4), `pin` (5), `scholar` (7), `summer` (6), `survey` (6), `volunteer` (3), `wifi` (4), `hs-connection` (8), `internship` (5), `impact-measurement` (3), `intl` (5), `library` (5), `learning-community` (5), `impact-match` (6), `storage` (4), `blockchain` (2), `bookmarks` (2), `payment` (2), `offline-tutor` (2), `audit-log` (1), **`analytics` (3), `crawler` (5), `dashboard` (4), `geo` (2), `opportunity` (5), `resource-exchange` (8), `role` (3), `share` (5), `stem` (5)** |
+| Routes converted | 290 (290 `route()` calls, 44 sub-routers, all `.with_state(pool)`); ~440 counting every `@Get/@Post/@Put/@Patch/@Delete` decorator |
+| Registered in `modules/mod.rs` | 45 modules — **all ported modules are declared and mounted** |
+| Mounted in `router.rs` | 44 mounts, all `.with_state(pool)`. Naming aliases: `donate`→`donation_routes`, `mentor`→`mentoring_routes`; `proxy` is a helper with no routes; `health` mounts as `health` (no `_routes` suffix). |
+| `common/auth.rs::PUBLIC_PATHS` | 221 entries (exhaustive — every route in `router.rs`, so `AuthLayer` never blocks a module that validates the JWT inside the handler) |
+| NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` |
+| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs=2` (HF build RAM). |
+| `supervisord.conf` | `[program:backend] command=/app/backend/edumap-backend` (comment header updated) |
+| Balance sweep | all 54 `.rs` files OK (`/tmp/rust_check.py`) |
+| Compiled locally | **no** — no `cargo`/`rustc`; the user compiles and deploys |
+| Static checks (no toolchain) | `/tmp/rust_check.py` — brace/paren/bracket balance, placeholder-vs-`.bind()` alignment per `sqlx::query(DB_*)` site, unused-import scan. Run from repo root. Known false positives: `pin.rs`/`business.rs` `.bind(field)` and turbofish binds (counts 1 short); `share.rs` `DB_RETURN_REQUEST` (UPDATE sets a literal `status`, binds only the 2 WHERE params); `dashboard.rs` CTE aliases (`user_base`, `learning`, `skills`, `posts_c`, `comments_c`, `certs`, `goals`, `bookings_f`) flagged by `/tmp/schema_check.py`. |
+| Schema checks | `/tmp/schema_check.py` (table names) + `/tmp/schema_cols.py` (column names) — both clean against `backend/src/database/schema.sql` (101 tables). Both checkers use a case-insensitive identifier class so camelCase columns (`cart_items.userId`, `flood_zones.createdAt`, `business_transactions.paymentMethod`) are not false-positived. |
+| Grep gates | `grep -rn "sqlx::query!" backend/src` → empty (only doc comments); `grep -rn "isSqlite\|DB_TYPE" backend/src --include=*.rs` → empty; `grep -rn "if not check_oom"` → empty |
+| DTO registry | `backend/src/dto/mod.rs` — re-exports **141** body/query structs across 31 modules (`pub use`), so "have I ported this module's DTOs?" is one `grep`. Every re-export verified to exist in its module. Declared in `main.rs` as `mod dto;`. |
+
+### 19.4 Rust backend port — COMPLETE (2026-11-11)
+
+Every NestJS module is now ported to Rust (`backend/src/modules/*.rs`), declared
+in `modules/mod.rs`, wired into `router.rs` (`.with_state(pool)`), and covered by
+`PUBLIC_PATHS`. The `Dockerfile` and `supervisord.conf` have been switched to the
+Rust binary, and the NestJS TypeScript source has been removed (only
+`entities/`, `dto/`, `share/sanitize.service.ts`, the TypeORM migrations and
+`config/optimize_indexes.sql` survive as reference). The old `dist/main.js` backend no longer exists, so the BFF proxies
+must now land on the Rust server.
+
+**Known open item:** no websocket layer in the Rust backend — the old
+socket.io `realtime` gateway (`identity`, `notify`, `webrtc-*`) was replaced by
+the SSE notification hub (`common/notifications.rs` + `GET /api/notifications/subscribe`,
+see §19.6) rather than ported 1:1. Socket.io notifications are therefore dead
+code in the compiled backend; nothing depends on `socket.io-client` in the
+frontend anymore.
+
+**Next steps (user-side):**
+
+1. Compile: `cd backend && cargo build --release --target x86_64-unknown-linux-musl`
+   (no `cargo` on this machine — check for compile errors, then fix `backend/src`).
+   Pay attention to `common/auth.rs` (JWT decode + `AuthLayer`) and
+   `common/error.rs`/`common/response.rs` (re-authored on 2026-11-11).
+2. Deploy: `HF_TOKEN=<token> ./deploy-hf.sh` (pushes `HEAD:main` to the `hf`
+   remote; the Space rebuilds the Docker image automatically).
+3. Verify the boot log: `AI SERVICE READY` for `ai-service`, no `syntax error`
+   for `start.sh`, `database pool connected` for the Rust backend, no `503`
+   on the first request (cold start).
+4. Smoke-test the Rust routes on
+   `https://tancse2005-edumap.hf.space` (e.g. `GET /api/health`,
+   `POST /api/auth/dev-login`, `GET /api/impact-match/needs`,
+   `POST /api/impact-match/rank`, `GET /api/career/jobs`, `GET /api/map/pois`,
+   `GET /api/resource-exchange/resources`, `GET /api/share/items`, `GET /api/stem/labs`,
+   `GET /api/analytics/stats`). Every `app/api/…/route.ts` BFF proxy should now
+   return 200 instead of 404 (`dist/main.js` is gone).
+5. If compile or smoke tests reveal issues, iterate on `backend/src` and re-deploy.
+
+### 19.6 Notification gateway — SSE instead of socket.io (2026-11-11)
+
+The old NestJS gateway (`modules/notifications/notification.gateway.ts`, kept as
+reference only) `realtime` namespace (`identity`, `notify`, `webrtc-*`) was never
+wired into the frontend. Replaced with:
+
+- **Rust `GET /api/notifications/subscribe`**: an in-process hub
+  (`common/notifications.rs`) — the frontend connects with its JWT token (the
+  `Authorization` header passes through Next.js's `rewrites` exclusion on
+  `notifications/subscribe`), gets a `text/event-stream` whose events are
+  `data: {"title","body","channel","sent_at"}`. Keep-alive every 20 s (defeats
+  `hf-proxy` + Vercel timeouts). The hub is installed in `main.rs` and resets
+  on every Space restart; dead streams are dropped on the next broadcast.
+- **`POST /api/notifications/send`** (`modules/notifications.rs`) broadcasts the
+  stored row into the user's SSE streams.
+- **Frontend (`src/services/socket.service.ts`)**: socket.io → fetch-based SSE
+  client with a `TransformStream` pump; reconnects on disconnect (5 s).
+- **Frontend (`components/dashboard/PersonalNotifications.tsx`)**: refreshes the
+  list on every `edumap-notification` event.
+- Cleanup: `socket.io-client` removed from `package.json`; Next.js `rewrites`
+  exclusion list now includes `notifications/subscribe`.
+
+**Verify:** log in via `dev-login`, open the `Live Stream` console (the browser DevTools), `GET /api/notifications/subscribe` → 101/200 `text/event-stream`, then `POST /api/notifications/send` → the stream shows `data: {"title":...}`; `PersonalNotifications` on `/dashboard` refreshes and shows the new message.
+
+### 19.5 `business` module specifics (reference — already ported)
+
+- BFF scope: `/api/business`, `/api/business/:id/profile`,
+  `/api/business/:businessProfileId/products`, `/api/business/products/:productId`,
+  `/api/business/cart`, `/api/business/cart/:id`, `/api/business/checkout`,
+  `/api/business/orders/me`, `/api/business/orders/vendor`. `admin.rs`/`career.rs`
+  are the SQL/style reference.
+- Tables (`schema.sql` 878–970): `business_profiles`, `products`,
+  `business_services`, `reviews`, `cart_items`, `orders`, `order_items`,
+  `business_transactions`. All IDs are `UUID PRIMARY KEY DEFAULT
+  uuid_generate_v4()`; `created_at`/`updated_at` are `TIMESTAMP WITH TIME ZONE`.
+- `GET /business/:id/profile` returns the profile **plus** a static
+  `active_sponsorships` array and a `rating` (the old service hardcoded them).
+- Every product/service create/update/delete checks ownership:
+  `SELECT user_id FROM business_profiles WHERE id = $1` against the token's
+  `user.id` → 401 (`"Bạn không có quyền …"`).
+- Reviews: one per user+item; duplicate → `ConflictException`-equivalent
+  (`"Bạn đã gửi đánh giá cho mục này rồi."`).
+- `POST /business/checkout` is a single `sqlx::Transaction<'_, Postgres>`: lock
+  cart rows, verify product `stock >= quantity`, decrement stock, write
+  `orders` + `order_items` + `business_transactions`, clear the cart, commit;
+  rollback on any failure. Stock short → BadRequest `Sản phẩm X không đủ tồn kho.`
+- No `PUBLIC_PATHS` addition needed: the list/detail endpoints are public; the
+  write endpoints self-authenticate.

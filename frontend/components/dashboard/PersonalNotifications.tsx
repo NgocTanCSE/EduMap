@@ -35,6 +35,9 @@ export function PersonalNotifications() {
         if (authLoading)
             return;
         load();
+        const handler = () => load();
+        window.addEventListener('edumap-notification', handler);
+        return () => window.removeEventListener('edumap-notification', handler);
     }, [authLoading, load]);
     const totalPages = Math.ceil(notifications.length / pageSize);
     const displayed = notifications.slice((page - 1) * pageSize, page * pageSize);

@@ -16,18 +16,32 @@ COPY frontend/package*.json ./
 ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund --jobs=1
 
-FROM node:20-slim AS backend-builder
+# Marker stage: only `backend/package*.json`, consumed by `osrm-builder` as a
+# cache-busting signal (it needs *something* from the backend tree).
+FROM node:20-slim AS backend-marker
 WORKDIR /app
-RUN apt-get update -qq && apt-get install -y -qq python3 make g++ gcc && rm -rf /var/lib/apt/lists/*
-ARG CACHEBUST
 COPY backend/package*.json ./
-ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm ci --legacy-peer-deps --no-audit --no-fund --jobs=1
-COPY --from=frontend-builder /app/package.json /tmp/frontend-build-done
-COPY backend/ ./
-RUN rm -f src/services/google-ai.service.ts
-RUN npm rebuild sqlite3 --build-from-source
-RUN npx nest build
+
+# ---------------------------------------------------------------------------
+# Rust backend (axum/sqlx) — replaces `npx nest build`.
+# Cross-compiled to a static musl binary so the runtime image needs no libpq
+# and no glibc version match. sqlx's postgres driver is pure Rust (tls-rustls).
+# ---------------------------------------------------------------------------
+FROM rust:1.81-slim AS backend-builder
+WORKDIR /app/backend
+
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends ca-certificates musl-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN rustup target add x86_64-unknown-linux-musl
+
+COPY backend/Cargo.toml ./
+COPY backend/Cargo.lock ./ 2>/dev/null || true
+RUN cargo fetch --target x86_64-unknown-linux-musl
+
+COPY backend/src ./src
+RUN CARGO_BUILD_JOBS=2 cargo build --release --target x86_64-unknown-linux-musl
 
 FROM python:3.11-slim AS ai-deps
 WORKDIR /app
@@ -99,7 +113,7 @@ RUN osmium tags-filter /data/vietnam.osm.pbf \
 FROM osrm/osrm-backend:v5.25.0 AS osrm-builder
 WORKDIR /data
 COPY --from=ai-deps /app/requirements.txt /tmp/ai-deps-complete
-COPY --from=backend-builder /app/package.json /tmp/backend-build-complete
+COPY --from=backend-marker /app/package.json /tmp/backend-build-complete
 COPY --from=osm-downloader /data/vietnam.osm.pbf /data/vietnam.osm.pbf
 ENV OSRM_PROFILE=car
 RUN osrm-extract -p /opt/car.lua /data/vietnam.osm.pbf
@@ -145,9 +159,8 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py && \
 
 
 WORKDIR /app/backend
-COPY --from=backend-builder /app/dist ./dist
-COPY --from=backend-builder /app/node_modules ./node_modules
-COPY backend/package*.json ./
+COPY --from=backend-builder /app/backend/target/x86_64-unknown-linux-musl/edumap-backend ./edumap-backend
+RUN chmod +x /app/backend/edumap-backend
 
 WORKDIR /app/ai-service
 COPY --from=ai-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages

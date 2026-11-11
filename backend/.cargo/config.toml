@@ -1,0 +1,10 @@
+# Cross-compile to a fully static musl binary so the runtime image can be
+# any glibc/musl base (node:20-slim on HF Spaces) without libpq or other
+# system deps — sqlx's postgres driver is pure Rust (tls-rustls).
+[target.x86_64-unknown-linux-musl]
+linker = "musl-gcc"
+ar = "musl-ar"
+
+[build]
+# Keep RAM usage down during the HF Spaces rebuild (2 vCPU, ~4 GB RAM).
+jobs = 2

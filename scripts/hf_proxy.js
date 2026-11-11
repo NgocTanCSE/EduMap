@@ -8,7 +8,9 @@ const AI = { host: '127.0.0.1', port: Number(process.env.AI_SERVICE_PORT || 8000
 
 function targetFor(path) {
   if (path === '/health' || path === '/healthz') return null;
-  if (path.startsWith('/api/ai/') || path === '/api/ai') return AI;
+  // Phase 1: `/api/ai/*` lands on the Rust backend, which proxies verbatim
+  // into the ai-service on :8000 (the old NestJS backend did the same).
+  if (path.startsWith('/api/ai/') || path === '/api/ai') return BACKEND;
   if (path.startsWith('/api/')) return BACKEND;
   return undefined;
 }

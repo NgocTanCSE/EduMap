@@ -149,7 +149,7 @@ const nextConfig = {
 
 
 
-        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|gamification|offline/tutor|offline/status|config$).*)',
+        source: '/api/:path((?!ai/chat|ai/chat-stream|ai/agent/chat|ai/agent/chat-stream|ai/history|ai/learning-path|ai/search|ai/analytics|ai/pdf-transcript|gamification|offline/tutor|offline/status|config$|notifications/subscribe).*)',
         destination: `${backendUrl}/api/:path`,
       },
     ];

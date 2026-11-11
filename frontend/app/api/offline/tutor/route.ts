@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -47,26 +48,5 @@ export async function POST(req: Request) {
             text: 'Hiện tại không thể kết nối tới trợ lý AI. Vui lòng thử lại sau.',
             model_used: null,
         }, { status: 200 });
-    }
-}
-export async function GET(req: Request) {
-    try {
-        const authHeader = req.headers.get('Authorization');
-        const response = await fetch(`${getBackendUrl()}/offline/status`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(authHeader ? { Authorization: authHeader } : {}),
-            },
-        });
-        if (!response.ok) {
-            return NextResponse.json({ model_loaded: false, model_failed: true, source: 'bff-fallback' }, { status: 200 });
-        }
-        const data = await response.json();
-        return NextResponse.json(unwrapApiResponse(data));
-    }
-    catch (error: any) {
-        console.error('[BFF /api/offline/status] Error:', error);
-        return NextResponse.json({ model_loaded: false, model_failed: true, source: 'bff-fallback' }, { status: 200 });
     }
 }

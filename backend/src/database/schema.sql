@@ -323,6 +323,7 @@ CREATE TABLE user_points (
     source_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_points_unique ON user_points(user_id, action, source_id);
 
 -- 20. groups
 CREATE TABLE groups (
@@ -403,6 +404,10 @@ CREATE TABLE bookings (
     notes TEXT,
     rating INTEGER,
     feedback TEXT,
+    -- Thanh toán lịch hẹn (dùng chung với `payment.rs`).
+    "payment_status" VARCHAR(50) DEFAULT 'pending', -- unpaid/paid/refunded
+    "amount" DECIMAL(10,2) DEFAULT 0,               -- hourly_rate của mentor
+    "transaction_id" VARCHAR(255),                  // liên kết sang business_transactions
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1221,7 +1226,7 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items("orderId");
 -- business_transactions (entity: Transaction — camelCase columns)
 CREATE TABLE IF NOT EXISTS business_transactions (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "orderId" UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    "orderId" UUID REFERENCES orders(id) ON DELETE CASCADE,
     "paymentMethod" VARCHAR(50) DEFAULT 'COD',
     "status" VARCHAR(50) DEFAULT 'PENDING',
     "amount" DECIMAL(10,2) NOT NULL,

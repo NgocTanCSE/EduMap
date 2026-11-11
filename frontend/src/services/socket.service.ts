@@ -1,30 +1,85 @@
-import { io, Socket } from 'socket.io-client';
 import { authService } from './auth.service';
+
 class SocketService {
-    private socket: Socket | null = null;
+    private controller: AbortController | null = null;
+    private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     connect() {
-        if (this.socket?.connected)
+        if (this.controller || this.reader)
             return;
-        const socketBase = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_BACKEND_URL) ||
-            (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SOCKET_URL) ||
-            (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
-                ? 'https://tancse2005-edumap.hf.space'
-                : '');
-        this.socket = io(`${socketBase}/realtime`, {
-            path: '/api/socket.io',
-            transports: ['websocket', 'polling'],
-        });
-        this.socket.on('connect', () => {
-            console.log('Connected to realtime gateway');
-            const user = authService.getUser();
-            if (user) {
-                this.socket?.emit('identity', user.id);
+        this.addEventListener();
+    }
+    private addEventListener() {
+        const token = authService.getAccessToken();
+        if (!token)
+            return;
+        this.startStream(token);
+    }
+    private startStream(token: string) {
+        this.controller = new AbortController();
+        fetch('/api/notifications/subscribe', {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'text/event-stream' },
+            signal: this.controller.signal,
+        })
+        .then(async (response) => {
+            if (!response.ok) {
+                this.scheduleReconnect();
+                return;
             }
+            const body = response.body;
+            if (!body) {
+                this.scheduleReconnect();
+                return;
+            }
+            this.reader = body.getReader();
+            if (!this.reader) {
+                this.scheduleReconnect();
+                return;
+            }
+            while (true) {
+                const { value, done } = await this.reader.read();
+                if (done) {
+                    this.scheduleReconnect();
+                    return;
+                }
+                const chunk = new TextDecoder().decode(value);
+                // Parse SSE events: only the `data:` field of each message.
+                const parts = chunk.split('\n');
+                parts.forEach((part: string) => {
+                    const text = part.trim();
+                    if (!text)
+                        return;
+                    const m = text.match(/^data:(.*)$/);
+                    if (!m)
+                        return;
+                    const data = m[1];
+                    if (!data)
+                        return;
+                    let title = '', body = '';
+                    try {
+                        const payload = JSON.parse(data);
+                        title = payload.title || '';
+                        body = payload.body || '';
+                    } catch {
+                        title = data;
+                    }
+                    this.showToast(title, body);
+                });
+            }
+        })
+        .catch(() => {
+            this.scheduleReconnect();
         });
-        this.socket.on('notify', (data: any) => {
-            console.log('New notification:', data);
-            this.showToast(data.title, data.body);
-        });
+    }
+    private scheduleReconnect() {
+        if (this.reconnectTimer)
+            return;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this.reader?.cancel();
+            this.reader = null;
+            this.addEventListener();
+        }, 5000);
     }
     private showToast(title: string, body: string) {
         const event = new CustomEvent('edumap-notification', {
@@ -33,8 +88,18 @@ class SocketService {
         window.dispatchEvent(event);
     }
     disconnect() {
-        this.socket?.disconnect();
-        this.socket = null;
+        if (this.controller) {
+            this.controller.abort();
+            this.controller = null;
+        }
+        if (this.reader) {
+            this.reader.cancel();
+            this.reader = null;
+        }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
     }
 }
 export const socketService = new SocketService();
