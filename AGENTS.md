@@ -923,18 +923,19 @@ Verification: `python3 -m py_compile` OK on all modified files;
   Verified: `npx tsc --noEmit` = 0.
 
 ### UX consistency: apply forms as popups (2026-11-01)
-- **Base map tiles (2026-11-12):** tile URLs/attribution/dark filter are now
-  centralized in `frontend/src/lib/map-tiles.ts` (`getTileUrl()`,
-  `getTileAttribution()`, `darkTileClass()`, `needsTileInvertFilter()`).
+- **Base map tiles (2026-11-12):** tile URLs/attribution are centralized in
+  `frontend/src/lib/map-tiles.ts` (`getTileUrl()`, `getTileAttribution()`).
   Cartography style is `MAP_TILE_STYLE = 'voyager'` (CARTO) at
   `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=KEY`
   (tương tự Google Maps, hiển thị đầy đủ nhãn tên đường/phường/thành phố).
-  when `NEXT_PUBLIC_CARTO_API_KEY` is set (Vercel `deploy/vercel.env.example`);
-  when unset, falls back to OpenStreetMap. **No `TileLayer` may embed its own
-  `url`/`attribution`** — retrofitted `components/ui/MapComponent.tsx` and
-  `app/admin/data-quality/page.tsx`. Regression check on a green deploy: grep
-  `openstreetmap.org/{z}/{x}/{y}` over `frontend/` finds only the fallback in
-  `map-tiles.ts`.
+  `NEXT_PUBLIC_CARTO_API_KEY` có → `key=KEY`; **không có → CARTO ở chế độ
+  "API key required" (vẫn không label Trung Quốc), tuyệt đối không quay lại
+  OpenStreetMap** — OSM ghi nhãn tiếng Trung cho Hoàng Sa/Trường Sa, **đã bị
+  loại bỏ hoàn toàn khỏi `map-tiles.ts`, `globals.css` (`.leaflet-dark-tiles`
+ )`). **No `TileLayer` may embed its own `url`/`attribution`** — retrofitted
+  `components/ui/MapComponent.tsx` and `app/admin/data-quality/page.tsx`.
+  Regression check on a green deploy: grep `openstreetmap.org/{z}/{x}/{y}` over
+  `frontend/` → should find nothing at all.
 
 
 Following the `/scholarships/[id]` popup pattern, the inline apply forms on two

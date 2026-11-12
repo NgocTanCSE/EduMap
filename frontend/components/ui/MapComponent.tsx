@@ -12,7 +12,7 @@ import { RoutePolyline } from '@/components/map/RoutePolyline';
 import RoutingPanel from '@/components/map/RoutingPanel';
 import { MapPopupContent, type NearbyFacility } from '@/components/ui/MapPopupContent';
 import { FeaturedPinsLayer, type FeaturedPin } from '@/components/map/FeaturedPinsLayer';
-import { darkTileClass, getTileAttribution, getTileUrl, MAP_TILE_SUBDOMAINS } from '@/src/lib/map-tiles';
+import { getTileAttribution, getTileUrl, MAP_TILE_SUBDOMAINS } from '@/src/lib/map-tiles';
 const CATEGORY_COLOR: Record<string, string> = {
     university: 'text-accent', school: 'text-accent',
     lab: 'text-destructive', stem: 'text-destructive',
@@ -762,7 +762,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         </button>)}
 
       
-      <MapContainer center={defaultCenter} zoom={13} zoomControl={false} style={{ height: '100%', width: '100%' }} className={`z-0 ${darkTileClass()}`}>
+      <MapContainer center={defaultCenter} zoom={13} zoomControl={false} style={{ height: '100%', width: '100%' }} className="z-0">
         <TileLayer url={getTileUrl()} attribution={getTileAttribution()} subdomains={MAP_TILE_SUBDOMAINS} />
 
         {routeGeometry && safeRoutes && safeRoutes.length > 1

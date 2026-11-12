@@ -1,30 +1,27 @@
 /** Cấu hình bản đồ nền (base tile) của toàn ứng dụng.
 
-CARTO CAD là source chính, dùng style `voyager` (nền màu, có nhãn đầy đủ,
-giống giao diện Google Maps; tên đường/phường/thành phố được hiển thị).
+CARTO basemaps API (style `voyager`) — nền màu, đầy đủ nhãn tên đường/phường/
+thành phố, giao diện gần giống Google Maps. Dữ liệu Carto **không** ghi nhận
+tên tiếng Trung cho Hoàng Sa - Trường Sa (trái ngược OpenStreetMap).
 
-Khi chưa có `NEXT_PUBLIC_CARTO_API_KEY` đang set, quay lại OpenStreetMap
-(tile miễn phí, mở trong repo) — OSM có thể vẽ tiếng Trung ở quần đảo Hoàng
-Sa - Trường Sa.
+Khi `NEXT_PUBLIC_CARTO_API_KEY` đã set: request bao gồm `key=KEY`.
+Khi chưa set: request không key (CARTO trả tile + ghi chú "API key required"
+trên tile; bản đồ vẫn sạch nhãn Trung Quốc).
 
 Chỉ dùng biến môi trường `NEXT_PUBLIC_CARTO_API_KEY` (CARTO API key,
 free tier 5M requests/tháng). Cần lấy tại https://carto.com/basemaps/apikey/
 sau đó set biến môi trường tại Vercel (Deployment → Settings → Environment
 Variables) hoặc ở seed-file `.env.local` cho local dev.
+
+Bất kỳ `TileLayer` nào cũng phải dùng `getTileUrl()` + `getTileAttribution()`;
+tuyệt đối không hardcode URL tile khác.
 */
 
-/** Style bản đồ CARTO (nền màu, đầy đủ nhãn, giao diện giống Google Maps). */
+/** Style vốn màu, đầy đủ nhãn (như Google Maps). */
 export const MAP_TILE_STYLE = 'voyager';
 
-/** Bản đồ CARTO đã là theme tối, không cần CSS filter. Ngược lại OSM (nhạt). */
-export function needsTileInvertFilter(): boolean {
-    return !Boolean(process.env.NEXT_PUBLIC_CARTO_API_KEY);
-}
-
-/** Báo hiệu lúc render bản đồ ở chế độ tối (bắt OSM filterinvert). */
-export function darkTileClass(): string {
-    return needsTileInvertFilter() ? 'leaflet-dark-tiles' : '';
-}
+/** Subdomain CARTO hỗ trợ cho Leaflet. */
+export const MAP_TILE_SUBDOMAINS: string = 'abcd';
 
 /** URL truy cập base tile theo chuẩn CARTO basemaps API. */
 export function getTileUrl(): string {
@@ -33,17 +30,12 @@ export function getTileUrl(): string {
         // r = @2x retina, `key` là tham số query của CARTO basemaps API
         return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}{r}.png?key=${key}`;
     }
-    return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    // Không có key: CARTO trả về tile + ghi chú "API key required",
+    // tuyệt đối không quay lại OSM (nhãn tiếng Trung ở Hoàng Sa/Trường Sa).
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}.png`;
 }
 
-/** Trả lời bản quyền: CARTO + OSM khi có key, chỉ OSM khi quay lại OSM. */
+/** Trả lời bản quyền: CARTO + OSM (Data is based on OSM). */
 export function getTileAttribution(): string {
-    const key = process.env.NEXT_PUBLIC_CARTO_API_KEY;
-    if (key) {
-        return '© <a href="https://carto.com/attribution/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    }
-    return '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    return '© <a href="https://carto.com/attribution/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 }
-
-/** Leaflet API: subdomains là 'abc' — CARTO hỗ trợ đến 'abcd'. */
-export const MAP_TILE_SUBDOMAINS: string = 'abcd';

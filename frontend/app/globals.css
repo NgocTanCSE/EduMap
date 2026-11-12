@@ -212,14 +212,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(0.45) opacity(0.6);
 }
 
-.leaflet-dark-tiles .leaflet-tile-pane {
-  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-}
-
-.leaflet-dark-tiles.leaflet-container {
-  background: hsl(var(--card)) !important;
-}
-
 .leaflet-popup-content-wrapper {
   background: hsl(var(--card)) !important;
   color: hsl(var(--foreground)) !important;
