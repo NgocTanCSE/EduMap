@@ -25,10 +25,10 @@ RUN rustup target add x86_64-unknown-linux-musl
 # `Cargo.toml` copy trước để tận dụng cache layer (chỉ rebuild khi dependency
 # thay đổi). `Cargo.lock` chưa có trong repo — `cargo fetch` tự sinh ra.
 COPY Cargo.toml ./
-RUN cargo fetch --target x86_64-unknown-linux-musl
-
 COPY .cargo .cargo
 COPY src ./src
+# cần có src/main.rs/trước khi fetch dependency (cargo phải tìm target)
+RUN cargo fetch --target x86_64-unknown-linux-musl
 
 # Release build: tối ưu kích thước cho ARM host (cargo build cache).
 RUN CARGO_BUILD_JOBS=2 cargo build --release --target x86_64-unknown-linux-musl
