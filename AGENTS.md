@@ -1556,6 +1556,11 @@ qrcode`.
 if zero hits in `.rs`, the dep is dead and can be dropped. Scan first,
 delete second.
 
+**Toolchain:** `backend/Dockerfile` uses `FROM rust:1.87-slim` so `cargo fetch`
+supports `edition2024` (stabilized in Rust 1.85). `getrandom 0.4.3` — a
+retransit dependency of today's crates.io index — requires edition 2024 and
+fails with "feature `edition2024` is required" on Cargo 1.81.
+
 ### 19.7.1 Deploy via GitHub Actions (2026-11-11)
 
 `render.yaml` only holds the Blueprint config. Every push to `main` triggers

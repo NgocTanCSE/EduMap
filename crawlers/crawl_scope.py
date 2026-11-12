@@ -159,7 +159,8 @@ def location_layers() -> List[Dict[str, Any]]:
 
 
 def bboxes_for_layers(through: str = "sea") -> List[str]:
-    """All Overpass bboxes for layers from Đồng Nai up to (and incl.) *through*."""
+    """All spatial bboxes for layers from Đồng Nai up to (and incl.) *through*.
+    """
     result: List[str] = []
     for layer in LOCATION_LAYERS:
         result.extend(layer["bboxes"])

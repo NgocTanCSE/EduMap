@@ -26,8 +26,7 @@ SCOPE_ORDER = ["dong_nai", "southern_vn", "vietnam"]
 class DongNaiSchoolCrawler:
     """Crawler chi tiết về trường học + WiFi + thư viện tại Đồng Nai → miền Nam → VN.
 
-    Uses Tavily Search + Extract (Overpass API is blocked on host).
-    Falls back to a curated Đồng Nai snapshot when Tavily yields nothing.
+    Dữ liệu duy nhất qua Tavily Search + Extract.
     """
 
     DNP_BBOX = DONG_NAI_BBOX  
