@@ -6,5 +6,7 @@ linker = "musl-gcc"
 ar = "musl-ar"
 
 [build]
-# Keep RAM usage down during the host rebuild (2 vCPU, ~4 GB RAM).
-jobs = 2
+# Render's free-tier build VM is 1 vCPU / ~2-4 GB RAM: keep one job in flight so
+# `cargo build ` doesn't OOM-kill itself (the Rust binary is ~200 MB static,
+# but building ~30 crates in parallel eats GBs).
+jobs = 1
