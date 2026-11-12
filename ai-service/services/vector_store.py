@@ -10,15 +10,8 @@ import urllib.parse
 from typing import List, Dict, Optional, Any
 
 
-
-
-
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 os.environ.setdefault("CHROMA_TELEMETRY_ENABLED", "False")
-
-
-
-
 
 
 try:
@@ -45,11 +38,13 @@ except Exception as e:
 
 
 class VectorStoreService:
-    """Semantic search. Cloudflare Workers AI + Google Gemini for embeddings.
+    """Semantic search with Google Gemini embeddings.
 
-    - Embedding -> Cloudflare Workers AI : CLOUDFLARE_API_TOKEN / CLOUDFLARE_EMBEDDING_MODEL
-    - Embedding -> Google Gemini       : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
-    On the host Cloudflare is blackholed so Gemini is the primary path.
+    - Embedding -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
+
+    All other embedding providers (Cloudflare Workers AI, local SentenceBERT)
+    are gone — Gemini is the single provider now. ChromaDB vectors are stored
+    in the ``edumap_docs`` collection and searched by cosine similarity.
     """
 
     # Default values for every instance, stored on the CLASS so that an object
@@ -58,17 +53,6 @@ class VectorStoreService:
     # always re-reads them from env and overwrites them, so production
     # behaviour is identical.  Mutable state (dicts) is created on demand by
     # _store_embed_cache / get_embedding into the instance.
-    cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-    cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-
-    cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
-    cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
-    embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
-    embedding_model = embed_models[0] if embed_models else "@cf/baai/bge-base-en-v1.5"
-    has_cf_api = bool(cf_api_token) and bool(cf_account_id)
-
-    _cf_embed_down_until = 0.0
-
     gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
     gemini_embedding_models = [
         m.strip()
@@ -80,11 +64,11 @@ class VectorStoreService:
     ]
     gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
     has_gemini_api = bool(gemini_key)
+
     _gemini_embed_down_until = 0.0
 
     embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
     embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
-    has_api = has_gemini_api or has_cf_api
 
     _embed_dim = None
 
@@ -96,19 +80,6 @@ class VectorStoreService:
     _collection_init_attempts = 0
 
     def __init__(self):
-
-        self.cf_api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        self.cf_account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-
-        self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
-        self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
-        self.embed_models = [m.strip() for m in os.getenv("CLOUDFLARE_EMBEDDING_MODEL", "@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b").split(",") if m.strip()]
-        self.embedding_model = self.embed_models[0] if self.embed_models else "@cf/baai/bge-base-en-v1.5"
-        self.has_cf_api = bool(self.cf_api_token) and bool(self.cf_account_id)
-
-        self._cf_embed_down_until = 0.0
-
-
 
         self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
         self.gemini_embedding_models = [
@@ -128,26 +99,7 @@ class VectorStoreService:
         self.embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
 
 
-
-
-
-        self.has_api = self.has_gemini_api or self.has_cf_api
-
-
-
         self._embed_dim = None
-
-
-
-
-
-
-
-
-
-
-
-
 
 
         self._embed_cache: Dict[str, List[float]] = {}
@@ -157,14 +109,13 @@ class VectorStoreService:
         self._embed_cache_max = int(os.getenv("EMBED_CACHE_MAX", "1024"))
 
 
-
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
-        if not self.has_api:
+
             print("WARNING: Vector store without any embedding API — RAG semantic search is unstable (set GEMINI_API_KEY or CLOUDFLARE_API_TOKEN).")
         if self.has_gemini_api:
             print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
-        if not os.getenv("CLOUDFLARE_EMBEDDING_MODEL"):
-            print("WARNING: CLOUDFLARE_EMBEDDING_MODEL not set -> default @cf/baai/bge-base-en-v1.5")
+
+
         print(
             f"INFO: Embedding budget: global={self.embed_global_timeout}s, "
             f"per-provider={self.embed_provider_timeout}s "
@@ -172,25 +123,12 @@ class VectorStoreService:
         )
 
 
-
-
-
-
-
-
-
-
-
-
         self.collection = None
         self._collection_next_retry = 0.0
         self._collection_init_attempts = 0
 
 
-
-
         self._init_collection()
-
 
 
     CHROMA_INIT_TIMEOUT_SECONDS = float(os.getenv("CHROMA_INIT_TIMEOUT_SECONDS", "30"))
@@ -228,9 +166,6 @@ class VectorStoreService:
         try:
             import signal as _signal
             import threading
-
-
-
 
 
             use_alarm = threading.current_thread() is threading.main_thread()
@@ -439,7 +374,6 @@ class VectorStoreService:
         raise RuntimeError(f"Gemini embedding failed: {last_err or 'no model available'}")
 
 
-
     def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
         """Cache a successfully computed embedding with TTL + FIFO-LRU eviction.
 
@@ -485,18 +419,10 @@ class VectorStoreService:
             return []
 
 
-
-
-
         if not self.has_embedding:
             raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary), CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
         if not text:
             return []
-
-
-
-
-
 
 
         import time as _embed_time
@@ -522,7 +448,6 @@ class VectorStoreService:
         _embed_start = time.monotonic()
 
 
-
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
         cf_last_err = None
         gemini_last_err = None
@@ -539,14 +464,12 @@ class VectorStoreService:
             per_model_retries = 0
 
 
-
             _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
 
             for model in self.embed_models:
                 if self._embed_remaining(_embed_start) <= 0.5:
                     print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, stopping Cloudflare embed attempts"); break
                 _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
-
 
 
                 encoded_model = urllib.parse.quote(model, safe='/')
@@ -557,9 +480,6 @@ class VectorStoreService:
                     attempt += 1
                     data = None
                     try:
-
-
-
 
 
                         _curl = subprocess.run(
@@ -680,7 +600,6 @@ class VectorStoreService:
                     break
 
 
-
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
             if self._embed_remaining(_embed_start) <= 0.5:
                 print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
@@ -703,23 +622,11 @@ class VectorStoreService:
                     print(f"Gemini embedding failed: {e}")
 
 
-
-
-
-
-
-
         raise RuntimeError(
             f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
             f"Cloudflare: {cf_last_err or ('khong cau hinh' if not self.has_cf_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}"
         )
-
-
-
-
-
-
 
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
@@ -856,10 +763,6 @@ class VectorStoreService:
             if not self.collection and not self._ensure_collection():
 
 
-
-
-
-
                 print("Vector store collection is None — returning empty RAG results (graceful degradation).")
                 return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
 
@@ -895,7 +798,6 @@ class VectorStoreService:
             if hybrid:
 
 
-
                 try:
                     _results = self.collection.query(
                         query_embeddings=[query_embedding],
@@ -916,13 +818,7 @@ class VectorStoreService:
                     )
 
 
-
                 return _results
-
-
-
-
-
 
 
             _results = self.collection.query(
@@ -930,8 +826,6 @@ class VectorStoreService:
                 include=["documents", "metadatas", "distances"],
                 where=where,
             )
-
-
 
 
             return _results
@@ -956,7 +850,6 @@ class VectorStoreService:
             return []
 
         try:
-
 
 
             results = self.query(
@@ -996,7 +889,6 @@ class VectorStoreService:
 
                 matched = [s for s in skills_required if s.lower() in user_skills_lower]
                 missing = [s for s in skills_required if s.lower() not in user_skills_lower]
-
 
 
                 dist = distances[i] if i < len(distances) and distances[i] is not None else 0.0

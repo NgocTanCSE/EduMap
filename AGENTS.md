@@ -1526,6 +1526,35 @@ still referenced in `backend/Dockerfile` was replaced on this date.
 - **Traps:** free tier sleeps after ~15 min (first request 30–60 s cold start);
   750 h/month budget across all services; `/tmp/chroma_db` is wiped per restart.
 
+### 19.8 Rust Cargo.toml dep-sweep (2026-11-12)
+
+`cargo fetch` fails one package at a time on deploy, and errors are always
+**feature-mismatch** or **nonexistent version**. The historical sweep:
+
+| Crate | Problem | Action |
+|---|---|---|
+| `tokio-cron` 0.5 | not on crates.io (only 0.1.x) | removed |
+| `utoipa` + `utoipa-swagger-ui` | no `axum` feature on v5, no code import | removed |
+| `moka` 0.12 | no `async` feature | removed |
+| `tower-http` | no code import (`cargo fetch` took it out anyway) | removed |
+| `sentry` / `sentry-tower` | no code import | removed |
+| `aws-sdk-s3` | no code import | removed |
+| `redis` | no code import | removed |
+| `regex` | no code import | removed |
+| `lazy_static` | no code import | removed |
+| `lettre` | `smtp` feature missing in major version | removed (SMTP goes through ai-service) |
+| `validator` | no `use validator::` / `#[derive(Validate)]` | removed |
+
+Current list (30 deps, all referenced from `backend/src/`):
+`axum, tower, tokio, sqlx, serde, serde_json, jsonwebtoken, argon2, bytes,
+reqwest, hyper, base64, chrono, uuid, futures, once_cell, tracing,
+tracing-subscriber, percent-encoding, url, hmac, sha1, sha2, printpdf, image,
+qrcode`.
+
+**Filter rule:** `grep -rn "use crate::\bCRATE\b\|\bCRATE_NAME\b" backend/src` —
+if zero hits in `.rs`, the dep is dead and can be dropped. Scan first,
+delete second.
+
 ### 19.7.1 Deploy via GitHub Actions (2026-11-11)
 
 `render.yaml` only holds the Blueprint config. Every push to `main` triggers
