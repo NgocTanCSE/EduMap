@@ -254,8 +254,8 @@ Trung** vì đây là dữ liệu của CARTO.
    Preview).
 3. **Redeploy** (`Deployments` → ⋯ → `Redeploy`) — Next.js nhúng env lúc build.
 
-Nếu không set key → ứng dụng quay lại OpenStreetMap (tile miễn phí, có thể hiện
-label tiếng Trung ở Hoàng Sa/Trường Sa).
+Nếu không set key → CARTO trả tile không key (lưu ý auth vẫn không label Trung
+Quốc, không quay lại OpenStreetMap).
 
 5. Bấm **Deployments** → deployment mới nhất → **⋯** → **Redeploy**
    (bắt buộc — Next.js nhúng env lúc build).

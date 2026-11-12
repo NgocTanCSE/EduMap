@@ -928,14 +928,14 @@ Verification: `python3 -m py_compile` OK on all modified files;
   Cartography style is `MAP_TILE_STYLE = 'voyager'` (CARTO) at
   `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=KEY`
   (tương tự Google Maps, hiển thị đầy đủ nhãn tên đường/phường/thành phố).
-  `NEXT_PUBLIC_CARTO_API_KEY` có → `key=KEY`; **không có → CARTO ở chế độ
-  "API key required" (vẫn không label Trung Quốc), tuyệt đối không quay lại
-  OpenStreetMap** — OSM ghi nhãn tiếng Trung cho Hoàng Sa/Trường Sa, **đã bị
-  loại bỏ hoàn toàn khỏi `map-tiles.ts`, `globals.css` (`.leaflet-dark-tiles`
- )`). **No `TileLayer` may embed its own `url`/`attribution`** — retrofitted
-  `components/ui/MapComponent.tsx` and `app/admin/data-quality/page.tsx`.
-  Regression check on a green deploy: grep `openstreetmap.org/{z}/{x}/{y}` over
-  `frontend/` → should find nothing at all.
+  Khi set `NEXT_PUBLIC_CARTO_API_KEY` → `key=KEY`; khi chưa set → CARTO
+  `rastertiles/voyager` (không label tiếng Trung, tuyệt đối không quay lại
+  OpenStreetMap). **OSM ghi nhãn tiếng Trung cho Hoàng Sa - Trường Sa, và
+  đã bị loại bỏ khỏi `map-tiles.ts`, `components/ui/MapComponent.tsx`,
+  `app/admin/data-quality/page.tsx`, `globals.css` (`.leaflet-dark-tiles`).**
+  **No `TileLayer` may embed its own `url`/`attribution`** — wherever
+  Leaflet renders tiles, use `getTileUrl()` + `getTileAttribution()` only. Regression check on a green deploy: grep
+  `openstreetmap.org/{z}/{x}/{y}` over `frontend/` → should find nothing at all.
 
 
 Following the `/scholarships/[id]` popup pattern, the inline apply forms on two
