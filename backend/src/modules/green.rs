@@ -80,7 +80,7 @@ const DB_CREATE_CHALLENGE: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn challenge_to_json(row: &impl sqlx::Row) -> Value {
+fn challenge_to_json(row: &sqlx::PgRow) -> Value {
     let points: i64 = row.get::<Option<i64>>("points_reward").unwrap_or(0);
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
@@ -98,7 +98,7 @@ fn challenge_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn impact_to_json(row: &impl sqlx::Row) -> Value {
+fn impact_to_json(row: &sqlx::PgRow) -> Value {
     let points: i64 = row.get::<Option<i64>>("points_reward").unwrap_or(0);
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),

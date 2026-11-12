@@ -380,7 +380,7 @@ fn text_array_to_vec(raw: Option<String>) -> Vec<String> {
 
 /// Turn a joined mentor/user row into the object the frontend expects
 /// (`user_id`, mentor fields + a nested `user` block).
-fn mentor_to_json(row: &impl sqlx::Row) -> serde_json::Value {
+fn mentor_to_json(row: &sqlx::PgRow) -> serde_json::Value {
     let user_id = row.get::<String>("user_id");
     let full_name = row.get::<Option<String>>("full_name");
     serde_json::json!({
@@ -409,7 +409,7 @@ fn mentor_to_json(row: &impl sqlx::Row) -> serde_json::Value {
 }
 
 /// A bookings row, with the mentor/student names flattened.
-fn booking_to_json(row: &impl sqlx::Row) -> serde_json::Value {
+fn booking_to_json(row: &sqlx::PgRow) -> serde_json::Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "mentor_id": row.get::<String>("mentor_id"),

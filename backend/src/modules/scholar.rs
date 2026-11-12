@@ -132,7 +132,7 @@ const DB_SELECT_USER: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn scholarship_to_json(row: &impl sqlx::Row) -> Value {
+fn scholarship_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -148,7 +148,7 @@ fn scholarship_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn application_to_json(row: &impl sqlx::Row) -> Value {
+fn application_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "scholarship_id": row.get::<String>("scholarship_id"),

@@ -80,7 +80,7 @@ const DB_COUNT_RESPONSES: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn survey_to_json(row: &impl sqlx::Row) -> Value {
+fn survey_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -91,7 +91,7 @@ fn survey_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn response_to_json(row: &impl sqlx::Row) -> Value {
+fn response_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "survey_id": row.get::<String>("survey_id"),

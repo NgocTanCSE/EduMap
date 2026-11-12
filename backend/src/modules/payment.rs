@@ -118,7 +118,7 @@ const DB_UPDATE_BOOKING_PAYMENT: &str = r#"
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn transaction_to_json(row: &impl sqlx::Row) -> Value {
+fn transaction_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "order_id": row.get::<Option<String>>("orderId"),

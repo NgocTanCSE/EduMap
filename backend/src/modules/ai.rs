@@ -28,7 +28,7 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use axum::extract::{Extension, Json, Path, Query, State};
-use axum::http::Body;
+use axum::body::Body;
 use axum::http::HeaderMap;
 use axum::http::Request<Body>;
 use axum::http::StatusCode;

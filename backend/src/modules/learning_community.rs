@@ -210,7 +210,7 @@ fn to_latlng(location: Option<&Value>) -> Option<[f64; 2]> {
     Some([lat, lng])
 }
 
-fn spot_to_json(row: &impl sqlx::Row) -> Value {
+fn spot_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),

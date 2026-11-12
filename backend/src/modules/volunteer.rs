@@ -73,7 +73,7 @@ const DB_SUM_TOTAL_HOURS: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn activity_to_json(row: &impl sqlx::Row) -> Value {
+fn activity_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),

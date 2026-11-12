@@ -118,7 +118,7 @@ const DB_JUDGE_TEAM: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn hackathon_to_json(row: &impl sqlx::Row) -> Value {
+fn hackathon_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -130,7 +130,7 @@ fn hackathon_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn team_to_json(row: &impl sqlx::Row) -> Value {
+fn team_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "team_name": row.get::<Option<String>>("team_name").unwrap_or_default(),

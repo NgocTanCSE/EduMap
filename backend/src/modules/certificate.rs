@@ -25,7 +25,6 @@ use serde::Deserialize;
 use std::io::{BufWriter, Cursor};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::warn;
-use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
 // SQL statements
@@ -431,7 +430,7 @@ const FONT_BYTES: &[u8] = include_bytes!("./certificate/DejaVuSans.ttf");
 ///
 /// Bố cục giống cũ `certificate.service.ts`: viền vàng, tiêu đề căn giữa,
 /// tên người nhận nổi bật, mã xác thực + QR code ở góc dưới phải.
-fn render_certificate_pdf(row: &impl sqlx::Row) -> Result<Vec<u8>, AppError> {
+fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
     let (doc, page, layer) =
         PdfDocument::new("Chứng nhận EduMap", Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
     let layer = doc.get_page(page).get_layer(layer);

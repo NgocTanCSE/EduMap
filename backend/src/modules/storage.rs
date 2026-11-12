@@ -133,7 +133,7 @@ impl MyFile {
         })
     }
 
-    fn from_row(row: &impl sqlx::Row) -> Self {
+    fn from_row(row: &sqlx::PgRow) -> Self {
         Self {
             id: row.get::<Option<String>>("id").unwrap_or_default(),
             user_id: row.get::<Option<String>>("user_id").unwrap_or_default(),

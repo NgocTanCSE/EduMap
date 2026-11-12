@@ -105,7 +105,7 @@ const DB_UPDATE_SPEED_TEST: &str = r#"
 
 /// Turn a location row into a `locations`-style geography object (GeoJSON +
 /// `lat`/`lng`), exactly like the old `Location` entity did.
-fn location_to_json(row: &impl sqlx::Row) -> Value {
+fn location_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<Option<String>>("name").unwrap_or_default(),

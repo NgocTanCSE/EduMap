@@ -7,7 +7,7 @@
 //!
 //! `roles.id` là `SERIAL` → đọc/đóng dưới `i64` (không phải UUID).
 
-use crate::common::auth::{authenticated_user, ensure_admin, AuthUser};
+use crate::common::auth::{authenticated_user, ensure_admin};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;

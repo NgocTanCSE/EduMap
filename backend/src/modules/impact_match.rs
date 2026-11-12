@@ -521,7 +521,7 @@ pub async fn create_sponsor(
 // Item mappers
 // ---------------------------------------------------------------------------
 
-fn need_to_json(row: &impl sqlx::Row) -> Value {
+fn need_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -539,7 +539,7 @@ fn need_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn sponsor_to_json(row: &impl sqlx::Row) -> Value {
+fn sponsor_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),

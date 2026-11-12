@@ -8,7 +8,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower::Layer;
@@ -16,8 +16,10 @@ use tower::Service;
 
 /// The full request type used by `tower::Service` in axum.
 type ServiceRequest = axum::http::Request<Body>;
-type BoxFuture =
-    Pin<Box<dyn std::future::Future<Output = Result<Response, Box<dyn Error + Send + Sync>>> + Send>>;
+
+/// A boxed future whose output mirrors the wrapped service's `Response`/`Error`
+/// (the middleware must answer for whatever the inner service answers).
+type BoxFuture<S, E> = Pin<Box<dyn std::future::Future<Output = Result<S, E>> + Send>>;
 
 /// JWT claims — the same shape as the NestJS `passport-jwt` strategy.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -310,6 +312,7 @@ fn path_matches(pattern: &str, path: &str) -> bool {
 }
 
 /// Axum middleware: decodes the Bearer JWT and attaches the user to the request.
+#[derive(Clone)]
 pub struct AuthLayer;
 
 impl<S> Layer<S> for AuthLayer {
@@ -320,17 +323,23 @@ impl<S> Layer<S> for AuthLayer {
     }
 }
 
+/// `Clone` is required by `Router::layer` (the middleware is applied to a
+/// `Router`, which is `Arc`-based and thus `Clone` already; the inner service
+/// is shared by reference).
+#[derive(Clone)]
 struct AuthService<S>(S);
 
-impl<S, B> Service<ServiceRequest> for AuthService<S>
+impl<S> Service<ServiceRequest> for AuthService<S>
 where
-    S: Service<ServiceRequest, Response = Response<B>> + Send + 'static,
+    /* `Route` (the router's inner service): `Response = Response<Body>` and a
+    healthy `Service<Request>` never errors (`Infallible`). */
+    S: Service<ServiceRequest, Response = Response<Body>, Error = Infallible>
+        + Send + Sync + 'static,
     S::Future: Send + 'static,
-    B: Into<Body> + Send + 'static,
 {
     type Response = S::Response;
-    type Error = Box<dyn Error + Send + Sync>;
-    type Future = BoxFuture;
+    type Error = S::Error;
+    type Future = BoxFuture<S::Response, S::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.0.poll_ready(cx)

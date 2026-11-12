@@ -10,7 +10,7 @@
 //! `this.crawlStatus` / `this.crawlHistory`) và đồng bộ vào bảng `crawl_history`
 //! để không mất sau khi khởi động lại.
 
-use crate::common::auth::{ensure_admin, authenticated_user, AuthUser};
+use crate::common::auth::{ensure_admin, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;

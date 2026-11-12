@@ -14,6 +14,7 @@ use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
@@ -158,7 +159,7 @@ fn point_to_geojson(text: Option<&str>) -> Option<Value> {
     }))
 }
 
-fn program_to_json(row: &impl sqlx::Row) -> Value {
+fn program_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -173,7 +174,7 @@ fn program_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn alumni_to_json(row: &impl sqlx::Row) -> Value {
+fn alumni_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "full_name": row.get::<String>("full_name"),

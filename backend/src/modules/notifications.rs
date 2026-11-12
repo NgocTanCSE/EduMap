@@ -86,7 +86,7 @@ const DB_INSERT_NOTIFICATION: &str = r#"
 // JSON builders (hơi giống `toView()` của old service)
 // ---------------------------------------------------------------------------
 
-fn notification_to_json(row: &impl sqlx::Row) -> Value {
+fn notification_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "user_id": row.get::<String>("user_id"),

@@ -67,7 +67,7 @@ impl IntoResponse for AppError {
                 AppError::NotFound(m) => m,
                 AppError::Conflict(m) => m,
                 AppError::Internal(m) => m,
-                AppError::External(m) => m,
+                AppError::External(ref m) => m,
             },
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
@@ -75,6 +75,48 @@ impl IntoResponse for AppError {
     }
 }
 
+impl From<sqlx::Error> for AppError {
+    /// Convert a database error into a `400/403/404/500` response.
+    fn from(err: sqlx::Error) -> Self {
+        match err {
+            sqlx::Error::RowNotFound => AppError::NotFound("Không tìm thấy dữ liệu."),
+            _ => AppError::Internal(format!("Lỗi cơ sở dữ liệu: {}", err)),
+        }
+    }
+}
+
+impl From<uuid::Error> for AppError {
+    fn from(err: uuid::Error) -> Self {
+        AppError::Internal(format!("Lỗi UUID: {}", err))
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> Self {
+        AppError::External(format!("Lỗi dịch vụ bên ngoài: {}", err))
+    }
+}
+
+impl From<std::num::ParseIntError> for AppError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        AppError::BadRequest(format!("tham số không hợp lệ: {}", err))
+    }
+}
+
+impl From<std::num::ParseFloatError> for AppError {
+    fn from(err: std::num::ParseFloatError) -> Self {
+        AppError::BadRequest(format!("tham số không hợp lệ: {}", err))
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        AppError::BadRequest(format!("dữ liệu không hợp lệ: {}", err))
+    }
+}
+
+/// Rows are inserted/updated in the `?`-style handler, so each module gets
+/// `Behaviour` intact.
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

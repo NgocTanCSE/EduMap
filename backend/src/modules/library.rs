@@ -124,7 +124,7 @@ const DB_INSERT_RESOURCE: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn resource_to_json(row: &impl sqlx::Row) -> Value {
+fn resource_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -147,7 +147,7 @@ fn resource_to_json(row: &impl sqlx::Row) -> Value {
 
 /// Build the `human_readable` text the ai-service embeds (the old backend
 /// sent `title + type/subject + grade + author + description`).
-fn build_doc_text(r: &impl sqlx::Row) -> String {
+fn build_doc_text(r: &sqlx::PgRow) -> String {
     let title = r.get::<String>("title");
     let desc = r.get::<Option<String>, _>("description").unwrap_or_default();
     let subject = r.get::<Option<String>, _>("subject").unwrap_or_default();

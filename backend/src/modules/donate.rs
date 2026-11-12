@@ -317,7 +317,7 @@ const DB_UPDATED_CAMPAIGN: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn campaign_to_json(row: &impl sqlx::Row) -> Value {
+fn campaign_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -340,7 +340,7 @@ fn campaign_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn donor_to_json(row: &impl sqlx::Row) -> Value {
+fn donor_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
         "amount": row

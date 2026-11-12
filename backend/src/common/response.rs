@@ -4,7 +4,6 @@
 //! Every JSON body is wrapped in `{ success, data, message, timestamp }` so
 //! the frontend keeps a single shape regardless of which backend is serving.
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiResponse<T> {

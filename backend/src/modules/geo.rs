@@ -26,7 +26,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 // ---------------------------------------------------------------------------
 // DTO
@@ -178,7 +178,9 @@ fn tile_url(x: i64, y: i64, z: i64, source: &str, bing_key: Option<&str>) -> Str
                 }
                 qk.push_str(&digit.to_string());
             }
-            let sub = "abcdefghijklmnopqrstuvwxyz"[(x + y) as usize % 3];
+            let letters = "abcdefghijklmnopqrstuvwxyz";
+            let idx = (x + y) as usize % 3;
+            let sub = &letters[idx..idx + 1];
             match bing_key {
                 Some(k) => format!("https://{sub}.ssl.ak.tiles.virtualearth.net/tiles/{qk}.png?token={k}"),
                 None => format!("https://{sub}.ssl.ak.tiles.virtualearth.net/tiles/{qk}.png"),
@@ -221,12 +223,7 @@ fn haversine(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
 }
 
 fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339_opt().unwrap_or_else(|| {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| format!("{}", d.as_secs()))
-            .unwrap_or_default()
-    })
+    chrono::Utc::now().to_rfc3339()
 }
 
 // ---------------------------------------------------------------------------

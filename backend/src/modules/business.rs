@@ -478,7 +478,7 @@ pub struct CheckoutForm {
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn profile_to_json(row: &impl sqlx::Row) -> Value {
+fn profile_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "user_id": row.get::<Option<String>>("user_id"),
@@ -498,7 +498,7 @@ fn profile_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn product_to_json(row: &impl sqlx::Row, reviews: Vec<Value>) -> Value {
+fn product_to_json(row: &sqlx::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),
@@ -515,7 +515,7 @@ fn product_to_json(row: &impl sqlx::Row, reviews: Vec<Value>) -> Value {
     })
 }
 
-fn product_list_to_json(row: &impl sqlx::Row) -> Value {
+fn product_list_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),
@@ -531,7 +531,7 @@ fn product_list_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn service_to_json(row: &impl sqlx::Row, reviews: Vec<Value>) -> Value {
+fn service_to_json(row: &sqlx::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),
@@ -548,7 +548,7 @@ fn service_to_json(row: &impl sqlx::Row, reviews: Vec<Value>) -> Value {
     })
 }
 
-fn service_list_to_json(row: &impl sqlx::Row) -> Value {
+fn service_list_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),
@@ -564,7 +564,7 @@ fn service_list_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn review_to_json(row: &impl sqlx::Row) -> Value {
+fn review_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "user_id": row.get::<String>("user_id"),
@@ -575,7 +575,7 @@ fn review_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn cart_to_json(row: &impl sqlx::Row) -> Value {
+fn cart_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "user_id": row.get::<String>("userId"),
@@ -591,7 +591,7 @@ fn cart_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn order_to_json(order_row: &impl sqlx::Row, items: Vec<Value>) -> Value {
+fn order_to_json(order_row: &sqlx::PgRow, items: Vec<Value>) -> Value {
     serde_json::json!({
         "id": order_row.get::<String>("id"),
         "user_id": order_row.get::<String>("userId"),
@@ -604,7 +604,7 @@ fn order_to_json(order_row: &impl sqlx::Row, items: Vec<Value>) -> Value {
     })
 }
 
-fn vendor_order_item_to_json(row: &impl sqlx::Row) -> Value {
+fn vendor_order_item_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "order_id": row.get::<String>("orderId"),

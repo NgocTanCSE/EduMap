@@ -218,7 +218,7 @@ const DB_SELECT_GROUPS: &str = r#"
 // JSON builders (mirror `relations: ['author', 'group']` of the old service)
 // ---------------------------------------------------------------------------
 
-fn author_to_json(row: &impl sqlx::Row) -> Value {
+fn author_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("author_id").unwrap_or_default(),
         "full_name": row.get::<Option<String>>("author_name").unwrap_or_default(),
@@ -227,7 +227,7 @@ fn author_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn group_to_json(row: &impl sqlx::Row) -> Value {
+fn group_to_json(row: &sqlx::PgRow) -> Value {
     let name: Option<String> = row.get::<Option<String>>("group_name");
     if name.as_deref().filter(|n| !n.trim().is_empty()).is_none() {
         return Value::Null;
@@ -239,7 +239,7 @@ fn group_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn post_to_json(row: &impl sqlx::Row) -> Value {
+fn post_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -261,7 +261,7 @@ fn post_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn comment_to_json(row: &impl sqlx::Row) -> Value {
+fn comment_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "post_id": row.get::<String>("post_id"),
@@ -280,7 +280,7 @@ fn comment_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn group_to_json_flat(row: &impl sqlx::Row) -> Value {
+fn group_to_json_flat(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<Option<String>>("name").unwrap_or_default(),

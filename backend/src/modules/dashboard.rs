@@ -5,7 +5,7 @@
 //! `dashboard.service.ts`. Ba endpoint đầu cần JWT (class-level
 //! `@UseGuards(JwtAuthGuard)`); `stats` dành riêng cho admin/moderator.
 
-use crate::common::auth::{ensure_admin, authenticated_user, AuthUser};
+use crate::common::auth::{ensure_admin, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
@@ -109,8 +109,7 @@ fn today_midnight() -> String {
     let now = chrono::Utc::now();
     let midnight = now.date_naive().and_hms_opt(0, 0, 0).unwrap()
         .and_utc()
-        .to_rfc3339_opt()
-        .unwrap_or_else(|| now.to_rfc3339());
+        .to_rfc3339();
     midnight
 }
 

@@ -1369,7 +1369,7 @@ fn lng_of_point(location: Option<String>) -> f64 {
 }
 
 /// Point of interest from `map_points` (geometry in `location`.)
-fn map_point_to_poi_row(row: &impl sqlx::Row) -> serde_json::Value {
+fn map_point_to_poi_row(row: &sqlx::PgRow) -> serde_json::Value {
     let location = row.get::<Option<String>>("location");
     serde_json::json!({
         "id": row.get::<String>("id"),
@@ -1387,7 +1387,7 @@ fn map_point_to_poi_row(row: &impl sqlx::Row) -> serde_json::Value {
 }
 
 /// Point of interest from `locations` (geometry in `coordinates`.)
-fn location_to_poi_row(row: &impl sqlx::Row) -> serde_json::Value {
+fn location_to_poi_row(row: &sqlx::PgRow) -> serde_json::Value {
     let location = row.get::<Option<String>>("coordinates");
     serde_json::json!({
         "id": row.get::<String>("id"),

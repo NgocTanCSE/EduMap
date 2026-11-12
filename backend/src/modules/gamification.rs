@@ -169,7 +169,7 @@ fn progress_with_rank(user_id: &str, total: i64, rank: i64, total_users: i64, ba
     Value::Object(out)
 }
 
-fn badge_to_json(row: &impl sqlx::Row) -> Value {
+fn badge_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
         "badge_id": row.get::<Option<String>>("badge_id").unwrap_or_default(),

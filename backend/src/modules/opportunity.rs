@@ -176,12 +176,7 @@ fn parse_geojson_point(text: &str) -> Option<(f64, f64)> {
 }
 
 fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339_opt().unwrap_or_else(|| {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| format!("{}", d.as_secs()))
-            .unwrap_or_default()
-    })
+    chrono::Utc::now().to_rfc3339()
 }
 
 fn escape_like(value: &str) -> String {

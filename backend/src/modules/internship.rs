@@ -160,7 +160,7 @@ fn parse_point_text(text: &str) -> Option<[f64; 2]> {
 ///
 /// `location_point` is a PostGIS `GEOGRAPHY(POINT)` — `ST_AsText()` emits
 /// `POINT (lng lat)`, so the first coordinate is the longitude.
-fn row_to_json(row: &impl sqlx::Row) -> Value {
+fn row_to_json(row: &sqlx::PgRow) -> Value {
     let location = row.get::<Option<String>, _>("location_point")
         .and_then(|s| parse_point_text(&s));
 

@@ -305,7 +305,7 @@ const DB_AWARD_POINTS: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn event_to_json(row: &impl sqlx::Row) -> Value {
+fn event_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),

@@ -23,7 +23,7 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::http::Request<Body>;
 use axum::Json;
 use serde::Deserialize;

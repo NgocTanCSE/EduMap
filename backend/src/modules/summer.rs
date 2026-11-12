@@ -113,7 +113,7 @@ const DB_SELECT_REGISTRATION_BY_ID: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn campaign_to_json(row: &impl sqlx::Row) -> Value {
+fn campaign_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<Option<String>>("name").unwrap_or_default(),
@@ -127,7 +127,7 @@ fn campaign_to_json(row: &impl sqlx::Row) -> Value {
     })
 }
 
-fn activity_to_json(row: &impl sqlx::Row) -> Value {
+fn activity_to_json(row: &sqlx::PgRow) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "campaign_id": row.get::<String>("campaign_id"),
