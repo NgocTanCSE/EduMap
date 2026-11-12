@@ -7,7 +7,7 @@
 # SAFE (respects the "never DROP SCHEMA" constraint):
 #   * 01-schema.sql  -> CREATE TABLE / INDEX / EXTENSION (no DROP)
 #   * 02-seed.sql    -> base data (roles, users, categories, DNTU map points)
-#   * 03-crawled.sql -> 3192 OSM locations (upsert-friendly snapshot)
+#   * 03-crawled.sql -> 3192 POI locations (upsert-friendly snapshot)
 # Order matters (schema before seed). No TRUNCATE/DELETE.
 set -euo pipefail
 

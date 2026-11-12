@@ -25,7 +25,10 @@ argon2 = { version = "0.5", features = ["std", "alloc"] }
 
 # --- Client -----------------------------------------------------------------
 bytes = "1"
-reqwest = { version = "0.12", features = ["stream", "gzip", "json", "socks"] }
+# TLS is rustls (reqwest 0.12 defaults to `default-tls` = native-tls,
+# which needs `libssl` -- not usable on musl targets).
+reqwest = { version = "0.12", default-features = false,
+            features = ["stream", "gzip", "json", "socks", "rustls-tls", "http2"] }
 
 # --- hyper (the reqwest/axum base; used to collect the request body for the
 #     ai-service proxy).

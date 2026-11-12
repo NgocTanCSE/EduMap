@@ -11,7 +11,7 @@ export class SatelliteTilesQueryDto {
     zoom?: number = 18;
     @IsOptional()
     @IsString()
-    source?: string = 'osm';
+    source?: string = 'esri';
 }
 export class VisionDetectBodyDto {
     @IsString()
@@ -23,7 +23,7 @@ export class VisionDetectBodyDto {
     zoom?: number = 18;
     @IsOptional()
     @IsString()
-    source?: string = 'osm';
+    source?: string = 'esri';
     @IsOptional()
     @IsArray()
     @IsString({ each: true })

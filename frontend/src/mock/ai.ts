@@ -682,7 +682,7 @@ export function buildVisionDetect(
         bbox,
         detections,
         image_size: { width: 1024, height: 1024 },
-        tile: { zoom: 18, tiles: 16, source: 'osm' },
+        tile: { zoom: 18, tiles: 16, source: 'carto' },
         model: 'google/owlv2-base-patch16-ensemble',
         degraded: false,
         reason: null,

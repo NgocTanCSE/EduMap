@@ -180,38 +180,21 @@ class LLMService:
 
 
 
-        self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-
-        self.cf_gateway_id = os.getenv("CF_AI_GATEWAY_ID", "")
-        self.cf_gateway_enabled = os.getenv("CF_AI_GATEWAY_ENABLED", "false").lower() in ("1", "true", "yes", "on")
-
-        self.model_candidates = [m.strip() for m in os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct").split(",") if m.strip()]
-        self.model_name = self.model_candidates[0] if self.model_candidates else "@cf/meta/llama-3.1-8b-instruct-fp8"
-        self.has_cf = bool(self.api_token) and bool(self.account_id)
-
-
-        self._cf_down_until = 0.0
-
-
-        self.cf_budget_seconds = float(os.getenv("AI_CF_BUDGET_SECONDS", "20"))
 
 
 
 
 
 
-        self.is_ready = self.has_deepseek or self.has_gemini or self.has_cf
+        self.is_ready = self.has_deepseek or self.has_gemini
         if self.has_deepseek:
             print(f"INFO: DeepSeek provider configured (primary). Model={self.deepseek_model_name}")
-        if self.has_cf:
-            print(f"INFO: Cloudflare Workers AI provider configured (fallback). Model={self.model_name}")
         if self.has_gemini:
             print(f"INFO: Google Gemini provider configured (fallback). Model={self.gemini_model_name}")
         if not self.is_ready:
-            print("ERROR: Khong co DEEPSEEK_API_KEY / GEMINI_API_KEY / CLOUDFLARE_API_TOKEN. Cau hinh de dung AI chat.")
+            print("ERROR: Khong co DEEPSEEK_API_KEY / GEMINI_API_KEY. Cau hinh de dung AI chat.")
         else:
-            print("INFO: LLM provider chain: DeepSeek -> Google Gemini -> Cloudflare Workers AI -> template")
+            print("INFO: LLM provider chain: DeepSeek -> Google Gemini -> template")
 
         self.adzuna_app_id = os.getenv("ADZUNA_APP_ID")
         self.adzuna_app_key = os.getenv("ADZUNA_APP_KEY")
@@ -258,7 +241,7 @@ class LLMService:
 
         DeepSeek is the primary text provider (``DEEPSEEK_API_KEY``). Requests
         go through ``curl --ipv4 --insecure`` for the same container IPv6/TLS
-        reason as Cloudflare/Gemini. Any OpenAI-compatible gateway can be used
+        reason as Gemini. Any OpenAI-compatible gateway can be used
         by pointing ``DEEPSEEK_BASE_URL`` at it.
         """
         import time as _time
@@ -441,9 +424,9 @@ class LLMService:
         """Call Google Gemini generateContent.
 
         Gemini is the fallback text-generation provider (invoked after
-        Cloudflare Workers AI fails). On the host, Cloudflare's TLS is
+        DeepSeek fails). On the host, Cloudflare's TLS is
         blackholed so Gemini is effectively the primary. Requests use curl
-        so they follow the same IPv4/TLS workaround as the Cloudflare provider.
+        so they follow the same IPv4/TLS workaround as the adjacency provider.
         """
         import time as _time
 
@@ -554,267 +537,6 @@ class LLMService:
 
         raise RuntimeError(f"Gemini generation failed: {last_err or 'no model available'}")
 
-    def _cloudflare_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Gọi Cloudflare Workers AI :generateContent. Thử từng model trong CLOUDFLARE_MODEL (CSV).
-
-        - 404 / model not found -> thử model kế tiếp ngay (lỗi model, không retry).
-        - 429 / 502 / 503 / 504 -> lỗi tạm thời: retry cùng model sau backoff ngắn,
-          rồi mới chuyển sang model tiếp theo. Tránh thất bại vì một model bị quá tải.
-        - 401 / 403 -> lỗi xác thực: dừng ngay.
-
-        Nếu tất cả CF model đều thất bại, RuntimeError được ném ra để caller
-        fallback sang Gemini (qua _generate_text_with_fallback).
-        """
-        import time as _time
-        if not self.is_ready:
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY (fallback).")
-
-        request_started = _time.monotonic()
-        cf_last_err = None
-
-
-        if self.has_cf and _time.monotonic() >= self._cf_down_until:
-            cf_last_err = None
-            cf_network_down = False
-            if self.cf_gateway_enabled and self.cf_gateway_id and self.account_id:
-                base_url = f"https://gateway.ai.cloudflare.com/v1/{self.account_id}/{self.cf_gateway_id}/ai/run"
-                print(f"[LLM] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
-            else:
-                base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run"
-            last_err = None
-
-
-            per_model_retries = 0
-            cf_started = _time.monotonic()
-
-            for model in self.model_candidates:
-                if _time.monotonic() - cf_started > self.cf_budget_seconds:
-                    print(f"[LLM] Cloudflare budget ({self.cf_budget_seconds}s) exhausted, skipping remaining models")
-                    break
-
-
-
-
-
-                encoded_model = urllib.parse.quote(model, safe='/')
-                url = f"{base_url}/{encoded_model}"
-                payload = {
-                    "prompt": prompt,
-                    "max_tokens": max_tokens or 2048,
-                    "temperature": temperature,
-                }
-                if top_p is not None:
-                    payload["top_p"] = top_p
-                body_json = json.dumps(payload).encode("utf-8")
-                req_headers = {
-                    "Authorization": f"Bearer {self.api_token}",
-                    "Content-Type": "application/json",
-                }
-                ctx = ssl.create_default_context()
-
-                attempt = 0
-                while True:
-                    attempt += 1
-                    data = None
-                    try:
-
-
-
-                        _curl = subprocess.run(
-                            ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                             "-H", f"Authorization: Bearer {self.api_token}",
-                             "-H", "Content-Type: application/json",
-                             "-d", body_json.decode("utf-8"),
-                             "--connect-timeout", "4", "--max-time", "10", url],
-                            capture_output=True, text=True, timeout=12)
-                        if _curl.returncode == 0 and _curl.stdout.strip():
-                            data = json.loads(_curl.stdout)
-                        else:
-                            _msg = _curl.stderr.strip()[:200] or f"curl exit {_curl.returncode}"
-                            raise urllib.error.URLError(_msg)
-                    except FileNotFoundError:
-                        print("  curl not found, falling back to urllib.request")
-                        req = urllib.request.Request(url, data=body_json, headers=req_headers, method="POST")
-                        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                            data = json.loads(resp.read().decode("utf-8"))
-                    except urllib.error.HTTPError as e:
-                        b = e.read().decode("utf-8", "ignore")[:300]
-                        if self._is_model_not_found(e.code, b):
-                            last_err = f"{model}: HTTP {e.code} {b[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
-                        if e.code in (401, 403):
-                            raise RuntimeError(f"Cloudflare auth lỗi (HTTP {e.code}): {b[:200]}")
-                        if e.code == 429:
-                            last_err = f"{model}: HTTP 429 {b[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), không retry cùng model, thử kế tiếp..."); break
-                        if e.code in (502, 503, 504) and attempt <= per_model_retries:
-                            last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                        last_err = f"{model}: HTTP {e.code} {b[:80]}"; print(f"Cloudflare model {model} {e.code}, thử model kế tiếp..."); break
-                    except Exception as e:
-                        if attempt <= per_model_retries:
-                            last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, retry {attempt}/{per_model_retries}..."); _time.sleep(1.5); continue
-                        last_err = f"{model}: {type(e).__name__}: {e}"; print(f"Lỗi kết nối {model} ({type(e).__name__}): {e}, tạm ngưng Cloudflare 5 phút.");
-                        self._cf_down_until = _time.monotonic() + 300
-                        cf_network_down = True
-                        break
-
-
-                    if "error" in data and data.get("success") is False:
-                        err = data.get("errors", [{}])[0] if isinstance(data.get("errors"), list) else {}
-                        code = err.get("code", 0)
-                        msg = err.get("message", "")
-                        if code in (10000, 10001) or "auth" in msg.lower():
-                            raise RuntimeError(f"Cloudflare auth lỗi (code {code}): {msg[:200]}")
-                        if self._is_model_not_found(code, msg):
-                            last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} không khả dụng, thử model kế tiếp..."); break
-                        if code == 429:
-                            last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} bị rate-limit (429), thử kế tiếp..."); break
-                        if code in (502, 503, 504) and attempt <= per_model_retries:
-                            last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare model {model} {code} (tạm thời), retry {attempt}/{per_model_retries}..."); _time.sleep(2.0); continue
-                        last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare model {model} {code}, thử model kế tiếp..."); break
-
-                    result = data.get("result", {})
-                    if isinstance(result, dict):
-                        text = result.get("response", "").strip()
-                    elif isinstance(result, str):
-                        text = result.strip()
-                    else:
-                        last_err = f"{model}: unexpected result format"; break
-
-                    if text:
-                        return text
-                    last_err = f"{model}: trả về empty response"
-                    break
-
-                if cf_network_down:
-                    print("[LLM] Cloudflare network unreachable; skipping remaining models")
-                    break
-
-            cf_last_err = last_err
-
-
-
-
-
-        if self.has_cf and _time.monotonic() < self._cf_down_until and not cf_last_err:
-            cf_last_err = "Tạm thời gián đoạn (thất bại mạng, cooldown 5 phút)"
-
-
-
-
-        raise RuntimeError(
-            "Không thể sinh nội dung qua Cloudflare Workers AI. "
-            f"{cf_last_err or ('không cấu hình' if not self.has_cf else 'lỗi không xác định')}"
-        )
-
-    def _cloudflare_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
-        """True token-by-token SSE streaming via Cloudflare Workers AI.
-
-        Uses ``stream: true`` in the Cloudflare request payload and reads the
-        response line-by-line via ``subprocess.Popen`` + ``stdout=PIPE`` so
-        tokens are yielded incrementally (not buffered). Falls back to word-
-        by-word streaming in ``chat_with_rag_stream`` if this method raises.
-
-        Yields individual token strings (content deltas).
-        """
-        import time as _time
-        if not self.has_cf:
-            raise RuntimeError("CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID not set — cannot use Cloudflare streaming.")
-        if _time.monotonic() < self._cf_down_until:
-            raise RuntimeError("Cloudflare temporarily disabled after a network failure.")
-
-        request_started = _time.monotonic()
-        last_err = None
-        last_model = None
-
-
-        for model in self.model_candidates:
-            if _time.monotonic() < self._cf_down_until:
-                raise RuntimeError("Cloudflare circuit breaker active — cooldown 5 min.")
-
-
-            if _time.monotonic() - request_started > self.cf_budget_seconds:
-                break
-            url = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/v1/chat/models/{model}"
-            payload = {
-                "messages": [
-                    {"role": "system", "content": "Bạn là trợ lý ảo hỗ trợ học tập."},
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": float(temperature),
-                "max_tokens": int(max_tokens or 1024),
-                "stream": True,
-            }
-            if top_p is not None:
-                payload["top_p"] = float(top_p)
-            body_json = json.dumps(payload).encode("utf-8")
-
-            headers = {
-                "Authorization": f"Bearer {self.api_token}",
-                "Content-Type": "application/json",
-            }
-
-            try:
-                cmd = [
-                    "curl", "--ipv4", "--insecure", "-sS", "-N",
-                    "-X", "POST", url,
-                    "-H", f"Authorization: Bearer {self.api_token}",
-                    "-H", "Content-Type: application/json",
-                    "-d", body_json,
-                    "--connect-timeout", "6",
-                    "--max-time", str(self.cf_budget_seconds),
-                ]
-                if self.cf_gateway_enabled and self.cf_gateway_id:
-
-                    cmd[3:3] = ["-x", f"https://{self.cf_gateway_id}.ai-gateway.cloudflare.com"]
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    bufsize=1,
-                )
-            except Exception as e:
-                last_err = f"curl Popen failed: {type(e).__name__}: {e}"
-                print(f"[LLM] Cloudflare stream Popen failed for {model}: {e}")
-                self._cf_down_until = _time.monotonic() + 300
-                continue
-
-            yield_started = False
-            try:
-                for line in proc.stdout:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data_str)
-                        except json.JSONDecodeError:
-                            continue
-                        choice = chunk.get("result", chunk.get("choices", [{}])[0])
-                        delta = choice.get("delta", choice.get("response", {}))
-                        content = delta.get("content", "")
-                        if content:
-                            yield_started = True
-                            yield content
-            except Exception as e:
-                last_err = str(e)
-                print(f"[LLM] Cloudflare stream read error for {model}: {e}")
-            finally:
-                proc.kill()
-
-            if yield_started:
-                print(f"  -> Cloudflare streaming OK (model={model})")
-                return
-            else:
-                last_model = model
-                print(f"[LLM] Cloudflare streaming for {model} yielded no tokens, trying next model")
-
-        if not self.is_ready:
-            raise RuntimeError(f"Cloudflare streaming exhausted all models. Last error: {last_err or 'no tokens yielded'}")
-        raise RuntimeError(f"Cloudflare streaming exhausted all models (last: {last_model}). Last error: {last_err or 'no tokens yielded'}")
-
     def _store_response_cache(self, cache_key: str, response: str) -> None:
         """Cache a successful LLM response with TTL + FIFO-LRU eviction.
 
@@ -843,11 +565,10 @@ class LLMService:
         self._response_cache_meta[cache_key] = now
 
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Try LLM providers in priority order: Cloudflare Workers AI → Google Gemini.
+        """Try LLM providers in priority order: DeepSeek → Google Gemini.
 
-        Cloudflare is the primary provider (curl --ipv4 --insecure for
-        container compatibility). Gemini is the fallback — reachable from
-        container when Cloudflare's TLS is blackholed.
+        DeepSeek is the primary provider (curl --ipv4 --insecure for
+        container compatibility). Gemini is the fallback.
 
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError so the caller can use a
@@ -913,22 +634,6 @@ class LLMService:
 
 
 
-        if self.has_cf:
-            try:
-                result = self._cloudflare_generate(
-                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
-                )
-                if result:
-                    self._store_response_cache(_cache_key, result)
-                    print("  -> Cloudflare Workers AI generate OK")
-                    return result
-            except Exception as e:
-                errors["Cloudflare"] = str(e)
-                print(f"Cloudflare generate failed: {e}")
-
-
-
-
         parts = []
         if not self.has_deepseek:
             parts.append("DeepSeek: không cấu hình")
@@ -938,10 +643,6 @@ class LLMService:
             parts.append("Gemini: không cấu hình")
         elif errors.get("Gemini"):
             parts.append(f"Gemini: {errors['Gemini'][:150]}")
-        if not self.has_cf:
-            parts.append("Cloudflare: không cấu hình")
-        elif errors.get("Cloudflare"):
-            parts.append(f"Cloudflare: {errors['Cloudflare'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 

@@ -500,7 +500,7 @@ export default function EduMapLanding() {
 
                       <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground border-t border-border/60">
                         <span className="flex items-center gap-1.5">
-                          <ShieldCheck className="h-4 w-4 text-primary"/> Dữ liệu định vị GIS cập nhật trực tiếp theo chuẩn OSM
+                          <ShieldCheck className="h-4 w-4 text-primary"/> Dữ liệu định vị GIS cập nhật trực tiếp
                         </span>
                         <Link href="/map" className="font-semibold text-primary hover:underline flex items-center gap-1">
                           Mở bản đồ đầy đủ <ArrowUpRight className="h-3.5 w-3.5"/>

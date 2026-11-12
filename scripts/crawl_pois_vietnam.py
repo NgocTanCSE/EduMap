@@ -53,7 +53,7 @@ def fetch_tile(scope_label: str, layer_label: str, category: str,
                location_scope: str = "vietnam") -> list[dict]:
     """Fetch POI for one (query, scope) via Tavily.
 
-    Previously the old crawler split each bbox into tiles and POSTed an OSM
+    Previously the old crawler split each bbox into tiles and POSTed a tile
     query per tile.  Tavily doesn't do geographic bbox queries — instead we
     use Vietnamese-language search queries scoped to the location layer.
     """
@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     db_path = cfg.get("DB_PATH", DB_PATH)
     _CY = crawl_years()
     print(f"  [poi] crawl_years={_CY} | scope layers: {[l['label'] for l in LOCATION_LAYERS]}")
-    print(f"  [poi] Tavily-based crawl (migration khỏi Overpass xong)")
+    print(f"  [poi] Tavily-based crawl (kết thúc migrate)")
     log(f"Crawl start — dry_run={cfg['DRY_RUN']} source=tavily bbox={cfg['BBOX']}")
     log(f"  [scope] crawl_years={_CY} | location layers={[l['label'] for l in LOCATION_LAYERS]}")
     log("  Source: Tavily AI Search + Extract (https://api.tavily.com)")

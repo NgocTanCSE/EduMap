@@ -1,7 +1,7 @@
 """
 Green Spaces & Parks Crawler for Đông Nai / miền Nam / Việt Nam.
 
-Tất cả dữ liệu đến từ Tavily Search + Extract (đã loại bỏ Overpass API).
+Tất cả dữ liệu đến từ Tavily Search + Extract.
 Khi Tavily trả về 0 bản ghi, hệ thống rơi vào tập dữ liệu cảnh quan thật
 của Đồng Nai (AGENTS.md §6: trạng thái cá nhân).
 """

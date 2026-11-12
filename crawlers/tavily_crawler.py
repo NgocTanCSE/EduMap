@@ -38,8 +38,7 @@ def _respect_rate_limit(last_ts: float, min_delay: float = 1.0) -> float:
 
 
 class TavilyCrawler:
-    """Nationwide Vietnam crawler — **Tavily-based** (API duy nhất gọi đến Tavily,
-    không gọi bất kỳ URL OSM/Overpass nào).
+    """Nationwide Vietnam crawler — **Tavily-based** (API duy nhất gọi đến Tavily).
     """
 
     def __init__(self, proxy_url: str = None):
@@ -113,7 +112,7 @@ class TavilyCrawler:
     def crawl_vietnam(self) -> List[Dict[str, Any]]:
         """Crawl all of Vietnam by regions, walking the location expansion
         (Đồng Nai → miền Nam → southern → central → northern).
-        Tất cả dữ liệu đến từ Tavily Search + Extract (không gọi API của OSM).
+        Tất cả dữ liệu đến từ Tavily Search + Extract.
         """
         all_locations = []
         print(f"  [scope] crawl_years={_CRAWL_YEARS} | scope_order={SCOPE_ORDER}")

@@ -306,7 +306,11 @@ currently has no inference provider, so the endpoint always returns
   - `bing` — Bing Maps aerial tiles via quadkey URL (optional `BING_MAPS_API_KEY`).
   - OSM tiles and Overpass have been removed from every source (2026-11-12):
     `backend/src/modules/geo.rs` defaults `source=esri`, and `/map/pois` no
-    longer falls back to live Overpass queries.
+    longer falls back to live Overpass queries. (Backend GeoVision DTO `source`
+    now defaults to `esri` too — no OSM/Overpass fallback remains.)
+  - The only remaining OSM usage is the **routing graph data** (`vietnam-latest.osm.pbf`,
+    processed by `osrm-extract` in the Dockerfile `osm-downloader` stage and served
+    by `osrm-routed`): it is routing input, not the map tile source.
 - Tile grid is capped at **8×8 = 64 tiles** (max 2048×2048 px at z=18) to stay
   under a typical 5 MB inference input limit.
 - Stitched tiles are cached 24 h in an in-memory LRU cache

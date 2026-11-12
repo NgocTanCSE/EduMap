@@ -27,8 +27,8 @@ class DataAggregator:
         print("[START] Nationwide Data Aggregation for EduMap...\n")
 
         print("[1/4] Nationwide Tavily POI Crawl...")
-        overpass = TavilyCrawler()
-        nationwide_locations = overpass.crawl_vietnam()
+        crawl = TavilyCrawler()
+        nationwide_locations = crawl.crawl_vietnam()
 
         print("\n[2/4] Native Crawlers (Dong Nai)...")
         wifi_crawler = WiFiCrawler()

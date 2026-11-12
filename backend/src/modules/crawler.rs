@@ -204,7 +204,7 @@ async fn crawl_no_op(_client: &Client, _pool: &DbPool) -> CrawlResult {
     CrawlResult {
         success: true,
         added: 0,
-        message: "Quét OSM bị thu hồi — POI đã crawl trong DB".to_string(),
+        message: "Crawl thu hồi — POI đã crawl trong DB".to_string(),
     }
 }
 
@@ -313,7 +313,7 @@ pub async fn trigger_crawl(
     let params = body.params.clone().unwrap_or_default();
     let client = client();
     let result: Result<CrawlResult, String> = match body.type_.as_str() {
-        // map/wifi/schools/green_spaces: OSM bị thu hồi — POI đã crawl trong DB
+        // map/wifi/schools/green_spaces: crawl thu hồi — POI đã crawl trong DB
         "map" => Ok(crawl_no_op(&client, &pool)),
         "wifi" => Ok(crawl_no_op(&client, &pool)),
         "schools" => Ok(crawl_no_op(&client, &pool)),

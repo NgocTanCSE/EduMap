@@ -119,10 +119,10 @@ def search_pois_tavily(
 
 
 class TavilyPoiClient:
-    """Tavily-based replacement for OverpassCrawler.
+    """Tavily-based POI crawler.
 
     Provides the same interface methods (fetch_all_education_health, etc.)
-    but uses Tavily Search + Extract instead of the Overpass API.
+    and uses Tavily Search + Extract for every crawl query.
     """
 
     def __init__(self):
@@ -230,7 +230,7 @@ def crawl_pois_markets(
 ) -> List[Dict]:
     """Crawl markets + convenience stores via Tavily for each location scope.
 
-    Replaces the Overpass-based ``fetch_tile`` in crawl_pois_vietnam.py.
+    Replaces the tile-based ``fetch_tile`` in crawl_pois_vietnam.py.
     """
     queries_by_scope = {
         "dong_nai": [

@@ -19,13 +19,13 @@ EDUMAP_CRAWL_YEAR=2026
 
 # --- nightly Tavily POI upsert (01:00) — markets, schools, greens, wifi... ---
 # SAFE: crawl_pois_vietnam.py upserts (dedup via name+coords), NEVER drops schema
-# or wipes user rows. Uses Tavily AI Search (TAVILY_API_KEY) — Overpass API is
-# blocked on host egress. Runs 1h after feature crawlers so the DB is warm.
-# A post-reset DB auto-heals nightly when TAVILY_API_KEY is set; without it,
-# the crawler degrades to 0 rows and curated snapshots fill the gaps.
-0 1 * * * root bash /app/scripts/run_overpass_seed.sh >> /app/crawlers/crawled_data/overpass_crawl.log 2>&1
+# or wipes user rows. Uses Tavily AI Search (TAVILY_API_KEY). Runs 1h after
+# feature crawlers so the DB is warm. A post-reset DB auto-heals nightly when
+# TAVILY_API_KEY is set; without it, the crawler degrades to 0 rows and curated
+# snapshots fill the gaps.
+0 1 * * * root bash /app/scripts/run_crawl_pois.sh >> /app/crawlers/crawled_data/pois_crawl.log 2>&1
 
-# --- optional FULL REFRESH (nationwide Overpass + seed rebuild, DROPS schema) ---
+# --- optional FULL REFRESH (nationwide POI crawl + seed rebuild, DROPS schema) ---
 # MANUAL / gated only — never auto-run in dev (would wipe user data like
 # bookmarks/registrations). Enable explicitly via EDUMAP_FULL_REFRESH=1 in .env
 # AND uncomment this line:

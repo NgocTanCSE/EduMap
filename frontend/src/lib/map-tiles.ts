@@ -1,9 +1,8 @@
 /** Cấu hình bản đồ nền (base tile) của toàn ứng dụng.
 
 CARTO basemaps API (style `voyager`) — nền màu, đầy đủ nhãn tên đường/phường/
-thành phố, giao diện gần giống Google Maps. Dữ liệu CartO **không** ghi nhận
-tên tiếng Trung cho Hoàng Sa - Trường Sa (lưu ý: giữ nguyên font/ghi chú,
-tuyệt đối không quay lại OSM).
+thành phố, giao diện gần giống Google Maps. Dữ liệu Carto **không** ghi nhận
+tên tiếng Trung cho Hoàng Sa - Trường Sa (lưu ý: giữ nguyên font/ghi chú).
 
 Khi `NEXT_PUBLIC_CARTO_API_KEY` đã set: request bao gồm `key=KEY`.
 Khi chưa set: request không key (CARTO trả tile + ghi chú "API key required"
@@ -32,7 +31,6 @@ export function getTileUrl(): string {
         return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}{r}.png?key=${key}`;
     }
     // Không có key: CARTO trả về tile + ghi chú "API key required",
-    // tuyệt đối không quay lại OSM (nhãn tiếng Trung ở Hoàng Sa/Trường Sa).
     return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}.png`;
 }
 

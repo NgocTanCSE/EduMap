@@ -963,8 +963,9 @@ pub async fn get_nearest_road(
     let lng = q.lng.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates"))?;
     let lat = q.lat.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates"))?;
 
-    // OSM-based nearest road (the old backend proxied Osrm/ORS; fall back to
-    // the point itself when it is unreachable)
+    // Nearest road (degraded: static fallback — the old backend proxied
+    // the routing service; the point itself is the fallback when it is
+    // unreachable)
     let road = serde_json::json!({
         "road": "Đường lân cận",
         "lat": lat,

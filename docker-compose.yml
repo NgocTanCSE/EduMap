@@ -183,7 +183,7 @@ services:
     command: >
       sh -c "
         if [ ! -f /data/vietnam-latest.osrm ]; then
-          echo 'Preprocessing OSM data...' &&
+          echo 'Preprocessing routing data...' &&
           osrm-extract -p /opt/car.lua /data/vietnam-latest.osm.pbf &&
           osrm-partition /data/vietnam-latest.osrm &&
           osrm-customize /data/vietnam-latest.osrm

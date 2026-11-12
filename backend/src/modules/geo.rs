@@ -185,7 +185,7 @@ fn tile_url(x: i64, y: i64, z: i64, source: &str, bing_key: Option<&str>) -> Str
             }
         }
         "esri" => format!("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
-        // mặc định (esri satellite — ảnh vệ tinh, không phải OSM):
+        // mặc định (esri satellite — ảnh vệ tinh, dùng làm nền):
         _ => format!("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
     }
 }

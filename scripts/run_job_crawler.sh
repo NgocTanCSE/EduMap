@@ -34,12 +34,10 @@ while true; do
         echo "[crawler] feature crawlers failed (graceful — continue)" >&2
     fi
 
-    # --- Overpass POI upsert (Postgres path — same dev/prod caveat) ---
-    # NOTE: Overpass API is blocked on host; crawl_pois_vietnam.py now
-    # uses Tavily (TAVILY_API_KEY) instead. When the key is absent, the script
-    # degrades to 0 rows gracefully.
-    if [ -f "/app/scripts/run_overpass_seed.sh" ]; then
-      bash /app/scripts/run_overpass_seed.sh 2>&1 || \
+    # --- AI POI upsert (Tavily — crawl_pois_vietnam.py; degrades to
+    #     0 rows if TAVILY_API_KEY is absent) ---
+    if [ -f "/app/scripts/run_crawl_pois.sh" ]; then
+      bash /app/scripts/run_crawl_pois.sh 2>&1 || \
         echo "[crawler] poi seed failed (graceful — continue)" >&2
     fi
   else
