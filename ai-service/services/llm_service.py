@@ -750,17 +750,24 @@ class LLMService:
 
         reply_text = None
         last_err = None
-
-        if self.has_deepseek:
+        for gen_fn in [
+            self._deepseek_generate if self.has_deepseek else None,
+            self._gemini_generate if self.has_gemini else None,
+        ]:
+            if gen_fn is None:
+                continue
             try:
-                reply_text = await asyncio.to_thread(
-                    self._deepseek_generate, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+
+
+                response = await asyncio.to_thread(
+                    gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 )
-                if reply_text:
+                if response:
+                    reply_text = response.strip()
                     break
             except Exception as e:
                 last_err = str(e)
-                print(f"Chat gen {self._deepseek_generate.__name__} failed: {e}")
+                print(f"Chat gen {gen_fn.__name__} failed: {e}")
                 continue
 
         if not reply_text:
@@ -904,36 +911,6 @@ class LLMService:
                 print(f"DeepSeek streaming failed, falling back to non-stream: {e}")
 
 
-        if self.has_cf:
-            try:
-                full_reply = ""
-                for token in self._cloudflare_generate_stream(
-                    prompt, max_tokens=2048, temperature=0.3, top_p=0.8
-                ):
-                    full_reply += token
-                    yield f"data: {json.dumps({'token': token, 'is_final': False})}\n\n"
-
-
-
-
-
-                if full_reply:
-                    yield f"data: {json.dumps({'done': True})}\n\n"
-
-
-                    cache_service.set(cache_key, {"reply": full_reply, "sources": sources}, ttl=3600)
-                    return
-                else:
-                    print("Cloudflare streaming returned empty reply, falling back to non-streaming")
-            except Exception as e:
-                print(f"Cloudflare streaming failed, falling back to non-stream: {e}")
-
-
-
-
-
-
-
         if not self.is_ready:
             print("[stream] No LLM providers configured — using template fallback directly")
 
@@ -968,7 +945,6 @@ class LLMService:
         for gen_fn in [
             self._deepseek_generate if self.has_deepseek else None,
             self._gemini_generate if self.has_gemini else None,
-            self._cloudflare_generate if self.has_cf else None,
         ]:
             if gen_fn is None:
                 continue
