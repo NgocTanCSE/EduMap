@@ -11,8 +11,9 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_routing, proxy_to_ai_service};
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -1368,7 +1369,7 @@ fn lng_of_point(location: Option<String>) -> f64 {
 }
 
 /// Point of interest from `map_points` (geometry in `location`.)
-fn map_point_to_poi_row(row: &sqlx::Row) -> serde_json::Value {
+fn map_point_to_poi_row(row: &impl sqlx::Row) -> serde_json::Value {
     let location = row.get::<Option<String>>("location");
     serde_json::json!({
         "id": row.get::<String>("id"),
@@ -1386,7 +1387,7 @@ fn map_point_to_poi_row(row: &sqlx::Row) -> serde_json::Value {
 }
 
 /// Point of interest from `locations` (geometry in `coordinates`.)
-fn location_to_poi_row(row: &sqlx::Row) -> serde_json::Value {
+fn location_to_poi_row(row: &impl sqlx::Row) -> serde_json::Value {
     let location = row.get::<Option<String>>("coordinates");
     serde_json::json!({
         "id": row.get::<String>("id"),

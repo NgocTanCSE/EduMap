@@ -24,8 +24,9 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_aiservice_response, proxy_to_ai_service};
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::{Request, Response};
+use axum::http::{Request<Body>, Response<Body>};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -520,7 +521,7 @@ pub async fn create_sponsor(
 // Item mappers
 // ---------------------------------------------------------------------------
 
-fn need_to_json(row: &sqlx::Row) -> Value {
+fn need_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -538,7 +539,7 @@ fn need_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn sponsor_to_json(row: &sqlx::Row) -> Value {
+fn sponsor_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),

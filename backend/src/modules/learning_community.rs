@@ -21,8 +21,9 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -209,7 +210,7 @@ fn to_latlng(location: Option<&Value>) -> Option<[f64; 2]> {
     Some([lat, lng])
 }
 
-fn spot_to_json(row: &sqlx::Row) -> Value {
+fn spot_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "name": row.get::<String>("name"),

@@ -26,7 +26,8 @@ use crate::common::auth::authenticated_user;
 use crate::common::error::AppError;
 use crate::db::pool::DbPool;
 use axum::extract::State;
-use axum::http::Request;
+use axum::body::Body;
+use axum::http::Request<Body>;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures::Stream;
 use serde::{Deserialize, Serialize};
@@ -109,7 +110,7 @@ impl NotificationHub {
 /// every 20 s (defeats the reverse proxy timeouts).
 pub async fn subscribe_sse(
     State(_pool): State<DbPool>,
-    req: Request,
+    req: Request<Body>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
     let user = authenticated_user(&req)?;
 

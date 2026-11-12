@@ -30,7 +30,7 @@ use crate::db::pool::DbPool;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::http::Body;
 use axum::http::HeaderMap;
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;

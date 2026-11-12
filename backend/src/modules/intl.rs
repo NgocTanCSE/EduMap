@@ -158,7 +158,7 @@ fn point_to_geojson(text: Option<&str>) -> Option<Value> {
     }))
 }
 
-fn program_to_json(row: &sqlx::Row) -> Value {
+fn program_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -173,7 +173,7 @@ fn program_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn alumni_to_json(row: &sqlx::Row) -> Value {
+fn alumni_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "full_name": row.get::<String>("full_name"),
@@ -254,7 +254,7 @@ pub async fn get_programs(
 /// `POST /api/intl/programs` — đăng ký chương trình quốc tế mới (admin).
 pub async fn create_program(
     State(pool): State<DbPool>,
-    req: axum::http::Request,
+    req: axum::http::Request<Body>,
     Json(form): Json<CreateProgramForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(&req)?;
@@ -313,7 +313,7 @@ pub async fn get_alumni(
 /// `POST /api/intl/alumni` — đăng ký mạng lưới lưu học sinh (JWT).
 pub async fn create_alumni(
     State(pool): State<DbPool>,
-    req: axum::http::Request,
+    req: axum::http::Request<Body>,
     Json(form): Json<CreateAlumniForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(&req)?;
@@ -383,7 +383,7 @@ pub async fn get_alumni_nearby(
 /// Người dùng đã đăng nhập: các endpoint đọc của intl là public (danh sách
 /// chương trình, danh sách và bản đồ lưu học sinh); các handler write giữ
 /// JWT (`@UseGuards(JwtAuthGuard)` cũ) và trả `401` khi thiếu token.
-fn authenticated_user(req: &axum::http::Request) -> Result<AuthUser, AppError> {
+fn authenticated_user(req: &axum::http::Request<Body>) -> Result<AuthUser, AppError> {
     req.extensions()
         .get::<AuthUser>()
         .cloned()

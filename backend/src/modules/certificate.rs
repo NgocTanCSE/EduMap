@@ -14,7 +14,7 @@ use crate::db::pool::DbPool;
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
-use axum::http::{Request, Response};
+use axum::http::{Request<Body>, Response<Body>};
 use axum::Json;
 use axum::response::IntoResponse;
 use chrono::Utc;
@@ -431,7 +431,7 @@ const FONT_BYTES: &[u8] = include_bytes!("./certificate/DejaVuSans.ttf");
 ///
 /// Bố cục giống cũ `certificate.service.ts`: viền vàng, tiêu đề căn giữa,
 /// tên người nhận nổi bật, mã xác thực + QR code ở góc dưới phải.
-fn render_certificate_pdf(row: &sqlx::Row) -> Result<Vec<u8>, AppError> {
+fn render_certificate_pdf(row: &impl sqlx::Row) -> Result<Vec<u8>, AppError> {
     let (doc, page, layer) =
         PdfDocument::new("Chứng nhận EduMap", Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
     let layer = doc.get_page(page).get_layer(layer);

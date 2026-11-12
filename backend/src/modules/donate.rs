@@ -23,8 +23,9 @@ use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
@@ -316,7 +317,7 @@ const DB_UPDATED_CAMPAIGN: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn campaign_to_json(row: &sqlx::Row) -> Value {
+fn campaign_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
         "title": row.get::<Option<String>>("title").unwrap_or_default(),
@@ -339,7 +340,7 @@ fn campaign_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn donor_to_json(row: &sqlx::Row) -> Value {
+fn donor_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<Option<String>>("id").unwrap_or_default(),
         "amount": row

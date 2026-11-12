@@ -23,7 +23,7 @@ use crate::db::pool::DbPool;
 use axum::body::Body;
 use axum::extract::{Multipart, Path};
 use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use axum::http::{Response, StatusCode};
+use axum::http::{Response<Body>, StatusCode};
 use axum::Json;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -38,7 +38,7 @@ use std::path::{Path as Fp, PathBuf};
 /// Người dùng đã đăng nhập: `/api/storage/media` (public) không nhận
 /// `AuthUser` từ router, các handler write phải tự kiểm và trả `401` khi JWT
 /// thiếu.
-fn authenticated_user(req: &axum::http::Request) -> Result<AuthUser, AppError> {
+fn authenticated_user(req: &axum::http::Request<Body>) -> Result<AuthUser, AppError> {
     req.extensions()
         .get::<AuthUser>()
         .cloned()
@@ -133,7 +133,7 @@ impl MyFile {
         })
     }
 
-    fn from_row(row: &sqlx::Row) -> Self {
+    fn from_row(row: &impl sqlx::Row) -> Self {
         Self {
             id: row.get::<Option<String>>("id").unwrap_or_default(),
             user_id: row.get::<Option<String>>("user_id").unwrap_or_default(),
@@ -185,7 +185,7 @@ const DB_DELETE_FILE: &str = r#"
 /// dùng (JWT).
 pub async fn get_my_files(
     State(pool): State<DbPool>,
-    req: axum::http::Request,
+    req: axum::http::Request<Body>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(&req)?;
 
@@ -207,7 +207,7 @@ pub async fn get_my_files(
 /// lời nó vào `user_files`. Trả về thông tin file vừa upload (JWT).
 pub async fn upload_file(
     State(pool): State<DbPool>,
-    req: axum::http::Request,
+    req: axum::http::Request<Body>,
     mut multipart: Multipart,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(&req)?;
@@ -306,7 +306,7 @@ pub async fn serve_media(
 /// `STORAGE_DIR`. Chủ sở hữu kiểm theo `user_id` (JWT).
 pub async fn delete_file(
     State(pool): State<DbPool>,
-    req: axum::http::Request,
+    req: axum::http::Request<Body>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(&req)?;

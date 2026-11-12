@@ -19,8 +19,9 @@ use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -117,7 +118,7 @@ const DB_UPDATE_BOOKING_PAYMENT: &str = r#"
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn transaction_to_json(row: &sqlx::Row) -> Value {
+fn transaction_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "order_id": row.get::<Option<String>>("orderId"),

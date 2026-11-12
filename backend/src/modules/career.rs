@@ -16,8 +16,9 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
@@ -320,7 +321,7 @@ pub struct Roadmap {
 
 /// A `jobs` row as a single `serde_json::Value` (the **detail** query also
 /// selects `u.full_name AS posted_by_name`, so it reads that field).
-fn job_to_json(row: &sqlx::Row) -> serde_json::Value {
+fn job_to_json(row: &impl sqlx::Row) -> serde_json::Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -344,7 +345,7 @@ fn job_to_json(row: &sqlx::Row) -> serde_json::Value {
 
 /// A jobs **list** row (same column set *without* `posted_by_name`, like the
 /// old `searchJobs` that didn't load the `posted_by` relation).
-fn job_list_to_json(row: &sqlx::Row) -> serde_json::Value {
+fn job_list_to_json(row: &impl sqlx::Row) -> serde_json::Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),

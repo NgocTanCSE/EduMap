@@ -10,7 +10,7 @@
 
 use crate::common::error::AppError;
 use axum::body::Body;
-use axum::http::Response;
+use axum::http::Response<Body>;
 use reqwest::Client;
 use serde_json::Value;
 use std::time::Duration;

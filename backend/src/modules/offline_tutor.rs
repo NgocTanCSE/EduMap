@@ -17,8 +17,9 @@
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::modules::proxy;
+use axum::body::Body;
 use axum::extract::Query;
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;

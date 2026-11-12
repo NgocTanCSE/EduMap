@@ -10,8 +10,9 @@ use crate::common::error::AppError;
 use crate::common::notifications::{hub, Notification};
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use axum::response::sse::Event;
 use futures::Stream;
@@ -134,7 +135,7 @@ pub async fn send_notification(
 
     // `message` fills both `title` + `body` (the old backend kept a single
     // `message` field for the notification text).
-    let row: sqlx::Row = sqlx::query(DB_INSERT_NOTIFICATION)
+    let row = sqlx::query(DB_INSERT_NOTIFICATION)
         .bind(&body.user_id)
         .bind(&body.message)
         .bind(&body.message)

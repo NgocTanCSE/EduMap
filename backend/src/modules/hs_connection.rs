@@ -13,8 +13,9 @@ use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -190,7 +191,7 @@ pub struct GetQuestionsQuery {
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn counseling_to_json(row: &sqlx::Row) -> Value {
+fn counseling_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "university_name": row.get::<String>("university_name"),
@@ -201,7 +202,7 @@ fn counseling_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn question_to_json(row: &sqlx::Row) -> Value {
+fn question_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "title": row.get::<String>("title"),
@@ -215,7 +216,7 @@ fn question_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn answer_to_json(row: &sqlx::Row) -> Value {
+fn answer_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "question_id": row.get::<String>("question_id"),
@@ -228,7 +229,7 @@ fn answer_to_json(row: &sqlx::Row) -> Value {
     })
 }
 
-fn connection_to_json(row: &sqlx::Row) -> Value {
+fn connection_to_json(row: &impl sqlx::Row) -> Value {
     serde_json::json!({
         "connection_id": row.get::<String>("connection_id"),
         "status": row.get::<String>("status"),

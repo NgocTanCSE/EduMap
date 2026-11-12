@@ -16,8 +16,9 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
-use axum::http::Request;
+use axum::http::Request<Body>;
 use axum::Json;
 use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
@@ -379,7 +380,7 @@ fn text_array_to_vec(raw: Option<String>) -> Vec<String> {
 
 /// Turn a joined mentor/user row into the object the frontend expects
 /// (`user_id`, mentor fields + a nested `user` block).
-fn mentor_to_json(row: &sqlx::Row) -> serde_json::Value {
+fn mentor_to_json(row: &impl sqlx::Row) -> serde_json::Value {
     let user_id = row.get::<String>("user_id");
     let full_name = row.get::<Option<String>>("full_name");
     serde_json::json!({
@@ -408,7 +409,7 @@ fn mentor_to_json(row: &sqlx::Row) -> serde_json::Value {
 }
 
 /// A bookings row, with the mentor/student names flattened.
-fn booking_to_json(row: &sqlx::Row) -> serde_json::Value {
+fn booking_to_json(row: &impl sqlx::Row) -> serde_json::Value {
     serde_json::json!({
         "id": row.get::<String>("id"),
         "mentor_id": row.get::<String>("mentor_id"),
@@ -466,7 +467,7 @@ pub async fn register_mentor(
         Some(_) => {}
     }
 
-    let exists: Option<sqlx::Row> = sqlx::query("SELECT user_id FROM mentors WHERE user_id = $1")
+    let exists = sqlx::query("SELECT user_id FROM mentors WHERE user_id = $1")
         .bind(&user_id)
         .fetch_optional(pool.db())
         .await
