@@ -35,7 +35,7 @@ COPY src ./src
 RUN cargo fetch --target x86_64-unknown-linux-musl
 
 # Release build: tối ưu kích thước cho ARM host (cargo build cache).
-RUN CARGO_BUILD_JOBS=2 cargo build --release --target x86_64-unknown-linux-musl
+RUN CARGO_BUILD_JOBS=1 cargo build --release --target x86_64-unknown-linux-musl
 
 # ---------- STAGE 2: runtime (tiệt trùng, kích thước ~30-60 MB) ----------
 FROM debian:bookworm-slim AS runtime

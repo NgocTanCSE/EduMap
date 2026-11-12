@@ -47,7 +47,7 @@ COPY backend/Cargo.lock ./ 2>/dev/null || true
 RUN cargo fetch --target x86_64-unknown-linux-musl
 
 COPY backend/src ./src
-RUN CARGO_BUILD_JOBS=2 cargo build --release --target x86_64-unknown-linux-musl
+RUN CARGO_BUILD_JOBS=1 cargo build --release --target x86_64-unknown-linux-musl
 
 FROM python:3.11-slim AS ai-deps
 WORKDIR /app

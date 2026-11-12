@@ -1383,9 +1383,9 @@ reports **all 16 `.rs` files balanced**.
 | Mounted in `router.rs` | 44 mounts, all `.with_state(pool)`. Naming aliases: `donate`→`donation_routes`, `mentor`→`mentoring_routes`; `proxy` is a helper with no routes; `health` mounts as `health` (no `_routes` suffix). |
 | `common/auth.rs::PUBLIC_PATHS` | 221 entries (exhaustive — every route in `router.rs`, so `AuthLayer` never blocks a module that validates the JWT inside the handler) |
 | NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` |
-| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs=2` (host build RAM). |
+| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs = 1` (Render build RAM); `CARGO_BUILD_JOBS=1` in `Dockerfile` + `backend/Dockerfile` must match it, else the env var overrides the config and retriggers the 1-vCPU Render OOM (exit 137). |
 | `supervisord.conf` | `[program:backend] command=/app/backend/edumap-backend` (comment header updated) |
-| Balance sweep | all 54 `.rs` files OK (`/tmp/rust_check.py`) |
+| Balance sweep | all 58 `.rs` files OK, brace/paren/bracket balanced (script `/tmp/rust_strip.py`) |
 | Compiled locally | **no** — no `cargo`/`rustc`; the user compiles and deploys |
 | Static checks (no toolchain) | `/tmp/rust_check.py` — brace/paren/bracket balance, placeholder-vs-`.bind()` alignment per `sqlx::query(DB_*)` site, unused-import scan. Run from repo root. Known false positives: `pin.rs`/`business.rs` `.bind(field)` and turbofish binds (counts 1 short); `share.rs` `DB_RETURN_REQUEST` (UPDATE sets a literal `status`, binds only the 2 WHERE params); `dashboard.rs` CTE aliases (`user_base`, `learning`, `skills`, `posts_c`, `comments_c`, `certs`, `goals`, `bookings_f`) flagged by `/tmp/schema_check.py`. |
 | Schema checks | `/tmp/schema_check.py` (table names) + `/tmp/schema_cols.py` (column names) — both clean against `backend/src/database/schema.sql` (101 tables). Both checkers use a case-insensitive identifier class so camelCase columns (`cart_items.userId`, `flood_zones.createdAt`, `business_transactions.paymentMethod`) are not false-positived. |
@@ -1446,6 +1446,17 @@ the SSE notification hub (`common/notifications.rs` + `GET /api/notifications/su
 see §19.6) rather than ported 1:1. Socket.io notifications are therefore dead
 code in the compiled backend; nothing depends on `socket.io-client` in the
 frontend anymore.
+
+- **Compile readiness (2026-11-13, all static gates green):**
+  - `common/error.rs`: added `From<sqlx::Error>`, `From<uuid::Error>`, `From<reqwest::Error>`, `From<ParseIntError>`, `From<ParseFloatError>`, `From<serde_json::Error>` (this enables `map_err(AppError::from)?` and `?` in every handler) + borrowed `AppError::External(ref m)` pattern in `IntoResponse`.
+  - `common/auth.rs`: `#[derive(Clone)]` on `AuthLayer` + `AuthService`; inner service bound to `Response<Body>` + `Error = Infallible`; `BoxFuture` made generic (`BoxFuture<S::Response, S::Error>`).
+  - `modules/{ai,intl}.rs`: `use axum::body::Body;` (the correct path — `axum::http::Body` is invalid).
+  - 53 `impl sqlx::Row` → `sqlx::PgRow` sites; 0 `sqlx::query!` macros (all `query(&SQL)` + `.bind()`).
+  - chrono 0.4.45 broke `to_rfc3339_opt()` — replaced by `to_rfc3339()` everywhere.
+  - Rust string char indexing removed (indexing by `usize` of a `str` panics at runtime); use `[..]`/slices or `char_indices`.
+  - Dead imports pruned: `serde_json`, `uuid::Uuid`, `Path` (bookmarks), `AuthUser` (dashboard/crawler/role).
+  - Full-static pre-flight: **0** brace-balance failures · **0** `query!` macros · **0** sqlite-legacy markers · **0** `check_oom` anti-patterns · 45 `.with_state(pool)` sub-routers · 288 handler refs / 0 unresolved · 45 modules declared & imported.
+- Dockerfile builds now honor `jobs = 1` (`CARGO_BUILD_JOBS=1` matches `backend/.cargo/config.toml`; the env var overrides the config setting).
 
 **Next steps (user-side):**
 
