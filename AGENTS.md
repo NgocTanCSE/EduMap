@@ -1338,6 +1338,18 @@ runtime truth is the host after deploy.
 - Deleted NestJS modules are kept as **reference only** until their Rust
   replacement is written; delete `backend/src/modules/<name>/*.ts` only after
   the Rust module is mounted.
+- axum types must carry their generics: `axum::http::Request` is
+  `hyper::Request<Body>` → import as `use axum::body::Body;` +
+  `use axum::http::Request<Body>;` (or the compound
+  `use axum::http::{Request<Body>, Response<Body>};`). Bare `Request`/`Response`
+  in handler signatures causes `error[E0107]: missing generics` — every module
+  that imports `Request` must also import `Body` (verify with a grep for
+  `Request<Body>`/`Response<Body>` next to a `body::Body` import).
+- `sqlx::Row` is **a trait, not a type** (`error[E0782]: expected a type, found a trait`):
+  function-pointer converters like `job_to_json(row: &impl sqlx::Row) -> Value`
+  are the right shape. Remove invalid annotations
+  `let exists: Option<sqlx::Row>` → `let exists = ...` and
+  `let row: sqlx::Row = sqlx::query(...).fetch_one(...)` → `let row = ...`.
 
 ### 19.2 Brace-balance checker (the real one)
 
