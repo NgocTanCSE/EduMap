@@ -11,8 +11,10 @@
 # ---------------------------------------------------------------------------
 
 # ---------- STAGE 1: builder (chiếm RAM/CPU nhiều nhất, ~30-60s) ----------
-FROM rust:1.87-slim AS backend-builder
-# TLS + edition2024 (getrandom 0.4.x) supported from Rust 1.85
+FROM rust:1.96-slim AS backend-builder
+# MSRV budget: edition2024 (getrandom 0.4.3) >= 1.85, time@0.3.55 >= 1.88, uuid@
+# 1.29.2 >= 1.89. Current stable is 1.96x (Nov 2026) — the toolchain tag is
+# the lever that keeps the crates.io index from outrunning the compiler.
 WORKDIR /app/backend
 
 # ca-certificates: rustls đọc bundle hệ thống (`/etc/ssl/certs`).

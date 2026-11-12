@@ -27,7 +27,7 @@ COPY backend/package*.json ./
 # Cross-compiled to a static musl binary so the runtime image needs no libpq
 # and no glibc version match. sqlx's postgres driver is pure Rust (tls-rustls).
 # ---------------------------------------------------------------------------
-FROM rust:1.81-slim AS backend-builder
+FROM rust:1.96-slim AS backend-builder
 WORKDIR /app/backend
 
 RUN apt-get update -qq && \
@@ -36,6 +36,8 @@ RUN apt-get update -qq && \
 
 RUN rustup target add x86_64-unknown-linux-musl
 
+# Cargo.toml + metadata copied before fetch so cargo can scan
+# the manifest first (the lock is generated on the build machine).
 COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./ 2>/dev/null || true
 RUN cargo fetch --target x86_64-unknown-linux-musl
