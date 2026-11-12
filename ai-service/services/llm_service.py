@@ -2000,7 +2000,7 @@ Trả về **mảng JSON** sau:
         try:
             if not self.is_ready:
                 raise RuntimeError(
-DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL
+                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
                     "hoặc GEMINI_API_KEY."
                 )
 
@@ -2305,8 +2305,7 @@ Trả về **mảng JSON** sau:
                 {
                     "title": "Chưa có dữ liệu ngành nghề",
                     "match_score": 0,
-                    "explanation": 
-Vui lòng cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết
+                    "explanation": "Vui lòng cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết",
                     "missing_skills": [],
                     "demand_level": "Chưa rảnh",
                     "radar_chart": {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0, "Language": 0, "Creativity": 0},
@@ -2536,7 +2535,10 @@ Vui lòng cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY
         """
         try:
             if not self.is_ready:
-DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL
+                raise RuntimeError(
+                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
+                    "hoặc GEMINI_API_KEY."
+                )
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,
                 temperature=0.3, max_tokens=512, top_p=0.8,

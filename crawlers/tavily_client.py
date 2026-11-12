@@ -68,9 +68,9 @@ _CB = _CircuitBreaker(CB_FAILURES, CB_TTL)
 def _force_ipv4() -> None:
     """Monkeypatch socket.getaddrinfo to prefer AF_INET.
 
-    host has an IPv6 egress blackhole that causes TLS handshakes to
-    Cloudflare / some HTTPS endpoints to hang until timeout.  Forcing IPv4
-    fixes the ``curl --ipv4`` requirement documented in AGENTS.md §3.
+    host has an IPv6 egress blackhole that causes TLS handshakes to some
+    HTTPS endpoints to hang until timeout.  Forcing IPv4 fixes the
+    ``curl --ipv4`` requirement documented in AGENTS.md §3.
     """
     _orig = socket.getaddrinfo
 
