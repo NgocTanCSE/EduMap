@@ -1556,11 +1556,11 @@ qrcode`.
 if zero hits in `.rs`, the dep is dead and can be dropped. Scan first,
 delete second.
 
-**Toolchain:** `backend/Dockerfile` + the (legacy) root `Dockerfile` builder
-stages use `FROM rust:1.96-slim`. `getrandom 0.4.3` requires edition2024
-(stabilized in Rust 1.85); raw index MSRV drift matters: `time@0.3.55`
-needs rustc 1.88 and `uuid@1.29.2` needs 1.89, so a wide margin is the lever.
-Every `cargo fetch` failure on deploy is a feature/MSRV mismatch, and the fix
+**Toolchain:** the builder stages (`backend/Dockerfile` + legacy root `Dockerfile`)
+use `FROM rust:1.96-slim`. Newer crates.io versions require newer toolchains:
+`getrandom 0.4.3` needs edition2024 (stable 1.85), `time@0.3.55` needs rustc
+1.88 and `uuid@1.29.2` needs 1.89 — a wide tag margin is the lever. Every
+`cargo fetch` failure on deploy is a feature/MSRV mismatch, and the fix
 pattern is the same: confirm zero references in `backend/src`, remove the dep.
 
 ### 19.7.1 Deploy via GitHub Actions (2026-11-11)
