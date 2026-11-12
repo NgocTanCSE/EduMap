@@ -22,7 +22,6 @@ serde_json = "1"
 # --- Authentication ---------------------------------------------------------
 jsonwebtoken = "9"
 argon2 = { version = "0.5", features = ["std", "alloc"] }
-validator = { version = "0.19", features = ["derive"] }
 
 # --- Client -----------------------------------------------------------------
 bytes = "1"
