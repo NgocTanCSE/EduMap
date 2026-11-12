@@ -162,9 +162,9 @@ class WiFiCrawler:
     def crawl_all_wifi(self) -> Dict:
         """Thu thập tất cả dữ liệu WiFi (Đồng Nai → miền Nam → VN → ĐNA).
 
-        This is a curated snapshot of Đồng Nai WiFi hotspots.  The Overpass-based
-        ``overpass_crawler.py`` handles the live outward expansion.  Here we tag
-        each hotspot with its scope layer and emit the crawl-year window.
+        This is a curated snapshot of Đồng Nai WiFi hotspots.  The
+        ``tavily_crawler.py`` (Tavily-based) handles the live outward expansion.
+        Here we tag each hotspot with its scope layer and emit the crawl-year window.
         """
         all_wifi = self.get_bienhoa_wifi_locations() + self.get_dong_nai_wifi_zones()
         for loc in all_wifi:

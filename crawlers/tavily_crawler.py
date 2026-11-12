@@ -40,8 +40,6 @@ def _respect_rate_limit(last_ts: float, min_delay: float = 1.0) -> float:
 class TavilyCrawler:
     """Nationwide Vietnam crawler — **Tavily-based** (API duy nhất gọi đến Tavily,
     không gọi bất kỳ URL OSM/Overpass nào).
-    Giao diện cũ `OverpassCrawler` (alias cuối file) được giữ lại cho khả năng
-    tương thích ngược.
     """
 
     def __init__(self, proxy_url: str = None):

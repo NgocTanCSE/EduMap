@@ -11,7 +11,8 @@
 # ---------------------------------------------------------------------------
 
 # ---------- STAGE 1: builder (chiếm RAM/CPU nhiều nhất, ~30-60s) ----------
-FROM rust:1.81-slim AS backend-builder
+FROM rust:1.87-slim AS backend-builder
+# TLS + edition2024 (getrandom 0.4.x) supported from Rust 1.85
 WORKDIR /app/backend
 
 # ca-certificates: rustls đọc bundle hệ thống (`/etc/ssl/certs`).

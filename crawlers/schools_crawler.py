@@ -256,9 +256,10 @@ class SchoolsCrawler:
     def crawl_all_schools(self) -> Dict:
         """Thu thập tất cả dữ liệu trường học (Đồng Nai → miền Nam → VN → ĐNA).
 
-        This is a curated snapshot of real Đồng Nai schools.  The Overpass-based
-        ``dongnai_schools_crawler.py`` handles the live outward expansion.  Here
-        we tag each school with its scope layer and emit the crawl-year window.
+        This is a curated snapshot of real Đồng Nai schools.  The
+        ``dongnai_schools_crawler.py`` (Tavily-based) handles the live
+        outward expansion.  Here we tag each school with its scope layer
+        and emit the crawl-year window.
         """
         universities = self.get_universities()
         secondary = self.get_secondary_schools()
