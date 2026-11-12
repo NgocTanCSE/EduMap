@@ -424,9 +424,8 @@ class LLMService:
         """Call Google Gemini generateContent.
 
         Gemini is the fallback text-generation provider (invoked after
-        DeepSeek fails). On the host, Cloudflare's TLS is
-        blackholed so Gemini is effectively the primary. Requests use curl
-        so they follow the same IPv4/TLS workaround as the adjacency provider.
+        DeepSeek fails). Requests use curl so they follow the same
+        IPv4/TLS workaround as the adjacency provider.
         """
         import time as _time
 
@@ -651,7 +650,7 @@ class LLMService:
     async def chat_with_rag(self, message: str, history: list = None, context: dict = None) -> dict:
         """
         Phương thức Chat RAG nâng cao với cơ chế chống ảo giác (Anti-Hallucination).
-        Kết hợp dữ liệu từ ChromaDB, hệ thống và Cloudflare Workers AI.
+        Kết hợp dữ liệu từ ChromaDB, hệ thống.
         """
 
 
@@ -751,25 +750,17 @@ class LLMService:
 
         reply_text = None
         last_err = None
-        for gen_fn in [
-            self._deepseek_generate if self.has_deepseek else None,
-            self._gemini_generate if self.has_gemini else None,
-            self._cloudflare_generate if self.has_cf else None,
-        ]:
-            if gen_fn is None:
-                continue
+
+        if self.has_deepseek:
             try:
-
-
-                response = await asyncio.to_thread(
-                    gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+                reply_text = await asyncio.to_thread(
+                    self._deepseek_generate, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 )
-                if response:
-                    reply_text = response.strip()
+                if reply_text:
                     break
             except Exception as e:
                 last_err = str(e)
-                print(f"Chat gen {gen_fn.__name__} failed: {e}")
+                print(f"Chat gen {self._deepseek_generate.__name__} failed: {e}")
                 continue
 
         if not reply_text:
