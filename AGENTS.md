@@ -225,7 +225,7 @@ Multiple standalone pages that share a domain have been consolidated into
   `GET /api/map/survey/priorities` + `GET /api/map/survey/next` (`@SkipThrottle`).
 - **Frontend:** BFF `app/api/map/survey/{priorities,next}/route.ts`; page
   `app/map/survey-planner/page.tsx` + `SurveyPlannerMap.tsx` (Leaflet twin-panel,
-  OSM, priority colour labels, gold next pin, auth-gated); toolbar button on
+  CARTO basemaps tiles, priority colour labels, gold next pin, auth-gated); toolbar button on
   `app/map/page.tsx`; nav "Kế hoạch khảo sát" under "AI an toàn" in `Sidebar.tsx`.
 - **Verify (DONE):** pytest 17/17; `py_compile` OK; backend `tsc` 0 errors;
   frontend `tsc` 0 errors. Full-stack curl: `GET /api/map/survey/priorities?...grid_size_km=0.7&top_n=3`
