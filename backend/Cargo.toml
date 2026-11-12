@@ -32,7 +32,6 @@ reqwest = { version = "0.12", features = ["stream", "gzip", "json", "socks"] }
 hyper = { version = "1", features = ["full"] }
 
 # --- Mail -------------------------------------------------------------------
-lettre = { version = "0.11", features = ["smtp", "tokio", "rustls-tls"] }
 
 # --- Cache ------------------------------------------------------------------
 
