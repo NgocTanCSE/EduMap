@@ -1382,7 +1382,7 @@ reports **all 16 `.rs` files balanced**.
 | Registered in `modules/mod.rs` | 45 modules — **all ported modules are declared and mounted** |
 | Mounted in `router.rs` | 44 mounts, all `.with_state(pool)`. Naming aliases: `donate`→`donation_routes`, `mentor`→`mentoring_routes`; `proxy` is a helper with no routes; `health` mounts as `health` (no `_routes` suffix). |
 | `common/auth.rs::PUBLIC_PATHS` | 221 entries (exhaustive — every route in `router.rs`, so `AuthLayer` never blocks a module that validates the JWT inside the handler) |
-| NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` |
+| NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` — **160 file `.ts` reference + `dist/` cleanup 2026-11-13** |
 | Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs = 1` (Render build RAM); `CARGO_BUILD_JOBS=1` in `Dockerfile` + `backend/Dockerfile` must match it, else the env var overrides the config and retriggers the 1-vCPU Render OOM (exit 137). |
 | `supervisord.conf` | `[program:backend] command=/app/backend/edumap-backend` (comment header updated) |
 | Balance sweep | all 58 `.rs` files OK, brace/paren/bracket balanced (script `/tmp/rust_strip.py`) |
@@ -1397,9 +1397,9 @@ reports **all 16 `.rs` files balanced**.
 Every NestJS module is now ported to Rust (`backend/src/modules/*.rs`), declared
 in `modules/mod.rs`, wired into `router.rs` (`.with_state(pool)`), and covered by
 `PUBLIC_PATHS`. The `Dockerfile` and `supervisord.conf` have been switched to the
-Rust binary, and the NestJS TypeScript source has been removed (only
-`entities/`, `dto/`, `share/sanitize.service.ts`, the TypeORM migrations and
-`config/optimize_indexes.sql` survive as reference). The old `dist/main.js` backend no longer exists, so the BFF proxies
+Rust binary, and the NestJS TypeScript source has been removed (`backend/src` is
+100% Rust, `.sql` chỉ giữ lại `schema.sql` + `seed.sql`). The old `dist/main.js`
+backend no longer exists, so the BFF proxies
 must now land on the Rust server.
 
 **Frontend ≠ backend connection verified (2026-11-12):** an automated scan over
