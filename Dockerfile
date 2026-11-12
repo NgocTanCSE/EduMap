@@ -28,6 +28,10 @@ COPY backend/package*.json ./
 # and no glibc version match. sqlx's postgres driver is pure Rust (tls-rustls).
 # ---------------------------------------------------------------------------
 FROM rust:1.96-slim AS backend-builder
+
+# MSRV budget: edition2024 (getrandom 0.4.3) needs rustc 1.85, time@0.3.55
+# needs 1.88 and uuid@1.29.2 needs 1.89 — the crates.io index is ahead
+# of the toolchain, so a wide margin is the lever.
 WORKDIR /app/backend
 
 RUN apt-get update -qq && \
