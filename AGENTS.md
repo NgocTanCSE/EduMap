@@ -1567,6 +1567,16 @@ use `FROM rust:1.96-slim`. Newer crates.io versions require newer toolchains:
 `cargo fetch` failure on deploy is a feature/MSRV mismatch, and the fix
 pattern is the same: confirm zero references in `backend/src`, remove the dep.
 
+--libossl: **`native-tls` is forbidden on musl; use `rustls` instead.**
+`reqwest`'s declared `features` merge with the crate's own `default`
+(`default-tls` = native-tls → `native-tls-crate` → `openssl-sys`), so it must be
+written as `default-features = false` + explicit `rustls-tls` (pushing 1.96's
+http2 per the graph). `sqlx` uses `tls-rustls` (its `runtime-tokio` feature
+does **not** include native-tls). The failure mode in the build stage is:
+`error: failed to run custom build command for openssl-sys`, with the log
+stating the `$TARGET` is `x86_64-unknown-linux-musl` and
+please open a bug at rust-openssl — trust the log, not the error.
+
 ### 19.7.1 Deploy via GitHub Actions (2026-11-11)
 
 `render.yaml` only holds the Blueprint config. Every push to `main` triggers
