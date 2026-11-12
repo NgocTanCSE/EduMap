@@ -494,11 +494,6 @@ pub async fn get_pending_content(
     }))))
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ContentQuery {
-    pub r#type: String,
-}
-
 // ---------------------------------------------------------------------------
 // AI reports (it delegates to the ai-service; the response is passed through)
 // ---------------------------------------------------------------------------

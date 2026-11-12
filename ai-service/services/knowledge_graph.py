@@ -788,7 +788,7 @@ class KnowledgeGraphService:
         (linking) tới các node đã tồn tại trong knowledge graph.
 
         Flow:
-          1. Thử LLM (Cloudflare → Gemini) để trích xuất JSON.
+          1. Thử LLM (DeepSeek → Gemini) để trích xuất JSON.
           2. Nếu LLM thất bại → rule-based extraction (keyword matching).
           3. Kết quả được lưu vào ``kg_extraction_review`` để human review nếu
              confidence thấp hoặc LLM không khả dụng (rule-based).

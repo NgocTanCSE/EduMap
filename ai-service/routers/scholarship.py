@@ -151,7 +151,7 @@ def _check_eligibility_local(
         f"{'❌ Điều kiện chưa đạt: ' + failed_str if checks_failed else ''}\n"
         f"Kết quả: {'Có khả năng đủ điều kiện' if is_eligible else 'Cần bổ sung hồ sơ trước khi nộp'}.\n"
         f"Lưu ý: Đây là đánh giá dựa trên từ khóa offline. Để nhận đánh giá chi tiết từ AI, "
-        f"hãy cấu hình DEEPSEEK_API_KEY, GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN."
+        f"hãy cấu hình DEEPSEEK_API_KEY hoặc GEMINI_API_KEY."
     )
 
     return {

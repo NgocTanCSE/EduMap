@@ -80,7 +80,7 @@ async def get_chat_history(user_id: str, limit: int = 50):
 async def chat_stream_endpoint(request: ChatRequest):
     """Chat RAG với streaming (SSE) — trả về từng token thực sự real-time.
 
-    Sử dụng chat_with_rag_stream để nhận token từng ký tự từ Cloudflare Workers AI
+    Sử dụng chat_with_rag_stream để nhận token từng ký tự từ DeepSeek / Gemini
     (stream=True) qua curl --ipv4 --insecure, thay thế approach cũ
     (gửi toàn bộ response rồi split thành từng từ với delay 50ms).
     """

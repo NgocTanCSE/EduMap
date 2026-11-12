@@ -443,7 +443,7 @@ pub async fn get_resource_matches(
 }
 
 /// `POST /api/resource-exchange/match` — ghép cung–cầu bằng AI (pre-filter +
-//! LLM ranking + greedy scheduling). Endpoint công khai (`@Public()`).
+// LLM ranking + greedy scheduling). Endpoint công khai (`@Public()`).
 pub async fn match_resources(
     State(pool): State<DbPool>,
     Json(body): Json<ResourceMatchRank>,

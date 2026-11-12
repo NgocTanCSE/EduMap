@@ -26,8 +26,8 @@ use uuid::Uuid;
 // ---------------------------------------------------------------------------
 
 /// Người dùng đã đăng nhập: các route public của business (danh sách sản phẩm,
-//! dịch vụ, hồ sơ) không nhận `AuthUser` từ router (`PUBLIC_PATHS`), nên các
-//! handler write tự kiểm và trả `401` khi JWT thiếu.
+// dịch vụ, hồ sơ) không nhận `AuthUser` từ router (`PUBLIC_PATHS`), nên các
+// handler write tự kiểm và trả `401` khi JWT thiếu.
 fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
     req.extensions()
         .get::<AuthUser>()
@@ -48,8 +48,8 @@ fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
 }
 
 /// Kiểm tra người gọi có phải là chủ sở hữu của hồ sơ doanh nghiệp hay không.
-//! Các thao tác CRUD sản phẩm/dịch vụ bị khoá theo `user_id` của hồ sơ —
-//! tương đương với `@Roles(EMPLOYER, ADMIN)` kết hợp kiểm tra owner ở old service.
+// Các thao tác CRUD sản phẩm/dịch vụ bị khoá theo `user_id` của hồ sơ —
+// tương đương với `@Roles(EMPLOYER, ADMIN)` kết hợp kiểm tra owner ở old service.
 async fn ensure_owner(
     pool: &DbPool,
     bp_id: &str,
@@ -91,7 +91,7 @@ async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String,
 }
 
 /// Chuyển `sqlx::Error` sang `AppError`, biến đổi unique-violation (23505)
-//! thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
+// thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
 fn to_app_error(e: sqlx::Error) -> AppError {
     if let Some(db_err) = e.as_database_error() {
         if db_err.code().to_string() == "23505" {
@@ -277,7 +277,7 @@ const DB_SELECT_SERVICE_REVIEWS: &str = r#"
 "#;
 
 /// Phát hiện đánh giá đã tồn tại của cùng một người dùng trên cùng một mục.
-//! `reviews` không có unique constraint nên phải kiểm bằng query.
+// `reviews` không có unique constraint nên phải kiểm bằng query.
 const DB_CHECK_REVIEW: &str = r#"
     SELECT "id" FROM reviews
     WHERE "user_id" = $1 AND COALESCE("product_id", "service_id") = $2
@@ -1203,7 +1203,7 @@ pub async fn get_cart(State(pool): State<DbPool>, req: Request) -> Result<Json<A
 }
 
 /// `POST /api/business/cart/add` — thêm sản phẩm/dịch vụ vào giỏ (cộng dồn
-//! quantity nếu mục đã tồn tại).
+// quantity nếu mục đã tồn tại).
 pub async fn add_to_cart(
     State(pool): State<DbPool>,
     req: Request,
@@ -1305,9 +1305,9 @@ pub async fn clear_cart(State(pool): State<DbPool>, req: Request) -> Result<Json
 // ---------------------------------------------------------------------------
 
 /// `POST /api/business/checkout` — thanh toán và tạo đơn hàng trong một
-//! giao dịch Postgres duy nhất: khóa các dòng giỏ hàng (`FOR UPDATE`), kiểm
-//! tồn kho, trừ stock, ghi `orders` + `order_items` + `business_transactions`,
-//! xóa giỏ, commit. Bất kỳ bước nào thất bại → rollback.
+// giao dịch Postgres duy nhất: khóa các dòng giỏ hàng (`FOR UPDATE`), kiểm
+// tồn kho, trừ stock, ghi `orders` + `order_items` + `business_transactions`,
+// xóa giỏ, commit. Bất kỳ bước nào thất bại → rollback.
 pub async fn checkout(
     State(pool): State<DbPool>,
     req: Request,

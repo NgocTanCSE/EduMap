@@ -183,7 +183,7 @@ pub async fn get_daily_insight(
 }
 
 /// `GET /api/dashboard/history` — lịch sử đăng ký/ứng tuyển (jobs, events,
-//! intern, scholarship, summer).
+// intern, scholarship, summer).
 pub async fn get_history(
     State(pool): State<DbPool>,
     req: Request,
@@ -209,7 +209,7 @@ pub async fn get_history(
 }
 
 /// `GET /api/dashboard/stats` — thống kê thời gian thực + tọa độ heatmap
-//! giáo dục (chỉ admin/moderator).
+// giáo dục (chỉ admin/moderator).
 pub async fn get_stats(
     State(pool): State<DbPool>,
     req: Request,

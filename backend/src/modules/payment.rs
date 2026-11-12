@@ -63,7 +63,7 @@ struct BookingForm {
 const DB_SELECT_TRANSACTION: &str = r#"
     SELECT "id", "orderId", "paymentMethod", "status",
            CAST("amount" AS TEXT) AS "amount",
-           "externalTransactionId",
+           "externalTransactionId": externalTransactionId,
            CAST("created_at" AS TEXT) AS "created_at",
            CAST("updated_at" AS TEXT) AS "updated_at"
     FROM "business_transactions" WHERE "id" = $1

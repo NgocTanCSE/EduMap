@@ -172,7 +172,7 @@ def _fetch_adzuna_hot_skills(
     On the host we shell out to ``curl --ipv4 --insecure`` — the exact same
     pattern already used by ``llm_service._fetch_adzuna_jobs`` and the
     embedding chain — to bypass the Python ssl/urllib IPv6 blackhole that
-    makes TLS handshakes to Cloudflare hang on the host.
+    makes TLS handshakes to Gemini hang on the host.
 
     The Adzuna keys are read from container env (set as container secrets via
     start.sh's PID-1 environ recovery) and are NEVER sent to the browser.

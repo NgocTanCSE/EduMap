@@ -528,8 +528,8 @@ pub async fn vision_detect(
 
     let result = serde_json::json!({
         "detections": all,
-        "known",
-        "new",
+        "known": known,
+        "new": new,
         "bbox": {
             "minLat": bounds.min_lat, "maxLat": bounds.max_lat,
             "minLng": bounds.min_lng, "maxLng": bounds.max_lng,

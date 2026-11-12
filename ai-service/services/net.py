@@ -29,7 +29,7 @@ def force_ipv4() -> None:
 def probe_tcp(host: str, port: int = 443, timeout: float = 2.5):
     """Return (reachable, elapsed_ms, error) for a quick TCP connectivity check.
 
-    Used at startup so the container logs show immediately whether Cloudflare
+    Used at startup so the container logs show immediately whether Gemini
     egress works, instead of only failing later inside a chat request.
     """
     import time
@@ -46,7 +46,7 @@ def probe_tls(host: str, port: int = 443, timeout: float = 4.0):
     """Like probe_tcp, but also completes a TLS handshake.
 
     This distinguishes "TCP connects but TLS is blackholed" (the exact host
-    Spaces -> Cloudflare failure: TCP succeeds, handshake times out) from a
+    Spaces -> Gemini failure: TCP succeeds, handshake times out) from a
     genuinely reachable HTTPS endpoint.
     """
     import ssl

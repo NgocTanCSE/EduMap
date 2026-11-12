@@ -229,7 +229,7 @@ pub async fn report_wifi(
     // `latitude`/`longitude` → numeric fallback, `coordinates` → GeoJSON.
     let coordinates = match (body.latitude, body.longitude, body.coordinates) {
         (Some(lat), Some(lng), _) => {
-            Some(format!(r#"{"type":"Point","coordinates":[{},{}]}"#, lng, lat))
+            Some(format!(r#"{{"type":"Point","coordinates":[{},{}]}}"#, lng, lat))
         }
         (_, _, Some(geo)) => Some(serde_json::to_string(&geo).unwrap_or_default()),
         _ => None,

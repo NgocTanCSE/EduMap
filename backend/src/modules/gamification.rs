@@ -426,7 +426,7 @@ pub async fn grant_points(
         &mut tx,
         &body.user_id,
         body.points,
-        "ADMIN_GRANT",
+        "ADMIN_GRANT": ADMIN_GRANT,
         Some(&format!("{}-by-{}", user.id, Utc::now().timestamp_millis())),
     )
     .await?;

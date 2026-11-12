@@ -59,7 +59,7 @@ pub struct BookLab {
 
 // ---------------------------------------------------------------------------
 // In-memory booking store (chống trùng; old service sinh booking_id mà không
-//! ghi DB).
+// ghi DB).
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]

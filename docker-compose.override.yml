@@ -74,8 +74,6 @@ services:
       - MINIO_ENDPOINT=minio
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
       - VNP_TMN_CODE=${VNP_TMN_CODE:-DEV1234567}
       - VNP_HASH_SECRET=${VNP_HASH_SECRET:-wJ9Q5D2F8K7H3M1N}
       - VNP_URL=${VNP_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
@@ -116,9 +114,6 @@ services:
     image: edumap-ai-service
     container_name: edumap_ai_dev
     environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
-      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL:-@cf/meta/llama-3.1-8b-instruct-fp8}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE:-edumap_db}

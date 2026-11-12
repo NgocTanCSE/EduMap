@@ -40,8 +40,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 // ---------------------------------------------------------------------------
 
 /// Người dùng đã đăng nhập: các route public của donate (danh sách/chi tiết
-//! chiến dịch, danh sách nhà hảo tâm) không nhận `AuthUser` từ router, nên các
-//! handler write tự kiểm và trả `401` khi JWT thiếu.
+// chiến dịch, danh sách nhà hảo tâm) không nhận `AuthUser` từ router, nên các
+// handler write tự kiểm và trả `401` khi JWT thiếu.
 fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
     req.extensions()
         .get::<AuthUser>()
@@ -118,7 +118,7 @@ fn vnp_timestamp() -> String {
 }
 
 /// Percent-encode một giá trị, giữ nguyên nhóm unreserved của JavaScript
-//! `encodeURIComponent` và thay `%20` bằng `+` (byte-by-byte, UTF-8).
+// `encodeURIComponent` và thay `%20` bằng `+` (byte-by-byte, UTF-8).
 fn vnp_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for &b in s.as_bytes() {

@@ -71,7 +71,7 @@ def _route_explain_fallback(data: RouteExplainRequest, err: str = "") -> dict:
         f"Dựa trên phân tích an toàn thời gian thực (chế độ offline):\n"
         f"{best_str}\n\n{comparison}\n\n"
         f"Lưu ý: Đây là phân tích dựa trên điểm số an toàn SQLite. "
-        f"Để nhận giải thích chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY, GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN."
+        f"Để nhận giải thích chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY hoặc GEMINI_API_KEY."
     )
 
     route_reasons = []
@@ -171,7 +171,7 @@ Trả về JSON với cấu trúc sau (không thêm văn bản khác):
     try:
         svc = _get_llm_service()
         if svc is None or not getattr(svc, "is_ready", False):
-            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY (primary), GEMINI_API_KEY hoặc CLOUDFLARE_API_TOKEN.")
+            raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY (primary), GEMINI_API_KEY.")
 
         response = await asyncio.to_thread(
             svc._generate_text_with_fallback,

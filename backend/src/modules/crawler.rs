@@ -349,14 +349,14 @@ pub async fn trigger_crawl(
                     "success": true,
                     "added": total_added,
                     "message": format!("Crawl tất cả xong. Tổng: {total_added} bản ghi."),
-                    "details",
+                    "details": details,
                 }))));
             }
             return Ok(Json(ApiResponse::ok(serde_json::json!({
                 "success": false,
                 "added": 0,
                 "message": "Lỗi crawl tất cả.",
-                "details",
+                "details": details,
             }))));
         }
         _ => return Err(AppError::BadRequest("Unknown crawl type".to_string())),

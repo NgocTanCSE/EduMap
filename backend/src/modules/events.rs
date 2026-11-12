@@ -201,7 +201,7 @@ static TICKET_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 const DB_SELECT_EVENTS: &str = r#"
     SELECT CAST("id" AS TEXT) AS "id", "title", "description", "type",
            ST_AsText("location_point") AS "location_point",
-           "address",
+           "address": address,
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",
@@ -218,7 +218,7 @@ const DB_SELECT_EVENTS: &str = r#"
 const DB_SELECT_EVENT_BY_ID: &str = r#"
     SELECT CAST("id" AS TEXT) AS "id", "title", "description", "type",
            ST_AsText("location_point") AS "location_point",
-           "address",
+           "address": address,
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",

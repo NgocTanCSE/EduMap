@@ -675,7 +675,7 @@ pub async fn rank(
             } else {
                 30.0
             };
-            let category_score = 20.0 if category_match else 5.0;
+            let category_score = if category_match { 20.0 } else { 5.0 };
             let urgency_weight = match vtext(need, "urgency").to_lowercase().as_str() {
                 "critical" => 4.0,
                 "high" => 3.0,

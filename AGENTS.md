@@ -31,7 +31,7 @@
 >   - Cold start takes tens of seconds → frontends/proxies need retries and
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
->     (DeepSeek → Gemini → Cloudflare Workers AI) with template fallbacks.
+>     (DeepSeek → Gemini) with template fallbacks.
 >   - Only one container, one public port (3000) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
@@ -270,17 +270,17 @@ Multiple standalone pages that share a domain have been consolidated into
 ## 3. AI provider chain
 
 Text generation (`ai-service/services/llm_service.py`):
-`DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → Cloudflare Workers AI → template fallback`.
+`DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → template fallback`.
 DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as a host
 secret); Gemini is the first fallback and the one that reliably works on
-the host egress; Cloudflare Workers AI is the last remote fallback.
+the host egress.
 All calls use `curl --ipv4 --insecure` (the host's IPv6/TLS quirk). DeepSeek
 has no embeddings API, so embeddings stay on their own chain below.
 
 Embeddings (`ai-service/services/vector_store.py`):
-`Cloudflare Workers AI → Google Gemini → Local SentenceTransformer` (offline fallback).
+`Gemini → Local SentenceTransformer` (offline fallback).
 (XKIRO, NVIDIA, Kimi, and inference API have been removed as
-text-generation and embedding providers. Cloudflare TLS is
+text-generation and embedding providers. Gemini TLS is
 blackholed from the host so Gemini is the effective primary.)
 
 The local SentenceTransformer fallback (`intfloat/multilingual-e5-small`) and the
@@ -348,7 +348,7 @@ currently has no inference provider, so the endpoint always returns
   (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
   `POST /api/ai/language/tts`).
   - Simplify/translate use `_generate_text_with_fallback` cascade
-    (DeepSeek → Google Gemini → Cloudflare Workers AI) with `temperature=0.3`,
+    (DeepSeek → Google Gemini) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
     never 502s when all providers are down (on the free tier).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
@@ -424,16 +424,15 @@ Rules that must be preserved:
     never starve the fallbacks or leave the chat bubble empty.
   - Gemini is the only embedding provider: no cold-start local model load.
 - Provider model slugs and circuit breakers:
-  DeepSeek (`deepseek-chat`/`deepseek-reasoner`, primary), Cloudflare Workers AI
-  (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
-  Google Gemini (`gemini-3.8-flash`, etc.) are the three text-generation
+  DeepSeek (`deepseek-chat`/`deepseek-reasoner`, primary) and
+  Google Gemini (`gemini-3.8-flash`, etc.) are the two text-generation
   providers. Each has a 5-minute circuit breaker after auth (401/403) or
   network failure. `curl --ipv4 --insecure` is used for all API calls (host
   Spaces IPv6/TLS quirk).
 - **Local embedding fallback**: `intfloat/multilingual-e5-small` (~270MB,
   ~600MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
   Lazy-loaded on first fallback, acts as the **guaranteed offline backup** when
-  Cloudflare + Gemini are both unreachable. Env-tunable:
+  all remote embeddings are unreachable. Env-tunable:
   `LOCAL_EMBEDDING_MODEL` (default `intfloat/multilingual-e5-small`),
   `LOCAL_EMBEDDING_DISABLED=true/false`, `LOCAL_EMBEDDING_THREADS` (default 1
   to avoid starving the web-serving processes on 2-vCPU free tier).
@@ -450,7 +449,7 @@ Rules that must be preserved:
 - **LLM response cache** (new): `_generate_text_with_fallback` now caches
   successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
   TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
-  redundant DeepSeek/Gemini/Cloudflare calls for identical prompts (career paths,
+  redundant DeepSeek/Gemini calls for identical prompts (career paths,
   scholarship summaries, mentor matches) — critical for the quota budget.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
@@ -484,13 +483,12 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
 ## 5. Environment notes
 
 - **All external API keys are now OPTIONAL.** The app works with zero keys set —
-  the DeepSeek → Gemini → Cloudflare cascade degrades to template fallbacks +
+  the DeepSeek → Gemini cascade degrades to template fallbacks +
   cached SQLite data when every remote provider is unreachable.
-- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `GEMINI_API_KEY` are
-  host secrets (optional).
-- `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
+- `GEMINI_API_KEY` is the host secret (optional).
+- 
 - `GEMINI_MODEL` — Google Gemini text generation model cascade.
-- `HF_EMBEDDING_MODEL` removed — `CLOUDFLARE_EMBEDDING_MODEL` cũng vậy, embeddings dùng Gemini API duy nhất.
+- `HF_EMBEDDING_MODEL` removed — embeddings dùng Gemini API duy nhất.
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
 - `OWM_API_KEY` — OpenWeatherMap API key (host secret, optional). When set,
@@ -512,8 +510,7 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
   - `DEEPSEEK_TIMEOUT_SECONDS=20` (wide budget because the reasoner is slow)
   - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
     set `false` to force template-only answers (instant, no network call)
-  - `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — LLM + embeddings fallback
-    (Cloudflare is blackholed; Gemini is the primary)
+
   - `RAM_THRESHOLD_GB=4.0` — OOM guard threshold, still used by the startup
     hooks (no longer gates a model load that no longer exists)
 
@@ -557,8 +554,8 @@ intfloat/multilingual-e5-small (embeddings), cross-encoder/ms-marco-MiniLM-L6-v2
 (numpy)** were deleted along with their loading code, globals, constants and
 the staggered startup warm-up thread. `ai-service` now runs a **pure API stack**:
 
-- Text: `DeepSeek → Google Gemini → Cloudflare Workers AI → template fallback`
-- Embeddings: `Cloudflare → Google Gemini → RuntimeError (RAG returns no
+- Text: `DeepSeek → Google Gemini → template fallback`
+- Embeddings: `Gemini → RuntimeError (RAG returns no
   results; chat falls back to the LLM)`
 - GeoVision: `degraded = true + empty`
   detections (never 502)`
@@ -725,7 +722,7 @@ because every climate test mocked `_get_elevation` and no test touched
 | 3 | `/api/ai/system/status` never existed (router import swallowed by `main.py`'s try/except) | `routers/system.py` imported the non-existent `vs_instance` and called `check_oom` without importing it | import `vector_store` (+ `has_cf_api` / `has_gemini_api`) and `check_oom` from `utils.memory_guard` |
 | 4 | Career semantic recommendations 500'd once an LLM provider was configured | f-string prompt contained `[{title, match_score, ...}]` → evaluated as a Python set literal → `NameError: name 'title' is not defined` | escape the braces in `LLMService.recommend_career_semantic` |
 | 5 | `[Nest] WARN [AIService] SSE stream error from ai-service: aborted` (~10 s) and an empty chat bubble | a slow/dead provider could run past the 8 s generation budget + word-by-word streaming, exceeding the NestJS proxy deadline (`ai.service.ts` `timeout: 10000`) | `chat_with_rag_stream` now enforces `STREAM_PROXY_DEADLINE_SECONDS` (default 10) with `STREAM_FINAL_RESERVE_SECONDS` (default 1.5): every provider call is wrapped in `asyncio.wait_for`, the provider list skips when time is exhausted, and `_stream_word_by_word(max_duration=…)` shrinks the per-word delay so the whole reply fits |
-| 6 | **Local LLM (Gemma) always failed to generate** — `NameError: name 'generated' is not defined` inside `_local_llm_generate` | the `generated = _local_llm_tokenizer.decode(...)` line was lost during the TinyLlama→Gemma refactor (commit `0d12ee7`). Every call raised NameError → caught by outer `except` → opened the 5-min circuit breaker, wasting ~1.5 GB RAM holding a loaded model that could never respond. | restored the decode step (`services/llm_service.py:233`); added regression tests `test_local_llm_generate_decodes_output` + `test_local_llm_generate_raises_on_empty_output`. **Also set `LOCAL_LLM_ENABLED=false` in the Dockerfile** — Gemma 2B is gated on any remote hub (§6.5 confirms it's a no-op on the free tier), so disabling it saves 1.5 GB RAM without changing the cascade (`DeepSeek → Gemini → Cloudflare → template`). |
+| 6 | **Local LLM (Gemma) always failed to generate** — `NameError: name 'generated' is not defined` inside `_local_llm_generate` | the `generated = _local_llm_tokenizer.decode(...)` line was lost during the TinyLlama→Gemma refactor (commit `0d12ee7`). Every call raised NameError → caught by outer `except` → opened the 5-min circuit breaker, wasting ~1.5 GB RAM holding a loaded model that could never respond. | restored the decode step (`services/llm_service.py:233`); added regression tests `test_local_llm_generate_decodes_output` + `test_local_llm_generate_raises_on_empty_output`. **Also set `LOCAL_LLM_ENABLED=false` in the Dockerfile** — Gemma 2B is gated on any remote hub (§6.5 confirms it's a no-op on the free tier), so disabling it saves 1.5 GB RAM without changing the cascade (`DeepSeek → Gemini → template`). |
 
 Verification done locally (allowed per §1): `python3 -m pytest tests -q` →
 **451 passed**; `py_compile` clean; an AST undefined-name sweep over
@@ -787,7 +784,7 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
 - `Local Gemma 2B model could not be loaded (… weights not baked)`: Gemma 2B was
   **removed** entirely on 2026-11-08 (all bundled local models were deleted as
   the app moves to API-only). No local text model exists now, so this log
-  message can never appear. The cascade is `DeepSeek → Gemini → Cloudflare →
+  message can never appear. The cascade is `DeepSeek → Gemini →
   template`.
 - `Local Gemma 2B slow on CPU (_Timeout: generation exceeded 35s)`: CPU-only
   generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
@@ -1009,7 +1006,7 @@ ai-service/main.py startup (daemon thread)
   `get_result(name)`, `health()`, `run_loop()` (daemon). Each task failure is
   **non-fatal** — a degraded result is cached so GET endpoints never 502.
 - **Tasks** use the same `_generate_text_with_fallback` cascade (DeepSeek → Gemini
-  → Cloudflare → local Gemma → template). When all remote providers are down,
+  → local Gemma → template). When all remote providers are down,
   tasks degrade to template/SQLite fallbacks with `degraded=True`.
 - **`AUTO_REGIONS`**: `dong_nai`, `hcmc`, `hanoi`, `danang`, `cantho` (5
   Vietnamese regions with exact bbox coordinates).
@@ -1216,7 +1213,7 @@ for every question, including the seeded suggestion
   - `scholarship`: `POST /`, `PUT /:id` admin/mod.
   - `ai`: `POST /speech/to-text` explicitly `@Public()`.
 - **P2.1** `.env.example` `DB_SYNC=false` (matches Dockerfile/host; `app.module.ts` already `process.env.DB_SYNC === 'true'`).
-- **P2.2** Provider hints in `scholarship.py`/`route.py` updated to `DEEPSEEK_API_KEY → GEMINI_API_KEY → CLOUDFLARE_API_TOKEN`.
+- **P2.2** Provider hints in `scholarship.py`/`route.py` updated to `DEEPSEEK_API_KEY → GEMINI_API_KEY`.
 - **P4** Source already comment-free in `backend/src`, `frontend` (TS/TSX/JS) and `ai-service`/`crawlers`/`scripts` (Python) except preserved directives (shebang, `type: ignore`, `noqa`, pragmas, license/SPDX, `@ts-*`, etc.). Stripped remaining comments in root JS config/scripts and mobile placeholders. Shell scripts left with operational docs.
 - **Merges executed (P3)**: `question_gaps` → `analytics` router; `data_hunter` → `data_quality` router. Router files deleted; `main.py` `router_names` updated; tests updated; self-merged "Merged from data_hunter.py" marker removed. Remaining merge candidates (reported): BFF proxy factory, duplicate embed/tutor/geo namespaces, routing controllers, planning docs.
 - **Unsuitable/stale items (reported)**: `module`/`feature` backend folders already absent (stale report entries), build artifacts (`backend/dist`, `frontend/.next`) not tracked, `.env.example` corrected, lockfile `agentation` residue.
@@ -1642,7 +1639,7 @@ Rules that came out of this pass:
   `TICKETMASTER_API_KEY` and `NEXT_PUBLIC_SENTRY_DSN`. **`NEXT_PUBLIC_CARTO_API_KEY` (CARTO tile key,
   required by `frontend/src/lib/map-tiles.ts`)**. Nothing under `frontend/` reads
   `DB_*`,
-  `DEEPSEEK_*`, `GEMINI_*`, `TAVILY_*`, `CLOUDFLARE_*`, `OWM_*`, `HF_TOKEN`,
+  `DEEPSEEK_*`, `GEMINI_*`, `TAVILY_*`, `OWM_*`, `HF_TOKEN`,
   `ORS_API_KEY`.
 - **Dead secrets:** `HF_TOKEN`, `ORS_API_KEY`, `GOOGLE_CLIENT_SECRET`,
   `GOOGLE_PROJECT_ID`, `GOOGLE_AUTH_URI`, `GOOGLE_TOKEN_URI`,

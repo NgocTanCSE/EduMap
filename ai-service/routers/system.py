@@ -2,7 +2,7 @@
 
 Provides RAM monitoring and provider chain status for OOM guard +
 observability. No local models are loaded anymore — AI answers come from
-remote APIs (DeepSeek / Gemini / Cloudflare) or template fallbacks.
+remote APIs (DeepSeek / Gemini) or template fallbacks.
 """
 import subprocess
 import json
@@ -58,7 +58,7 @@ async def system_status() -> Dict[str, Any]:
 
     models = {
         "embedding_model": {
-            "note": "Embeddings come from Google Gemini API only — no local model, no Cloudflare"
+            "note": "Embeddings come from Google Gemini API only — no local model"
         },
         "reranker_model": {
             "note": "Reranking no longer used — ChromaDB returns results unchanged"
@@ -66,11 +66,6 @@ async def system_status() -> Dict[str, Any]:
     }
 
 
-    # Cloudflare Workers AI is a *text generation* fallback (the provider chain
-    # no longer uses it for embeddings). Reachability is measured against the
-    # text endpoint the cascade actually calls.
-    _cf_url = f"https://api.cloudflare.com/client/v4/accounts/{getattr(vector_store, 'cf_account_id', '')}/ai/run/@cf/meta/llama-3.1-8b-instruct-fp8"
-    _cf_reachable = _endpoint_reachable(_cf_url) if llm_service.has_cf else 0
 
     providers = {
         "deepseek": {
@@ -83,11 +78,6 @@ async def system_status() -> Dict[str, Any]:
             "configured": bool(getattr(vector_store, "has_gemini_api", False)),
             "reachable": _endpoint_reachable("https://generativelanguage.googleapis.com/") if vector_store.has_gemini_api else 0,
             "note": "First fallback (set GEMINI_API_KEY as host secret)",
-        },
-        "cloudflare_workers_ai": {
-            "configured": bool(getattr(llm_service, "has_cf", False)),
-            "reachable": _cf_reachable,
-            "note": "Text generation fallback (CLOUDFLARE_API_TOKEN)",
         },
     }
 

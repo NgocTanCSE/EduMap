@@ -31,7 +31,7 @@ pub use crate::modules::auth::{
 };
 // business
 pub use crate::modules::business::{
-    CartAddForm, CheckoutForm, CreateProductForm, CreateServiceForm, ProfileForm, ReviewForm,
+    CartAddForm, CheckoutForm, CreateProductForm, CreateServiceForm, ProfileForm as BusinessProfileForm, ReviewForm,
     UpdateProductForm, UpdateServiceForm,
 };
 // career
@@ -97,10 +97,10 @@ pub use crate::modules::share::{BorrowRequest, CreateItem, ItemsQuery};
 // stem
 pub use crate::modules::stem::{BookLab, NearbyQuery, RegisterLab};
 // summer
-pub use crate::modules::summer::{CreateActivityForm, CreateCampaignForm, DailyReportQuery, RegisterForm, StatusForm};
+pub use crate::modules::summer::{CreateActivityForm, CreateCampaignForm, DailyReportQuery, RegisterForm as SummerRegisterForm, StatusForm};
 // survey
 pub use crate::modules::survey::{CreateSurveyForm, FormatQuery, SubmitResponseForm};
 // volunteer
 pub use crate::modules::volunteer::{LogActivityForm, PaginationQuery};
 // wifi
-pub use crate::modules::wifi::{NearbyQuery, ReportForm, SpeedTestForm};
+pub use crate::modules::wifi::{NearbyQuery as WifiNearbyQuery, ReportForm, SpeedTestForm};

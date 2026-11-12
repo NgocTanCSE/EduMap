@@ -31,7 +31,7 @@ pub struct TrackEventBody {
 pub struct StatsQuery {}
 
 /// `GET /api/analytics/education` — lọc theo năm và vùng (các filter được
-//! ghép vào văn bản SQL, giống pattern `career::get_jobs`).
+// ghép vào văn bản SQL, giống pattern `career::get_jobs`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct EducationStatsQuery {
     pub year: Option<i64>,
@@ -117,8 +117,8 @@ pub async fn track_event(
 }
 
 /// `GET /api/analytics/stats` — thống kê toàn hệ thống (người dùng, địa điểm,
-//! tài liệu). Old backend cache 300s các bảng này; gọi trực tiếp vì dữ liệu
-//! không phải điểm nóng và không dùng RLM.
+// tài liệu). Old backend cache 300s các bảng này; gọi trực tiếp vì dữ liệu
+// không phải điểm nóng và không dùng RLM.
 pub async fn get_stats(
     State(pool): State<DbPool>,
     _query: Query<StatsQuery>,
@@ -181,7 +181,7 @@ pub async fn get_education_stats(
         .collect();
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "items",
+        "items": items,
         "total": items.len() as i64,
     }))))
 }

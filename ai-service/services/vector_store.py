@@ -42,7 +42,7 @@ class VectorStoreService:
 
     - Embedding -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
 
-    All other embedding providers (Cloudflare Workers AI, local SentenceBERT)
+    All other embedding providers (local SentenceBERT)
     are gone — Gemini is the single provider now. ChromaDB vectors are stored
     in the ``edumap_docs`` collection and searched by cosine similarity.
     """

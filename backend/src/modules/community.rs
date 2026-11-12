@@ -20,18 +20,18 @@
 //!
 //! Every piece of text written to the community is sent to the ai-service
 /// content moderator (`POST /api/ai/moderate/`) before it is stored:
-//!
-//! - the ai-service is unreachable / times out → `503`
-//!   (`"Hệ thống kiểm duyệt AI đang tạm thời gián đoạn. Vui lòng thử lại sau."`);
-//! - the moderator returns anything but `action_taken = APPROVED` → `400`
-//!   (`"Nội dung vi phạm tiêu chuẩn cộng đồng: <flags>"`);
-//!
-//! Neither path may 502 the community page — the check happens *before* any
-//! write, so the database is never left half-updated.
-//!
-//! The notification sent to a post author on like/comment is fire-and-forget
-//! (`POST /api/notifications/send`); a failure is logged and swallowed, never
-//! propagated to the user.
+//
+// - the ai-service is unreachable / times out → `503`
+//   (`"Hệ thống kiểm duyệt AI đang tạm thời gián đoạn. Vui lòng thử lại sau."`);
+// - the moderator returns anything but `action_taken = APPROVED` → `400`
+//   (`"Nội dung vi phạm tiêu chuẩn cộng đồng: <flags>"`);
+//
+// Neither path may 502 the community page — the check happens *before* any
+// write, so the database is never left half-updated.
+//
+// The notification sent to a post author on like/comment is fire-and-forget
+// (`POST /api/notifications/send`); a failure is logged and swallowed, never
+// propagated to the user.
 
 use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
@@ -119,7 +119,7 @@ async fn assert_content_approved(user_id: &str, text: &str) -> Result<Value, App
 
 /// Fire-and-forget a notification for a post author. The notification is a
 /// nicety: if the notifications service is down (or not yet ported) the
-//! like/comment still succeeds — this may never turn a 200 into a 502.
+// like/comment still succeeds — this may never turn a 200 into a 502.
 fn notify_author(pg_pool: PgPool, author_id: String, message: String) {
     let url = notifications_url();
     tokio::spawn(async move {

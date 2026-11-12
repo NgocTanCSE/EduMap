@@ -787,9 +787,9 @@ class LLMService:
 
         1. Lấy sources từ ChromaDB (giống chat_with_rag).
         2. Build prompt the same way.
-        3. Gọi _cloudflare_generate_stream để nhận từng token real-time qua SSE.
-        4. Nếu Cloudflare không khả dụng, fallback sang non-streaming
-           (Cloudflare → Gemini) và yield toàn bộ response dưới dạng chunks.
+         3. Gọi _deepseek_generate_stream / _gemini_generate_stream để nhận từng token real-time qua SSE.
+         4. Nếu streaming không khả dụng, fallback sang non-streaming.
+            hình chunks.
 
         Yield format: SSE data lines (``data: {json}\\n\\n``)
         - Metadata chunk (with sources) sent first
@@ -995,7 +995,7 @@ class LLMService:
                                    max_duration: Optional[float] = None):
         """Yield a pre-computed reply as individual SSE chunks with a typing delay.
 
-        Used when true streaming (Cloudflare SSE) is unavailable — the entire
+         Used when true streaming (any provider SSE) is unavailable
         reply is already in-memory, but we break it into word-level chunks so
         the frontend still shows a *typing effect* (chữ chạy) instead of dumping
         the whole answer at once.
@@ -1039,7 +1039,8 @@ class LLMService:
             yield f"data: {json.dumps({'done': True})}\n\n"
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-        """Fallback trả lời khi tất cả LLM provider đều thất bại (Cloudflare/Gemini unreachable từ container).
+     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
+        """Fallback trả lời khi tất cả LLM provider đều thất bại (DeepSeek/Gemini unreachable từ container).
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
         available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
@@ -1123,7 +1124,7 @@ class LLMService:
             return (
                 f"Thông tin kỹ năng: {skills_raw}.\n"
                 f"Hệ thống đang ở chế độ ngoại tuyến (SQLite trống hoặc không có API key)."
-                f" Để nhận tư vấn chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN"
+                 f" Để nhận tư vấn chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY"
                 f" hoặc GEMINI_API_KEY. Lỗi: {err[:140]}"
             )
 
@@ -1175,14 +1176,14 @@ class LLMService:
         lines.append(
             "Lưu ý: Đây là gợi ý từ SQLite dựa trên từ khóa. Để nhận Tư vấn AI chi "
             "tiết (Roadmap JSON, kỹ năng chi tiết, chiến lược phỏng vấn), hãy "
-            "cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID hoặc GEMINI_API_KEY."
+            "cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY."
         )
         return "\n".join(lines)
 
     async def generate_career_advice(self, user_info: dict):
         """Generate AI career advice.
 
-        Primary:  LLM cascade (Cloudflare Workers AI → Gemini) when configured.
+         Primary:  LLM cascade (DeepSeek → Gemini) when configured.
         Fallback: SQLite ``career_paths`` keyword matching against the user's
         skills — returns real Vietnamese career data with salary ranges and
         demand levels. This is a genuine data-driven recommendation, not a
@@ -1203,7 +1204,7 @@ class LLMService:
 
         Primary:  Adzuna API (dữ liệu việc làm thật, nếu có ADZUNA_APP_ID/KEY).
         Fallback: SQLite edumap.db (jobs, career_paths — luôn có sẵn trên Space).
-        Không bao giờ gọi LLM — hoạt động ngay cả khi Cloudflare & all providers bị chặn TLS.
+         Được cấu hình bởi DeepSeek hoặc Gemini — không gọi LLM khi không có API.
         """
 
         keywords = []
@@ -1380,8 +1381,8 @@ class LLMService:
 
 
         providers = []
-        if self.has_cf:
-            providers.append((self._cloudflare_generate, "Cloudflare"))
+        if self.has_deepseek:
+            providers.append((self._deepseek_generate, "DeepSeek"))
         if self.has_gemini:
             providers.append((self._gemini_generate, "Gemini"))
         for gen_fn, label in providers:
@@ -1867,7 +1868,7 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID "
+                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
                     "hoặc GEMINI_API_KEY."
                 )
 
@@ -1999,7 +2000,7 @@ Trả về **mảng JSON** sau:
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID "
+DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL
                     "hoặc GEMINI_API_KEY."
                 )
 
@@ -2305,7 +2306,7 @@ Trả về **mảng JSON** sau:
                     "title": "Chưa có dữ liệu ngành nghề",
                     "match_score": 0,
                     "explanation": 
-                                   "Vui lòng cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết.",
+Vui lòng cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết
                     "missing_skills": [],
                     "demand_level": "Chưa rảnh",
                     "radar_chart": {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0, "Language": 0, "Creativity": 0},
@@ -2515,7 +2516,7 @@ Trả về **mảng JSON** sau:
     async def moderate_text(self, text: str) -> dict:
         """Moderate user-generated content.
 
-        Uses the primary provider cascade (Cloudflare Workers AI ). When EVERY provider is unavailable at runtime, returns a
+         Uses the primary provider cascade (DeepSeek → Gemini). When EVERY provider is unavailable
         conservative safe result (rather than raising) so the community
         router can keep operating. Content reaching this method has already
         passed the regex Layer-1 pre-filter in ``moderation.py`` which catches
@@ -2535,7 +2536,7 @@ Trả về **mảng JSON** sau:
         """
         try:
             if not self.is_ready:
-                raise RuntimeError("AI Service chưa sẵn sàng. Cấu hình CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (primary) hoặc GEMINI_API_KEY (fallback).")
+DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,
                 temperature=0.3, max_tokens=512, top_p=0.8,

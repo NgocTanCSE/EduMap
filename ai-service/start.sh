@@ -25,12 +25,10 @@ LOG_FILE="/tmp/ai-service.log"
 if [ -r /proc/1/environ ]; then
     PARENT_ENV=$(tr '\0' '\n' < /proc/1/environ 2>/dev/null || true)
     # List of all env vars that might be set as platform secrets
-    SECRET_VARS="CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_MODEL \
+    SECRET_VARS="DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL DEEPSEEK_TIMEOUT_SECONDS \
 OPENAI_API_KEY ADZUNA_APP_ID \
 ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET \
 GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS \
-DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL DEEPSEEK_TIMEOUT_SECONDS \
-CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED \
 OWM_API_KEY OWM_TIMEOUT_SECONDS \
 GOOGLE_TTS_API_KEY \
 TAVILY_API_KEY TAVILY_TIMEOUT_SECONDS \
@@ -51,11 +49,8 @@ fi
 
 
 echo "AI service env check:"
-[ -n "$DEEPSEEK_API_KEY" ] && echo "  DEEPSEEK_API_KEY: ✓ set (primary LLM provider)" || echo "  DEEPSEEK_API_KEY: ✗ NOT set (falling back to Gemini/Cloudflare)"
-[ -n "$CLOUDFLARE_API_TOKEN" ] && echo "  CLOUDFLARE_API_TOKEN: ✓ set (fallback LLM provider)" || echo "  CLOUDFLARE_API_TOKEN: ✗ NOT set"
-[ -n "$CLOUDFLARE_ACCOUNT_ID" ] && echo "  CLOUDFLARE_ACCOUNT_ID: ✓ set" || echo "  CLOUDFLARE_ACCOUNT_ID: ✗ NOT set"
+[ -n "$DEEPSEEK_API_KEY" ] && echo "  DEEPSEEK_API_KEY: ✓ set (primary LLM provider)" || echo "  DEEPSEEK_API_KEY: ✗ NOT set (falling back to Gemini)"
 [ -n "$GEMINI_API_KEY" ] && echo "  GEMINI_API_KEY: ✓ set (fallback LLM + embeddings)" || echo "  GEMINI_API_KEY: ✗ NOT set"
-[ -n "$CF_AI_GATEWAY_ID" ] && echo "  CF_AI_GATEWAY_ID: ✓ set" || echo "  CF_AI_GATEWAY_ID: ✗ NOT set (direct Workers AI)"
 [ -n "$OWM_API_KEY" ] && echo "  OWM_API_KEY: ✓ set (OpenWeatherMap for Climate Guardian)" || echo "  OWM_API_KEY: ✗ NOT set"
 [ -n "$GOOGLE_TTS_API_KEY" ] && echo "  GOOGLE_TTS_API_KEY: ✓ set (Google Cloud TTS for Language Bridge)" || echo "  GOOGLE_TTS_API_KEY: ✗ NOT set (will use edge-tts / gTTS fallback)"
 [ -n "$TAVILY_API_KEY" ] && echo "  TAVILY_API_KEY: ✓ set (crawlers: jobs, internships, events, etc.)" || echo "  TAVILY_API_KEY: ✗ NOT set (crawlers degrade to curated snapshot / 0 rows)"

@@ -237,7 +237,7 @@ fn parse_sse(body: &[u8]) -> (Vec<serde_json::Value>, String) {
         Ok(text) => text,
         Err(_) => return (sources, full_reply),
     };
-    for chunk in text.split('\n\n') {
+    for chunk in text.split("\n\n") {
         let line = chunk.trim();
         let data_str = match line.strip_prefix("data: ") {
             Some(data_str) => data_str.trim(),
@@ -602,14 +602,14 @@ pub async fn proxy(
 /// Headers the proxy never forwards (they are connection-level and the next
 /// hop computes them from the forwarded request).
 const IS_SERVER_ONLY_HEADER: &[&str] = &[
-    "connection",
+    "connection": connection,
     "keep-alive",
     "proxy-authenticate",
     "proxy-authorization",
-    "te",
-    "trailers",
+    "te": te,
+    "trailers": trailers,
     "transfer-encoding",
-    "upgrade",
+    "upgrade": upgrade,
     "content-length",
 ];
 

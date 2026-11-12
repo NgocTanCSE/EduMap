@@ -381,6 +381,7 @@ fn text_array_to_vec(raw: Option<String>) -> Vec<String> {
 /// (`user_id`, mentor fields + a nested `user` block).
 fn mentor_to_json(row: &sqlx::Row) -> serde_json::Value {
     let user_id = row.get::<String>("user_id");
+    let full_name = row.get::<Option<String>>("full_name");
     serde_json::json!({
         "user_id": user_id,
         "bio": row.get::<Option<String>>("bio"),
@@ -393,18 +394,15 @@ fn mentor_to_json(row: &sqlx::Row) -> serde_json::Value {
         "created_at": row.get::<String>("created_at"),
         "updated_at": row.get::<String>("updated_at"),
         "user": {
-            let full_name = row.get::<Option<String>>("full_name");
-            serde_json::json!({
-                "id": user_id.clone(),
-                "full_name": full_name,
-                "email": row.get::<Option<String>>("email"),
-                "avatar_url": row.get::<Option<String>>("avatar_url"),
-                "major": row.get::<Option<String>>("major"),
-                "mbti_type": row.get::<Option<String>>("mbti_type"),
-                "skills": text_array_to_vec(row.get::<Option<String>>("skills")),
-                "interests": text_array_to_vec(row.get::<Option<String>>("interests")),
-                "role": row.get::<Option<String>>("role"),
-            })
+            "id": user_id.clone(),
+            "full_name": full_name,
+            "email": row.get::<Option<String>>("email"),
+            "avatar_url": row.get::<Option<String>>("avatar_url"),
+            "major": row.get::<Option<String>>("major"),
+            "mbti_type": row.get::<Option<String>>("mbti_type"),
+            "skills": text_array_to_vec(row.get::<Option<String>>("skills")),
+            "interests": text_array_to_vec(row.get::<Option<String>>("interests")),
+            "role": row.get::<Option<String>>("role"),
         }
     })
 }

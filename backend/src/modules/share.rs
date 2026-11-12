@@ -98,7 +98,7 @@ LIMIT 1
 // ---------------------------------------------------------------------------
 
 /// Làm sạch chuỗi trước khi ghi DB: cắt khoảng trắng thừa và loại bỏ các
-//! thẻ HTML thô (tương đương `SanitizeService.clean`).
+// thẻ HTML thô (tương đương `SanitizeService.clean`).
 fn clean(value: &str) -> String {
     let stripped = value.replace(|c: char| c < ' ', " ");
     let no_html = stripped.replace(['<', '>'], " ");

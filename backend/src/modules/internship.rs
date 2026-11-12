@@ -191,7 +191,7 @@ fn row_to_json(row: &sqlx::Row) -> Value {
 // ---------------------------------------------------------------------------
 
 /// Chuyển `sqlx::Error` sang `AppError`, biến đổi unique-violation (23505)
-//! thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
+// thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
 fn to_app_error(e: sqlx::Error) -> AppError {
     if let Some(db_err) = e.as_database_error() {
         if db_err.code().to_string() == "23505" {

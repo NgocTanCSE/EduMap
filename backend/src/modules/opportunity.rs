@@ -370,8 +370,8 @@ pub async fn toggle_team_finding(
 }
 
 /// `POST /api/opportunities/match` — Opportunity Radar: tiền lọc cơ hội (jobs,
-//! scholarships, opportunities) sau đó xếp hạng qua ai-service. Khi ai-service
-//! unavailable, tự xếp hạng theo từ khoá (keyword fallback).
+// scholarships, opportunities) sau đó xếp hạng qua ai-service. Khi ai-service
+// unavailable, tự xếp hạng theo từ khoá (keyword fallback).
 pub async fn match_opportunities(
     State(pool): State<DbPool>,
     req: Request,
@@ -537,7 +537,7 @@ pub async fn match_opportunities(
 }
 
 /// Fallback xếp hạng theo từ khoá (giống `_keywordFallback` cũ) — chạy khi
-//! ai-service không phản hồi, để endpoint luôn trả về thay vì 502.
+// ai-service không phản hồi, để endpoint luôn trả về thay vì 502.
 fn keyword_fallback(profile: &UserProfile, candidates: &[NormalizedOpportunity], error: &str) -> Value {
     let profile_terms: Vec<String> = vec![profile.major.clone()]
         .into_iter()
@@ -592,7 +592,7 @@ fn keyword_fallback(profile: &UserProfile, candidates: &[NormalizedOpportunity],
     }).collect();
 
     serde_json::json!({
-        "matches",
+        "matches": matches,
         "total": matches.len() as i64,
         "degraded": true,
         "reason": format!("AI matching unavailable: {error}"),

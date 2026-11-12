@@ -54,7 +54,6 @@ docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
 
 ### Embedding / RAG trên host
 
-Chuỗi embedding: `Gemini → Cloudflare → local → NVIDIA → 01.ai`.
 (XKIRO được thử trước nếu `XKIRO_EMBEDDING_MODEL` được cấu hình, nhưng XKIRO
 không hỗ trợ `/v1/embeddings` — sẽ nhận 404 và fallback ngay sang Gemini.)
 Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm hỏng chat):
@@ -76,12 +75,7 @@ Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm h�
 |--------|------|---------|
 | `JWT_SECRET` | JWT signing key | ✅ |
 | `ORS_API_KEY` | OpenRouteService routing | ⚠️ (có fallback Haversine) |
-| `CLOUDFLARE_API_TOKEN` | AI service LLM | ✅ |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | ✅ |
-| `CF_AI_GATEWAY_ID` | Cloudflare AI Gateway ID (tuỳ chọn) | ❌ |
-| `CF_AI_GATEWAY_ENABLED` | Bật AI Gateway (true/false, mặc định false) | ❌ |
 | `GOOGLE_CLIENT_ID` | OAuth client ID | ⚠️ |
-| `CLOUDFLARE_MODEL` | LLM model (default: @cf/meta/llama-3.1-8b-instruct-fp8) | ❌ |
 
 > ⚠️ `NEXT_PUBLIC_API_URL` đã được đặt mặc định trong Dockerfile. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_ID` **KHÔNG** được hardcode — bạn **phải** thêm chúng vào host → Settings → Secrets (hoặc truyền qua `-e` khi chạy `docker run`).
 
@@ -96,7 +90,6 @@ Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm h�
 | `/api/map/routing/route` | GET | Directions (ORS API + Haversine fallback) |
 | `/api/career/jobs` | GET | Job listings (from SQLite crawler) |
 | `/api/pins` | GET | User pins |
-| `/api/chat/messages` | GET | AI chat (Cloudflare LLM) |
 
 ## 🔄 CI/CD
 

@@ -808,7 +808,7 @@ Hãy trả lời ngắn gọn, rõ ràng bằng tiếng Việt, kèm nguồn tha
                 parts.append(f"  • **{name}** ({tname}) — {addr}, {city}. Đánh giá: {rating}/5")
             parts.append("")
             parts.append("_Lưu ý: Đây là kết quả từ dữ liệu SQLite (chế độ offline). "
-                         "Để nhận tư vấn chi tiết từ AI, hãy cấu hình CLOUDFLARE_API_TOKEN hoặc GEMINI_API_KEY._")
+                         "Để nhận tư vấn chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY hoặc GEMINI_API_KEY._")
             reply = "\n".join(parts)
         elif results:
             reply = f"[Chế độ offline] Tìm thấy lỗi khi truy vấn SQLite: {results[0].get('error', 'Không xác định')}. " \

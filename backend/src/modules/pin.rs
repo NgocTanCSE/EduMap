@@ -132,7 +132,7 @@ fn pin_to_json(row: &impl sqlx::Row) -> Value {
 #[derive(Debug, Default, Deserialize)]
 pub struct PinListQuery {
     #[serde(default)]
-    pub type: Option<String>,
+    pub r#type: Option<String>,
     #[serde(default)]
     pub status: Option<String>,
     #[serde(default)]
@@ -236,7 +236,7 @@ pub async fn find_pins(
         filters.push(format!("status = ${}", binds.len()));
     }
 
-    if let Some(kind) = q.type.as_ref().filter(|v| !v.trim().is_empty()) {
+    if let Some(kind) = q.r#type.as_ref().filter(|v| !v.trim().is_empty()) {
         binds.push(Value::String(kind.to_string()));
         filters.push(format!("type = ${}", binds.len()));
     }

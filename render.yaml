@@ -69,10 +69,6 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: CLOUDFLARE_API_TOKEN
-        sync: false
-      - key: CLOUDFLARE_ACCOUNT_ID
-        sync: false
       - key: TAVILY_API_KEY
         sync: false
       # Dùng chung với Vercel (BFF app/api/career/jobs) — career trends cần cả 2.
@@ -124,10 +120,6 @@ services:
       - key: DEEPSEEK_API_KEY
         sync: false
       - key: GEMINI_API_KEY
-        sync: false
-      - key: CLOUDFLARE_API_TOKEN
-        sync: false
-      - key: CLOUDFLARE_ACCOUNT_ID
         sync: false
       - key: TAVILY_API_KEY
         sync: false

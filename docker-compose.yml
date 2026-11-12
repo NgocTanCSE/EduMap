@@ -99,9 +99,6 @@ services:
     build: ./ai-service
     container_name: edumap_ai
     environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID}
-      - CLOUDFLARE_MODEL=${CLOUDFLARE_MODEL:-@cf/meta/llama-3.1-8b-instruct-fp8}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE}
