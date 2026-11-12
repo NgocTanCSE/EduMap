@@ -22,10 +22,9 @@ RUN apt-get update -qq && \
 
 RUN rustup target add x86_64-unknown-linux-musl
 
-# `Cargo.toml`/`Cargo.lock` copy trước để tận dụng cache layer (chỉ rebuild
-# khi dependency thay đổi).
+# `Cargo.toml` copy trước để tận dụng cache layer (chỉ rebuild khi dependency
+# thay đổi). `Cargo.lock` chưa có trong repo — `cargo fetch` tự sinh ra.
 COPY Cargo.toml ./
-COPY Cargo.lock* ./ 2>/dev/null || true
 RUN cargo fetch --target x86_64-unknown-linux-musl
 
 COPY .cargo .cargo

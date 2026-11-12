@@ -1,7 +1,7 @@
 /** Cấu hình bản đồ nền (base tile) của toàn ứng dụng.
 
 CARTO CAD là source chính, dùng style `dark_nolabels` (không có text nền nên
-không có vấn đề chính trị / đặt tên cho Hoàng Sa - Trường Sa).
+không có vấn đề chính trị / đặt ten cho Hoàng Sa - Trường Sa).
 
 Khi chưa có `NEXT_PUBLIC_CARTO_API_KEY` đang set, quay lại OpenStreetMap
 (tile miễn phí, mở trong repo) nhưng vẫn sẽ hiện label tiếng Trung nếu zoom
@@ -26,21 +26,24 @@ export function darkTileClass(): string {
     return needsTileInvertFilter() ? 'leaflet-dark-tiles' : '';
 }
 
-/** Thuật ngữ + video truy cập base tile. */
+/** URL truy cập base tile theo chuẩn CARTO basemaps API. */
 export function getTileUrl(): string {
     const key = process.env.NEXT_PUBLIC_CARTO_API_KEY;
     if (key) {
-        // r = @2x retina, api_key là công thức theo CARTO sử dụng
-        return `https://{s}.basemaps.cartocdn.com/${MAP_TILE_STYLE}/{z}/{x}/{y}{r}.png?api_key=${key}`;
+        // r = @2x retina, `key` là tham số query của CARTO basemaps API
+        return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}{r}.png?key=${key}`;
     }
     return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 }
 
-/** Bằng nội dung CARTO CAD (gần hết) khi key đang có, còn lại là OSM. */
+/** Trả lời bản quyền: CARTO + OSM khi có key, chỉ OSM khi quay lại OSM. */
 export function getTileAttribution(): string {
     const key = process.env.NEXT_PUBLIC_CARTO_API_KEY;
     if (key) {
-        return '&copy; <a href="https://carto.com/about/" target="_blank">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+        return '© <a href="https://carto.com/attribution/">CARTO</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
     }
-    return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    return '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 }
+
+/** Leaflet API: subdomains là 'abc' — CARTO hỗ trợ đến 'abcd'. */
+export const MAP_TILE_SUBDOMAINS: string = 'abcd';

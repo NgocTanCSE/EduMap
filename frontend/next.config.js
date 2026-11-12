@@ -33,7 +33,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
         },
       },
       {
-        urlPattern: /^https:\/\/(?:[a-c]\.basemaps\.cartocdn\.com|[a-c]\.tile\.openstreetmap\.org)\/.*/i,
+        urlPattern: /^https:\/\/(?:[a-d]\.basemaps\.cartocdn\.com|[a-d]\.tile\.openstreetmap\.org)\/.*/i,
         handler: 'CacheFirst',
         options: {
           cacheName: 'map-tiles',
