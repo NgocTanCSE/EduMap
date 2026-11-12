@@ -255,7 +255,7 @@ pub async fn get_opportunities(
         })
     }).collect();
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `POST /api/opportunities` — đăng tải cơ hội mới.

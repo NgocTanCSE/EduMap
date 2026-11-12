@@ -425,7 +425,7 @@ const MARGIN: f64 = 10.0;
 
 /// Font TrueType nhúng — hỗ trợ đầy đủ dấu tiếng Việt (font chuẩn 14 của PDF
 /// chỉ có WinAnsi, không đủ cho ă/đ/ơ/ư).
-const FONT_BYTES: &[u8] = include_bytes!("DejaVuSans.ttf");
+const FONT_BYTES: &[u8] = include_bytes!("./certificate/DejaVuSans.ttf");
 
 /// Render một chứng nhận thành bộ nhớ đệm.
 ///

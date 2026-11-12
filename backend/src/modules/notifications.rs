@@ -5,7 +5,7 @@
 //! `notifications.service.ts`. Các endpoint cần JWT (`@UseGuards(JwtAuthGuard)`
 //! ở old backend = `AuthLayer` của Rust backend).
 
-use crate::common::auth::{authenticated_user, AuthUser};
+use crate::common::auth::AuthUser;
 use crate::common::error::AppError;
 use crate::common::notifications::{hub, Notification};
 use crate::common::response::ApiResponse;

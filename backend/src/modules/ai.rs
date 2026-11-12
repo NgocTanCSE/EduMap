@@ -602,14 +602,14 @@ pub async fn proxy(
 /// Headers the proxy never forwards (they are connection-level and the next
 /// hop computes them from the forwarded request).
 const IS_SERVER_ONLY_HEADER: &[&str] = &[
-    "connection": connection,
+    "connection",
     "keep-alive",
     "proxy-authenticate",
     "proxy-authorization",
-    "te": te,
-    "trailers": trailers,
+    "te",
+    "trailers",
     "transfer-encoding",
-    "upgrade": upgrade,
+    "upgrade",
     "content-length",
 ];
 

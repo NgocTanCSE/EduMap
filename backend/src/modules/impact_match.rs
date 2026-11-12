@@ -684,7 +684,7 @@ pub async fn rank(
                 _ => 2.0,
             };
             let urgency_score = urgency_weight / 4.0 * 20.0;
-            let verified_score = 5.0 if vbool(sponsor, "is_verified") else 0.0;
+            let verified_score = if vbool(sponsor, "is_verified") { 5.0 } else { 0.0 };
             let total = f64::min(100.0, proximity + budget_fit + category_score
                 + urgency_score + verified_score).round(1);
 

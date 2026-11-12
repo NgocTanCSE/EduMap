@@ -150,7 +150,7 @@ pub async fn get_items(
         })
         .collect();
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `POST /api/share/items` — đăng tải tài nguyên mới.
@@ -210,7 +210,7 @@ pub async fn get_my_requests(
         })
         .collect();
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `POST /api/share/items/:id/request` — gửi yêu cầu mượn.

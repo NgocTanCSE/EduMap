@@ -173,7 +173,7 @@ pub async fn get_labs(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Val
         .map_err(|e| AppError::Internal(format!("failed to read stem labs: {e}")))?;
 
     let items: Vec<Value> = rows.into_iter().map(|row| row_to_lab_json(&row)).collect();
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `GET /api/stem/labs/nearby?lat=&lng=&radius=` — tìm lab gần nhất qua PostGIS.
@@ -207,7 +207,7 @@ pub async fn get_nearby(
         })
         .collect();
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `POST /api/stem/labs` — đăng ký phòng lab mới.

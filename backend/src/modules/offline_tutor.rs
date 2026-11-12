@@ -64,16 +64,17 @@ async fn status_from_aiservice() -> Result<Value, AppError> {
 
 /// Cảm ứng giải thích (action='explain').
 fn explain(topic: &str) -> Value {
+    let text = format!(
+        "**{}** là một khái niệm quan trọng trong chương trình học. ",
+        topic
+    ) + "Hãy ôn lại lý thuyết cơ sở, luyện tập qua các bài tập mẫu, "
+      + "và áp dụng vào các tình huống thực tế.\n\n*Lưu ý: Kết nối tới AI Service thất bại — đang sử dụng bản sao lưu mẫu.*";
     serde_json::json!({
         "action": "explain",
         "topic": topic,
         "degraded": true,
         "source": "backend-template",
-        "text": format!(
-            "**{}** là một khái niệm quan trọng trong chương trình học. ",
-            topic
-        ) + "Hãy ôn lại lý thuyết cơ sở, luyện tập qua các bài tập mẫu, "
-            "và áp dụng vào các tình huống thực tế.\n\n*Lưu ý: Kết nối tới AI Service thất bại — đang sử dụng bản sao lưu mẫu.*",
+        "text": text,
         "model_used": Value::Null,
     })
 }
@@ -119,7 +120,7 @@ fn suggest(payload: &TutorForm) -> Value {
 }
 
 /// Fallback mẫu — hành động chưa hỗ trợ.
-fn unknown(): Value {
+fn unknown() -> Value {
     serde_json::json!({
         "action": "unknown",
         "topic": "",

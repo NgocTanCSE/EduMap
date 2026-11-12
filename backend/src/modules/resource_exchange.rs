@@ -215,7 +215,7 @@ pub async fn get_resources(
         .map_err(|e| AppError::Internal(format!("failed to read resources: {e}")))?;
 
     let items: Vec<Value> = rows.into_iter().map(|row| row_to_resource_json(&row)).collect();
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total", "page": page(&q), "limit": limit(&q) }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": page(&q), "limit": limit(&q) }))))
 }
 
 /// `GET /api/resource-exchange/resources/:id`
@@ -324,7 +324,7 @@ pub async fn get_resource_requests(
         .map_err(|e| AppError::Internal(format!("failed to read requests: {e}")))?;
 
     let items: Vec<Value> = rows.into_iter().map(|row| row_to_request_json(&row)).collect();
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total", "page": page(&q), "limit": limit(&q) }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": page(&q), "limit": limit(&q) }))))
 }
 
 /// `GET /api/resource-exchange/requests/:id`
@@ -439,7 +439,7 @@ pub async fn get_resource_matches(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count matches: {e}")))?;
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items", "total": items.len() as i64 }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": items.len() as i64 }))))
 }
 
 /// `POST /api/resource-exchange/match` — ghép cung–cầu bằng AI (pre-filter +
