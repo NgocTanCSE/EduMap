@@ -22,6 +22,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- 0. Xác thực cả ba Render secrets ngay từ đầu (fail nhanh, không chờ) ---
+      - name: Validate Render secrets
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID_API: ${{ secrets.RENDER_SERVICE_ID_API }}
+          RENDER_SERVICE_ID_AI: ${{ secrets.RENDER_SERVICE_ID_AI }}
+        run: |
+          set -euo pipefail
+          test -n "$RENDER_API_KEY" || { echo "### ⛔ RENDER_API_KEY is MISSING"; exit 1; }
+          test -n "$RENDER_SERVICE_ID_API" || { echo "### ⛔ RENDER_SERVICE_ID_API is MISSING"; exit 1; }
+          test -n "$RENDER_SERVICE_ID_AI" || { echo "### ⛔ RENDER_SERVICE_ID_AI is MISSING"; exit 1; }
+          echo "### ✅ all Render secrets present"
+
       # --- 1. Cài Render CLI (pinned) ---
       - name: Install the Render CLI
         run: |

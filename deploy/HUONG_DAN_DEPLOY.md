@@ -243,14 +243,19 @@ git push origin main
    Lý do: các key AI/DB chỉ có tác dụng ở Render; để trên Vercel chỉ gây nhầm
    lẫn và tăng nguy cơ lộ.
 
-### Bật bản đồ không label (CARTO dark_nolabels)
+### Bật bản đồ đầy nhãn (CARTO `voyager`)
+
+Style `voyager` là bản raster màu của CARTO: nền màu, font chữ đầy đủ (tên
+đường/phường/thành phố), nhìn giống Google Maps; vẫn **không có label tiếng
+Trung** vì đây là dữ liệu của CARTO.
 
 1. Lấy API key tại <https://carto.com/basemaps/apikey/> → **Basemaps API**.
 2. Dán key vào `NEXT_PUBLIC_CARTO_API_KEY` trên Vercel (chọn cả Production +
    Preview).
 3. **Redeploy** (`Deployments` → ⋯ → `Redeploy`) — Next.js nhúng env lúc build.
 
-Nếu không set key → ứng dụng quay lại OpenStreetMap (tile miễn phí, có label).
+Nếu không set key → ứng dụng quay lại OpenStreetMap (tile miễn phí, có thể hiện
+label tiếng Trung ở Hoàng Sa/Trường Sa).
 
 5. Bấm **Deployments** → deployment mới nhất → **⋯** → **Redeploy**
    (bắt buộc — Next.js nhúng env lúc build).

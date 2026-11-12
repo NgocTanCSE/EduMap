@@ -42,7 +42,7 @@ functions (10 s Hobby, 4.5 MB body, không WebSocket/SSE, không process nền).
 | `ENABLE_DEV_LOGIN` | `true` (chỉ khi cần nút dev login) | `app/api/auth/dev-login/route.ts` trả 404 nếu khác `true` ở production |
 | `GOOGLE_CLIENT_ID` | client id OAuth (GIS) | `app/api/config/route.ts` → Google Identity Services |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | cùng giá trị | fallback phía client |
-| `NEXT_PUBLIC_CARTO_API_KEY` | **CARTO API key** | `src/lib/map-tiles.ts` → bản `dark_nolabels` không label |
+| `NEXT_PUBLIC_CARTO_API_KEY` | **CARTO API key** | `src/lib/map-tiles.ts` → style `voyager` đầy nhãn |
 | `NEXT_PUBLIC_USE_MOCK_API` | `false` | `src/mock/install.ts` miền dữ liệu (true = mock) |
 | `NEXT_PUBLIC_TOASTS_ENABLED` | `false` | `src/lib/toast.ts` + `app/layout.tsx` (bật Toaster) |
 | `NEXT_PUBLIC_AI_API_URL` | `/api/ai` | `src/services/search.service.ts` fallback URL BFF |

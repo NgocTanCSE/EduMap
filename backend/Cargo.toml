@@ -53,8 +53,9 @@ sentry = { version = "0.34", features = ["tower", "tracing"] }
 sentry-tower = "0.34"
 
 # --- Docs -------------------------------------------------------------------
-utoipa = { version = "5", features = ["axum", "chrono", "uuid"] }
-utoipa-swagger-ui = { version = "8", features = ["axum"] }
+# (utoipa + swagger-ui bị xóa 2026-11-12: không module nào `use utoipa`;
+#  feature `axum` không tồn tại trên utoipa v5 → `cargo fetch` fail
+#  trên Render build)
 
 # --- Scheduling -------------------------------------------------------------
 # (tokio-cron REMOVED 2026-11-12 — unused by any module; pin remove

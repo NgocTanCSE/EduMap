@@ -926,10 +926,9 @@ Verification: `python3 -m py_compile` OK on all modified files;
 - **Base map tiles (2026-11-12):** tile URLs/attribution/dark filter are now
   centralized in `frontend/src/lib/map-tiles.ts` (`getTileUrl()`,
   `getTileAttribution()`, `darkTileClass()`, `needsTileInvertFilter()`).
-  Cartography style is `MAP_TILE_STYLE = 'dark_nolabels'` (CARTO) at
-  `https://{s}.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}{r}.png?key=KEY`
-  — note the `rastertiles/` path segment and the `key` query parameter
-  (`?api_key=` is rejected — that was the bug that left the map on OSM).
+  Cartography style is `MAP_TILE_STYLE = 'voyager'` (CARTO) at
+  `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=KEY`
+  (tương tự Google Maps, hiển thị đầy đủ nhãn tên đường/phường/thành phố).
   when `NEXT_PUBLIC_CARTO_API_KEY` is set (Vercel `deploy/vercel.env.example`);
   when unset, falls back to OpenStreetMap. **No `TileLayer` may embed its own
   `url`/`attribution`** — retrofitted `components/ui/MapComponent.tsx` and

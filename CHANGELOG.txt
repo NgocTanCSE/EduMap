@@ -1,0 +1,5 @@
+deployment-fixes-2026-11-12:
+1. backend/Dockerfile: cargo fetch moved after COPY src (target scan fix)
+2. backend/Cargo.toml: removed tokio-cron 0.5 (not on crates.io) + utoipa (no target code, `axum` feature not on v5)
+3. tests/test_cf_connectivity.py: env key assertions -> pytest.skip on CI runner
+4. .github/workflows/render-deploy.yml: secret validation step first

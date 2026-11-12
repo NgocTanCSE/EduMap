@@ -1,11 +1,11 @@
 /** Cấu hình bản đồ nền (base tile) của toàn ứng dụng.
 
-CARTO CAD là source chính, dùng style `dark_nolabels` (không có text nền nên
-không có vấn đề chính trị / đặt ten cho Hoàng Sa - Trường Sa).
+CARTO CAD là source chính, dùng style `voyager` (nền màu, có nhãn đầy đủ,
+giống giao diện Google Maps; tên đường/phường/thành phố được hiển thị).
 
 Khi chưa có `NEXT_PUBLIC_CARTO_API_KEY` đang set, quay lại OpenStreetMap
-(tile miễn phí, mở trong repo) nhưng vẫn sẽ hiện label tiếng Trung nếu zoom
-vào quần đảo.
+(tile miễn phí, mở trong repo) — OSM có thể vẽ tiếng Trung ở quần đảo Hoàng
+Sa - Trường Sa.
 
 Chỉ dùng biến môi trường `NEXT_PUBLIC_CARTO_API_KEY` (CARTO API key,
 free tier 5M requests/tháng). Cần lấy tại https://carto.com/basemaps/apikey/
@@ -13,8 +13,8 @@ sau đó set biến môi trường tại Vercel (Deployment → Settings → Env
 Variables) hoặc ở seed-file `.env.local` cho local dev.
 */
 
-/** Style không label của CARTO CAD. */
-export const MAP_TILE_STYLE = 'dark_nolabels';
+/** Style bản đồ CARTO (nền màu, đầy đủ nhãn, giao diện giống Google Maps). */
+export const MAP_TILE_STYLE = 'voyager';
 
 /** Bản đồ CARTO đã là theme tối, không cần CSS filter. Ngược lại OSM (nhạt). */
 export function needsTileInvertFilter(): boolean {
