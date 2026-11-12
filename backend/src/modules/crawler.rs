@@ -1,5 +1,5 @@
-//! Crawler module — `/api/crawler/*`: quy trình crawl bản đồ (Overpass), WiFi,
-//! trường học, không gian xanh và sách (OpenLibrary) vào DB.
+//! Crawler module — `/api/crawler/*`: quy trình crawl WiFi, trường học,
+//! không gian xanh và sách (OpenLibrary) vào DB.
 //!
 //! Mirrors `backend/src/modules/crawler/crawler.controller.ts` +
 //! `crawler.service.ts`. Tất cả endpoint là admin/moderator (class-level
@@ -131,20 +131,6 @@ SELECT id, crawl_type AS type, status, records_added, errors, error_message AS m
 FROM crawl_history ORDER BY started_at DESC LIMIT 200
 "#;
 
-const DB_MAP_POINT_EXISTS: &str = r#"
-SELECT id FROM map_points
-WHERE name = $1
-   OR ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 10)
-LIMIT 1
-"#;
-
-const DB_MAP_POINT_INSERT: &str = r#"
-INSERT INTO map_points (name, description, type_id, location, address, city,
-    district, province, status, verified, created_at, updated_at)
-VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, $8, $9,
-    'pending', false, NOW(), NOW())
-RETURNING id
-"#;
 
 const DB_LEARNING_MATERIAL_EXISTS: &str = r#"
 SELECT id FROM learning_materials WHERE title = $1 LIMIT 1
@@ -173,61 +159,10 @@ fn client() -> Client {
     .clone()
 }
 
-fn escape_sql(value: &str) -> String {
-    value.replace('\'', "''")
-}
 
-/// Phân loại POI theo OSM tags (giống hàm `classify` cũ).
-fn classify(tags: &Value) -> (i64, String) {
-    let t = |k: &str| tags.get(k).and_then(|v| v.as_str()).unwrap_or("");
-    let amenity = t("amenity");
-    let shop = t("shop");
-    let leisure = t("leisure");
-    let natural = t("natural");
-    let tourism = t("tourism");
-    let internet = t("internet_access");
-
-    if amenity == "library" {
-        return (3, "Thư viện công cộng (Auto-crawled)".to_string());
-    }
-    if shop == "books" || amenity == "bookshop" {
-        return (4, "Nhà sách (Auto-crawled)".to_string());
-    }
-    if amenity == "university" || amenity == "college" {
-        return (1, "Đại học / Cao đẳng (Auto-crawled)".to_string());
-    }
-    if amenity == "school" {
-        return (2, "Trường học (Auto-crawled)".to_string());
-    }
-    if amenity == "cafe" || amenity == "fast_food" || amenity == "restaurant" {
-        return (8, "Cà phê học tập (Auto-crawled)".to_string());
-    }
-    if leisure == "park" || leisure == "garden" || leisure == "nature_reserve" || natural == "wood" {
-        return (7, "Không gian xanh / Công viên (Auto-crawled)".to_string());
-    }
-    if amenity == "internet_cafe" || internet == "wlan" {
-        return (6, "Điểm WiFi công cộng (Auto-crawled)".to_string());
-    }
-    (8, "Địa điểm (Auto-crawled)".to_string())
-}
-
-fn overpass_mirrors() -> Vec<String> {
-    vec![
-        "https://overpass-api.de/api/interpreter".to_string(),
-        "https://overpass.kumi.systems/api/interpreter".to_string(),
-        "https://overpass.openstreetmap.ru/api/interpreter".to_string(),
-    ]
-}
-
-fn vietnam_regions() -> Vec<(&'static str, &'static str)> {
-    vec![
-        ("north", "20.5,102.0,23.5,106.5"),
-        ("north_central", "17.0,104.0,20.5,107.0"),
-        ("central", "14.0,105.0,17.0,109.0"),
-        ("south_central", "11.0,105.0,14.0,109.0"),
-        ("south", "8.0,104.0,11.5,107.5"),
-    ]
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 fn param_f64(v: &Value, key: &str, default: f64) -> f64 {
     v.get(key)
@@ -249,7 +184,8 @@ struct CrawlResult {
     message: String,
 }
 
-async fn overpass_get(client: &Client, url: &str) -> Result<Value, String> {
+/// HTTP GET (dùng cho OpenLibrary, book crawl).
+async fn http_get(client: &Client, url: &str) -> Result<Value, String> {
     let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
     let status = resp.status();
     let text = resp.text().await.map_err(|e| e.to_string())?;
@@ -259,261 +195,17 @@ async fn overpass_get(client: &Client, url: &str) -> Result<Value, String> {
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
-fn overpass_url(query: &str) -> String {
-    static IDX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let mirrors = overpass_mirrors();
-    let i = IDX.fetch_add(1, std::sync::atomic::Ordering::SeqCst) % mirrors.len();
-    let base = &mirrors[i];
-    format!("{base}?data={}", percent_encoding::utf8_percent_encode(
-        query,
-        percent_encoding::QUERY_COMPONENT_ENCODE_SET,
-    ))
-}
+// ---------------------------------------------------------------------------
+// Crawling (POI đã crawl vào DB -- chỉ còn OpenLibrary sách)
+// ---------------------------------------------------------------------------
 
-async fn crawl_overpass(
-    client: &Client,
-    pool: &DbPool,
-    query_fn: &dyn Fn(&str) -> String,
-    label: &str,
-) -> Result<i64, String> {
-    let mut added = 0;
-    for (region, bbox) in vietnam_regions() {
-        let url = overpass_url(&query_fn(bbox));
-        let body = match overpass_get(client, &url).await {
-            Ok(b) => b,
-            Err(e) => {
-                tracing::warn!("[{label}/{region}] Overpass lỗi: {e}; chuyển mirror");
-                continue;
-            }
-        };
-        let elements = body.get("elements").and_then(|e| e.as_array()).cloned().unwrap_or_default();
-        tracing::info!("[{label}/{region}] Tìm thấy {} phần tử", elements.len());
-        for el in elements {
-            let name = el.get("name")
-                .or_else(|| el.get("tags").and_then(|t| t.get("name:vi")))
-                .and_then(|x| x.as_str())
-                .unwrap_or("");
-            if name.is_empty() {
-                continue;
-            }
-            let lat = el.get("lat").and_then(|x| x.as_f64())
-                .or_else(|| el.get("center").and_then(|c| c.get("lat").and_then(|x| x.as_f64())));
-            let lng = el.get("lon").and_then(|x| x.as_f64())
-                .or_else(|| el.get("center").and_then(|c| c.get("lon").and_then(|x| x.as_f64())));
-            let (Some(lat), Some(lng)) = (lat, lng) else { continue };
-            let tags = el.get("tags").cloned().unwrap_or_default();
-            let (type_id, desc) = classify(&tags);
-            let address = tags.get("addr:street")
-                .and_then(|x| x.as_str())
-                .map(|st| {
-                    let num = tags.get("addr:housenumber").and_then(|x| x.as_str()).unwrap_or("");
-                    format!("{num} {st}").trim().to_string()
-                })
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "Đang cập nhật".to_string());
-            let city = tags.get("addr:city").and_then(|x| x.as_str()).unwrap_or(region).to_string();
-
-            // dedup
-            let exists = sqlx::query(DB_MAP_POINT_EXISTS)
-                .bind(name)
-                .bind(lng)
-                .bind(lat)
-                .fetch_optional(pool.db())
-                .await
-                .map_err(|e| format!("map_points lookup error: {e}"))?;
-            if exists.is_some() {
-                continue;
-            }
-            sqlx::query(DB_MAP_POINT_INSERT)
-                .bind(name)
-                .bind(desc)
-                .bind(type_id)
-                .bind(lng)
-                .bind(lat)
-                .bind(address)
-                .bind(&city)
-                .bind("")
-                .bind("")
-                .execute(pool.db())
-                .await
-                .map_err(|e| format!("map_points insert error: {e}"))?;
-            added += 1;
-        }
-    }
-    Ok(added)
-}
-
-async fn crawl_local(
-    client: &Client,
-    pool: &DbPool,
-    query: &str,
-    label: &str,
-    classify_fn: &dyn Fn(&Value) -> (i64, String),
-) -> Result<i64, String> {
-    let url = overpass_url(query);
-    let body = match overpass_get(client, &url).await {
-        Ok(b) => b,
-        Err(e) => return Err(format!("[{label}] {e}")),
-    };
-    let mut added = 0;
-    for el in body.get("elements").and_then(|e| e.as_array()).cloned().unwrap_or_default() {
-        let name = el.get("name").and_then(|x| x.as_str()).unwrap_or("");
-        if name.is_empty() {
-            continue;
-        }
-        let lat = el.get("lat").and_then(|x| x.as_f64())
-            .or_else(|| el.get("center").and_then(|c| c.get("lat").and_then(|x| x.as_f64())));
-        let lng = el.get("lon").and_then(|x| x.as_f64())
-            .or_else(|| el.get("center").and_then(|c| c.get("lon").and_then(|x| x.as_f64())));
-        let (Some(lat), Some(lng)) = (lat, lng) else { continue };
-        let tags = el.get("tags").cloned().unwrap_or_default();
-        let (type_id, desc) = classify_fn(&tags);
-
-        let exists = sqlx::query(DB_MAP_POINT_EXISTS)
-            .bind(name)
-            .bind(lng)
-            .bind(lat)
-            .fetch_optional(pool.db())
-            .await
-            .map_err(|e| e.to_string())?;
-        if exists.is_some() {
-            continue;
-        }
-        sqlx::query(DB_MAP_POINT_INSERT)
-            .bind(name)
-            .bind(desc)
-            .bind(type_id)
-            .bind(lng)
-            .bind(lat)
-            .bind("Đang cập nhật")
-            .bind("Biên Hòa")
-            .bind("")
-            .bind("")
-            .execute(pool.db())
-            .await
-            .map_err(|e| e.to_string())?;
-        added += 1;
-    }
-    Ok(added)
-}
-
-async fn crawl_nationwide(client: &Client, pool: &DbPool) -> Result<CrawlResult, String> {
-    let mut added = 0;
-    let r1 = crawl_overpass(
-        client,
-        pool,
-        &|bbox| {
-            format!(
-                r#"[out:json][timeout:180];
-        (
-          node["amenity"~"school|library|university|kindergarten|college|hospital|clinic|pharmacy|doctors|dentist"]({bbox});
-          way["amenity"~"school|library|university|kindergarten|college|hospital|clinic|pharmacy|doctors|dentist"]({bbox});
-        );
-        out center;"#,
-                bbox = escape_sql(bbox)
-            )
-        },
-        "education_health",
-    )
-    .await?;
-    added += r1;
-    let r2 = crawl_overpass(
-        client,
-        pool,
-        &|bbox| {
-            format!(
-                r#"[out:json][timeout:180];
-        (
-          node["amenity"~"restaurant|cafe|fast_food|bar|pub|internet_cafe"]({bbox});
-          way["amenity"~"restaurant|cafe|fast_food|bar|pub|internet_cafe"]({bbox});
-          node["shop"]({bbox});
-          way["shop"]({bbox});
-          node["internet_access"="wlan"]({bbox});
-        );
-        out center;"#,
-                bbox = escape_sql(bbox)
-            )
-        },
-        "food_shops_wifi",
-    )
-    .await?;
-    added += r2;
-    let r3 = crawl_overpass(
-        client,
-        pool,
-        &|bbox| {
-            format!(
-                r#"[out:json][timeout:180];
-        (
-          node["tourism"~"hotel|hostel|guest_house|motel|attraction|museum|zoo|camp_site|viewpoint"]({bbox});
-          way["tourism"~"hotel|hostel|guest_house|motel|attraction|museum|zoo|camp_site|viewpoint"]({bbox});
-          node["leisure"~"park|garden|nature_reserve|water_park|stadium|sports_centre"]({bbox});
-          way["leisure"~"park|garden|nature_reserve|water_park|stadium|sports_centre"]({bbox});
-          node["natural"~"wood|tree_row"]({bbox});
-        );
-        out center;"#,
-                bbox = escape_sql(bbox)
-            )
-        },
-        "tourism_green",
-    )
-    .await?;
-    added += r3;
-    Ok(CrawlResult {
+/// Crawl rỗng: POI đã crawl vào DB, chỉ để báo cáo lịch sử.
+async fn crawl_no_op(_client: &Client, _pool: &DbPool) -> CrawlResult {
+    CrawlResult {
         success: true,
-        added,
-        message: format!("Đã quét toàn quốc. +{added} POIs mới."),
-    })
-}
-
-async fn crawl_wifi(
-    client: &Client,
-    pool: &DbPool,
-    lat: f64,
-    lng: f64,
-    radius: i64,
-) -> Result<CrawlResult, String> {
-    let q = format!(
-        r#"[out:json];(node["internet_access"="wlan"](around:{radius},{lat},{lng});node["amenity"="internet_cafe"](around:{radius},{lat},{lng}););out body;"#
-    );
-    let added = crawl_local(client, pool, &q, "wifi", &|_| (6, "Điểm WiFi công cộng (Auto-crawled)".to_string())).await?;
-    Ok(CrawlResult { success: true, added, message: format!("Đã thêm {added} WiFi location mới.") })
-}
-
-async fn crawl_schools(
-    client: &Client,
-    pool: &DbPool,
-    lat: f64,
-    lng: f64,
-    radius: i64,
-) -> Result<CrawlResult, String> {
-    let q = format!(
-        r#"[out:json];(node["amenity"="school"](around:{radius},{lat},{lng});node["amenity"="university"](around:{radius},{lat},{lng});node["amenity"="college"](around:{radius},{lat},{lng}););out body;"#
-    );
-    let added = crawl_local(client, pool, &q, "schools", &|t| {
-        let a = t.get("amenity").and_then(|x| x.as_str()).unwrap_or("");
-        if a == "university" || a == "college" {
-            (1, "Đại học / Cao đẳng (Auto-crawled)".to_string())
-        } else {
-            (2, "Trường học (Auto-crawled)".to_string())
-        }
-    })
-    .await?;
-    Ok(CrawlResult { success: true, added, message: format!("Đã thêm {added} trường học mới.") })
-}
-
-async fn crawl_green(
-    client: &Client,
-    pool: &DbPool,
-    lat: f64,
-    lng: f64,
-    radius: i64,
-) -> Result<CrawlResult, String> {
-    let q = format!(
-        r#"[out:json];(way["leisure"="park"](around:{radius},{lat},{lng});way["landuse"="grass"](around:{radius},{lat},{lng});way["natural"="wood"](around:{radius},{lat},{lng}););out center body;"#
-    );
-    let added = crawl_local(client, pool, &q, "green", &|_| (7, "Không gian xanh / Công viên (Auto-crawled)".to_string())).await?;
-    Ok(CrawlResult { success: true, added, message: format!("Đã thêm {added} không gian xanh mới.") })
+        added: 0,
+        message: "Quét OSM bị thu hồi — POI đã crawl trong DB".to_string(),
+    }
 }
 
 async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64) -> Result<CrawlResult, String> {
@@ -522,7 +214,7 @@ async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64
         percent_encoding::utf8_percent_encode(&keyword, percent_encoding::QUERY_COMPONENT_ENCODE_SET),
         limit
     );
-    let body = overpass_get(client, &url).await.map_err(|e| format!("OpenLibrary error: {e}"))?;
+    let body = http_get(client, &url).await.map_err(|e| format!("OpenLibrary error: {e}"))?;
     let docs = body.get("docs").and_then(|d| d.as_array()).cloned().unwrap_or_default();
     let mut added = 0;
     for doc in docs {
@@ -621,25 +313,11 @@ pub async fn trigger_crawl(
     let params = body.params.clone().unwrap_or_default();
     let client = client();
     let result: Result<CrawlResult, String> = match body.type_.as_str() {
-        "map" => crawl_nationwide(&client, &pool).await,
-        "wifi" => {
-            let lat = param_f64(&params, "lat", 10.98818);
-            let lng = param_f64(&params, "lng", 106.85551);
-            let radius = params.get("radius").and_then(|x| x.as_i64()).unwrap_or(5000);
-            crawl_wifi(&client, &pool, lat, lng, radius).await
-        }
-        "schools" => {
-            let lat = param_f64(&params, "lat", 10.98818);
-            let lng = param_f64(&params, "lng", 106.85551);
-            let radius = params.get("radius").and_then(|x| x.as_i64()).unwrap_or(5000);
-            crawl_schools(&client, &pool, lat, lng, radius).await
-        }
-        "green_spaces" => {
-            let lat = param_f64(&params, "lat", 10.98818);
-            let lng = param_f64(&params, "lng", 106.85551);
-            let radius = params.get("radius").and_then(|x| x.as_i64()).unwrap_or(5000);
-            crawl_green(&client, &pool, lat, lng, radius).await
-        }
+        // map/wifi/schools/green_spaces: OSM bị thu hồi — POI đã crawl trong DB
+        "map" => Ok(crawl_no_op(&client, &pool)),
+        "wifi" => Ok(crawl_no_op(&client, &pool)),
+        "schools" => Ok(crawl_no_op(&client, &pool)),
+        "green_spaces" => Ok(crawl_no_op(&client, &pool)),
         "books" => {
             let keyword = param_str(&params, "keyword").unwrap_or_else(|| "computer science".to_string());
             let limit = params.get("limit").and_then(|x| x.as_i64()).unwrap_or(20);
@@ -651,10 +329,10 @@ pub async fn trigger_crawl(
             let mut ok = true;
             for t in ["map", "books"] {
                 let (success, added, message) = match t {
-                    "map" => match crawl_nationwide(&client, &pool).await {
-                        Ok(r) => (true, r.added, r.message),
-                        Err(e) => { ok = false; (false, 0, e) },
-                    },
+                    "map" => {
+                        let r = crawl_no_op(&client, &pool);
+                        (r.success, r.added, r.message)
+                    }
                     "books" => match crawl_books(&client, &pool, "computer science".to_string(), 20).await {
                         Ok(r) => (true, r.added, r.message),
                         Err(e) => { ok = false; (false, 0, e) },

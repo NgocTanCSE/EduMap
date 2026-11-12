@@ -472,7 +472,7 @@ children.push(
   dash('Tầng Giao diện (Screens)', 'HomeScreen, MapScreen (bản đồ GIS), ChatScreen (trợ lý ảo AI), InternshipScreen, ScholarshipScreen, ProfileScreen, CareerScreen và WifiScreen.'),
   dash('Tầng Trạng thái Dùng chung (Context Layer)', 'AuthContext (quản lý token đăng nhập), LocationContext (tọa độ GPS người dùng) và ThemeContext (giao diện tối Dark Mode).'),
   dash('Tầng Dịch vụ Khách (Client Services)', 'ApiService (RESTful client kèm Bearer Token), SecureStoreService (lưu trữ an toàn trong Keychain/Keystore), OfflineCacheManager và LocationManager.'),
-  dash('Tầng Cầu nối Hạ tầng (Bridges & Infrastructure)', 'Kết nối phần cứng GPS thiết bị, máy chủ bản đồ nền OSM Tiles và hệ thống Backend/AI Service.'),
+  dash('Tầng Cầu nối Hạ tầng (Bridges & Infrastructure)', 'Kết nối phần cứng GPS thiết bị, máy chủ bản đồ nền CARTO basemaps và hệ thống Backend/AI Service.'),
   createSizedImage('UML_mobile-app-architecture.png', 570, 480),
   figCaption('Hình 2.5', 'Sơ đồ Kiến trúc Thành phần Ứng dụng Di động React Native')
 );

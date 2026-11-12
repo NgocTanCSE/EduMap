@@ -110,11 +110,9 @@ class VectorStoreService:
 
 
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
-
-            print("WARNING: Vector store without any embedding API — RAG semantic search is unstable (set GEMINI_API_KEY or CLOUDFLARE_API_TOKEN).")
-        if self.has_gemini_api:
-            print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
-
+        if not self.has_gemini_api:
+            print("WARNING: Vector store without any embedding API — RAG semantic search is unstable (set GEMINI_API_KEY).")
+        print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
 
         print(
             f"INFO: Embedding budget: global={self.embed_global_timeout}s, "
@@ -226,12 +224,8 @@ class VectorStoreService:
 
     @property
     def has_embedding(self) -> bool:
-        """True when an embedding API (Gemini / Cloudflare) is configured.
-
-        The local SentenceTransformer fallback was removed — only external
-        embedding APIs produce vector data now.
-        """
-        return bool(getattr(self, "has_api", False))
+        """True when Gemini embedding API is configured (the only provider now)."""
+        return bool(getattr(self, "has_gemini_api", False))
 
     _EMBED_MODEL_NOT_FOUND_REASONS = (
         "not found", "not supported", "no longer available",
@@ -420,7 +414,7 @@ class VectorStoreService:
 
 
         if not self.has_embedding:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (primary), CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.")
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (chỉ 1 nhà cung cấp ngay bây giờ).")
         if not text:
             return []
 
@@ -449,160 +443,11 @@ class VectorStoreService:
 
 
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
-        cf_last_err = None
         gemini_last_err = None
-
-
-        if self.has_cf_api and time.monotonic() >= self._cf_embed_down_until:
-            cf_last_err = None
-            cf_network_down = False
-            if self.cf_gateway_enabled and self.cf_gateway_id and self.cf_account_id:
-                base_url = f"https://gateway.ai.cloudflare.com/v1/{self.cf_account_id}/{self.cf_gateway_id}/ai/run"
-                print(f"[Embed] Using Cloudflare AI Gateway: gateway_id={self.cf_gateway_id}")
-            else:
-                base_url = f"https://api.cloudflare.com/client/v4/accounts/{self.cf_account_id}/ai/run"
-            per_model_retries = 0
-
-
-            _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
-
-            for model in self.embed_models:
-                if self._embed_remaining(_embed_start) <= 0.5:
-                    print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, stopping Cloudflare embed attempts"); break
-                _cf_embed_timeout = self._embed_attempt_timeout(_embed_start)
-
-
-                encoded_model = urllib.parse.quote(model, safe='/')
-                url = f"{base_url}/{encoded_model}"
-                payload = json.dumps({"text": text}).encode("utf-8")
-                attempt = 0
-                while True:
-                    attempt += 1
-                    data = None
-                    try:
-
-
-                        _curl = subprocess.run(
-                            ["curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                             "-H", f"Authorization: Bearer {self.cf_api_token}",
-                             "-H", "Content-Type: application/json",
-                             "-d", payload.decode("utf-8"),
-                             "--connect-timeout", "4",
-                             "--max-time", str(_cf_embed_timeout), url],
-                            capture_output=True, text=True, timeout=_cf_embed_timeout + 2,
-                        )
-                        if _curl.returncode == 0 and _curl.stdout.strip():
-                            data = json.loads(_curl.stdout)
-                        else:
-                            _msg = (_curl.stderr or "").strip()[:200] or f"curl exit {_curl.returncode}"
-                            _stdout = (_curl.stdout or "").strip()
-                            if _stdout:
-                                try:
-                                    _partial = json.loads(_stdout)
-                                    if isinstance(_partial, dict):
-                                        if "error" in _partial:
-                                            _eno = _partial["error"]
-                                            if isinstance(_eno, dict):
-                                                _msg = f"{_msg} | body: {str(_eno.get('message', _stdout[:120]))[:120]}"
-                                            else:
-                                                _msg = f"{_msg} | body: {str(_eno)[:120]}"
-                                        _perr = _partial.get("errors", [])
-                                        if isinstance(_perr, list) and _perr:
-                                            _perr0 = _perr[0] if isinstance(_perr[0], dict) else {"message": str(_perr[0])}
-                                            if isinstance(_perr0, dict):
-                                                _msg = f"{_msg} | errors: {str(_perr0.get('message', _stdout[:120]))[:120]}"
-                                except Exception:
-                                    pass
-                            raise urllib.error.URLError(_msg)
-                    except FileNotFoundError:
-                        print("  curl not found, falling back to urllib.request")
-                        req = urllib.request.Request(
-                            url, data=payload,
-                            headers={"Authorization": f"Bearer {self.cf_api_token}", "Content-Type": "application/json"},
-                            method="POST",
-                        )
-                        _urllib_data = None
-                        _urllib_err = None
-                        try:
-                            with urllib.request.urlopen(req, timeout=_cf_embed_timeout) as resp:
-                                _urllib_data = json.loads(resp.read().decode("utf-8"))
-                        except urllib.error.HTTPError as e:
-                            _body = e.read().decode("utf-8", "ignore")[:300]
-                            _low = _body.lower()
-                            if e.code in (404, 410) or any(r in _low for r in ("not found", "not supported", "no longer available", "model not found", "could not find", "deprecated", "does not exist")):
-                                cf_last_err = f"{model}: HTTP {e.code} {_body[:120]}"; print(f"Cloudflare embed model {model} khong kha dung, thu model ke tiep..."); break
-                            if e.code in (401, 403):
-                                raise RuntimeError(f"Cloudflare embed auth loi (HTTP {e.code}): {_body[:200]}")
-                            if e.code == 429:
-                                cf_last_err = f"{model}: HTTP 429 {_body[:80]}"; print(f"Cloudflare embed model {model} bi rate-limit (429), thu model ke tiep..."); break
-                            if e.code in (502, 503, 504) and attempt <= per_model_retries:
-                                cf_last_err = f"{model}: HTTP {e.code} {_body[:80]}"; print(f"Cloudflare embed model {model} {e.code} (tam thai), retry {attempt}/{per_model_retries}..."); time.sleep(2.0); continue
-                            cf_last_err = f"{model}: HTTP {e.code} {_body[:80]}"; print(f"Cloudflare embed model {model} {e.code}, thu model ke tiep..."); break
-                        except Exception as e2:
-                            if attempt <= per_model_retries:
-                                cf_last_err = f"{model}: {e2}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); time.sleep(1.5); continue
-                            cf_last_err = f"{model}: {e2}"; print(f"Loi ket noi embed {model}, tam ngung Cloudflare 5 phut.")
-                            self._cf_embed_down_until = time.monotonic() + 300
-                            cf_network_down = True
-                            break
-                        data = _urllib_data
-                    except Exception as e:
-                        if attempt <= per_model_retries:
-                            cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, retry {attempt}/{per_model_retries}..."); time.sleep(1.5); continue
-                        cf_last_err = f"{model}: {e}"; print(f"Loi ket noi embed {model}, tam ngung Cloudflare 5 phut.")
-                        self._cf_embed_down_until = time.monotonic() + 300
-                        cf_network_down = True
-                        break
-
-
-                    if isinstance(data, dict) and data.get("success") is False:
-                        errors = data.get("errors", [])
-                        if isinstance(errors, list) and len(errors) > 0:
-                            err = errors[0] if isinstance(errors[0], dict) else {"message": str(errors[0])}
-                            code = err.get("code", 0)
-                            msg = err.get("message", "")
-                            if self._is_embed_model_not_found(code, msg):
-                                cf_last_err = f"{model}: {msg[:120]}"; print(f"Cloudflare embed model {model} khong kha dung, thu model ke tiep..."); break
-                            if code == 429:
-                                cf_last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare embed model {model} bi rate-limit (429), thu model ke tiep..."); break
-                            cf_last_err = f"{model}: {msg[:80]}"; print(f"Cloudflare embed model {model} {code}, thu model ke tiep..."); break
-
-                    result = data.get("result", {}) if isinstance(data, dict) else {}
-                    vec = None
-                    if isinstance(result, dict):
-                        data_list = result.get("data")
-                        if isinstance(data_list, list) and len(data_list) > 0:
-                            item = data_list[0]
-                            if isinstance(item, dict):
-                                vec = item.get("embedding")
-                            elif isinstance(item, list):
-                                vec = item
-                        if vec is None:
-                            vec = result.get("embedding") or result.get("values")
-                    elif isinstance(result, list) and len(result) > 0:
-                        vec = result[0] if isinstance(result[0], list) else result
-
-                    if vec:
-                        vec = [float(x) for x in vec]
-
-
-                        if self._embed_dim and len(vec) != self._embed_dim:
-                            cf_last_err = f"{model}: dim {len(vec)} != da pin {self._embed_dim}"
-                            print(f"Cloudflare embed model {model} tra ve dim {len(vec)} khac collection ({self._embed_dim}), bo qua..."); break
-                        self._embed_dim = len(vec)
-                        self._store_embed_cache(_cache_key, vec)
-                        return vec
-                    cf_last_err = f"{model}: response khong co gia tri embedding"
-                    break
-
-                if cf_network_down:
-                    print("  [embed] Cloudflare network unreachable, skipping remaining models")
-                    break
-
 
         if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
             if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini fallback")
+                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini")
             else:
                 try:
                     vec = self._gemini_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
@@ -624,7 +469,6 @@ class VectorStoreService:
 
         raise RuntimeError(
             f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
-            f"Cloudflare: {cf_last_err or ('khong cau hinh' if not self.has_cf_api else 'khong kha dung')}, "
             f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}"
         )
 
@@ -748,7 +592,7 @@ class VectorStoreService:
             (``query_embeddings``) and merge results weighted by
             ``hybrid_alpha`` (vector weight; ``1 - alpha`` is keyword weight).
             Falls back to pure keyword-only search when no embedding provider
-            is configured (``has_api`` is False).
+            is configured (``has_gemini_api`` is False).
         hybrid_alpha : float
             Weight for semantic results in the merged ranking. 0.0 = pure
             keyword, 1.0 = pure semantic. Defaults to 0.7 (semantic-leaning).

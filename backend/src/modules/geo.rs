@@ -5,8 +5,8 @@
 //! `geo-vision.service.ts`. Cả hai endpoint đều công khai (old controller
 //! không có guard) và `@SkipThrottle()` — không áp dụng throttle ở đây.
 //!
-//! - `GET /api/geo/satellite-tiles?bbox=&zoom=&source=` — lấy mảnh tile (OSM/
-//!   Esri/Bing), ghép thành một PNG và trả về base64. Kết quả được cache trong
+//! - `GET /api/geo/satellite-tiles?bbox=&zoom=&source=` — lấy mảnh tile (Esri/Bing),
+//!   ghép thành một PNG và trả về base64. Kết quả được cache trong
 //!   bộ nhớ 24h (giống `tileCache` cũ, tối đa 64 entry).
 //! - `POST /api/geo/vision-detect` — gửi ảnh ghép vào mô hình vision trên
 //!   ai-service (`/api/ai/geo/vision-detect`), đánh dấu các phát hiện trùng/
@@ -185,10 +185,8 @@ fn tile_url(x: i64, y: i64, z: i64, source: &str, bing_key: Option<&str>) -> Str
             }
         }
         "esri" => format!("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
-        _ => {
-            let sub = "abcdefghijklmnopqrstuvwxyz"[(x + y + z) as usize % 3];
-            format!("https://{sub}.tile.openstreetmap.org/{z}/{x}/{y}.png")
-        }
+        // mặc định (esri satellite — ảnh vệ tinh, không phải OSM):
+        _ => format!("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
     }
 }
 
@@ -448,7 +446,7 @@ pub async fn get_satellite_tiles(
         )));
     }
     let zoom = q.zoom.unwrap_or(18);
-    let source = q.source.as_deref().unwrap_or("osm");
+    let source = q.source.as_deref().unwrap_or("esri");
 
     let data = fetch_and_stitch_tiles(&q.bbox, zoom, source).await?;
 
@@ -482,7 +480,7 @@ pub async fn vision_detect(
         )));
     }
     let zoom = body.zoom.unwrap_or(18);
-    let source = body.source.as_deref().unwrap_or("osm");
+    let source = body.source.as_deref().unwrap_or("esri");
 
     let bounds = parse_bbox(&body.bbox)?;
     let tile_data = fetch_and_stitch_tiles(&body.bbox, zoom, source).await?;

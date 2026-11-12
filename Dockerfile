@@ -215,7 +215,6 @@ ENV OSRM_PORT=5000
 ENV REDIS_HOST=127.0.0.1
 ENV STORAGE_DIR=/app/uploads
 ENV CLOUDFLARE_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8,@cf/google/gemma-7b-it-lora,@cf/mistralai/mistral-small-3.1-24b-instruct
-ENV CLOUDFLARE_EMBEDDING_MODEL=@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b
 ENV GEMINI_MODEL=gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest
 ENV GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 ENV ANONYMIZED_TELEMETRY=False

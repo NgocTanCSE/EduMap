@@ -1,27 +1,50 @@
-export const OVERPASS_ENDPOINTS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-];
-export const DEFAULT_BBOX = { minLat: 10.8, maxLat: 11.2, minLng: 106.5, maxLng: 107.0 };
-export const CAT_SELECTORS: Record<string, Array<[
-    string,
-    string
-]>> = {
-    university: [['amenity', '^(university|college|polytechnic)$'], ['building', '^(university|college)$']],
-    school: [['amenity', '^school$'], ['building', '^school$']],
-    library: [['amenity', '^library$']],
-    wifi: [['amenity', '^wifi$'], ['wifi', '^yes$'], ['access:wifi', '^yes$']],
-    cafe: [['amenity', '^cafe$'], ['shop', '^(cafe|coffee)$']],
-    restaurant: [['amenity', '^(restaurant|fast_food)$']],
-    market: [['shop', '^supermarket$']],
-    convenience: [['shop', '^convenience$']],
-    green: [['leisure', '^(park|garden|common)$'], ['natural', '^(wood|grassland|wetland)$'], ['landuse', '^(forest|meadow|grass)$']],
-    park: [['leisure', '^(park|garden|common)$']],
-};
+/** Cấu hình bản đồ nền (base tile) + hằng số bản đồ.
+
+Các điểm vị trí (POI) của bản đồ đến từ backend (bảng `map_points`):
+- `/api/map/pois` → `GET /map/pois` trả về dữ liệu đã crawl vào DB.
+- `/api/map/categories` → danh mục tìm kiếm.
+
+Chỉ dùng biến môi trường `NEXT_PUBLIC_CARTO_API_KEY` (CARTO API key,
+free tier 5M requests/tháng). Cần lấy tại https://carto.com/basemaps/apikey/
+sau đó set biến môi trường tại Vercel (Deployment → Settings → Environment
+Variables) hoặc ở seed-file `.env.local` cho local dev.
+
+Bất kỳ `TileLayer` nào cũng phải dùng `getTileUrl()` + `getTileAttribution()`;
+tuyệt đối không hardcode URL tile khác (bản đồ đều dùng `MapComponent` ở
+`components/ui/MapComponent.tsx` và `app/map/page.tsx`).
+*/
+
+/** Styles hiện màu, đầy đủ nhãn (như Google Maps). */
+export const MAP_TILE_STYLE = 'voyager';
+
+/** Subdomain CARTO hỗ trợ cho Leaflet. */
+export const MAP_TILE_SUBDOMAINS: string = 'abcd';
+
+/** Trả về URL truy cập base tile theo chuẩn CARTO basemaps API. */
+export function getTileUrl(): string {
+    const key = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+    if (key) {
+        // r = @2x retina, `key` là tham số query của CARTO basemaps API.
+        return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}{r}.png?key=${key}`;
+    }
+    // Không có key: CARTO trả về tile + ghi chú "API key required".
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/${MAP_TILE_STYLE}/{z}/{x}/{y}.png`;
+}
+
+/** Trả lời bản quyền: CARTO basemaps. */
+export function getTileAttribution(): string {
+    return '© <a href="https://carto.com/attribution/">CARTO</a> contributors';
+}
+
+/** Danh mục chuyên biệt hóa bản đồ (giá trị mặc định khi backend chưa sẵn có). */
 export const DEFAULT_CATEGORIES = [
     'university', 'school', 'library', 'wifi', 'cafe',
     'restaurant', 'park', 'green', 'market', 'convenience',
 ];
+
+/** bounding box mặc định (Biên Hòa) khi các tham số bbox không có trên URL. */
+export const DEFAULT_BBOX = { minLat: 10.8, maxLat: 11.2, minLng: 106.5, maxLng: 107.0 };
+
 export function bboxFromParams(sp: URLSearchParams) {
     const minLat = sp.get('minLat');
     const maxLat = sp.get('maxLat');
@@ -31,156 +54,4 @@ export function bboxFromParams(sp: URLSearchParams) {
         return { minLat: +minLat, maxLat: +maxLat, minLng: +minLng, maxLng: +maxLng };
     }
     return DEFAULT_BBOX;
-}
-export function selectorsForCategory(cat: string | null): Array<[
-    string,
-    string
-]> {
-    if (cat && cat !== 'all' && CAT_SELECTORS[cat])
-        return CAT_SELECTORS[cat];
-    return DEFAULT_CATEGORIES.flatMap((c) => CAT_SELECTORS[c]);
-}
-export function buildQl(south: number, west: number, north: number, east: number, selectors: Array<[
-    string,
-    string
-]>): string {
-    const blocks: string[] = ['[out:json][timeout:20];', '('];
-    const seen = new Set<string>();
-    for (const [k, regex] of selectors) {
-        const key = `${k}|${regex}`;
-        if (seen.has(key))
-            continue;
-        seen.add(key);
-        blocks.push(`node["${k}"~"${regex}"](${south},${west},${north},${east});`);
-    }
-    blocks.push(');out center;');
-    return blocks.join('\n');
-}
-export function deriveCategory(tags: Record<string, string | undefined>): string {
-    const a = tags.amenity, b = tags.building, s = tags.shop;
-    const l = tags.leisure, n = tags.natural, lu = tags.landuse;
-    const w = tags.wifi, aw = tags['access:wifi'];
-    if (a === 'university' || a === 'college' || a === 'polytechnic' || b === 'university' || b === 'college')
-        return 'university';
-    if (a === 'school' || b === 'school')
-        return 'school';
-    if (a === 'library')
-        return 'library';
-    if (a === 'wifi' || w === 'yes' || aw === 'yes')
-        return 'wifi';
-    if (a === 'cafe' || s === 'cafe' || s === 'coffee')
-        return 'cafe';
-    if (a === 'restaurant' || a === 'fast_food')
-        return 'restaurant';
-    if (a === 'supermarket' || s === 'supermarket')
-        return 'market';
-    if (s === 'convenience')
-        return 'convenience';
-    if (l === 'park' || l === 'garden' || l === 'common')
-        return 'park';
-    if (n === 'wood' || n === 'grassland' || n === 'wetland' || lu === 'forest' || lu === 'meadow' || lu === 'grass')
-        return 'green';
-    return 'school';
-}
-export function addressOf(tags: Record<string, string | undefined>): string | undefined {
-    if (tags['addr:full'])
-        return tags['addr:full'];
-    const parts = [tags['addr:housenumber'], tags['addr:street'], tags['addr:city'], tags['addr:postcode']].filter(Boolean);
-    return parts.length ? parts.join(' ') : tags['addr:city'];
-}
-export interface PoiAmenity {
-    label: string;
-    icon: string;
-}
-export interface PoiLocation {
-    id: string;
-    name: string;
-    address?: string;
-    description?: string;
-    category: string;
-    lat: number;
-    lng: number;
-    amenities?: PoiAmenity[];
-}
-export function elToLocation(el: any): PoiLocation | null {
-    const tags = (el && el.tags) || {};
-    const isNode = el.type === 'node';
-    const lat = isNode ? el.lat : el.center?.lat;
-    const lng = isNode ? el.lon : el.center?.lon;
-    if (typeof lat !== 'number' || typeof lng !== 'number')
-        return null;
-    const name = tags.name || tags['name:en'] || tags['name:vi'] || null;
-    const amenities: PoiAmenity[] = [];
-    if (tags.wifi === 'yes' || tags['access:wifi'] === 'yes')
-        amenities.push({ label: 'Wifi', icon: 'wifi' });
-    if (tags.parking)
-        amenities.push({ label: 'Đậu xe', icon: 'parking' });
-    if (tags.toilets === 'yes')
-        amenities.push({ label: 'WC', icon: 'toilets' });
-    if (tags.wheelchair === 'yes')
-        amenities.push({ label: 'Tiếp cận', icon: 'wheelchair' });
-    if (tags.opening_hours)
-        amenities.push({ label: tags.opening_hours, icon: 'hours' });
-    return {
-        id: `osm:${el.type}:${el.id}`,
-        name: name || 'Địa điểm',
-        address: addressOf(tags) || undefined,
-        description: typeof tags.description === 'string' ? tags.description : undefined,
-        category: deriveCategory(tags),
-        lat,
-        lng,
-        amenities: amenities.length ? amenities : undefined,
-    };
-}
-const CACHE_TTL_MS = 60000;
-const CACHE_MAX = 80;
-const cache = new Map<string, {
-    data: any;
-    ts: number;
-}>();
-export async function fetchFromOverpassCached(ql: string, cacheKey: string) {
-    const now = Date.now();
-    const hit = cache.get(cacheKey);
-    if (hit && now - hit.ts < CACHE_TTL_MS)
-        return hit.data;
-    const data = await fetchFromOverpass(ql);
-    cache.set(cacheKey, { data, ts: now });
-    if (cache.size > CACHE_MAX) {
-        const oldest = cache.entries().next().value;
-        if (oldest)
-            cache.delete(oldest[0]);
-    }
-    return data;
-}
-export async function fetchFromOverpass(ql: string) {
-    let lastErr: any;
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-        const ac = new AbortController();
-        const to = setTimeout(() => ac.abort(), 15000);
-        try {
-            const url = new URL(endpoint);
-            url.searchParams.set('data', ql);
-            const res = await fetch(url.toString(), {
-                method: 'GET',
-                headers: { Accept: 'application/json', 'User-Agent': 'EduMap-BFF/1.0 (openstreetmap)' },
-                signal: ac.signal,
-                next: { revalidate: 0 },
-            });
-            if (!res.ok) {
-                lastErr = new Error(`overpass ${res.status} from ${endpoint}`);
-                continue;
-            }
-            const raw: any = await res.json();
-            if (raw?.elements)
-                return raw;
-            lastErr = new Error(`overpass no elements from ${endpoint}`);
-        }
-        catch (e: any) {
-            lastErr = e;
-        }
-        finally {
-            clearTimeout(to);
-        }
-    }
-    throw lastErr;
 }

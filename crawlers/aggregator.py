@@ -12,7 +12,7 @@ from green_spaces_crawler import GreenSpacesCrawler
 from books_crawler import BooksCrawler
 from schools_crawler import SchoolsCrawler
 from open_data_crawler import OpenDataCrawler
-from overpass_crawler import OverpassCrawler
+from tavily_crawler import TavilyCrawler
 
 class DataAggregator:
     """Master aggregator để kết hợp tất cả dữ liệu crawled"""
@@ -23,11 +23,11 @@ class DataAggregator:
         Path(self.output_dir).mkdir(exist_ok=True)
 
     def run_all_crawlers(self) -> Dict:
-        """Run nationwide crawl using Overpass + native crawlers."""
+        """Run nationwide crawl using Tavily POI + native crawlers."""
         print("[START] Nationwide Data Aggregation for EduMap...\n")
 
-        print("[1/4] Nationwide Overpass Crawl...")
-        overpass = OverpassCrawler()
+        print("[1/4] Nationwide Tavily POI Crawl...")
+        overpass = TavilyCrawler()
         nationwide_locations = overpass.crawl_vietnam()
 
         print("\n[2/4] Native Crawlers (Dong Nai)...")
@@ -50,8 +50,8 @@ class DataAggregator:
         print("\n[3/4] Merging data...")
         all_locations = list(nationwide_locations)
         for loc in all_locations:
-            loc["source"] = "osm"
-        print(f"  OSM nationwide: {len(all_locations)}")
+            loc["source"] = "tavily"
+        print(f"  Tavily nationwide: {len(all_locations)}")
 
         for loc in wifi_data["locations"]:
             loc["source"] = "native_wifi"
@@ -95,7 +95,7 @@ class DataAggregator:
         sql_content = f"""-- EduMap Consolidated Crawled Data Seed (Nationwide)
 -- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 -- Total POI: {len(all_locations)}
--- Sources: OSM Overpass (nationwide), Native crawlers (Dong Nai)
+-- Sources: Tavily POI (nationwide), Native crawlers (Dong Nai)
 """
 
         sql_content += f"-- ============================================\n"

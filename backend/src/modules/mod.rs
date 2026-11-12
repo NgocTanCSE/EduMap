@@ -127,8 +127,8 @@ pub mod wifi;
 /// giáo dục (`education_stats`).
 pub mod analytics;
 
-/// Crawler: quy trình crawl bản đồ qua Overpass (POI, WiFi, trường học, không
-/// gian xanh) và OpenLibrary (sách).
+/// Crawler: quy trình crawl dữ liệu (WiFi, trường học, không gian xanh) và
+/// OpenLibrary (sách) vào DB.
 pub mod crawler;
 
 /// Dashboard: tổng quan cá nhân, lời khuyên AI mỗi ngày, lịch sử đăng ký/ứng

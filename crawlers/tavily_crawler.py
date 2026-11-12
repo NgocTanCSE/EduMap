@@ -37,19 +37,17 @@ def _respect_rate_limit(last_ts: float, min_delay: float = 1.0) -> float:
     return time.time()
 
 
-class OverpassCrawler:
-    """Nationwide Vietnam crawler — **Tavily-based** (Overpass API is blocked on host).
-
-    The class name ``OverpassCrawler`` is preserved for backward compatibility
-    with ``crawlers/aggregator.py`` which imports it.  Internally it delegates
-    to ``TavilyPoiClient`` which uses the Tavily Search + Extract API
-    (https://api.tavily.com — reachable from host egress).
+class TavilyCrawler:
+    """Nationwide Vietnam crawler — **Tavily-based** (API duy nhất gọi đến Tavily,
+    không gọi bất kỳ URL OSM/Overpass nào).
+    Giao diện cũ `OverpassCrawler` (alias cuối file) được giữ lại cho khả năng
+    tương thích ngược.
     """
 
     def __init__(self, proxy_url: str = None):
         self._client = TavilyPoiClient()
         self._last_ts = 0.0
-        print(f"  [overpass→tavily] TavilyPoiClient ready "
+        print(f"  [crawler] TavilyPoiClient ready "
               f"(configured={self._client.client.is_configured()})")
 
     def _get_url(self) -> str:
@@ -117,8 +115,7 @@ class OverpassCrawler:
     def crawl_vietnam(self) -> List[Dict[str, Any]]:
         """Crawl all of Vietnam by regions, walking the location expansion
         (Đồng Nai → miền Nam → southern → central → northern).
-
-        Uses Tavily Search + Extract (Overpass API is blocked on host).
+        Tất cả dữ liệu đến từ Tavily Search + Extract (không gọi API của OSM).
         """
         all_locations = []
         print(f"  [scope] crawl_years={_CRAWL_YEARS} | scope_order={SCOPE_ORDER}")

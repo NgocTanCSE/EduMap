@@ -8,13 +8,12 @@ import { unwrapApiResponse } from "@/src/lib/api-utils";
 import { MapContainer, TileLayer, GeoJSON, Marker, Popup, Rectangle, useMap, } from "react-leaflet";
 import L from "leaflet";
 import type { ToolPanelProps, ToolOverlayProps } from "./types";
-type TileSource = "osm" | "esri" | "bing";
+type TileSource = "esri" | "bing";
 const TILE_SOURCES: {
     value: TileSource;
     label: string;
     desc: string;
 }[] = [
-    { value: "osm", label: "OSM (miễn phí)", desc: "OSM standard — footprint tòa nhà phù hợp" },
     { value: "esri", label: "Esri ảnh (miễn phí)", desc: "Ảnh vệ tinh – rate-limited" },
     { value: "bing", label: "Bing ảnh (cần key)", desc: "Bing Maps – cần BING_MAPS_API_KEY" },
 ];
@@ -38,7 +37,7 @@ function detectionIcon(isKnown: boolean, score: number): L.DivIcon {
     });
 }
 export function GeoVisionPanel({ viewport, result, onResult, loading, setLoading, error, setError, active, }: ToolPanelProps) {
-    const [tileSource, setTileSource] = useState<TileSource>("osm");
+    const [tileSource, setTileSource] = useState<TileSource>("esri");
     const [labels, setLabels] = useState(DEFAULT_LABELS);
     const [bbox, setBbox] = useState(DEFAULT_BBOX);
     const [useViewport, setUseViewport] = useState(true);

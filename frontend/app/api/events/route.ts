@@ -38,28 +38,6 @@ async function resolveGeo(location: string): Promise<{
     lat: number;
     lng: number;
 }> {
-    if (location) {
-        try {
-            const np = new URL('https://nominatim.openstreetmap.org/search');
-            np.searchParams.set('q', location);
-            np.searchParams.set('format', 'json');
-            np.searchParams.set('limit', '1');
-            np.searchParams.set('email', 'edumap@example.com');
-            const nres = await fetch(np.toString(), {
-                method: 'GET',
-                headers: { Accept: 'application/json', 'User-Agent': 'EduMap-BFF/1.0' },
-                next: { revalidate: 0 },
-            });
-            if (nres.ok) {
-                const njson = await nres.json().catch(() => null);
-                if (Array.isArray(njson) && njson[0]) {
-                    return { lat: parseFloat(njson[0].lat), lng: parseFloat(njson[0].lon) };
-                }
-            }
-        }
-        catch {
-        }
-    }
     return BIEN_HOA;
 }
 export async function GET(req: NextRequest) {

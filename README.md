@@ -82,7 +82,6 @@ Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm h�
 | `CF_AI_GATEWAY_ENABLED` | Bật AI Gateway (true/false, mặc định false) | ❌ |
 | `GOOGLE_CLIENT_ID` | OAuth client ID | ⚠️ |
 | `CLOUDFLARE_MODEL` | LLM model (default: @cf/meta/llama-3.1-8b-instruct-fp8) | ❌ |
-| `CLOUDFLARE_EMBEDDING_MODEL` | Embedding model | ❌ |
 
 > ⚠️ `NEXT_PUBLIC_API_URL` đã được đặt mặc định trong Dockerfile. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_ID` **KHÔNG** được hardcode — bạn **phải** thêm chúng vào host → Settings → Secrets (hoặc truyền qua `-e` khi chạy `docker run`).
 

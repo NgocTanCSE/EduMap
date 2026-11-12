@@ -113,7 +113,7 @@ const FEATURES_DATA = [
         subtitle: '184+ Trường học, Thư viện & Trạm WiFi',
         badge: 'Thời gian thực',
         description: 'Tích hợp toàn bộ mạng lưới trường học, thư viện số, không gian STEM và điểm WiFi miễn phí. Tra cứu bán kính di chuyển và cảnh báo ngập úng mùa mưa.',
-        tags: ['Bán kính 1-10 km', 'Chỉ đường tối ưu', 'Cảnh báo ngập lụt', 'OpenStreetMap'],
+        tags: ['Bán kính 1-10 km', 'Chỉ đường tối ưu', 'Cảnh báo ngập lụt', 'CARTO basemaps'],
         points: [
             'Tìm trường học & thư viện gần nhất theo vị trí GPS thực tế',
             'Xem giờ mở cửa, phòng máy tính và chất lượng đường truyền internet',

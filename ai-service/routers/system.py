@@ -58,7 +58,7 @@ async def system_status() -> Dict[str, Any]:
 
     models = {
         "embedding_model": {
-            "note": "Embeddings come from Gemini/Cloudflare API — no local model now"
+            "note": "Embeddings come from Google Gemini API only — no local model, no Cloudflare"
         },
         "reranker_model": {
             "note": "Reranking no longer used — ChromaDB returns results unchanged"
@@ -66,11 +66,11 @@ async def system_status() -> Dict[str, Any]:
     }
 
 
-    _cf_url = (
-        "https://api.cloudflare.com/client/v4/accounts/"
-        f"{getattr(vector_store, 'cf_account_id', '')}/ai/run/@cf/baai/bge-base-en-v1.5"
-    )
-    _cf_reachable = _endpoint_reachable(_cf_url) if vector_store.has_cf_api else 0
+    # Cloudflare Workers AI is a *text generation* fallback (the provider chain
+    # no longer uses it for embeddings). Reachability is measured against the
+    # text endpoint the cascade actually calls.
+    _cf_url = f"https://api.cloudflare.com/client/v4/accounts/{getattr(vector_store, 'cf_account_id', '')}/ai/run/@cf/meta/llama-3.1-8b-instruct-fp8"
+    _cf_reachable = _endpoint_reachable(_cf_url) if llm_service.has_cf else 0
 
     providers = {
         "deepseek": {
@@ -85,9 +85,9 @@ async def system_status() -> Dict[str, Any]:
             "note": "First fallback (set GEMINI_API_KEY as host secret)",
         },
         "cloudflare_workers_ai": {
-            "configured": bool(getattr(vector_store, "has_cf_api", False)),
+            "configured": bool(getattr(llm_service, "has_cf", False)),
             "reachable": _cf_reachable,
-            "note": "Second fallback (free tier)",
+            "note": "Text generation fallback (CLOUDFLARE_API_TOKEN)",
         },
     }
 

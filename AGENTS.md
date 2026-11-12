@@ -283,12 +283,11 @@ Embeddings (`ai-service/services/vector_store.py`):
 text-generation and embedding providers. Cloudflare TLS is
 blackholed from the host so Gemini is the effective primary.)
 
-The Local SentenceTransformer fallback (`intfloat/multilingual-e5-small`,
-~270MB / ~600MB RAM, 768-dim, Vietnamese support) is lazy-loaded on the
-first embedding request and acts as the **guaranteed offline backup** when
-both Cloudflare and Gemini are unreachable — RAG semantic search works with
-ZERO API keys on the free tier. A local `cross-encoder/ms-marco-MiniLM-L6-v2`
-reranker (~80MB) further improves precision by 15-30% on the returned top-k results.
+The local SentenceTransformer fallback (`intfloat/multilingual-e5-small`) and the
+local reranker (`cross-encoder/ms-marco-MiniLM-L6-v2`) were removed 2026-11-08:
+the ai-service run a pure API stack, so RAG semantic search is **unreachable
+without a GEMINI_API_KEY** (the whole vector_store chain raises
+`tbe Embedding service có sẵn` when no API key is present).
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect`. The external
@@ -303,10 +302,11 @@ currently has no inference provider, so the endpoint always returns
   backend runs in the container — when a key becomes available the feature
   provides detections, otherwise `degraded: true`.
 - Tile sources for the stitched image:
-  - `osm` (default) — OSM standard tiles via `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
-    (no key; shows building footprints useful for school detection).
-  - `esri` — Esri World Imagery (aerial; no key, rate-limited).
+  - `esri` (default) — Esri World Imagery (aerial; no key, rate-limited).
   - `bing` — Bing Maps aerial tiles via quadkey URL (optional `BING_MAPS_API_KEY`).
+  - OSM tiles and Overpass have been removed from every source (2026-11-12):
+    `backend/src/modules/geo.rs` defaults `source=esri`, and `/map/pois` no
+    longer falls back to live Overpass queries.
 - Tile grid is capped at **8×8 = 64 tiles** (max 2048×2048 px at z=18) to stay
   under a typical 5 MB inference input limit.
 - Stitched tiles are cached 24 h in an in-memory LRU cache
@@ -418,6 +418,7 @@ Rules that must be preserved:
   - `RAG_TIMEOUT_SECONDS` (default 8) — `chat_with_rag*` hard limit.
   - Keep these below the NestJS stream timeout (10s). A slow provider must
     never starve the fallbacks or leave the chat bubble empty.
+  - Gemini is the only embedding provider: no cold-start local model load.
 - Provider model slugs and circuit breakers:
   DeepSeek (`deepseek-chat`/`deepseek-reasoner`, primary), Cloudflare Workers AI
   (`@cf/meta/llama-3.1-8b-instruct-fp8`, etc.) and
@@ -485,7 +486,7 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
   host secrets (optional).
 - `CLOUDFLARE_MODEL` — Cloudflare Workers AI text generation model cascade.
 - `GEMINI_MODEL` — Google Gemini text generation model cascade.
-- `HF_EMBEDDING_MODEL` removed — embeddings use Cloudflare → Gemini cascade.
+- `HF_EMBEDDING_MODEL` removed — `CLOUDFLARE_EMBEDDING_MODEL` cũng vậy, embeddings dùng Gemini API duy nhất.
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
 - `OWM_API_KEY` — OpenWeatherMap API key (host secret, optional). When set,
@@ -929,10 +930,10 @@ Verification: `python3 -m py_compile` OK on all modified files;
   `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=KEY`
   (tương tự Google Maps, hiển thị đầy đủ nhãn tên đường/phường/thành phố).
   Khi set `NEXT_PUBLIC_CARTO_API_KEY` → `key=KEY`; khi chưa set → CARTO
-  `rastertiles/voyager` (không label tiếng Trung, tuyệt đối không quay lại
-  OpenStreetMap). **OSM ghi nhãn tiếng Trung cho Hoàng Sa - Trường Sa, và
-  đã bị loại bỏ khỏi `map-tiles.ts`, `components/ui/MapComponent.tsx`,
-  `app/admin/data-quality/page.tsx`, `globals.css` (`.leaflet-dark-tiles`).**
+  `rastertiles/voyager` (không label tiếng Trung).
+  **Hệ thống không còn một đường truyền OSM nào trên Frontend: attribution
+  CARTO ở `map-tiles.ts`, tile URL CARTO `getTileUrl()`; OSM `overpass`/OSM
+  không còn phục vụ `map-pois` nữa.**
   **No `TileLayer` may embed its own `url`/`attribution`** — wherever
   Leaflet renders tiles, use `getTileUrl()` + `getTileAttribution()` only. Regression check on a green deploy: grep
   `openstreetmap.org/{z}/{x}/{y}` over `frontend/` → should find nothing at all.

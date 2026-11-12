@@ -1,12 +1,11 @@
 # Inventori biến môi trường — EduMap (2026-11-12)
 
-Mọi biến dưới đây là những biến **code đang đọc** (frontend, Rust backend, ai-service,
-dung dịch). Những biến "không code nào đọc" (`HF_TOKEN`, `ORS_API_KEY`,
-`GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID`, `GOOGLE_AUTH_URI`,
-`GOOGLE_TOKEN_URI`, `GOOGLE_AUTH_PROVIDER_CERT_URL`) **không nên đặt** — giữ lại
-chỉ gây nhầm lẫn.
+Mọi biến dưới đây là những biến code đang đọc. Những biến "không code nào đọc"
+(`HF_TOKEN`, `ORS_API_KEY`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PROJECT_ID`,
+`GOOGLE_AUTH_URI`, `GOOGLE_TOKEN_URI`, `GOOGLE_AUTH_PROVIDER_CERT_URL`) **không
+nên đặt** — giữ lại chỉ gây nhầm lẫn.
 
-Bảng này bổ sung cho `deploy/ENV_SYNC.md` (ánh xạ Vercel/Render/Supabase).
+Bảng gốc OTP Sync: `deploy/ENV_SYNC.md`, STAGE details.
 
 ---
 
@@ -34,9 +33,9 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | `NEXT_PUBLIC_SENTRY_DSN` | Tùy chọn | — | `next.config.js` |
 | `NODE_ENV` | — | `production` | Next.js tự dùng |
 
-> **Next.js server-side** cũng đọc `BACKEND_URL`, `AI_SERVICE_URL`, `JWT_SECRET`,
+> **Next.js server-side** đọc `BACKEND_URL`, `AI_SERVICE_URL`, `JWT_SECRET`,
 > `ENABLE_DEV_LOGIN`, `GOOGLE_CLIENT_ID`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`,
-> `TICKETMASTER_API_KEY` — cùng một lớp env, không cần biếu riêng.
+> `TICKETMASTER_API_KEY` — cùng một lớp env, không cần biến riêng.
 
 ## 2. Render `edumap-api` — Rust/axum (cổng 3000)
 
@@ -49,30 +48,28 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | `JWT_EXPIRES_IN` | Tùy chọn | `7d` | `config.rs` |
 | `ENABLE_DEV_LOGIN` | Tùy chọn | `true` | `modules/auth.rs` (dành cho dev) |
 | `DEV_USER_EMAIL` | Tùy chọn | `dev@edumap.vn` | `modules/auth.rs` |
-| `DB_TYPE` | **BẮT BUỘC** | `postgres` | `config.rs` |
-| `DB_SYNC` | **BẮT BUỘC** | `false` | `config.rs` |
-| `DB_HOST` | **BẮT BUỘC** | `aws-0-*.pooler.supabase.com` | `config.rs` |
-| `DB_PORT` | **BẮT BUỘC** | `6543` | `config.rs` |
-| `DB_USERNAME` | **BẮT BUỘC** | `postgres.<ref>` | `config.rs` |
-| `DB_PASSWORD` | **BẮT BUỘC** | mật khẩu Supabase | `config.rs` |
-| `DB_DATABASE` | **BẮT BUỘC** | `postgres` | `config.rs` |
-| `DATABASE_URL` | Hỗ trợ thay DB_* | DSN | `config.rs` (ưu tiên hơn `DB_*`) |
+| `DB_TYPE` | **BẮT BUỘC** | `postgres` | `configure cfg` |
+| `DB_SYNC` | **BẮT BUỘC** | `false` | `configure cfg` |
+| `DB_HOST` | **BẮT BUỘC** | `aws-0-*.pooler.supabase.com` | `configure cfg` |
+| `DB_PORT` | **BẮT BUỘC** | `6543` | `configure cfg` |
+| `DB_USERNAME` | **BẮT BUỘC** | `postgres.<ref>` | `configure cfg` |
+| `DB_PASSWORD` | **BẮT BUỘC** | mật khẩu Supabase | `configure cfg` |
+| `DB_DATABASE` | **BẮT BUỘC** | `postgres` | `configure cfg` |
+| `DATABASE_URL` | Hỗ trợ thay DB_* | DSN | `configure cfg` (ưu tiên hơn `DB_*`) |
 | `AI_SERVICE_URL` | **BẮT BUỘC** | `http://edumap-ai:8000` (nội bộ Render) | `config.rs` |
 | `AI_SERVICE_TIMEOUT` | Tùy chọn | `45` | `modules/ai.rs` |
 | `ROUTING_SERVICE_URL` | **BẮT BUỘC** | `https://router.project-osrm.org` | `config.rs` |
 | `STORAGE_DIR` | Tùy chọn | `/app/uploads` | `modules/storage.rs` |
-| `NOTIFICATIONS_URL` | Tùy chọn | (nội bộ) | `modules/community.rs` |
+| `NOTIFICATIONS_URL` | Tùy option | (nội bộ) | `modules/community.rs` |
 | `SMTP_HOST` / `SMTP_PORT` | Tùy chọn | `smtp.gmail.com` / `587` | `config.rs` |
-| `VNP_TMNcodE` | Tùy chọn | `sandbox` | `modules/donate.rs` |
-| `VNP_HASH_SECRET` | Tùy chọn | — | `modules/donate.rs` |
-| `VNP_URL` / `VNP_RETURN_URL` | Tùy chọn | sandbox | `modules/donate.rs` |
+| `VNP_TMN_CODE` / `VNP_HASH_SECRET` / `VNP_RETURN_URL` / `VNP_URL` | Tùy chọn (VNPay) | — | `modules/donate.rs` |
 | `BING_MAPS_API_KEY` | Tùy chọn | — | `modules/geo.rs` |
 
 ## 3. Render `edumap-ai` — FastAPI (cổng 8000)
 
-Đọc ở `ai-service/` (config + 24h TTL cache + scheduler + seed).
+Đọc ở `ai-service/` (config + cache TTL + scheduler + seed).
 
-### DB — giống hệt `edumap-api`
+### DB (giống hệt `edumap-api`)
 `DB_TYPE=postgres`, `DB_SYNC=false`, `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
 `DB_PASSWORD`, `DB_DATABASE`.
 
@@ -83,31 +80,30 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | `DEEPSEEK_BASE_URL` | Tùy | `https://api.deepseek.com` | |
 | `DEEPSEEK_MODEL` | Tùy | `deepseek-chat,deepseek-reasoner` | |
 | `DEEPSEEK_TIMEOUT_SECONDS` | Tùy | `20` | |
-| `GEMINI_API_KEY` | Tùy | — | Fallback #1 (-> Gemini là chính) |
+| `GEMINI_API_KEY` | Tùy | — | Fallback #1 |
 | `GEMINI_MODEL` | Tùy | `gemini-3.8-flash,...` | |
 | `GEMINI_TIMEOUT_SECONDS` | Tùy | `20` | |
-| `CLOUDFLARE_API_TOKEN` | Tùy | — | Fallback #2 |
-| `CLOUDFLARE_ACCOUNT_ID` | Tùy | — | Fallback #2 |
+| `CLOUDFLARE_API_TOKEN` | Tùy | — | Fallback #2 (text generation) |
+| `CLOUDFLARE_ACCOUNT_ID` | Tùy | — | Fallback #2 (text generation) |
 | `CLOUDFLARE_MODEL` | Tùy | `@cf/meta/llama-3.1-8b-instruct-fp8, ...` | |
 | `CF_AI_GATEWAY_ID` | Tùy | — | Gateway (nếu không có → direct) |
 | `CF_AI_GATEWAY_ENABLED` | Tùy | `false` | `true` khi dùng gateway |
 | `AI_CF_BUDGET_SECONDS` | Tùy | `20` | Ngân sách CF (s) |
 
-### Embeddings (`vector_store.py`)
+### Embeddings (chỉ Gemini — `vector_store.py`)
 | Key | Cần | Default | Ghi chú |
 |---|---|---|---|
-| `GEMINI_EMBEDDING_MODEL` | Tùy | `gemini-embedding-001` | Fallback #1 |
-| `CLOUDFLARE_EMBEDDING_MODEL` | Tùy | `@cf/baai/bge-base-en-v1.5,@cf/baai/bge-m3,@cf/qwen/qwen3-embedding-0.6b` | Fallback #2 |
+| `GEMINI_EMBEDDING_MODEL` | Tùy | `gemini-embedding-001` | **nhà cung cấp duy nhất** |
 | `EMBED_GLOBAL_TIMEOUT_SECONDS` | Tùy | `6` | Toàn bộ chuỗi |
 | `EMBED_PROVIDER_TIMEOUT_SECONDS` | Tùy | `4` | Một lần cố gắng |
-| `EMBED_CACHE_MAX` | Tùy | `1024` | nhúng cache LRU |
+| `EMBED_CACHE_MAX` | Tùy | `1024` | Nhúng cache LRU |
 | `EMBED_CACHE_TTL_SECONDS` | Tùy | `1800` | |
 
 ### Gaming / RAG | STT | TTS | Vision | Climate
 | Key | Cần | Default | Ghi chú |
 |---|---|---|---|
 | `RAG_TIMEOUT_SECONDS` | Tùy | `8` | Hard limit chat-with-rag |
-| `GEN_TIMEOUT_SECONDS` | Tùy | `8` | Sinh tess |
+| `GEN_TIMEOUT_SECONDS` | Tùy | `8` | Sinh text |
 | `STREAM_PROXY_DEADLINE_SECONDS` | Tùy | `10` | Stream (NestJS proxy) |
 | `STREAM_FINAL_RESERVE_SECONDS` | Tùy | `1.5` | Stream |
 | `STT_TIMEOUT_SECONDS` | Tùy | `25` | Speech-to-text |
@@ -115,7 +111,7 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | `GEO_VISION_TIMEOUT_SECONDS` | Tùy | `25` | |
 | `OWM_API_KEY` | Tùy | — | Weather (Climate Guardian) |
 | `OWM_TIMEOUT_SECONDS` | Tùy | — | |
-| `GOOGLE_TTS_API_KEY` | Tùy | — | TTS demo tắc (edge-tts/gTTS) |
+| `GOOGLE_TTS_API_KEY` | Tùy | — | TTS (edge-tts/gTTS) |
 | `BING_MAPS_API_KEY` | Tùy | — | GeoVision tile source |
 | `AI_FORCE_IPV4` | Tùy | `true` | Phải đúng với egress host |
 | `CHROMA_DB_PATH` | Tùy | `/tmp/chroma_db` | Ephemeral, re-seed on boot |
@@ -147,6 +143,7 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | Key | Cần | Default | Ghi chú |
 |---|---|---|---|
 | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | Tùy | — | (`adzuna_country=vn`) |
+| `ADZUNA_COUNTRY` | Tùy | `vn` | |
 | `CRAWL_ON_START` | Tùy | `false` | |
 | `CRAWL_INTERVAL_SECONDS` | Tùy | `86400` | |
 | `EDUMAP_CRAWLER_BOOT_RUN` | Tùy | `1` | |
@@ -161,49 +158,24 @@ Vercel → **Redeploy** sau mỗi lần sửa.
 | `IMPACT_POP_DENSITY` | Tùy | `350` | Impact measurement |
 | `POSTGRES_PORT_EXTERNAL` | Tùy | `5433` | |
 | `CACHE_ENABLED` | Tùy | `true` | Cache service |
+| `RESPONSE_CACHE_MAX` | Tùy | `2048` | LLM response cache |
+| `RESPONSE_CACHE_TTL_SECONDS` | Tùy | `86400` | 24h |
+| `SQLITE_DATABASE_URL` | Tùy | — | sqlite fallback |
 
 ## 4. Docker Compose local — `.env.example`
 
-`doc`/.env.example đã bao hàm gần như toàn bộ mục 2+3 (hoặc tương tự câu).
-Khi đưa `docker-compose up` vế phải đặt:
-- `DB_HOST=postgres`, `DB_PORT=5432`, `DB_USERNAME`, `DB_PASSWORD`,
-  `DB_DATABASE`, `DB_TYPE=postgres`, `DB_SYNC=false`
-- `REDIS_HOST=redis`, `REDIS_PORT=6379`
-- `JWT_SECRET=edumap-local-dev-secret`, `JWT_EXPIRES_IN=7d`
-- `BACKEND_URL=http://backend:3000` (bFF)
-- `BACKEND_PORT=3000`, `AI_SERVICE_URL=http://ai-service:8000`
-  , `AI_SERVICE_TIMEOUT=45`, `ROUTING_SERVICE_URL=http://osrm:5000`
-- `NEXT_PUBLIC_API_URL=/api` (next dev), `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
-  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`(không code đọc),
-  `DB_SQLITE_PATH` (chỉ tracer-docker: local, .env.default)
-- `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
-  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_MODEL`,
-  `CLOUDFLARE_EMBEDDING_MODEL`, `CF_AI_GATEWAY_ID`, `CF_AI_GATEWAY_ENABLED`,
-  `GEMINI_MODEL`, `GEMINI_EMBEDDING_MODEL`, `GEMINI_TIMEOUT_SECONDS`,
-  `EMBED_*_TIMEOUT_SECONDS`, `RAG_TIMEOUT_SECONDS`, `GEN_TIMEOUT_SECONDS`,
-  `ADZUNA_APP_*`, `STT_TIMEOUT_SECONDS`, `OFFLINE_TUTOR_USE_LLM`,
-  `STORAGE_DIR`, `NOTIFICATIONS_URL`, `NAV`, `MINIO_*`, `POSTGRES_PORT_EXTERNAL`,
-  `NGINX_PORT_EXTERNAL`, `TAVILY_API_KEY`( 추 선택), `CRAWL_*`...
+Bản template (`docker-compose.yml` trường hợp, `.env` gitignored) bao gồm:
+- Database: `DB_HOST=postgres`, `DB_PORT=5432`, `DB_USERNAME`, `DB_PASSWORD`,
+  `DB_DATABASE`, `DB_TYPE=postgres`, `DB_SYNC=false`, `REDIS_HOST=redis`,
+  `REDIS_PORT=6379`
+- Auth: `JWT_SECRET`, `JWT_EXPIRES_IN`
+- API gateway: `BACKEND_URL=http://backend:3000`, `BACKEND_PORT=3000`,
+  `AI_SERVICE_URL=http://ai-service:8000`, `AI_SERVICE_TIMEOUT=45`,
+  `ROUTING_SERVICE_URL=http://osrm:5000`
+- Client: `NEXT_PUBLIC_API_URL=/api`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, ...
+- AI: `DEEPSEEK_*`, `GEMINI_*`, `CLOUDFLARE_*`(text fallback), `TAVILY_*`...
+- Operational: `STORAGE_DIR`, `NOTIFICATIONS_URL`, `NODE_ENV=development`
 
-*(Toàn bộ chi tiết đăng ký đầy đủ ở mục 1-3 và `deploy/*.env.example` template;
-`.env` thực được gitignore và không commit.)*
+Giá trị mẫu có sẵn trong `.env.example` tại repo root; copy sang
+`docker-compose.override.yml` (hoặc `/tmp/.env` trên host) khi chạy local.
 
-## 5. Khởi động — `ai-service/start.sh` (SECRET_VARS)
-
-Đây là cửa ra vào bắt buộc ký giả cho Render `edumap-ai`: start.sh tự động
-infer secrets từ PID 1 environ cho các biến sau:
-
-```
-CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_MODEL CLOUDFLARE_EMBEDDING_MODEL
-OPENAI_API_KEY ADZUNA_APP_ID ADZUNA_APP_KEY ADZUNA_COUNTRY ORS_API_KEY JWT_SECRET
-GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBEDDING_MODEL GEMINI_TIMEOUT_SECONDS
-DEEPSEEK_API_KEY DEEPSEEK_BASE_URL DEEPSEEK_MODEL DEEPSEEK_TIMEOUT_SECONDS
-CF_AI_GATEWAY_ID CF_AI_GATEWAY_ENABLED OWM_API_KEY OWM_TIMEOUT_SECONDS
-GOOGLE_TTS_API_KEY TAVILY_API_KEY TAVILY_TIMEOUT_SECONDS TAVILY_MAX_RESULTS
-TAVILY_CIRCUIT_BREAKER_FAILURES TAVILY_CIRCUIT_BREAKER_TTL
-DB_TYPE DB_HOST DB_PORT DB_USERNAME DB_PASSWORD DB_DATABASE DB_SYNC
-```
-
-Nếu đặt không đúng 2 cái (token/account) **biến trên chỉ có ý nghĩa khi
-cộng đồng đang để trống** — tức là tất cả để trống, gateway không bật,
-GF Thành công.

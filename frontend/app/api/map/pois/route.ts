@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/src/lib/api-config';
 import { unwrapApiResponse } from '@/src/lib/api-utils';
-import { bboxFromParams, selectorsForCategory, buildQl, elToLocation, fetchFromOverpassCached, } from '@/src/lib/map-constants';
+import { bboxFromParams } from '@/src/lib/map-constants';
 export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const category = sp.get('category');
@@ -27,23 +27,9 @@ export async function GET(req: NextRequest) {
         }
     }
     catch (error) {
-        console.error('[api/map/pois] backend DB unavailable, falling back to Overpass:', error);
+        console.error('[api/map/pois] backend DB unavailable:', error);
     }
-    const selectors = selectorsForCategory(category);
-    const ql = buildQl(minLat, minLng, maxLat, maxLng, selectors);
-    const cacheKey = `${category || 'all'}|${minLat}|${minLng}|${maxLat}|${maxLng}`;
-    try {
-        const raw = await fetchFromOverpassCached(ql, cacheKey);
-        const items = (raw.elements || [])
-            .slice(0, 1000)
-            .map(elToLocation)
-            .filter(Boolean);
-        return NextResponse.json({ data: items });
-    }
-    catch (error) {
-        console.error('[api/map/pois] Overpass unavailable, backend fallback also failed:', error);
-        return NextResponse.json({ data: [], message: 'Không tải được dữ liệu bản đồ' }, { status: 502 });
-    }
+    return NextResponse.json({ data: [], message: 'Không tải được dữ liệu bản đồ' }, { status: 502 });
 }
 export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('Authorization');

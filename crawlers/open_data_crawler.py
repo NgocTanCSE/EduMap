@@ -22,22 +22,8 @@ PROXY_URL = os.getenv("PROXY_URL")
 PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
 def _geocode(address: str) -> Dict[str, float]:
-    """Geocode an address using Nominatim. Returns a dict with lat/lng (0.0 if failed)."""
-    try:
-        resp = requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": address, "format": "json", "limit": 1},
-            headers={"User-Agent": "EduMapCrawler/1.0"},
-            proxies=PROXIES,
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if data:
-            return {"lat": float(data[0]["lat"]), "lng": float(data[0]["lon"]) }
-    except Exception:
-        pass
-    time.sleep(1)
+    """Khu vực mã hóa địa chỉ — API mã hóa (geocoding) không còn dùng nữa,
+    trả về (0.0, 0.0) nếu làm không có. Địa độc địa đến từ `map_points`."""
     return {"lat": 0.0, "lng": 0.0}
 
 class OpenDataCrawler:
