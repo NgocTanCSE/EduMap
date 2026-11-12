@@ -1567,7 +1567,7 @@ use `FROM rust:1.96-slim`. Newer crates.io versions require newer toolchains:
 `cargo fetch` failure on deploy is a feature/MSRV mismatch, and the fix
 pattern is the same: confirm zero references in `backend/src`, remove the dep.
 
---libossl: **`native-tls` is forbidden on musl; use `rustls` instead.**
+**`native-tls` is forbidden on musl; use `rustls` instead.**
 `reqwest`'s declared `features` merge with the crate's own `default`
 (`default-tls` = native-tls → `native-tls-crate` → `openssl-sys`), so it must be
 written as `default-features = false` + explicit `rustls-tls` (pushing 1.96's
