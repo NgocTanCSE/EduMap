@@ -38,7 +38,7 @@ jobs:
       - name: cargo check --release --target x86_64-unknown-linux-musl
         run: |
           cd backend
-          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
+          CARGO_BUILD_JOBS=1 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
           echo "---- summary ----"
           grep -q "^error" /tmp/check.log && echo "COMPILE FAILED" || echo "COMPILE OK"
         env:
