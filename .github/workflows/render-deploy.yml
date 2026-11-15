@@ -155,11 +155,21 @@ jobs:
 
       - name: Smoke test
         env:
-          API_URL: ${{ vars.RENDER_API_PUBLIC_URL || 'https://edumap-api.onrender.com' }}
-          AI_URL: ${{ vars.RENDER_AI_PUBLIC_URL || 'https://edumap-ai.onrender.com' }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SRV_API: ${{ secrets.RENDER_SERVICE_ID_API }}
+          SRV_AI: ${{ secrets.RENDER_SERVICE_ID_AI }}
         run: |
           set -euo pipefail
-          for url in "$API_URL/api/health" "$AI_URL/health"; do
+          # Render may re-assign the instance URL between deploys
+          # (e.g. https://edumap-api-lgub.onrender.com) — derive the live URLs
+          # from the Render API instead of the stale RENDER_API_PUBLIC_URL vars.
+          api_url=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$SRV_API" | jq -r '.serviceDetails.url')
+          echo "api live url: $api_url"
+          ai_url=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$SRV_AI" | jq -r '.serviceDetails.url')
+          echo "ai live url: $ai_url"
+          for url in "$api_url/api/health" "$ai_url/health"; do
             code=""
             for i in $(seq 1 24); do
               code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)
@@ -169,6 +179,10 @@ jobs:
             done
             if [ "$code" != "200" ]; then echo "TIMEOUT: $url"; exit 1; fi
           done
+          # BE to DB: /api/health/db returns {"success":true,"data":"connected"}
+          printf "  /api/health/db => "
+          curl -s --max-time 20 "$api_url/api/health/db" -o /tmp/healthdb.txt || true
+          cat /tmp/healthdb.txt && echo
 
       - name: Dump recent logs on failure
         if: failure()
