@@ -10,15 +10,14 @@
 //! `this.crawlStatus` / `this.crawlHistory`) và đồng bộ vào bảng `crawl_history`
 //! để không mất sau khi khởi động lại.
 
-use crate::common::auth::{ensure_admin, authenticated_user};
+use crate::common::auth::{AuthUser, authenticated_user, ensure_admin};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, State};
 use axum::Json;
-use once_cell::sync::OnceLock;
+use std::sync::OnceLock;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -35,14 +34,12 @@ pub struct TriggerBody {
     pub params: Option<Value>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct EmptyQuery {}
 
 // ---------------------------------------------------------------------------
 // In-memory state (giống `this.crawlStatus` / `this.crawlHistory` cũ)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CrawlStatus {
     pub is_running: bool,
     pub current_type: Option<String>,
@@ -165,11 +162,7 @@ fn client() -> Client {
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn param_f64(v: &Value, key: &str, default: f64) -> f64 {
-    v.get(key)
-        .and_then(|x| x.as_f64())
-        .unwrap_or(default)
-}
+
 
 fn param_str(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(|x| x.as_str()).map(|s| s.to_string())
@@ -212,7 +205,7 @@ async fn crawl_no_op(_client: &Client, _pool: &DbPool) -> CrawlResult {
 async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64) -> Result<CrawlResult, String> {
     let url = format!(
         "https://openlibrary.org/search.json?q={}&limit={}",
-        percent_encoding::utf8_percent_encode(&keyword, percent_encoding::QUERY_COMPONENT_ENCODE_SET),
+        percent_encoding::utf8_percent_encode(&keyword, percent_encoding::NON_ALPHANUMERIC),
         limit
     );
     let body = http_get(client, &url).await.map_err(|e| format!("OpenLibrary error: {e}"))?;
@@ -261,12 +254,13 @@ async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64
 // ---------------------------------------------------------------------------
 
 /// `POST /api/crawler/trigger` — kích hoạt một quy trình crawl.
+#[axum::debug_handler]
 pub async fn trigger_crawl(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<TriggerBody>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     if !VALID_CRAWL_TYPES.contains(&body.type_.as_str()) {
@@ -315,10 +309,10 @@ pub async fn trigger_crawl(
     let client = client();
     let result: Result<CrawlResult, String> = match body.type_.as_str() {
         // map/wifi/schools/green_spaces: crawl thu hồi — POI đã crawl trong DB
-        "map" => Ok(crawl_no_op(&client, &pool)),
-        "wifi" => Ok(crawl_no_op(&client, &pool)),
-        "schools" => Ok(crawl_no_op(&client, &pool)),
-        "green_spaces" => Ok(crawl_no_op(&client, &pool)),
+        "map" => Ok(crawl_no_op(&client, &pool).await),
+        "wifi" => Ok(crawl_no_op(&client, &pool).await),
+        "schools" => Ok(crawl_no_op(&client, &pool).await),
+        "green_spaces" => Ok(crawl_no_op(&client, &pool).await),
         "books" => {
             let keyword = param_str(&params, "keyword").unwrap_or_else(|| "computer science".to_string());
             let limit = params.get("limit").and_then(|x| x.as_i64()).unwrap_or(20);
@@ -331,7 +325,7 @@ pub async fn trigger_crawl(
             for t in ["map", "books"] {
                 let (success, added, message) = match t {
                     "map" => {
-                        let r = crawl_no_op(&client, &pool);
+                        let r = crawl_no_op(&client, &pool).await;
                         (r.success, r.added, r.message)
                     }
                     "books" => match crawl_books(&client, &pool, "computer science".to_string(), 20).await {
@@ -364,65 +358,71 @@ pub async fn trigger_crawl(
     };
 
     let ended = now_iso();
-    let mut st = s.lock().unwrap();
-    match result {
+    // Nhả `MutexGuard` trước khi `.await` DB (Guard is not `Send`).
+    let outcome = match result {
         Ok(r) => {
-            st.status.is_running = false;
-            st.status.current_type = None;
-            st.status.last_completed = Some(ended.clone());
-            st.status.total_crawled += r.added;
-            st.history.push(CrawlHistoryEntry {
-                id: history_id.clone(),
-                type_: body.type_.clone(),
-                status: "success".to_string(),
-                start_time: started.clone(),
-                end_time: Some(ended.clone()),
-                records_added: r.added,
-                errors: 0,
-                message: r.message.clone(),
-            });
-            let _ = sqlx::query(DB_UPDATE_CRAWL_HISTORY)
-                .bind(&history_id)
-                .bind("success")
-                .bind(r.added)
-                .bind(0_i64)
-                .bind(r.message.as_str())
-                .bind(&ended)
-                .execute(pool.db())
-                .await;
-            Ok(Json(ApiResponse::ok(serde_json::json!({"success": true, "added": r.added, "message": r.message}))))
+            {
+                let mut st = s.lock().unwrap();
+                st.status.is_running = false;
+                st.status.current_type = None;
+                st.status.last_completed = Some(ended.clone());
+                st.status.total_crawled += r.added;
+                st.history.push(CrawlHistoryEntry {
+                    id: history_id.clone(),
+                    type_: body.type_.clone(),
+                    status: "success".to_string(),
+                    start_time: started.clone(),
+                    end_time: Some(ended.clone()),
+                    records_added: r.added,
+                    errors: 0,
+                    message: r.message.clone(),
+                });
+            }
+            ("success".to_string(), r.added, 0_i64, r.message.clone())
         }
         Err(e) => {
-            st.status.is_running = false;
-            st.status.current_type = None;
-            st.status.errors += 1;
-            st.history.push(CrawlHistoryEntry {
-                id: history_id.clone(),
-                type_: body.type_.clone(),
-                status: "failed".to_string(),
-                start_time: started.clone(),
-                end_time: Some(ended.clone()),
-                records_added: 0,
-                errors: 1,
-                message: e.clone(),
-            });
-            let _ = sqlx::query(DB_UPDATE_CRAWL_HISTORY)
-                .bind(&history_id)
-                .bind("failed")
-                .bind(0_i64)
-                .bind(1_i64)
-                .bind(e.as_str())
-                .bind(&ended)
-                .execute(pool.db())
-                .await;
-            Ok(Json(ApiResponse::failure(e)))
+            {
+                let mut st = s.lock().unwrap();
+                st.status.is_running = false;
+                st.status.current_type = None;
+                st.status.errors += 1;
+                st.history.push(CrawlHistoryEntry {
+                    id: history_id.clone(),
+                    type_: body.type_.clone(),
+                    status: "failed".to_string(),
+                    start_time: started.clone(),
+                    end_time: Some(ended.clone()),
+                    records_added: 0,
+                    errors: 1,
+                    message: e.clone(),
+                });
+            }
+            ("failed".to_string(), 0_i64, 1_i64, e.clone())
         }
+    };
+
+    // Ghi kết quả crawl vào DB sau khi nhả lock.
+    let _ = sqlx::query(DB_UPDATE_CRAWL_HISTORY)
+        .bind(&history_id)
+        .bind(&outcome.0)
+        .bind(outcome.1)
+        .bind(outcome.2)
+        .bind(&outcome.3)
+        .bind(&ended)
+        .execute(pool.db())
+        .await;
+
+    if outcome.0 == "success" {
+        Ok(Json(ApiResponse::ok(serde_json::json!({"success": true, "added": outcome.1, "message": outcome.3}))))
+    } else {
+        Ok(Json(ApiResponse::failure(outcome.3)))
     }
 }
 
 /// `GET /api/crawler/status` — trạng thái crawl hiện tại.
 pub async fn get_crawl_status(State(_pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let st = state().lock().unwrap();
+    let arc = state();
+    let st = arc.lock().unwrap();
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "isRunning": st.status.is_running,
         "currentType": st.status.current_type,
@@ -434,43 +434,55 @@ pub async fn get_crawl_status(State(_pool): State<DbPool>) -> Result<Json<ApiRes
 }
 
 /// `GET /api/crawler/history` — lịch sử crawl (50 bản gần nhất).
+#[axum::debug_handler]
 pub async fn get_crawl_history(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let st = state().lock().unwrap();
-    let history: Vec<Value> = if st.history.is_empty() {
-        // khởi động lại: lấy từ DB
-        sqlx::query(DB_HISTORY_ALL)
-            .fetch_all(pool.db())
-            .await
-            .map_err(|e| AppError::Internal(format!("failed to read crawl history: {e}")))?
-            .into_iter()
-            .map(|row| {
+    let arc = state();
+    let history: Option<Vec<Value>> = {
+        let st = arc.lock().unwrap();
+        if st.history.is_empty() {
+            None
+        } else {
+            Some(st.history.iter().rev().take(50).map(|h| {
                 serde_json::json!({
-                    "id": row.get::<String>("id"),
-                    "type": row.get::<Option<String>>("type"),
-                    "status": row.get::<Option<String>>("status"),
-                    "startTime": row.get::<Option<String>>("start_time"),
-                    "endTime": row.get::<Option<String>>("end_time"),
-                    "recordsAdded": row.get::<i64>("records_added"),
-                    "errors": row.get::<i64>("errors"),
-                    "message": row.get::<Option<String>>("message"),
+                    "id": h.id, "type": h.type_, "status": h.status,
+                    "startTime": h.start_time, "endTime": h.end_time,
+                    "recordsAdded": h.records_added, "errors": h.errors, "message": h.message,
                 })
-            })
-            .collect()
-    } else {
-        st.history.iter().rev().take(50).map(|h| {
-            serde_json::json!({
-                "id": h.id, "type": h.type_, "status": h.status,
-                "startTime": h.start_time, "endTime": h.end_time,
-                "recordsAdded": h.records_added, "errors": h.errors, "message": h.message,
-            })
-        }).collect()
+            }).collect::<Vec<Value>>())
+        }
+    };
+
+    let history: Vec<Value> = match history {
+        Some(h) => h,
+        None => {
+            // Khởi động lại: lịch sử còn trống -> lấy từ DB.
+            sqlx::query(DB_HISTORY_ALL)
+                .fetch_all(pool.db())
+                .await
+                .map_err(|e| AppError::Internal(format!("failed to read crawl history: {e}")))?
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "id": row.get::<String, &str>("id"),
+                        "type": row.get::<Option<String>, &str>("type"),
+                        "status": row.get::<Option<String>, &str>("status"),
+                        "startTime": row.get::<Option<String>, &str>("start_time"),
+                        "endTime": row.get::<Option<String>, &str>("end_time"),
+                        "recordsAdded": row.get::<i64, &str>("records_added"),
+                        "errors": row.get::<i64, &str>("errors"),
+                        "message": row.get::<Option<String>, &str>("message"),
+                    })
+                })
+                .collect()
+        }
     };
     Ok(Json(ApiResponse::ok(serde_json::json!({"history": history}))))
 }
 
 /// `GET /api/crawler/stats` — thống kê crawl.
 pub async fn get_crawl_stats(State(_pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let st = state().lock().unwrap();
+    let arc = state();
+    let st = arc.lock().unwrap();
     let total = st.history.len() as i64;
     let successful = st.history.iter().filter(|h| h.status == "success").count() as i64;
     let failed = total - successful;

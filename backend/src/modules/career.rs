@@ -11,14 +11,13 @@
 //!
 //! All SQL uses the runtime API (`query!` requires a live DB at compile time).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
@@ -33,17 +32,6 @@ fn uploads_dir() -> PathBuf {
     PathBuf::from("/tmp/edumap-uploads")
 }
 
-/// The logged-in user: the public career endpoints (`jobs`, `paths`,
-/// `roadmap`) don't get an `AuthUser` from the router (`PUBLIC_PATHS`), so the
-/// write handlers self-check and answer `401` when the JWT was missing.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// Career paths are admin/moderator only (`@Roles(ADMIN, MODERATOR)`).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -321,47 +309,47 @@ pub struct Roadmap {
 
 /// A `jobs` row as a single `serde_json::Value` (the **detail** query also
 /// selects `u.full_name AS posted_by_name`, so it reads that field).
-fn job_to_json(row: &sqlx::PgRow) -> serde_json::Value {
+fn job_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "description": row.get::<String>("description"),
-        "company_name": row.get::<Option<String>>("company_name"),
-        "location": row.get::<Option<String>>("location"),
-        "job_type": row.get::<String>("job_type"),
-        "salary_range": row.get::<Option<String>>("salary_range"),
-        "required_skills": row.get::<Option<serde_json::Value>>("required_skills"),
-        "experience_level": row.get::<Option<String>>("experience_level"),
-        "application_deadline": row.get::<Option<String>>("application_deadline"),
-        "views": row.get::<i64>("views"),
-        "status": row.get::<String>("status"),
-        "posted_by": row.get::<Option<String>>("posted_by_name"),
-        "posted_by_user_id": row.get::<Option<String>>("posted_by_user_id"),
-        "career_path_id": row.get::<Option<i64>>("career_path_id"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "description": row.get::<String, &str>("description"),
+        "company_name": row.get::<Option<String>, &str>("company_name"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "job_type": row.get::<String, &str>("job_type"),
+        "salary_range": row.get::<Option<String>, &str>("salary_range"),
+        "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
+        "experience_level": row.get::<Option<String>, &str>("experience_level"),
+        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
+        "views": row.get::<i64, &str>("views"),
+        "status": row.get::<String, &str>("status"),
+        "posted_by": row.get::<Option<String>, &str>("posted_by_name"),
+        "posted_by_user_id": row.get::<Option<String>, &str>("posted_by_user_id"),
+        "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
 /// A jobs **list** row (same column set *without* `posted_by_name`, like the
 /// old `searchJobs` that didn't load the `posted_by` relation).
-fn job_list_to_json(row: &sqlx::PgRow) -> serde_json::Value {
+fn job_list_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "description": row.get::<String>("description"),
-        "company_name": row.get::<Option<String>>("company_name"),
-        "location": row.get::<Option<String>>("location"),
-        "job_type": row.get::<String>("job_type"),
-        "salary_range": row.get::<Option<String>>("salary_range"),
-        "required_skills": row.get::<Option<serde_json::Value>>("required_skills"),
-        "experience_level": row.get::<Option<String>>("experience_level"),
-        "application_deadline": row.get::<Option<String>>("application_deadline"),
-        "views": row.get::<i64>("views"),
-        "status": row.get::<String>("status"),
-        "career_path_id": row.get::<Option<i64>>("career_path_id"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "description": row.get::<String, &str>("description"),
+        "company_name": row.get::<Option<String>, &str>("company_name"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "job_type": row.get::<String, &str>("job_type"),
+        "salary_range": row.get::<Option<String>, &str>("salary_range"),
+        "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
+        "experience_level": row.get::<Option<String>, &str>("experience_level"),
+        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
+        "views": row.get::<i64, &str>("views"),
+        "status": row.get::<String, &str>("status"),
+        "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
@@ -375,14 +363,15 @@ fn to_naive_datetime(s: &Option<String>) -> Option<chrono::DateTime<chrono::Utc>
         Some(v) if !v.trim().is_empty() => {
             let v = v.trim();
             // Full ISO-8601 (`2025-12-01T10:00:00Z`) → `DateTime<Utc>` straight.
-            chrono::DateTime::parse_from_rfc3339(v)
-                .ok()
-                .map(|t| t.with_timezone(&chrono::Utc))
+            Some(
+                chrono::DateTime::parse_from_rfc3339(v)
+                    .ok()
+                    .map(|t| t.with_timezone(&chrono::Utc))
                 // Date-only strings (`2025-12-01`) → midnight.
                 .or_else(|| {
                     NaiveDate::parse_from_str(v, "%Y-%m-%d")
                         .ok()
-                        .and_then(|d| d.and_hms_opt(0, 0, 0).ok())
+                        .and_then(|d| d.and_hms_opt(0, 0, 0))
                         .map(|t| t.and_utc())
                 })
                 // Naive datetimes (`YYYY-MM-DDTHH:MM:SS`, `YYYY-MM-DD HH:MM:SS`).
@@ -402,6 +391,7 @@ fn to_naive_datetime(s: &Option<String>) -> Option<chrono::DateTime<chrono::Utc>
                         .map(|t| t.and_utc())
                 })
                 .unwrap_or_default()
+        )
         }
         _ => None,
     }
@@ -534,7 +524,7 @@ pub async fn get_jobs(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>(0);
+        .get::<i64, usize>(0);
 
     // The job list (page + order by `created_at` DESC).
     let list_sql = format!("{}{}", DB_SELECT_JOBS, where_clause);
@@ -588,10 +578,10 @@ pub async fn get_job_by_id(
 /// `POST /api/career/jobs` — sign a new job listing (JWT guarded).
 pub async fn create_job(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateJobForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let skills = from_json_array(&form.required_skills);
     let career_path_id = form
         .career_path_id
@@ -616,8 +606,8 @@ pub async fn create_job(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String>("id"),
-        "created_at": inserted.get::<String>("created_at"),
+        "id": inserted.get::<String, &str>("id"),
+        "created_at": inserted.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -625,10 +615,10 @@ pub async fn create_job(
 pub async fn update_job(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateJobForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let skills = from_json_array(&form.required_skills);
     let deadline = to_naive_datetime(&form.application_deadline);
     let updated = sqlx::query(DB_UPDATE_JOB)
@@ -649,8 +639,8 @@ pub async fn update_job(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Job không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -662,9 +652,9 @@ pub async fn update_job(
 pub async fn delete_job(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let deleted = sqlx::query(
         r#"DELETE FROM jobs WHERE id = $1 AND posted_by_user_id = $2"#
     )
@@ -695,7 +685,7 @@ pub async fn get_paths(
     // Optional `field` filter (the old `getPaths` used `where: { field }`).
     let use_field = q.field.as_ref().filter(|v| !v.trim().is_empty());
     let sql = match use_field {
-        Some(field) => format!("{} WHERE field = $1 ORDER BY created_at DESC", DB_SELECT_PATHS),
+        Some(_field) => format!("{} WHERE field = $1 ORDER BY created_at DESC", DB_SELECT_PATHS),
         None => format!("{} ORDER BY created_at DESC", DB_SELECT_PATHS),
     };
     let rows = match use_field {
@@ -712,16 +702,16 @@ pub async fn get_paths(
     let rows = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "title": row.get::<String>("title"),
-            "field": row.get::<Option<String>>("field"),
-            "description": row.get::<Option<String>>("description"),
-            "skills_required": row.get::<Option<serde_json::Value>>("skills_required"),
-            "roadmap_json": row.get::<Option<serde_json::Value>>("roadmap_json"),
-            "salary_range": row.get::<Option<String>>("salary_range"),
-            "demand_level": row.get::<Option<String>>("demand_level"),
-            "created_at": row.get::<String>("created_at"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "title": row.get::<String, &str>("title"),
+            "field": row.get::<Option<String>, &str>("field"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "skills_required": row.get::<Option<serde_json::Value>, &str>("skills_required"),
+            "roadmap_json": row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
+            "salary_range": row.get::<Option<String>, &str>("salary_range"),
+            "demand_level": row.get::<Option<String>, &str>("demand_level"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -745,16 +735,16 @@ pub async fn get_path_by_id(
         .map_err(AppError::from)?;
     let path = match row {
         Some(row) => serde_json::json!({
-            "id": row.get::<String>("id"),
-            "title": row.get::<String>("title"),
-            "field": row.get::<Option<String>>("field"),
-            "description": row.get::<Option<String>>("description"),
-            "skills_required": row.get::<Option<serde_json::Value>>("skills_required"),
-            "roadmap_json": row.get::<Option<serde_json::Value>>("roadmap_json"),
-            "salary_range": row.get::<Option<String>>("salary_range"),
-            "demand_level": row.get::<Option<String>>("demand_level"),
-            "created_at": row.get::<String>("created_at"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "title": row.get::<String, &str>("title"),
+            "field": row.get::<Option<String>, &str>("field"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "skills_required": row.get::<Option<serde_json::Value>, &str>("skills_required"),
+            "roadmap_json": row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
+            "salary_range": row.get::<Option<String>, &str>("salary_range"),
+            "demand_level": row.get::<Option<String>, &str>("demand_level"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         }),
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
@@ -777,12 +767,12 @@ pub async fn get_skill_roadmap(
         .map_err(AppError::from)?;
     let road = match row {
         Some(row) => Roadmap {
-            career_id: row.get::<i64>("id"),
-            career_title: row.get::<String>("title"),
-            field: row.get::<Option<String>>("field"),
-            description: row.get::<Option<String>>("description"),
-            skills_required: row.get::<Option<serde_json::Value>>("skills_required"),
-            roadmap: row.get::<Option<serde_json::Value>>("roadmap_json"),
+            career_id: row.get::<i64, &str>("id"),
+            career_title: row.get::<String, &str>("title"),
+            field: row.get::<Option<String>, &str>("field"),
+            description: row.get::<Option<String>, &str>("description"),
+            skills_required: row.get::<Option<serde_json::Value>, &str>("skills_required"),
+            roadmap: row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
         },
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
@@ -808,10 +798,10 @@ pub async fn get_skill_roadmap(
 /// `POST /api/career/paths` — create a career path (admin/mod only).
 pub async fn create_path(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateCareerPathForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
     let skills = from_json_array(&form.skills_required);
     let roadmap = from_json_array(&form.roadmap_json);
@@ -827,8 +817,8 @@ pub async fn create_path(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String>("id"),
-        "created_at": created.get::<String>("created_at"),
+        "id": created.get::<String, &str>("id"),
+        "created_at": created.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -839,9 +829,9 @@ pub async fn create_path(
 /// `GET /api/career/user-careers` — own goal list (JWT guarded).
 pub async fn get_user_careers(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_SELECT_USER_CAREER)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -849,15 +839,15 @@ pub async fn get_user_careers(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "user_id": row.get::<String>("user_id"),
-            "career_path_id": row.get::<Option<i64>>("career_path_id"),
-            "goal_title": row.get::<String>("goal_title"),
-            "description": row.get::<Option<String>>("description"),
-            "target_date": row.get::<Option<String>>("target_date"),
-            "status": row.get::<String>("status"),
-            "created_at": row.get::<String>("created_at"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "user_id": row.get::<String, &str>("user_id"),
+            "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+            "goal_title": row.get::<String, &str>("goal_title"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "target_date": row.get::<Option<String>, &str>("target_date"),
+            "status": row.get::<String, &str>("status"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -869,10 +859,10 @@ pub async fn get_user_careers(
 /// `POST /api/career/user-careers` — add a career goal (JWT guarded).
 pub async fn create_user_career(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateUserCareerForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let career_path_id = form
         .career_path_id
         .as_ref()
@@ -893,8 +883,8 @@ pub async fn create_user_career(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String>("id"),
-        "created_at": created.get::<String>("created_at"),
+        "id": created.get::<String, &str>("id"),
+        "created_at": created.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -902,10 +892,10 @@ pub async fn create_user_career(
 pub async fn update_user_career(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateUserCareerForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let career_path_id = form
         .career_path_id
         .clone()
@@ -929,8 +919,8 @@ pub async fn update_user_career(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Nguyện vọng nghề nghiệp không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -942,9 +932,9 @@ pub async fn update_user_career(
 pub async fn delete_user_career(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let deleted = sqlx::query(
         r#"DELETE FROM user_careers WHERE id = $1 AND user_id = $2"#
     )
@@ -970,9 +960,9 @@ pub async fn delete_user_career(
 /// `GET /api/career/user-skills` — own skill list (JWT guarded).
 pub async fn get_user_skills(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_SELECT_USER_SKILL)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -980,13 +970,13 @@ pub async fn get_user_skills(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "user_id": row.get::<String>("user_id"),
-            "skill_name": row.get::<String>("skill_name"),
-            "proficiency_level": row.get::<String>("proficiency_level"),
-            "description": row.get::<Option<String>>("description"),
-            "created_at": row.get::<String>("created_at"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "user_id": row.get::<String, &str>("user_id"),
+            "skill_name": row.get::<String, &str>("skill_name"),
+            "proficiency_level": row.get::<String, &str>("proficiency_level"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -998,10 +988,10 @@ pub async fn get_user_skills(
 /// `POST /api/career/user-skills` — add/update an own skill (JWT guarded).
 pub async fn create_user_skill(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateUserSkillForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let proficiency = form
         .proficiency_level
         .as_ref()
@@ -1016,8 +1006,8 @@ pub async fn create_user_skill(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String>("id"),
-        "created_at": created.get::<String>("created_at"),
+        "id": created.get::<String, &str>("id"),
+        "created_at": created.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -1025,10 +1015,10 @@ pub async fn create_user_skill(
 pub async fn update_user_skill(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateUserSkillForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let proficiency = form
         .proficiency_level
         .as_ref()
@@ -1044,8 +1034,8 @@ pub async fn update_user_skill(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Kỹ năng không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -1057,9 +1047,9 @@ pub async fn update_user_skill(
 pub async fn delete_user_skill(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let deleted = sqlx::query(
         r#"DELETE FROM user_skills WHERE id = $1 AND user_id = $2"#
     )
@@ -1085,9 +1075,9 @@ pub async fn delete_user_skill(
 /// `GET /api/career/applications` — own application history (JWT guarded).
 pub async fn get_user_applications(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_SELECT_APPLICATIONS)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -1095,18 +1085,18 @@ pub async fn get_user_applications(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "user_id": row.get::<String>("user_id"),
-            "job_id": row.get::<String>("job_id"),
-            "job_title": row.get::<Option<String>>("job_title"),
-            "job_company_name": row.get::<Option<String>>("job_company_name"),
-            "job_location": row.get::<Option<String>>("job_location"),
-            "job_deadline": row.get::<Option<String>>("job_deadline"),
-            "cover_letter": row.get::<Option<String>>("cover_letter"),
-            "resume_url": row.get::<Option<String>>("resume_url"),
-            "status": row.get::<String>("status"),
-            "created_at": row.get::<String>("created_at"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "user_id": row.get::<String, &str>("user_id"),
+            "job_id": row.get::<String, &str>("job_id"),
+            "job_title": row.get::<Option<String>, &str>("job_title"),
+            "job_company_name": row.get::<Option<String>, &str>("job_company_name"),
+            "job_location": row.get::<Option<String>, &str>("job_location"),
+            "job_deadline": row.get::<Option<String>, &str>("job_deadline"),
+            "cover_letter": row.get::<Option<String>, &str>("cover_letter"),
+            "resume_url": row.get::<Option<String>, &str>("resume_url"),
+            "status": row.get::<String, &str>("status"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -1119,9 +1109,9 @@ pub async fn get_user_applications(
 pub async fn get_application_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let row = sqlx::query(DB_SELECT_APPLICATION_BY_ID)
         .bind(&id)
         .bind(&user.id)
@@ -1130,16 +1120,16 @@ pub async fn get_application_by_id(
         .map_err(AppError::from)?;
     let app = match row {
         Some(row) => serde_json::json!({
-            "id": row.get::<String>("id"),
-            "user_id": row.get::<String>("user_id"),
-            "job_id": row.get::<String>("job_id"),
-            "job_title": row.get::<Option<String>>("job_title"),
-            "job_location": row.get::<Option<String>>("job_location"),
-            "cover_letter": row.get::<Option<String>>("cover_letter"),
-            "resume_url": row.get::<Option<String>>("resume_url"),
-            "status": row.get::<String>("status"),
-            "updated_at": row.get::<String>("updated_at"),
-            "created_at": row.get::<String>("created_at"),
+            "id": row.get::<String, &str>("id"),
+            "user_id": row.get::<String, &str>("user_id"),
+            "job_id": row.get::<String, &str>("job_id"),
+            "job_title": row.get::<Option<String>, &str>("job_title"),
+            "job_location": row.get::<Option<String>, &str>("job_location"),
+            "cover_letter": row.get::<Option<String>, &str>("cover_letter"),
+            "resume_url": row.get::<Option<String>, &str>("resume_url"),
+            "status": row.get::<String, &str>("status"),
+            "updated_at": row.get::<String, &str>("updated_at"),
+            "created_at": row.get::<String, &str>("created_at"),
         }),
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
@@ -1149,10 +1139,10 @@ pub async fn get_application_by_id(
 /// `POST /api/career/applications` — apply to a job (JWT guarded).
 pub async fn apply_to_job(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<ApplyJobForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let existing = sqlx::query(
         r#"SELECT id FROM applications WHERE user_id = $1 AND job_id = $2"#
     )
@@ -1184,9 +1174,9 @@ pub async fn apply_to_job(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String>("id"),
-        "created_at": created.get::<String>("created_at"),
-        "updated_at": created.get::<String>("updated_at"),
+        "id": created.get::<String, &str>("id"),
+        "created_at": created.get::<String, &str>("created_at"),
+        "updated_at": created.get::<String, &str>("updated_at"),
     }))))
 }
 
@@ -1195,10 +1185,10 @@ pub async fn apply_to_job(
 pub async fn update_application_status(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateApplicationStatusForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let application = sqlx::query(
         r#"SELECT a.id, a.status, a.user_id, job.posted_by_user_id
            FROM applications a LEFT JOIN jobs job ON job.id = a.job_id
@@ -1214,7 +1204,7 @@ pub async fn update_application_status(
             "Ứng tuyển không tìm thấy.".to_string(),
         )),
     };
-    let posted_by = application.get::<Option<String>>("posted_by_user_id");
+    let posted_by = application.get::<Option<String>, &str>("posted_by_user_id");
     let is_owner = posted_by.as_ref().map(|v| v == &user.id).unwrap_or(false);
     if user.role != "admin" && !is_owner {
         return Err(AppError::NotFound(
@@ -1230,8 +1220,8 @@ pub async fn update_application_status(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound("Ứng tuyển không tìm thấy.".to_string())),
     }
@@ -1242,9 +1232,9 @@ pub async fn update_application_status(
 pub async fn withdraw_application(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let application = sqlx::query(
         r#"SELECT id, status FROM applications WHERE id = $1 AND user_id = $2"#
     )
@@ -1259,7 +1249,7 @@ pub async fn withdraw_application(
             "Ứng tuyển không tìm thấy hoặc bạn không có quyền rút.".to_string(),
         )),
     };
-    let status = application.get::<String>("status");
+    let status = application.get::<String, &str>("status");
     if status == "accepted" || status == "rejected" {
         return Err(AppError::Conflict(
             "Không thể rút ứng tuyển đã được chấp nhận hoặc từ chối.".to_string(),
@@ -1274,8 +1264,8 @@ pub async fn withdraw_application(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "updated_at": row.get::<String>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "updated_at": row.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound("Ứng tuyển không tìm thấy.".to_string())),
     }
@@ -1289,20 +1279,20 @@ pub async fn withdraw_application(
 /// `uploadResume` → `storageService.uploadFile`).
 pub async fn upload_resume(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     mut multipart: axum::extract::Multipart,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Read the file from the multipart stream.
     let mut data: Vec<u8> = Vec::new();
     let mut original_name = String::from("resume");
     let mut mime_type = String::from("application/octet-stream");
-    while let Some(field) = multipart.next_field().await.map_err(AppError::from)? {
+    while let Some(mut field) = multipart.next_field().await.map_err(AppError::from)? {
         if let Some(name) = field.file_name() {
             original_name = name.to_string();
         }
-        if let Some(mime) = field.mime_type() {
+        if let Some(mime) = field.content_type() {
             mime_type = mime.to_string();
         }
         let mut chunk = Vec::new();
@@ -1319,7 +1309,7 @@ pub async fn upload_resume(
         ));
     }
 
-    let mut dir = uploads_dir();
+    let dir = uploads_dir();
     fs::create_dir_all(&dir).map_err(AppError::from)?;
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1351,12 +1341,12 @@ pub async fn upload_resume(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String>("id"),
-        "original_name": created.get::<String>("original_name"),
-        "file_url": created.get::<String>("file_url"),
-        "mime_type": created.get::<String>("mime_type"),
-        "size_kb": created.get::<f64>("size_kb"),
-        "created_at": created.get::<String>("created_at"),
+        "id": created.get::<String, &str>("id"),
+        "original_name": created.get::<String, &str>("original_name"),
+        "file_url": created.get::<String, &str>("file_url"),
+        "mime_type": created.get::<String, &str>("mime_type"),
+        "size_kb": created.get::<f64, &str>("size_kb"),
+        "created_at": created.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -1367,9 +1357,9 @@ pub async fn upload_resume(
 /// `GET /api/career/ai-advice` — deep AI career advice from the AI service.
 pub async fn get_ai_advice(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // The old backend fetched the user + skills + careers before asking the AI;
     // the AI service handles a user id — the payload is the minimum the endpoint
@@ -1400,21 +1390,21 @@ pub async fn get_ai_advice(
 
     let ai_input = serde_json::json!({
         "user_id": user.id,
-        "full_name": user_row.get::<String>("full_name"),
+        "full_name": user_row.get::<String, &str>("full_name"),
         "skills": skills
             .iter()
             .map(|row| format!(
                 "{} ({})",
-                row.get::<String>("skill_name"),
-                row.get::<String>("proficiency_level")
+                row.get::<String, &str>("skill_name"),
+                row.get::<String, &str>("proficiency_level")
             ))
             .collect::<Vec<String>>(),
-        "mbti_type": user_row.get::<Option<String>>("mbti_type").unwrap_or_else(|| {
+        "mbti_type": user_row.get::<Option<String>, &str>("mbti_type").unwrap_or_else(|| {
             "Chưa xác định".to_string()
         }),
         "career_aspirations": careers
             .iter()
-            .map(|row| row.get::<String>("goal_title"))
+            .map(|row| row.get::<String, &str>("goal_title"))
             .collect::<Vec<String>>(),
         "recent_keywords": "Phát triển sự nghiệp bền vững",
     });
@@ -1435,9 +1425,9 @@ pub async fn get_ai_advice(
 /// (`recommendCareerSemantic`) with a template fallback.
 pub async fn suggest_career(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // The AI follows the same data: skills + career goals (interests).
     let skills = sqlx::query(DB_SELECT_USER_SKILL)
@@ -1447,7 +1437,7 @@ pub async fn suggest_career(
         .map_err(AppError::from)?;
     let skill_names: Vec<String> = skills
         .iter()
-        .map(|row| row.get::<String>("skill_name").to_lowercase())
+        .map(|row| row.get::<String, &str>("skill_name").to_lowercase())
         .collect();
 
     let careers = sqlx::query(DB_SELECT_USER_CAREER)
@@ -1458,10 +1448,10 @@ pub async fn suggest_career(
     let interests: Vec<String> = careers
         .iter()
         .filter_map(|row| {
-            row.get::<Option<String>>("goal_title")
+            row.get::<Option<String>, &str>("goal_title")
                 .filter(|v| !v.is_empty())
                 .or_else(|| {
-                    row.get::<Option<String>>("career_path_id")
+                    row.get::<Option<String>, &str>("career_path_id")
                         .map(|career| career.replace("-", "").replace("(", "").replace(")", ""))
                 })
                 .filter(|v| !v.is_empty())
@@ -1498,7 +1488,7 @@ pub async fn suggest_career(
                         "interests": interests,
                     },
                     "top_suggestions": suggestions,
-                    "degraded": data.get("degraded").unwrap_or(&false).is_boolean(),
+                    "degraded": data.get("degraded").map(|v| v.is_boolean()).unwrap_or(false),
                     "source": data
                         .get("source")
                         .map(|v| v.to_string())

@@ -7,13 +7,12 @@
 //!
 //! `roles.id` là `SERIAL` → đọc/đóng dưới `i64` (không phải UUID).
 
-use crate::common::auth::{authenticated_user, ensure_admin};
+use crate::common::auth::{AuthUser, authenticated_user, ensure_admin};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -61,9 +60,9 @@ RETURNING id, name, display_name, description, level, system_created,
 /// `GET /api/roles` — danh sách tất cả vai trò (admin/moderator).
 pub async fn find_all(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let rows = sqlx::query(DB_ROLES)
@@ -75,13 +74,13 @@ pub async fn find_all(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<i64>("id"),
-                "name": row.get::<Option<String>>("name"),
-                "displayName": row.get::<Option<String>>("display_name"),
-                "description": row.get::<Option<String>>("description"),
-                "level": row.get::<Option<i64>>("level"),
-                "systemCreated": row.get::<Option<bool>>("system_created"),
-                "createdAt": row.get::<Option<String>>("created_at"),
+                "id": row.get::<i64, &str>("id"),
+                "name": row.get::<Option<String>, &str>("name"),
+                "displayName": row.get::<Option<String>, &str>("display_name"),
+                "description": row.get::<Option<String>, &str>("description"),
+                "level": row.get::<Option<i64>, &str>("level"),
+                "systemCreated": row.get::<Option<bool>, &str>("system_created"),
+                "createdAt": row.get::<Option<String>, &str>("created_at"),
             })
         })
         .collect();
@@ -92,10 +91,10 @@ pub async fn find_all(
 /// `GET /api/roles/:id` — chi tiết một vai trò.
 pub async fn find_one(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let id_num = id.parse::<i64>().map_err(|_| AppError::BadRequest("Role id must be an integer.".to_string()))?;
@@ -111,13 +110,13 @@ pub async fn find_one(
     };
 
     let result = serde_json::json!({
-        "id": row.get::<i64>("id"),
-        "name": row.get::<Option<String>>("name"),
-        "displayName": row.get::<Option<String>>("display_name"),
-        "description": row.get::<Option<String>>("description"),
-        "level": row.get::<Option<i64>>("level"),
-        "systemCreated": row.get::<Option<bool>>("system_created"),
-        "createdAt": row.get::<Option<String>>("created_at"),
+        "id": row.get::<i64, &str>("id"),
+        "name": row.get::<Option<String>, &str>("name"),
+        "displayName": row.get::<Option<String>, &str>("display_name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "level": row.get::<Option<i64>, &str>("level"),
+        "systemCreated": row.get::<Option<bool>, &str>("system_created"),
+        "createdAt": row.get::<Option<String>, &str>("created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -125,10 +124,10 @@ pub async fn find_one(
 /// `POST /api/roles` — tạo vai trò mới.
 pub async fn create(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateRole>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let name = body.name.trim();
@@ -147,7 +146,7 @@ pub async fn create(
         .map_err(|e| AppError::Internal(format!("failed to create role: {e}")))?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<i64>("id"),
-        "name": row.get::<String>("name"),
+        "id": row.get::<i64, &str>("id"),
+        "name": row.get::<String, &str>("name"),
     }))))
 }

@@ -25,14 +25,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
     cleanupOutdatedCaches: true,
     runtimeCaching: [
       {
-        urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/.*/i,
-        handler: 'CacheFirst',
-        options: {
-          cacheName: 'leaflet-assets',
-          expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 },
-        },
-      },
-      {
         urlPattern: /^https:\/\/(?:[a-d]\.basemaps\.cartocdn\.com)\/.*/i,
         handler: 'CacheFirst',
         options: {

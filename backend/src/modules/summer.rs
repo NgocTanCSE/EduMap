@@ -17,13 +17,12 @@
 //! Mirrors `backend/src/modules/summer/summer.controller.ts` +
 //! `summer.service.ts`.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -32,15 +31,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (các route đọc của summer là public).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` (tương đương `@Roles(ADMIN, MODERATOR)`).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -113,30 +103,30 @@ const DB_SELECT_REGISTRATION_BY_ID: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn campaign_to_json(row: &sqlx::PgRow) -> Value {
+fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<Option<String>>("name").unwrap_or_default(),
-        "year": row.get::<Option<i64>>("year").unwrap_or(0),
-        "location": row.get::<Option<String>>("location").unwrap_or_default(),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "year": row.get::<Option<i64>, &str>("year").unwrap_or(0),
+        "location": row.get::<Option<String>, &str>("location").unwrap_or_default(),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
-fn activity_to_json(row: &sqlx::PgRow) -> Value {
+fn activity_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "campaign_id": row.get::<String>("campaign_id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "volunteer_count": row.get::<Option<i64>>("volunteer_count").unwrap_or(0),
-        "hours_spent": row.get::<Option<f64>>("hours_spent").unwrap_or(0.0),
-        "date": row.get::<Option<String>>("date").unwrap_or_default(),
-        "status": row.get::<Option<String>>("status").unwrap_or_default(),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "campaign_id": row.get::<String, &str>("campaign_id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "volunteer_count": row.get::<Option<i64>, &str>("volunteer_count").unwrap_or(0),
+        "hours_spent": row.get::<Option<f64>, &str>("hours_spent").unwrap_or(0.0),
+        "date": row.get::<Option<String>, &str>("date").unwrap_or_default(),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
@@ -175,10 +165,7 @@ pub struct CreateActivityForm {
     pub status: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RegisterForm {
-    pub status: Option<String>,
-}
+
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -195,21 +182,21 @@ pub async fn get_campaigns(
 
     let campaigns: Vec<Value> = rows.iter().map(campaign_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(campaigns)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(campaigns))))
 }
 
 /// `POST /api/summer/campaigns` — tạo chiến dịch mới (admin/mod).
 pub async fn create_campaign(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateCampaignForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let name = match body.name.as_deref() {
         Some(v) if !v.trim().is_empty() => v,
-        _ => return Err(AppError::BadRequest("Tên chiến dịch không được rỗng.")),
+        _ => return Err(AppError::BadRequest("Tên chiến dịch không được rỗng.".to_string())),
     };
 
     let row = sqlx::query(DB_INSERT_CAMPAIGN)
@@ -231,11 +218,11 @@ pub async fn create_campaign(
 /// của chiến dịch (admin/mod).
 pub async fn add_activity(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<CreateActivityForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let campaign = sqlx::query(DB_SELECT_CAMPAIGN_BY_ID)
@@ -244,14 +231,14 @@ pub async fn add_activity(
         .await
         .map_err(AppError::from)?;
 
-    let campaign = match campaign {
+    let _campaign = match campaign {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.")),
+        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.".to_string())),
     };
 
     let title = match body.title.as_deref() {
         Some(v) if !v.trim().is_empty() => v,
-        _ => return Err(AppError::BadRequest("Tên hoạt động không được rỗng.")),
+        _ => return Err(AppError::BadRequest("Tên hoạt động không được rỗng.".to_string())),
     };
 
     let row = sqlx::query(DB_INSERT_ACTIVITY)
@@ -284,7 +271,7 @@ pub async fn get_daily_report(
 
     let campaign = match campaign {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.")),
+        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.".to_string())),
     };
 
     let date = match q.date.as_deref() {
@@ -309,9 +296,9 @@ pub async fn get_daily_report(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "campaign_id": campaign.get::<String>("id"),
-        "campaign_name": campaign.get::<Option<String>>("name").unwrap_or_default(),
-        "location": campaign.get::<Option<String>>("location").unwrap_or_default(),
+        "campaign_id": campaign.get::<String, &str>("id"),
+        "campaign_name": campaign.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "location": campaign.get::<Option<String>, &str>("location").unwrap_or_default(),
         "date": date,
         "activities": activities,
         "total_volunteers_approved": total_volunteers_approved,
@@ -323,10 +310,10 @@ pub async fn get_daily_report(
 /// (JWT).
 pub async fn register_volunteer(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let campaign = sqlx::query(DB_SELECT_CAMPAIGN_BY_ID)
         .bind(&id)
@@ -336,10 +323,10 @@ pub async fn register_volunteer(
 
     let campaign = match campaign {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.")),
+        None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.".to_string())),
     };
-    if campaign.get::<String>("status") != "active" {
-        return Err(AppError::BadRequest("Chiến dịch đã kết thúc, không thể đăng ký thêm."));
+    if campaign.get::<String, &str>("status") != "active" {
+        return Err(AppError::BadRequest("Chiến dịch đã kết thúc, không thể đăng ký thêm.".to_string()));
     }
 
     let existing: Option<i64> = sqlx::query(
@@ -350,10 +337,10 @@ pub async fn register_volunteer(
     .fetch_optional(pool.db())
     .await
     .map_err(AppError::from)?
-    .map(|row| row.get::<i64>(0));
+    .map(|row| row.get::<i64, usize>(0));
 
     if existing.is_some() {
-        return Err(AppError::Conflict("Bạn đã đăng ký tham gia chiến dịch này rồi."));
+        return Err(AppError::Conflict("Bạn đã đăng ký tham gia chiến dịch này rồi.".to_string()));
     }
 
     let row = sqlx::query(DB_INSERT_REGISTRATION)
@@ -365,13 +352,13 @@ pub async fn register_volunteer(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,
-        "message": format!("Đăng ký tham gia chiến dịch {} thành công!", campaign.get::<Option<String>>("name").unwrap_or_default()),
+        "message": format!("Đăng ký tham gia chiến dịch {} thành công!", campaign.get::<Option<String>, &str>("name").unwrap_or_default()),
         "registration": serde_json::json!({
-            "id": row.get::<String>("id"),
-            "user_id": row.get::<String>("user_id"),
-            "campaign_id": row.get::<String>("campaign_id"),
-            "status": row.get::<Option<String>>("status").unwrap_or_default(),
-            "registered_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+            "id": row.get::<String, &str>("id"),
+            "user_id": row.get::<String, &str>("user_id"),
+            "campaign_id": row.get::<String, &str>("campaign_id"),
+            "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
+            "registered_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
         }),
     }))))
 }
@@ -380,11 +367,11 @@ pub async fn register_volunteer(
 /// (admin/mod).
 pub async fn update_registration_status(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<StatusForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let row = sqlx::query(DB_SELECT_REGISTRATION_BY_ID)
@@ -395,12 +382,12 @@ pub async fn update_registration_status(
 
     let row = match row {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Yêu cầu đăng ký không tồn tại.")),
+        None => return Err(AppError::NotFound("Yêu cầu đăng ký không tồn tại.".to_string())),
     };
 
     let status = match body.status.as_deref() {
         Some("approved") | Some("rejected") => body.status.clone(),
-        _ => return Err(AppError::BadRequest("Trạng thái phải là `approved` hoặc `rejected`.")),
+        _ => return Err(AppError::BadRequest("Trạng thái phải là `approved` hoặc `rejected`.".to_string())),
     };
 
     let _ = sqlx::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2")
@@ -412,9 +399,9 @@ pub async fn update_registration_status(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "registration": serde_json::json!({
-            "id": row.get::<String>("id"),
-            "campaign_id": row.get::<String>("campaign_id"),
-            "user_id": row.get::<String>("user_id"),
+            "id": row.get::<String, &str>("id"),
+            "campaign_id": row.get::<String, &str>("campaign_id"),
+            "user_id": row.get::<String, &str>("user_id"),
             "status": status.clone(),
         }),
         "message": format!("Cập nhật trạng thái đăng ký thành công: {}.", status.unwrap_or_default()),

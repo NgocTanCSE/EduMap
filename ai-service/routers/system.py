@@ -2,7 +2,7 @@
 
 Provides RAM monitoring and provider chain status for OOM guard +
 observability. No local models are loaded anymore — AI answers come from
-remote APIs (DeepSeek / Gemini) or template fallbacks.
+remote APIs or template fallbacks.
 """
 import subprocess
 import json
@@ -58,7 +58,7 @@ async def system_status() -> Dict[str, Any]:
 
     models = {
         "embedding_model": {
-            "note": "Embeddings come from Google Gemini API only — no local model"
+            "note": "Embeddings come from the configured provider — no local model"
         },
         "reranker_model": {
             "note": "Reranking no longer used — ChromaDB returns results unchanged"
@@ -68,16 +68,16 @@ async def system_status() -> Dict[str, Any]:
 
 
     providers = {
-        "deepseek": {
-            "configured": bool(getattr(llm_service, "has_deepseek", False)),
-            "model": getattr(llm_service, "deepseek_model_name", None),
-            "reachable": _endpoint_reachable("https://api.deepseek.com/") if llm_service.has_deepseek else 0,
-            "note": "Primary text generation (set DEEPSEEK_API_KEY as host secret)",
+        "chat": {
+            "configured": bool(getattr(llm_service, "has_chat", False)),
+            "model": getattr(llm_service, "chat_model_name", None),
+            "reachable": _endpoint_reachable("https://api.groq.com/") if getattr(llm_service, "has_chat", False) else 0,
+            "note": "Text generation (set GROQ_API_KEY as host secret)",
         },
-        "google_gemini": {
-            "configured": bool(getattr(vector_store, "has_gemini_api", False)),
-            "reachable": _endpoint_reachable("https://generativelanguage.googleapis.com/") if vector_store.has_gemini_api else 0,
-            "note": "First fallback (set GEMINI_API_KEY as host secret)",
+        "embedding": {
+            "configured": bool(getattr(vector_store, "has_embedding", False)),
+            "reachable": _endpoint_reachable("https://api.jina.ai/") if getattr(vector_store, "has_embedding", False) else 0,
+            "note": "Embeddings (set JINA_API_KEY as host secret)",
         },
     }
 

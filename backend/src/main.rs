@@ -27,10 +27,15 @@ async fn main() {
 
     // 4. in-process notification hub (installed before the router is built so
     // `subscribe_sse` can register the streams of the upcoming connections).
-    crate::common::notifications::init_hub(crate::common::notifications::NotificationHub::new());
+    crate::common::notifications::init_hub(crate::common::notifications::NotificationHub::default());
     tracing::info!("notification hub initialized");
 
-    // 5. router (mounts all routes + auth middleware)
+    // 5. warm the Google JWKS key set (one fetch, so no request waits on it;
+    // the keys are cached for one hour and refetched when a `kid` is missing).
+    crate::common::google_jwks::warm_jwks().await;
+    tracing::info!("google key set warmed (offline tests do not run this)");
+
+    // 6. router (mounts all routes + auth middleware)
     let app = create_router(pool);
 
     // 5. serve (port 3000, same as the previous NestJS backend)

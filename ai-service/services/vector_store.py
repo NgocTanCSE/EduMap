@@ -38,13 +38,10 @@ except Exception as e:
 
 
 class VectorStoreService:
-    """Semantic search with Google Gemini embeddings.
+    """Semantic search over the ChromaDB ``edumap_docs`` collection.
 
-    - Embedding -> Google Gemini : GEMINI_API_KEY / GEMINI_EMBEDDING_MODEL
-
-    All other embedding providers (local SentenceBERT)
-    are gone — Gemini is the single provider now. ChromaDB vectors are stored
-    in the ``edumap_docs`` collection and searched by cosine similarity.
+    No embedding provider is configured on this host; vectors are only stored
+    and queried when one is added.
     """
 
     # Default values for every instance, stored on the CLASS so that an object
@@ -53,19 +50,22 @@ class VectorStoreService:
     # always re-reads them from env and overwrites them, so production
     # behaviour is identical.  Mutable state (dicts) is created on demand by
     # _store_embed_cache / get_embedding into the instance.
-    gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
-    gemini_embedding_models = [
+    jina_key = (os.getenv("JINA_API_KEY") or "").strip().strip('"').strip("'")
+    jina_base_url = (
+        os.getenv("JINA_BASE_URL", "https://api.jina.ai/v1").strip().rstrip("/")
+    )
+    jina_models = [
         m.strip()
-        for m in os.getenv(
-            "GEMINI_EMBEDDING_MODEL",
-            "gemini-embedding-001",
-        ).split(",")
+        for m in os.getenv("JINA_EMBEDDING_MODEL", "jina-embeddings-v5-text-small").split(",")
         if m.strip()
-    ]
-    gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
-    has_gemini_api = bool(gemini_key)
+    ] or ["jina-embeddings-v5-text-small"]
+    jina_timeout = float(os.getenv("JINA_TIMEOUT_SECONDS", "20"))
+    has_jina_api = bool(jina_key)
 
-    _gemini_embed_down_until = 0.0
+    _jina_embed_down_until = 0.0
+
+    embed_batch_size = int(os.getenv("EMBED_BATCH_SIZE", "32"))
+    embed_batch_timeout = float(os.getenv("EMBED_BATCH_TIMEOUT_SECONDS", "20"))
 
     embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
     embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
@@ -80,20 +80,6 @@ class VectorStoreService:
     _collection_init_attempts = 0
 
     def __init__(self):
-
-        self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
-        self.gemini_embedding_models = [
-            m.strip()
-            for m in os.getenv(
-                "GEMINI_EMBEDDING_MODEL",
-
-                "gemini-embedding-001",
-            ).split(",")
-            if m.strip()
-        ]
-        self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
-        self.has_gemini_api = bool(self.gemini_key)
-        self._gemini_embed_down_until = 0.0
 
         self.embed_global_timeout = float(os.getenv("EMBED_GLOBAL_TIMEOUT_SECONDS", "6"))
         self.embed_provider_timeout = float(os.getenv("EMBED_PROVIDER_TIMEOUT_SECONDS", "4"))
@@ -110,9 +96,27 @@ class VectorStoreService:
 
 
         self._embed_cache_ttl = float(os.getenv("EMBED_CACHE_TTL_SECONDS", "1800"))
-        if not self.has_gemini_api:
-            print("WARNING: Vector store without any embedding API — RAG semantic search is unstable (set GEMINI_API_KEY).")
-        print(f"INFO: Gemini embeddings enabled with models={','.join(self.gemini_embedding_models)}")
+        self.jina_key = (os.getenv("JINA_API_KEY") or "").strip().strip('"').strip("'")
+        self.jina_base_url = (
+            os.getenv("JINA_BASE_URL", "https://api.jina.ai/v1").strip().rstrip("/")
+        )
+        self.jina_models = [
+            m.strip()
+            for m in os.getenv(
+                "JINA_EMBEDDING_MODEL", "jina-embeddings-v5-text-small"
+            ).split(",")
+            if m.strip()
+        ] or ["jina-embeddings-v5-text-small"]
+        self.jina_timeout = float(os.getenv("JINA_TIMEOUT_SECONDS", "20"))
+        self.has_jina_api = bool(self.jina_key)
+        self._jina_embed_down_until = 0.0
+        self.embed_batch_size = max(1, int(os.getenv("EMBED_BATCH_SIZE", "32")))
+        self.embed_batch_timeout = float(os.getenv("EMBED_BATCH_TIMEOUT_SECONDS", "20"))
+
+        if self.has_jina_api:
+            print(f"INFO: Jina embeddings enabled (models={','.join(self.jina_models)})")
+        else:
+            print("INFO: Embedding provider not configured — vector store is query-only.")
 
         print(
             f"INFO: Embedding budget: global={self.embed_global_timeout}s, "
@@ -224,20 +228,8 @@ class VectorStoreService:
 
     @property
     def has_embedding(self) -> bool:
-        """True when Gemini embedding API is configured (the only provider now)."""
-        return bool(getattr(self, "has_gemini_api", False))
-
-    _EMBED_MODEL_NOT_FOUND_REASONS = (
-        "not found", "not supported", "no longer available",
-        "model not found", "could not find", "deprecated", "does not exist",
-    )
-
-    def _is_embed_model_not_found(self, code, message):
-        low = (message or "").lower()
-        return (
-            code in (404, 410, 7000)
-            or any(r in low for r in self._EMBED_MODEL_NOT_FOUND_REASONS)
-        )
+        """True when the Jina embedding API is configured."""
+        return bool(getattr(self, "has_jina_api", False))
 
     def _embed_remaining(self, started: float) -> float:
         """Seconds left in the global embedding budget."""
@@ -250,123 +242,118 @@ class VectorStoreService:
         return max(1.5, min(getattr(self, "embed_provider_timeout", 4.0), self._embed_remaining(started)))
 
 
-    def _gemini_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
-        """Get an embedding from Google Gemini (primary on the host)."""
+    def _fit_dim(self, vec: List[float]) -> List[float]:
+        """Return ``vec`` at the collection dimension (truncate or zero-pad)."""
+        if not vec:
+            return vec
+        out = [float(x) for x in vec]
+        dim = getattr(self, "_embed_dim", None)
+        if dim and len(out) != dim:
+            if len(out) > dim:
+                out = out[:dim]
+            else:
+                out = out + [0.0] * (dim - len(out))
+        if not dim:
+            self._embed_dim = len(out)
+        return out
+
+    def _jina_embed_raw(self, inputs: List[str], timeout_override: float = None) -> List[List[float]]:
+        """One ``POST /embeddings`` for the whole ``inputs`` batch.
+
+        Returns one vector per input, in request order. Any failure raises so
+        the caller can skip the batch without losing the rest of the corpus.
+        """
         import subprocess
         import time
 
-        if not self.has_gemini_api:
-            raise RuntimeError("GEMINI_API_KEY not set — cannot use Gemini embeddings.")
-        if time.monotonic() < self._gemini_embed_down_until:
-            raise RuntimeError("Gemini embeddings temporarily disabled after a network failure.")
+        if not self.has_jina_api:
+            raise RuntimeError("JINA_API_KEY not set — cannot embed.")
+        if time.monotonic() < getattr(self, "_jina_embed_down_until", 0.0):
+            raise RuntimeError("Jina embeddings temporarily disabled after a network failure.")
+        if not inputs:
+            return []
 
         last_err = None
-        for raw_model in self.gemini_embedding_models:
-            model = (raw_model or "").strip()
-            if model.startswith("models/"):
-                model = model[len("models/"):]
-            if not model:
-                continue
+        for model in self.jina_models:
+            url = f"{self.jina_base_url}/embeddings"
+            payload = {"model": model, "input": list(inputs)}
+            body_json = json.dumps(payload, ensure_ascii=False)
+            _timeout = float(timeout_override or self.jina_timeout)
 
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{urllib.parse.quote(model, safe='-')}:embedContent"
-            )
-            payload = {
-                "model": f"models/{model}",
-                "content": {"parts": [{"text": text}]},
-            }
-
-
-            if model.startswith("gemini-embedding-001"):
-                payload["outputDimensionality"] = int(self._embed_dim or 768)
-            body_json = json.dumps(payload)
-
-            _gem_timeout = timeout_override or self.gemini_timeout
             try:
                 proc = subprocess.run(
                     [
-                        "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                        "-H", f"x-goog-api-key: {self.gemini_key}",
+                        "curl", "--ipv4", "--insecure", "-sS",
+                        "-X", "POST", url,
+                        "-H", f"Authorization: Bearer {self.jina_key}",
                         "-H", "Content-Type: application/json",
                         "-d", body_json,
                         "--connect-timeout", "4",
-                        "--max-time", str(_gem_timeout),
-                        url,
+                        "--max-time", str(_timeout),
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=_gem_timeout + 2,
+                    timeout=_timeout + 2,
                 )
             except Exception as e:
-                self._gemini_embed_down_until = time.monotonic() + 300
-                raise RuntimeError(f"Gemini embedding connection failed: {type(e).__name__}: {e}")
+                self._jina_embed_down_until = time.monotonic() + 300
+                raise RuntimeError(f"Jina embedding connection failed: {type(e).__name__}: {e}")
 
             if proc.returncode != 0:
                 err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-
-
-                _stdout = (proc.stdout or "").strip()
-                if _stdout:
-                    try:
-                        _partial = json.loads(_stdout)
-                        if isinstance(_partial, dict) and _partial.get("error"):
-                            _eno = _partial["error"]
-                            if isinstance(_eno, dict):
-                                err = f"{err} | body: {str(_eno.get('message', _stdout[:120]))[:120]}"
-                    except Exception:
-                        pass
-                self._gemini_embed_down_until = time.monotonic() + 300
-                raise RuntimeError(f"Gemini embedding connection failed: {err}")
+                self._jina_embed_down_until = time.monotonic() + 300
+                raise RuntimeError(f"Jina embedding connection failed: {err}")
 
             try:
                 data = json.loads(proc.stdout or "{}")
             except Exception:
-                last_err = f"{model}: invalid JSON response"
+                last_err = f"{model}: invalid JSON response: {(proc.stdout or '')[:160]}"
+                print(f"Jina model {model} tra ve JSON khong hop le, thu model ke tiep...")
                 continue
 
-            if isinstance(data, dict) and data.get("error"):
-                err = data.get("error") or {}
-                code = int(err.get("code") or 0)
-                message = str(err.get("message") or "")
-                low = message.lower()
-                if code in (401, 403) or "api key" in low and ("invalid" in low or "not valid" in low):
-                    raise RuntimeError(f"Gemini embedding auth error (HTTP {code}): {message[:200]}")
-                if code == 429:
-                    last_err = f"{model}: HTTP 429 {message[:100]}"
-                    print(f"Gemini embedding model {model} bi rate-limit (429), thu model ke tiep...")
-                    continue
-                if code in (400, 404) and any(
-                    reason in low
-                    for reason in ("not found", "not supported", "does not exist", "deprecated")
-                ):
-                    last_err = f"{model}: HTTP {code} {message[:100]}"
-                    print(f"Gemini embedding model {model} khong kha dung, thu model ke tiep...")
-                    continue
-                last_err = f"{model}: HTTP {code} {message[:120]}"
+            if isinstance(data, dict) and data.get("detail"):
+                detail = str(data.get("detail"))[:200]
+                low = detail.lower()
+                if "api key" in low or "unauthorized" in low or "forbidden" in low:
+                    self._jina_embed_down_until = time.monotonic() + 300
+                    raise RuntimeError(f"Jina embedding auth error: {detail}")
+                if "rate limit" in low or "too many" in low:
+                    self._jina_embed_down_until = time.monotonic() + 60
+                    raise RuntimeError(f"Jina embedding rate limited: {detail}")
+                last_err = f"{model}: {detail}"
+                print(f"Jina model {model} loi: {detail[:120]}")
                 continue
 
-            vec = None
-            if isinstance(data, dict):
-                emb = data.get("embedding")
-                if isinstance(emb, dict):
-                    vec = emb.get("values")
-                if vec is None:
-                    embs = data.get("embeddings")
-                    if isinstance(embs, list) and embs:
-                        first = embs[0]
-                        if isinstance(first, dict):
-                            vec = first.get("values")
-                        elif isinstance(first, list):
-                            vec = first
+            items = data.get("data") if isinstance(data, dict) else None
+            if not isinstance(items, list) or len(items) != len(inputs):
+                last_err = f"{model}: expected {len(inputs)} vectors, got {len(items or [])}"
+                print(f"Jina model {model} tra ve so luong vector khong khop, thu model ke tiep...")
+                continue
 
-            if vec and isinstance(vec, list) and len(vec) > 0:
-                return [float(x) for x in vec]
+            ordered = sorted(items, key=lambda it: it.get("index", 0) if isinstance(it, dict) else 0)
+            vectors = []
+            for item in ordered:
+                vec = item.get("embedding") if isinstance(item, dict) else None
+                if not isinstance(vec, list) or not vec:
+                    vectors = []
+                    break
+                vectors.append([float(x) for x in vec])
+            if len(vectors) == len(inputs):
+                return vectors
 
-            last_err = f"{model}: empty embedding response"
+            last_err = f"{model}: empty embedding item"
+            print(f"Jina model {model} tra ve vector rong, thu model ke tiep...")
 
-        raise RuntimeError(f"Gemini embedding failed: {last_err or 'no model available'}")
+        raise RuntimeError(f"Jina embedding failed: {last_err or 'no model available'}")
 
+    def _jina_get_embeddings_batch(self, inputs: List[str], timeout_override: float = None) -> List[List[float]]:
+        """Embed a batch of texts (one HTTP request) — used by ``add_documents``."""
+        return self._jina_embed_raw(list(inputs), timeout_override=timeout_override)
+
+    def _jina_get_embedding(self, text: str, timeout_override: float = None) -> List[float]:
+        """Embed a single text (query path)."""
+        vecs = self._jina_embed_raw([text], timeout_override=timeout_override)
+        return vecs[0] if vecs else []
 
     def _store_embed_cache(self, cache_key: str, vec: List[float]) -> None:
         """Cache a successfully computed embedding with TTL + FIFO-LRU eviction.
@@ -409,79 +396,52 @@ class VectorStoreService:
         _meta[cache_key] = now
 
     def get_embedding(self, text: str) -> List[float]:
+        """Embed ``text`` for a query (cached, single-document)."""
         if not text:
             return []
-
 
         if not self.has_embedding:
-            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình GEMINI_API_KEY (chỉ 1 nhà cung cấp ngay bây giờ).")
-        if not text:
-            return []
-
+            raise RuntimeError("Embedding service chưa sẵn sàng. Cấu hình JINA_API_KEY.")
 
         import time as _embed_time
+
         _cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
         _cache = getattr(self, "_embed_cache", None)
         _meta = getattr(self, "_embed_cache_meta", None)
         _cached = _cache.get(_cache_key) if isinstance(_cache, dict) else None
         _cached_ts = (_meta.get(_cache_key, 0.0) if isinstance(_meta, dict) else 0.0)
         if _cached is not None:
-            ttl = getattr(self, "_embed_cache_ttl", 1800.0)
-            if _embed_time.monotonic() - _cached_ts <= ttl:
+            if _embed_time.monotonic() - _cached_ts <= getattr(self, "_embed_cache_ttl", 1800.0):
                 return _cached
-            else:
-
-                _cache = getattr(self, "_embed_cache", None) or {}
-                _meta = getattr(self, "_embed_cache_meta", None) or {}
+            if isinstance(_cache, dict):
                 _cache.pop(_cache_key, None)
+            if isinstance(_meta, dict):
                 _meta.pop(_cache_key, None)
-                self._embed_cache = _cache
-                self._embed_cache_meta = _meta
 
-        import time
-        _embed_start = time.monotonic()
-
-
+        _embed_start = _embed_time.monotonic()
         _EMBED_GLOBAL_TIMEOUT = getattr(self, "embed_global_timeout", 6.0)
-        gemini_last_err = None
 
-        if self.has_gemini_api and time.monotonic() >= self._gemini_embed_down_until:
-            if self._embed_remaining(_embed_start) <= 0.5:
-                print(f"  [embed] global timeout ({_EMBED_GLOBAL_TIMEOUT}s) reached, skipping Gemini")
-            else:
-                try:
-                    vec = self._gemini_get_embedding(text, timeout_override=self._embed_attempt_timeout(_embed_start))
-                    vec = [float(x) for x in vec]
-                    if self._embed_dim and len(vec) != self._embed_dim:
-                        print(f"Gemini embed dim {len(vec)} != collection dim {self._embed_dim}, dieu chinh...")
-                        if len(vec) > self._embed_dim:
-                            vec = vec[:self._embed_dim]
-                        else:
-                            vec = vec + [0.0] * (self._embed_dim - len(vec))
-                    self._embed_dim = len(vec)
-                    print(f"  -> Gemini embedding OK (dim={len(vec)})")
-                    self._store_embed_cache(_cache_key, vec)
-                    return vec
-                except Exception as e:
-                    gemini_last_err = str(e)
-                    print(f"Gemini embedding failed: {e}")
+        if self._embed_remaining(_embed_start) <= 0.5:
+            raise RuntimeError(
+                f"Không thể lấy embedding (giới hạn {_EMBED_GLOBAL_TIMEOUT}s)."
+            )
 
-
-        raise RuntimeError(
-            f"Khong the lay embedding (gioi han {_EMBED_GLOBAL_TIMEOUT}s). "
-            f"Gemini: {gemini_last_err or ('khong cau hinh' if not self.has_gemini_api else 'khong kha dung')}"
+        vec = self._jina_get_embedding(
+            text, timeout_override=self._embed_attempt_timeout(_embed_start)
         )
+        vec = self._fit_dim(vec)
+        print(f"  -> Jina embedding OK (dim={len(vec)})")
+        self._store_embed_cache(_cache_key, vec)
+        return vec
 
 
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]) -> Dict[str, int]:
-        """Upsert documents into ChromaDB, tolerating per-document failures.
+        """Upsert documents into ChromaDB in embedding batches.
 
-        Previous behaviour embedded the WHOLE batch in one list comprehension,
-        so a single slow/unavailable embedding provider lost every document and
-        `seed_data()` reported `0 documents, status=error` (observed on host
-        Spaces free tier). Now each document is embedded independently:
-        documents whose embedding succeeds are stored, failures are skipped and
-        counted, and the caller can report an honest partial sync.
+        Documents are embedded in batches of ``EMBED_BATCH_SIZE`` (default 32)
+        — one HTTP request per batch — because the provider bills per request
+        on the free tier. A batch that fails is skipped and counted, so one bad
+        batch never loses the whole corpus.
 
         Returns {"added": int, "failed": int, "total": int}.
         """
@@ -493,21 +453,34 @@ class VectorStoreService:
             save_fn = getattr(self.collection, "upsert", self.collection.add)
 
             if not self.has_embedding:
-                save_fn(documents=documents, metadatas=metadatas, ids=ids)
-                stats["added"] = total
-                return stats
+                raise RuntimeError(
+                    "Embedding service chưa sẵn sàng — không thể index tài liệu."
+                )
 
             ok_docs, ok_meta, ok_ids, ok_emb = [], [], [], []
             failures = []
-            for doc, meta, doc_id in zip(documents, metadatas, ids):
+            batch_size = max(1, int(getattr(self, "embed_batch_size", 32) or 32))
+            for start in range(0, total, batch_size):
+                chunk_docs = documents[start:start + batch_size]
+                chunk_meta = metadatas[start:start + batch_size]
+                chunk_ids = ids[start:start + batch_size]
                 try:
-                    ok_emb.append(self.get_embedding(doc))
+                    vectors = self._jina_get_embeddings_batch(
+                        chunk_docs, timeout_override=self.embed_batch_timeout
+                    )
+                except Exception as batch_err:
+                    failures.extend(
+                        f"{doc_id}: {batch_err}" for doc_id in chunk_ids
+                    )
+                    print(
+                        f"[add_documents] batch {start}-{start + len(chunk_docs)} failed: {batch_err}"
+                    )
+                    continue
+                for doc, meta, doc_id, vec in zip(chunk_docs, chunk_meta, chunk_ids, vectors):
+                    ok_emb.append(self._fit_dim(vec))
                     ok_docs.append(doc)
                     ok_meta.append(meta)
                     ok_ids.append(doc_id)
-                except Exception as doc_err:
-                    failures.append(f"{doc_id}: {doc_err}")
-                    print(f"[add_documents] skipped '{doc_id}': {doc_err}")
 
             if ok_docs:
                 save_fn(documents=ok_docs, embeddings=ok_emb, metadatas=ok_meta, ids=ok_ids)
@@ -540,22 +513,10 @@ class VectorStoreService:
                 print("[embed_document] Vector store collection is None — skipping (graceful degradation).")
                 return False
             if not self.has_embedding:
+                print("[embed_document] No embedding provider — skipping (graceful degradation).")
+                return False
 
-
-                self.collection.upsert(documents=[text], metadatas=[metadata], ids=[doc_id])
-                print(f"[embed_document] Upserted '{doc_id}' WITHOUT embeddings (no API key).")
-                return True
-
-            embedding = self.get_embedding(text)
-
-
-            if self._embed_dim and len(embedding) != self._embed_dim:
-                print(f"[embed_document] dim {len(embedding)} != collection {self._embed_dim}, adjusting...")
-                if len(embedding) > self._embed_dim:
-                    embedding = embedding[:self._embed_dim]
-                else:
-                    embedding = embedding + [0.0] * (self._embed_dim - len(embedding))
-            self._embed_dim = len(embedding)
+            embedding = self._fit_dim(self.get_embedding(text))
 
             self.collection.upsert(
                 embeddings=[embedding],
@@ -592,7 +553,7 @@ class VectorStoreService:
             (``query_embeddings``) and merge results weighted by
             ``hybrid_alpha`` (vector weight; ``1 - alpha`` is keyword weight).
             Falls back to pure keyword-only search when no embedding provider
-            is configured (``has_gemini_api`` is False).
+            is configured (``has_embedding`` is False).
         hybrid_alpha : float
             Weight for semantic results in the merged ranking. 0.0 = pure
             keyword, 1.0 = pure semantic. Defaults to 0.7 (semantic-leaning).

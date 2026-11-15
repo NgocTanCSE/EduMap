@@ -10,13 +10,12 @@
 //!
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -29,14 +28,6 @@ use uuid::Uuid;
 /// Người dùng đã đăng nhập: các route public của business (danh sách sản phẩm,
 // dịch vụ, hồ sơ) không nhận `AuthUser` từ router (`PUBLIC_PATHS`), nên các
 // handler write tự kiểm và trả `401` khi JWT thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` only (`@Roles(ADMIN, MODERATOR)` ở old backend).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -63,7 +54,7 @@ async fn ensure_owner(
         .map_err(to_app_error)?;
 
     let owner = match row {
-        Some(r) => r.get::<String>("user_id"),
+        Some(r) => r.get::<String, &str>("user_id"),
         None => {
             return Err(AppError::NotFound("Hồ sơ doanh nghiệp không tồn tại.".to_string()))
         }
@@ -86,7 +77,7 @@ async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String,
         .map_err(to_app_error)?;
 
     match row {
-        Some(r) => Ok(r.get::<String>("id")),
+        Some(r) => Ok(r.get::<String, &str>("id")),
         None => Err(AppError::Forbidden("Chỉ dành cho doanh nghiệp.".to_string())),
     }
 }
@@ -95,7 +86,7 @@ async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String,
 // thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
 fn to_app_error(e: sqlx::Error) -> AppError {
     if let Some(db_err) = e.as_database_error() {
-        if db_err.code().to_string() == "23505" {
+        if db_err.code().map_or(false, |c| c == "23505") {
             return AppError::Conflict("Dữ liệu đã tồn tại (trùng khoá duy nhất).".to_string());
         }
     }
@@ -478,146 +469,146 @@ pub struct CheckoutForm {
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn profile_to_json(row: &sqlx::PgRow) -> Value {
+fn profile_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "user_id": row.get::<Option<String>>("user_id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "industry": row.get::<Option<String>>("industry"),
-        "website": row.get::<Option<String>>("website"),
-        "logo_url": row.get::<Option<String>>("logo_url"),
-        "address": row.get::<Option<String>>("address"),
-        "lat": row.get::<Option<String>>("lat"),
-        "lng": row.get::<Option<String>>("lng"),
-        "is_verified": row.get::<bool>("is_verified"),
-        "products_count": row.get::<i64>("products_count"),
-        "services_count": row.get::<i64>("services_count"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "user_id": row.get::<Option<String>, &str>("user_id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "industry": row.get::<Option<String>, &str>("industry"),
+        "website": row.get::<Option<String>, &str>("website"),
+        "logo_url": row.get::<Option<String>, &str>("logo_url"),
+        "address": row.get::<Option<String>, &str>("address"),
+        "lat": row.get::<Option<String>, &str>("lat"),
+        "lng": row.get::<Option<String>, &str>("lng"),
+        "is_verified": row.get::<bool, &str>("is_verified"),
+        "products_count": row.get::<i64, &str>("products_count"),
+        "services_count": row.get::<i64, &str>("services_count"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn product_to_json(row: &sqlx::PgRow, reviews: Vec<Value>) -> Value {
+fn product_to_json(row: &sqlx::postgres::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "price": row.get::<String>("price"),
-        "currency": row.get::<Option<String>>("currency"),
-        "category": row.get::<Option<String>>("category"),
-        "stock": row.get::<i64>("stock"),
-        "image_url": row.get::<Option<String>>("image_url"),
-        "business_profile_id": row.get::<String>("business_profile_id"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "price": row.get::<String, &str>("price"),
+        "currency": row.get::<Option<String>, &str>("currency"),
+        "category": row.get::<Option<String>, &str>("category"),
+        "stock": row.get::<i64, &str>("stock"),
+        "image_url": row.get::<Option<String>, &str>("image_url"),
+        "business_profile_id": row.get::<String, &str>("business_profile_id"),
         "reviews": reviews,
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn product_list_to_json(row: &sqlx::PgRow) -> Value {
+fn product_list_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "price": row.get::<String>("price"),
-        "currency": row.get::<Option<String>>("currency"),
-        "category": row.get::<Option<String>>("category"),
-        "stock": row.get::<i64>("stock"),
-        "image_url": row.get::<Option<String>>("image_url"),
-        "business_profile_id": row.get::<String>("business_profile_id"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "price": row.get::<String, &str>("price"),
+        "currency": row.get::<Option<String>, &str>("currency"),
+        "category": row.get::<Option<String>, &str>("category"),
+        "stock": row.get::<i64, &str>("stock"),
+        "image_url": row.get::<Option<String>, &str>("image_url"),
+        "business_profile_id": row.get::<String, &str>("business_profile_id"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn service_to_json(row: &sqlx::PgRow, reviews: Vec<Value>) -> Value {
+fn service_to_json(row: &sqlx::postgres::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "price": row.get::<String>("price"),
-        "currency": row.get::<Option<String>>("currency"),
-        "category": row.get::<Option<String>>("category"),
-        "duration": row.get::<Option<String>>("duration"),
-        "location": row.get::<Option<String>>("location"),
-        "business_profile_id": row.get::<String>("business_profile_id"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "price": row.get::<String, &str>("price"),
+        "currency": row.get::<Option<String>, &str>("currency"),
+        "category": row.get::<Option<String>, &str>("category"),
+        "duration": row.get::<Option<String>, &str>("duration"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "business_profile_id": row.get::<String, &str>("business_profile_id"),
         "reviews": reviews,
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn service_list_to_json(row: &sqlx::PgRow) -> Value {
+fn service_list_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "price": row.get::<String>("price"),
-        "currency": row.get::<Option<String>>("currency"),
-        "category": row.get::<Option<String>>("category"),
-        "duration": row.get::<Option<String>>("duration"),
-        "location": row.get::<Option<String>>("location"),
-        "business_profile_id": row.get::<String>("business_profile_id"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "price": row.get::<String, &str>("price"),
+        "currency": row.get::<Option<String>, &str>("currency"),
+        "category": row.get::<Option<String>, &str>("category"),
+        "duration": row.get::<Option<String>, &str>("duration"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "business_profile_id": row.get::<String, &str>("business_profile_id"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn review_to_json(row: &sqlx::PgRow) -> Value {
+fn review_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "user_id": row.get::<String>("user_id"),
-        "user_name": row.get::<Option<String>>("full_name"),
-        "rating": row.get::<i64>("rating"),
-        "comment": row.get::<Option<String>>("comment"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "user_id": row.get::<String, &str>("user_id"),
+        "user_name": row.get::<Option<String>, &str>("full_name"),
+        "rating": row.get::<i64, &str>("rating"),
+        "comment": row.get::<Option<String>, &str>("comment"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
-fn cart_to_json(row: &sqlx::PgRow) -> Value {
+fn cart_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "user_id": row.get::<String>("userId"),
-        "product_id": row.get::<Option<String>>("productId"),
-        "service_id": row.get::<Option<String>>("serviceId"),
-        "quantity": row.get::<i64>("quantity"),
-        "product_name": row.get::<Option<String>>("product_name"),
-        "product_price": row.get::<Option<String>>("product_price"),
-        "product_image": row.get::<Option<String>>("product_image"),
-        "service_name": row.get::<Option<String>>("service_name"),
-        "service_price": row.get::<Option<String>>("service_price"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "user_id": row.get::<String, &str>("userId"),
+        "product_id": row.get::<Option<String>, &str>("productId"),
+        "service_id": row.get::<Option<String>, &str>("serviceId"),
+        "quantity": row.get::<i64, &str>("quantity"),
+        "product_name": row.get::<Option<String>, &str>("product_name"),
+        "product_price": row.get::<Option<String>, &str>("product_price"),
+        "product_image": row.get::<Option<String>, &str>("product_image"),
+        "service_name": row.get::<Option<String>, &str>("service_name"),
+        "service_price": row.get::<Option<String>, &str>("service_price"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
-fn order_to_json(order_row: &sqlx::PgRow, items: Vec<Value>) -> Value {
+fn order_to_json(order_row: &sqlx::postgres::PgRow, items: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": order_row.get::<String>("id"),
-        "user_id": order_row.get::<String>("userId"),
-        "total_amount": order_row.get::<String>("total_amount"),
-        "currency": order_row.get::<Option<String>>("currency"),
-        "status": order_row.get::<String>("status"),
-        "shipping_address": order_row.get::<Option<String>>("shippingAddress"),
-        "created_at": order_row.get::<String>("created_at"),
+        "id": order_row.get::<String, &str>("id"),
+        "user_id": order_row.get::<String, &str>("userId"),
+        "total_amount": order_row.get::<String, &str>("total_amount"),
+        "currency": order_row.get::<Option<String>, &str>("currency"),
+        "status": order_row.get::<String, &str>("status"),
+        "shipping_address": order_row.get::<Option<String>, &str>("shippingAddress"),
+        "created_at": order_row.get::<String, &str>("created_at"),
         "items": items,
     })
 }
 
-fn vendor_order_item_to_json(row: &sqlx::PgRow) -> Value {
+fn vendor_order_item_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "order_id": row.get::<String>("orderId"),
-        "product_id": row.get::<Option<String>>("productId"),
-        "service_id": row.get::<Option<String>>("serviceId"),
-        "quantity": row.get::<i64>("quantity"),
-        "price_at_purchase": row.get::<String>("price_at_purchase"),
-        "buyer_id": row.get::<String>("buyer_id"),
-        "status": row.get::<String>("status"),
-        "shipping_address": row.get::<Option<String>>("shippingAddress"),
-        "created_at": row.get::<String>("created_at"),
-        "product_name": row.get::<Option<String>>("product_name"),
-        "service_name": row.get::<Option<String>>("service_name"),
+        "id": row.get::<String, &str>("id"),
+        "order_id": row.get::<String, &str>("orderId"),
+        "product_id": row.get::<Option<String>, &str>("productId"),
+        "service_id": row.get::<Option<String>, &str>("serviceId"),
+        "quantity": row.get::<i64, &str>("quantity"),
+        "price_at_purchase": row.get::<String, &str>("price_at_purchase"),
+        "buyer_id": row.get::<String, &str>("buyer_id"),
+        "status": row.get::<String, &str>("status"),
+        "shipping_address": row.get::<Option<String>, &str>("shippingAddress"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "product_name": row.get::<Option<String>, &str>("product_name"),
+        "service_name": row.get::<Option<String>, &str>("service_name"),
     })
 }
 
@@ -692,10 +683,10 @@ pub async fn get_profile(
 /// `POST /api/business/profile` — tạo mới hoặc cập nhật hồ sơ doanh nghiệp.
 pub async fn create_or_update_profile(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<ProfileForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if is_blank(form.name.as_ref()) {
         return Err(AppError::BadRequest("Tên doanh nghiệp là bắt buộc.".to_string()));
@@ -752,7 +743,7 @@ pub async fn create_or_update_profile(
         } else {
             "Tạo hồ sơ doanh nghiệp thành công. Chờ xác minh."
         },
-        "is_verified": row.get::<bool>("is_verified"),
+        "is_verified": row.get::<bool, &str>("is_verified"),
     }))))
 }
 
@@ -760,9 +751,9 @@ pub async fn create_or_update_profile(
 pub async fn verify_profile(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let row = sqlx::query(DB_VERIFY_PROFILE)
@@ -774,9 +765,9 @@ pub async fn verify_profile(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Xác minh hồ sơ doanh nghiệp thành công.",
-            "id": r.get::<String>("id"),
-            "is_verified": r.get::<bool>("is_verified"),
-            "updated_at": r.get::<String>("updated_at"),
+            "id": r.get::<String, &str>("id"),
+            "is_verified": r.get::<bool, &str>("is_verified"),
+            "updated_at": r.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound("Doanh nghiệp không tồn tại.".to_string())),
     }
@@ -789,14 +780,14 @@ pub async fn verify_profile(
 /// `POST /api/business/:bpId/products` — tạo sản phẩm mới.
 pub async fn create_product(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(bp_id): Path<String>,
     Json(form): Json<CreateProductForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
-    if is_blank(form.name.as_ref()) || is_blank(Some(&form.price)) {
+    if is_blank(Some(&form.name)) || is_blank(Some(&form.price)) {
         return Err(AppError::BadRequest("Tên sản phẩm và giá là bắt buộc.".to_string()));
     }
 
@@ -815,8 +806,8 @@ pub async fn create_product(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Tạo sản phẩm thành công.",
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -849,7 +840,7 @@ pub async fn get_product(
 
     match row {
         Some(r) => {
-            let reviews = fetch_reviews(pool, "product", &id).await?;
+            let reviews = fetch_reviews(&pool, "product", &id).await?;
             Ok(Json(ApiResponse::ok(product_to_json(&r, reviews))))
         }
         None => Err(AppError::NotFound("Sản phẩm không tồn tại.".to_string())),
@@ -859,12 +850,12 @@ pub async fn get_product(
 /// `PUT /api/business/:bpId/products/:id` — cập nhật sản phẩm.
 pub async fn update_product(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path((bp_id, id)): Path<(String, String)>,
     Json(form): Json<UpdateProductForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
     let row = sqlx::query(DB_UPDATE_PRODUCT)
         .bind(form.name.as_deref())
@@ -883,8 +874,8 @@ pub async fn update_product(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Cập nhật sản phẩm thành công.",
-            "id": r.get::<String>("id"),
-            "updated_at": r.get::<String>("updated_at"),
+            "id": r.get::<String, &str>("id"),
+            "updated_at": r.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound("Sản phẩm không tồn tại.".to_string())),
     }
@@ -893,11 +884,11 @@ pub async fn update_product(
 /// `DELETE /api/business/:bpId/products/:id` — xóa sản phẩm.
 pub async fn delete_product(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path((bp_id, id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
     let res = sqlx::query(DB_DELETE_PRODUCT)
         .bind(&id)
@@ -921,14 +912,14 @@ pub async fn delete_product(
 /// `POST /api/business/:bpId/services` — tạo dịch vụ mới.
 pub async fn create_service(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(bp_id): Path<String>,
     Json(form): Json<CreateServiceForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
-    if is_blank(form.name.as_ref()) || is_blank(Some(&form.price)) {
+    if is_blank(Some(&form.name)) || is_blank(Some(&form.price)) {
         return Err(AppError::BadRequest("Tên dịch vụ và giá là bắt buộc.".to_string()));
     }
 
@@ -947,8 +938,8 @@ pub async fn create_service(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Tạo dịch vụ thành công.",
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -981,7 +972,7 @@ pub async fn get_service(
 
     match row {
         Some(r) => {
-            let reviews = fetch_reviews(pool, "service", &id).await?;
+            let reviews = fetch_reviews(&pool, "service", &id).await?;
             Ok(Json(ApiResponse::ok(service_to_json(&r, reviews))))
         }
         None => Err(AppError::NotFound("Dịch vụ không tồn tại.".to_string())),
@@ -991,12 +982,12 @@ pub async fn get_service(
 /// `PUT /api/business/:bpId/services/:id` — cập nhật dịch vụ.
 pub async fn update_service(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path((bp_id, id)): Path<(String, String)>,
     Json(form): Json<UpdateServiceForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
     let row = sqlx::query(DB_UPDATE_SERVICE)
         .bind(form.name.as_deref())
@@ -1015,8 +1006,8 @@ pub async fn update_service(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Cập nhật dịch vụ thành công.",
-            "id": r.get::<String>("id"),
-            "updated_at": r.get::<String>("updated_at"),
+            "id": r.get::<String, &str>("id"),
+            "updated_at": r.get::<String, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound("Dịch vụ không tồn tại.".to_string())),
     }
@@ -1025,11 +1016,11 @@ pub async fn update_service(
 /// `DELETE /api/business/:bpId/services/:id` — xóa dịch vụ.
 pub async fn delete_service(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path((bp_id, id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    ensure_owner(pool, &bp_id, &user).await?;
+    let user = authenticated_user(user)?;
+    ensure_owner(&pool, &bp_id, &user).await?;
 
     let res = sqlx::query(DB_DELETE_SERVICE)
         .bind(&id)
@@ -1053,11 +1044,11 @@ pub async fn delete_service(
 /// `POST /api/business/products/:id/reviews` — đánh giá sản phẩm.
 pub async fn create_product_review(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(form): Json<ReviewForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if !(1..=5).contains(&form.rating) {
         return Err(AppError::BadRequest("Đánh giá phải từ 1 đến 5 sao.".to_string()));
@@ -1097,8 +1088,8 @@ pub async fn create_product_review(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đánh giá sản phẩm thành công.",
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -1121,11 +1112,11 @@ pub async fn get_product_reviews(
 /// `POST /api/business/services/:id/reviews` — đánh giá dịch vụ.
 pub async fn create_service_review(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(form): Json<ReviewForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if !(1..=5).contains(&form.rating) {
         return Err(AppError::BadRequest("Đánh giá phải từ 1 đến 5 sao.".to_string()));
@@ -1164,8 +1155,8 @@ pub async fn create_service_review(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đánh giá dịch vụ thành công.",
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -1190,8 +1181,8 @@ pub async fn get_service_reviews(
 // ---------------------------------------------------------------------------
 
 /// `GET /api/business/cart` — nội dung giỏ hàng của người dùng.
-pub async fn get_cart(State(pool): State<DbPool>, req: Request) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+pub async fn get_cart(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_SELECT_CART)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -1207,10 +1198,10 @@ pub async fn get_cart(State(pool): State<DbPool>, req: Request) -> Result<Json<A
 // quantity nếu mục đã tồn tại).
 pub async fn add_to_cart(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CartAddForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let (product_id, service_id) = match form.item_type.as_str() {
         "product" => (Some(form.item_id.clone()), None),
@@ -1237,7 +1228,7 @@ pub async fn add_to_cart(
 
     let row = match existing {
         Some(r) => {
-            let new_qty = r.get::<i64>("quantity") + quantity;
+            let new_qty = r.get::<i64, &str>("quantity") + quantity;
             sqlx::query(DB_UPDATE_CART_QUANTITY)
                 .bind(new_qty)
                 .bind::<String>(r.get("id"))
@@ -1258,18 +1249,18 @@ pub async fn add_to_cart(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Thêm vào giỏ hàng thành công.",
-        "id": row.get::<String>("id"),
-        "quantity": row.get::<i64>("quantity"),
+        "id": row.get::<String, &str>("id"),
+        "quantity": row.get::<i64, &str>("quantity"),
     }))))
 }
 
 /// `DELETE /api/business/cart/:id` — xóa một mục khỏi giỏ.
 pub async fn remove_from_cart(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let res = sqlx::query(DB_DELETE_CART_ITEM)
         .bind(&id)
@@ -1287,8 +1278,8 @@ pub async fn remove_from_cart(
 }
 
 /// `DELETE /api/business/cart` — xóa toàn bộ giỏ hàng.
-pub async fn clear_cart(State(pool): State<DbPool>, req: Request) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+pub async fn clear_cart(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let user = authenticated_user(user)?;
 
     sqlx::query(DB_CLEAR_CART)
         .bind(&user.id)
@@ -1311,10 +1302,10 @@ pub async fn clear_cart(State(pool): State<DbPool>, req: Request) -> Result<Json
 // xóa giỏ, commit. Bất kỳ bước nào thất bại → rollback.
 pub async fn checkout(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CheckoutForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if is_blank(Some(&form.shipping_address)) {
         return Err(AppError::BadRequest("Địa chỉ nhận hàng là bắt buộc.".to_string()));
@@ -1365,12 +1356,12 @@ pub async fn checkout(
                 .map_err(to_app_error)?;
 
             let price: Option<String> = row.get("product_price");
-            let price_f64 = price.and_then(|p| p.parse::<f64>().ok()).unwrap_or(0.0);
+            let price_f64 = price.as_ref().and_then(|p| p.parse::<f64>().ok()).unwrap_or(0.0);
             total_amount += price_f64 * quantity as f64;
             order_items.push((Some(pid), None, quantity, price.unwrap_or_default()));
         } else if let Some(sid) = service_id {
             let price: Option<String> = row.get("service_price");
-            let price_f64 = price.and_then(|p| p.parse::<f64>().ok()).unwrap_or(0.0);
+            let price_f64 = price.as_ref().and_then(|p| p.parse::<f64>().ok()).unwrap_or(0.0);
             total_amount += price_f64 * quantity as f64;
             order_items.push((None, Some(sid), quantity, price.unwrap_or_default()));
         }
@@ -1428,8 +1419,8 @@ pub async fn checkout(
 // ---------------------------------------------------------------------------
 
 /// `GET /api/business/orders/me` — lịch sử đơn hàng của người dùng.
-pub async fn get_my_orders(State(pool): State<DbPool>, req: Request) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_SELECT_MY_ORDERS)
         .bind(&user.id)
@@ -1439,7 +1430,7 @@ pub async fn get_my_orders(State(pool): State<DbPool>, req: Request) -> Result<J
 
     let order_ids: Vec<Uuid> = rows
         .iter()
-        .filter_map(|r| r.get::<String>("id").parse().ok())
+        .filter_map(|r| r.get::<String, &str>("id").parse().ok())
         .collect();
 
     let items_by_order: Vec<Vec<Value>> = if order_ids.is_empty() {
@@ -1456,17 +1447,17 @@ pub async fn get_my_orders(State(pool): State<DbPool>, req: Request) -> Result<J
         for r in &item_rows {
             let order_id: String = r.get("orderId");
             by_order.entry(order_id).or_default().push(serde_json::json!({
-                "id": r.get::<String>("id"),
-                "product_id": r.get::<Option<String>>("productId"),
-                "service_id": r.get::<Option<String>>("serviceId"),
-                "quantity": r.get::<i64>("quantity"),
-                "price_at_purchase": r.get::<String>("price_at_purchase"),
-                "product_name": r.get::<Option<String>>("product_name"),
-                "service_name": r.get::<Option<String>>("service_name"),
+                "id": r.get::<String, &str>("id"),
+                "product_id": r.get::<Option<String>, &str>("productId"),
+                "service_id": r.get::<Option<String>, &str>("serviceId"),
+                "quantity": r.get::<i64, &str>("quantity"),
+                "price_at_purchase": r.get::<String, &str>("price_at_purchase"),
+                "product_name": r.get::<Option<String>, &str>("product_name"),
+                "service_name": r.get::<Option<String>, &str>("service_name"),
             }));
         }
         rows.iter()
-            .map(|r| by_order.remove(&r.get::<String>("id")).unwrap_or_default())
+            .map(|r| by_order.remove(&r.get::<String, &str>("id")).unwrap_or_default())
             .collect()
     };
 
@@ -1485,10 +1476,10 @@ pub async fn get_my_orders(State(pool): State<DbPool>, req: Request) -> Result<J
 /// `GET /api/business/orders/vendor` — danh sách đơn hàng của doanh nghiệp.
 pub async fn get_vendor_orders(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
-    let profile_id = user_business_profile(pool, &user).await?;
+    let user = authenticated_user(user)?;
+    let profile_id = user_business_profile(&pool, &user).await?;
 
     let rows = sqlx::query(DB_SELECT_VENDOR_ORDERS)
         .bind(&profile_id)

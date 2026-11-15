@@ -6,7 +6,7 @@ description = "EduMap backend â replaced NestJS with axum/sqlx (Rust) on po
 
 [dependencies]
 # --- HTTP server -------------------------------------------------------------
-axum = { version = "0.8", features = ["json", "multipart", "query", "tokio"] }
+axum = { version = "0.8", features = ["json", "multipart", "query", "tokio", "macros"] }
 tower = { version = "0.5", features = ["full"] }
 
 # --- Runtime ----------------------------------------------------------------

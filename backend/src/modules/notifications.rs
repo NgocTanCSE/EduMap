@@ -5,14 +5,13 @@
 //! `notifications.service.ts`. Các endpoint cần JWT (`@UseGuards(JwtAuthGuard)`
 //! ở old backend = `AuthLayer` của Rust backend).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
-use crate::common::notifications::{hub, Notification};
+use crate::common::notifications::hub;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use axum::response::sse::Event;
 use futures::Stream;
@@ -25,17 +24,6 @@ use std::convert::Infallible;
 // Auth helpers (auth layer + admin role)
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: `PUBLIC_PATHS` không đưa `AuthUser` vào request
-/// (các route viết là public), nên các handler write tự kiểm JWT và trả `401`
-/// khi token thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` (tương đương `@Roles(ADMIN, MODERATOR)`).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -86,16 +74,16 @@ const DB_INSERT_NOTIFICATION: &str = r#"
 // JSON builders (hơi giống `toView()` của old service)
 // ---------------------------------------------------------------------------
 
-fn notification_to_json(row: &sqlx::PgRow) -> Value {
+fn notification_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "user_id": row.get::<String>("user_id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "body": row.get::<Option<String>>("body").unwrap_or_default(),
-        "channel": row.get::<Option<String>>("channel").unwrap_or_default(),
-        "is_read": row.get::<bool>("is_read"),
-        "sent_at": row.get::<String>("sent_at"),
-        "read_at": row.get::<Option<String>>("read_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "user_id": row.get::<String, &str>("user_id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "body": row.get::<Option<String>, &str>("body").unwrap_or_default(),
+        "channel": row.get::<Option<String>, &str>("channel").unwrap_or_default(),
+        "is_read": row.get::<bool, &str>("is_read"),
+        "sent_at": row.get::<String, &str>("sent_at"),
+        "read_at": row.get::<Option<String>, &str>("read_at").unwrap_or_default(),
     })
 }
 
@@ -120,10 +108,10 @@ pub struct SendNotificationRequest {
 /// đây tạo trực tiếp vào bảng `notifications`.)
 pub async fn send_notification(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<SendNotificationRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let kind = body.kind.trim();
@@ -145,13 +133,13 @@ pub async fn send_notification(
         .map_err(AppError::from)?;
 
     // Broadcast the new row through the hub (the SSE subscribers of that user).
-    let payload = notif_hub::Notification {
-        id: row.get::<String>("id"),
-        user_id: row.get::<String>("user_id"),
-        title: row.get::<String>("title"),
-        body: row.get::<String>("body"),
-        channel: row.get::<String>("channel"),
-        sent_at: row.get::<String>("sent_at"),
+    let payload = crate::common::notifications::Notification {
+        id: row.get::<String, &str>("id"),
+        user_id: row.get::<String, &str>("user_id"),
+        title: row.get::<String, &str>("title"),
+        body: row.get::<String, &str>("body"),
+        channel: row.get::<String, &str>("channel"),
+        sent_at: row.get::<String, &str>("sent_at"),
         data: None,
     };
     hub().notify_user(&payload.user_id, &payload).await;
@@ -168,9 +156,9 @@ pub async fn send_notification(
 /// itself, so the hub never grows.
 pub async fn subscribe_sse(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<axum::response::sse::Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
-    crate::common::notifications::subscribe_sse(State(pool), req).await
+    crate::common::notifications::subscribe_sse(State(pool), user).await
 }
 
 /// `GET /api/notifications` — danh sách thông báo của người gọi + số lượng
@@ -178,9 +166,9 @@ pub async fn subscribe_sse(
 /// `data.unread_count`).
 pub async fn get_my_notifications(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_SELECT_USER_NOTIFICATIONS)
         .bind(&user.id)
@@ -190,7 +178,7 @@ pub async fn get_my_notifications(
 
     let notifications: Vec<Value> = rows.iter().map(notification_to_json).collect();
     let unread_count: i64 =
-        rows.iter().filter(|row| !row.get::<bool>("is_read")).count() as i64;
+        rows.iter().filter(|row| !row.get::<bool, &str>("is_read")).count() as i64;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "notifications": notifications,
@@ -202,10 +190,10 @@ pub async fn get_my_notifications(
 /// (master/admin).
 pub async fn get_notifications_for_user(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(user_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Chỉ chủ sở hữu / admin / super_admin được đọc thông báo của người khác.
     if user.id != user_id
@@ -226,16 +214,16 @@ pub async fn get_notifications_for_user(
 
     let notifications: Vec<Value> = rows.iter().map(notification_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(notifications)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(notifications))))
 }
 
 /// `PUT /api/notifications/{id}/read` — đánh dấu một thông báo là đã đọc.
 pub async fn mark_as_read(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Chỉ chủ sở hữu hoặc admin/moderator mới cập nhật được.
     let owner: Option<String> = sqlx::query("SELECT user_id FROM notifications WHERE id = $1")
@@ -243,7 +231,7 @@ pub async fn mark_as_read(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String>("user_id"));
+        .map(|row| row.get::<String, &str>("user_id"));
 
     match owner {
         Some(owner_id)
@@ -259,7 +247,7 @@ pub async fn mark_as_read(
         _ => {}
     }
 
-    let row = match sqlx::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1 RETURNING id")
+    let _row = match sqlx::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1 RETURNING id")
         .bind(&id)
         .fetch_optional(pool.db())
         .await

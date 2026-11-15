@@ -6,18 +6,16 @@
 //! `opportunity.service.ts` + `opportunity-matching.service.ts`. Endpoint đọc
 //! là public; `POST`, `team-finding` và `match` tự kiểm JWT.
 
-use crate::common::auth::authenticated_user;
+use crate::common::auth::{AuthUser, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // DTO
@@ -49,6 +47,8 @@ pub struct OpportunityBody {
     pub field_tags: Option<Value>,
 }
 
+/// `field` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct MatchQuery {
     pub type_: Option<String>,
@@ -114,14 +114,7 @@ SELECT id, title, description, type, organization,
 FROM opportunities WHERE id = $1 AND deleted_at IS NULL
 "#;
 
-const DB_INSERT_OPPORTUNITY: &str = r#"
-INSERT INTO opportunities (title, type, description, organization, location_point,
-    address, deadline, requirements, benefits, url, field_tags, region, status,
-    created_by, is_team_finding_open, tags, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-    NOW(), NOW())
-RETURNING id
-"#;
+
 
 const DB_TOGGLE_TEAM_FINDING: &str = r#"
 UPDATE opportunities SET is_team_finding_open = NOT is_team_finding_open,
@@ -166,18 +159,9 @@ fn parse_json_array(v: &Value) -> Vec<String> {
     }).unwrap_or_default()
 }
 
-fn parse_geojson_point(text: &str) -> Option<(f64, f64)> {
-    let v: Value = serde_json::from_str(text).ok()?;
-    let coords = v.get("coordinates").and_then(|c| c.as_array())?;
-    if coords.len() < 2 {
-        return None;
-    }
-    Some((coords[0].as_f64()?, coords[1].as_f64()?))
-}
 
-fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339()
-}
+
+
 
 fn escape_like(value: &str) -> String {
     value.replace('\\', "\\\\").replace('%', "\\%").replace("_", "\\_")
@@ -234,20 +218,20 @@ pub async fn get_opportunities(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<String>("id"),
-            "title": row.get::<Option<String>>("title"),
-            "description": row.get::<Option<String>>("description"),
-            "type": row.get::<Option<String>>("type"),
-            "organization": row.get::<Option<String>>("organization"),
-            "address": row.get::<Option<String>>("address"),
-            "deadline": row.get::<Option<String>>("deadline"),
-            "requirements": row.get::<Option<String>>("requirements"),
-            "benefits": row.get::<Option<String>>("benefits"),
-            "url": row.get::<Option<String>>("url"),
-            "region": row.get::<Option<String>>("region"),
-            "status": row.get::<Option<String>>("status"),
-            "isTeamFindingOpen": row.get::<Option<bool>>("is_team_finding_open"),
-            "createdAt": row.get::<Option<String>>("created_at"),
+            "id": row.get::<String, &str>("id"),
+            "title": row.get::<Option<String>, &str>("title"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "type": row.get::<Option<String>, &str>("type"),
+            "organization": row.get::<Option<String>, &str>("organization"),
+            "address": row.get::<Option<String>, &str>("address"),
+            "deadline": row.get::<Option<String>, &str>("deadline"),
+            "requirements": row.get::<Option<String>, &str>("requirements"),
+            "benefits": row.get::<Option<String>, &str>("benefits"),
+            "url": row.get::<Option<String>, &str>("url"),
+            "region": row.get::<Option<String>, &str>("region"),
+            "status": row.get::<Option<String>, &str>("status"),
+            "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
+            "createdAt": row.get::<Option<String>, &str>("created_at"),
         })
     }).collect();
 
@@ -257,10 +241,10 @@ pub async fn get_opportunities(
 /// `POST /api/opportunities` — đăng tải cơ hội mới.
 pub async fn create_opportunity(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<OpportunityBody>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let title = body.title.as_deref().ok_or_else(|| AppError::BadRequest("title is required".to_string()))?;
 
     let location_point = match (body.latitude, body.longitude) {
@@ -297,7 +281,7 @@ RETURNING id
         .await
         .map_err(|e| AppError::Internal(format!("failed to create opportunity: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
 }
 
 /// `GET /api/opportunities/:id` — chi tiết một cơ hội.
@@ -317,20 +301,20 @@ pub async fn find_one(
     };
 
     let result = serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title"),
-        "description": row.get::<Option<String>>("description"),
-        "type": row.get::<Option<String>>("type"),
-        "organization": row.get::<Option<String>>("organization"),
-        "address": row.get::<Option<String>>("address"),
-        "deadline": row.get::<Option<String>>("deadline"),
-        "requirements": row.get::<Option<String>>("requirements"),
-        "benefits": row.get::<Option<String>>("benefits"),
-        "url": row.get::<Option<String>>("url"),
-        "region": row.get::<Option<String>>("region"),
-        "status": row.get::<Option<String>>("status"),
-        "isTeamFindingOpen": row.get::<Option<bool>>("is_team_finding_open"),
-        "createdAt": row.get::<Option<String>>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "type": row.get::<Option<String>, &str>("type"),
+        "organization": row.get::<Option<String>, &str>("organization"),
+        "address": row.get::<Option<String>, &str>("address"),
+        "deadline": row.get::<Option<String>, &str>("deadline"),
+        "requirements": row.get::<Option<String>, &str>("requirements"),
+        "benefits": row.get::<Option<String>, &str>("benefits"),
+        "url": row.get::<Option<String>, &str>("url"),
+        "region": row.get::<Option<String>, &str>("region"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
+        "createdAt": row.get::<Option<String>, &str>("created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -339,10 +323,10 @@ pub async fn find_one(
 /// Chỉ người tạo mới được thay đổi (kiểm `created_by`).
 pub async fn toggle_team_finding(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_TOGGLE_TEAM_FINDING)
         .bind(id.as_str())
@@ -353,9 +337,9 @@ pub async fn toggle_team_finding(
 
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": r.get::<String>("id"),
-            "isTeamFindingOpen": r.get::<bool>("is_team_finding_open"),
-            "message": if r.get::<bool>("is_team_finding_open") {
+            "id": r.get::<String, &str>("id"),
+            "isTeamFindingOpen": r.get::<bool, &str>("is_team_finding_open"),
+            "message": if r.get::<bool, &str>("is_team_finding_open") {
                 "Đã bật tìm đồng đội cho cơ hội này."
             } else {
                 "Đã tắt tìm đồng đội cho cơ hội này."
@@ -370,10 +354,10 @@ pub async fn toggle_team_finding(
 // unavailable, tự xếp hạng theo từ khoá (keyword fallback).
 pub async fn match_opportunities(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(query): Json<MatchQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let user_row = sqlx::query(DB_USER_PROFILE)
         .bind(user.id.as_str())
@@ -383,13 +367,13 @@ pub async fn match_opportunities(
 
     let profile = match user_row {
         Some(r) => UserProfile {
-            id: r.get::<String>("id"),
-            full_name: r.get::<Option<String>>("full_name").unwrap_or_default(),
-            major: r.get::<Option<String>>("major").unwrap_or_default(),
-            skills: r.get::<Option<String>>("skills").map(|s| parse_json_array(&serde_json::from_str(&s).unwrap_or_default())).unwrap_or_default(),
-            interests: r.get::<Option<String>>("interests").map(|s| parse_json_array(&serde_json::from_str(&s).unwrap_or_default())).unwrap_or_default(),
-            location: r.get::<Option<String>>("location").unwrap_or_default(),
-            role: r.get::<String>("role"),
+            id: r.get::<String, &str>("id"),
+            full_name: r.get::<Option<String>, &str>("full_name").unwrap_or_default(),
+            major: r.get::<Option<String>, &str>("major").unwrap_or_default(),
+            skills: r.get::<Option<String>, &str>("skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            interests: r.get::<Option<String>, &str>("interests").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            location: r.get::<Option<String>, &str>("location").unwrap_or_default(),
+            role: r.get::<String, &str>("role"),
             gpa: query.gpa,
         },
         None => return Err(AppError::NotFound("Người dùng không tồn tại".to_string())),
@@ -418,74 +402,74 @@ pub async fn match_opportunities(
     let opp_rows = sqlx::query(&format!(
         "SELECT id, title, description, type, organization, requirements, benefits, url,
                 CAST(field_tags AS TEXT) AS field_tags, region, status, deadline
-         FROM opportunities WHERE {}",
+         FROM opportunities WHERE {} LIMIT $1",
         opp_filters.join(" AND ")
     ))
-        .limit(limit)
+        .bind(&limit)
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read opportunities: {e}")))?;
 
-    let scholarships_rows = sqlx::query(DB_SCHOLARSHIPS).limit(limit).fetch_all(pool.db())
+    let scholarships_rows = sqlx::query(&format!("{} LIMIT $1", DB_SCHOLARSHIPS)).bind(&limit).fetch_all(pool.db())
         .await.map_err(|e| AppError::Internal(format!("failed to read scholarships: {e}")))?;
-    let jobs_rows = sqlx::query(DB_JOBS).limit(limit).fetch_all(pool.db())
+    let jobs_rows = sqlx::query(&format!("{} LIMIT $1", DB_JOBS)).bind(&limit).fetch_all(pool.db())
         .await.map_err(|e| AppError::Internal(format!("failed to read jobs: {e}")))?;
 
     let mut candidates: Vec<NormalizedOpportunity> = Vec::new();
     for row in opp_rows {
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String>("id"),
-            title: row.get::<Option<String>>("title").unwrap_or_default(),
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            type_: row.get::<Option<String>>("type").unwrap_or_default(),
-            organization: row.get::<Option<String>>("organization").unwrap_or_default(),
-            requirements: row.get::<Option<String>>("requirements").unwrap_or_default(),
-            benefits: row.get::<Option<String>>("benefits").unwrap_or_default(),
-            url: row.get::<Option<String>>("url").unwrap_or_default(),
-            field_tags: row.get::<Option<String>>("field_tags").map(|s| parse_json_array(&serde_json::from_str(&s).unwrap_or_default())).unwrap_or_default(),
-            region: row.get::<Option<String>>("region").unwrap_or_default(),
-            deadline: row.get::<Option<String>>("deadline"),
+            id: row.get::<String, &str>("id"),
+            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
+            type_: row.get::<Option<String>, &str>("type").unwrap_or_default(),
+            organization: row.get::<Option<String>, &str>("organization").unwrap_or_default(),
+            requirements: row.get::<Option<String>, &str>("requirements").unwrap_or_default(),
+            benefits: row.get::<Option<String>, &str>("benefits").unwrap_or_default(),
+            url: row.get::<Option<String>, &str>("url").unwrap_or_default(),
+            field_tags: row.get::<Option<String>, &str>("field_tags").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            region: row.get::<Option<String>, &str>("region").unwrap_or_default(),
+            deadline: row.get::<Option<String>, &str>("deadline"),
             source_table: "opportunities".to_string(),
-            status: row.get::<Option<String>>("status").unwrap_or_default(),
+            status: row.get::<Option<String>, &str>("status").unwrap_or_default(),
         });
     }
     for row in scholarships_rows {
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String>("id"),
-            title: row.get::<Option<String>>("title").unwrap_or_default(),
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
+            id: row.get::<String, &str>("id"),
+            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
             type_: "scholarship".to_string(),
-            organization: row.get::<Option<String>>("provider").unwrap_or_default(),
-            requirements: row.get::<Option<String>>("eligibility_criteria").unwrap_or_default(),
-            benefits: row.get::<Option<String>>("apply_url").map(|u| format!("Áp dụng tại: {u}")).unwrap_or_default(),
-            url: row.get::<Option<String>>("apply_url").unwrap_or_default(),
+            organization: row.get::<Option<String>, &str>("provider").unwrap_or_default(),
+            requirements: row.get::<Option<String>, &str>("eligibility_criteria").unwrap_or_default(),
+            benefits: row.get::<Option<String>, &str>("apply_url").map(|u| format!("Áp dụng tại: {u}")).unwrap_or_default(),
+            url: row.get::<Option<String>, &str>("apply_url").unwrap_or_default(),
             field_tags: Vec::new(),
             region: "".to_string(),
-            deadline: row.get::<Option<String>>("deadline"),
+            deadline: row.get::<Option<String>, &str>("deadline"),
             source_table: "scholarships".to_string(),
-            status: row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
+            status: row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
         });
     }
     for row in jobs_rows {
-        let skills = row.get::<Option<String>>("required_skills").map(|s| parse_json_array(&serde_json::from_str(&s).unwrap_or_default())).unwrap_or_default();
+        let skills = row.get::<Option<String>, &str>("required_skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default();
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String>("id"),
-            title: row.get::<Option<String>>("title").unwrap_or_default(),
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            type_: row.get::<Option<String>>("job_type").unwrap_or_default(),
-            organization: row.get::<Option<String>>("company_name").unwrap_or_default(),
+            id: row.get::<String, &str>("id"),
+            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
+            type_: row.get::<Option<String>, &str>("job_type").unwrap_or_default(),
+            organization: row.get::<Option<String>, &str>("company_name").unwrap_or_default(),
             requirements: {
                 let mut r = skills.clone();
-                if let Some(e) = row.get::<Option<String>>("experience_level") { r.push(e) };
+                if let Some(e) = row.get::<Option<String>, &str>("experience_level") { r.push(e) };
                 r.join("; ")
             },
-            benefits: row.get::<Option<String>>("salary_range").unwrap_or_default(),
+            benefits: row.get::<Option<String>, &str>("salary_range").unwrap_or_default(),
             url: "".to_string(),
             field_tags: skills,
-            region: row.get::<Option<String>>("location").unwrap_or_default(),
-            deadline: row.get::<Option<String>>("application_deadline"),
+            region: row.get::<Option<String>, &str>("location").unwrap_or_default(),
+            deadline: row.get::<Option<String>, &str>("application_deadline"),
             source_table: "jobs".to_string(),
-            status: row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
+            status: row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
         });
     }
 
@@ -527,7 +511,7 @@ pub async fn match_opportunities(
         Ok(ai_result) => Ok(Json(ApiResponse::ok(ai_result))),
         Err(e) => {
             tracing::warn!("opportunity/match ai-service unavailable: {e}; keyword fallback");
-            Ok(Json(ApiResponse::ok(keyword_fallback(&profile, &candidates, &e))))
+            Ok(Json(ApiResponse::ok(keyword_fallback(&profile, &candidates, &e.to_string()))))
         }
     }
 }

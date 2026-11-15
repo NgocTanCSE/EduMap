@@ -13,15 +13,13 @@
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 //! Postgres/PostGIS only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-use chrono::Utc;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -42,6 +40,8 @@ pub struct InternshipNearbyQuery {
     pub radius: Option<f64>,
 }
 
+/// `status` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateInternshipForm {
     pub title: Option<String>,
@@ -57,6 +57,9 @@ pub struct CreateInternshipForm {
     pub longitude: Option<f64>,
 }
 
+/// `coverLetter` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct ApplyForm {
     pub coverLetter: Option<String>,
@@ -160,28 +163,28 @@ fn parse_point_text(text: &str) -> Option<[f64; 2]> {
 ///
 /// `location_point` is a PostGIS `GEOGRAPHY(POINT)` — `ST_AsText()` emits
 /// `POINT (lng lat)`, so the first coordinate is the longitude.
-fn row_to_json(row: &sqlx::PgRow) -> Value {
-    let location = row.get::<Option<String>, _>("location_point")
+fn row_to_json(row: &sqlx::postgres::PgRow) -> Value {
+    let location = row.get::<Option<String>, &str>("location_point")
         .and_then(|s| parse_point_text(&s));
 
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "description": row.get::<Option<String>, _>("description"),
-        "field": row.get::<Option<String>, _>("field"),
-        "salary_range": row.get::<Option<String>, _>("salary_range"),
-        "duration": row.get::<Option<String>, _>("duration"),
-        "requirements": row.get::<Option<String>, _>("requirements"),
-        "benefits": row.get::<Option<String>, _>("benefits"),
-        "deadline": row.get::<Option<String>, _>("deadline"),
-        "status": row.get::<String>("status"),
-        "application_count": row.get::<i64>("application_count"),
-        "created_at": row.get::<Option<String>, _>("created_at"),
-        "updated_at": row.get::<Option<String>, _>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "field": row.get::<Option<String>, &str>("field"),
+        "salary_range": row.get::<Option<String>, &str>("salary_range"),
+        "duration": row.get::<Option<String>, &str>("duration"),
+        "requirements": row.get::<Option<String>, &str>("requirements"),
+        "benefits": row.get::<Option<String>, &str>("benefits"),
+        "deadline": row.get::<Option<String>, &str>("deadline"),
+        "status": row.get::<String, &str>("status"),
+        "application_count": row.get::<i64, &str>("application_count"),
+        "created_at": row.get::<Option<String>, &str>("created_at"),
+        "updated_at": row.get::<Option<String>, &str>("updated_at"),
         "company": {
-            "id": row.get::<Option<String>, _>("org_id"),
-            "full_name": row.get::<Option<String>, _>("org_name"),
-            "avatar_url": row.get::<Option<String>, _>("org_logo_url"),
+            "id": row.get::<Option<String>, &str>("org_id"),
+            "full_name": row.get::<Option<String>, &str>("org_name"),
+            "avatar_url": row.get::<Option<String>, &str>("org_logo_url"),
         },
         "location": location,
     })
@@ -195,24 +198,13 @@ fn row_to_json(row: &sqlx::PgRow) -> Value {
 // thành `Conflict` để frontend nhận được thông điệp rõ thay vì 500.
 fn to_app_error(e: sqlx::Error) -> AppError {
     if let Some(db_err) = e.as_database_error() {
-        if db_err.code().to_string() == "23505" {
+        if db_err.code().map_or(false, |c| c == "23505") {
             return AppError::Conflict("Dữ liệu đã tồn tại (trùng khóa duy nhất).".to_string());
         }
     }
     AppError::from(e)
 }
 
-/// Người dùng đã đăng nhập: các endpoint đọc là public, các handler create/apply
-/// pull token ra khỏi extensions và trả `401` khi JWT thiếu
-/// (`@UseGuards(JwtAuthGuard)` cũ = 401 khi không có token).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -223,8 +215,8 @@ pub async fn get_internships(
     State(pool): State<DbPool>,
     Query(q): Query<InternshipListQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let page = q.page.unwrap_or("1").parse::<i64>().unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or("10").parse::<i64>().unwrap_or(10).max(1).min(100);
+    let page = q.page.unwrap_or_else(|| "1".to_string()).parse::<i64>().unwrap_or(1).max(1);
+    let limit = q.limit.as_deref().unwrap_or("10").parse::<i64>().unwrap_or(10).max(1).min(100);
     let offset = (page - 1) * limit;
 
     let rows = sqlx::query(DB_SELECT_LIST_BASE)
@@ -238,7 +230,7 @@ pub async fn get_internships(
         .fetch_one(pool.db())
         .await
         .map_err(to_app_error)?
-        .get::<i64>("total");
+        .get::<i64, &str>("total");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "items": rows.iter().map(|r| row_to_json(&r)).collect::<Vec<_>>(),
@@ -306,10 +298,10 @@ pub async fn get_internship_by_id(
 /// `POST /api/internships` — đăng tuyển (chỉ doanh nghiệp / JWT).
 pub async fn create_internship(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateInternshipForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.title.is_none() || form.description.is_none() || form.field.is_none() {
         return Err(AppError::BadRequest(
@@ -335,7 +327,7 @@ pub async fn create_internship(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "internship": {
-            "id": row.get::<String>("id"),
+            "id": row.get::<String, &str>("id"),
         },
     }))))
 }
@@ -343,11 +335,11 @@ pub async fn create_internship(
 /// `POST /api/internships/:id/apply` — nộp hồ sơ ứng tuyển thực tập.
 pub async fn apply_internship(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(form): Json<ApplyForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let cover_letter: String = form.coverLetter.unwrap_or_default().trim().to_string();
 
@@ -359,7 +351,7 @@ pub async fn apply_internship(
 
     match row {
         Some(r) => {
-            if r.get::<String>("status") != "open" {
+            if r.get::<String, &str>("status") != "open" {
                 return Err(AppError::BadRequest(
                     "Vị trí thực tập này đã đóng đăng ký.".to_string(),
                 ));

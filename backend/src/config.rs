@@ -5,6 +5,9 @@
 /// Secrets work unchanged.
 use once_cell::sync::Lazy;
 
+/// Các trường không được backend đọc (mỗi thành phần lấy env riêng
+/// `JWT_SECRET`/`AI_SERVICE_URL`...): giữ để làm tài liệu env.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Port the backend listens on (3000 in production, unchanged from NestJS).
@@ -25,6 +28,15 @@ pub struct Config {
 
 /// Cached, always available JWT secret (shared across the stateless handlers).
 pub static JWT_SECRET: Lazy<String> = Lazy::new(|| env_var_or("JWT_SECRET", "dev-change-me"));
+
+/// Google's client id (the same one the frontend ships as `config.googleClientId`).
+///
+/// When set, `POST /api/auth/google` also checks the `aud` claim of the
+/// credential against it; the credential always carries an audience claim so
+/// without the client id the audience check is disabled (a warning is logged,
+/// the signature verification is not) — the backend ships *no* client id.
+/// `GOOGLE_CLIENT_ID=` (empty) on the host means "no audience check".
+pub static GOOGLE_CLIENT_ID: Lazy<String> = Lazy::new(|| env_var_or("GOOGLE_CLIENT_ID", ""));
 
 /// Cached, always available ai-service host (the FastAPI `ai-service`, port
 /// 8000 in-container).
@@ -60,7 +72,7 @@ impl Config {
 
     /// Direct `DATABASE_URL` takes precedence (bypasses DB_*).
     fn database_url() -> String {
-        env_var_or("DATABASE_URL", Self::db_url())
+        env_var_or("DATABASE_URL", Self::db_url().as_str())
     }
 
     fn port() -> u16 {

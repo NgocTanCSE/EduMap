@@ -8,13 +8,12 @@
 //!
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -23,15 +22,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (route `/api/audit-logs` yêu cầu JWT + admin).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` chỉ (`@Roles(ADMIN, MODERATOR)` ở old backend).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -118,10 +108,10 @@ fn filter_clause(fields: &AuditLogQuery) -> String {
 /// `GET /api/audit-logs` — danh sách nhật ký hoạt động (admin / moderator).
 pub async fn get_logs(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Query(q): Query<AuditLogQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let page = q.page.unwrap_or(1).max(1);
@@ -144,7 +134,7 @@ pub async fn get_logs(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>("count");
+        .get::<i64, &str>("count");
 
     let rows = sqlx::query(&list_sql)
         .bind(&limit)
@@ -156,18 +146,18 @@ pub async fn get_logs(
     let items: Vec<Value> = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "action": row.get::<String>("action"),
-            "resource": row.get::<Option<String>>("resource"),
-            "resource_id": row.get::<Option<String>>("resource_id"),
-            "old_data": row.get::<Option<Value>>("old_data"),
-            "new_data": row.get::<Option<Value>>("new_data"),
-            "ip_address": row.get::<Option<String>>("ip_address"),
-            "user_agent": row.get::<Option<String>>("user_agent"),
-            "created_at": row.get::<String>("created_at"),
+            "id": row.get::<String, &str>("id"),
+            "action": row.get::<String, &str>("action"),
+            "resource": row.get::<Option<String>, &str>("resource"),
+            "resource_id": row.get::<Option<String>, &str>("resource_id"),
+            "old_data": row.get::<Option<Value>, &str>("old_data"),
+            "new_data": row.get::<Option<Value>, &str>("new_data"),
+            "ip_address": row.get::<Option<String>, &str>("ip_address"),
+            "user_agent": row.get::<Option<String>, &str>("user_agent"),
+            "created_at": row.get::<String, &str>("created_at"),
             "user": {
-                "full_name": row.get::<Option<String>>("user_full_name"),
-                "email": row.get::<Option<String>>("user_email"),
+                "full_name": row.get::<Option<String>, &str>("user_full_name"),
+                "email": row.get::<Option<String>, &str>("user_email"),
             },
         }))
         .collect();

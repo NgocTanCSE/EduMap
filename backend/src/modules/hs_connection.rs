@@ -9,13 +9,12 @@
 //!
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -24,17 +23,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: các route public của hs-connection (danh sách hồ
-/// sơ tư vấn + danh sách câu hỏi) không nhận `AuthUser` từ router, nên các
-/// handler write tự kiểm và trả `401` khi JWT thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // SQL statements
@@ -68,15 +56,6 @@ const DB_INSERT_QUESTION: &str = r#"
 
 // --- answers ---------------------------------------------------------------
 
-const DB_SELECT_QUESTIONS_BY_UNIVERSITY: &str = r#"
-    SELECT q.id, q.title, q.content, q.university_target, q.view_count,
-           q.created_at, q.updated_at,
-           u.full_name AS student_name, u.avatar_url AS student_avatar
-    FROM hs_questions q
-    LEFT JOIN users u ON u.id = q.student_id
-    {where}
-    ORDER BY q.created_at DESC
-"#;
 
 const DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY: &str = r#"
     SELECT q.id, q.title, q.content, q.university_target, q.view_count,
@@ -86,15 +65,6 @@ const DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY: &str = r#"
     LEFT JOIN users u ON u.id = q.student_id
 "#;
 
-const DB_SELECT_ANSWERS_BY_QUESTION: &str = r#"
-    SELECT a.id, a.question_id, a.mentor_id, a.content,
-           a.is_verified_answer, a.created_at,
-           u.full_name AS mentor_name, u.avatar_url AS mentor_avatar
-    FROM hs_answers a
-    LEFT JOIN users u ON u.id = a.mentor_id
-    WHERE a.question_id = $1
-    ORDER BY a.created_at DESC
-"#;
 
 const DB_INSERT_ANSWER: &str = r#"
     INSERT INTO hs_answers (question_id, mentor_id, content)
@@ -191,52 +161,41 @@ pub struct GetQuestionsQuery {
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn counseling_to_json(row: &sqlx::PgRow) -> Value {
+fn counseling_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "university_name": row.get::<String>("university_name"),
-        "program_info": row.get::<Option<String>>("program_info"),
-        "contact_email": row.get::<Option<String>>("contact_email"),
-        "admission_criteria": row.get::<Option<String>>("admission_criteria"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "university_name": row.get::<String, &str>("university_name"),
+        "program_info": row.get::<Option<String>, &str>("program_info"),
+        "contact_email": row.get::<Option<String>, &str>("contact_email"),
+        "admission_criteria": row.get::<Option<String>, &str>("admission_criteria"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
-fn question_to_json(row: &sqlx::PgRow) -> Value {
+fn question_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "content": row.get::<String>("content"),
-        "university_target": row.get::<Option<String>>("university_target"),
-        "view_count": row.get::<i64>("view_count"),
-        "student_name": row.get::<Option<String>>("student_name"),
-        "student_avatar": row.get::<Option<String>>("student_avatar"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "content": row.get::<String, &str>("content"),
+        "university_target": row.get::<Option<String>, &str>("university_target"),
+        "view_count": row.get::<i64, &str>("view_count"),
+        "student_name": row.get::<Option<String>, &str>("student_name"),
+        "student_avatar": row.get::<Option<String>, &str>("student_avatar"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
-fn answer_to_json(row: &sqlx::PgRow) -> Value {
-    serde_json::json!({
-        "id": row.get::<String>("id"),
-        "question_id": row.get::<String>("question_id"),
-        "mentor_id": row.get::<String>("mentor_id"),
-        "content": row.get::<String>("content"),
-        "is_verified_answer": row.get::<bool>("is_verified_answer"),
-        "mentor_name": row.get::<Option<String>>("mentor_name"),
-        "mentor_avatar": row.get::<Option<String>>("mentor_avatar"),
-        "created_at": row.get::<String>("created_at"),
-    })
-}
 
-fn connection_to_json(row: &sqlx::PgRow) -> Value {
+
+fn connection_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "connection_id": row.get::<String>("connection_id"),
-        "status": row.get::<String>("status"),
-        "created_at": row.get::<String>("created_at"),
-        "friend_id": row.get::<String>("friend_id"),
-        "friend_name": row.get::<String>("name"),
-        "friend_avatar": row.get::<Option<String>>("avatar_url"),
+        "connection_id": row.get::<String, &str>("connection_id"),
+        "status": row.get::<String, &str>("status"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "friend_id": row.get::<String, &str>("friend_id"),
+        "friend_name": row.get::<String, &str>("name"),
+        "friend_avatar": row.get::<Option<String>, &str>("avatar_url"),
     })
 }
 
@@ -265,17 +224,17 @@ pub async fn get_counseling(
 /// Old backend: `@Post('campus-tour') @Body('university') university: string`.
 pub async fn register_campus_tour(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<RegisterCampusTourForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let _pool = pool; // reserved for the tourId/verification step.
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,
         "message": "Đăng ký tham quan Virtual Campus Tour thành công.",
         "tour_id": format!("TOUR-{}", 100 + (user.id.len() as i32 % 900)),
-        "scheduled_date": chrono::Utc::now()
-            .checked_add_signed(chrono::TimeDelta::days(7))
+        "scheduled_date": (chrono::Utc::now()
+            + chrono::TimeDelta::days(7))
             .to_rfc3339(),
         "university": form.university,
         "student_id": user.id,
@@ -285,10 +244,10 @@ pub async fn register_campus_tour(
 /// `POST /api/hs-connection/questions` — tạo một câu hỏi tư vấn mới.
 pub async fn create_question(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateQuestionForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.title.trim().is_empty() || form.content.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -306,8 +265,8 @@ pub async fn create_question(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
@@ -321,13 +280,13 @@ pub async fn get_questions(
         let univ = university.replace('\'', "''");
         format!(
             "{} WHERE university_target = '{}'",
-            DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY.replace("WHERE", "WHERE", 1),
+            DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY.replace("WHERE", "WHERE"),
             univ
         )
     } else {
         format!(
             "{} WHERE 1=1",
-            DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY.replace("WHERE", "WHERE", 1)
+            DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY.replace("WHERE", "WHERE")
         )
     };
 
@@ -359,11 +318,11 @@ pub async fn get_questions(
 /// câu hỏi tư vấn.
 pub async fn answer_question(
     State(pool): State<DbPool>,
-    req: Request,
-    Path(id): Path<String>,
+    user: Option<Extension<AuthUser>>,
+    Path(_id): Path<String>,
     Json(form): Json<AnswerQuestionForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.content.trim().is_empty() {
         return Err(AppError::BadRequest("Nội dung trả lời là bắt buộc.".to_string()));
@@ -388,18 +347,18 @@ pub async fn answer_question(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
 /// `POST /api/hs-connection/connect/:userId` — gửi yêu cầu kết nối.
 pub async fn connect(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(ConnectForm { user_id: receiver_id }): Path<ConnectForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if user.id == receiver_id {
         return Err(AppError::BadRequest(
@@ -436,18 +395,18 @@ pub async fn connect(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
+        "id": row.get::<String, &str>("id"),
         "status": "pending",
-        "created_at": row.get::<String>("created_at"),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
 /// `GET /api/hs-connection/my-network` — mạng lưới kết nối + yêu cầu đang chờ.
 pub async fn get_my_network(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let friends = sqlx::query(DB_SELECT_MY_NETWORK)
         .bind(&user.id)
@@ -465,12 +424,12 @@ pub async fn get_my_network(
         .map_err(AppError::from)?
         .iter()
         .map(|r| serde_json::json!({
-            "connection_id": r.get::<String>("connection_id"),
-            "status": r.get::<String>("status"),
-            "created_at": r.get::<String>("created_at"),
-            "requester_id": r.get::<String>("requester_id"),
-            "requester_name": r.get::<String>("requester_name"),
-            "requester_avatar": r.get::<Option<String>>("requester_avatar"),
+            "connection_id": r.get::<String, &str>("connection_id"),
+            "status": r.get::<String, &str>("status"),
+            "created_at": r.get::<String, &str>("created_at"),
+            "requester_id": r.get::<String, &str>("requester_id"),
+            "requester_name": r.get::<String, &str>("requester_name"),
+            "requester_avatar": r.get::<Option<String>, &str>("requester_avatar"),
         }))
         .collect::<Vec<_>>();
 
@@ -484,10 +443,10 @@ pub async fn get_my_network(
 /// kết nối.
 pub async fn respond_to_request(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<RespondForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.connection_id.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -515,7 +474,7 @@ pub async fn respond_to_request(
             .map_err(AppError::from)?;
 
             Ok(Json(ApiResponse::ok(serde_json::json!({
-                "connection_id": r.get::<String>("id"),
+                "connection_id": r.get::<String, &str>("id"),
                 "status": new_status,
             }))))
         }

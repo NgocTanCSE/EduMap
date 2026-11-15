@@ -17,9 +17,9 @@
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::modules::proxy;
-use axum::body::Body;
+use crate::DbPool;
+use axum::extract::State;
 use axum::extract::Query;
-use axum::http::Request<Body>;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -30,7 +30,7 @@ use serde_json::Value;
 
 /// Body của `POST /api/offline/tutor` (đối tượng yêu cầu).
 #[derive(Debug, Deserialize)]
-struct TutorForm {
+pub struct TutorForm {
     action: String,
     topic: String,
     #[serde(default)]
@@ -43,21 +43,7 @@ struct TutorForm {
     progression: Option<Value>,
 }
 
-/// Response của `GET /api/offline/status`.
-#[derive(Debug, Deserialize)]
-struct StatusForm {
-    model_name: Option<String>,
-    model_failed: Option<bool>,
-    source: Option<String>,
-}
 
-/// Phát国际化的 yêu cầu từ old controller: `POST /api/offline/tutor`
-/// nhận payload `{action, topic, ...}`.
-async fn status_from_aiservice() -> Result<Value, AppError> {
-    // Không có cache: proxy GET.
-    // Lỗi (transport) → backend-fallback.
-    Ok(Value::Null)
-}
 
 // ---------------------------------------------------------------------------
 // Fallback templates ( مطابق old `_gracefulFallback`)

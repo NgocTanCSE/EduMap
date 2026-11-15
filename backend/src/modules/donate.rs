@@ -19,14 +19,20 @@
 //!
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
+use axum::body::to_bytes;
 use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
+use axum::http::Request;
 use axum::Json;
+
+/// Giới hạn tối đa khi đọc body thủ công (Không dùng `Json` vì `Request` đã
+/// tiêu thụ cùng dữ liệu — see `create_payment_url`).
+const MAX_BODY: usize = 10 * 1024 * 1024;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use once_cell::sync::Lazy;
@@ -43,17 +49,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Người dùng đã đăng nhập: các route public của donate (danh sách/chi tiết
 // chiến dịch, danh sách nhà hảo tâm) không nhận `AuthUser` từ router, nên các
 // handler write tự kiểm và trả `401` khi JWT thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 /// Lỗi sqlx → `AppError`, với mã `23505` (trùng khoá duy nhất) thành `Conflict`.
 fn to_app_error(e: sqlx::Error) -> AppError {
     if let Some(db_err) = e.as_database_error() {
-        if db_err.code().to_string() == "23505" {
+        if db_err.code().map_or(false, |c| c == "23505") {
             return AppError::Conflict("Dữ liệu đã tồn tại (trùng khoá duy nhất).".to_string());
         }
     }
@@ -79,7 +79,7 @@ fn env_var_or(key: &str, default: &str) -> String {
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
-struct CreateCampaignForm {
+pub struct CreateCampaignForm {
     title: String,
     description: String,
     target_amount: String,
@@ -99,7 +99,7 @@ struct PaymentUrlForm {
 }
 
 #[derive(Deserialize)]
-struct DonationForm {
+pub struct DonationForm {
     campaign_id: String,
     amount: f64,
     is_anonymous: Option<bool>,
@@ -140,7 +140,7 @@ fn vnp_hmac(secret: &str, data: &str) -> Result<String, AppError> {
         AppError::Internal("VNPay: không thể tạo HMAC (khoá bí mật không hợp lệ)".to_string())
     })?;
     mac.update(data.as_bytes());
-    Ok(mac.finalize().into_hex())
+    Ok(format!("{:x}", mac.finalize().into_bytes()))
 }
 
 /// Tạo URL thanh toán VNPay (tương đương `VNPayService.createPaymentUrl`).
@@ -222,7 +222,7 @@ fn vnpay_build_url(
 }
 
 /// Địa chỉ IP của người gọi (ưu tiên `X-Forwarded-For`, như old backend).
-fn client_ip(req: &Request) -> String {
+fn client_ip(req: &Request<Body>) -> String {
     if let Some(hdr) = req.headers().get("x-forwarded-for") {
         if let Ok(forwarded) = hdr.to_str() {
             return forwarded
@@ -317,40 +317,40 @@ const DB_UPDATED_CAMPAIGN: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn campaign_to_json(row: &sqlx::PgRow) -> Value {
+fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>>("id").unwrap_or_default(),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
         "target_amount": row
-            .get::<Option<String>>("target_amount")
+            .get::<Option<String>, &str>("target_amount")
             .unwrap_or_else(|| "0".to_string()),
         "current_amount": row
-            .get::<Option<String>>("current_amount")
+            .get::<Option<String>, &str>("current_amount")
             .unwrap_or_else(|| "0".to_string()),
-        "organizer_id": row.get::<Option<String>>("organizer_id").unwrap_or_default(),
-        "location_point": row.get::<Option<String>>("location_point"),
-        "address": row.get::<Option<String>>("address").unwrap_or_default(),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
-        "start_date": row.get::<Option<String>>("start_date"),
-        "end_date": row.get::<Option<String>>("end_date"),
-        "images": row.get::<Option<String>>("images").map(Value::String).unwrap_or(Value::Null),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
-        "updated_at": row.get::<Option<String>>("updated_at").unwrap_or_default(),
+        "organizer_id": row.get::<Option<String>, &str>("organizer_id").unwrap_or_default(),
+        "location_point": row.get::<Option<String>, &str>("location_point"),
+        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+        "start_date": row.get::<Option<String>, &str>("start_date"),
+        "end_date": row.get::<Option<String>, &str>("end_date"),
+        "images": row.get::<Option<String>, &str>("images").map(Value::String).unwrap_or(Value::Null),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "updated_at": row.get::<Option<String>, &str>("updated_at").unwrap_or_default(),
     })
 }
 
-fn donor_to_json(row: &sqlx::PgRow) -> Value {
+fn donor_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>>("id").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
         "amount": row
-            .get::<Option<String>>("amount")
+            .get::<Option<String>, &str>("amount")
             .unwrap_or_else(|| "0".to_string()),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
         "donor": serde_json::json!({
-            "id": row.get::<Option<String>>("donor_id").unwrap_or_default(),
-            "fullName": row.get::<Option<String>>("full_name").unwrap_or_default(),
-            "avatarUrl": row.get::<Option<String>>("avatar_url").unwrap_or_default(),
+            "id": row.get::<Option<String>, &str>("donor_id").unwrap_or_default(),
+            "fullName": row.get::<Option<String>, &str>("full_name").unwrap_or_default(),
+            "avatarUrl": row.get::<Option<String>, &str>("avatar_url").unwrap_or_default(),
         }),
     })
 }
@@ -404,10 +404,10 @@ pub async fn get_donors_by_campaign_id(
 /// `POST /api/donations/campaigns` — tạo chiến dịch quyên góp mới (JWT).
 pub async fn create_campaign(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateCampaignForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let inserted = sqlx::query(DB_INSERT_CAMPAIGN)
         .bind(&form.title)
@@ -434,18 +434,32 @@ pub async fn create_campaign(
 }
 
 /// `POST /api/donations/payment-url` — tạo URL thanh toán VNPay (JWT).
+///
+/// Lưu ý: không dùng `Json<_>` extractor vì `Request<Body>` cùng tiêu thụ body
+/// (axum cấm 2 extractor consume相同的request body). Đọc body thủ công qua
+/// `to_bytes` rồi parse JSON.
+#[axum::debug_handler]
 pub async fn create_payment_url(
-    req: Request,
-    Json(form): Json<PaymentUrlForm>,
+    user: Option<Extension<AuthUser>>,
+    req: Request<Body>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
+
+    // Nhấn IP của client khi `req` còn alive trước khi `into_body()` tiêu thụ nó.
+    let client = client_ip(&req);
+
+    // Parse thủ công body JSON (PaymentUrlForm không có derive Deserialize từ
+    // `body` — đọc đúng kiểu để giữ `client_ip` nhất quán).
+    let body = to_bytes(req.into_body(), MAX_BODY).await.map_err(AppError::from)?;
+    let form = serde_json::from_slice::<PaymentUrlForm>(body.as_ref())
+        .map_err(|e| AppError::BadRequest(format!("dữ liệu không hợp lệ: {}", e)))?;
 
     if !(form.amount > 0.0) {
         return Err(AppError::BadRequest("Số tiền phải lớn hơn 0".to_string()));
     }
 
     let url = vnpay_build_url(
-        &client_ip(&req),
+        &client,
         form.amount,
         form.bank_code,
         form.order_info,
@@ -462,10 +476,10 @@ pub async fn create_payment_url(
 /// dồn `current_amount` — tất cả trong một giao dịch, rollback khi lỗi.
 pub async fn process_donation(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<DonationForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if !(form.amount > 0.0) {
         return Err(AppError::BadRequest("Số tiền quyên góp phải lớn hơn 0".to_string()));
@@ -544,13 +558,13 @@ pub async fn process_donation(
         "message": "Cảm ơn bạn đã quyên góp hỗ trợ cộng đồng!",
         "transaction_id": transaction_id,
         "campaign": serde_json::json!({
-            "id": updated.get::<Option<String>>("id").unwrap_or_default(),
-            "title": updated.get::<Option<String>>("title").unwrap_or_default(),
+            "id": updated.get::<Option<String>, &str>("id").unwrap_or_default(),
+            "title": updated.get::<Option<String>, &str>("title").unwrap_or_default(),
             "current_amount": updated
-                .get::<Option<String>>("current_amount")
+                .get::<Option<String>, &str>("current_amount")
                 .unwrap_or_else(|| "0".to_string()),
             "target_amount": updated
-                .get::<Option<String>>("target_amount")
+                .get::<Option<String>, &str>("target_amount")
                 .unwrap_or_else(|| "0".to_string()),
         }),
     });

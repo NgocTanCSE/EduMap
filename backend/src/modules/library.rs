@@ -15,14 +15,13 @@
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 //! Postgres/PostGIS only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -48,6 +47,8 @@ pub struct ResourceSearchQuery {
     pub resource_type: Option<String>,
 }
 
+/// `author` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateResourceForm {
     pub title: String,
@@ -124,53 +125,33 @@ const DB_INSERT_RESOURCE: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn resource_to_json(row: &sqlx::PgRow) -> Value {
+fn resource_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "description": row.get::<Option<String>, _>("description"),
-        "type": row.get::<Option<String>, _>("type"),
-        "subject": row.get::<Option<String>, _>("subject"),
-        "grade": row.get::<Option<String>, _>("grade"),
-        "file_url": row.get::<Option<String>, _>("file_url"),
-        "thumbnail_url": row.get::<Option<String>, _>("thumbnail_url"),
-        "file_size": row.get::<Option<i64>, _>("file_size"),
-        "download_count": row.get::<i64>("download_count"),
-        "view_count": row.get::<i64>("view_count"),
-        "rating_avg": row.get::<f64>("rating_avg"),
-        "status": row.get::<Option<String>, _>("status"),
-        "author_id": row.get::<Option<String>, _>("author_id"),
-        "created_at": row.get::<Option<String>, _>("created_at"),
-        "updated_at": row.get::<Option<String>, _>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "type": row.get::<Option<String>, &str>("type"),
+        "subject": row.get::<Option<String>, &str>("subject"),
+        "grade": row.get::<Option<String>, &str>("grade"),
+        "file_url": row.get::<Option<String>, &str>("file_url"),
+        "thumbnail_url": row.get::<Option<String>, &str>("thumbnail_url"),
+        "file_size": row.get::<Option<i64>, &str>("file_size"),
+        "download_count": row.get::<i64, &str>("download_count"),
+        "view_count": row.get::<i64, &str>("view_count"),
+        "rating_avg": row.get::<f64, &str>("rating_avg"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "author_id": row.get::<Option<String>, &str>("author_id"),
+        "created_at": row.get::<Option<String>, &str>("created_at"),
+        "updated_at": row.get::<Option<String>, &str>("updated_at"),
     })
 }
 
-/// Build the `human_readable` text the ai-service embeds (the old backend
-/// sent `title + type/subject + grade + author + description`).
-fn build_doc_text(r: &sqlx::PgRow) -> String {
-    let title = r.get::<String>("title");
-    let desc = r.get::<Option<String>, _>("description").unwrap_or_default();
-    let subject = r.get::<Option<String>, _>("subject").unwrap_or_default();
-    let grade = r.get::<Option<String>, _>("grade").unwrap_or_default();
-    let author = r.get::<Option<String>, _>("author_id").unwrap_or_default();
-    format!("Tai lieu hoc tap: {}. The loai / Nganh: {}. Lop / khoi: {}. Tac gia: {}. Tom tat: {}.",
-        title, subject, grade, author, desc)
-}
+
 
 // ---------------------------------------------------------------------------
 // Guards
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: các endpoint đọc là public; `POST /resources`
-/// pull token ra khỏi extensions → `401` khi JWT thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -181,8 +162,8 @@ pub async fn get_resources(
     State(pool): State<DbPool>,
     Query(q): Query<ResourceListQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let page = q.page.unwrap_or("1").parse::<i64>().unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or("10").parse::<i64>().unwrap_or(10).max(1).min(100);
+    let page = q.page.unwrap_or_else(|| "1".to_string()).parse::<i64>().unwrap_or(1).max(1);
+    let limit = q.limit.unwrap_or_else(|| "10".to_string()).parse::<i64>().unwrap_or(10).max(1).min(100);
     let offset = (page - 1) * limit;
 
     let rows = sqlx::query(DB_SELECT_RESOURCES)
@@ -196,7 +177,7 @@ pub async fn get_resources(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>("total");
+        .get::<i64, &str>("total");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "items": rows.iter().map(resource_to_json).collect::<Vec<_>>(),
@@ -217,8 +198,8 @@ pub async fn search_resources(
     // `category` cũ trả về `subject`: cả 2 tham số được chấp nhận.
     let subject = q.subject.or(q.category);
     let query = q.q;
-    let page = q.page.unwrap_or("1").parse::<i64>().unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or("10").parse::<i64>().unwrap_or(10).max(1).min(100);
+    let page = q.page.unwrap_or_else(|| "1".to_string()).parse::<i64>().unwrap_or(1).max(1);
+    let limit = q.limit.unwrap_or_else(|| "10".to_string()).parse::<i64>().unwrap_or(10).max(1).min(100);
     let offset = (page - 1) * limit;
 
     let mut clauses: Vec<String> = Vec::new();
@@ -258,7 +239,7 @@ pub async fn search_resources(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>("total");
+        .get::<i64, &str>("total");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "items": rows.iter().map(resource_to_json).collect::<Vec<_>>(),
@@ -335,10 +316,10 @@ pub async fn summarize_resource(
 /// store qua ai-service.
 pub async fn create_resource(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateResourceForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.title.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -380,7 +361,7 @@ pub async fn create_resource(
             "source": "db_learning_materials",
             "type": form.resource_type,
         },
-        "id": format!("material_{}", row.get::<String>("id")),
+        "id": format!("material_{}", row.get::<String, &str>("id")),
     })).await;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({

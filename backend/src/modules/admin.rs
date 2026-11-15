@@ -9,28 +9,16 @@
 //!
 //! All SQL uses the runtime API (`query!` requires a live DB at compile time).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_aiservice, proxy_to_ai_service};
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 
-/// The logged-in user: `/api/admin` is behind `@UseGuards(JwtAuthGuard,
-/// RolesGuard)` (the old backend), so the handlers self-check and answer `401`
-/// when the JWT is missing.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` only (`@Roles(ADMIN, MODERATOR)` in the old backend —
 /// any other role gets a `403` like the old backend's access denied).
@@ -138,7 +126,7 @@ pub struct AdminStats {
     pub upcoming_events: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUserStatusForm {
     pub status: String,
     pub reason: Option<String>,
@@ -203,17 +191,17 @@ pub async fn get_stats(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Ad
         .await
         .map_err(AppError::from)?;
 
-    let pending_verifications = row.get::<i64>("pending_user_verifications")
-        + row.get::<i64>("pending_campaign_approvals")
-        + row.get::<i64>("pending_scholarship_approvals")
-        + row.get::<i64>("pending_event_approvals");
+    let pending_verifications = row.get::<i64, &str>("pending_user_verifications")
+        + row.get::<i64, &str>("pending_campaign_approvals")
+        + row.get::<i64, &str>("pending_scholarship_approvals")
+        + row.get::<i64, &str>("pending_event_approvals");
 
     Ok(Json(ApiResponse::ok(AdminStats {
-        total_users: row.get::<i64>("total_users"),
-        active_campaigns: row.get::<i64>("active_campaigns"),
+        total_users: row.get::<i64, &str>("total_users"),
+        active_campaigns: row.get::<i64, &str>("active_campaigns"),
         pending_verifications,
-        total_scholarships: row.get::<i64>("total_scholarships"),
-        upcoming_events: row.get::<i64>("upcoming_events"),
+        total_scholarships: row.get::<i64, &str>("total_scholarships"),
+        upcoming_events: row.get::<i64, &str>("upcoming_events"),
     })))
 }
 
@@ -246,7 +234,7 @@ pub async fn get_users(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>("total");
+        .get::<i64, &str>("total");
 
     let rows = sqlx::query(&list_sql)
         .bind(&limit)
@@ -258,13 +246,13 @@ pub async fn get_users(
     let users: Vec<serde_json::Value> = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String>("id"),
-            "email": row.get::<String>("email"),
-            "full_name": row.get::<Option<String>>("full_name"),
-            "role": row.get::<String>("role"),
-            "status": row.get::<String>("status"),
-            "created_at": row.get::<String>("created_at"),
-            "last_login": row.get::<Option<String>>("last_login"),
+            "id": row.get::<String, &str>("id"),
+            "email": row.get::<String, &str>("email"),
+            "full_name": row.get::<Option<String>, &str>("full_name"),
+            "role": row.get::<String, &str>("role"),
+            "status": row.get::<String, &str>("status"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "last_login": row.get::<Option<String>, &str>("last_login"),
         }))
         .collect();
 
@@ -292,14 +280,14 @@ pub async fn get_user_by_id(
 
     match row {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String>("id"),
-            "email": row.get::<String>("email"),
-            "full_name": row.get::<Option<String>>("full_name"),
-            "role": row.get::<String>("role"),
-            "status": row.get::<String>("status"),
-            "created_at": row.get::<String>("created_at"),
-            "last_login": row.get::<Option<String>>("last_login"),
-            "updated_at": row.get::<Option<String>>("updated_at"),
+            "id": row.get::<String, &str>("id"),
+            "email": row.get::<String, &str>("email"),
+            "full_name": row.get::<Option<String>, &str>("full_name"),
+            "role": row.get::<String, &str>("role"),
+            "status": row.get::<String, &str>("status"),
+            "created_at": row.get::<String, &str>("created_at"),
+            "last_login": row.get::<Option<String>, &str>("last_login"),
+            "updated_at": row.get::<Option<String>, &str>("updated_at"),
         })))),
         None => Err(AppError::NotFound(format!(
             "Không tìm thấy người dùng."
@@ -309,13 +297,14 @@ pub async fn get_user_by_id(
 
 /// `PUT /api/admin/users/:id/status` — ban / unban a user (`admin`, `moderator`
 /// only, old backend `updateUserStatus`).
+#[axum::debug_handler]
 pub async fn update_user_status(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateUserStatusForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let valid_status = matches!(form.status.as_str(), "active" | "inactive" | "banned" | "pending");
@@ -337,9 +326,9 @@ pub async fn update_user_status(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
-        "status": row.get::<String>("status"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "status": row.get::<String, &str>("status"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     }))))
 }
 
@@ -348,9 +337,9 @@ pub async fn update_user_status(
 pub async fn soft_delete_user(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let deleted = sqlx::query(DB_SOFT_DELETE_USER)
@@ -365,7 +354,7 @@ pub async fn soft_delete_user(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Xả mềm người dùng thành công.",
-        "id": deleted.get::<String>("id"),
+        "id": deleted.get::<String, &str>("id"),
     }))))
 }
 
@@ -374,9 +363,9 @@ pub async fn soft_delete_user(
 pub async fn restore_user(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let restored = sqlx::query(DB_RESTORE_USER)
@@ -391,7 +380,7 @@ pub async fn restore_user(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Khôi phục người dùng thành công.",
-        "id": restored.get::<String>("id"),
+        "id": restored.get::<String, &str>("id"),
     }))))
 }
 
@@ -432,7 +421,7 @@ pub async fn get_pending_content(
     State(pool): State<DbPool>,
     Query(q): Query<ContentQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let items = match q.r#type.as_str() {
+    let (items, total) = match q.r#type.as_str() {
         "event" => {
             let rows = sqlx::query(DB_SELECT_PENDING_EVENT)
                 .fetch_all(pool.db())
@@ -442,11 +431,11 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String>("id"),
-                    "title": row.get::<String>("title"),
-                    "address": row.get::<Option<String>>("address"),
-                    "start_date": row.get::<Option<String>>("start_date"),
-                    "end_date": row.get::<Option<String>>("end_date"),
+                    "id": row.get::<String, &str>("id"),
+                    "title": row.get::<String, &str>("title"),
+                    "address": row.get::<Option<String>, &str>("address"),
+                    "start_date": row.get::<Option<String>, &str>("start_date"),
+                    "end_date": row.get::<Option<String>, &str>("end_date"),
                 }))
                 .collect();
             (items, total)
@@ -460,10 +449,10 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String>("id"),
-                    "title": row.get::<String>("title"),
-                    "address": row.get::<Option<String>>("address"),
-                    "start_date": row.get::<Option<String>>("start_date"),
+                    "id": row.get::<String, &str>("id"),
+                    "title": row.get::<String, &str>("title"),
+                    "address": row.get::<Option<String>, &str>("address"),
+                    "start_date": row.get::<Option<String>, &str>("start_date"),
                 }))
                 .collect();
             (items, total)
@@ -477,15 +466,15 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String>("id"),
-                    "title": row.get::<String>("title"),
-                    "provider": row.get::<Option<String>>("provider"),
-                    "deadline": row.get::<Option<String>>("deadline"),
+                    "id": row.get::<String, &str>("id"),
+                    "title": row.get::<String, &str>("title"),
+                    "provider": row.get::<Option<String>, &str>("provider"),
+                    "deadline": row.get::<Option<String>, &str>("deadline"),
                 }))
                 .collect();
             (items, total)
         }
-        _ => return Err(AppError::BadRequest("Loại nội dung không hợp lệ.")),
+        _ => return Err(AppError::BadRequest("Loại nội dung không hợp lệ.".to_string())),
     };
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -502,10 +491,10 @@ pub async fn get_pending_content(
 /// `POST /api/admin/data-quality/report` — proxy to the ai-service
 /// `dataQualityReport` (`POST /api/ai/data/quality/report`).
 pub async fn data_quality_report(
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let report = proxy_to_ai_service("/api/ai/data/quality/report", body).await?;
@@ -516,10 +505,10 @@ pub async fn data_quality_report(
 /// `GET /api/admin/question-gaps` — proxy to the ai-service
 /// `GET /api/ai/analytics/question-gaps`.
 pub async fn get_question_gaps(
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Query(q): Query<QuestionGapsQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let path = if q.limit.is_some() {
@@ -548,9 +537,9 @@ pub async fn get_auto_scheduler_health() -> Result<Json<ApiResponse<serde_json::
 /// the Frontend never sees a 502. (`/api/admin/crawl-map` is also a maintenance
 /// endpoint: it runs `crawlerService.crawlNationwide()` on demand.)
 pub async fn crawl_map(
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({

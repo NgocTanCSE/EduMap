@@ -19,14 +19,15 @@
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị
 //! cấm). Postgres-only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_aiservice_response, proxy_to_ai_service};
 use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::{Request<Body>, Response<Body>};
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::Response;
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -37,15 +38,6 @@ use std::collections::HashMap;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (các endpoint write tự kiểm JWT, 401 nếu thiếu).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // Request / response shapes
@@ -53,7 +45,7 @@ fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
 
 /// `GET /api/impact-match/needs` — bộ lọc danh sách (page/limit).
 #[derive(Debug, Deserialize)]
-struct NeedListQuery {
+pub struct NeedListQuery {
     #[serde(default)]
     page: Option<i64>,
     #[serde(default)]
@@ -66,7 +58,7 @@ struct NeedListQuery {
 
 /// `GET /api/impact-match/sponsors` — bộ lọc danh sách (page/limit).
 #[derive(Debug, Deserialize)]
-struct SponsorListQuery {
+pub struct SponsorListQuery {
     #[serde(default)]
     page: Option<i64>,
     #[serde(default)]
@@ -78,7 +70,7 @@ struct SponsorListQuery {
 
 /// `POST /api/impact-match/rank` — những tiêu chí xếp hạng.
 #[derive(Debug, Deserialize)]
-struct RankQuery {
+pub struct RankQuery {
     region: Option<String>,
     category: Option<String>,
     max_results: Option<i64>,
@@ -88,13 +80,13 @@ struct RankQuery {
 /// `GET /api/impact-match/rankings/cached?refresh=` — bộ lọc cache
 /// auto-scheduler.
 #[derive(Debug, Deserialize)]
-struct CachedRankQuery {
+pub struct CachedRankQuery {
     refresh: Option<String>,
 }
 
 /// `POST /api/impact-match/needs` (dưới JWT).
 #[derive(Debug, Deserialize)]
-struct CreateNeedForm {
+pub struct CreateNeedForm {
     title: String,
     description: Option<String>,
     category: String,
@@ -106,8 +98,10 @@ struct CreateNeedForm {
 }
 
 /// `POST /api/impact-match/sponsors` (dưới JWT).
+/// `status` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct CreateSponsorForm {
+pub struct CreateSponsorForm {
     name: String,
     description: Option<String>,
     focus_areas: Vec<String>,
@@ -123,6 +117,9 @@ struct CreateSponsorForm {
 /// Một cặp ứng viên đã pre-filter (need ↔ sponsor), có điểm tiền lọc.
 /// `need`/`sponsor` là các JSON blob ( Từ `need_to_json` / `sponsor_to_json`);
 /// `tags`/`focus_areas` đã là mảng JSON, không phải text JSONB nữa.
+/// `match_score` dùng cho `CandidatePair` tiền lọc, AI tính lại trong
+/// `_run_impact_match`; code này không đọc lại.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct CandidatePair {
     need_id: String,
@@ -143,7 +140,7 @@ struct CandidatePair {
 fn json_tags(raw: Option<String>) -> Value {
     match raw {
         Some(s) if !s.trim().is_empty() => {
-            serde_json::from_str(&s).unwrap_or(Value::String(s))
+            serde_json::from_str::<Value>(&s).unwrap_or(Value::String(s))
         }
         _ => Value::Array(vec![]),
     }
@@ -350,7 +347,7 @@ pub async fn get_needs(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>(0);
+        .get::<i64, usize>(0);
 
     let list_sql = format!("{}{}", DB_SELECT_NEEDS, where_clause);
     let list_sql = format!("{} ORDER BY created_at DESC LIMIT $1 OFFSET $2", list_sql);
@@ -392,10 +389,10 @@ pub async fn get_need_by_id(
 /// `authenticated_user`).
 pub async fn create_need(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateNeedForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.title.trim().is_empty() || form.category.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -444,7 +441,7 @@ pub async fn get_sponsors(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>(0);
+        .get::<i64, usize>(0);
 
     let list_sql = format!("{}{}", DB_SELECT_SPONSORS, where_clause);
     let list_sql = format!("{} ORDER BY budget_amount DESC LIMIT $1 OFFSET $2", list_sql);
@@ -485,10 +482,10 @@ pub async fn get_sponsor_by_id(
 /// `POST /api/impact-match/sponsors` — tạo hồ sơ nhà tài trợ (dưới JWT).
 pub async fn create_sponsor(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateSponsorForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.name.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -521,37 +518,37 @@ pub async fn create_sponsor(
 // Item mappers
 // ---------------------------------------------------------------------------
 
-fn need_to_json(row: &sqlx::PgRow) -> Value {
+fn need_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "description": row.get::<Option<String>>("description"),
-        "category": row.get::<String>("category"),
-        "urgency": row.get::<String>("urgency"),
-        "cost_estimate": row.get::<f64>("cost_estimate"),
-        "location": row.get::<Option<String>>("location"),
-        "status": row.get::<String>("status"),
-        "tags": json_tags(row.get::<Option<String>>("tags")),
-        "apply_url": row.get::<Option<String>>("apply_url"),
-        "provenance": row.get::<Option<String>>("provenance"),
-        "created_by": row.get::<Option<String>>("created_by"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "category": row.get::<String, &str>("category"),
+        "urgency": row.get::<String, &str>("urgency"),
+        "cost_estimate": row.get::<f64, &str>("cost_estimate"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "status": row.get::<String, &str>("status"),
+        "tags": json_tags(row.get::<Option<String>, &str>("tags")),
+        "apply_url": row.get::<Option<String>, &str>("apply_url"),
+        "provenance": row.get::<Option<String>, &str>("provenance"),
+        "created_by": row.get::<Option<String>, &str>("created_by"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
-fn sponsor_to_json(row: &sqlx::PgRow) -> Value {
+fn sponsor_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "description": row.get::<Option<String>>("description"),
-        "focus_areas": json_tags(row.get::<Option<String>>("focus_areas")),
-        "budget_amount": row.get::<f64>("budget_amount"),
-        "budget_currency": row.get::<String>("budget_currency"),
-        "location": row.get::<Option<String>>("location"),
-        "status": row.get::<String>("status"),
-        "is_verified": row.get::<bool>("is_verified"),
-        "created_by": row.get::<Option<String>>("created_by"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "focus_areas": json_tags(row.get::<Option<String>, &str>("focus_areas")),
+        "budget_amount": row.get::<f64, &str>("budget_amount"),
+        "budget_currency": row.get::<String, &str>("budget_currency"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "status": row.get::<String, &str>("status"),
+        "is_verified": row.get::<bool, &str>("is_verified"),
+        "created_by": row.get::<Option<String>, &str>("created_by"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
@@ -587,13 +584,13 @@ pub async fn rank(
         Some(c) if c > 0.0 => 200,
         _ => 50,
     };
-    let need_rows = sqlx::query(format!("{} ORDER BY created_at DESC LIMIT $1", DB_SELECT_NEEDS_OPEN))
+    let need_rows = sqlx::query(&format!("{} ORDER BY created_at DESC LIMIT $1", DB_SELECT_NEEDS_OPEN))
         .bind(&fetch_limit)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
 
-    let sponsor_rows = sqlx::query(format!(
+    let sponsor_rows = sqlx::query(&format!(
         "{} ORDER BY budget_amount DESC LIMIT $1",
         DB_SELECT_SPONSORS
     ))
@@ -665,7 +662,7 @@ pub async fn rank(
             // proximity + budget_fit + category_score + urgency + verified.
             let proximity = if !need_loc.is_empty()
                 && !spon_loc.is_empty()
-                && (need_loc.contains(spon_loc) || spon_loc.contains(need_loc))
+                && (need_loc.contains(&spon_loc) || spon_loc.contains(&need_loc))
             {
                 30.0
             } else {
@@ -687,10 +684,10 @@ pub async fn rank(
             let urgency_score = urgency_weight / 4.0 * 20.0;
             let verified_score = if vbool(sponsor, "is_verified") { 5.0 } else { 0.0 };
             let total = f64::min(100.0, proximity + budget_fit + category_score
-                + urgency_score + verified_score).round(1);
+                + urgency_score + verified_score).round();
 
             pairs.push(CandidatePair {
-                need_id,
+                need_id: need_id.clone(),
                 sponsor_id,
                 need: need.clone(),
                 sponsor: sponsor.clone(),
@@ -794,8 +791,8 @@ pub async fn rank(
     let reason = ai_result.get("reason").map(|v| v.to_string());
 
     ranked.sort_by(|a, b| f64::partial_cmp(
-        b.get("match_score").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        a.get("match_score").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        &b.get("match_score").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        &a.get("match_score").and_then(|v| v.as_f64()).unwrap_or(0.0),
     ).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -814,9 +811,9 @@ pub async fn rank(
 /// `GET /api/impact-match/rankings/cached` — kết quả đã tính sẵn bởi
 /// auto-scheduler của ai-service (không chờ LLM, công khai).
 pub async fn get_cached_rankings(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Query(q): Query<CachedRankQuery>,
-) -> Result<Response, AppError> {
+) -> Result<Response<Body>, AppError> {
     let qs = if q.refresh.as_deref() == Some("true") {
         String::from("?refresh=true")
     } else {

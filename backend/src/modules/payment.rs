@@ -15,13 +15,12 @@
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị
 //! cấm). Postgres-only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -30,13 +29,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (cả 2 endpoint yêu cầu JWT).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // Request / response shapes
@@ -44,7 +36,7 @@ fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
 
 /// Body của `POST /api/payment/process/:transactionId` (đối tượng `method`).
 #[derive(Debug, Deserialize)]
-struct ProcessForm {
+pub struct ProcessForm {
     /// Trường `method` (alias `paymentMethod`) — giữ nghĩa.
     #[serde(alias = "paymentMethod", default)]
     payment_method: Option<String>,
@@ -52,7 +44,7 @@ struct ProcessForm {
 
 /// Body của `POST /api/payment/booking/:bookingId`.
 #[derive(Debug, Deserialize)]
-struct BookingForm {
+pub struct BookingForm {
     #[serde(alias = "paymentMethod", default)]
     payment_method: Option<String>,
 }
@@ -118,16 +110,16 @@ const DB_UPDATE_BOOKING_PAYMENT: &str = r#"
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn transaction_to_json(row: &sqlx::PgRow) -> Value {
+fn transaction_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "order_id": row.get::<Option<String>>("orderId"),
-        "payment_method": row.get::<Option<String>>("paymentMethod").unwrap_or_else(|| "COD".to_string()),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "PENDING".to_string()),
-        "amount": row.get::<Option<String>>("amount").unwrap_or_default(),
-        "external_transaction_id": row.get::<Option<String>>("externalTransactionId"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<Option<String>>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "order_id": row.get::<Option<String>, &str>("orderId"),
+        "payment_method": row.get::<Option<String>, &str>("paymentMethod").unwrap_or_else(|| "COD".to_string()),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "PENDING".to_string()),
+        "amount": row.get::<Option<String>, &str>("amount").unwrap_or_default(),
+        "external_transaction_id": row.get::<Option<String>, &str>("externalTransactionId"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<Option<String>, &str>("updated_at"),
     })
 }
 
@@ -140,11 +132,11 @@ fn transaction_to_json(row: &sqlx::PgRow) -> Value {
 /// → `PAID` khi có, giao dịch → `paid`.
 pub async fn process_payment(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(transaction_id): Path<String>,
     Json(form): Json<ProcessForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
     let _payment_method = form.payment_method;
 
     let existing = sqlx::query(DB_SELECT_TRANSACTION)
@@ -163,7 +155,7 @@ pub async fn process_payment(
     };
 
     // Giao dịch đã được thanh toán trước đó (replayed request).
-    if transaction.get::<Option<String>>("status") == Some("SUCCESS".to_string()) {
+    if transaction.get::<Option<String>, &str>("status") == Some("SUCCESS".to_string()) {
         return Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Giao dịch này đã được thanh toán thành công.",
             "demo": true,
@@ -181,7 +173,7 @@ pub async fn process_payment(
         .map_err(AppError::from);
 
     // Thanh toán đơn hàng (nếu giao dịch có order_id).
-    if let Some(order_id) = transaction.get::<Option<String>>("orderId") {
+    if let Some(order_id) = transaction.get::<Option<String>, &str>("orderId") {
         let order = sqlx::query(DB_SELECT_ORDER_BY_ID)
             .bind(&order_id)
             .fetch_optional(pool.db())
@@ -189,7 +181,7 @@ pub async fn process_payment(
             .map_err(AppError::from)?;
 
         if let Some(order) = order {
-            let order_status: String = order.get::<Option<String>>("status").unwrap_or_default();
+            let order_status: String = order.get::<Option<String>, &str>("status").unwrap_or_default();
             if order_status != "PAID" {
                 sqlx::query(DB_UPDATE_ORDER_STATUS)
                     .bind(&order_id)
@@ -215,11 +207,11 @@ pub async fn process_payment(
 /// Loop lại (`payment_status='paid'`) → trả về `message` lịch hẹn đã thanh toán.
 pub async fn create_booking_transaction(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(booking_id): Path<String>,
     Json(form): Json<BookingForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let payment_method = form.payment_method.as_deref().unwrap_or("BANK_TRANSFER");
 
     let booking = sqlx::query(DB_SELECT_BOOKING)
@@ -238,7 +230,7 @@ pub async fn create_booking_transaction(
         }
     };
 
-    if booking.get::<Option<String>>("payment_status") == Some("paid".to_string()) {
+    if booking.get::<Option<String>, &str>("payment_status") == Some("paid".to_string()) {
         return Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Lịch hẹn đã được thanh toán.",
             "demo": true,
@@ -251,7 +243,7 @@ pub async fn create_booking_transaction(
         .bind(None::<Option<String>>)
         .bind(payment_method)
         .bind("PENDING")
-        .bind(booking.get::<Option<String>>("amount").unwrap_or_default())
+        .bind(booking.get::<Option<String>, &str>("amount").unwrap_or_default())
         .fetch_optional(pool.db())
         .await
     {
@@ -265,7 +257,10 @@ pub async fn create_booking_transaction(
         }
     };
 
-    let txn_id: String = txn.get::<String>("id");
+    let txn_id = txn
+        .as_ref()
+        .and_then(|r| r.get::<Option<String>, &str>("id"))
+        .unwrap_or_default();
 
     sqlx::query(DB_UPDATE_BOOKING_PAYMENT)
         .bind(&txn_id)
@@ -278,7 +273,7 @@ pub async fn create_booking_transaction(
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đã tạo giao dịch thanh toán.",
         "demo": true,
-        "transaction": transaction_to_json(&txn),
+        "transaction": txn.as_ref().map(|r| transaction_to_json(r)).unwrap_or_default(),
         "booking_id": booking_id,
     }))))
 }

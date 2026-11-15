@@ -3,6 +3,7 @@
 use crate::common::response::ApiResponse;
 use crate::db::pool::{is_healthy, DbPool};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::extract::State;
 
 /// `/api/health` — public, checked by the proxy (no JWT required).

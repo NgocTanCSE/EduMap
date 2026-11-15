@@ -21,31 +21,22 @@
 //!
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use serde_json::Map;
 
 // ---------------------------------------------------------------------------
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: gamification reads are mostly JWT-only, so every handler
-/// pulls the token out of the request extensions itself.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 /// `admin` / `moderator` only (`@Roles(ADMIN, MODERATOR)` trong old backend).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -160,7 +151,7 @@ fn progress_json(user_id: &str, total: i64, badge_names: Vec<String>) -> Value {
 
 fn progress_with_rank(user_id: &str, total: i64, rank: i64, total_users: i64, badge_names: Vec<String>) -> Value {
     let base = progress_json(user_id, total, badge_names);
-    let mut out = BTreeMap::new();
+    let mut out = Map::new();
     for (k, v) in base.as_object().unwrap() {
         out.insert(k.clone(), v.clone());
     }
@@ -169,14 +160,14 @@ fn progress_with_rank(user_id: &str, total: i64, rank: i64, total_users: i64, ba
     Value::Object(out)
 }
 
-fn badge_to_json(row: &sqlx::PgRow) -> Value {
+fn badge_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>>("id").unwrap_or_default(),
-        "badge_id": row.get::<Option<String>>("badge_id").unwrap_or_default(),
-        "name": row.get::<Option<String>>("name").unwrap_or_default(),
-        "category": row.get::<Option<String>>("category").unwrap_or_default(),
-        "rarity": row.get::<Option<String>>("rarity").unwrap_or_default(),
-        "earned_at": row.get::<Option<String>>("earned_at").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
+        "badge_id": row.get::<Option<String>, &str>("badge_id").unwrap_or_default(),
+        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "category": row.get::<Option<String>, &str>("category").unwrap_or_default(),
+        "rarity": row.get::<Option<String>, &str>("rarity").unwrap_or_default(),
+        "earned_at": row.get::<Option<String>, &str>("earned_at").unwrap_or_default(),
     })
 }
 
@@ -199,7 +190,7 @@ async fn award_points(
         .bind(action)
         .bind("gamification")
         .bind(reference_id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(AppError::from)?;
     Ok(())
@@ -215,7 +206,7 @@ async fn fetch_progress(
         .fetch_optional(pool)
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>("total"));
+        .map(|row| row.get::<i64, &str>("total"));
     let total = sum.unwrap_or(0);
 
     let rows = sqlx::query(DB_USER_BADGES)
@@ -225,7 +216,7 @@ async fn fetch_progress(
         .map_err(AppError::from)?;
     let badges: Vec<String> = rows
         .iter()
-        .map(|r| r.get::<Option<String>>("name").unwrap_or_default())
+        .map(|r| r.get::<Option<String>, &str>("name").unwrap_or_default())
         .collect();
     Ok((total, badges))
 }
@@ -236,7 +227,7 @@ async fn fetch_progress(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SubmitActivityForm {
+pub struct SubmitActivityForm {
     activity_type: Option<String>,
     description: Option<String>,
     proof_url: Option<String>,
@@ -244,14 +235,14 @@ struct SubmitActivityForm {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct GrantPointsForm {
+pub struct GrantPointsForm {
     user_id: String,
     points: i64,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct GrantAchievementForm {
+pub struct GrantAchievementForm {
     user_id: String,
     achievement: String,
 }
@@ -271,27 +262,27 @@ pub async fn get_leaderboard(State(pool): State<DbPool>) -> Result<Json<ApiRespo
     let users: Vec<Value> = rows
         .iter()
         .map(|r| {
-            let points: i64 = r.get::<Option<i64>>("points").unwrap_or(0);
+            let points: i64 = r.get::<Option<i64>, &str>("points").unwrap_or(0);
             serde_json::json!({
-                "id": r.get::<Option<String>>("user_id").unwrap_or_default(),
-                "full_name": r.get::<Option<String>>("full_name").unwrap_or_else(|| "Người dùng".to_string()),
-                "avatar_url": r.get::<Option<String>>("avatar_url").unwrap_or_default(),
+                "id": r.get::<Option<String>, &str>("user_id").unwrap_or_default(),
+                "full_name": r.get::<Option<String>, &str>("full_name").unwrap_or_else(|| "Người dùng".to_string()),
+                "avatar_url": r.get::<Option<String>, &str>("avatar_url").unwrap_or_default(),
                 "points": points,
                 "level": (points / 100) + 1,
             })
         })
         .collect();
 
-    Ok(Json(ApiResponse::ok(users)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(users))))
 }
 
 /// `GET /api/gamification/my-progress` — tiến độ, hạng và huy hiệu của
 /// người dùng đăng nhập (JWT).
 pub async fn get_my_progress(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let (total, badges) = fetch_progress(pool.db(), &user.id).await?;
 
@@ -300,14 +291,14 @@ pub async fn get_my_progress(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>("higher"));
+        .map(|row| row.get::<i64, &str>("higher"));
     let rank = higher.unwrap_or(0) + 1;
 
     let total_users: Option<i64> = sqlx::query(DB_USER_RANK_TOTAL)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>("total"));
+        .map(|row| row.get::<i64, &str>("total"));
 
     Ok(Json(ApiResponse::ok(progress_with_rank(
         &user.id,
@@ -321,9 +312,9 @@ pub async fn get_my_progress(
 /// `GET /api/gamification/my-badges` — danh sách huy hiệu đã nhận (JWT).
 pub async fn get_user_badges(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_USER_BADGES)
         .bind(&user.id)
@@ -332,17 +323,17 @@ pub async fn get_user_badges(
         .map_err(AppError::from)?;
 
     let badges: Vec<Value> = rows.iter().map(badge_to_json).collect();
-    Ok(Json(ApiResponse::ok(badges)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(badges))))
 }
 
 /// `POST /api/gamification/submit-activity` — nộp hoạt động xanh
 /// (activityType + proofUrl bắt buộc), trạng thái `pending` và cộng 50 điểm.
 pub async fn submit_activity(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<SubmitActivityForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let activity_type = body.activity_type.as_deref().filter(|v| !v.trim().is_empty());
     let proof_url = body.proof_url.as_deref().filter(|v| !v.trim().is_empty());
@@ -363,7 +354,7 @@ pub async fn submit_activity(
         .fetch_optional(&mut *tx)
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>("id"));
+        .map(|row| row.get::<i64, &str>("id"));
 
     if activity.is_none() {
         let _ = tx.rollback().await;
@@ -389,10 +380,10 @@ pub async fn submit_activity(
 /// khác (chủ tài khoản hoặc staff mới được xem).
 pub async fn get_user_progress(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(user_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if user.id != user_id && !is_staff(&user) {
         return Err(AppError::Forbidden(
@@ -412,10 +403,10 @@ pub async fn get_user_progress(
 /// `POST /api/gamification/grant-points` — cộng điểm thủ công (admin/mod).
 pub async fn grant_points(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<GrantPointsForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     if body.points == 0 {
@@ -441,10 +432,10 @@ pub async fn grant_points(
 /// (admin/mod); tạo huy hiệu mới nếu tên chưa tồn tại.
 pub async fn grant_achievement(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<GrantAchievementForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     if body.achievement.trim().is_empty() {
@@ -460,14 +451,14 @@ pub async fn grant_achievement(
         .map_err(AppError::from)?;
 
     let badge_id: String = match badge_row {
-        Some(row) => row.get::<String>("id"),
+        Some(row) => row.get::<String, &str>("id"),
         None => {
-            let inserted = sqlx::query(DB_CREATE_BADGE)
+            sqlx::query(DB_CREATE_BADGE)
                 .bind(body.achievement.trim())
-                .execute(&mut *tx)
+                .fetch_one(&mut *tx)
                 .await
-                .map_err(AppError::from)?;
-            inserted.get("id")
+                .map_err(AppError::from)?
+                .get::<String, &str>("id")
         }
     };
 

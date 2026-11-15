@@ -6,29 +6,17 @@
 //! PostGIS `ST_Intersects`/`ST_DWithin` are used directly (DB = Postgres
 //! + PostGIS).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_routing, proxy_to_ai_service};
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-/// The client must be logged in to write (`@UseGuards(JwtAuthGuard)` in the
-/// old backend). `/map` is a public route so the `AuthLayer` doesn't insert
-/// an `AuthUser`: the handlers check it themselves and answer 401.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // SQL statements
@@ -67,13 +55,7 @@ const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
     LIMIT 5000
 "#;
 
-const DB_SELECT_LOCATION_BY_ID: &str = r#"
-    SELECT id, name, description, category_id, address, city,
-           CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, status, is_verified,
-           ST_AsText(coordinates) AS coordinates, created_at
-    FROM locations
-    WHERE id = $1
-"#;
+
 
 const DB_SELECT_POI_BY_ID: &str = r#"
     SELECT id, name, description, type_id, address, city, ST_AsText(location) AS location,
@@ -210,6 +192,9 @@ pub struct SafeRouteQuery {
     pub max_distance_km: Option<String>,
 }
 
+/// Các tham số phụ (OSRM `alternatives`/`steps`/`overview`, `avoid_flood`,
+/// `avoid_traffic`, `date`) gửi lên nhưng `get_route` không dùng lại.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct RouteQuery {
     pub lng1: String,
@@ -302,6 +287,8 @@ pub struct DistanceTableQuery {
     pub destinations: String,
 }
 
+/// `date` gửi lên từ client (trung bình) nhưng `get_flood_zones` không dùng.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct FloodZonesQuery {
     pub date: Option<String>,
@@ -389,7 +376,7 @@ pub async fn get_safe_route(
         match v.as_ref().and_then(|s| s.parse().ok()) {
             Some(n) => Ok(n),
             None => Err(AppError::BadRequest(
-                "Invalid coordinates. All lng/lat must be valid numbers.",
+                "Invalid coordinates. All lng/lat must be valid numbers.".to_string(),
             )),
         }
     };
@@ -404,6 +391,9 @@ pub async fn get_safe_route(
             .as_ref()
             .and_then(|v| v.parse::<f64>().ok())
             .unwrap_or(0.3),
+        max_distance_km: q.max_distance_km
+            .as_ref()
+            .and_then(|v| v.parse::<f64>().ok()),
     };
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -499,9 +489,8 @@ async fn list_all_pois(pool: DbPool) -> Vec<serde_json::Value> {
         Ok(body) => body
             .0
             .data
-            .as_ref()
-            .and_then(|v| v.as_array())
-            .cloned()
+            .as_array()
+            .map(|v| v.to_vec())
             .unwrap_or_default(),
         Err(_) => Vec::new(),
     }
@@ -522,10 +511,10 @@ impl From<&PoiBoundsQuery> for BaylonBounds {
 /// ai-service embed callback).
 pub async fn create_poi(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreatePoiForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let type_id: i64 = match category_to_type_id(Some(&form.category)) {
         Some(t) => t,
         None => 0,
@@ -543,16 +532,16 @@ pub async fn create_poi(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
-        "id": inserted.get::<String>("id"),
-        "name": inserted.get::<String>("name"),
-        "category": type_id_to_category(inserted.get::<i64>("type_id")),
-        "status": inserted.get::<String>("status"),
+        "id": inserted.get::<String, &str>("id"),
+        "name": inserted.get::<String, &str>("name"),
+        "category": type_id_to_category(inserted.get::<i64, &str>("type_id")),
+        "status": inserted.get::<String, &str>("status"),
         "message": "Point of interest created successfully",
     }))))
 }
 
 /// `GET /map/categories` — the category list shown in the Map Hub sidebar.
-pub async fn get_categories() -> Json<ApiResponse<Vec<String>>> {
+pub async fn get_categories() -> Result<Json<ApiResponse<Vec<String>>>, AppError> {
     Ok(Json(ApiResponse::ok(vec![
         "university".to_string(),
         "school".to_string(),
@@ -584,57 +573,56 @@ pub async fn get_poi_details(
         .await
         .map_err(AppError::from)?;
 
-    let details = poi.map(|row| {
-        serde_json::json!({
-            "id": row.get::<String>("id"),
-            "name": row.get::<String>("name"),
-            "category": type_id_to_category(row.get::<i64>("type_id")),
-            "lat": lat_of_point(row.get::<Option<String>>("location")),
-            "lng": lng_of_point(row.get::<Option<String>>("location")),
-            "address": row.get::<Option<String>>("address"),
-            "description": row.get::<Option<String>>("description"),
-            "city": row.get::<Option<String>>("city"),
-            "rating_avg": row.get::<Option<f64>>("rating_avg"),
-            "rating_count": row.get::<Option<i64>>("rating_count"),
-            "status": row.get::<Option<String>>("status"),
-            "verified": row.get::<Option<bool>>("verified"),
-        })
-    });
-
-    // Nearby POIs (ST_DWithin, 3km = 3000m).
-    let nearby: Vec<serde_json::Value> = if let Some(p) = poi {
-        let lat = p.get::<f64>("location").map(|l| lat_of_point(Some(l))).unwrap_or(0.0);
-        let lng = p.get::<f64>("location").and_then(|l| lng_of_point(Some(l))).unwrap_or(0.0);
-        match sqlx::query(DB_SELECT_NEARBY_POIS)
-            .bind(&lng)
-            .bind(&lat)
-            .bind(&3000.0)
-            .fetch_all(pool.db())
-            .await
-        {
-            Ok(rows) => rows
-                .iter()
-                .map(|row| serde_json::json!({
-                    "id": row.get::<String>("id"),
-                    "name": row.get::<String>("name"),
-                    "category": type_id_to_category(row.get::<i64>("type_id")),
-                    "lat": lat_of_point(row.get::<Option<String>>("location")),
-                    "lng": lng_of_point(row.get::<Option<String>>("location")),
-                    "address": row.get::<Option<String>>("address"),
-                }))
-                .collect(),
-            Err(e) => {
-                error!("nearby pois query failed: {}", e);
-                Vec::new()
+    // Nearby POIs (ST_DWithin, 3km = 3000m) — read first so the `poi` borrow
+    // is not live when `poi.map(...)` moves it below.
+    let nearby: Vec<serde_json::Value> = match poi.as_ref() {
+        Some(p) => {
+            let loc = p.get::<Option<String>, &str>("location");
+            let lat = lat_of_point(loc.as_deref());
+            let lng = lng_of_point(loc.as_deref());
+            match sqlx::query(DB_SELECT_NEARBY_POIS)
+                .bind(&lng)
+                .bind(&lat)
+                .bind(&3000.0)
+                .fetch_all(pool.db())
+                .await
+            {
+                Ok(rows) => rows
+                    .iter()
+                    .map(|row| serde_json::json!({
+                        "id": row.get::<String, &str>("id"),
+                        "name": row.get::<String, &str>("name"),
+                        "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+                        "lat": lat_of_point(row.get::<Option<String>, &str>("location").as_deref()),
+                        "lng": lng_of_point(row.get::<Option<String>, &str>("location").as_deref()),
+                        "address": row.get::<Option<String>, &str>("address"),
+                    }))
+                    .collect(),
+                Err(e) => {
+                    error!("nearby pois query failed: {}", e);
+                    Vec::new()
+                }
             }
         }
-    } else {
-        Vec::new()
+        None => Vec::new(),
     };
 
-    if poi.is_none() {
-        return Err(AppError::NotFound("Điểm đến không tìm thấy"));
-    }
+    let details = poi.map(|row| {
+        serde_json::json!({
+            "id": row.get::<String, &str>("id"),
+            "name": row.get::<String, &str>("name"),
+            "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+            "lat": lat_of_point(row.get::<Option<String>, &str>("location").as_deref()),
+            "lng": lng_of_point(row.get::<Option<String>, &str>("location").as_deref()),
+            "address": row.get::<Option<String>, &str>("address"),
+            "description": row.get::<Option<String>, &str>("description"),
+            "city": row.get::<Option<String>, &str>("city"),
+            "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+            "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+            "status": row.get::<Option<String>, &str>("status"),
+            "verified": row.get::<Option<bool>, &str>("verified"),
+        })
+    });
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
         "poi": details.unwrap_or(serde_json::Value::Null),
@@ -663,7 +651,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>>("location_point").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("location_point").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -671,13 +659,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("stem-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("stem-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "stem".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            address: row.get::<Option<String>>("location_point_text").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description"),
+            address: row.get::<Option<String>, &str>("location_point_text"),
             feature_link: feature_link_for("stem").to_string(),
         });
     }
@@ -688,19 +676,19 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64>("lat");
-        let lng = row.get::<f64>("lng");
+        let lat = row.get::<f64, &str>("lat");
+        let lng = row.get::<f64, &str>("lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("green-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("green-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "green".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            address: row.get::<Option<String>>("address").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description"),
+            address: row.get::<Option<String>, &str>("address"),
             feature_link: feature_link_for("green").to_string(),
         });
     }
@@ -711,19 +699,19 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64>("lat");
-        let lng = row.get::<f64>("lng");
+        let lat = row.get::<f64, &str>("lat");
+        let lng = row.get::<f64, &str>("lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("summer-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("summer-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "summer".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            address: row.get::<Option<String>>("location").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description"),
+            address: Some(row.get::<Option<String>, &str>("location").unwrap_or_default()),
             feature_link: feature_link_for("summer").to_string(),
         });
     }
@@ -734,7 +722,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>>("coordinates").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("coordinates").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -742,13 +730,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("wifi-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("wifi-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "wifi".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            address: row.get::<Option<String>>("address").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description"),
+            address: row.get::<Option<String>, &str>("address"),
             feature_link: feature_link_for("wifi").to_string(),
         });
     }
@@ -759,7 +747,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>>("location_point").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("location_point").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -767,13 +755,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("donate-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("donate-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "donate".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>>("description").unwrap_or_default(),
-            address: row.get::<Option<String>>("address").unwrap_or_default(),
+            description: row.get::<Option<String>, &str>("description"),
+            address: row.get::<Option<String>, &str>("address"),
             feature_link: feature_link_for("donate").to_string(),
         });
     }
@@ -784,29 +772,29 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64>("lat");
-        let lng = row.get::<f64>("lng");
+        let lat = row.get::<f64, &str>("lat");
+        let lng = row.get::<f64, &str>("lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
-        let desc = match row.get::<Option<String>>("category") {
-            Some(cat) => match row.get::<Option<String>>("description") {
+        let desc = match row.get::<Option<String>, &str>("category") {
+            Some(cat) => match row.get::<Option<String>, &str>("description") {
                 Some(d) => format!("{} · {}", cat, d),
                 None => cat,
             },
-            None => match row.get::<Option<String>>("description") {
+            None => match row.get::<Option<String>, &str>("description") {
                 Some(d) => d,
                 None => String::new(),
             },
         };
         pins.push(FeaturedPin {
-            id: format!("market-{}", row.get::<String>("id")),
-            name: row.get::<String>("name"),
+            id: format!("market-{}", row.get::<String, &str>("id")),
+            name: row.get::<String, &str>("name"),
             category: "market".to_string(),
             lat,
             lng,
             description: Some(desc),
-            address: row.get::<Option<String>>("address").unwrap_or_default(),
+            address: row.get::<Option<String>, &str>("address"),
             feature_link: feature_link_for("market").to_string(),
         });
     }
@@ -827,19 +815,19 @@ pub async fn get_stats(
         .await
         .map_err(AppError::from)?;
 
-    let stats = row.get::<i64>("total");
+    let stats = row.get::<i64, &str>("total");
     let categories = serde_json::json!({
-        "university": row.get::<i64>("universities"),
-        "school": row.get::<i64>("schools"),
-        "library": row.get::<i64>("libraries"),
-        "bookstore": row.get::<i64>("bookstores"),
-        "lab": row.get::<i64>("labs"),
-        "wifi": row.get::<i64>("wifi"),
-        "green": row.get::<i64>("green"),
-        "cafe": row.get::<i64>("cafes"),
-        "restaurant": row.get::<i64>("restaurants"),
-        "market": row.get::<i64>("markets"),
-        "convenience": row.get::<i64>("convenience"),
+        "university": row.get::<i64, &str>("universities"),
+        "school": row.get::<i64, &str>("schools"),
+        "library": row.get::<i64, &str>("libraries"),
+        "bookstore": row.get::<i64, &str>("bookstores"),
+        "lab": row.get::<i64, &str>("labs"),
+        "wifi": row.get::<i64, &str>("wifi"),
+        "green": row.get::<i64, &str>("green"),
+        "cafe": row.get::<i64, &str>("cafes"),
+        "restaurant": row.get::<i64, &str>("restaurants"),
+        "market": row.get::<i64, &str>("markets"),
+        "convenience": row.get::<i64, &str>("convenience"),
     });
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -948,10 +936,10 @@ pub async fn resource_optimization(
 pub async fn get_route(
     Query(q): Query<RouteQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let lng1 = q.lng1.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers."))?;
-    let lat1 = q.lat1.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers."))?;
-    let lng2 = q.lng2.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers."))?;
-    let lat2 = q.lat2.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers."))?;
+    let lng1 = q.lng1.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers.".to_string()))?;
+    let lat1 = q.lat1.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers.".to_string()))?;
+    let lng2 = q.lng2.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers.".to_string()))?;
+    let lat2 = q.lat2.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates. All lng/lat must be valid numbers.".to_string()))?;
 
     let route = route_impl(lng1, lat1, lng2, lat2).await?;
     Ok(Json(ApiResponse::<serde_json::Value>::ok(route)))
@@ -961,8 +949,8 @@ pub async fn get_route(
 pub async fn get_nearest_road(
     Query(q): Query<NearestRoadQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let lng = q.lng.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates"))?;
-    let lat = q.lat.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates"))?;
+    let lng = q.lng.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates".to_string()))?;
+    let lat = q.lat.parse::<f64>().map_err(|_| AppError::BadRequest("Invalid coordinates".to_string()))?;
 
     // Nearest road (degraded: static fallback — the old backend proxied
     // the routing service; the point itself is the fallback when it is
@@ -1009,11 +997,11 @@ pub async fn get_flood_zones(
 
     let result = zones.iter().map(|z| {
         serde_json::json!({
-            "id": z.get::<String>("id"),
-            "name": z.get::<String>("name"),
-            "riskLevel": z.get::<String>("riskLevel"),
-            "coordinates": z.get::<Option<String>>("coordinates"),
-            "metadata": z.get::<Option<serde_json::Value>>("metadata"),
+            "id": z.get::<String, &str>("id"),
+            "name": z.get::<String, &str>("name"),
+            "riskLevel": z.get::<String, &str>("riskLevel"),
+            "coordinates": z.get::<Option<String>, &str>("coordinates"),
+            "metadata": z.get::<Option<serde_json::Value>, &str>("metadata"),
         })
     }).collect::<Vec<serde_json::Value>>();
 
@@ -1043,12 +1031,12 @@ pub async fn traffic_segments(
 /// (`/api/ai/geo/analyze`).
 pub async fn ai_analysis(
     State(_pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<AiAnalysisForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
     if form.query.trim().is_empty() {
-        return Err(AppError::BadRequest("Query string is required for AI analysis"));
+        return Err(AppError::BadRequest("Query string is required for AI analysis".to_string()));
     }
 
     let result = proxy_to_ai_service(
@@ -1171,7 +1159,7 @@ pub async fn nl_search(
     Query(q): Query<NlSearchQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     if q.q.trim().is_empty() {
-        return Err(AppError::BadRequest("Query parameter \"q\" is required"));
+        return Err(AppError::BadRequest("Query parameter \"q\" is required".to_string()));
     }
     let limit = q.limit.as_ref().and_then(|v| v.parse::<i64>().ok()).unwrap_or(20);
 
@@ -1242,7 +1230,7 @@ fn deduplicate_pois(rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
                 existing.get("lat").and_then(|v| v.as_f64()).unwrap_or(0.0),
                 existing.get("lng").and_then(|v| v.as_f64()).unwrap_or(0.0),
             );
-            let (ex_name, ex_key) = (
+            let (ex_name, _ex_key) = (
                 existing.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 format!("{}{}", (ex_lat / 0.01).floor().to_string(), (ex_lng / 0.01).floor().to_string()),
             );
@@ -1347,60 +1335,48 @@ fn haversine_km(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
     haversine_latlng(lat1, lng1, lat2, lng2) / 1000.0
 }
 
-/// The `location`/`coordinates` column (text, `lng,lat`)
-fn lat_of_point(location: Option<String>) -> f64 {
-    match location {
-        Some(l) => match l.split_once(',') {
-            Some((_a, b)) => b.parse::<f64>().unwrap_or(0.0),
-            None => 0.0,
-        },
-        None => 0.0,
-    }
+/// The `location`/`coordinates` column (`ST_AsText`, e.g. `POINT(106.67 21.02)`).
+fn lat_of_point(location: Option<&str>) -> f64 {
+    parse_ewkt_point(location).map_or(0.0, |(_, lat)| lat)
 }
 
-fn lng_of_point(location: Option<String>) -> f64 {
-    match location {
-        Some(l) => match l.split_once(',') {
-            Some((a, _b)) => a.parse::<f64>().unwrap_or(0.0),
-            None => 0.0,
-        },
-        None => 0.0,
-    }
+fn lng_of_point(location: Option<&str>) -> f64 {
+    parse_ewkt_point(location).map_or(0.0, |(lng, _)| lng)
 }
 
 /// Point of interest from `map_points` (geometry in `location`.)
-fn map_point_to_poi_row(row: &sqlx::PgRow) -> serde_json::Value {
-    let location = row.get::<Option<String>>("location");
+fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
+    let location = row.get::<Option<String>, &str>("location");
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "category": type_id_to_category(row.get::<i64>("type_id")),
-        "lat": lat_of_point(location),
-        "lng": lng_of_point(location),
-        "address": row.get::<Option<String>>("address"),
-        "description": row.get::<Option<String>>("description"),
-        "rating_avg": row.get::<Option<f64>>("rating_avg"),
-        "rating_count": row.get::<Option<i64>>("rating_count"),
-        "status": row.get::<Option<String>>("status"),
-        "verified": row.get::<Option<bool>>("verified"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+        "lat": lat_of_point(location.as_deref()),
+        "lng": lng_of_point(location.as_deref()),
+        "address": row.get::<Option<String>, &str>("address"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+        "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "verified": row.get::<Option<bool>, &str>("verified"),
     })
 }
 
 /// Point of interest from `locations` (geometry in `coordinates`.)
-fn location_to_poi_row(row: &sqlx::PgRow) -> serde_json::Value {
-    let location = row.get::<Option<String>>("coordinates");
+fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
+    let location = row.get::<Option<String>, &str>("coordinates");
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "category": row.get::<Option<String>>("category_name").unwrap_or_else(|| "other".to_string()),
-        "lat": lat_of_point(location),
-        "lng": lng_of_point(location),
-        "address": row.get::<Option<String>>("address"),
-        "description": row.get::<Option<String>>("description"),
-        "rating_avg": row.get::<Option<f64>>("rating_avg"),
-        "rating_count": row.get::<Option<i64>>("rating_count"),
-        "status": row.get::<Option<String>>("status"),
-        "verified": row.get::<Option<bool>>("is_verified"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "category": row.get::<Option<String>, &str>("category_name").unwrap_or_else(|| "other".to_string()),
+        "lat": lat_of_point(location.as_deref()),
+        "lng": lng_of_point(location.as_deref()),
+        "address": row.get::<Option<String>, &str>("address"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+        "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "verified": row.get::<Option<bool>, &str>("is_verified"),
     })
 }
 

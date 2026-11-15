@@ -17,10 +17,16 @@ use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use axum::extract::{Query, State};
+use sqlx::Row;
 use axum::Json;
 use base64::{Engine as _, engine::general_purpose};
 use futures::future::join_all;
-use once_cell::sync::OnceLock;
+use image::GenericImageView;
+use image::GenericImage;
+use image::codecs::png::PngEncoder;
+use image::ImageEncoder;
+use image::ImageBuffer;
+use std::sync::OnceLock;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -53,7 +59,7 @@ pub struct VisionDetectBody {
 
 const TILE_SIZE: i64 = 256;
 const MAX_GRID: usize = 8;
-const CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1000;
+
 const CACHE_MAX_ENTRIES: usize = 64;
 const MATCH_THRESHOLD_M: f64 = 80.0;
 const EARTH_RADIUS_M: f64 = 6_371_000.0;
@@ -145,14 +151,6 @@ fn lat_lng_to_tile(lat: f64, lng: f64, z: i64) -> (i64, i64) {
     (x.floor() as i64, y.floor() as i64)
 }
 
-fn tile_bounds(x: i64, y: i64, z: i64) -> (f64, f64, f64, f64) {
-    let n = (1u64 << z) as f64;
-    let west = (x as f64 / n) * 360.0 - 180.0;
-    let east = ((x as f64 + 1.0) / n) * 360.0 - 180.0;
-    let north = ((std::f64::consts::PI * (1.0 - 2.0 * y as f64 / n)).sinh().atan() * 180.0) / std::f64::consts::PI;
-    let south = ((std::f64::consts::PI * (1.0 - 2.0 * (y as f64 + 1.0) / n)).sinh().atan() * 180.0) / std::f64::consts::PI;
-    (north, south, east, west)
-}
 
 fn pixel_to_lat_lng(px: f64, py: f64, start_tile_x: i64, start_tile_y: i64, z: i64) -> (f64, f64) {
     let n = (1u64 << z) as f64;
@@ -222,9 +220,6 @@ fn haversine(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
     2.0 * a.sqrt().atan2((1.0 - a).sqrt()) * EARTH_RADIUS_M
 }
 
-fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339()
-}
 
 // ---------------------------------------------------------------------------
 // Tile fetch + stitch
@@ -254,8 +249,9 @@ async fn fetch_and_stitch_tiles(
     source: &str,
 ) -> Result<CachedTileData, AppError> {
     let cache_key = format!("geovision:tiles:{bbox_str}:{zoom}:{source}");
+    let cache = tile_cache();
     {
-        let c = tile_cache().lock().unwrap();
+        let c = cache.lock().unwrap();
         if let Some(cached) = c.get(&cache_key) {
             return Ok(cached.clone());
         }
@@ -296,7 +292,7 @@ async fn fetch_and_stitch_tiles(
         };
         let col = tile.x - tile_xs[0];
         let row = tile.y - tile_ys[0];
-        let decoded = match image::load_from_memory(&tile.buf) {
+        let mut decoded = match image::load_from_memory(&tile.buf) {
             Ok(d) => d,
             Err(_) => continue,
         };
@@ -305,7 +301,7 @@ async fn fetch_and_stitch_tiles(
         } else {
             decoded
         };
-        if !ImageBuffer::copy_from(&mut img, &cropped.to_rgba8(), (col * TILE_SIZE) as u32, (row * TILE_SIZE) as u32)
+        if ImageBuffer::copy_from(&mut img, &cropped.to_rgba8(), (col * TILE_SIZE) as u32, (row * TILE_SIZE) as u32).is_err()
         {
             continue;
         }
@@ -318,7 +314,9 @@ async fn fetch_and_stitch_tiles(
     }
 
     let mut png = Vec::new();
-    img.write_to(&mut png, image::ImageFormat::Png)
+    let encoder = PngEncoder::new(&mut png);
+    encoder
+        .write_image(img.as_raw(), width as u32, height as u32, image::ColorType::L8)
         .map_err(|e| AppError::Internal(format!("failed to encode stitched image: {e}")))?;
 
     let image_base64 = general_purpose::STANDARD.encode(&png);
@@ -487,7 +485,7 @@ pub async fn vision_detect(
 
     let mut payload = serde_json::json!({ "image_base64": tile_data.image_base64 });
     if let Some(labels) = body.labels.as_ref().filter(|v| !v.is_empty()) {
-        payload.as_object_mut().unwrap().insert("labels".to_string(), serde_json::Value::Array(labels.clone()));
+        payload.as_object_mut().unwrap().insert("labels".to_string(), serde_json::Value::Array(labels.iter().map(|l| serde_json::Value::String(l.clone())).collect()));
     }
 
     let ai_result = match crate::modules::proxy::proxy_to_ai_service("/api/ai/geo/vision-detect", payload).await {
@@ -511,11 +509,11 @@ pub async fn vision_detect(
     let existing: Vec<ExistingPoint> = existing_rows
         .into_iter()
         .map(|row| ExistingPoint {
-            id: row.get::<String>("id"),
-            name: row.get::<String>("name"),
-            type_: type_name(row.get::<Option<i64>>("type_id")),
-            lat: row.get::<f64>("lat"),
-            lng: row.get::<f64>("lng"),
+            id: row.get::<String, &str>("id"),
+            name: row.get::<String, &str>("name"),
+            type_: type_name(row.get::<Option<i64>, &str>("type_id")),
+            lat: row.get::<f64, &str>("lat"),
+            lng: row.get::<f64, &str>("lng"),
         })
         .collect();
 

@@ -6,14 +6,13 @@
 //! kiểm JWT; `POST /match` là công khai (`@Public()`); `cached-matches` và
 //! `auto-health` đọc kết quả đã được auto-scheduler tính sẵn (GET, không chờ LLM).
 
-use crate::common::auth::authenticated_user;
+use crate::common::auth::{AuthUser, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::{proxy_get_aiservice, proxy_to_ai_service};
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -22,11 +21,6 @@ use serde_json::Value;
 // DTO
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ListQuery {
-    pub page: Option<i64>,
-    pub limit: Option<i64>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ResourceQuery {
@@ -102,15 +96,29 @@ pub struct ResourceMatchRank {
 const DEFAULT_PAGE: i64 = 1;
 const DEFAULT_LIMIT: i64 = 20;
 
-fn page(q: &ListQuery) -> i64 {
-    q.page.unwrap_or(DEFAULT_PAGE).max(1)
-}
-fn limit(q: &ListQuery) -> i64 {
-    std::cmp::min(q.limit.unwrap_or(DEFAULT_LIMIT).max(1), 100)
+/// Shared pagination helpers (`page`/`limit`/`offset`) — implemented for every
+/// query struct that carries `page` + `limit` fields.
+trait Pagination {
+    fn page_num(&self) -> i64 {
+        self.page().unwrap_or(DEFAULT_PAGE).max(1)
+    }
+    fn page_limit(&self) -> i64 {
+        std::cmp::min(self.limit().unwrap_or(DEFAULT_LIMIT).max(1), 100)
+    }
+    fn page_offset(&self) -> i64 {
+        (self.page_num() - 1) * self.page_limit()
+    }
+    fn page(&self) -> Option<i64>;
+    fn limit(&self) -> Option<i64>;
 }
 
-fn offset(q: &ListQuery) -> i64 {
-    (page(q) - 1) * limit(q)
+impl Pagination for ResourceQuery {
+    fn page(&self) -> Option<i64> { self.page }
+    fn limit(&self) -> Option<i64> { self.limit }
+}
+impl Pagination for ResourceRequestQuery {
+    fn page(&self) -> Option<i64> { self.page }
+    fn limit(&self) -> Option<i64> { self.limit }
 }
 
 fn sql_text(value: &str) -> String {
@@ -174,8 +182,6 @@ SELECT id, CAST(resource_id AS TEXT) AS resource_id,
 FROM resource_matches
 "#;
 
-const DB_COUNT_RESOURCES: &str = r#"SELECT COUNT(*) AS c FROM resources"#;
-const DB_COUNT_REQUESTS: &str = r#"SELECT COUNT(*) AS c FROM resource_requests"#;
 const DB_COUNT_MATCHES: &str = r#"SELECT COUNT(*) AS c FROM resource_matches"#;
 
 // ---------------------------------------------------------------------------
@@ -208,15 +214,15 @@ pub async fn get_resources(
         .await
         .map_err(|e| AppError::Internal(format!("failed to count resources: {e}")))?;
 
-    let total: i64 = total_rows.get::<i64>("c");
+    let total: i64 = total_rows.get::<i64, &str>("c");
 
-    let rows = sqlx::query(&format!("{DB_RESOURCES} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", limit(&q), offset(&q)))
+    let rows = sqlx::query(&format!("{DB_RESOURCES} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read resources: {e}")))?;
 
     let items: Vec<Value> = rows.into_iter().map(|row| row_to_resource_json(&row)).collect();
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": page(&q), "limit": limit(&q) }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": q.page_num(), "limit": q.page_limit() }))))
 }
 
 /// `GET /api/resource-exchange/resources/:id`
@@ -239,10 +245,10 @@ pub async fn get_resource_by_id(
 /// `POST /api/resource-exchange/resources`
 pub async fn create_resource(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateResource>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let row = sqlx::query(DB_INSERT_RESOURCE)
         .bind(body.type_.as_str())
         .bind(body.title.as_str())
@@ -262,29 +268,29 @@ pub async fn create_resource(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to create resource: {e}")))?;
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
 }
 
 fn row_to_resource_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "type": row.get::<Option<String>>("type"),
-        "title": row.get::<Option<String>>("title"),
-        "description": row.get::<Option<String>>("description"),
-        "condition": row.get::<Option<i64>>("condition"),
-        "location": row.get::<Option<String>>("location"),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
-        "availableFrom": row.get::<Option<String>>("available_from"),
-        "cost": row.get::<Option<f64>>("cost"),
-        "contactMethod": row.get::<Option<String>>("contact_method"),
-        "status": row.get::<Option<String>>("status"),
-        "isVerified": row.get::<Option<bool>>("is_verified"),
-        "tags": row.get::<Option<String>>("tags").and_then(|s| serde_json::from_str(&s).ok()),
-        "metadata": row.get::<Option<String>>("metadata").and_then(|s| serde_json::from_str(&s).ok()),
-        "createdBy": row.get::<Option<String>>("created_by"),
-        "createdAt": row.get::<Option<String>>("created_at"),
-        "updatedAt": row.get::<Option<String>>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "type": row.get::<Option<String>, &str>("type"),
+        "title": row.get::<Option<String>, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "condition": row.get::<Option<i64>, &str>("condition"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
+        "availableFrom": row.get::<Option<String>, &str>("available_from"),
+        "cost": row.get::<Option<f64>, &str>("cost"),
+        "contactMethod": row.get::<Option<String>, &str>("contact_method"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "isVerified": row.get::<Option<bool>, &str>("is_verified"),
+        "tags": row.get::<Option<String>, &str>("tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "metadata": row.get::<Option<String>, &str>("metadata").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "createdBy": row.get::<Option<String>, &str>("created_by"),
+        "createdAt": row.get::<Option<String>, &str>("created_at"),
+        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
     })
 }
 
@@ -317,15 +323,15 @@ pub async fn get_resource_requests(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count requests: {e}")))?;
-    let total: i64 = total_rows.get::<i64>("c");
+    let total: i64 = total_rows.get::<i64, &str>("c");
 
-    let rows = sqlx::query(&format!("{DB_REQUESTS} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", limit(&q), offset(&q)))
+    let rows = sqlx::query(&format!("{DB_REQUESTS} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read requests: {e}")))?;
 
     let items: Vec<Value> = rows.into_iter().map(|row| row_to_request_json(&row)).collect();
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": page(&q), "limit": limit(&q) }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "items": items, "total": total, "page": q.page_num(), "limit": q.page_limit() }))))
 }
 
 /// `GET /api/resource-exchange/requests/:id`
@@ -348,10 +354,10 @@ pub async fn get_resource_request_by_id(
 /// `POST /api/resource-exchange/requests`
 pub async fn create_resource_request(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateResourceRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let row = sqlx::query(DB_INSERT_REQUEST)
         .bind(body.need_type.as_str())
         .bind(body.title.as_str())
@@ -369,27 +375,27 @@ pub async fn create_resource_request(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to create request: {e}")))?;
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
 }
 
 fn row_to_request_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "needType": row.get::<Option<String>>("need_type"),
-        "title": row.get::<Option<String>>("title"),
-        "description": row.get::<Option<String>>("description"),
-        "urgency": row.get::<Option<String>>("urgency"),
-        "location": row.get::<Option<String>>("location"),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
-        "deadline": row.get::<Option<String>>("deadline"),
-        "preferredMinCondition": row.get::<Option<i64>>("preferred_min_condition"),
-        "contactMethod": row.get::<Option<String>>("contact_method"),
-        "status": row.get::<Option<String>>("status"),
-        "tags": row.get::<Option<String>>("tags").and_then(|s| serde_json::from_str(&s).ok()),
-        "createdBy": row.get::<Option<String>>("created_by"),
-        "createdAt": row.get::<Option<String>>("created_at"),
-        "updatedAt": row.get::<Option<String>>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "needType": row.get::<Option<String>, &str>("need_type"),
+        "title": row.get::<Option<String>, &str>("title"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "urgency": row.get::<Option<String>, &str>("urgency"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
+        "deadline": row.get::<Option<String>, &str>("deadline"),
+        "preferredMinCondition": row.get::<Option<i64>, &str>("preferred_min_condition"),
+        "contactMethod": row.get::<Option<String>, &str>("contact_method"),
+        "status": row.get::<Option<String>, &str>("status"),
+        "tags": row.get::<Option<String>, &str>("tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "createdBy": row.get::<Option<String>, &str>("created_by"),
+        "createdAt": row.get::<Option<String>, &str>("created_at"),
+        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
     })
 }
 
@@ -424,19 +430,19 @@ pub async fn get_resource_matches(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<String>("id"),
-            "resourceId": row.get::<Option<String>>("resource_id"),
-            "requestId": row.get::<Option<String>>("request_id"),
-            "matchScore": row.get::<Option<f64>>("match_score"),
-            "explanation": row.get::<Option<String>>("explanation"),
-            "status": row.get::<Option<String>>("status"),
-            "scheduledPickup": row.get::<Option<String>>("scheduled_pickup"),
-            "transportPlan": row.get::<Option<String>>("transport_plan").and_then(|s| serde_json::from_str(&s).ok()),
-            "createdAt": row.get::<Option<String>>("created_at"),
+            "id": row.get::<String, &str>("id"),
+            "resourceId": row.get::<Option<String>, &str>("resource_id"),
+            "requestId": row.get::<Option<String>, &str>("request_id"),
+            "matchScore": row.get::<Option<f64>, &str>("match_score"),
+            "explanation": row.get::<Option<String>, &str>("explanation"),
+            "status": row.get::<Option<String>, &str>("status"),
+            "scheduledPickup": row.get::<Option<String>, &str>("scheduled_pickup"),
+            "transportPlan": row.get::<Option<String>, &str>("transport_plan").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "createdAt": row.get::<Option<String>, &str>("created_at"),
         })
     }).collect();
 
-    let total_rows = sqlx::query(DB_COUNT_MATCHES)
+    let _total_rows = sqlx::query(DB_COUNT_MATCHES)
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count matches: {e}")))?;
@@ -446,7 +452,7 @@ pub async fn get_resource_matches(
 /// `POST /api/resource-exchange/match` — ghép cung–cầu bằng AI (pre-filter +
 // LLM ranking + greedy scheduling). Endpoint công khai (`@Public()`).
 pub async fn match_resources(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Json(body): Json<ResourceMatchRank>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let payload = serde_json::json!({
@@ -493,6 +499,6 @@ pub async fn get_auto_health(State(_pool): State<DbPool>) -> Result<Json<ApiResp
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct RefreshQuery {
+pub struct RefreshQuery {
     pub refresh: Option<bool>,
 }

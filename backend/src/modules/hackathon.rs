@@ -18,13 +18,12 @@
 //!
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use chrono::Utc;
 use serde::Deserialize;
@@ -34,15 +33,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: the public endpoints don't get an `AuthUser` from the
-/// router, so every handler pulls the token out of the request extensions
-/// itself and answers `401` when the JWT is missing.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // SQL
@@ -118,31 +108,31 @@ const DB_JUDGE_TEAM: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn hackathon_to_json(row: &sqlx::PgRow) -> Value {
+fn hackathon_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
-        "start_date": row.get::<Option<String>>("start_date"),
-        "end_date": row.get::<Option<String>>("end_date"),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "upcoming".to_string()),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "start_date": row.get::<Option<String>, &str>("start_date"),
+        "end_date": row.get::<Option<String>, &str>("end_date"),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "upcoming".to_string()),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
-fn team_to_json(row: &sqlx::PgRow) -> Value {
+fn team_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "team_name": row.get::<Option<String>>("team_name").unwrap_or_default(),
-        "hackathon_id": row.get::<Option<String>>("hackathon_id").unwrap_or_default(),
-        "leader_id": row.get::<Option<String>>("leader_id").unwrap_or_default(),
-        "members": row.get::<Option<Vec<String>>>("members").unwrap_or_default(),
-        "repo_url": row.get::<Option<String>>("repo_url"),
-        "demo_video": row.get::<Option<String>>("demo_video"),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "registered".to_string()),
-        "score": row.get::<Option<f64>>("score"),
-        "feedback": row.get::<Option<String>>("feedback"),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
+        "hackathon_id": row.get::<Option<String>, &str>("hackathon_id").unwrap_or_default(),
+        "leader_id": row.get::<Option<String>, &str>("leader_id").unwrap_or_default(),
+        "members": row.get::<Option<Vec<String>>, &str>("members").unwrap_or_default(),
+        "repo_url": row.get::<Option<String>, &str>("repo_url"),
+        "demo_video": row.get::<Option<String>, &str>("demo_video"),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "registered".to_string()),
+        "score": row.get::<Option<f64>, &str>("score"),
+        "feedback": row.get::<Option<String>, &str>("feedback"),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
@@ -152,7 +142,7 @@ fn team_to_json(row: &sqlx::PgRow) -> Value {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RegisterTeamForm {
+pub struct RegisterTeamForm {
     hackathon_id: String,
     team_name: String,
     members: Vec<String>,
@@ -160,12 +150,13 @@ struct RegisterTeamForm {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SubmitProjectForm {
+pub struct SubmitProjectForm {
     repo_url: String,
     demo_video: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ScoreItem {
     criteria: String,
     score: f64,
@@ -173,7 +164,7 @@ struct ScoreItem {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct JudgeProjectForm {
+pub struct JudgeProjectForm {
     scores: Vec<ScoreItem>,
     feedback: Option<String>,
 }
@@ -190,7 +181,7 @@ pub async fn get_hackathons(State(pool): State<DbPool>) -> Result<Json<ApiRespon
         .map_err(AppError::from)?;
 
     let hackathons: Vec<Value> = rows.iter().map(hackathon_to_json).collect();
-    Ok(Json(ApiResponse::ok(hackathons)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(hackathons))))
 }
 
 /// `GET /api/hackathons/:id` — lấy chi tiết một cuộc thi Hackathon (public).
@@ -216,10 +207,10 @@ pub async fn get_hackathon_by_id(
 /// (JWT).
 pub async fn register_team(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<RegisterTeamForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let hackathon = sqlx::query(DB_HACKATHON_BY_ID)
         .bind(&body.hackathon_id)
@@ -256,7 +247,7 @@ pub async fn register_team(
         .await
         .map_err(AppError::from)?
         .into_iter()
-        .map(|row| row.get::<String>("email"))
+        .map(|row| row.get::<String, &str>("email"))
         .collect();
 
     if valid.len() != body.members.len() {
@@ -278,7 +269,7 @@ pub async fn register_team(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>(0));
+        .map(|row| row.get::<i64, usize>(0));
 
     if existing.is_some() {
         return Err(AppError::BadRequest(
@@ -302,11 +293,11 @@ pub async fn register_team(
 /// demo video) của đội — chỉ trưởng nhóm được nộp (JWT).
 pub async fn submit_project(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(team_id): Path<String>,
     Json(body): Json<SubmitProjectForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SUBMIT_TEAM)
         .bind(&body.repo_url)
@@ -341,11 +332,11 @@ pub async fn submit_project(
         "success": true,
         "message": "Nộp bài dự thi thành công! Vui lòng chờ Ban giám khảo chấm điểm.",
         "submission": {
-            "team_name": row.get::<Option<String>>("team_name").unwrap_or_default(),
-            "repo_url": row.get::<Option<String>>("repo_url"),
-            "demo_video": row.get::<Option<String>>("demo_video"),
+            "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
+            "repo_url": row.get::<Option<String>, &str>("repo_url"),
+            "demo_video": row.get::<Option<String>, &str>("demo_video"),
             "submitted_at": row
-                .get::<Option<String>>("submitted_at")
+                .get::<Option<String>, &str>("submitted_at")
                 .unwrap_or_else(|| Utc::now().to_rfc3339()),
         },
     }))))
@@ -355,11 +346,11 @@ pub async fn submit_project(
 /// án của đội thi (JWT).
 pub async fn judge_project(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(team_id): Path<String>,
     Json(body): Json<JudgeProjectForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     if body.scores.is_empty() {
         return Err(AppError::BadRequest("Cần ít nhất một tiêu chí chấm điểm".to_string()));
@@ -398,9 +389,9 @@ pub async fn judge_project(
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,
         "message": "Chấm điểm dự án thành công!",
-        "team_name": row.get::<Option<String>>("team_name").unwrap_or_default(),
+        "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
         "total_score": total_score,
-        "feedback": row.get::<Option<String>>("feedback").unwrap_or_else(|| feedback.to_string()),
+        "feedback": row.get::<Option<String>, &str>("feedback").unwrap_or_else(|| feedback.to_string()),
         "status": "judged",
     }))))
 }

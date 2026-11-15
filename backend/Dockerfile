@@ -6,8 +6,7 @@
 #   - sqlx Postgres driver là thuần Rust (tls-rustls)
 #   - file nhị phân tĩnh: không cần libpq, glibc, node hay java
 #
-# Build context = `rootDir: backend` của Render Blueprint — mọi dòng
-# `COPY` phải khớp với thư mục `backend/`.
+# Build context = `backend/` (GitHub Actions `docker/build-push-action`).
 # ---------------------------------------------------------------------------
 
 # ---------- STAGE 1: builder (chiếm RAM/CPU nhiều nhất, ~30-60s) ----------
@@ -26,16 +25,13 @@ RUN apt-get update -qq && \
 
 RUN rustup target add x86_64-unknown-linux-musl
 
-# `Cargo.toml` copy trước để tận dụng cache layer (chỉ rebuild khi dependency
-# thay đổi). `Cargo.lock` chưa có trong repo — `cargo fetch` tự sinh ra.
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY .cargo .cargo
 COPY src ./src
-# cần có src/main.rs/trước khi fetch dependency (cargo phải tìm target)
-RUN cargo fetch --target x86_64-unknown-linux-musl
+RUN cargo fetch --locked --target x86_64-unknown-linux-musl
 
 # Release build: tối ưu kích thước cho ARM host (cargo build cache).
-RUN CARGO_BUILD_JOBS=1 cargo build --release --target x86_64-unknown-linux-musl
+RUN CARGO_BUILD_JOBS=2 cargo build --release --locked --target x86_64-unknown-linux-musl
 
 # ---------- STAGE 2: runtime (tiệt trùng, kích thước ~30-60 MB) ----------
 FROM debian:bookworm-slim AS runtime

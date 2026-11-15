@@ -33,18 +33,16 @@
 // (`POST /api/notifications/send`); a failure is logged and swallowed, never
 // propagated to the user.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use std::time::Duration;
 use tracing::warn;
 
@@ -52,14 +50,6 @@ use tracing::warn;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: the read endpoints are public (`PUBLIC_PATHS`), so the
-/// write handlers pull the token out of the request extensions themselves.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 /// Escape a single quote so a filter compiled into the SQL text cannot break
 /// out of its string literal.
@@ -94,7 +84,7 @@ async fn assert_content_approved(user_id: &str, text: &str) -> Result<Value, App
         Ok(result) => {
             let action = result.get("action_taken").and_then(Value::as_str).unwrap_or("");
             if action != "APPROVED" {
-                let flags = result.get("flags").and_then(Value::as_array())
+                let flags = result.get("flags").and_then(|v| v.as_array())
                     .map(|arr| {
                         arr.iter()
                             .filter_map(Value::as_str)
@@ -218,73 +208,73 @@ const DB_SELECT_GROUPS: &str = r#"
 // JSON builders (mirror `relations: ['author', 'group']` of the old service)
 // ---------------------------------------------------------------------------
 
-fn author_to_json(row: &sqlx::PgRow) -> Value {
+fn author_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>>("author_id").unwrap_or_default(),
-        "full_name": row.get::<Option<String>>("author_name").unwrap_or_default(),
-        "avatar_url": row.get::<Option<String>>("author_avatar").unwrap_or_default(),
-        "role": row.get::<Option<String>>("author_role").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("author_id").unwrap_or_default(),
+        "full_name": row.get::<Option<String>, &str>("author_name").unwrap_or_default(),
+        "avatar_url": row.get::<Option<String>, &str>("author_avatar").unwrap_or_default(),
+        "role": row.get::<Option<String>, &str>("author_role").unwrap_or_default(),
     })
 }
 
-fn group_to_json(row: &sqlx::PgRow) -> Value {
-    let name: Option<String> = row.get::<Option<String>>("group_name");
+fn group_to_json(row: &sqlx::postgres::PgRow) -> Value {
+    let name: Option<String> = row.get::<Option<String>, &str>("group_name");
     if name.as_deref().filter(|n| !n.trim().is_empty()).is_none() {
         return Value::Null;
     }
     serde_json::json!({
-        "id": row.get::<Option<String>>("group_row_id").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("group_row_id").unwrap_or_default(),
         "name": name.unwrap_or_default(),
-        "description": row.get::<Option<String>>("group_description").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("group_description").unwrap_or_default(),
     })
 }
 
-fn post_to_json(row: &sqlx::PgRow) -> Value {
+fn post_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "content": row.get::<Option<String>>("content").unwrap_or_default(),
-        "author_id": row.get::<Option<String>>("author_id").unwrap_or_default(),
-        "group_id": row.get::<Option<String>>("group_id").unwrap_or_default(),
-        "media_urls": row.get::<Option<String>>("media_urls")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "tags": row.get::<Option<String>>("tags")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "like_count": row.get::<i64>("like_count"),
-        "comment_count": row.get::<i64>("comment_count"),
-        "status": row.get::<String>("status"),
-        "pinned": row.get::<bool>("pinned"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "content": row.get::<Option<String>, &str>("content").unwrap_or_default(),
+        "author_id": row.get::<Option<String>, &str>("author_id").unwrap_or_default(),
+        "group_id": row.get::<Option<String>, &str>("group_id").unwrap_or_default(),
+        "media_urls": row.get::<Option<String>, &str>("media_urls")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "tags": row.get::<Option<String>, &str>("tags")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "like_count": row.get::<i64, &str>("like_count"),
+        "comment_count": row.get::<i64, &str>("comment_count"),
+        "status": row.get::<String, &str>("status"),
+        "pinned": row.get::<bool, &str>("pinned"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
         "author": author_to_json(row),
         "group": group_to_json(row),
     })
 }
 
-fn comment_to_json(row: &sqlx::PgRow) -> Value {
+fn comment_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "post_id": row.get::<String>("post_id"),
-        "author_id": row.get::<String>("author_id"),
-        "content": row.get::<String>("content"),
-        "like_count": row.get::<i64>("like_count"),
-        "status": row.get::<String>("status"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "post_id": row.get::<String, &str>("post_id"),
+        "author_id": row.get::<String, &str>("author_id"),
+        "content": row.get::<String, &str>("content"),
+        "like_count": row.get::<i64, &str>("like_count"),
+        "status": row.get::<String, &str>("status"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
         "author": serde_json::json!({
-            "id": row.get::<String>("author_id"),
-            "full_name": row.get::<Option<String>>("author_name").unwrap_or_default(),
-            "avatar_url": row.get::<Option<String>>("author_avatar").unwrap_or_default(),
-            "role": row.get::<Option<String>>("author_role").unwrap_or_default(),
+            "id": row.get::<String, &str>("author_id"),
+            "full_name": row.get::<Option<String>, &str>("author_name").unwrap_or_default(),
+            "avatar_url": row.get::<Option<String>, &str>("author_avatar").unwrap_or_default(),
+            "role": row.get::<Option<String>, &str>("author_role").unwrap_or_default(),
         }),
     })
 }
 
-fn group_to_json_flat(row: &sqlx::PgRow) -> Value {
+fn group_to_json_flat(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<Option<String>>("name").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
     })
 }
 
@@ -367,7 +357,7 @@ pub async fn get_posts(
     .fetch_one(pool.db())
     .await
     .map_err(AppError::from)?
-    .get::<i64>(0);
+    .get::<i64, usize>(0);
 
     let rows = sqlx::query(&format!(
         "{}{} ORDER BY created_at DESC LIMIT $1 OFFSET $2",
@@ -392,10 +382,10 @@ pub async fn get_posts(
 /// `POST /api/community/posts` — đăng bài thảo luận mới (có kiểm duyệt AI).
 pub async fn create_post(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreatePostRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // AI moderation first — nothing reaches the database if it is rejected.
     assert_content_approved(&user.id, &body.content).await?;
@@ -419,7 +409,7 @@ pub async fn create_post(
     .fetch_one(pool.db())
     .await
     .map_err(AppError::from)?
-    .get::<String>("id");
+    .get::<String, &str>("id");
 
     let row = sqlx::query(DB_SELECT_POST_BY_ID)
         .bind(&post_id)
@@ -452,10 +442,10 @@ pub async fn get_post_by_id(
 /// `POST /api/community/posts/:id/like` — thích một bài viết.
 pub async fn like_post(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // The post must exist and be visible — mirror the old service's
     // `NotFoundException("Bài viết không tồn tại hoặc đã bị khóa")`.
@@ -466,7 +456,7 @@ pub async fn like_post(
     .fetch_optional(pool.db())
     .await
     .map_err(AppError::from)?
-    .map(|row| row.get::<i64>(0));
+    .map(|row| row.get::<i64, usize>(0));
 
     if visible.is_none() {
         return Err(AppError::NotFound(
@@ -487,9 +477,9 @@ pub async fn like_post(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String>("author_id"));
+        .map(|row| row.get::<String, &str>("author_id"));
 
-    if let Some(author_id) = author.filter(|a| a != user.id) {
+    if let Some(author_id) = author.filter(|a| *a != user.id) {
         notify_author(
             pool.db().clone(),
             author_id,
@@ -521,7 +511,7 @@ pub async fn get_comments(
     .fetch_one(pool.db())
     .await
     .map_err(AppError::from)?
-    .get::<i64>(0);
+    .get::<i64, usize>(0);
 
     let rows = sqlx::query(&format!("{} LIMIT $1 OFFSET $2", DB_SELECT_COMMENTS))
         .bind(&limit)
@@ -543,11 +533,11 @@ pub async fn get_comments(
 /// `POST /api/community/posts/:id/comments` — thêm bình luận (có kiểm duyệt AI).
 pub async fn add_comment(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(post_id): Path<String>,
     Json(body): Json<CreateCommentRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // The post must exist — mirror the old `NotFoundException`.
     let post_row = sqlx::query("SELECT id, author_id, title FROM posts WHERE id = $1 AND status = 'active' AND deleted_at IS NULL")
@@ -558,9 +548,9 @@ pub async fn add_comment(
 
     let (post_id_db, author_id, title) = match post_row {
         Some(row) => (
-            row.get::<String>("id"),
-            row.get::<String>("author_id"),
-            row.get::<Option<String>>("title").unwrap_or_default(),
+            row.get::<String, &str>("id"),
+            row.get::<String, &str>("author_id"),
+            row.get::<Option<String>, &str>("title").unwrap_or_default(),
         ),
         None => return Err(AppError::NotFound("Không tìm thấy bài viết".to_string())),
     };
@@ -578,7 +568,7 @@ pub async fn add_comment(
     .fetch_one(pool.db())
     .await
     .map_err(AppError::from)?
-    .get::<String>("id");
+    .get::<String, &str>("id");
 
     sqlx::query("UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1")
         .bind(&post_id_db)
@@ -625,16 +615,16 @@ pub async fn get_groups(State(pool): State<DbPool>) -> Result<Json<ApiResponse<V
 
     // The old service returned the array directly (`repo.find(...)`), so `data`
     // is the list itself, not `{ groups: [...] }`.
-    Ok(Json(ApiResponse::ok(groups)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(groups))))
 }
 
 /// `POST /api/community/groups` — tạo nhóm học tập mới.
 pub async fn create_group(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateGroupRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let name = body.name.trim();
     if name.is_empty() {
@@ -657,7 +647,7 @@ pub async fn create_group(
     .fetch_one(pool.db())
     .await
     .map_err(AppError::from)?
-    .get::<String>("id");
+    .get::<String, &str>("id");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "id": group_id,
@@ -669,17 +659,17 @@ pub async fn create_group(
 /// `POST /api/community/groups/:id/join` — tham gia nhóm học tập.
 pub async fn join_group(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     let name: Option<String> = sqlx::query("SELECT name FROM groups WHERE id = $1 AND deleted_at IS NULL")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String>("name"));
+        .map(|row| row.get::<String, &str>("name"));
 
     let name = match name {
         Some(name) => name,

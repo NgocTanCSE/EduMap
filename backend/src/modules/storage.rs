@@ -16,34 +16,27 @@
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị
 //! cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use axum::body::Body;
-use axum::extract::{Multipart, Path};
+use axum::response::IntoResponse;
+use sqlx::Row;
+use axum::extract::{Extension, Multipart, Path, State};
 use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use axum::http::{Response<Body>, StatusCode};
+use axum::http::{Response, StatusCode};
 use axum::Json;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::Value;
 use std::fs;
-use std::path::{Path as Fp, PathBuf};
+use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: `/api/storage/media` (public) không nhận
-/// `AuthUser` từ router, các handler write phải tự kiểm và trả `401` khi JWT
-/// thiếu.
-fn authenticated_user(req: &axum::http::Request<Body>) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // Config
@@ -133,15 +126,15 @@ impl MyFile {
         })
     }
 
-    fn from_row(row: &sqlx::PgRow) -> Self {
+    fn from_row(row: &sqlx::postgres::PgRow) -> Self {
         Self {
-            id: row.get::<Option<String>>("id").unwrap_or_default(),
-            user_id: row.get::<Option<String>>("user_id").unwrap_or_default(),
-            original_name: row.get::<Option<String>>("original_name").unwrap_or_default(),
-            file_url: row.get::<Option<String>>("file_url").unwrap_or_default(),
-            mime_type: row.get::<Option<String>>("mime_type").unwrap_or_default(),
-            size_kb: row.get::<Option<f64>>("size_kb").unwrap_or(0.0),
-            created_at: row.get::<Option<String>>("created_at").unwrap_or_default(),
+            id: row.get::<Option<String>, &str>("id").unwrap_or_default(),
+            user_id: row.get::<Option<String>, &str>("user_id").unwrap_or_default(),
+            original_name: row.get::<Option<String>, &str>("original_name").unwrap_or_default(),
+            file_url: row.get::<Option<String>, &str>("file_url").unwrap_or_default(),
+            mime_type: row.get::<Option<String>, &str>("mime_type").unwrap_or_default(),
+            size_kb: row.get::<Option<f64>, &str>("size_kb").unwrap_or(0.0),
+            created_at: row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
         }
     }
 }
@@ -185,9 +178,9 @@ const DB_DELETE_FILE: &str = r#"
 /// dùng (JWT).
 pub async fn get_my_files(
     State(pool): State<DbPool>,
-    req: axum::http::Request<Body>,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_MY_FILES)
         .bind(&user.id)
@@ -200,27 +193,27 @@ pub async fn get_my_files(
         .map(|r| MyFile::from_row(&r).to_json())
         .collect();
 
-    Ok(Json(ApiResponse::ok(files)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(files))))
 }
 
 /// `POST /api/storage/upload` — tải lên một tập tin (multipart) và ghi nhận
 /// lời nó vào `user_files`. Trả về thông tin file vừa upload (JWT).
 pub async fn upload_file(
     State(pool): State<DbPool>,
-    req: axum::http::Request<Body>,
+    user: Option<Extension<AuthUser>>,
     mut multipart: Multipart,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Đọc trường `file` từ stream multipart (mirrors old `FileInterceptor`).
     let mut data: Vec<u8> = Vec::new();
     let mut original_name = String::from("file");
     let mut mime_type = String::from("application/octet-stream");
-    while let Some(field) = multipart.next_field().await.map_err(AppError::from)? {
+    while let Some(mut field) = multipart.next_field().await.map_err(AppError::from)? {
         if let Some(name) = field.file_name() {
             original_name = safe_name(&name);
         }
-        if let Some(mime) = field.mime_type() {
+        if let Some(mime) = field.content_type() {
             mime_type = mime.to_string();
         }
         while let Some(chunk) = field.chunk().await.map_err(AppError::from)? {
@@ -268,7 +261,7 @@ pub async fn upload_file(
 /// tồn tại (cùng một tiến trình xóa: `delete_file` xóa DB + đĩa).
 pub async fn serve_media(
     Path(object_name): Path<String>,
-) -> Result<Response, AppError> {
+) -> Result<Response<Body>, AppError> {
     let safe = safe_name(&object_name);
 
     // Đọc file khỏi `STORAGE_DIR` (MinIO local: filesystem thay thế).
@@ -306,10 +299,10 @@ pub async fn serve_media(
 /// `STORAGE_DIR`. Chủ sở hữu kiểm theo `user_id` (JWT).
 pub async fn delete_file(
     State(pool): State<DbPool>,
-    req: axum::http::Request<Body>,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let user_file = sqlx::query(DB_USER_FILE_BY_ID)
         .bind(&id)
@@ -322,13 +315,13 @@ pub async fn delete_file(
         None => return Err(AppError::NotFound("Không tìm thấy tập tin".to_string())),
     };
 
-    if user_file.get::<String>("user_id") != user.id {
+    if user_file.get::<String, &str>("user_id") != user.id {
         return Err(AppError::Forbidden(
             "Bạn không có quyền xóa tập tin này".to_string(),
         ));
     }
 
-    let file_url = user_file.get::<Option<String>>("file_url").unwrap_or_default();
+    let file_url = user_file.get::<Option<String>, &str>("file_url").unwrap_or_default();
     let object_name = file_url.rsplit('/').last().unwrap_or(&id);
     let file_path = PathBuf::from(STORAGE_DIR.as_str()).join(safe_name(object_name));
     if fs::remove_file(&file_path).is_err() {

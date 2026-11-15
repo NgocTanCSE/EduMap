@@ -114,7 +114,7 @@ fn proxy_body(params: &ImpactQuery) -> Value {
 /// `GET /api/impact-measurement/metrics` — bản tin tác động nhẹ (proxy `GET
 /// /api/ai/impact/metrics` của ai-service).
 pub async fn get_metrics(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Query(q): Query<ImpactQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let path = format!("/api/ai/impact/metrics{}", query_string(&q));
@@ -127,7 +127,7 @@ pub async fn get_metrics(
 /// `GET /api/impact-measurement/measure` — báo cáo AI tác động đầy đủ. Các
 /// tham số đến từ query, body JSON được POST vào `/api/ai/impact/measure`.
 pub async fn measure(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Query(q): Query<ImpactQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let body = proxy_body(&q);
@@ -140,7 +140,7 @@ pub async fn measure(
 /// `GET /api/impact-measurement/auto-cached/:regionId` — báo cáo auto-scheduler
 /// (dữ liệu đã tính sẵn, không chờ LLM).
 pub async fn get_auto_cached_measure(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Path(region_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let path = format!("/api/ai/auto/impact-measurement/{}", region_id);

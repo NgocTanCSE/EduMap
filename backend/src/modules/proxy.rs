@@ -10,7 +10,7 @@
 
 use crate::common::error::AppError;
 use axum::body::Body;
-use axum::http::Response<Body>;
+use axum::http::Response;
 use reqwest::Client;
 use serde_json::Value;
 use std::time::Duration;
@@ -55,7 +55,7 @@ pub async fn proxy_get_aiservice(path: &str) -> Result<Value, AppError> {
 /// the auto-scheduler, which answers `202 warming` while the scheduler runs).
 /// Retries on network failure like the other helpers, then returns the
 /// body without parsing it.
-pub async fn proxy_get_aiservice_response(path: &str) -> Result<Response, AppError> {
+pub async fn proxy_get_aiservice_response(path: &str) -> Result<Response<Body>, AppError> {
     let client = build_client(AI_PROXY_TIMEOUT);
     let target = format!("{}{}", crate::config::AI_SERVICE_URL.as_str(), path);
     for attempt in 0..5 {
@@ -65,32 +65,22 @@ pub async fn proxy_get_aiservice_response(path: &str) -> Result<Response, AppErr
             .send()
             .await
         {
-            Ok(response) => match response.status().is_success() {
-                true => {
-                    let bytes = response.bytes().await.map_err(AppError::from)?;
-                    return Ok(Response::builder()
-                        .status(response.status())
-                        .body(Body::from(bytes))
-                        .expect("build ai-service proxy response"));
+            Ok(response) => {
+                // Snapshot status/headers *before* consuming the body
+                // (`.bytes()` / `.text()` move the response).
+                let status = response.status();
+                let headers = response.headers().clone();
+                let bytes = response.bytes().await.map_err(AppError::from)?;
+                let mut builder = Response::builder().status(status);
+                // `.headers()` is not available on `Response::builder()`
+                // — use the per-header API instead.
+                for (name, value) in headers.iter() {
+                    builder = builder.header(name, value);
                 }
-                false => {
-                    if attempt + 1 >= 5 {
-                        let text = response.text().await.unwrap_or_default();
-                        return Err(AppError::Internal(format!(
-                            "ai-service error {}: {}",
-                            response.status(),
-                            text
-                        )));
-                    }
-                    tracing::warn!(
-                        "ai-service returned {} (retry {}/5)",
-                        response.status(),
-                        attempt + 1
-                    );
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                    continue;
-                }
-            },
+                return Ok(builder
+                    .body(Body::from(bytes))
+                    .expect("build ai-service proxy response"));
+            }
             Err(error) => {
                 if attempt + 1 >= 5 || !is_retryable(&error) {
                     return Err(AppError::Io(error.to_string()));
@@ -111,54 +101,7 @@ pub async fn proxy_get_routing(path: &str) -> Result<Value, AppError> {
     proxy_get_with_retries(&client, &target).await
 }
 
-/// Proxy a JSON body into an arbitrary host (the `route_proxy` you wrote by
-/// hand before; kept as-is for the odd one-out endpoints that need a raw
-/// URL).
-pub async fn proxy_to_host(url: &str, body: Value) -> Result<Value, AppError> {
-    let client = build_client(AI_PROXY_TIMEOUT);
-    for attempt in 0..5 {
-        match client
-            .post(url)
-            .json(&body)
-            .timeout(Duration::from_secs(AI_PROXY_TIMEOUT))
-            .send()
-            .await
-        {
-            Ok(response) => match response.status().is_success() {
-                true => {
-                    let data = response.json::<Value>().await.map_err(AppError::from)?;
-                    return Ok(data);
-                }
-                false => {
-                    if attempt + 1 >= 5 {
-                        let text = response.text().await.unwrap_or_default();
-                        return Err(AppError::Internal(format!(
-                            "proxy error {}: {}",
-                            response.status(),
-                            text
-                        )));
-                    }
-                    tracing::warn!(
-                        "proxy returned {} (retry {}/5)",
-                        response.status(),
-                        attempt + 1
-                    );
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                    continue;
-                }
-            },
-            Err(error) => {
-                if attempt + 1 >= 5 || !is_retryable(&error) {
-                    return Err(AppError::Io(error.to_string()));
-                }
-                tracing::warn!("proxy request failed (retry {}/5)", attempt + 1);
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                continue;
-            }
-        }
-    }
-    Err(AppError::Io("proxy request exhaustion".to_string()))
-}
+
 
 /// Retry logic for the POST branch (network failures only are retried).
 async fn proxy_post_with_retries(
@@ -177,19 +120,16 @@ async fn proxy_post_with_retries(
             Ok(response) => match response.status().is_success() {
                 true => return response.json::<Value>().await.map_err(AppError::from),
                 false => {
+                    let status = response.status();
                     if attempt + 1 >= 5 {
                         let text = response.text().await.unwrap_or_default();
                         return Err(AppError::Internal(format!(
                             "ai-service error {}: {}",
-                            response.status(),
+                            status,
                             text
                         )));
                     }
-                    tracing::warn!(
-                        "ai-service returned {} (retry {}/5)",
-                        response.status(),
-                        attempt + 1
-                    );
+                    tracing::warn!("ai-service returned {} (retry {}/5)", status, attempt + 1);
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
@@ -219,15 +159,16 @@ async fn proxy_get_with_retries(client: &Client, target: &str) -> Result<Value, 
             Ok(response) => match response.status().is_success() {
                 true => return response.json::<Value>().await.map_err(AppError::from),
                 false => {
+                    let status = response.status();
                     if attempt + 1 >= 5 {
                         let text = response.text().await.unwrap_or_default();
                         return Err(AppError::Internal(format!(
                             "error {}: {}",
-                            response.status(),
+                            status,
                             text
                         )));
                     }
-                    tracing::warn!("error {} (retry {}/5)", response.status(), attempt + 1);
+                    tracing::warn!("error {} (retry {}/5)", status, attempt + 1);
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     continue;
                 }
@@ -248,5 +189,5 @@ async fn proxy_get_with_retries(client: &Client, target: &str) -> Result<Value, 
 /// Whether the request failed in a way worth trying again (connection
 /// refused / DNS / timeout / 503), the same set the old backend retried.
 fn is_retryable(error: &reqwest::Error) -> bool {
-    error.is_timeout() || error.is_server_error() || error.is_connect()
+    error.is_timeout() || error.is_connect()
 }

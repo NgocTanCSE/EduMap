@@ -1,28 +1,115 @@
-name: Deploy to Render
+name: Build images and deploy to Render
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Một workflow duy nhất: Render build cho 2 service (Rust backend + FastAPI AI).
-# Trigger: mỗi push lên `main` (hoặc chạy tay từ Actions tab).
 concurrency:
   group: render-deploy-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  packages: write
+  actions: write
+
 jobs:
-  deploy:
-    name: Deploy to Render (Rust + AI)
+  prepare:
+    name: Resolve image names
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
+    outputs:
+      owner: ${{ steps.owner.outputs.owner }}
+    steps:
+      - id: owner
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+  build-api:
+    name: Build edumap-api image
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- 0. Xác thực cả ba Render secrets ngay từ đầu (fail nhanh, không chờ) ---
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ needs.prepare.outputs.owner }}/edumap-api
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  build-ai:
+    name: Build edumap-ai image
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ needs.prepare.outputs.owner }}/edumap-ai
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ai-service
+          file: ./ai-service/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=ai
+          cache-to: type=gha,mode=max,scope=ai
+
+  deploy:
+    name: Deploy to Render
+    needs: [prepare, build-api, build-ai]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
       - name: Validate Render secrets
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -30,13 +117,12 @@ jobs:
           RENDER_SERVICE_ID_AI: ${{ secrets.RENDER_SERVICE_ID_AI }}
         run: |
           set -euo pipefail
-          test -n "$RENDER_API_KEY" || { echo "### ⛔ RENDER_API_KEY is MISSING"; exit 1; }
-          test -n "$RENDER_SERVICE_ID_API" || { echo "### ⛔ RENDER_SERVICE_ID_API is MISSING"; exit 1; }
-          test -n "$RENDER_SERVICE_ID_AI" || { echo "### ⛔ RENDER_SERVICE_ID_AI is MISSING"; exit 1; }
-          echo "### ✅ all Render secrets present"
+          test -n "$RENDER_API_KEY" || { echo "### RENDER_API_KEY is MISSING"; exit 1; }
+          test -n "$RENDER_SERVICE_ID_API" || { echo "### RENDER_SERVICE_ID_API is MISSING"; exit 1; }
+          test -n "$RENDER_SERVICE_ID_AI" || { echo "### RENDER_SERVICE_ID_AI is MISSING"; exit 1; }
+          echo "### Render secrets present"
 
-      # --- 1. Cài Render CLI (pinned) ---
-      - name: Install the Render CLI
+      - name: Install Render CLI
         run: |
           set -euo pipefail
           version="v2.7.0"
@@ -47,41 +133,27 @@ jobs:
           sudo mv "/tmp/render/cli_${version}" /usr/local/bin/render
           render --version
 
-      # --- 2. Kích hoạt build (chờ build + restart hoàn tất) cho từng service ---
-      - name: Deploy api service (Rust)
+      - name: Deploy api service
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           SRV: ${{ secrets.RENDER_SERVICE_ID_API }}
+          IMAGE: ghcr.io/${{ needs.prepare.outputs.owner }}/edumap-api:${{ github.sha }}
         run: |
           set -euo pipefail
-          echo "🚀 Deploying edumap-api (Rust backend)..."
-          render deploys create "$SRV" \
-            --wait \
-            --confirm \
-            --commit "$GITHUB_SHA" \
-            > /tmp/api-deploy.json || { echo "DEPLOY FAILED"; exit 1; }
+          render deploys create "$SRV" --image "$IMAGE" --wait --confirm -o json > /tmp/api-deploy.json
           jq -r '.deploy.status' /tmp/api-deploy.json
-          echo "edumap-api deploy id: $(jq -r '.deploy.id' /tmp/api-deploy.json)"
 
-      - name: Deploy ai service (FastAPI)
+      - name: Deploy ai service
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           SRV: ${{ secrets.RENDER_SERVICE_ID_AI }}
+          IMAGE: ghcr.io/${{ needs.prepare.outputs.owner }}/edumap-ai:${{ github.sha }}
         run: |
           set -euo pipefail
-          echo "🚀 Deploying edumap-ai (FastAPI, port 8000)..."
-          render deploys create "$SRV" \
-            --wait \
-            --confirm \
-            --commit "$GITHUB_SHA" \
-            > /tmp/ai-deploy.json || { echo "DEPLOY FAILED"; exit 1; }
+          render deploys create "$SRV" --image "$IMAGE" --wait --confirm -o json > /tmp/ai-deploy.json
           jq -r '.deploy.status' /tmp/ai-deploy.json
-          echo "edumap-ai deploy id: $(jq -r '.deploy.id' /tmp/ai-deploy.json)"
 
-      # --- 3. Smoke test nhanh khi cả hai đã chạy ---
-      # URL lấy từ GitHub → Settings → Variables (tuỳ chọn). Nếu để trống thì
-      # dùng tên service mặc định trong render.yaml.
-      - name: Smoke test (post-deploy)
+      - name: Smoke test
         env:
           API_URL: ${{ vars.RENDER_API_PUBLIC_URL || 'https://edumap-api.onrender.com' }}
           AI_URL: ${{ vars.RENDER_AI_PUBLIC_URL || 'https://edumap-ai.onrender.com' }}
@@ -98,7 +170,6 @@ jobs:
             if [ "$code" != "200" ]; then echo "TIMEOUT: $url"; exit 1; fi
           done
 
-      # --- 4. Dump log khi deploy thất bại ---
       - name: Dump recent logs on failure
         if: failure()
         env:
@@ -113,7 +184,6 @@ jobs:
           render logs -r "$SRV_AI" --start 30m --limit 100 || true
           echo "::endgroup::"
 
-      # --- 5. Trích xuất thông tin deploy cho khóa ... ---
       - name: Summarize
         if: always()
         run: |
@@ -121,7 +191,6 @@ jobs:
             echo "### Render deploy"
             echo ""
             echo "- Commit: \`$GITHUB_SHA\`"
-            echo "- Vercel: https://<app>.vercel.app"
             echo "- edumap-api: https://edumap-api.onrender.com"
             echo "- edumap-ai: https://edumap-ai.onrender.com"
           } >> "$GITHUB_STEP_SUMMARY"

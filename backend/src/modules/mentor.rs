@@ -11,16 +11,15 @@
 //! `mentors.user_id` is the primary key (there is no `id` column), so every
 //! mentor query binds/fetches `user_id`.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use serde::Deserialize;
 use tracing::warn;
 
@@ -238,18 +237,6 @@ const DB_MENTOR_BOOKINGS: &str = r#"
 // Guards
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: the mentoring routes are all public at the middleware
-/// level, so the write handlers pull the token out of the extensions
-/// themselves and answer `401` when it is missing (the old backend used
-/// `@UseGuards(JwtAuthGuard)`).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `ADMIN` / `MODERATOR` / `SUPER_ADMIN` (the old `RolesGuard`).
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -302,13 +289,12 @@ fn json_string_literal(s: &str) -> String {
 /// Parse a `YYYY-MM-DD` (or an ISO date prefix) into a `NaiveDate`.
 fn parse_date(s: &str) -> Result<NaiveDate, AppError> {
     let v = s.trim();
-    NaiveDate::parse_from_str(v, "%Y-%m-%d")
-        .or_else(|| {
-            v.split('T')
-                .next()
-                .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
-        })
-        .ok_or_else(|| AppError::BadRequest("Ngày không hợp lệ (cần dạng YYYY-MM-DD)".to_string()))
+    if let Ok(d) = NaiveDate::parse_from_str(v, "%Y-%m-%d") {
+        return Ok(d);
+    }
+    // Fallback: `2024-05-06T10:00:00Z` → chỉ lấy phần ngày.
+    let d = v.split('T').next().and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
+    d.ok_or_else(|| AppError::BadRequest("Ngày không hợp lệ (cần dạng YYYY-MM-DD)".to_string()))
 }
 
 /// Parse an ISO-8601 timestamp into `DateTime<Utc>` (the frontend sends
@@ -380,49 +366,49 @@ fn text_array_to_vec(raw: Option<String>) -> Vec<String> {
 
 /// Turn a joined mentor/user row into the object the frontend expects
 /// (`user_id`, mentor fields + a nested `user` block).
-fn mentor_to_json(row: &sqlx::PgRow) -> serde_json::Value {
-    let user_id = row.get::<String>("user_id");
-    let full_name = row.get::<Option<String>>("full_name");
+fn mentor_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
+    let user_id = row.get::<String, &str>("user_id");
+    let full_name = row.get::<Option<String>, &str>("full_name");
     serde_json::json!({
         "user_id": user_id,
-        "bio": row.get::<Option<String>>("bio"),
-        "specialties": row.get::<Option<serde_json::Value>>("specialties"),
-        "location": row.get::<Option<String>>("location"),
-        "experience_years": row.get::<i32>("experience_years"),
-        "rating_avg": row.get::<Option<String>>("rating_avg").unwrap_or_else(|| "0".to_string()),
-        "hourly_rate": row.get::<Option<String>>("hourly_rate"),
-        "is_verified": row.get::<bool>("is_verified"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "bio": row.get::<Option<String>, &str>("bio"),
+        "specialties": row.get::<Option<serde_json::Value>, &str>("specialties"),
+        "location": row.get::<Option<String>, &str>("location"),
+        "experience_years": row.get::<i32, &str>("experience_years"),
+        "rating_avg": row.get::<Option<String>, &str>("rating_avg").unwrap_or_else(|| "0".to_string()),
+        "hourly_rate": row.get::<Option<String>, &str>("hourly_rate"),
+        "is_verified": row.get::<bool, &str>("is_verified"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
         "user": {
             "id": user_id.clone(),
             "full_name": full_name,
-            "email": row.get::<Option<String>>("email"),
-            "avatar_url": row.get::<Option<String>>("avatar_url"),
-            "major": row.get::<Option<String>>("major"),
-            "mbti_type": row.get::<Option<String>>("mbti_type"),
-            "skills": text_array_to_vec(row.get::<Option<String>>("skills")),
-            "interests": text_array_to_vec(row.get::<Option<String>>("interests")),
-            "role": row.get::<Option<String>>("role"),
+            "email": row.get::<Option<String>, &str>("email"),
+            "avatar_url": row.get::<Option<String>, &str>("avatar_url"),
+            "major": row.get::<Option<String>, &str>("major"),
+            "mbti_type": row.get::<Option<String>, &str>("mbti_type"),
+            "skills": text_array_to_vec(row.get::<Option<String>, &str>("skills")),
+            "interests": text_array_to_vec(row.get::<Option<String>, &str>("interests")),
+            "role": row.get::<Option<String>, &str>("role"),
         }
     })
 }
 
 /// A bookings row, with the mentor/student names flattened.
-fn booking_to_json(row: &sqlx::PgRow) -> serde_json::Value {
+fn booking_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "mentor_id": row.get::<String>("mentor_id"),
-        "student_id": row.get::<String>("student_id"),
-        "slot_start": row.get::<String>("slot_start"),
-        "slot_end": row.get::<String>("slot_end"),
-        "status": row.get::<String>("status"),
-        "payment_status": row.get::<Option<String>>("payment_status"),
-        "amount": row.get::<Option<String>>("amount"),
-        "meeting_url": row.get::<Option<String>>("meeting_url"),
-        "created_at": row.get::<String>("created_at"),
-        "mentor_name": row.get::<Option<String>>("mentor_name"),
-        "student_name": row.get::<Option<String>>("student_name"),
+        "id": row.get::<String, &str>("id"),
+        "mentor_id": row.get::<String, &str>("mentor_id"),
+        "student_id": row.get::<String, &str>("student_id"),
+        "slot_start": row.get::<String, &str>("slot_start"),
+        "slot_end": row.get::<String, &str>("slot_end"),
+        "status": row.get::<String, &str>("status"),
+        "payment_status": row.get::<Option<String>, &str>("payment_status"),
+        "amount": row.get::<Option<String>, &str>("amount"),
+        "meeting_url": row.get::<Option<String>, &str>("meeting_url"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "mentor_name": row.get::<Option<String>, &str>("mentor_name"),
+        "student_name": row.get::<Option<String>, &str>("student_name"),
     })
 }
 
@@ -448,10 +434,10 @@ fn degraded_matches(student_id: &str, err: &str) -> serde_json::Value {
 pub async fn register_mentor(
     State(pool): State<DbPool>,
     Path(user_id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<RegisterMentorForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let actor = authenticated_user(&req)?;
+    let actor = authenticated_user(user)?;
     if actor.id != user_id {
         ensure_admin(&actor)?;
     }
@@ -530,7 +516,7 @@ pub async fn get_mentors(
         .map_err(AppError::from)?;
 
     let mentors: Vec<serde_json::Value> = rows.iter().map(mentor_to_json).collect();
-    Ok(Json(ApiResponse::ok(mentors)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(mentors))))
 }
 
 /// `GET /api/mentoring/mentors/:id` — chi tiết một Mentor.
@@ -584,12 +570,12 @@ pub async fn recommend_mentors(
         if let Some(ref s) = q.specialty {
             filters.push(s.clone());
         }
-        if let Some(ref major) = user.get::<Option<String>>("major") {
+        if let Some(ref major) = user.get::<Option<String>, &str>("major") {
             filters.push(major.clone());
         }
-        let skills = text_array_to_vec(user.get::<Option<String>>("skills"));
+        let skills = text_array_to_vec(user.get::<Option<String>, &str>("skills"));
         filters.extend(skills.into_iter().take(3));
-        let interests = text_array_to_vec(user.get::<Option<String>>("interests"));
+        let interests = text_array_to_vec(user.get::<Option<String>, &str>("interests"));
         filters.extend(interests.into_iter().take(2));
 
         let mut seen = std::collections::HashSet::new();
@@ -644,35 +630,35 @@ pub async fn recommend_mentors(
     let available_mentors: Vec<serde_json::Value> = mentors
         .iter()
         .map(|row| {
-            let name = row.get::<Option<String>>("full_name").unwrap_or_default();
+            let name = row.get::<Option<String>, &str>("full_name").unwrap_or_default();
             let specs = row
-                .get::<Option<serde_json::Value>>("specialties")
+                .get::<Option<serde_json::Value>, &str>("specialties")
                 .and_then(|v| v.as_array().cloned())
                 .unwrap_or_default();
             serde_json::json!({
-                "mentor_id": row.get::<String>("user_id"),
+                "mentor_id": row.get::<String, &str>("user_id"),
                 "name": name,
-                "bio": row.get::<Option<String>>("bio"),
+                "bio": row.get::<Option<String>, &str>("bio"),
                 "skills": specs.clone(),
-                "mbti": user.get::<Option<String>>("mbti_type").unwrap_or_default(),
+                "mbti": user.get::<Option<String>, &str>("mbti_type").unwrap_or_default(),
                 "available_days": Vec::<String>::new(),
                 "specialties": specs,
-                "location": row.get::<Option<String>>("location"),
-                "experience_years": row.get::<i32>("experience_years"),
-                "rating_avg": row.get::<Option<String>>("rating_avg")
+                "location": row.get::<Option<String>, &str>("location"),
+                "experience_years": row.get::<i32, &str>("experience_years"),
+                "rating_avg": row.get::<Option<String>, &str>("rating_avg")
                     .and_then(|s| s.parse::<f64>().ok()),
             })
         })
         .collect();
 
-    let skills = text_array_to_vec(user.get::<Option<String>>("skills"));
+    let skills = text_array_to_vec(user.get::<Option<String>, &str>("skills"));
     let payload = serde_json::json!({
         "student_id": user_id,
         "student_skills_needed": if_empty(&skills, vec![
             "Giao tiếp".to_string(),
             "Định hướng nghề nghiệp".to_string(),
         ]),
-        "student_mbti": user.get::<Option<String>>("mbti_type").unwrap_or_else(|| "ENFP".to_string()),
+        "student_mbti": user.get::<Option<String>, &str>("mbti_type").unwrap_or_else(|| "ENFP".to_string()),
         "preferred_days": vec!["T7", "CN"],
         "available_mentors": available_mentors,
         "student_region": q.region,
@@ -696,12 +682,11 @@ pub async fn get_mentor_slots(
     Path(mentor_id): Path<String>,
     Query(q): Query<SlotsQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let date = q.date.as_deref().unwrap_or_else(|| {
-        chrono::Utc::now()
-            .format("%Y-%m-%d")
-            .to_string()
-    });
-    let parsed = parse_date(date)?;
+    let date: String = match q.date.as_deref() {
+        Some(d) => d.to_string(),
+        None => chrono::Utc::now().format("%Y-%m-%d").to_string(),
+    };
+    let parsed = parse_date(&date)?;
     let day_of_week = parsed.weekday().num_days_from_sunday() as i64;
 
     let rows = sqlx::query(DB_SLOTS)
@@ -716,10 +701,10 @@ pub async fn get_mentor_slots(
         .iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String>("id"),
-                "start": row.get::<String>("start_time"),
-                "end": row.get::<String>("end_time"),
-                "is_booked": row.get::<bool>("is_booked"),
+                "id": row.get::<String, &str>("id"),
+                "start": row.get::<String, &str>("start_time"),
+                "end": row.get::<String, &str>("end_time"),
+                "is_booked": row.get::<bool, &str>("is_booked"),
             })
         })
         .collect();
@@ -734,10 +719,10 @@ pub async fn get_mentor_slots(
 /// `POST /api/mentoring/availability` — thêm khung giờ rảnh (Mentor).
 pub async fn add_availability(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<AvailabilityForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if !(0..=6).contains(&form.day_of_week) {
         return Err(AppError::BadRequest(
@@ -754,7 +739,7 @@ pub async fn add_availability(
 
     let inserted = sqlx::query(DB_INSERT_AVAILABILITY)
         .bind(&user.id)
-        .bind(&form.day_of_week as i32)
+        .bind(form.day_of_week as i32)
         .bind(&form.start_time)
         .bind(&form.end_time)
         .fetch_one(pool.db())
@@ -762,21 +747,21 @@ pub async fn add_availability(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String>("id"),
-        "day_of_week": inserted.get::<i64>("day_of_week"),
-        "start_time": inserted.get::<String>("start_time"),
-        "end_time": inserted.get::<String>("end_time"),
-        "is_active": inserted.get::<bool>("is_active"),
-        "created_at": inserted.get::<String>("created_at"),
+        "id": inserted.get::<String, &str>("id"),
+        "day_of_week": inserted.get::<i64, &str>("day_of_week"),
+        "start_time": inserted.get::<String, &str>("start_time"),
+        "end_time": inserted.get::<String, &str>("end_time"),
+        "is_active": inserted.get::<bool, &str>("is_active"),
+        "created_at": inserted.get::<String, &str>("created_at"),
     }))))
 }
 
 /// `GET /api/mentoring/me/availability` — danh sách lịch rảnh của tôi.
 pub async fn get_my_availability(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_AVAILABILITIES)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -787,12 +772,12 @@ pub async fn get_my_availability(
         .iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String>("id"),
-                "day_of_week": row.get::<i32>("day_of_week"),
-                "start_time": row.get::<String>("start_time"),
-                "end_time": row.get::<String>("end_time"),
-                "is_active": row.get::<bool>("is_active"),
-                "created_at": row.get::<String>("created_at"),
+                "id": row.get::<String, &str>("id"),
+                "day_of_week": row.get::<i32, &str>("day_of_week"),
+                "start_time": row.get::<String, &str>("start_time"),
+                "end_time": row.get::<String, &str>("end_time"),
+                "is_active": row.get::<bool, &str>("is_active"),
+                "created_at": row.get::<String, &str>("created_at"),
             })
         })
         .collect();
@@ -806,10 +791,10 @@ pub async fn get_my_availability(
 /// `POST /api/mentoring/book` — đặt lịch hẹn tư vấn với Mentor.
 pub async fn book_session(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<BookMentorForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let mentor_id = form.mentor_id.trim().to_string();
 
     if user.id == mentor_id {
@@ -848,7 +833,7 @@ pub async fn book_session(
     }
 
     let hourly_rate = mentor
-        .get::<Option<String>>("hourly_rate")
+        .get::<Option<String>, &str>("hourly_rate")
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
@@ -872,10 +857,10 @@ pub async fn book_session(
 pub async fn update_booking_status(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<UpdateBookingStatusForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_BOOKING_BY_ID)
         .bind(&id)
@@ -888,9 +873,9 @@ pub async fn update_booking_status(
         None => return Err(AppError::NotFound("Không tìm thấy lịch hẹn".to_string())),
     };
 
-    let mentor_id = row.get::<String>("mentor_id");
-    let student_id = row.get::<String>("student_id");
-    let current = row.get::<String>("status");
+    let mentor_id = row.get::<String, &str>("mentor_id");
+    let student_id = row.get::<String, &str>("student_id");
+    let current = row.get::<String, &str>("status");
 
     if user.id != mentor_id && user.id != student_id {
         ensure_admin(&user)?;
@@ -920,9 +905,9 @@ pub async fn update_booking_status(
 /// `GET /api/mentoring/me/bookings` — lịch sử đặt lịch của tôi.
 pub async fn get_my_bookings(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let rows = sqlx::query(DB_STUDENT_BOOKINGS)
         .bind(&user.id)
         .fetch_all(pool.db())
@@ -940,9 +925,9 @@ pub async fn get_my_bookings(
 pub async fn get_student_bookings(
     State(pool): State<DbPool>,
     Path(student_id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_self_or_admin(&user, &student_id, "Bạn chỉ có thể xem lịch đặt của chính mình.")?;
 
     let rows = sqlx::query(DB_STUDENT_BOOKINGS)
@@ -962,9 +947,9 @@ pub async fn get_student_bookings(
 pub async fn get_mentor_bookings(
     State(pool): State<DbPool>,
     Path(mentor_id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_self_or_admin(&user, &mentor_id, "Bạn chỉ có thể xem lịch hẹn của chính mình.")?;
 
     let rows = sqlx::query(DB_MENTOR_BOOKINGS)

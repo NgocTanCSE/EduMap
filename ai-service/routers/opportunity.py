@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/ai/opportunity", tags=["F-16b. Opportunity Radar
 async def match_opportunities(data: OpportunityMatchRequest):
     """Match scholarships / jobs / competitions against the user profile.
 
-    Delegates to the LLM cascade (DeepSeek → Google Gemini)
-    for NLP criteria extraction + semantic scoring. Returns
+    Delegates to the LLM provider cascade for NLP criteria extraction
+    + semantic scoring. Returns
     ``degraded=True`` with a reason when falling back to the keyword heuristic.
     """
     from services.llm_service import llm_service

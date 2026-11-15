@@ -18,13 +18,12 @@
 //! `pins.location` là cột `GEOMETRY(Geometry, 4326)`: đọc `ST_AsText`
 //! (`POINT (lng lat)`), viết `ST_SetSRID(ST_GeomFromGeoJSON(<geojson>), 4326)`.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, optional_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -33,17 +32,6 @@ use serde_json::Value;
 // Auth helpers (auth layer + admin role)
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: (`PUBLIC_PATHS` không đưa `AuthUser` vào request ở
-/// các route public, nên các handler write tự kiểm JWT, trả `401` khi token
-/// thiếu).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` / `super_admin` (tương đương `@Roles(ADMIN, MODERATOR)`).
 fn is_admin(user: &AuthUser) -> bool {
@@ -104,25 +92,25 @@ const DB_USER_FULL_NAME: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn pin_to_json(row: &sqlx::PgRow) -> Value {
+fn pin_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "content": row.get::<Option<String>>("content").unwrap_or_default(),
-        "type": row.get::<Option<String>>("type").unwrap_or_default(),
-        "poster_name": row.get::<Option<String>>("poster_name").unwrap_or_default(),
-        "posted_by": row.get::<Option<String>>("posted_by").unwrap_or_default(),
-        "location": row.get::<Option<String>>("location").unwrap_or_default(),
-        "city": row.get::<Option<String>>("city").unwrap_or_default(),
-        "district": row.get::<Option<String>>("district").unwrap_or_default(),
-        "province": row.get::<Option<String>>("province").unwrap_or_default(),
-        "photos": row.get::<Option<String>>("photos")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "tags": row.get::<Option<String>>("tags")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "status": row.get::<String>("status"),
-        "created_at": row.get::<String>("created_at"),
-        "updated_at": row.get::<String>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "content": row.get::<Option<String>, &str>("content").unwrap_or_default(),
+        "type": row.get::<Option<String>, &str>("type").unwrap_or_default(),
+        "poster_name": row.get::<Option<String>, &str>("poster_name").unwrap_or_default(),
+        "posted_by": row.get::<Option<String>, &str>("posted_by").unwrap_or_default(),
+        "location": row.get::<Option<String>, &str>("location").unwrap_or_default(),
+        "city": row.get::<Option<String>, &str>("city").unwrap_or_default(),
+        "district": row.get::<Option<String>, &str>("district").unwrap_or_default(),
+        "province": row.get::<Option<String>, &str>("province").unwrap_or_default(),
+        "photos": row.get::<Option<String>, &str>("photos")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "tags": row.get::<Option<String>, &str>("tags")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "status": row.get::<String, &str>("status"),
+        "created_at": row.get::<String, &str>("created_at"),
+        "updated_at": row.get::<String, &str>("updated_at"),
     })
 }
 
@@ -211,15 +199,15 @@ fn bbox_to_envelope(bbox: &str) -> Result<(f64, f64, f64, f64), AppError> {
 pub async fn find_pins(
     State(pool): State<DbPool>,
     Query(q): Query<PinListQuery>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let mut filters: Vec<String> = Vec::new();
     let mut binds: Vec<Value> = Vec::new();
 
     // `mine=true` đòi hỏi người gọi đăng nhập (ghi danh được pin của riêng
     // họ — public pages cũng bật được `?mine=true` khi đăng nhập).
-    let user = optional_user(&req);
-    if q.mine.as_deref().filter(|v| v == "true").is_some() {
+    let user = optional_user(user)?;
+    if q.mine.as_deref() == Some("true") {
         let user_id = match user.as_ref() {
             Some(u) => u.id.clone(),
             None => return Err(AppError::Unauthorized(
@@ -266,20 +254,24 @@ pub async fn find_pins(
     let limit = q.limit.unwrap_or(100).clamp(1, 500);
     let offset = q.offset.unwrap_or(0);
 
-    let rows = sqlx::query(&format!(
+    let sql = format!(
         "{}{} ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         DB_SELECT_PINS, where_clause
-    ))
-    .bind(&limit)
-    .bind(&offset)
-    .binds(&binds)
-    .fetch_all(pool.db())
-    .await
-    .map_err(AppError::from)?;
+    );
+
+    let mut q = sqlx::query(sql.as_str());
+    q = q.bind(&limit).bind(&offset);
+    for b in binds {
+        q = q.bind(b);
+    }
+    let rows = q
+        .fetch_all(pool.db())
+        .await
+        .map_err(AppError::from)?;
 
     let pins: Vec<Value> = rows.iter().map(pin_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(pins)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(pins))))
 }
 
 /// `GET /api/pins/{id}` — chi tiết một pin (công khai: pin đã duyệt; pin
@@ -287,7 +279,7 @@ pub async fn find_pins(
 pub async fn get_pin(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let row = sqlx::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
@@ -301,18 +293,19 @@ pub async fn get_pin(
     };
 
     // Pin chưa duyệt (hoặc bị từ chối) chỉ hiện với chủ sở hữu và admin.
-    let status = row.get::<String>("status");
+    let status = row.get::<String, &str>("status");
     if status == "published" {
         return Ok(Json(ApiResponse::ok(pin_to_json(&row))));
     }
 
-    let user_id = match optional_user(&req).as_ref() {
+    let user = optional_user(user)?;
+    let user_id = match user.as_ref() {
         Some(u) => u.id.as_str(),
         None => "",
     };
-    let is_admin = optional_user(&req).as_ref().map_or(false, is_admin);
+    let is_admin = user.as_ref().map_or(false, |u| is_admin(u));
 
-    let posted_by = row.get::<Option<String>>("posted_by").unwrap_or_default();
+    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
     if posted_by == user_id || is_admin {
         return Ok(Json(ApiResponse::ok(pin_to_json(&row))));
     }
@@ -324,10 +317,10 @@ pub async fn get_pin(
 /// `pending` chờ admin duyệt).
 pub async fn create_pin(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreatePinRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let title = match body.title.as_ref() {
         Some(t) if !t.trim().is_empty() => t,
@@ -345,17 +338,19 @@ pub async fn create_pin(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<Option<String>>("full_name").unwrap_or_default());
+        .map(|row| row.get::<Option<String>, &str>("full_name").unwrap_or_default());
 
     let filter = poster_name.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
     let poster_name = if filter { poster_name } else { Some("Ẩn danh".to_string()) };
     let poster_name = poster_name.unwrap_or("Ẩn danh".to_string());
 
     let sql = DB_INSERT_PIN;
+    let kind: Option<&str> = Some(body.kind.as_str())
+        .filter(|v| !v.trim().is_empty());
     let inserted_id: String = sqlx::query(sql)
-        .bind(title.as_deref())
+        .bind(title.as_str())
         .bind(body.content.as_deref())
-        .bind(body.kind.as_deref().filter(|v| !v.trim().is_empty()).unwrap_or("event"))
+        .bind(kind)
         .bind(poster_name.as_str())
         .bind(&user.id)
         .bind(location.as_deref())
@@ -368,7 +363,7 @@ pub async fn create_pin(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<String>("id");
+        .get::<String, &str>("id");
 
     let row = sqlx::query(DB_SELECT_PIN_BY_ID)
         .bind(&inserted_id)
@@ -382,11 +377,11 @@ pub async fn create_pin(
 /// `PATCH /api/pins/{id}` — sửa pin (chủ sở hữu, hoặc admin/super_admin).
 pub async fn update_pin(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<UpdatePinRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
@@ -399,7 +394,7 @@ pub async fn update_pin(
         None => return Err(AppError::NotFound("Pin không tồn tại.".to_string())),
     };
 
-    let posted_by = row.get::<Option<String>>("posted_by").unwrap_or_default();
+    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
     let user_id = user.id.as_str();
     let can_edit = posted_by == user_id || is_admin(&user);
     if !can_edit {
@@ -412,7 +407,7 @@ pub async fn update_pin(
     let mut set: Vec<String> = Vec::new();
     let mut binds: Vec<Value> = Vec::new();
 
-    let push = |field: &str, value: Option<&str>| {
+    let mut push = |field: &str, value: Option<&str>| {
         if let Some(v) = value.filter(|v| !v.trim().is_empty()) {
             binds.push(Value::String(v.to_string()));
             set.push(format!("{} = ${}", field, binds.len()));
@@ -477,10 +472,10 @@ pub async fn update_pin(
 /// `DELETE /api/pins/{id}` — xóa mềm pin (chủ sở hữu hoặc admin).
 pub async fn delete_pin(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
@@ -493,7 +488,7 @@ pub async fn delete_pin(
         None => return Err(AppError::NotFound("Pin không tồn tại.".to_string())),
     };
 
-    let posted_by = row.get::<Option<String>>("posted_by").unwrap_or_default();
+    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
     if posted_by != user.id && !is_admin(&user) {
         return Err(AppError::Forbidden(
             "Chỉ chủ sở hữu hoặc admin mới được xóa pin.".to_string(),
@@ -509,10 +504,4 @@ pub async fn delete_pin(
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Pin đã bị xóa.",
     }))))
-}
-
-/// `optional_user` — read-only access to the `AuthUser` extension (used by the
-/// list/detail read paths).
-fn optional_user(req: &Request) -> Option<AuthUser> {
-    req.extensions().get::<AuthUser>().cloned()
 }

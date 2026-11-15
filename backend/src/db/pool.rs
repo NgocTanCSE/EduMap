@@ -25,12 +25,12 @@ impl DbPool {
                     return Self { inner: pool };
                 }
                 Err(e) => {
-                    last = Some(e);
                     tracing::warn!(
                         "database connection attempt {}/60: {}",
                         attempt,
                         e
                     );
+                    last = Some(e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
             }
@@ -49,11 +49,11 @@ impl DbPool {
     }
 }
 
-/// Quick check that the pool can query the database.
+/// Quick check that the pool can query the database (a harmless `SELECT 1`).
 pub async fn is_healthy(pool: &DbPool) -> bool {
+    use sqlx::Executor;
     pool.db()
-        .ping()
+        .execute(sqlx::query("SELECT 1"))
         .await
-        .map(|_| true)
-        .unwrap_or(false)
+        .is_ok()
 }

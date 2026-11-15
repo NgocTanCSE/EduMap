@@ -54,8 +54,8 @@ docker run -p 7680:7680 -p 3000:3000 -p 8000:8000 edumap
 
 ### Embedding / RAG trên host
 
-(XKIRO được thử trước nếu `XKIRO_EMBEDDING_MODEL` được cấu hình, nhưng XKIRO
-không hỗ trợ `/v1/embeddings` — sẽ nhận 404 và fallback ngay sang Gemini.)
+(Không có provider embedding mặc định — khi chưa cấu hình, RAG bỏ qua bước
+semantic search và chatbot trả lời bằng LLM hoặc template.)
 Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm hỏng chat):
 
 | Biến | Mặc định | Ý nghĩa |
@@ -63,7 +63,7 @@ Các biến dùng để giới hạn thời gian (tránh 1 provider treo làm h�
 | `EMBED_GLOBAL_TIMEOUT_SECONDS` | `6` | Tổng thời gian cho cả chuỗi embedding |
 | `EMBED_PROVIDER_TIMEOUT_SECONDS` | `4` | Thời gian tối đa cho 1 provider |
 | `RAG_TIMEOUT_SECONDS` | `8` | Giới hạn cứng cho bước RAG trong chat |
-| `XKIRO_EMBEDDING_MODEL` | *(rỗng)* | XKIRO không hỗ trợ embeddings — để rỗng, chuỗi sẽ fallback sang Gemini |
+| `EMBED_PROVIDER_TIMEOUT_SECONDS` | `4` | Thời gian tối đa cho 1 provider embedding |
 
 > Giữ các giá trị này **dưới 10s** (timeout stream của NestJS). Nếu RAG quá hạn,
 > chatbot vẫn trả lời bằng kiến thức LLM thay vì treo/để bong bóng chat rỗng.

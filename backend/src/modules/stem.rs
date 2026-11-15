@@ -11,18 +11,16 @@
 //!   làm tương tự) và chống trùng theo cặp người dùng + lab + thiết bị + khung
 //!   giờ (giữ trong bộ nhớ, không ghi DB vì bảng này chưa có trong schema).
 
-use crate::common::auth::authenticated_user;
+use crate::common::auth::{AuthUser, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-use once_cell::sync::OnceLock;
+use std::sync::OnceLock;
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 // ---------------------------------------------------------------------------
@@ -63,6 +61,8 @@ pub struct BookLab {
 // ghi DB).
 // ---------------------------------------------------------------------------
 
+/// `created_at` chỉ ghi khi đặt vé, không đọc (chống trùng bằng `entries`).
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct LabBooking {
     lab_id: String,
@@ -130,13 +130,7 @@ SELECT id, name, school_id, CAST(location_point AS TEXT) AS location_point,
 FROM stem_labs WHERE id = $1
 "#;
 
-const DB_INSERT_LAB: &str = r#"
-INSERT INTO stem_labs (name, school_id, location_point, description, equipment,
-    location_point_text, capacity, booking_available, photos, contact,
-    created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-RETURNING id
-"#;
+
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -199,7 +193,7 @@ pub async fn get_nearby(
         .into_iter()
         .map(|row| {
             let mut v = row_to_lab_json(&row);
-            if let Some(distance) = row.get::<Option<f64>>("distance_m") {
+            if let Some(distance) = row.get::<Option<f64>, &str>("distance_m") {
                 v.as_object_mut().unwrap().insert("distanceMeters".to_string(), serde_json::Value::Number(
                     serde_json::Number::from_f64(distance).unwrap_or(serde_json::Number::from(0)),
                 ));
@@ -214,10 +208,10 @@ pub async fn get_nearby(
 /// `POST /api/stem/labs` — đăng ký phòng lab mới.
 pub async fn register_lab(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<RegisterLab>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
     if body.name.trim().is_empty() {
         return Err(AppError::BadRequest("name là bắt buộc.".to_string()));
     }
@@ -249,17 +243,17 @@ RETURNING id
     .await
     .map_err(|e| AppError::Internal(format!("failed to register stem lab: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
 }
 
 /// `POST /api/stem/labs/:id/book` — đặt lịch mượn thiết bị (chống trùng).
 pub async fn book_lab(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<BookLab>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let lab = sqlx::query(DB_LAB_BY_ID)
         .bind(id.as_str())
@@ -272,7 +266,7 @@ pub async fn book_lab(
         None => return Err(AppError::NotFound("Phòng lab không tồn tại.".to_string())),
     };
 
-    if !lab.get::<bool>("booking_available") {
+    if !lab.get::<bool, &str>("booking_available") {
         return Err(AppError::Conflict("Phòng lab này hiện không nhận đặt lịch.".to_string()));
     }
 
@@ -284,10 +278,10 @@ pub async fn book_lab(
 
     // chống trùng: cùng người dùng + lab + thiết bị + khung giờ trùng lặp
     let store = booking_store();
-    let locked = store.lock().unwrap();
+    let mut locked = store.lock().unwrap();
     let conflict = locked.entries.iter().any(|b| {
         b.lab_id == id && b.user_id == user.id && b.equipment == body.equipment_name
-            && !(b.end_time <= start || b.start_time >= end)
+            && !(b.end_time.as_str() <= start || b.start_time.as_str() >= end)
     });
     if conflict {
         return Err(AppError::Conflict(
@@ -323,18 +317,18 @@ pub async fn book_lab(
 
 fn row_to_lab_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<Option<String>>("name"),
-        "schoolId": row.get::<Option<String>>("school_id"),
-        "locationPoint": row.get::<Option<String>>("location_point"),
-        "description": row.get::<Option<String>>("description"),
-        "equipment": row.get::<Option<Vec<String>>>("equipment").unwrap_or_default(),
-        "locationPointText": row.get::<Option<String>>("location_point_text"),
-        "capacity": row.get::<Option<i64>>("capacity"),
-        "bookingAvailable": row.get::<Option<bool>>("booking_available"),
-        "photos": row.get::<Option<String>>("photos").and_then(|s| serde_json::from_str(&s).ok()),
-        "contact": row.get::<Option<String>>("contact"),
-        "createdAt": row.get::<Option<String>>("created_at"),
-        "updatedAt": row.get::<Option<String>>("updated_at"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<Option<String>, &str>("name"),
+        "schoolId": row.get::<Option<String>, &str>("school_id"),
+        "locationPoint": row.get::<Option<String>, &str>("location_point"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "equipment": row.get::<Option<Vec<String>>, &str>("equipment").unwrap_or_default(),
+        "locationPointText": row.get::<Option<String>, &str>("location_point_text"),
+        "capacity": row.get::<Option<i64>, &str>("capacity"),
+        "bookingAvailable": row.get::<Option<bool>, &str>("booking_available"),
+        "photos": row.get::<Option<String>, &str>("photos").and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()),
+        "contact": row.get::<Option<String>, &str>("contact"),
+        "createdAt": row.get::<Option<String>, &str>("created_at"),
+        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
     })
 }

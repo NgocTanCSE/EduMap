@@ -30,19 +30,18 @@ use crate::db::pool::DbPool;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::body::Body;
 use axum::http::HeaderMap;
-use axum::http::Request<Body>;
+use axum::http::Request;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
-use hyper::body::to_bytes;
+use axum::body::to_bytes;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::time::sleep;
 
 /// The paths the ai-service answers for the chat stream.
 const AI_CHAT_STREAM_PATHS: &[&str] = &["/api/ai/chat/stream", "/chat/stream"];
-/// The paths the ai-service answers for the agent stream.
-const AI_AGENT_STREAM_PATHS: &[&str] = &["/api/ai/agent/chat-stream"];
+
 /// Non-streaming paths (single host).
 const AI_CHAT_PATH: &str = "/api/ai/chat";
 const AI_AGENT_CHAT_PATH: &str = "/api/ai/agent/chat";
@@ -62,6 +61,8 @@ fn ai_service_timeout_seconds() -> u64 {
 /// (`_streamRetryConfig`: 3 attempts, 2s delay).
 const STREAM_RETRY_ATTEMPTS: u32 = 3;
 const STREAM_RETRY_DELAY_MS: u64 = 2000;
+/// Maximum request body the ai-service proxy will accept (10 MB).
+pub const MAX_BODY: usize = 10 * 1024 * 1024;
 
 /// The degraded (offline/cold-start) SSE body. Byte-for-byte the same as the
 /// old backend's `_writeDegradedStream`:
@@ -110,6 +111,9 @@ pub struct SpeechRequest {
 
 /// The result of a streamed request: the whole SSE body, plus the parsed
 /// `sources` and the accumulated `fullReply`.
+///
+/// `full_reply` là tóm tắt thô (hay là `sources`), code chỉ dùng `body`.
+#[allow(dead_code)]
 struct StreamResult {
     body: Vec<u8>,
     sources: Vec<serde_json::Value>,
@@ -119,7 +123,7 @@ struct StreamResult {
 /// Whether the request failed in a way the old backend retried (connection
 /// refused / DNS / timeout / 503).
 fn is_retryable(error: &reqwest::Error) -> bool {
-    error.is_timeout() || error.is_server_error() || error.is_connect()
+    error.is_timeout() || error.is_connect()
 }
 
 /// Build the proxy request body (mirrors the old backend's `payload`): the
@@ -177,11 +181,12 @@ async fn stream_proxy(paths: &[&str], payload: &serde_json::Value) -> Result<Str
                 }
                 let body = response.bytes().await.map_err(AppError::from)?;
                 let (sources, full_reply) = parse_sse(&body);
-                return Ok(StreamResult { body, sources, full_reply });
+                return Ok(StreamResult { body: body.to_vec(), sources, full_reply });
             }
             Err(error) => {
+                let needs_break = attempt + 1 >= STREAM_RETRY_ATTEMPTS || !is_retryable(&error);
                 last_error = Some(error);
-                if attempt + 1 >= STREAM_RETRY_ATTEMPTS || !is_retryable(&error) {
+                if needs_break {
                     break;
                 }
                 let delay = Duration::from_millis(STREAM_RETRY_DELAY_MS);
@@ -250,7 +255,9 @@ fn parse_sse(body: &[u8]) -> (Vec<serde_json::Value>, String) {
             Ok(parsed) => {
                 if let Some(sources_field) = parsed.get("sources") {
                     if sources_field.is_array() {
-                        sources = sources_field.clone();
+                        // `extend` needs an iterator — `sources_field` is a
+                        // JSON value, so expand it to its array items.
+                        sources.extend(sources_field.as_array().unwrap().clone());
                     }
                 }
                 if let Some(token) = parsed.get("token").and_then(|t| t.as_str()) {
@@ -342,7 +349,7 @@ pub async fn chat_stream(
     Json(payload): Json<ChatStreamRequest>,
 ) -> Result<Response, AppError> {
     if payload.message.trim().is_empty() {
-        return Err(AppError::BadRequest("Tin nhắn không được để trống."));
+        return Err(AppError::BadRequest("Tin nhắn không được để trống.".to_string()));
     }
     chat_stream_inner(&payload, Some(user.id.as_str()), &pool).await
 }
@@ -355,7 +362,7 @@ pub async fn agent_chat_stream(
     Json(payload): Json<ChatStreamRequest>,
 ) -> Result<Response, AppError> {
     if payload.message.trim().is_empty() {
-        return Err(AppError::BadRequest("Tin nhắn không được để trống."));
+        return Err(AppError::BadRequest("Tin nhắn không được để trống.".to_string()));
     }
     chat_stream_inner(&payload, Some(user.id.as_str()), &pool).await
 }
@@ -393,7 +400,7 @@ pub async fn chat_stream_inner(
 
 /// `POST /api/ai/chat` — the synchronous RAG chat (mirrors the old `chat`).
 pub async fn chat(
-    State(pool): State<DbPool>,
+    State(_pool): State<DbPool>,
     Extension(user): Extension<AuthUser>,
     Json(payload): Json<ChatStreamRequest>,
 ) -> Result<Response, AppError> {
@@ -443,7 +450,7 @@ pub async fn agent_chat(
 /// backend itself when the ai-service was unreachable).
 pub async fn agent_chat_inner(
     payload: &ChatStreamRequest,
-    pool: &DbPool,
+    _pool: &DbPool,
     user: &AuthUser,
 ) -> Result<Response, AppError> {
     let sid = format!("sess_{}", user.id);
@@ -555,8 +562,9 @@ pub async fn speech_to_text(
 /// query string, the whole header map (minus hop-by-hop headers) and the body.
 pub async fn proxy(
     Path(rest): Path<String>,
+    _user: Option<Extension<AuthUser>>,
     req: Request<Body>,
-) -> Result<Response, AppError> {
+) -> Result<Response<Body>, AppError> {
     // `rest` is everything after `/api/ai/` (e.g. `knowledge/graph`); the
     // ai-service serves the same paths under `/api/ai/` itself, so the prefix
     // must be re-added (the old `ai.service.ts` did
@@ -568,19 +576,21 @@ pub async fn proxy(
     );
     // Keep the path canonical (the ai-service 404s on a trailing slash).
     target = target.trim_end_matches('/').to_string();
-    let headers = req.headers().clone();
+    // Forward the whole header set minus hop-by-hop headers — **collect them
+    // before `req.into_body()`, which consumes the request** (the ai-service
+    // / tower compute connection-level headers itself).
     let method = req.method().clone();
-    // Byte-exact body: the old backend streamed the raw payload to the ai-service.
-    let body = to_bytes(req.into_body()).await.map_err(AppError::from)?;
-    // Forward the whole header set minus hop-by-hop headers (connection,
-    // transfer-encoding, ...) — the ai-service/tower compute those itself.
     let mut forwarded: HeaderMap = HeaderMap::new();
-    for (name, value) in headers.iter() {
-        let name = name.as_str();
-        if !IS_SERVER_ONLY_HEADER.contains(name) {
-            forwarded.insert(name, value.clone());
+    for (name, value) in req.headers().iter() {
+        if !IS_SERVER_ONLY_HEADER.contains(&name.as_str()) {
+            // `name` is an owned `HeaderName` (clone = cheap); it must not be
+            // tied to `req`'s borrow, since we move `req.into_body()` right
+            // after.
+            forwarded.insert(name.clone(), value.clone());
         }
     }
+    // Byte-exact body: the old backend streamed the raw payload to the ai-service.
+    let body = to_bytes(req.into_body(), MAX_BODY).await.map_err(AppError::from)?;
     let client = build_client();
     let response = client
         .request(method.clone(), &target)
@@ -592,9 +602,13 @@ pub async fn proxy(
         .map_err(AppError::from)?;
     let (status, response_headers) = (response.status(), response.headers().clone());
     let bytes = response.bytes().await.map_err(AppError::from)?;
-    Ok(Response::builder()
-        .status(status)
-        .headers(response_headers)
+    let mut builder = Response::builder().status(status);
+    // `Response::builder().headers()` is not available in axum 0.8 —
+    // set each header individually (the same pattern as `proxy.rs`).
+    for (name, value) in response_headers.iter() {
+        builder = builder.header(name, value);
+    }
+    Ok(builder
         .body(axum::body::Body::from(bytes))
         .expect("build proxy response"))
 }
@@ -614,6 +628,8 @@ const IS_SERVER_ONLY_HEADER: &[&str] = &[
 ];
 
 /// The row shape of `chat_histories` (mirrors the old `chat-history.entity`).
+/// `user_id` chỉ dùng cho `sqlx::FromRow` (không đọc trong code).
+#[allow(dead_code)]
 #[derive(Debug, sqlx::FromRow)]
 pub struct ChatHistoryRow {
     pub id: String,

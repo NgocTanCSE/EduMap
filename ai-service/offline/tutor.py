@@ -2,7 +2,7 @@
 Edge AI Tutor — offline-first LLM tutor (Idea
 
 No local models are loaded anymore: the tutor answers through the shared text
-cascade (DeepSeek → Gemini) and falls back to curated Vietnamese
+cascade and falls back to curated Vietnamese
 templates when no provider is configured or every provider fails.
 
 Every method still degrades gracefully: it never raises and always returns a
@@ -153,10 +153,10 @@ class OfflineTutor:
     """Tutor that answers through the shared LLM cascade, templates as backup.
 
     No model is bundled or downloaded any more: text comes from
-    ``LLMService._generate_text_with_fallback`` (DeepSeek → Gemini)
+    ``LLMService._generate_text_with_fallback``
     and, when that is unavailable, from the curated Vietnamese templates below.
     An in-process TTL cache prevents regenerating identical responses, which
-    matters because a DeepSeek/Gemini round-trip is ~1-3 s.
+    matters because a provider round-trip is ~1-3 s.
     """
 
     _instance: Optional["OfflineTutor"] = None
@@ -197,11 +197,7 @@ class OfflineTutor:
         try:
             from services.llm_service import llm_service as _llm
 
-            if getattr(_llm, "has_deepseek", False):
-                return getattr(_llm, "deepseek_models", ["deepseek-chat"])[0]
-            if getattr(_llm, "has_gemini", False):
-                return getattr(_llm, "gemini_model_name", None)
-                return getattr(_llm, "model_name", None)
+            return getattr(_llm, "chat_model_name", None) or getattr(_llm, "model_name", None)
         except Exception:
             pass
         return None
@@ -209,7 +205,7 @@ class OfflineTutor:
     def _generate(self, prompt: str, max_tokens: int = None) -> str:
         """Generate text for *prompt*; return "" so the caller uses templates.
 
-        Uses the shared cascade (DeepSeek → Gemini). Local model
+        Uses the shared provider cascade. Local model
         generation was removed because 2 vCPU CPU inference needed 30-60 s per
         answer, which the NestJS proxy (10 s) and the UX cannot absorb.
         """

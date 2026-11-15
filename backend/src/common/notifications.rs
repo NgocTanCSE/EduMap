@@ -21,20 +21,24 @@
 /// ```rust,ignore
 /// crate::common::notifications::hub().notify_user(&user_id, &payload).await;
 /// ```
+///
+/// Channels have a large buffer (`1000` events): a broadcast that fills a
+/// subscriber's buffer drops the message (with a warning) but **keeps** the
+/// subscriber — dropping the subscriber on a full channel silently cut a live
+/// stream (see `notify_user` below).
 
-use crate::common::auth::authenticated_user;
+use crate::common::auth::{AuthUser, authenticated_user};
 use crate::common::error::AppError;
 use crate::db::pool::DbPool;
-use axum::extract::State;
-use axum::body::Body;
-use axum::http::Request<Body>;
+use axum::extract::{Extension, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::{Arc, OnceCell};
+use std::sync::Arc;
+use once_cell::sync::OnceCell;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
@@ -79,25 +83,41 @@ impl NotificationHub {
     /// caller can build the stream from the receiver.
     ///
     /// The channel is removed by the next `notify_user()` broadcast (a sender whose
-    /// receiver is gone returns `Err`).
+    /// receiver is gone returns `Err` — a subscriber whose channel is full stays
+    /// in the list; only the message is dropped).
     pub async fn subscribe(&self, user_id: &str) -> (SseChannel, mpsc::Receiver<Event>) {
-        let (tx, rx) = mpsc::channel(64);
-        self.subscribers.write().await.entry(user_id.to_string()).or_default().push(tx);
+        // A large buffer (1000 events): a broadcast of one event never evicts a
+        // subscriber; only a fully dead receiver (client disconnected) is dropped.
+        let (tx, rx) = mpsc::channel(1000);
+        self.subscribers.write().await.entry(user_id.to_string()).or_default().push(tx.clone());
         (tx, rx)
     }
 
-    /// Unsubscribe from `user_id` (no-op if there is no stream).
-    pub async fn unsubscribe(&self, user_id: &str) {
-        self.subscribers.write().await.remove(user_id);
-    }
+
 
     /// Push a payload into every subscribed stream of a user.
+    ///
+    /// A message that does not fit in the channel buffer is dropped with a
+    /// warning (the subscriber stays subscribed); only a *dead* receiver (the
+    /// client disconnected) is removed from the list.
     pub async fn notify_user(&self, user_id: &str, payload: &Notification) {
         match Event::default().json_data(payload.clone()) {
             Ok(event) => {
                 let mut subs = self.subscribers.write().await;
                 if let Some(list) = subs.get_mut(user_id) {
-                    list.retain(|tx| tx.send(event.clone()).is_ok());
+                    list.retain(|tx| match tx.try_send(event.clone()) {
+                        Ok(()) => true,
+                        Err(e) => match e {
+                            mpsc::error::TrySendError::Closed(_) => false,
+                            mpsc::error::TrySendError::Full(_) => {
+                                tracing::warn!(
+                                    "notification channel full, message dropped (user={})",
+                                    user_id
+                                );
+                                true
+                            }
+                        },
+                    });
                 }
             }
             Err(_) => tracing::warn!("cannot serialize the notification event"),
@@ -110,9 +130,9 @@ impl NotificationHub {
 /// every 20 s (defeats the reverse proxy timeouts).
 pub async fn subscribe_sse(
     State(_pool): State<DbPool>,
-    req: Request<Body>,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let hub = hub();
     let (_tx, rx) = hub.subscribe(&user.id).await;

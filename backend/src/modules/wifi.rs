@@ -15,13 +15,12 @@
 //! Data đích: các trạm Wifi thực tế nằm ở bảng `locations` (`category_id = 6`
 //! = `wifi_hotspot`) — bảng rỗng `wifi_locations` không được dùng.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -30,15 +29,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (các route đọc của wifi là public).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // SQL statements
@@ -105,24 +95,24 @@ const DB_UPDATE_SPEED_TEST: &str = r#"
 
 /// Turn a location row into a `locations`-style geography object (GeoJSON +
 /// `lat`/`lng`), exactly like the old `Location` entity did.
-fn location_to_json(row: &sqlx::PgRow) -> Value {
+fn location_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<Option<String>>("name").unwrap_or_default(),
-        "address": row.get::<Option<String>>("address").unwrap_or_default(),
-        "speed_mbps": row.get::<Option<f64>>("speed_mbps"),
-        "is_free": row.get::<Option<bool>>("is_free").unwrap_or(false),
-        "password": row.get::<Option<String>>("password").unwrap_or_default(),
-        "password_hint": row.get::<Option<String>>("password_hint").unwrap_or_default(),
-        "verified": row.get::<Option<bool>>("verified").unwrap_or(false),
-        "reported_by": row.get::<Option<String>>("created_by").unwrap_or_default(),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
-        "coordinates": row.get::<Option<String>>("coordinates")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "location": row.get::<Option<String>>("location")
-            .and_then(|s| serde_json::from_str(&s).ok()),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
+        "speed_mbps": row.get::<Option<f64>, &str>("speed_mbps"),
+        "is_free": row.get::<Option<bool>, &str>("is_free").unwrap_or(false),
+        "password": row.get::<Option<String>, &str>("password").unwrap_or_default(),
+        "password_hint": row.get::<Option<String>, &str>("password_hint").unwrap_or_default(),
+        "verified": row.get::<Option<bool>, &str>("verified").unwrap_or(false),
+        "reported_by": row.get::<Option<String>, &str>("created_by").unwrap_or_default(),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
+        "coordinates": row.get::<Option<String>, &str>("coordinates")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "location": row.get::<Option<String>, &str>("location")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
     })
 }
 
@@ -153,6 +143,9 @@ pub struct ReportForm {
     pub coordinates: Option<Value>,
 }
 
+/// `downloadSpeed`/`uploadSpeed` giữ lại để khách gửi kèm (không đọc).
+#[allow(dead_code)]
+#[allow(non_snake_case)]
 #[derive(Debug, Deserialize)]
 pub struct SpeedTestForm {
     pub downloadSpeed: Option<f64>,
@@ -176,7 +169,7 @@ pub async fn get_wifi_locations(
 
     let locations: Vec<Value> = rows.iter().map(location_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(locations)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(locations))))
 }
 
 /// `GET /api/wifi/locations/nearby` — các điểm Wifi gần nhất qua PostGIS
@@ -187,12 +180,18 @@ pub async fn get_wifi_nearby(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let lat = match q.lat {
         Some(v) if v.is_finite() => v,
+        Some(_) => return Err(AppError::BadRequest(
+            "Toạ độ không hợp lệ: cần lat và lng là số.".to_string(),
+        )),
         None => return Err(AppError::BadRequest(
             "Toạ độ không hợp lệ: cần lat và lng là số.".to_string(),
         )),
     };
     let lng = match q.lng {
         Some(v) if v.is_finite() => v,
+        Some(_) => return Err(AppError::BadRequest(
+            "Toạ độ không hợp lệ: cần lat và lng là số.".to_string(),
+        )),
         None => return Err(AppError::BadRequest(
             "Toạ độ không hợp lệ: cần lat và lng là số.".to_string(),
         )),
@@ -216,16 +215,16 @@ pub async fn get_wifi_nearby(
 
     let locations: Vec<Value> = rows.iter().map(location_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(locations)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(locations))))
 }
 
 /// `POST /api/wifi/locations` — báo cáo chia sẻ điểm Wifi miễn phí mới (JWT).
 pub async fn report_wifi(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<ReportForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // `latitude`/`longitude` → numeric fallback, `coordinates` → GeoJSON.
     let coordinates = match (body.latitude, body.longitude, body.coordinates) {
@@ -238,16 +237,16 @@ pub async fn report_wifi(
 
     let coordinates = match coordinates {
         Some(c) if !c.is_empty() => c,
-        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.")),
+        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.".to_string())),
     };
 
     let lat = match coordinates_file_lat(&coordinates) {
         Some(v) if v.is_finite() => v,
-        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.")),
+        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.".to_string())),
     };
     let lng = match coordinates_file_lng(&coordinates) {
         Some(v) if v.is_finite() => v,
-        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.")),
+        _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.".to_string())),
     };
 
     let row = sqlx::query(DB_INSERT_WIFI)
@@ -265,9 +264,9 @@ pub async fn report_wifi(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
+        "id": row.get::<String, &str>("id"),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
         "message": "Đã báo cáo điểm Wifi mới, đang chờ xác minh.",
     }))))
 }
@@ -276,15 +275,15 @@ pub async fn report_wifi(
 /// Wifi (JWT).
 pub async fn submit_speed_test(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<SpeedTestForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     let rating = match body.rating {
         Some(v) if v.is_finite() => v,
-        _ => return Err(AppError::BadRequest("Đánh giá tốc độ phải là số.")),
+        _ => return Err(AppError::BadRequest("Đánh giá tốc độ phải là số.".to_string())),
     };
 
     let location = sqlx::query(DB_SELECT_WIFI_BY_ID)
@@ -295,13 +294,13 @@ pub async fn submit_speed_test(
 
     let location = match location {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Wifi location not found.")),
+        None => return Err(AppError::NotFound("Wifi location not found.".to_string())),
     };
 
-    let current_avg: f64 = location.get::<Option<f64>>("rating_avg").unwrap_or(0.0);
-    let current_count: i64 = location.get::<Option<i64>>("rating_count").unwrap_or(0);
+    let current_avg: f64 = location.get::<Option<f64>, &str>("rating_avg").unwrap_or(0.0);
+    let current_count: i64 = location.get::<Option<i64>, &str>("rating_count").unwrap_or(0);
     let new_count = current_count + 1;
-    let new_avg = (current_avg * current_count + rating) / new_count as f64;
+    let new_avg = (current_avg * current_count as f64 + rating) / (new_count as f64);
 
     sqlx::query(DB_UPDATE_SPEED_TEST)
         .bind(&new_avg)

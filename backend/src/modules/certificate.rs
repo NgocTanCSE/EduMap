@@ -7,18 +7,20 @@
 //!
 //! Tất cả SQL dùng runtime API (`query!` cần DB khi compile).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use axum::body::Body;
-use axum::extract::{Path, State};
+use sqlx::Row;
+use axum::extract::{Extension, Path, State};
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
-use axum::http::{Request<Body>, Response<Body>};
+use axum::http::Response;
+
 use axum::Json;
 use axum::response::IntoResponse;
 use chrono::Utc;
-use image::Luma;
+use ::image::Luma;
 use printpdf::*;
 use qrcode::QrCode;
 use serde::Deserialize;
@@ -119,7 +121,7 @@ fn to_base36(mut value: u64) -> String {
     }
     let mut chars = Vec::new();
     while value > 0 {
-        chars.push(BASE36_ALPHABET[(value % 36) as usize]);
+        chars.push(BASE36_ALPHABET.chars().nth((value % 36) as usize).unwrap_or('0'));
         value /= 36;
     }
     chars.into_iter().rev().collect()
@@ -148,15 +150,6 @@ fn generate_verify_code() -> String {
     )
 }
 
-/// Người dùng đã đăng nhập (các route cần JWT).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// Admin hoặc moderator mới được cấp chứng chỉ.
 fn ensure_admin(user: &AuthUser) -> Result<(), AppError> {
@@ -181,14 +174,7 @@ fn sign_with_blockchain(
 // Mount
 // ---------------------------------------------------------------------------
 
-pub fn router(pool: DbPool) -> axum::Router {
-    axum::Router::new()
-        .route("/api/certificates/issue", post(issue_certificate))
-        .route("/api/certificates/verify/:code", get(verify_certificate))
-        .route("/api/certificates/portfolio", get(get_portfolio))
-        .route("/api/certificates/download/:code.pdf", get(download_certificate_pdf))
-        .with_state(pool)
-}
+
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -204,10 +190,10 @@ pub fn router(pool: DbPool) -> axum::Router {
 ///   `degraded = true`.
 pub async fn issue_certificate(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<IssueCertificateBody>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     if body.user_id.is_empty() || body.template_id.is_empty() {
@@ -244,7 +230,7 @@ pub async fn issue_certificate(
 
     let cert_code = generate_verify_code();
     let blockchain_metadata =
-        sign_with_blockchain(&body.user_id, &cert_code, template.get::<String>("name"));
+        sign_with_blockchain(&body.user_id, &cert_code, &template.get::<String, &str>("name"));
 
     let inserted = sqlx::query(DB_INSERT_CERTIFICATE)
         .bind(&uuid::Uuid::new_v4().to_string())
@@ -261,13 +247,13 @@ pub async fn issue_certificate(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String>("id"),
-        "verify_code": inserted.get::<String>("verify_code"),
-        "issued_at": inserted.get::<String>("issued_at"),
-        "status": inserted.get::<String>("status"),
-        "pdf_url": inserted.get::<Option<String>>("pdf_url"),
-        "qr_url": inserted.get::<Option<String>>("qr_url"),
-        "blockchain_metadata": inserted.get::<Option<serde_json::Value>>("blockchain_metadata"),
+        "id": inserted.get::<String, &str>("id"),
+        "verify_code": inserted.get::<String, &str>("verify_code"),
+        "issued_at": inserted.get::<String, &str>("issued_at"),
+        "status": inserted.get::<String, &str>("status"),
+        "pdf_url": inserted.get::<Option<String>, &str>("pdf_url"),
+        "qr_url": inserted.get::<Option<String>, &str>("qr_url"),
+        "blockchain_metadata": inserted.get::<Option<serde_json::Value>, &str>("blockchain_metadata"),
         "degraded": blockchain_metadata.is_none(),
     }))))
 }
@@ -297,19 +283,19 @@ pub async fn verify_certificate(
     };
 
     let blockchain: Option<serde_json::Value> = cert
-        .get::<Option<String>>("blockchain_metadata")
+        .get::<Option<String>, &str>("blockchain_metadata")
         .and_then(|s| s.parse::<serde_json::Value>().ok());
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "isValid": true,
         "message": "Chứng nhận hợp lệ!",
         "details": {
-            "title": cert.get::<String>("template_name"),
-            "recipient": cert.get::<Option<String>>("full_name"),
-            "issued_at": cert.get::<String>("issued_at"),
+            "title": cert.get::<String, &str>("template_name"),
+            "recipient": cert.get::<Option<String>, &str>("full_name"),
+            "issued_at": cert.get::<String, &str>("issued_at"),
             "blockchain": blockchain,
-            "template_type": cert.get::<Option<String>>("template_type"),
-            "organization_name": cert.get::<Option<String>>("organization_name"),
+            "template_type": cert.get::<Option<String>, &str>("template_type"),
+            "organization_name": cert.get::<Option<String>, &str>("organization_name"),
         }
     }))))
 }
@@ -319,9 +305,9 @@ pub async fn verify_certificate(
 /// Lỗi DB không làm 500: trả về `{ total: 0, certificates: [] }`.
 pub async fn get_portfolio(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Sai DB → trả về rỗng thay vì 500 (giống cũ service `getUserPortfolio`).
     let certs = match sqlx::query(DB_SELECT_PORTFOLIO)
@@ -343,19 +329,19 @@ pub async fn get_portfolio(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String>("id"),
-                "user_id": row.get::<String>("user_id"),
-                "template_id": row.get::<String>("template_id"),
-                "issued_at": row.get::<String>("issued_at"),
-                "verify_code": row.get::<String>("verify_code"),
-                "qr_url": row.get::<Option<String>>("qr_url"),
-                "pdf_url": row.get::<Option<String>>("pdf_url"),
-                "status": row.get::<String>("status"),
-                "created_at": row.get::<String>("created_at"),
-                "full_name": row.get::<Option<String>>("full_name"),
-                "template_name": row.get::<String>("template_name"),
-                "template_type": row.get::<String>("template_type"),
-                "organization_name": row.get::<Option<String>>("organization_name"),
+                "id": row.get::<String, &str>("id"),
+                "user_id": row.get::<String, &str>("user_id"),
+                "template_id": row.get::<String, &str>("template_id"),
+                "issued_at": row.get::<String, &str>("issued_at"),
+                "verify_code": row.get::<String, &str>("verify_code"),
+                "qr_url": row.get::<Option<String>, &str>("qr_url"),
+                "pdf_url": row.get::<Option<String>, &str>("pdf_url"),
+                "status": row.get::<String, &str>("status"),
+                "created_at": row.get::<String, &str>("created_at"),
+                "full_name": row.get::<Option<String>, &str>("full_name"),
+                "template_name": row.get::<String, &str>("template_name"),
+                "template_type": row.get::<String, &str>("template_type"),
+                "organization_name": row.get::<Option<String>, &str>("organization_name"),
             })
         })
         .collect();
@@ -392,7 +378,7 @@ pub async fn download_certificate_pdf(
 
     let pdf = render_certificate_pdf(&cert)?;
 
-    let mut response = Response::new(Body::from(pdf));
+    let mut response = Response::new(Body::from(pdf.clone()));
     let filename = format!("attachment; filename=certificate-{}.pdf", verify_code);
 
     response.headers_mut().insert(
@@ -430,7 +416,7 @@ const FONT_BYTES: &[u8] = include_bytes!("./certificate/DejaVuSans.ttf");
 ///
 /// Bố cục giống cũ `certificate.service.ts`: viền vàng, tiêu đề căn giữa,
 /// tên người nhận nổi bật, mã xác thực + QR code ở góc dưới phải.
-fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
+fn render_certificate_pdf(row: &sqlx::postgres::PgRow) -> Result<Vec<u8>, AppError> {
     let (doc, page, layer) =
         PdfDocument::new("Chứng nhận EduMap", Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
     let layer = doc.get_page(page).get_layer(layer);
@@ -441,11 +427,11 @@ fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
         .map_err(|e| AppError::Internal(format!("không nạp được font: {}", e)))?;
 
     // Viền màu vàng (#eab308), dày 5 pt.
-    let border = Line::from_iter(vec![
-        Point::new(Mm(MARGIN), Mm(MARGIN)),
-        Point::new(Mm(PAGE_W - MARGIN), Mm(MARGIN)),
-        Point::new(Mm(PAGE_W - MARGIN), Mm(PAGE_H - MARGIN)),
-        Point::new(Mm(MARGIN), Mm(PAGE_H - MARGIN)),
+    let mut border = Line::from_iter(vec![
+        (Point::new(Mm(MARGIN), Mm(MARGIN)), false),
+        (Point::new(Mm(PAGE_W - MARGIN), Mm(MARGIN)), false),
+        (Point::new(Mm(PAGE_W - MARGIN), Mm(PAGE_H - MARGIN)), false),
+        (Point::new(Mm(MARGIN), Mm(PAGE_H - MARGIN)), false),
     ]);
     border.set_closed(true);
     border.set_stroke(true);
@@ -477,7 +463,7 @@ fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
     layer.write_text(subtitle, &font);
 
     // Tên người nhận (màu vàng, lớn)
-    let recipient: String = row.get::<Option<String>>("full_name").unwrap_or_default();
+    let recipient: String = row.get::<Option<String>, &str>("full_name").unwrap_or_default();
     let recipient_name = if recipient.is_empty() {
         "Học viên EduMap".to_string()
     } else {
@@ -498,7 +484,7 @@ fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
     layer.write_text("Vì đã hoàn thành xuất sắc:", &font);
 
     // Tên mẫu chứng chỉ
-    let template_name: String = row.get::<String>("template_name");
+    let template_name: String = row.get::<String, &str>("template_name");
     layer.set_font(&font, 25.0);
     layer.set_text_cursor(center_x(&template_name, 25.0), Mm(70.0));
     layer.write_text(&template_name, &font);
@@ -507,29 +493,50 @@ fn render_certificate_pdf(row: &sqlx::PgRow) -> Result<Vec<u8>, AppError> {
     layer.set_font(&font, 12.0);
     layer.set_text_cursor(Mm(30.0), Mm(38.0));
     layer.write_text(
-        &format!("Mã xác thực: {}", row.get::<String>("verify_code")),
+        &format!("Mã xác thực: {}", row.get::<String, &str>("verify_code")),
         &font,
     );
     layer.set_text_cursor(Mm(30.0), Mm(32.0));
     layer.write_text(
-        &format!("Ngày cấp: {}", row.get::<String>("issued_at")),
+        &format!("Ngày cấp: {}", row.get::<String, &str>("issued_at")),
         &font,
     );
 
     layer.end_text_section();
 
     // QR code: quét để xác thực online.
-    let verify_code: String = row.get::<String>("verify_code");
+    let verify_code: String = row.get::<String, &str>("verify_code");
     let qr_url = format!("https://edumap.vn/verify/{}", verify_code);
     let qr_code = QrCode::new(qr_url.as_bytes())
         .map_err(|e| AppError::Internal(format!("tạo QR thất bại: {}", e)))?;
     let qr_image = qr_code.render::<Luma<u8>>().build();
-    let qr_image = Image::try_from(qr_image)
+
+    // `printpdf::image` (image 0.24) chấp nhận `ImageDecoder` — `ImageBuffer`
+    // (image 0.23, do `@qr` crate generate) KHÔNG triển khai trait này. Nén QR
+    // thành PNG (image 0.23 `PngEncoder`), sau đó đọc lại qua
+    // `printpdf::image_crate` (image 0.24 `PngDecoder`) để `Image::try_from`.
+    let qr_png = {
+        use ::image::ImageEncoder;
+        let mut png = Vec::new();
+        let encoder = ::image::codecs::png::PngEncoder::new(&mut png);
+        encoder
+            .write_image(
+                qr_image.as_raw().as_slice(),
+                qr_image.width(),
+                qr_image.height(),
+                ::image::ColorType::L8,
+            )
+            .map_err(|e| AppError::Internal(format!("nén QR thất bại: {}", e)))?;
+        png
+    };
+    let qr_dec = printpdf::image_crate::codecs::png::PngDecoder::new(std::io::Cursor::new(qr_png))
+        .map_err(|e| AppError::Internal(format!("nhúng QR thất bại: {}", e)))?;
+    let qr_image = Image::try_from(qr_dec)
         .map_err(|e| AppError::Internal(format!("nhúng QR thất bại: {}", e)))?;
 
     let qr_size = 30.0;
     qr_image.add_to_layer(
-        layer,
+        layer.clone(),
         ImageTransform {
             translate_x: Some(Mm(PAGE_W - MARGIN - qr_size)),
             translate_y: Some(Mm(60.0)),

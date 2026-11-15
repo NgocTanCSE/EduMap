@@ -10,12 +10,12 @@
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 //! Postgres/PostGIS only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
+use sqlx::Row;
+use axum::extract::{Extension, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -90,13 +90,7 @@ const DB_SELECT_PROGRAMS_COUNT: &str = r#"
     {where}
 "#;
 
-const DB_SELECT_PROGRAM_BY_ID: &str = r#"
-    SELECT id, title, type, description, host_country, organization,
-           CAST(application_deadline AS TEXT) AS application_deadline,
-           benefits, apply_url, CAST(created_at AS TEXT) AS created_at
-    FROM international_programs
-    WHERE id = $1
-"#;
+
 
 const DB_INSERT_PROGRAM: &str = r#"
     INSERT INTO international_programs (title, type, description, host_country,
@@ -159,32 +153,32 @@ fn point_to_geojson(text: Option<&str>) -> Option<Value> {
     }))
 }
 
-fn program_to_json(row: &sqlx::PgRow) -> Value {
+fn program_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<String>("title"),
-        "type": row.get::<String>("type"),
-        "description": row.get::<Option<String>, _>("description"),
-        "host_country": row.get::<Option<String>, _>("host_country"),
-        "organization": row.get::<Option<String>, _>("organization"),
-        "application_deadline": row.get::<Option<String>, _>("application_deadline"),
-        "benefits": row.get::<Option<String>, _>("benefits"),
-        "apply_url": row.get::<Option<String>, _>("apply_url"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<String, &str>("title"),
+        "type": row.get::<String, &str>("type"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "host_country": row.get::<Option<String>, &str>("host_country"),
+        "organization": row.get::<Option<String>, &str>("organization"),
+        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
+        "benefits": row.get::<Option<String>, &str>("benefits"),
+        "apply_url": row.get::<Option<String>, &str>("apply_url"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
-fn alumni_to_json(row: &sqlx::PgRow) -> Value {
+fn alumni_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "full_name": row.get::<String>("full_name"),
-        "university": row.get::<String>("university"),
-        "country": row.get::<String>("country"),
-        "major": row.get::<String>("major"),
-        "location": point_to_geojson(row.get::<Option<String>, _>("location_point").as_deref()),
-        "contact_email": row.get::<Option<String>, _>("contact_email"),
-        "status": row.get::<String>("status"),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "full_name": row.get::<String, &str>("full_name"),
+        "university": row.get::<String, &str>("university"),
+        "country": row.get::<String, &str>("country"),
+        "major": row.get::<String, &str>("major"),
+        "location": point_to_geojson(row.get::<Option<String>, &str>("location_point").as_deref()),
+        "contact_email": row.get::<Option<String>, &str>("contact_email"),
+        "status": row.get::<String, &str>("status"),
+        "created_at": row.get::<String, &str>("created_at"),
     })
 }
 
@@ -213,8 +207,8 @@ pub async fn get_programs(
     State(pool): State<DbPool>,
     Query(q): Query<ProgramListQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let page = q.page.unwrap_or("1").parse::<i64>().unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or("50").parse::<i64>().unwrap_or(50).max(1).min(200);
+    let page = q.page.unwrap_or_else(|| "1".to_string()).parse::<i64>().unwrap_or(1).max(1);
+    let limit = q.limit.unwrap_or_else(|| "50".to_string()).parse::<i64>().unwrap_or(50).max(1).min(200);
     let offset = (page - 1) * limit;
 
     let mut where_clauses = Vec::new();
@@ -239,7 +233,7 @@ pub async fn get_programs(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<i64>("total");
+        .get::<i64, &str>("total");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "items": rows.iter().map(program_to_json).collect::<Vec<_>>(),
@@ -255,10 +249,10 @@ pub async fn get_programs(
 /// `POST /api/intl/programs` — đăng ký chương trình quốc tế mới (admin).
 pub async fn create_program(
     State(pool): State<DbPool>,
-    req: axum::http::Request<Body>,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateProgramForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let benefits = form.benefits
@@ -289,11 +283,11 @@ pub async fn get_alumni(
     State(pool): State<DbPool>,
     Query(q): Query<AlumniListQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let page = q.page.unwrap_or("1").parse::<i64>().unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or("50").parse::<i64>().unwrap_or(50).max(1).min(200);
+    let page = q.page.unwrap_or_else(|| "1".to_string()).parse::<i64>().unwrap_or(1).max(1);
+    let limit = q.limit.unwrap_or_else(|| "50".to_string()).parse::<i64>().unwrap_or(50).max(1).min(200);
     let offset = (page - 1) * limit;
 
-    let rows = sqlx::query(DB_SELECT_ALUMNI.replace("{where}", ""))
+    let rows = sqlx::query(&DB_SELECT_ALUMNI.replace("{where}", ""))
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -314,10 +308,10 @@ pub async fn get_alumni(
 /// `POST /api/intl/alumni` — đăng ký mạng lưới lưu học sinh (JWT).
 pub async fn create_alumni(
     State(pool): State<DbPool>,
-    req: axum::http::Request<Body>,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateAlumniForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     if form.full_name.trim().is_empty() || form.university.trim().is_empty()
         || form.country.trim().is_empty() || form.major.trim().is_empty()
@@ -380,15 +374,3 @@ pub async fn get_alumni_nearby(
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
-
-/// Người dùng đã đăng nhập: các endpoint đọc của intl là public (danh sách
-/// chương trình, danh sách và bản đồ lưu học sinh); các handler write giữ
-/// JWT (`@UseGuards(JwtAuthGuard)` cũ) và trả `401` khi thiếu token.
-fn authenticated_user(req: &axum::http::Request<Body>) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}

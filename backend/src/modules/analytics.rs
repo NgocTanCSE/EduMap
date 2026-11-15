@@ -5,13 +5,12 @@
 //! `analytics.service.ts`. Mọi endpoint đều công khai (old backend `@Public()`
 //! trên `track`; các endpoint đọc không có guard) — thêm vào `PUBLIC_PATHS`.
 
-use crate::common::auth::{token_from_req, AuthUser};
+use crate::common::auth::{optional_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -69,11 +68,6 @@ ORDER BY year DESC, region, metric_type
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Token tuỳ chọn: endpoint `track` là public nhưng old service vẫn cố lấy
-/// `req.user?.id` (có thì dùng, không có thì bỏ qua).
-fn optional_user(req: &Request) -> Option<AuthUser> {
-    token_from_req(req)
-}
 
 fn sql_text(value: &str) -> String {
     value.replace('\'', "''")
@@ -87,10 +81,12 @@ fn sql_text(value: &str) -> String {
 /// Công khai; `user_id` lấy từ JWT (nếu có) hoặc từ `metadata.userId`.
 pub async fn track_event(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<TrackEventBody>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user_id = optional_user(&req)
+    let user_id = optional_user(user)
+        .ok()
+        .flatten()
         .map(|u| u.id)
         .or_else(|| {
             body.metadata.as_ref().and_then(|m| {
@@ -111,8 +107,8 @@ pub async fn track_event(
     let result = serde_json::json!({
         "tracked": true,
         "event_type": body.event_type,
-        "user_id": row.get::<Option<String>>("user_id"),
-        "id": row.get::<i64>("id"),
+        "user_id": row.get::<Option<String>, &str>("user_id"),
+        "id": row.get::<i64, &str>("id"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -130,9 +126,9 @@ pub async fn get_stats(
         .map_err(|e| AppError::Internal(format!("failed to read global stats: {e}")))?;
 
     let result = serde_json::json!({
-        "total_users": row.get::<i64>("total_users"),
-        "total_locations": row.get::<i64>("total_locations"),
-        "total_materials": row.get::<i64>("total_materials"),
+        "total_users": row.get::<i64, &str>("total_users"),
+        "total_locations": row.get::<i64, &str>("total_locations"),
+        "total_materials": row.get::<i64, &str>("total_materials"),
         "system_ready": "100%",
     });
     Ok(Json(ApiResponse::ok(result)))
@@ -166,17 +162,17 @@ pub async fn get_education_stats(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<i64>("id"),
-                "region": row.get::<Option<String>>("region"),
-                "province": row.get::<Option<String>>("province"),
-                "district": row.get::<Option<String>>("district"),
-                "metric_type": row.get::<Option<String>>("metric_type"),
+                "id": row.get::<i64, &str>("id"),
+                "region": row.get::<Option<String>, &str>("region"),
+                "province": row.get::<Option<String>, &str>("province"),
+                "district": row.get::<Option<String>, &str>("district"),
+                "metric_type": row.get::<Option<String>, &str>("metric_type"),
                 "metric_value": row
-                    .get::<Option<String>>("metric_value")
+                    .get::<Option<String>, &str>("metric_value")
                     .and_then(|s| s.parse::<f64>().ok()),
-                "year": row.get::<Option<i64>>("year"),
-                "source": row.get::<Option<String>>("source"),
-                "created_at": row.get::<Option<String>>("created_at"),
+                "year": row.get::<Option<i64>, &str>("year"),
+                "source": row.get::<Option<String>, &str>("source"),
+                "created_at": row.get::<Option<String>, &str>("created_at"),
             })
         })
         .collect();

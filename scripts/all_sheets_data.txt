@@ -45,7 +45,7 @@ SHEET: 2. Danh Sách Module (Rows: 30, Cols: 12)
 =========================================
 Row 1: # | Mã Module | Tên Module | Mô tả | Chức năng chính | Đối tượng sử dụng | Priority | Độ khó | Estimated Time | Công nghệ chính | Dependencies | Phase
 Row 2: 1 | MOD-MAP | Bản đồ giáo dục thông minh | Hiển thị toàn bộ tài nguyên giáo dục trên bản đồ số: trường học, thư viện, điểm wifi, lab, không gian xanh | Hiển thị marker, filter, search, clustering, heatmap, geolocation, AI recommendation theo khu vực | Tất cả user | 🔴 Critical | ⭐⭐⭐⭐⭐ | 8 tuần | Mapbox/Google Maps, NextJS, PostgreSQL+PostGIS | MOD-AUTH | MVP
-Row 3: 2 | MOD-AI | AI Chatbot & Hỗ trợ học tập | Chatbot AI giải đáp thắc mắc, gợi ý tài liệu, cá nhân hóa học tập, phân tích dữ liệu giáo dục | Chat AI, gợi ý tài liệu, phân tích learning path, AI mentor matching, career recommendation | Student, Teacher | 🔴 Critical | ⭐⭐⭐⭐⭐ | 10 tuần | Python, FastAPI, LLM (GPT/Gemini), Vector DB, LangChain | MOD-LIB, MOD-AUTH | Phase 1
+Row 3: 2 | MOD-AI | AI Chatbot & Hỗ trợ học tập | Chatbot AI giải đáp thắc mắc, gợi ý tài liệu, cá nhân hóa học tập, phân tích dữ liệu giáo dục | Chat AI, gợi ý tài liệu, phân tích learning path, AI mentor matching, career recommendation | Student, Teacher | 🔴 Critical | ⭐⭐⭐⭐⭐ | 10 tuần | Python, FastAPI, LLM, Vector DB, LangChain | MOD-LIB, MOD-AUTH | Phase 1
 Row 4: 3 | MOD-LIB | Kho học liệu mở | Kho tài liệu miễn phí: video, PDF, đề thi, khóa học, STEM, hướng nghiệp, kỹ năng mềm, lập trình | Upload, download, search, filter, rating, bookmark, offline sync, AI recommendation | Student, Teacher, Mentor | 🔴 Critical | ⭐⭐⭐⭐ | 6 tuần | NextJS, NestJS, PostgreSQL, MinIO/S3, Elasticsearch | MOD-AUTH | MVP
 Row 5: 4 | MOD-WS | Workshop & Sự kiện | Quản lý workshop, seminar, hackathon, coding camp, STEM camp, trại hè khoa học | Tạo/đăng ký sự kiện, lịch, reminder, check-in, feedback, certificate | Tất cả user | 🟠 High | ⭐⭐⭐⭐ | 5 tuần | NextJS, NestJS, PostgreSQL, Firebase Cloud Messaging | MOD-AUTH, MOD-MAP | MVP
 Row 6: 5 | MOD-OPP | Student Opportunity Map | Google Maps cho cơ hội sinh viên: học bổng, cuộc thi, internship, nghiên cứu KH | Hiển thị cơ hội trên map, filter ngành/khu vực, deadline tracking, team finding | Student | 🟠 High | ⭐⭐⭐⭐ | 6 tuần | Mapbox, NextJS, NestJS, PostgreSQL | MOD-MAP, MOD-AUTH | Phase 1
@@ -364,15 +364,15 @@ Row 18: 17 | Container Runtime | Application containerization | Docker + Docker 
 Row 19: 18 | Orchestration | Container orchestration | Kubernetes (K3s/EKS) | Auto-scaling, self-healing, service discovery | Auto-scale, resilient, declarative | Complex setup, learning curve | Production deployment | Horizontal pod autoscaler | RBAC, network policies, secrets | K3s free, EKS $72/month
 Row 20: 19 | Monitoring | System monitoring | Prometheus + Grafana | Metrics collection, alerting, beautiful dashboards | Open source, extensible, alerts | Storage for metrics | All services | Federation | Auth, RBAC | Free (self-hosted)
 Row 21: 20 | Logging | Centralized logging | ELK Stack (Elasticsearch, Logstash, Kibana) | Log aggregation, search, visualization | Powerful search, visualization | Resource intensive | All services, audit | Index lifecycle | Access control | $30-100/month
-Row 22: 21 | CDN | Content delivery network | Cloudflare / AWS CloudFront | Global edge caching, DDoS protection, SSL | Fast delivery, DDoS protection, free SSL | Cache invalidation complexity | Static assets, API caching | Global edge network | WAF, DDoS, bot protection | Free tier, Pro $20/month
+Row 22: 21 | CDN | Content delivery network | AWS CloudFront | Global edge caching, DDoS protection, SSL | Fast delivery, DDoS protection, free SSL | Cache invalidation complexity | Static assets, API caching | Global edge network | WAF, DDoS, bot protection | Free tier, Pro $20/month
 Row 23: 22 | API Gateway | API routing & management | Nginx / Kong | Load balancing, rate limiting, SSL termination | High performance, flexible | Config complexity | All API traffic | Horizontal | Rate limit, WAF, SSL | Free (Nginx)
 
 =========================================
 SHEET: 10. AI Features Chi Tiết (Rows: 9, Cols: 14)
 =========================================
 Row 1: # | AI Feature | Mô tả | Model đề xuất | Workflow | Training Data | Inference | Prompt/Pipeline | Vector DB | LLM Architecture | API | Cost Optimization | Security | Scalability
-Row 2: 1 | 🤖 AI Chatbot học tập | Chatbot giải đáp thắc mắc học tập, gợi ý tài liệu, hỗ trợ 24/7 | GPT-4o-mini (chi phí thấp) hoặc Gemini 1.5 Flash
-Fallback: Gemini 1.5 Pro cho complex queries | User input→Intent classification→RAG retrieval→Context assembly→LLM generation→Post-process→Response | Curriculum data VN, textbooks, FAQ, past conversations, learning materials database | Streaming response, avg 2-5s, context window 8K tokens, session management | System prompt (education expert VN) → User query → Retrieved context (top 5 docs) → Generate → Safety filter → Stream | ChromaDB: index 100K+ documents, chunk size 512 tokens, overlap 50, embedding model: text-embedding-3-small | RAG (Retrieval Augmented Generation)
+Row 2: 1 | 🤖 AI Chatbot học tập | Chatbot giải đáp thắc mắc học tập, gợi ý tài liệu, hỗ trợ 24/7 | GPT-4o-mini (chi phí thấp)
+User input→Intent classification→RAG retrieval→Context assembly→LLM generation→Post-process→Response | Curriculum data VN, textbooks, FAQ, past conversations, learning materials database | Streaming response, avg 2-5s, context window 8K tokens, session management | System prompt (education expert VN) → User query → Retrieved context (top 5 docs) → Generate → Safety filter → Stream | ChromaDB: index 100K+ documents, chunk size 512 tokens, overlap 50, embedding model: text-embedding-3-small | RAG (Retrieval Augmented Generation)
 Router: simple→direct, complex→RAG
 Fallback chain: fast model → full model | POST /api/ai/chat (streaming)
 GET /api/ai/history
@@ -666,8 +666,8 @@ Row 4: 3 | 👥 RBAC | Role-based access control, permission matrix | 12 roles, 
 Row 5: 4 | 🔒 Encryption | Data encryption at rest and in transit | TLS 1.3 for transit, AES-256 for sensitive fields, bcrypt for passwords | SSL/TLS, bcrypt, crypto | 🔴 Critical | MVP
 Row 6: 5 | ⏱️ Rate Limiting | Prevent abuse and DDoS | Per-endpoint limits, sliding window, IP + user-based, progressive backoff | express-rate-limit, Redis | 🔴 Critical | MVP
 Row 7: 6 | 🚫 Anti-Spam | Prevent spam content and accounts | Honeypot fields, CAPTCHA, email verification, phone verification, content analysis | reCAPTCHA v3, AI moderation | 🟠 High | Phase 1
-Row 8: 7 | 🤖 Anti-Bot | Prevent automated attacks | Browser fingerprinting, behavior analysis, CAPTCHA challenge, rate limiting | Cloudflare Bot Management | 🟠 High | Phase 1
-Row 9: 8 | 🛡️ DDoS Protection | Distributed denial of service prevention | CDN-level protection, rate limiting, geographic filtering, auto-scaling | Cloudflare, AWS Shield | 🟠 High | Phase 1
+Row 8: 7 | 🤖 Anti-Bot | Prevent automated attacks | Browser fingerprinting, behavior analysis, CAPTCHA challenge, rate limiting | AWS WAF Bot Control | 🟠 High | Phase 1
+Row 9: 8 | 🛡️ DDoS Protection | Distributed denial of service prevention | CDN-level protection, rate limiting, geographic filtering, auto-scaling | AWS Shield | 🟠 High | Phase 1
 Row 10: 9 | 🧠 AI Content Moderation | Auto-detect harmful content | ML-based text classification, image analysis, real-time filtering, manual review queue | PhoBERT, image classification | 🟠 High | Phase 1
 Row 11: 10 | 📤 Secure Upload | Prevent malicious file uploads | File type whitelist, virus scanning, size limits, sanitize filenames, isolated storage | ClamAV, Multer, S3 | 🔴 Critical | MVP
 Row 12: 11 | 🕸️ XSS Prevention | Cross-site scripting protection | Input sanitization, output encoding, CSP headers, HTML purification | DOMPurify, Helmet CSP | 🔴 Critical | MVP
@@ -725,14 +725,14 @@ Row 12: 11 | 📈 Auto Scaling | Tự động scale theo tải | Kubernetes HPA 
 Min replicas: 2, Max: 10
 Cool-down: 5min
 Database: read replicas on demand | Phase 2 | Included in hosting
-Row 13: 12 | 🌐 CDN | Content delivery network | Cloudflare | Free tier: DDoS protection, SSL, caching
+Row 13: 12 | 🌐 CDN | Content delivery network | AWS CloudFront | Free tier: DDoS protection, SSL, caching
 Pro ($20): WAF, image optimization, analytics
 Cache: static assets 30d, API 5min
 Purge on deploy | MVP | Free→$20
-Row 14: 13 | 🔒 SSL | HTTPS certificates | Let's Encrypt / Cloudflare | Auto-renewal, wildcard cert for subdomains
+Row 14: 13 | 🔒 SSL | HTTPS certificates | Let's Encrypt | Auto-renewal, wildcard cert for subdomains
 HSTS enabled, TLS 1.3
 Certificate monitoring | MVP | Free
-Row 15: 14 | 🌐 Domain | Domain management | Cloudflare DNS | edumap.vn (primary)
+Row 15: 14 | 🌐 Domain | Domain management | Registrar DNS | edumap.vn (primary)
 api.edumap.vn (backend)
 ai.edumap.vn (AI service)
 Admin: admin.edumap.vn | MVP | $10/year
@@ -764,7 +764,7 @@ Atlas M10 | $100/tháng | $300/tháng | Cho AI logs, surveys
 Row 6: 5 | ⚡ Redis | $0
 Upstash free | $10/tháng | $25/tháng | $50/tháng | $100/tháng | Cache + leaderboard
 Row 7: 6 | 🤖 AI/LLM API | $0
-Gemini free tier | $50-100/tháng
+LLM provider free tier | $50-100/tháng
 GPT-4o-mini | $150-300/tháng | $300-500/tháng | $1,000/tháng | Tối ưu bằng caching
 Row 8: 7 | 🗺️ Map API | $0
 Mapbox free 50K | $0-50/tháng | $100/tháng | $200/tháng | $500/tháng | Mapbox pricing tiers
@@ -772,7 +772,7 @@ Row 9: 8 | 📁 Storage (S3) | $1/tháng | $5/tháng | $20/tháng | $50/tháng |
 Row 10: 9 | 🔔 Notification | $0
 FCM free | $15/tháng
 + SendGrid | $30/tháng | $50/tháng | $100/tháng | FCM free, email có phí
-Row 11: 10 | 🌐 CDN (Cloudflare) | $0
+Row 11: 10 | 🌐 CDN (AWS CloudFront) | $0
 Free tier | $0 | $20/tháng
 Pro | $20/tháng | $200/tháng
 Business | DDoS protection included
@@ -786,7 +786,7 @@ Student team | $500-1,000
 Part-time | $3,000-5,000
 Mixed | $8,000-15,000 | $20,000-30,000 | Lương/phụ cấp Việt Nam
 Row 15: 14 | 📢 Marketing | $0 | $100/tháng | $300/tháng | $1,000/tháng | $3,000/tháng | Social media, events
-Row 16: 15 | 🔐 Domain + SSL | $10/năm | $10/năm | $10/năm | $10/năm | $50/năm | Cloudflare included
+Row 16: 15 | 🔐 Domain + SSL | $10/năm | $10/năm | $10/năm | $10/năm | $50/năm | SSL included
 Row 17: 16 | ⚖️ Pháp lý | $0 | $0 | $200 (1 lần) | $100/tháng | $500/tháng | Đăng ký kinh doanh, PDPA
 Row 19: 17 | 💰 TỔNG/THÁNG | ~$30-50 | ~$800-1,400 | ~$4,000-6,500 | ~$10,500-17,000 | ~$27,000-37,000 | Ước tính VND×25,000
 Row 20: 18 | 💰 TỔNG VND/THÁNG | ~750K-1.2M | ~20-35M | ~100-162M | ~262-425M | ~675M-925M | Chưa tính lương fulltime

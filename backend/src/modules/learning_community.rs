@@ -16,18 +16,17 @@
 //! Tất cả SQL dùng runtime API (`query!` yêu cầu DB khi compile — bị cấm).
 //! Postgres/PostGIS only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 // ---------------------------------------------------------------------------
 // Request / response shapes
@@ -143,21 +142,31 @@ fn parse_opening_hours(json: Option<&str>) -> Vec<(String, i64, i64)> {
         Some(v) => v,
         None => return Vec::new(),
     };
-    serde_json::from_str(json).ok().map_or(Vec::new(), |h: Map<String, String>| {
-        h.into_iter()
-            .map(|(day, hours)| {
-                let parts: Vec<&str> = hours.split('-').collect();
-                let time = |part: &str| -> i64 {
-                    let p: Vec<&str> = part.split(':').collect();
-                    if p.len() != 2 {
-                        return 0;
-                    }
-                    p[0].parse::<i64>().unwrap_or(0) * 60 + p[1].parse::<i64>().unwrap_or(0)
-                };
-                (day, time(&parts[0]), time(parts.get(1).unwrap_or(&parts[0])))
-            })
-            .collect()
-    })
+    let v = match serde_json::from_str::<Value>(json).ok() {
+        Some(v) => v,
+        None => return Vec::new(),
+    };
+    let obj = match v.as_object() {
+        Some(o) => o,
+        None => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for (day, hours) in obj {
+        let hours = match hours.as_str() {
+            Some(h) => h,
+            None => continue,
+        };
+        let parts: Vec<&str> = hours.split('-').collect();
+        let time = |part: &str| -> i64 {
+            let p: Vec<&str> = part.split(':').collect();
+            if p.len() != 2 {
+                return 0;
+            }
+            p[0].parse::<i64>().unwrap_or(0) * 60 + p[1].parse::<i64>().unwrap_or(0)
+        };
+        out.push((day.to_string(), time(&parts[0]), time(parts.get(1).unwrap_or(& parts[0]))));
+    }
+    out
 }
 
 /// Whether the spot is open right now (day of week of the server's clock).
@@ -169,64 +178,66 @@ fn is_open_now(opening_hours: Option<&str>) -> bool {
     let now: DateTime<Utc> = Utc::now();
     let days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     let day_name = days[now.weekday() as usize];
-    match hours.iter().find(|(d, _, _)| d == day_name) {
+    match hours.iter().find(|(d, _, _)| d.as_str() == day_name) {
         Some((_, open, close)) => {
             let current = now.hour() as i64 * 60 + now.minute() as i64;
-            current >= open && current <= close
+            current >= *open && current <= *close
         }
         None => false,
     }
 }
 
-/// The `location` column of `learning_spots` (GEOGRAPHY POINT) → `[lat, lng]`
-/// (PostGIS `ST_AsText` strings + GeoJSON objects).
+/// `to_latlng` — `POINT (lng lat)` text → `[lat, lng]`, GeoJSON object
+/// `coordinates` (`[lng, lat]`) → `[lat, lng]`.
 fn to_latlng(location: Option<&Value>) -> Option<[f64; 2]> {
-    let text = match location {
-        Some(Value::String(s)) => s,
-        Some(v) => v.as_str().or_else(|| {
+    match location {
+        Some(Value::String(s)) => {
+            let text = s.trim();
+            let text = text.trim_start_matches("POINT(").trim_end_matches(')');
+            let tokens: Vec<&str> = text.split(' ').filter(|t| !t.is_empty()).collect();
+            if tokens.len() != 2 {
+                return None;
+            }
+            let lng = tokens[0].parse::<f64>().ok()?;
+            let lat = tokens[1].parse::<f64>().ok()?;
+            Some([lat, lng])
+        }
+        Some(v) => {
             let o = v.as_object()?;
-            o.get("coordinates").and_then(|c| {
-                if let Some(arr) = c.as_array() {
-                    if arr.len() == 2 {
-                        return Some(format!(
-                            "{} {}",
-                            arr[0].as_str()?.to_string(),
-                            arr[1].as_str()?.to_string()
-                        ));
-                    }
+            let coords = o.get("coordinates")?;
+            let mut pairs: Vec<f64> = Vec::new();
+            if let Some(arr) = coords.as_array() {
+                for p in arr.iter().take(2) {
+                    pairs.push(p.as_f64()?);
                 }
-                None
-            })?
-        })?,
-        None => return None,
-    };
-    let text = text.trim().trim_start_matches("POINT(").trim_end_matches(')');
-    let tokens: Vec<&str> = text.split(' ').filter(|t| !t.is_empty()).collect();
-    if tokens.len() != 2 {
-        return None;
+            }
+            if pairs.len() != 2 {
+                return None;
+            }
+            // GeoJSON is [lng, lat].
+            Some([pairs[1], pairs[0]])
+        }
+        None => None,
     }
-    let lng = tokens[0].parse::<f64>().ok()?;
-    let lat = tokens[1].parse::<f64>().ok()?;
-    Some([lat, lng])
 }
 
-fn spot_to_json(row: &sqlx::PgRow) -> Value {
+fn spot_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "name": row.get::<String>("name"),
-        "type": row.get::<Option<String>, _>("type"),
-        "address": row.get::<Option<String>, _>("address"),
-        "description": row.get::<Option<String>, _>("description"),
-        "has_wifi": row.get::<bool>("has_wifi"),
-        "has_power_outlets": row.get::<bool>("has_power_outlets"),
-        "quietness": row.get::<Option<i64>, _>("quietness"),
-        "opening_hours": row.get::<Option<String>, _>("opening_hours"),
-        "amenities": row.get::<Option<String>, _>("amenities"),
-        "rating_avg": row.get::<f64>("rating_avg"),
-        "total_capacity": row.get::<i64>("total_capacity"),
-        "location": point_to_geojson(row.get::<Option<String>, _>("location_point").as_deref()),
-        "created_at": row.get::<Option<String>, _>("created_at"),
-        "last_updated": row.get::<Option<String>, _>("last_updated"),
+        "id": row.get::<String, &str>("id"),
+        "name": row.get::<String, &str>("name"),
+        "type": row.get::<Option<String>, &str>("type"),
+        "address": row.get::<Option<String>, &str>("address"),
+        "description": row.get::<Option<String>, &str>("description"),
+        "has_wifi": row.get::<bool, &str>("has_wifi"),
+        "has_power_outlets": row.get::<bool, &str>("has_power_outlets"),
+        "quietness": row.get::<Option<i64>, &str>("quietness"),
+        "opening_hours": row.get::<Option<String>, &str>("opening_hours"),
+        "amenities": row.get::<Option<String>, &str>("amenities"),
+        "rating_avg": row.get::<f64, &str>("rating_avg"),
+        "total_capacity": row.get::<i64, &str>("total_capacity"),
+        "location": point_to_geojson(row.get::<Option<String>, &str>("location_point").as_deref()),
+        "created_at": row.get::<Option<String>, &str>("created_at"),
+        "last_updated": row.get::<Option<String>, &str>("last_updated"),
     })
 }
 
@@ -237,6 +248,8 @@ fn spot_to_json(row: &sqlx::PgRow) -> Value {
 const DEFAULT_WEIGHTS: [f64; 6] = [0.35, 0.20, 0.10, 0.15, 0.10, 0.10];
 
 /// `[distance, rating, wifi, quietness, open_now, capacity]`.
+/// Các trường này không đọc (cấu hình trọng số `DEFAULT_WEIGHTS` lấy từ chỉ mục).
+#[allow(dead_code)]
 struct Criterion {
     distance: f64,
     rating: f64,
@@ -246,7 +259,7 @@ struct Criterion {
     capacity: f64,
 }
 
-fn criterion_label(key: &str) -> &'static str {
+fn criterion_label<'a>(key: &'a str) -> &'a str {
     match key {
         "distance" => "gần",
         "rating" => "đánh giá",
@@ -290,7 +303,7 @@ fn score_spot(spot: &Value, user_lat: f64, user_lng: f64, radius_km: f64) -> (Va
     ];
     let ll = to_latlng(spot.get("location"));
     let (spot_lat, spot_lng) = match ll {
-        Some(v) => v,
+        Some(v) => (v[0], v[1]),
         None => (user_lat, user_lng),
     };
     let distance_km = if ll.is_some() {
@@ -331,18 +344,19 @@ fn score_spot(spot: &Value, user_lat: f64, user_lng: f64, radius_km: f64) -> (Va
         + capacity_norm * weighted[5];
     let score = (score * 100.0).round() / 100.0;
 
-    let top = [
+    let mut top: Vec<String> = Vec::new();
+    for (v, k) in [
         (distance_norm, "distance"),
         (rating_norm, "rating"),
         (wifi_norm, "wifi"),
         (quietness_norm, "quietness"),
         (open_norm, "open_now"),
         (capacity_norm, "capacity"),
-    ]
-    .iter()
-    .filter(|(v, _)| **v > 0.0)
-    .map(|(_, k)| criterion_label(k).to_string())
-    .collect::<Vec<_>>();
+    ] {
+        if v > 0.0 {
+            top.push(criterion_label(k).to_string());
+        }
+    }
 
     (
         serde_json::json!({
@@ -368,16 +382,6 @@ fn score_spot(spot: &Value, user_lat: f64, user_lng: f64, radius_km: f64) -> (Va
 // Guards
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: các endpoint đọc là public, các handler create
-/// pull JWT ra khỏi extensions và trả `401` khi JWT thiếu.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -449,8 +453,8 @@ pub async fn get_availability(
                 "available"
             };
             Ok(Json(ApiResponse::ok(serde_json::json!({
-                "spot_id": r.get::<String>("id"),
-                "spot_name": r.get::<String>("name"),
+                "spot_id": r.get::<String, &str>("id"),
+                "spot_name": r.get::<String, &str>("name"),
                 "total_capacity": total_capacity,
                 "current_occupancy": current_occupancy,
                 "available_seats": available_seats,
@@ -476,7 +480,7 @@ pub async fn recommend_spots(
     let lng = q.lng.unwrap_or(106.66);
     let radius_m = q.radius.unwrap_or(5000.0);
     let radius_km = radius_m / 1000.0;
-    let limit = q.limit.unwrap_or("20").parse::<i64>().unwrap_or(20).max(1).min(100);
+    let limit = q.limit.unwrap_or_else(|| "20".to_string()).parse::<i64>().unwrap_or(20).max(1).min(100);
 
     // Trọng số: mặc định + override (chuẩn hóa khi tổng khác 1).
     let mut w: Vec<(String, f64)> = vec![
@@ -520,10 +524,10 @@ pub async fn recommend_spots(
     let mut scored: Vec<Value> = Vec::new();
     for r in &rows {
         let s = spot_to_json(&r);
-        if to_latlng(s.get("location")).is_none() {
+        let Some(ll) = to_latlng(s.get("location")) else {
             continue;
-        }
-        let (spot_lat, spot_lng) = to_latlng(s.get("location")).unwrap();
+        };
+        let [spot_lat, spot_lng] = ll;
         let dist_m = haversine_km(lat, lng, spot_lat, spot_lng) * 1000.0;
         if dist_m > radius_m {
             continue;
@@ -634,10 +638,10 @@ pub async fn explain_spot(
 /// phòng học...) — JWT.
 pub async fn create_spot(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateSpotForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.name.trim().is_empty() {
         return Err(AppError::BadRequest(
@@ -658,7 +662,7 @@ pub async fn create_spot(
         .bind(form.opening_hours.as_deref())
         .bind(form.amenities.as_deref())
         .bind(form.rating_avg)
-        .bind(form.total_capacity.as_deref().and_then(|v| v.trim().parse::<i64>().ok()).unwrap_or(50))
+        .bind(form.total_capacity.unwrap_or(50))
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -674,6 +678,7 @@ pub async fn create_spot(
 // Helpers
 // ---------------------------------------------------------------------------
 
+#[allow(non_snake_case)]
 fn Boolean(v: Option<&Value>) -> bool {
     match v {
         Some(Value::Bool(b)) => *b,

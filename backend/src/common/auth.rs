@@ -4,10 +4,13 @@
 //! decodes it, and merges the claims (`id / email / role`) into the request
 //! extensions so handlers can read them (`user.id`, `user.role`).
 use axum::body::Body;
+use axum::extract::Extension;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::Response;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sha2::{Sha256, Digest};
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -19,7 +22,11 @@ type ServiceRequest = axum::http::Request<Body>;
 
 /// A boxed future whose output mirrors the wrapped service's `Response`/`Error`
 /// (the middleware must answer for whatever the inner service answers).
-type BoxFuture<S, E> = Pin<Box<dyn std::future::Future<Output = Result<S, E>> + Send>>;
+///
+/// The inner service is moved into the async block, so the boxed future is
+/// `'static`: nothing borrows from the middleware outlives the reply.
+type BoxFuture<S, E> =
+    Pin<Box<dyn std::future::Future<Output = Result<S, E>> + Send + 'static>>;
 
 /// JWT claims — the same shape as the NestJS `passport-jwt` strategy.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -299,16 +306,35 @@ pub fn is_public_path(path: &str) -> bool {
     PUBLIC_PATHS.iter().any(|pattern| path_matches(pattern, path))
 }
 
+/// Does a request `path` match one of the `PUBLIC_PATHS` entries?
+///
+/// Plain segments must be equal, `:param` matches any single segment and a
+/// catch-all (`*rest` or `{*rest}`) matches **everything that follows**, so a
+/// single entry covers deep URLs like `/api/ai/knowledge/query` or
+/// `/api/ai/auto/impact-measurement/dong_nai`.
 fn path_matches(pattern: &str, path: &str) -> bool {
     let p_parts: Vec<&str> = pattern.split('/').collect();
     let q_parts: Vec<&str> = path.split('/').collect();
-    if p_parts.len() != q_parts.len() {
+
+    for (index, p) in p_parts.iter().enumerate() {
+        let q = match q_parts.get(index) {
+            Some(q) => *q,
+            None => return false, // the path is shorter than the pattern
+        };
+        // Strip `{...}` so `{*rest}` and `*rest` are handled identically.
+        let p = p.strip_prefix('{').unwrap_or(p).trim_end_matches('}');
+        if p.starts_with('*') {
+            return q_parts.len() >= index + 1;
+        }
+        if p == q || p.starts_with(':') {
+            continue;
+        }
         return false;
     }
-    p_parts
-        .iter()
-        .zip(q_parts.iter())
-        .all(|(p, q)| *p == *q || p.starts_with(':'))
+
+    // The pattern ran out: the path may not have more segments than it (a
+    // catch-all already returned early).
+    p_parts.len() == q_parts.len()
 }
 
 /// Axum middleware: decodes the Bearer JWT and attaches the user to the request.
@@ -327,14 +353,12 @@ impl<S> Layer<S> for AuthLayer {
 /// `Router`, which is `Arc`-based and thus `Clone` already; the inner service
 /// is shared by reference).
 #[derive(Clone)]
-struct AuthService<S>(S);
+pub struct AuthService<S>(S);
 
 impl<S> Service<ServiceRequest> for AuthService<S>
 where
-    /* `Route` (the router's inner service): `Response = Response<Body>` and a
-    healthy `Service<Request>` never errors (`Infallible`). */
     S: Service<ServiceRequest, Response = Response<Body>, Error = Infallible>
-        + Send + Sync + 'static,
+        + Clone + Send + Sync + 'static,
     S::Future: Send + 'static,
 {
     type Response = S::Response;
@@ -357,6 +381,11 @@ where
             Ok(None)
         };
 
+        // The boxed future must be `'static`, so the inner service is cloned
+        // and moved into it — `self.0` can't be borrowed out of `&mut self`
+        // for the lifetime of the future.
+        let mut svc = self.0.clone();
+
         Box::pin(async move {
             let user = match maybe_user {
                 Ok(u) => u,
@@ -373,7 +402,7 @@ where
             if let Some(u) = user {
                 req.extensions_mut().insert(u);
             }
-            self.0.call(req).await.map_err(|e| e.into())
+            svc.call(req).await.map_err(|e| e.into())
         })
     }
 }
@@ -412,13 +441,15 @@ fn decode_user(req: &ServiceRequest) -> Result<Option<AuthUser>, String> {
 }
 
 /// Reads the decoded user from the request (401 when absent).
-pub fn authenticated_user(req: &ServiceRequest) -> Result<AuthUser, crate::common::error::AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            crate::common::error::AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
+pub fn authenticated_user(user: Option<Extension<AuthUser>>) -> Result<AuthUser, crate::common::error::AppError> {
+    Ok(user.map(|u| u.0).ok_or_else(|| {
+        crate::common::error::AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
+    })?)
+}
+
+/// Reads the decoded user from the request (None when absent).
+pub fn optional_user(user: Option<Extension<AuthUser>>) -> Result<Option<AuthUser>, crate::common::error::AppError> {
+    Ok(user.map(|u| u.0))
 }
 
 /// Rejects anyone who is not ADMIN/MODERATOR.
@@ -429,4 +460,47 @@ pub fn ensure_admin(user: &AuthUser) -> Result<(), crate::common::error::AppErro
         ));
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// JWT keys (the old backend signed/verified with a single `JWT_SECRET`).
+// ---------------------------------------------------------------------------
+
+/// The secret used to *encode* both access and refresh tokens.
+pub static JWT_ENCODING_KEY: Lazy<jsonwebtoken::EncodingKey> =
+    Lazy::new(|| jsonwebtoken::EncodingKey::from_secret(crate::config::JWT_SECRET.as_bytes()));
+
+/// The secret used to *encode* refresh tokens (a separate handle on the same
+/// secret so the two token types keep distinct headers).
+pub static JWT_REFRESH_ENCODING_KEY: Lazy<jsonwebtoken::EncodingKey> =
+    Lazy::new(|| jsonwebtoken::EncodingKey::from_secret(crate::config::JWT_SECRET.as_bytes()));
+
+/// The shared secret *decoded* key (checksum verification uses the same key
+/// pair because the new backend uses `HS256`).
+pub static JWT_DECODING_KEY: Lazy<jsonwebtoken::DecodingKey> =
+    Lazy::new(|| jsonwebtoken::DecodingKey::from_secret(crate::config::JWT_SECRET.as_bytes()));
+
+/// A base32-safe secret string (32 chars, RFC 4648: `A-Z2-7`) used by the 2FA
+/// setup flow — the old backend used `totp-rs`'s `Secret` option.
+pub fn generate_totp_secret() -> String {
+    // Only base32-uppercase characters (`A-Z`, `2-7`), no `I/O/1/0` confusion.
+    let mut out = String::with_capacity(32);
+    let mut state: u64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("time went backwards")
+        .as_nanos() as u64;
+    for _ in 0..32 {
+        state ^= state.wrapping_shl(13).wrapping_mul(7).wrapping_add(13);
+        let c = (state & 0x1f) as u8;
+        let c = if c < 26 { b'A' + c } else { b'2' + c - 26 };
+        state ^= state >> 7;
+        out.push(c as char);
+    }
+    out
+}
+
+/// SHA-256 hash of a refresh token (the old backend's `hashRefreshToken`),
+/// written into `user_refresh_tokens.token_hash`.
+pub fn hash_refresh_token(token: &str) -> String {
+    format!("{:x}", Sha256::digest(token.as_bytes()))
 }

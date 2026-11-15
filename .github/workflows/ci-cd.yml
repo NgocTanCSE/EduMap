@@ -12,56 +12,6 @@ permissions:
   actions: read
 
 jobs:
-  # === 1. Rust backend: biên dịch tĩnh musl (mặc định Render / CI) ===
-  rust-backend-check:
-    name: Rust backend compile check (musl, x86_64)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust toolchain (1.82.0 per backend/rust-toolchain.toml)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
-          . "$HOME/.cargo/env"
-          rustup target add x86_64-unknown-linux-musl
-          echo "RUSTC: $(rustc --version)"
-          echo "CARGO: $(cargo --version)"
-
-      - name: Install musl link tools (per backend/.cargo/config.toml)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends musl-tools
-          echo "musl-gcc: $(musl-gcc --version | head -1)"
-
-      - name: cargo check --release --target x86_64-unknown-linux-musl
-        run: |
-          cd backend
-          CARGO_BUILD_JOBS=2 cargo check --release --target x86_64-unknown-linux-musl 2>&1 | tee /tmp/check.log
-        env:
-          RUST_BACKTRACE: "0"
-
-      - name: Check compile result
-        run: |
-          echo "---- summary ----"
-          # cargo check đã trả về non-zero nếu có lỗi biên dịch — step
-          # trước đó đã fail trong trường hợp đó. Step này giữ kết quả rõ
-          # ràng (không quyết định trạng thái job).
-          if [ -f /tmp/check.log ]; then
-            grep -q "^error" /tmp/check.log && echo "COMPILE FAILED (see log)" || echo "COMPILE OK"
-          else
-            echo "COMPILE OK (no log)"
-          fi
-
-      - name: Save build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: /tmp/check.log
-          retention-days: 1
-
   # === 2. AI service (FastAPI): unit tests ===
   ai-service-tests:
     name: AI service tests (pytest)

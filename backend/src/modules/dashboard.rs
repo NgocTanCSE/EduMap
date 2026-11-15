@@ -5,14 +5,13 @@
 //! `dashboard.service.ts`. Ba endpoint đầu cần JWT (class-level
 //! `@UseGuards(JwtAuthGuard)`); `stats` dành riêng cho admin/moderator.
 
-use crate::common::auth::{ensure_admin, authenticated_user};
+use crate::common::auth::{AuthUser, authenticated_user, ensure_admin};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::State;
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, State};
 use axum::Json;
 use serde_json::Value;
 
@@ -120,9 +119,9 @@ fn today_midnight() -> String {
 /// `GET /api/dashboard/overview` — tổng quan cá nhân hoá cho người dùng.
 pub async fn get_overview(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let today = today_midnight();
 
     let row = sqlx::query(DB_DASHBOARD_OVERVIEW)
@@ -133,7 +132,7 @@ pub async fn get_overview(
         .map_err(|e| AppError::Internal(format!("failed to load dashboard: {e}")))?;
 
     let parse_opt = |row: &sqlx::postgres::PgRow, key: &str| -> Option<Value> {
-        row.get::<Option<String>>(key).and_then(|s| serde_json::from_str(&s).ok())
+        row.get::<Option<String>, &str>(key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
     };
 
     let result = serde_json::json!({
@@ -149,9 +148,9 @@ pub async fn get_overview(
 /// Khi ai-service không phản hồi, trả về mẫu fallback để không 502.
 pub async fn get_daily_insight(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let today = today_midnight();
 
     let row = sqlx::query(DB_DASHBOARD_OVERVIEW)
@@ -162,7 +161,7 @@ pub async fn get_daily_insight(
         .map_err(|e| AppError::Internal(format!("failed to load dashboard: {e}")))?;
 
     let parse_opt = |key: &str| -> Option<Value> {
-        row.get::<Option<String>>(key).and_then(|s| serde_json::from_str(&s).ok())
+        row.get::<Option<String>, &str>(key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
     };
 
     let payload = serde_json::json!({
@@ -186,9 +185,9 @@ pub async fn get_daily_insight(
 // intern, scholarship, summer).
 pub async fn get_history(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_DASHBOARD_HISTORY)
         .bind(user.id.as_str())
@@ -198,10 +197,10 @@ pub async fn get_history(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "type": row.get::<String>("type"),
-            "title": row.get::<Option<String>>("title"),
-            "status": row.get::<Option<String>>("status"),
-            "created_at": row.get::<Option<String>>("created_at"),
+            "type": row.get::<String, &str>("type"),
+            "title": row.get::<Option<String>, &str>("title"),
+            "status": row.get::<Option<String>, &str>("status"),
+            "created_at": row.get::<Option<String>, &str>("created_at"),
         })
     }).collect();
 
@@ -212,42 +211,42 @@ pub async fn get_history(
 // giáo dục (chỉ admin/moderator).
 pub async fn get_stats(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let user_count = sqlx::query(DB_STATS_USERS)
         .fetch_one(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
-        .get::<i64>("c");
+        .get::<i64, &str>("c");
     let event_count = sqlx::query(DB_STATS_EVENTS)
         .fetch_one(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
-        .get::<i64>("c");
+        .get::<i64, &str>("c");
 
     let roles: Vec<Value> = sqlx::query(DB_STATS_ROLES)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "role": row.get::<String>("role"), "count": row.get::<i64>("c") })
+            serde_json::json!({ "role": row.get::<String, &str>("role"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let trend: Vec<Value> = sqlx::query(DB_STATS_TREND)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "month": row.get::<Option<String>>("month"), "count": row.get::<i64>("c") })
+            serde_json::json!({ "month": row.get::<Option<String>, &str>("month"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let top_events: Vec<Value> = sqlx::query(DB_STATS_TOP_EVENTS)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "type": row.get::<Option<String>>("type"), "count": row.get::<i64>("c") })
+            serde_json::json!({ "type": row.get::<Option<String>, &str>("type"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let education: Vec<Value> = sqlx::query(DB_STATS_EDUCATION)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({
-                "metric_type": row.get::<Option<String>>("metric_type"),
-                "metric_value": row.get::<Option<String>>("metric_value"),
+                "metric_type": row.get::<Option<String>, &str>("metric_type"),
+                "metric_value": row.get::<Option<String>, &str>("metric_value"),
             })
         }).collect();
 
@@ -255,9 +254,9 @@ pub async fn get_stats(
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({
-                "lat": row.get::<f64>("lat"),
-                "lng": row.get::<f64>("lng"),
-                "category": row.get::<Option<i64>>("category"),
+                "lat": row.get::<f64, &str>("lat"),
+                "lng": row.get::<f64, &str>("lng"),
+                "category": row.get::<Option<i64>, &str>("category"),
                 "intensity": 0.8f64,
             })
         }).collect();

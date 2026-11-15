@@ -323,7 +323,7 @@ children.push(
   dash('Cố vấn, Chuyên gia (Mentor)', 'Cấu hình lịch rảnh định kỳ, xác nhận lịch hẹn tư vấn, tham gia phòng họp trực tuyến WebRTC Jitsi Meet và quản lý hồ sơ chuyên môn.'),
   dash('Doanh nghiệp, Đối tác (Business/Employer)', 'Đăng tin tuyển dụng thực tập, việc làm, quản lý gian hàng tài liệu học tập và xử lý đơn hàng.'),
   dash('Quản trị viên (Admin/Moderator)', 'Quản lý tài khoản, cấu hình phân quyền RBAC, kiểm duyệt nội dung tự động kết hợp xử lý thủ công và thống kê dữ liệu toàn tỉnh.'),
-  dash('Tác nhân ngoại vi (Gateways & AI Engine)', 'Cổng thanh toán điện tử (VNPay/MoMo) xử lý giao dịch ký quỹ; Google Gemini AI cung cấp suy luận RAG và kiểm duyệt ngữ nghĩa.'),
+  dash('Tác nhân ngoại vi (Gateways & AI Engine)', 'Cổng thanh toán điện tử (VNPay/MoMo) xử lý giao dịch ký quỹ; Nhà cung cấp LLM cung cấp suy luận RAG và kiểm duyệt ngữ nghĩa.'),
   createSizedImage('UML_usecase-overall.png', 570, 480),
   figCaption('Hình 2.1', 'Sơ đồ Ca sử dụng Tổng quan Hệ sinh thái EduMap'),
 
@@ -363,7 +363,7 @@ children.push(
       new TextRun({ text: 'Bảng 2.3: Đặc tả ca sử dụng UC04 - Chat hỏi đáp và tư vấn với Trợ lý AI RAG', font: FONT, size: 24, bold: true, color: COLOR_BLACK }),
     ],
   }),
-  createUseCaseSpecTable({"id":"UC04","name":"Chat Hỏi đáp Tri thức & Tư vấn Tuyển sinh với Trợ lý AI","package":"Phân hệ 2: Trợ lý AI & Hướng nghiệp (MOD-AI)","primaryActor":"Học sinh / Sinh viên (Student), Phụ huynh","secondaryActors":"Vi dịch vụ AI (FastAPI), Kho Vector RAG (ChromaDB), Google Gemini 1.5 Flash API","description":"Cung cấp kênh tư vấn tự động 24/7, tiếp nhận câu hỏi tự nhiên về quy chế tuyển sinh, chương trình đào tạo, cơ hội học bổng và thủ tục nhập học; truy xuất tài liệu chính thống và tổng hợp câu trả lời chuẩn xác kèm trích dẫn nguồn.","preconditions":"Hệ thống Backend NestJS và Vi dịch vụ AI FastAPI đang hoạt động bình thường.","postconditions":"Câu trả lời được sinh tự động, hiển thị theo luồng thời gian thực (Streaming) và lưu vết vào lịch sử hội thoại.","mainFlow":["1. Người dùng mở cửa sổ Trợ lý AI trên giao diện Web hoặc Mobile.","2. Người dùng nhập câu hỏi (ví dụ: \"Hồ sơ xét tuyển học bổng Đại học Đồng Nai cần những giấy tờ gì?\") và bấm Gửi.","3. Client gửi tin nhắn qua WebSocket/RESTful API tới Backend NestJS.","4. Backend chuyển tiếp câu hỏi sang Vi dịch vụ AI FastAPI.","5. AI Service tiến hành chuẩn hóa văn bản và tạo vector nhúng (Embedding) bằng mô hình text-embedding-004.","6. AI Service truy vấn kho vector ChromaDB để tìm top 3 đoạn văn bản liên quan nhất dựa trên khoảng cách Cosine Similarity.","7. AI Service tổng hợp ngữ cảnh (Context) cùng câu hỏi ban đầu thành Prompt hoàn chỉnh.","8. AI Service gọi Google Gemini 1.5 Flash API sinh câu trả lời theo kỹ thuật RAG.","9. Câu trả lời được kiểm duyệt an toàn ngữ nghĩa và đẩy về Client theo dạng luồng ký tự (Server-Sent Events).","10. Người dùng nhận câu trả lời kèm đường dẫn tham chiếu đến văn bản nguồn."],"altFlow":["- 2a. Người dùng nhập câu hỏi vi phạm tiêu chuẩn cộng đồng (từ ngữ thô tục, bạo lực): Bộ lọc kiểm duyệt tự động từ chối xử lý và hiển thị thông báo nhắc nhở chuẩn mực giao tiếp.","- 8a. Google Gemini API gặp sự cố quá tải hoặc mất mạng: Hệ thống tự động chuyển sang cơ chế Fallback, lấy câu trả lời mẫu có sẵn từ bộ nhớ đệm Redis Cache cho các câu hỏi phổ biến."]}),
+  createUseCaseSpecTable({"id":"UC04","name":"Chat Hỏi đáp Tri thức & Tư vấn Tuyển sinh với Trợ lý AI","package":"Phân hệ 2: Trợ lý AI & Hướng nghiệp (MOD-AI)","primaryActor":"Học sinh / Sinh viên (Student), Phụ huynh","secondaryActors":"Vi dịch vụ AI (FastAPI), Kho Vector RAG (ChromaDB), API LLM","description":"Cung cấp kênh tư vấn tự động 24/7, tiếp nhận câu hỏi tự nhiên về quy chế tuyển sinh, chương trình đào tạo, cơ hội học bổng và thủ tục nhập học; truy xuất tài liệu chính thống và tổng hợp câu trả lời chuẩn xác kèm trích dẫn nguồn.","preconditions":"Hệ thống Backend NestJS và Vi dịch vụ AI FastAPI đang hoạt động bình thường.","postconditions":"Câu trả lời được sinh tự động, hiển thị theo luồng thời gian thực (Streaming) và lưu vết vào lịch sử hội thoại.","mainFlow":["1. Người dùng mở cửa sổ Trợ lý AI trên giao diện Web hoặc Mobile.","2. Người dùng nhập câu hỏi (ví dụ: \"Hồ sơ xét tuyển học bổng Đại học Đồng Nai cần những giấy tờ gì?\") và bấm Gửi.","3. Client gửi tin nhắn qua WebSocket/RESTful API tới Backend NestJS.","4. Backend chuyển tiếp câu hỏi sang Vi dịch vụ AI FastAPI.","5. AI Service tiến hành chuẩn hóa văn bản và tạo vector nhúng (Embedding) bằng mô hình embedding.","6. AI Service truy vấn kho vector ChromaDB để tìm top 3 đoạn văn bản liên quan nhất dựa trên khoảng cách Cosine Similarity.","7. AI Service tổng hợp ngữ cảnh (Context) cùng câu hỏi ban đầu thành Prompt hoàn chỉnh.","8. AI Service gọi API LLM sinh câu trả lời theo kỹ thuật RAG.","9. Câu trả lời được kiểm duyệt an toàn ngữ nghĩa và đẩy về Client theo dạng luồng ký tự (Server-Sent Events).","10. Người dùng nhận câu trả lời kèm đường dẫn tham chiếu đến văn bản nguồn."],"altFlow":["- 2a. Người dùng nhập câu hỏi vi phạm tiêu chuẩn cộng đồng (từ ngữ thô tục, bạo lực): Bộ lọc kiểm duyệt tự động từ chối xử lý và hiển thị thông báo nhắc nhở chuẩn mực giao tiếp.","- 8a. API LLM gặp sự cố quá tải hoặc mất mạng: Hệ thống tự động chuyển sang cơ chế Fallback, lấy câu trả lời mẫu có sẵn từ bộ nhớ đệm Redis Cache cho các câu hỏi phổ biến."]}),
 
   h3('c. Đặc tả Ca sử dụng UC07: Đặt lịch hẹn cố vấn học tập 1-1 & Ký quỹ'),
   new Paragraph({
@@ -393,7 +393,7 @@ children.push(
       new TextRun({ text: 'Bảng 2.6: Đặc tả ca sử dụng UC15 - Đăng thảo luận và kiểm duyệt bài viết 2 tầng', font: FONT, size: 24, bold: true, color: COLOR_BLACK }),
     ],
   }),
-  createUseCaseSpecTable({"id":"UC15","name":"Đăng Thảo luận & Tương tác Bài viết Cộng đồng Học tập","package":"Phân hệ 5: Sàn Giáo dục & Cộng đồng (MOD-COMMUNITY)","primaryActor":"Toàn bộ Người dùng đã đăng nhập (Student, Mentor, Teacher)","secondaryActors":"Động cơ Kiểm duyệt Tự động AI (Gemini Safety Filter), Ban Quản trị viên","description":"Quy trình người dùng chia sẻ kinh nghiệm học tập, đặt câu hỏi học thuật lên diễn đàn cộng đồng; bài viết được kiểm duyệt tự động trước khi xuất bản rộng rãi.","preconditions":"Người dùng đã đăng nhập và tài khoản ở trạng thái hoạt động bình thường (không bị kỷ luật cấm đăng bài).","postconditions":"Bài viết hợp lệ được hiển thị trên Bảng tin chung; người dùng khác có thể xem, thích và bình luận.","mainFlow":["1. Người dùng chọn nhóm thảo luận hoặc bảng tin cộng đồng, bấm \"Tạo bài viết mới\".","2. Người dùng nhập tiêu đề, nội dung văn bản, gắn nhãn chủ đề (Tag) và đính kèm tệp ảnh/tài liệu.","3. Người dùng bấm nút \"Đăng bài\".","4. Backend tiếp nhận bài viết và kích hoạt luồng Kiểm duyệt 2 tầng (Two-Tier Moderation).","5. Tầng 1 (Regex Blacklist): Hệ thống quét nhanh các từ khóa tục tĩu, vi phạm thuần phong mỹ tục.","6. Tầng 2 (AI Semantic Analysis): Hệ thống gọi mô hình phân tích ngữ nghĩa để phát hiện nội dung thù ghét, tin giả.","7. Nếu bài viết đạt chuẩn an toàn: Hệ thống lưu bài viết với trạng thái APPROVED.","8. Bài viết xuất hiện tức thì trên Bảng tin công khai; hệ thống gửi thông báo WebSocket tới các thành viên theo dõi nhóm.","9. Người dùng khác có thể tương tác: Thả tim, Bình luận, Chia sẻ tài liệu."],"altFlow":["- 5a/6a. Bài viết chứa từ ngữ vi phạm hoặc AI đánh giá độc hại vượt ngưỡng: Hệ thống tự động chuyển bài viết sang trạng thái PENDING_REVIEW.","- 6b. Bài viết bị giữ lại kiểm duyệt: Hệ thống gửi thông báo cho tác giả \"Bài viết đang được Ban quản trị duyệt thủ công\" và đẩy vào hàng đợi của Admin Dashboard."]}),
+  createUseCaseSpecTable({"id":"UC15","name":"Đăng Thảo luận & Tương tác Bài viết Cộng đồng Học tập","package":"Phân hệ 5: Sàn Giáo dục & Cộng đồng (MOD-COMMUNITY)","primaryActor":"Toàn bộ Người dùng đã đăng nhập (Student, Mentor, Teacher)","secondaryActors":"Động cơ Kiểm duyệt Tự động AI (Bộ lọc an toàn AI), Ban Quản trị viên","description":"Quy trình người dùng chia sẻ kinh nghiệm học tập, đặt câu hỏi học thuật lên diễn đàn cộng đồng; bài viết được kiểm duyệt tự động trước khi xuất bản rộng rãi.","preconditions":"Người dùng đã đăng nhập và tài khoản ở trạng thái hoạt động bình thường (không bị kỷ luật cấm đăng bài).","postconditions":"Bài viết hợp lệ được hiển thị trên Bảng tin chung; người dùng khác có thể xem, thích và bình luận.","mainFlow":["1. Người dùng chọn nhóm thảo luận hoặc bảng tin cộng đồng, bấm \"Tạo bài viết mới\".","2. Người dùng nhập tiêu đề, nội dung văn bản, gắn nhãn chủ đề (Tag) và đính kèm tệp ảnh/tài liệu.","3. Người dùng bấm nút \"Đăng bài\".","4. Backend tiếp nhận bài viết và kích hoạt luồng Kiểm duyệt 2 tầng (Two-Tier Moderation).","5. Tầng 1 (Regex Blacklist): Hệ thống quét nhanh các từ khóa tục tĩu, vi phạm thuần phong mỹ tục.","6. Tầng 2 (AI Semantic Analysis): Hệ thống gọi mô hình phân tích ngữ nghĩa để phát hiện nội dung thù ghét, tin giả.","7. Nếu bài viết đạt chuẩn an toàn: Hệ thống lưu bài viết với trạng thái APPROVED.","8. Bài viết xuất hiện tức thì trên Bảng tin công khai; hệ thống gửi thông báo WebSocket tới các thành viên theo dõi nhóm.","9. Người dùng khác có thể tương tác: Thả tim, Bình luận, Chia sẻ tài liệu."],"altFlow":["- 5a/6a. Bài viết chứa từ ngữ vi phạm hoặc AI đánh giá độc hại vượt ngưỡng: Hệ thống tự động chuyển bài viết sang trạng thái PENDING_REVIEW.","- 6b. Bài viết bị giữ lại kiểm duyệt: Hệ thống gửi thông báo cho tác giả \"Bài viết đang được Ban quản trị duyệt thủ công\" và đẩy vào hàng đợi của Admin Dashboard."]}),
 
   h3('f. Đặc tả Ca sử dụng UC17: Quản trị tài khoản người dùng & Phân quyền RBAC'),
   new Paragraph({
@@ -441,7 +441,7 @@ children.push(
   dash('Tầng Cổng Biên (Edge Ingress Tier)', 'Nginx Reverse Proxy đảm nhận cân bằng tải, SSL Termination (Let\'s Encrypt) và tường lửa WAF.'),
   dash('Tầng Ứng dụng Phi trạng thái (Stateless Pods)', 'NestJS Backend Pods (cổng 3000) xử lý nghiệp vụ chính và FastAPI AI Pods (cổng 8000) phụ trách suy luận trí tuệ nhân tạo.'),
   dash('Tầng Dữ liệu Bền vững (Data Tier)', 'PostgreSQL 16 kết hợp PostGIS, Redis 7, MinIO S3 và kho vector ChromaDB.'),
-  dash('Tầng Dịch vụ Đám mây (Cloud Services)', 'Google Gemini API, Cổng thanh toán VNPay/MoMo, Firebase Cloud Messaging (FCM).'),
+  dash('Tầng Dịch vụ Đám mây (Cloud Services)', 'API LLM, Cổng thanh toán VNPay/MoMo, Firebase Cloud Messaging (FCM).'),
   createSizedImage('UML_container-diagram.png', 570, 480),
   figCaption('Hình 2.2', 'Sơ đồ Kiến trúc C4 Mức 2 (Container Diagram) Hệ thống EduMap')
 );
@@ -460,8 +460,8 @@ children.push(
   h1('2.5. Thiết kế Vi dịch vụ Trí tuệ Nhân tạo FastAPI'),
   p('Phân hệ AI Service được xây dựng theo kiến trúc Clean Architecture 3 tầng phục vụ hỏi đáp thông minh và kiểm duyệt tự động:', { firstLine: true }),
   dash('12 APIRouters Chuyên biệt', 'Phân rã chức năng rõ ràng: `/chat`, `/mentor`, `/scholarship`, `/moderation`, `/career`, `/search`, `/predictive`...'),
-  dash('Đường ống RAG và Bộ đệm Hai cấp', 'Kiểm tra Semantic Cache trên Redis; nếu không có sẽ truy vấn kho vector ChromaDB bằng Cosine Similarity để trích xuất 3 đoạn ngữ cảnh chuẩn nhồi vào Prompt gọi Gemini 1.5 Flash.'),
-  dash('Kiểm duyệt Nội dung 2 Tầng', 'Tầng 1 Regex quét từ cấm nhanh (<5ms) kết hợp Tầng 2 phân tích ngữ nghĩa sâu bằng mô hình Gemini.'),
+  dash('Đường ống RAG và Bộ đệm Hai cấp', 'Kiểm tra Semantic Cache trên Redis; nếu không có sẽ truy vấn kho vector ChromaDB bằng Cosine Similarity để trích xuất 3 đoạn ngữ cảnh chuẩn nhồi vào Prompt gọi LLM.'),
+  dash('Kiểm duyệt Nội dung 2 Tầng', 'Tầng 1 Regex quét từ cấm nhanh (<5ms) kết hợp Tầng 2 phân tích ngữ nghĩa sâu bằng mô hình LLM.'),
   createSizedImage('UML_ai-service-components.png', 570, 460),
   figCaption('Hình 2.4', 'Sơ đồ Kiến trúc Thành phần Vi dịch vụ Trí tuệ Nhân tạo FastAPI')
 );
@@ -483,7 +483,7 @@ children.push(
   dash('Giai đoạn 1 (Multi-Source Crawlers)', 'Thu thập từ dữ liệu đã crawl vào DB (Đông Nai), cổng GD&ĐTĐồng Nai, các điểm Wi-Fi Biên Hòa, không gian xanh và danh mục sách thư viện.'),
   dash('Giai đoạn 2 (Hợp nhất & Lọc trùng)', 'Script `aggregator.py` gắn nhãn nguồn dữ liệu, chuẩn hóa tiếng Việt UTF-8, kiểm tra tọa độ trong hộp bao Đồng Nai `[10.6°N - 11.6°N, 106.7°E - 107.6°E]` và lọc trùng vị trí bán kính ~11 mét.'),
   dash('Giai đoạn 3A (Spatial ETL)', 'Chuyển đổi tọa độ thành PostGIS Point (`ST_SetSRID`), phân mảnh file SQL 30.000 dòng và đánh chỉ mục không gian GiST phục vụ truy vấn bán kính `ST_DWithin`.'),
-  dash('Giai đoạn 3B (Vector Ingestion)', 'Cắt đoạn ngữ nghĩa văn bản, tính toán vector nhúng 768 chiều (`text-embedding-004`) và nạp vào ChromaDB phục vụ Chatbot RAG.'),
+  dash('Giai đoạn 3B (Vector Ingestion)', 'Cắt đoạn ngữ nghĩa văn bản, tính toán vector nhúng 768 chiều (`embedding`) và nạp vào ChromaDB phục vụ Chatbot RAG.'),
   createSizedImage('UML_crawler-gis-pipeline.png', 570, 480),
   figCaption('Hình 2.6', 'Sơ đồ Luồng Hoạt động Pipeline Thu thập Dữ liệu GIS và Nạp Vector')
 );
@@ -517,7 +517,7 @@ children.push(
   p('Luồng hỏi đáp thông minh kết hợp RAG loại bỏ hiện tượng ảo giác ngôn ngữ và cung cấp thông tin chuẩn xác:', { firstLine: true }),
   dash('Tra cứu bộ đệm câu hỏi', 'Băm câu hỏi kiểm tra trên Redis Cache; nếu có trả kết quả ngay với độ trễ dưới 10ms.'),
   dash('Truy xuất ngữ cảnh ChromaDB', 'Trích xuất top 3 đoạn văn bản liên quan nhất từ kho tri thức vector ChromaDB.'),
-  dash('Tăng cường Prompt và gọi LLM', 'Nhồi ngữ cảnh trích xuất vào Prompt gửi tới Gemini 1.5 Flash để sinh câu trả lời tự nhiên, có căn cứ.'),
+  dash('Tăng cường Prompt và gọi LLM', 'Nhồi ngữ cảnh trích xuất vào Prompt gửi tới LLM để sinh câu trả lời tự nhiên, có căn cứ.'),
   dash('Lưu vết lịch sử', 'NestJS ghi nhật ký câu hỏi và câu trả lời vào bảng `chat_histories` trong PostgreSQL.'),
   createSizedImage('UML_seq-ai-chat.png', 570, 480),
   figCaption('Hình 2.9', 'Sơ đồ Tuần tự Luồng Hỏi đáp Trợ lý Ảo RAG AI Chatbot')
@@ -527,7 +527,7 @@ children.push(
   h1('2.11. Thiết kế Luồng Nghiệp vụ Động: Kiểm duyệt Nội dung Cộng đồng 2 Tầng'),
   p('Hệ thống tự động rà soát nội dung bài viết trước khi hiển thị lên bảng tin công cộng:', { firstLine: true }),
   dash('Tầng 1 (Regex & Từ điển từ cấm)', 'Quét nhanh từ ngữ vi phạm nặng và thông tin nhạy cảm trong <5ms; vi phạm lập tức gán trạng thái `AUTO_REJECTED`.'),
-  dash('Tầng 2 (Phân tích ngữ nghĩa Gemini)', 'Đánh giá ngữ cảnh, phát hiện phát ngôn kích động thù hằn hoặc thông tin sai lệch.'),
+  dash('Tầng 2 (Phân tích ngữ nghĩa LLM)', 'Đánh giá ngữ cảnh, phát hiện phát ngôn kích động thù hằn hoặc thông tin sai lệch.'),
   dash('3 Kịch bản quyết định', 'APPROVED (công khai ngay), SEND_TO_HUMAN_REVIEW (chuyển kiểm duyệt viên thủ công) hoặc AUTO_REJECTED (khóa bài và thông báo tác giả).'),
   createSizedImage('UML_seq-community-post.png', 570, 480),
   figCaption('Hình 2.10', 'Sơ đồ Tuần tự Luồng Đăng bài và Kiểm duyệt Nội dung Cộng đồng 2 Tầng')
@@ -593,7 +593,7 @@ children.push(
   dash('Ingress & Cân bằng tải', 'Nginx Ingress Controller phân phối lưu lượng và tự động gia hạn chứng chỉ bảo mật SSL Let\'s Encrypt.'),
   dash('Khối Ứng dụng Co giãn Tự động (HPA)', 'Frontend Pods (Next.js), Backend Pods (NestJS) và AI Service Pods (FastAPI) tự động co giãn từ 2 đến 10 bản sao dựa trên ngưỡng CPU > 70%.'),
   dash('Khối Lưu trữ Có trạng thái (StatefulSets & PVC)', 'PostgreSQL 16 PostGIS, Redis Cluster, MinIO S3 và ChromaDB gắn ổ đĩa phân tán Ceph/EBS qua StorageClass `fast-ssd` bảo toàn dữ liệu.'),
-  dash('Tích hợp Đám mây Ngoại vi', 'Kết nối bảo mật qua Internet tới Gemini API, VNPay, MoMo và Firebase Cloud Messaging.'),
+  dash('Tích hợp Đám mây Ngoại vi', 'Kết nối bảo mật qua Internet tới LLM API, VNPay, MoMo và Firebase Cloud Messaging.'),
   createSizedImage('UML_deployment-diagram.png', 570, 480),
   figCaption('Hình 2.16', 'Sơ đồ Triển khai Hạ tầng Cụm Kubernetes Sản xuất')
 );

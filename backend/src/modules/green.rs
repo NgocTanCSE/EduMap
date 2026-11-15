@@ -17,13 +17,12 @@
 //!
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị cấm).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::State;
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -32,14 +31,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: the read endpoints are public (`PUBLIC_PATHS`), so the
-/// write handlers pull the token themselves and answer `401` without one.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // SQL
@@ -80,32 +71,32 @@ const DB_CREATE_CHALLENGE: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn challenge_to_json(row: &sqlx::PgRow) -> Value {
-    let points: i64 = row.get::<Option<i64>>("points_reward").unwrap_or(0);
+fn challenge_to_json(row: &sqlx::postgres::PgRow) -> Value {
+    let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
     serde_json::json!({
-        "id": row.get::<Option<String>>("id").unwrap_or_default(),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
         "points": points,
         "carbon_saved_kg": (points as f64) * 0.5,
-        "participants_count": row.get::<Option<i64>>("participant_count").unwrap_or(0),
+        "participants_count": row.get::<Option<i64>, &str>("participant_count").unwrap_or(0),
         "image_url": Value::Null,
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
-        "lat": row.get::<Option<f64>>("lat"),
-        "lng": row.get::<Option<f64>>("lng"),
-        "address": row.get::<Option<String>>("address"),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+        "lat": row.get::<Option<f64>, &str>("lat"),
+        "lng": row.get::<Option<f64>, &str>("lng"),
+        "address": row.get::<Option<String>, &str>("address"),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
-fn impact_to_json(row: &sqlx::PgRow) -> Value {
-    let points: i64 = row.get::<Option<i64>>("points_reward").unwrap_or(0);
+fn impact_to_json(row: &sqlx::postgres::PgRow) -> Value {
+    let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
     serde_json::json!({
-        "id": row.get::<Option<String>>("id").unwrap_or_default(),
-        "initiative": row.get::<Option<String>>("title").unwrap_or_default(),
+        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
+        "initiative": row.get::<Option<String>, &str>("title").unwrap_or_default(),
         "carbonSavedKg": (points as f64) * 0.5,
         "date": row
-            .get::<Option<String>>("created_at")
+            .get::<Option<String>, &str>("created_at")
             .unwrap_or_default()
             .split('T')
             .next()
@@ -119,14 +110,14 @@ fn impact_to_json(row: &sqlx::PgRow) -> Value {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ActivityForm {
+pub struct ActivityForm {
     challenge_id: String,
     carbon_saved_kg: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ImpactForm {
+pub struct ImpactForm {
     initiative: String,
     carbon_saved_kg: Option<f64>,
 }
@@ -143,7 +134,7 @@ pub async fn get_all_impacts(State(pool): State<DbPool>) -> Result<Json<ApiRespo
         .map_err(AppError::from)?;
 
     let impacts: Vec<Value> = rows.iter().map(impact_to_json).collect();
-    Ok(Json(ApiResponse::ok(impacts)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(impacts))))
 }
 
 /// `GET /api/green/challenges` — danh sách thử thách đang active, kèm số
@@ -155,17 +146,17 @@ pub async fn get_challenges(State(pool): State<DbPool>) -> Result<Json<ApiRespon
         .map_err(AppError::from)?;
 
     let challenges: Vec<Value> = rows.iter().map(challenge_to_json).collect();
-    Ok(Json(ApiResponse::ok(challenges)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(challenges))))
 }
 
 /// `POST /api/green/activities` — ghi nhận hoạt động tham gia thử thách
 /// Sống Xanh (JWT).
 pub async fn log_activity(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<ActivityForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let carbon = body.carbon_saved_kg.unwrap_or(0.0);
     let points = (carbon * 2.0).round() as i64;
@@ -180,22 +171,22 @@ pub async fn log_activity(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String>("id"),
-        "user_id": row.get::<String>("user_id"),
-        "challenge_id": row.get::<String>("challenge_id"),
-        "carbon_saved_kg": row.get::<Option<f64>>("carbon_saved_kg").unwrap_or(0.0),
-        "points_earned": row.get::<Option<i64>>("points_earned").unwrap_or(0),
-        "created_at": row.get::<String>("created_at"),
+        "id": row.get::<String, &str>("id"),
+        "user_id": row.get::<String, &str>("user_id"),
+        "challenge_id": row.get::<String, &str>("challenge_id"),
+        "carbon_saved_kg": row.get::<Option<f64>, &str>("carbon_saved_kg").unwrap_or(0.0),
+        "points_earned": row.get::<Option<i64>, &str>("points_earned").unwrap_or(0),
+        "created_at": row.get::<String, &str>("created_at"),
     }))))
 }
 
 /// `POST /api/green/impacts` — thêm impact xanh mới (tạo thử thách, JWT).
 pub async fn add_impact(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<ImpactForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let initiative = body.initiative.trim();
     if initiative.is_empty() {

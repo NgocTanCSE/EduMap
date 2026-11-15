@@ -6,11 +6,20 @@
 
 ## 1. Deployment model (IMPORTANT — do not forget)
 >
-> - **Runtime = the user's host, FREE plan, and nowhere else.** The remote
->   container runs the docker-compose stack (`Dockerfile` + `supervisord.conf`,
->   1 vCPU / 16 GB RAM, **ephemeral disk**, **sleeps after idle**, and every
->   restart wipes `/tmp`). There is **no** paid hardware, no persistent
->   volume, no external Postgres/Redis/MinIO/Chroma server.
+> - **Current runtime (2026-11-13) = Render FREE plan, deployed by the user.**
+>   Two image-backed Docker services: `edumap-api` (Rust, port 3000) and
+>   `edumap-ai` (FastAPI, port 8000); the Next.js frontend is on Vercel;
+>   Postgres is Supabase. GitHub Actions `render-deploy.yml` builds both images
+>   on GitHub-hosted runners, pushes them to GHCR, then runs
+>   `render deploys create --image`; Render pulls and runs the image. The Rust
+>   binary is **not** compiled by Render and **not** compiled on the local
+>   machine. The root `Dockerfile` + `docker-compose.yml` is the legacy
+>   single-container path, not the Render deployment path.
+> - **Legacy local/host container reference:** the remote container once ran
+>   the docker-compose stack (`Dockerfile` + `supervisord.conf`, 1 vCPU /
+>   16 GB RAM, **ephemeral disk**, **sleeps after idle**, and every restart
+>   wipes `/tmp`). There is **no** paid hardware, no persistent volume, no
+>   external Postgres/Redis/MinIO/Chroma server.
 > - **Local machine = code editing only.** `/home/ngoctan/Downloads/EduMap`
 >   exists to write code, read code, and run **Python unit tests only**
 >   (`py_compile`, `pytest ai-service/tests`, AST/`grep` inspection). A local
@@ -31,19 +40,15 @@
 >   - Cold start takes tens of seconds → frontends/proxies need retries and
 >     honest loading states; a first-request 503 is a cold start, not a bug.
 >   - No GPU / no bundled models → all AI work goes through remote APIs
->     (DeepSeek → Gemini) with template fallbacks.
+>     (Groq) with template fallbacks; embeddings via Jina.
 >   - Only one container, one public port (3000) → internal services must stay
 >     on 3000/8000 and be reached through the Next.js BFF, never from browsers.
 
-- **Production runs ONLY on the user's host (Docker, free plan).**
-  - Hardware: **free CPU basic** — no GPU, no persistent storage.
-- **Local (`/home/ngoctan/Downloads/EduMap`) is for code editing, unit tests,
-  and inspection only.** Do not treat a local run as the source of truth for
-  runtime behaviour. Validate runtime fixes on the deployed host.
-- Deploy with the user's own tooling (push → host rebuild).
-  > **No deploys from the agent:** there is no deploy script in this environment,
-  > and the repo contains no deploy script. The user (tan) performs the deploy;
-  > the agent only prepares the commit.
+- **Production = the user's Render deployment (free plan).**
+  - The user performs the deploy; the agent never deploys.
+  - Local (`/home/ngoctan/Downloads/EduMap`) is for code editing, Python unit
+    tests, and inspection only. Do not treat a local run as the source of truth
+    for runtime behaviour. Validate runtime fixes on the deployed host.
 - A container restart wipes ephemeral state (`/tmp/chroma_db`, `/tmp/uploads`).
 - **Secrets live in the host → Secret Settings**, not in the repo.
   `.env` is gitignored and is only a local template; an empty key in `.env`
@@ -270,24 +275,24 @@ Multiple standalone pages that share a domain have been consolidated into
 ## 3. AI provider chain
 
 Text generation (`ai-service/services/llm_service.py`):
-`DeepSeek (OpenAI-compatible /chat/completions) → Google Gemini → template fallback`.
-DeepSeek is the primary provider (set `DEEPSEEK_API_KEY` as a host
-secret); Gemini is the first fallback and the one that reliably works on
-the host egress.
-All calls use `curl --ipv4 --insecure` (the host's IPv6/TLS quirk). DeepSeek
-has no embeddings API, so embeddings stay on their own chain below.
+`Groq (OpenAI-compatible /chat/completions) → template fallback`.
+Groq is the only chat provider (set `GROQ_API_KEY` as a host secret); when the
+key is missing or every call fails, every caller falls back to the Vietnamese
+template builders (the API never 502s).
+All calls use `curl --ipv4 --insecure` (the host's IPv6/TLS quirk).
 
 Embeddings (`ai-service/services/vector_store.py`):
-`Gemini → Local SentenceTransformer` (offline fallback).
-(XKIRO, NVIDIA, Kimi, and inference API have been removed as
-text-generation and embedding providers. Gemini TLS is
-blackholed from the host so Gemini is the effective primary.)
+`Jina (POST /embeddings)` — the only embedding provider (set `JINA_API_KEY`).
+Indexing is **batched** (`EMBED_BATCH_SIZE`, default 32 docs per request) and
+query embedding is cached (`EMBED_CACHE_MAX` / `EMBED_CACHE_TTL_SECONDS`).
+Without `JINA_API_KEY`, `get_embedding()` raises, `add_documents()` refuses to
+index (never falls back to ChromaDB's default HuggingFace model), and the
+vector store degrades to query-only.
 
-The local SentenceTransformer fallback (`intfloat/multilingual-e5-small`) and the
-local reranker (`cross-encoder/ms-marco-MiniLM-L6-v2`) were removed 2026-11-08:
-the ai-service run a pure API stack, so RAG semantic search is **unreachable
-without a GEMINI_API_KEY** (the whole vector_store chain raises
-`tbe Embedding service có sẵn` when no API key is present).
+**Removed 2026-11-15:** DeepSeek (out of free tier) and Google Gemini (TLS
+blackholed from the deploy host — unusable in production). No local embedding
+model, no local reranker, no local text model. See
+`tasks/groq-jina-migration.md` for the migration plan.
 
 GeoVision AI — satellite imagery facility detection (Idea #10):
 `ai-service/routers/geo.py` POST `/api/ai/geo/vision-detect`. The external
@@ -348,7 +353,7 @@ currently has no inference provider, so the endpoint always returns
   (`POST /api/ai/language/simplify`, `POST /api/ai/language/translate`,
   `POST /api/ai/language/tts`).
   - Simplify/translate use `_generate_text_with_fallback` cascade
-    (DeepSeek → Google Gemini) with `temperature=0.3`,
+    (Groq) with `temperature=0.3`,
     `max_tokens=2048`, `top_p=0.8`. Template-based fallback ensures the endpoint
     never 502s when all providers are down (on the free tier).
   - Difficulty levels: `elementary` (lớp 1-3), `middle` (THCS, default),
@@ -422,13 +427,15 @@ Rules that must be preserved:
   - `RAG_TIMEOUT_SECONDS` (default 8) — `chat_with_rag*` hard limit.
   - Keep these below the NestJS stream timeout (10s). A slow provider must
     never starve the fallbacks or leave the chat bubble empty.
-  - Gemini is the only embedding provider: no cold-start local model load.
+  - Jina is the only embedding provider: no cold-start local model load.
+  - `EMBED_BATCH_SIZE` (default 32) / `EMBED_BATCH_TIMEOUT_SECONDS` (default 20)
+    bound the seed indexing path; the query path keeps the tight budget above.
 - Provider model slugs and circuit breakers:
-  DeepSeek (`deepseek-chat`/`deepseek-reasoner`, primary) and
-  Google Gemini (`gemini-3.8-flash`, etc.) are the two text-generation
-  providers. Each has a 5-minute circuit breaker after auth (401/403) or
-  network failure. `curl --ipv4 --insecure` is used for all API calls (host
-  Spaces IPv6/TLS quirk).
+  Groq (`openai/gpt-oss-120b`, override with `GROQ_MODEL`, comma-separated
+  list = failover order) is the only text-generation provider. Circuit breaker:
+  5 minutes after auth (401/403), quota (402) or network failure; 60 seconds
+  after a 429. Jina embeddings use the same pattern (`_jina_embed_down_until`).
+  `curl --ipv4 --insecure` is used for all API calls (host Spaces IPv6/TLS quirk).
 - **Local embedding fallback**: `intfloat/multilingual-e5-small` (~270MB,
   ~600MB RAM, 768-dim, Vietnamese support) runs on CPU via `sentence-transformers`.
   Lazy-loaded on first fallback, acts as the **guaranteed offline backup** when
@@ -449,7 +456,7 @@ Rules that must be preserved:
 - **LLM response cache** (new): `_generate_text_with_fallback` now caches
   successful responses by prompt+params hash. 2048 entries × ~1KB avg ≈ 2MB RAM.
   TTL default 24h (`RESPONSE_CACHE_TTL_SECONDS`, configurable). This avoids
-  redundant DeepSeek/Gemini calls for identical prompts (career paths,
+  redundant provider calls for identical prompts (career paths,
   scholarship summaries, mentor matches) — critical for the quota budget.
 - RAG failure must degrade gracefully: answer LLM-only, never crash chat.
 
@@ -483,12 +490,17 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
 ## 5. Environment notes
 
 - **All external API keys are now OPTIONAL.** The app works with zero keys set —
-  the DeepSeek → Gemini cascade degrades to template fallbacks +
-  cached SQLite data when every remote provider is unreachable.
-- `GEMINI_API_KEY` is the host secret (optional).
-- 
-- `GEMINI_MODEL` — Google Gemini text generation model cascade.
-- `HF_EMBEDDING_MODEL` removed — embeddings dùng Gemini API duy nhất.
+  chat degrades to template fallbacks + cached SQLite data, and the vector store
+  degrades to query-only when every remote provider is unreachable.
+- `GROQ_API_KEY` — chat provider (host secret, optional).
+- `GROQ_BASE_URL` (default `https://api.groq.com/openai`), `GROQ_MODEL`
+  (default `openai/gpt-oss-120b`, comma-separated = failover order),
+  `GROQ_TIMEOUT_SECONDS` (default 20).
+- `JINA_API_KEY` — embedding provider (host secret, optional; free key from
+  jina.ai, 10M tokens one-time, 100 RPM / 100k TPM).
+- `JINA_BASE_URL` (default `https://api.jina.ai/v1`),
+  `JINA_EMBEDDING_MODEL` (default `jina-embeddings-v5-text-small`),
+  `JINA_TIMEOUT_SECONDS` (default 20).
 - `CHROMA_DB_PATH=/tmp/chroma_db` (re-seeded at startup by `main.py`).
 - `DB_TYPE=sqlite`, `DB_SQLITE_PATH=/app/frontend/public/edumap.db`.
 - `OWM_API_KEY` — OpenWeatherMap API key (host secret, optional). When set,
@@ -505,9 +517,6 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
   cascade as all other AI features.
 - **No local model env vars** (the local models were deleted on 2026-11-08 — see
   §6.5): `ai-service` runs on remote APIs only:
-  - `DEEPSEEK_API_KEY` — primary text-generation provider (host secret)
-  - `DEEPSEEK_BASE_URL=https://api.deepseek.com`, `DEEPSEEK_MODEL=deepseek-chat,deepseek-reasoner`
-  - `DEEPSEEK_TIMEOUT_SECONDS=20` (wide budget because the reasoner is slow)
   - `OFFLINE_TUTOR_USE_LLM=true` — the Edge AI Tutor calls the shared cascade;
     set `false` to force template-only answers (instant, no network call)
 
@@ -554,8 +563,8 @@ intfloat/multilingual-e5-small (embeddings), cross-encoder/ms-marco-MiniLM-L6-v2
 (numpy)** were deleted along with their loading code, globals, constants and
 the staggered startup warm-up thread. `ai-service` now runs a **pure API stack**:
 
-- Text: `DeepSeek → Google Gemini → template fallback`
-- Embeddings: `Gemini → RuntimeError (RAG returns no
+- Text: `Groq → template fallback`
+- Embeddings: `Jina → RuntimeError (RAG returns no
   results; chat falls back to the LLM)`
 - GeoVision: `degraded = true + empty`
   detections (never 502)`
@@ -603,9 +612,9 @@ outside of `tests/` and `node_modules`).
   - **Total ≈ 7.7GB / 16GB** (within budget with ~8.3GB headroom ✅)
 - **Note on local LLM speed:** Gemma 2B runs on CPU (2 vCPU) at ~2-5 tokens/sec.
   Acceptable for structured generation (career paths, summaries), **not** for
-  long conversational chat. That job now belongs to the DeepSeek → Gemini
-  cascade (remote, fast). The template fallback handles the long-chat case and
-  answers instantly when no provider is reachable.
+  long conversational chat. That job belongs to the Groq cascade (remote,
+  fast). The template fallback handles the long-chat case and answers instantly
+  when no provider is reachable.
 - AI chat history and uploads are ephemeral (`/tmp`).
 - Geo/PostGIS analytics is limited in SQLite mode — there is no `ST_DWithin`,
   `ST_MakePoint` or `::geography`. Query builders MUST branch on
@@ -784,8 +793,7 @@ Startup now flows: frontend (t=0) → backend (t=3) → ai-service (t=8) → OSR
 - `Local Gemma 2B model could not be loaded (… weights not baked)`: Gemma 2B was
   **removed** entirely on 2026-11-08 (all bundled local models were deleted as
   the app moves to API-only). No local text model exists now, so this log
-  message can never appear. The cascade is `DeepSeek → Gemini →
-  template`.
+  message can never appear. The cascade is `Groq → template`.
 - `Local Gemma 2B slow on CPU (_Timeout: generation exceeded 35s)`: CPU-only
   generation of `max_new_tokens=2048` cannot finish in 35 s on 2 vCPU, so
   non-streaming endpoints (`/api/ai/language/simplify`, geo analysis, …) pay
@@ -1005,7 +1013,7 @@ ai-service/main.py startup (daemon thread)
   `AUTO_INTERVALS` (env-tunable), `AUTO_REGIONS` (5 VN regions), `run_once(name)`,
   `get_result(name)`, `health()`, `run_loop()` (daemon). Each task failure is
   **non-fatal** — a degraded result is cached so GET endpoints never 502.
-- **Tasks** use the same `_generate_text_with_fallback` cascade (DeepSeek → Gemini
+- **Tasks** use the same `_generate_text_with_fallback` cascade (Groq
   → local Gemma → template). When all remote providers are down,
   tasks degrade to template/SQLite fallbacks with `degraded=True`.
 - **`AUTO_REGIONS`**: `dong_nai`, `hcmc`, `hanoi`, `danang`, `cantho` (5
@@ -1383,7 +1391,7 @@ reports **all 16 `.rs` files balanced**.
 | Mounted in `router.rs` | 44 mounts, all `.with_state(pool)`. Naming aliases: `donate`→`donation_routes`, `mentor`→`mentoring_routes`; `proxy` is a helper with no routes; `health` mounts as `health` (no `_routes` suffix). |
 | `common/auth.rs::PUBLIC_PATHS` | 221 entries (exhaustive — every route in `router.rs`, so `AuthLayer` never blocks a module that validates the JWT inside the handler) |
 | NestJS TypeScript source | deleted (2026-11-11): 134 `*.controller.ts`/`*.service.ts`/`*.module.ts`/guards/interceptors/pipes/filters + `main.ts`/`app.module.ts`/`common/` TS/`config/` TS/`services/`. Kept as reference: `entities/`, `dto/`, `share/sanitize.service.ts`, TypeORM migrations, `notification.gateway.ts` (socket.io — not yet ported to Rust), `config/optimize_indexes.sql` — **160 file `.ts` reference + `dist/` cleanup 2026-11-13** |
-| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.81-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. New `backend-marker` stage keeps the `osrm-builder` cache-busting signal. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs = 1` (Render build RAM); `CARGO_BUILD_JOBS=1` in `Dockerfile` + `backend/Dockerfile` must match it, else the env var overrides the config and retriggers the 1-vCPU Render OOM (exit 137). |
+| Dockerfile | switched 2026-11-11: `backend-builder` is now `rust:1.96-slim` cross-compiling `x86_64-unknown-linux-musl` (`cargo build --release`); `npx nest build` + `dist`/`node_modules` copy dropped; binary landed at `/app/backend/edumap-backend`. `backend/.cargo/config.toml` sets `musl-gcc` linker + `jobs = 1`; `CARGO_BUILD_JOBS=2` in `backend/Dockerfile` overrides it for the GitHub Actions runner. |
 | `supervisord.conf` | `[program:backend] command=/app/backend/edumap-backend` (comment header updated) |
 | Balance sweep | all 58 `.rs` files OK, brace/paren/bracket balanced (script `/tmp/rust_strip.py`) |
 | Compiled locally | **no** — no `cargo`/`rustc`; the user compiles and deploys |
@@ -1456,17 +1464,15 @@ frontend anymore.
   - Rust string char indexing removed (indexing by `usize` of a `str` panics at runtime); use `[..]`/slices or `char_indices`.
   - Dead imports pruned: `serde_json`, `uuid::Uuid`, `Path` (bookmarks), `AuthUser` (dashboard/crawler/role).
   - Full-static pre-flight: **0** brace-balance failures · **0** `query!` macros · **0** sqlite-legacy markers · **0** `check_oom` anti-patterns · 45 `.with_state(pool)` sub-routers · 288 handler refs / 0 unresolved · 45 modules declared & imported.
-- Dockerfile builds now honor `jobs = 1` (`CARGO_BUILD_JOBS=1` matches `backend/.cargo/config.toml`; the env var overrides the config setting).
+- Dockerfile builds set `CARGO_BUILD_JOBS=2` for the GitHub Actions runner; `backend/.cargo/config.toml` keeps `jobs = 1` as the local default.
 
 **Next steps (user-side):**
 
-1. Compile: `cargo build --release --target x86_64-unknown-linux-musl` runs on
-   GitHub Actions, **not** this machine (no `cargo` here): the new
-   `.github/workflows/backend-build.yml` job (`cargo check` on musl) fails the
-   build on compile errors and logs the failure in the Actions tab. Push to
-   `origin main` to trigger it.
-2. Deploy: the user pushes `HEAD:main` and the host rebuilds the Docker image
-    automatically.
+1. Build: `.github/workflows/render-deploy.yml` runs on GitHub Actions, builds
+   both images, and pushes them to GHCR; a Rust compile error fails the
+   `build-api` job. `cargo check --locked` with 1.96.0 is green (0 errors).
+2. Deploy: the user pushes `main`; Actions builds the images and calls
+   `render deploys create --image`; Render pulls and runs the image.
 3. Verify the boot log: `AI SERVICE READY` for `ai-service`, no `syntax error`
    for `start.sh`, `database pool connected` for the Rust backend, no `503`
    on the first request (cold start).
@@ -1530,13 +1536,14 @@ wired into the frontend. Replaced with:
 
 ### 19.7 Render deployment (free tier) — split services, 2026-11-11
 
-The Rust backend replaced the NestJS one 2026-11-11, so Render must build
-from `backend/Dockerfile` (Rust cross-compile, musl) — the old NestJS Dockerfile
-still referenced in `backend/Dockerfile` was replaced on this date.
+The Rust backend replaced the NestJS one 2026-11-11. As of 2026-11-13 the
+images are built by GitHub Actions, not by Render: Actions builds
+`edumap-api` and `edumap-ai`, pushes both to GHCR, and Render pulls the exact
+image with `render deploys create --image`.
 
-- **Files:** `render.yaml` (Blueprint), `backend/Dockerfile` (Rust),
-  `ai-service/Dockerfile` (Python), `.github/workflows/backend-build.yml`
-  (`cargo check --release --target x86_64-unknown-linux-musl` — compile gate),
+- **Files:** `render.yaml` (Blueprint, `runtime: image`), `backend/Dockerfile`
+  (Rust cross-compile, musl), `ai-service/Dockerfile` (Python),
+  `.github/workflows/render-deploy.yml` (build + push + deploy),
   `docs/RENDER_DEPLOY.md` (manual).
 - **Service env of `edumap-api`:** `BACKEND_PORT=3000` (Rust, not `PORT`/`NODE_ENV`),
   `DB_*` (Supabase session pooler 6543), `JWT_SECRET` (generated),
@@ -1544,12 +1551,40 @@ still referenced in `backend/Dockerfile` was replaced on this date.
   `AI_SERVICE_URL=http://edumap-ai:8000`,
   `ROUTING_SERVICE_URL=https://router.project-osrm.org` (Rust reads this,
   the old NestJS `OSRM_URL` is gone).
-- **Render build context = `rootDir`:** `COPY` paths inside
-  `backend/Dockerfile` are relative to `backend/`.
-- **Build/verify:** push → `backend-build.yml` green → Render Dashboard →
-  Blueprint (autoDeploy) → smoke `./scripts/smoke_render.sh <API_URL> <AI_URL>`.
+- **Image build context:** `docker/build-push-action` uses `context: ./backend`
+  and `context: ./ai-service`; `COPY` paths inside each Dockerfile are relative
+  to that context.
+- **Build/verify:** push → `render-deploy.yml` builds and pushes both images →
+  Render pulls the image → smoke `./scripts/smoke_render.sh <API_URL> <AI_URL>`.
 - **Traps:** free tier sleeps after ~15 min (first request 30–60 s cold start);
-  750 h/month budget across all services; `/tmp/chroma_db` is wiped per restart.
+  750 h/month budget across all services; `/tmp/chroma_db` is wiped per restart;
+  GHCR images must stay available for Render restarts and rollbacks.
+
+### 19.8.1 `cargo check` đạt 0 lỗi (2026-11-15)
+
+`env RUSTUP_TOOLCHAIN=1.96.0 cargo check` — **exit 0, 0 error(s)**. Đây là cái
+gates tĩnh cuối cùng trước khi người dùng kích hoạt CI musl cross-compile:
+
+- `sqlx::query!`/`query_as!`: 0 site (303 site runtime `query(&SQL)` + `.bind()`);
+- `with_state(pool.clone())` trên 44 sub-router mount (`create_router` clone,
+  `DbPool` là `Arc`-gói) — 0 moved `pool`;
+- Postgres-only: 0 `isSqlite`/`DB_TYPE`/sqlite-legacy markers; 0 `check_oom`
+  anti-patterns;
+- `sqlx::Row`/`sqlx::Row` trait annotations removed, `chrono::to_rfc3339()`
+  (0.4.45), `char` indexing removed;
+- các lỗi quy mô lớn đã tẩy: `request` borrow/move (`ai.rs` header collection
+  dạng `HeaderName` clone), `image` mâu thuẫn glob import (`certificate.rs`
+  `::image::`), `layer` move trong printpdf, `pool` transferred 44 chỗ,
+  25+ DTO structs `pub` hóa để lộ ra ngoài handler công khai.
+
+**Glitch còn lại (warning, không phải error):**
+- ~194 warnings đủ loại (unused(variable)s, camelCase naming, dead_code) —
+  chỉ `error` mới fail `cargo build`. Import `axum::body::Body` không còn dùng
+  trong `common/notifications.rs` đã được xóa.
+
+**Môi trường compile:** `backend/Dockerfile` dùng `rust:1.96-slim` + target
+`x86_64-unknown-linux-musl`; `CARGO_BUILD_JOBS=2` ghi đè `jobs=1` trong
+`backend/.cargo/config.toml`.
 
 ### 19.8 Rust Cargo.toml dep-sweep (2026-11-12)
 
@@ -1597,12 +1632,18 @@ does **not** include native-tls). The failure mode in the build stage is:
 stating the `$TARGET` is `x86_64-unknown-linux-musl` and
 please open a bug at rust-openssl — trust the log, not the error.
 
-### 19.7.1 Deploy via GitHub Actions (2026-11-11)
+### 19.7.1 Build and deploy via GitHub Actions (2026-11-13)
 
-`render.yaml` only holds the Blueprint config. Every push to `main` triggers
-`.github/workflows/render-deploy.yml`, which runs the Render CLI
-(`render deploys create --wait --confirm --commit $GITHUB_SHA`) → **Render
-builds and restarts** the docker image for each service (no local docker build).
+`render.yaml` only holds the Blueprint config (`runtime: image`). Every push to
+`main` triggers `.github/workflows/render-deploy.yml`, which:
+
+1. builds `ghcr.io/<owner>/edumap-api:<sha>` from `./backend`,
+2. builds `ghcr.io/<owner>/edumap-ai:<sha>` from `./ai-service`,
+3. pushes both to GHCR,
+4. runs `render deploys create --image <image> --wait --confirm` for each service.
+
+Render no longer compiles the Rust backend. The binary is compiled inside the
+`backend/Dockerfile` build stage on the GitHub-hosted runner.
 
 Prerequisites:
 
@@ -1621,14 +1662,18 @@ Steps before pushing:
 2. Fill real values into env templates (`deploy/render-api.env.example`,
    `deploy/render-ai.env.example`) — especially `DB_*` and `JWT_SECRET` (must
    match Vercel).
+3. Commit `backend/Cargo.lock` — the Dockerfile now copies it and uses
+   `--locked`.
+4. GHCR packages are private by default. Either make
+   `edumap-api` and `edumap-ai` public in GitHub Packages, or add a Render
+   registry credential and reference it from `render.yaml`.
 
-After push → Actions tab → `backend-build` + `ci-cd` green → `deploy` job →
-log dump displays last 100 lines of each service on failure. Verify:
+After push → Actions tab → `render-deploy` green → verify:
 `https://edumap-api.onrender.com/api/health` + `https://edumap-ai.onrender.com/health`,
 then `./scripts/smoke_render.sh <API> <AI>`.
 
 Rollback: reopen the dispatched run → "Run workflow" and select the commit/tag
-to roll back.
+to roll back, or run `render deploys create --image <previous-sha-image>`.
 
 ## 20. Env sync — one file per platform (2026-11-11)
 
@@ -1662,7 +1707,7 @@ Rules that came out of this pass:
   `TICKETMASTER_API_KEY` and `NEXT_PUBLIC_SENTRY_DSN`. **`NEXT_PUBLIC_CARTO_API_KEY` (CARTO tile key,
   required by `frontend/src/lib/map-tiles.ts`)**. Nothing under `frontend/` reads
   `DB_*`,
-  `DEEPSEEK_*`, `GEMINI_*`, `TAVILY_*`, `OWM_*`, `HF_TOKEN`,
+  `GROQ_*`, `JINA_*`, `TAVILY_*`, `OWM_*`, `HF_TOKEN`,
   `ORS_API_KEY`.
 - **Dead secrets:** `HF_TOKEN`, `ORS_API_KEY`, `GOOGLE_CLIENT_SECRET`,
   `GOOGLE_PROJECT_ID`, `GOOGLE_AUTH_URI`, `GOOGLE_TOKEN_URI`,

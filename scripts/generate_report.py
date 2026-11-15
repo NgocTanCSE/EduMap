@@ -37,7 +37,7 @@ Dựa trên việc đối chiếu và phân tích toàn bộ **17 Sheets** trong
 
 Tất cả 28 module đều đã được khởi tạo thư mục và cấu trúc trong NestJS Backend (`backend/src/modules/`):
 1. **MOD-MAP (Bản đồ thông minh):** **100%** - Hiển thị Leaflet, filter 8 categories, popup, verified badge, pulsing dot.
-2. **MOD-AI (AI Chatbot & Hỗ trợ):** **90%** - Giao diện chatbot đẹp mắt, kết nối API AI service, Gemini API fallback.
+2. **MOD-AI (AI Chatbot & Hỗ trợ):** **90%** - Giao diện chatbot đẹp mắt, kết nối API AI service, LLM API fallback.
 3. **MOD-LIB (Kho học liệu mở):** **100%** - Tìm kiếm, bộ lọc sidebar nâng cao (lớp, môn, đánh giá, định dạng).
 4. **MOD-WS (Workshop & Sự kiện):** **90%** - Đầy đủ API CRUD, đăng ký và quản lý capacity.
 5. **MOD-OPP (Student Opportunity Map):** **95%** - Hiển thị các điểm Học bổng/Thực tập đẹp mắt trên bản đồ Biên Hòa.
@@ -69,7 +69,7 @@ Tất cả 28 module đều đã được khởi tạo thư mục và cấu trú
 * **Tìm kiếm trên bản đồ (100%):** Nhập từ khóa tự động filter sidebar và zoom tới vị trí Marker mở popup.
 * **Heatmap giáo dục (70%):** Đang dùng Supercluster density hiển thị mật độ điểm.
 * **Thêm điểm giáo dục mới (85%):** API sẵn sàng tiếp nhận tọa độ, địa chỉ, ảnh từ người dùng.
-* **Chat AI học tập (90%):** Giao diện AI Chatbot hoàn mỹ, kết nối NestJS & Gemini API.
+* **Chat AI học tập (90%):** Giao diện AI Chatbot hoàn mỹ, kết nối NestJS & API LLM.
 * **Cá nhân hóa học tập & Career recommendation (80%):** Biểu đồ radar, quiz nghề nghiệp tương tác sinh động.
 * **Upload & Tìm kiếm học liệu (95%):** Tìm kiếm full-text, bộ lọc sidebar nâng cao chạy trơn tru.
 * **Offline sync (70%):** Đang cấu hình Service Worker cho PWA.
@@ -100,7 +100,7 @@ Tất cả 28 module đều đã được khởi tạo thư mục và cấu trú
 * **95% Hoàn thiện:** Kiến trúc microservices hoàn chỉnh. Ổn định và mượt mà trên môi trường Docker containerized. Tích hợp đầy đủ cache Redis và module PostGIS cho PostgreSQL.
 
 * **80% Hoàn thiện:**
-  * **AI Chatbot RAG (90%):** Hoàn thành tích hợp Gemini API, streaming tokens mượt mà.
+  * **AI Chatbot RAG (90%):** Hoàn thành tích hợp API LLM, streaming tokens mượt mà.
   * **AI Career & Lộ trình (85%):** Tích hợp Radar Chart đánh giá và gợi ý lộ trình học tập, quiz nghề nghiệp.
   * **AI Content Moderation (80%):** Tích hợp sanitizer chống XSS, spam và mã độc trong nội dung do người dùng đóng góp.
   * **Spatial ML & Analytics (70%):** FastAPI hooks sẵn sàng tính toán và phân tích địa lý.

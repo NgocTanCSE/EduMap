@@ -28,8 +28,9 @@ impl<T> ApiResponse<T> {
         }
     }
 
-    /// Error envelope (used by the `IntoResponse` impl of `AppError`).
-    pub fn err(message: String) -> Self
+    /// Error envelope (success=false, data=empty, message=str) — used by
+    /// handlers that want to answer with a 200/400 immediately.
+    pub fn failure(message: String) -> Self
     where
         T: Default,
     {
@@ -40,6 +41,8 @@ impl<T> ApiResponse<T> {
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
     }
+
+
 }
 
 impl<T> Default for ApiResponse<T>

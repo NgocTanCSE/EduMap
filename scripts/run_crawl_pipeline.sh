@@ -50,7 +50,7 @@ python3 scripts/execute_db_setup.py
 if [ -f "$APP_DIR/ai-service/seed_vector_db.py" ]; then
   ( cd "$APP_DIR/ai-service" && python3 seed_vector_db.py ) \
     && echo "[crawl] vector DB refreshed." \
-    || echo "[crawl] vector refresh skipped (optional; needs GEMINI_API_KEY + chromadb)."
+    || echo "[crawl] vector refresh skipped (optional; needs an embedding provider + chromadb)."
 fi
 
 echo "[crawl] $(date -Iseconds) DONE — DB now contains real crawled data."

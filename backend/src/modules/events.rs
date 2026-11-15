@@ -23,13 +23,12 @@
 //! PostGIS: `location_point` đọc qua `ST_AsText`, ghi qua
 //! `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use base64::Engine;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
@@ -43,21 +42,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 // Auth helpers (giống career.rs / community.rs)
 // ---------------------------------------------------------------------------
 
-/// The logged-in user: the public event endpoints (`events`, `events/:id`)
-/// don't get an `AuthUser` from the router (`PUBLIC_PATHS`), so the write
-/// handlers self-check and answer `401` when the JWT is missing.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
-/// Escape a single quote so a filter compiled into the SQL text cannot break
-/// out of its string literal.
-fn esc_sql(v: &str) -> String {
-    v.replace('\'', "''")
-}
+
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -65,7 +51,7 @@ fn esc_sql(v: &str) -> String {
 
 /// Parse an optional ISO-8601 / date string into a `DateTime<Utc>` for binding
 /// into Postgres `TIMESTAMP WITH TIME ZONE` columns.
-fn parse_timestamp(v: &Option<String>) -> Result<Option<DateTime<Utc>>, AppError> {
+fn parse_timestamp(v: Option<&str>) -> Result<Option<DateTime<Utc>>, AppError> {
     let v = match v {
         Some(v) if !v.trim().is_empty() => v.trim(),
         _ => return Ok(None),
@@ -96,7 +82,10 @@ fn parse_timestamp(v: &Option<String>) -> Result<Option<DateTime<Utc>>, AppError
                 .map(|t| t.and_utc())
         });
 
-    parsed.ok_or_else(|| AppError::BadRequest("Định dạng ngày tháng không hợp lệ".to_string()))
+    match parsed {
+        Some(dt) => Ok(Some(dt)),
+        None => Err(AppError::BadRequest("Định dạng ngày tháng không hợp lệ".to_string())),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +95,7 @@ fn parse_timestamp(v: &Option<String>) -> Result<Option<DateTime<Utc>>, AppError
 /// Tách tọa độ từ body: ưu tiên trường `location` ({lat, lng}), fallback
 /// `latitude` / `longitude`. Giữ nguyên hành vi `buildLocation()` của old service.
 fn extract_coordinates(
-    form: &CreateEventForm,
+    form: &SelectCoordinates,
 ) -> Result<Option<(f64, f64)>, AppError> {
     if let Some(loc) = form.location.as_ref().filter(|v| v.is_object()) {
         let lat = loc
@@ -149,7 +138,7 @@ fn build_qr_data_url(code: &str) -> Result<String, AppError> {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CreateEventForm {
+pub struct CreateEventForm {
     title: String,
     description: String,
     #[serde(rename = "type")]
@@ -170,9 +159,19 @@ struct CreateEventForm {
     location: Option<Value>,
 }
 
+/// Tọa độ bắt nguồn từ `location` ({lat,lng}) / `latitude`/`longitude` —
+/// lưu chung cho `CreateEventForm` + `UpdateEventForm`.
+#[derive(Debug, Clone, Default)]
+struct SelectCoordinates {
+    /// { lat, lng } hoặc { latitude, longitude }.
+    location: Option<Value>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+}
+
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct UpdateEventForm {
+pub struct UpdateEventForm {
     title: Option<String>,
     description: Option<String>,
     #[serde(rename = "type")]
@@ -190,6 +189,7 @@ struct UpdateEventForm {
     price: Option<f64>,
     tags: Option<Value>,
     location: Option<Value>,
+    status: Option<String>,
 }
 
 /// Bộ đếm phụ cho mã vé, thay thế `Date.now()` của old backend.
@@ -305,28 +305,28 @@ const DB_AWARD_POINTS: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn event_to_json(row: &sqlx::PgRow) -> Value {
+fn event_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
-        "type": row.get::<Option<String>>("type").unwrap_or_else(|| "workshop".to_string()),
-        "location": row.get::<Option<String>>("location_point"),
-        "address": row.get::<Option<String>>("address").unwrap_or_default(),
-        "start_date": row.get::<Option<String>>("start_date").unwrap_or_default(),
-        "end_date": row.get::<Option<String>>("end_date").unwrap_or_default(),
-        "capacity": row.get::<Option<i64>>("capacity").unwrap_or(100),
-        "registered_count": row.get::<Option<i64>>("registered_count").unwrap_or(0),
-        "organizer_id": row.get::<Option<String>>("organizer_id").unwrap_or_default(),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "upcoming".to_string()),
-        "image_url": row.get::<Option<String>>("banner_url"),
-        "price": row.get::<Option<f64>>("price").unwrap_or(0.0),
-        "tags": row.get::<Option<String>>("tags")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "is_online": row.get::<Option<bool>>("is_online").unwrap_or(false),
-        "meeting_url": row.get::<Option<String>>("meeting_url"),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
-        "updated_at": row.get::<Option<String>>("updated_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "type": row.get::<Option<String>, &str>("type").unwrap_or_else(|| "workshop".to_string()),
+        "location": row.get::<Option<String>, &str>("location_point"),
+        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
+        "start_date": row.get::<Option<String>, &str>("start_date").unwrap_or_default(),
+        "end_date": row.get::<Option<String>, &str>("end_date").unwrap_or_default(),
+        "capacity": row.get::<Option<i64>, &str>("capacity").unwrap_or(100),
+        "registered_count": row.get::<Option<i64>, &str>("registered_count").unwrap_or(0),
+        "organizer_id": row.get::<Option<String>, &str>("organizer_id").unwrap_or_default(),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "upcoming".to_string()),
+        "image_url": row.get::<Option<String>, &str>("banner_url"),
+        "price": row.get::<Option<f64>, &str>("price").unwrap_or(0.0),
+        "tags": row.get::<Option<String>, &str>("tags")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "is_online": row.get::<Option<bool>, &str>("is_online").unwrap_or(false),
+        "meeting_url": row.get::<Option<String>, &str>("meeting_url"),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "updated_at": row.get::<Option<String>, &str>("updated_at").unwrap_or_default(),
     })
 }
 
@@ -345,7 +345,7 @@ pub async fn get_events(
         .map_err(AppError::from)?;
 
     let events: Vec<Value> = rows.iter().map(event_to_json).collect();
-    Ok(Json(ApiResponse::ok(events)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(events))))
 }
 
 /// `GET /api/events/:id` — lấy chi tiết sự kiện theo ID (public).
@@ -370,10 +370,10 @@ pub async fn get_event_by_id(
 /// `POST /api/events` — tạo workshop/sự kiện mới (JWT).
 pub async fn create_event(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<CreateEventForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let title = form.title.trim();
     let description = form.description.trim();
@@ -384,8 +384,8 @@ pub async fn create_event(
         return Err(AppError::BadRequest("Mô tả sự kiện là bắt buộc".to_string()));
     }
 
-    let start_date = parse_timestamp(&Some(form.start_date))?;
-    let end_date = parse_timestamp(&Some(form.end_date))?;
+    let start_date = parse_timestamp(Some(form.start_date.as_str()))?;
+    let end_date = parse_timestamp(Some(form.end_date.as_str()))?;
     match (start_date, end_date) {
         (Some(s), Some(e)) if s >= e => {
             return Err(AppError::BadRequest(
@@ -398,7 +398,11 @@ pub async fn create_event(
         _ => {}
     }
 
-    let coords = extract_coordinates(&form)?;
+    let coords = extract_coordinates(&SelectCoordinates {
+        location: form.location.clone(),
+        latitude: form.latitude,
+        longitude: form.longitude,
+    })?;
 
     let inserted = sqlx::query(DB_INSERT_EVENT)
         .bind(title)
@@ -434,15 +438,15 @@ pub async fn create_event(
 /// `PUT /api/events/:id` — cập nhật thông tin sự kiện (partial, JWT).
 pub async fn update_event(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(form): Json<UpdateEventForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     if let (Some(s), Some(e)) = (
-        parse_timestamp(&form.start_date)?,
-        parse_timestamp(&form.end_date)?,
+        parse_timestamp(form.start_date.as_deref())?,
+        parse_timestamp(form.end_date.as_deref())?,
     ) {
         if s >= e {
             return Err(AppError::BadRequest(
@@ -451,12 +455,11 @@ pub async fn update_event(
         }
     }
 
-    let coords = extract_coordinates(&(UpdateEventForm {
+    let coords = extract_coordinates(&SelectCoordinates {
         location: form.location.clone(),
         latitude: form.latitude,
         longitude: form.longitude,
-        ..Default::default()
-    }))?;
+    })?;
 
     let updated = sqlx::query(DB_UPDATE_EVENT)
         .bind(form.title.as_deref())
@@ -465,8 +468,8 @@ pub async fn update_event(
         .bind(coords.map(|c| c.0))
         .bind(coords.map(|c| c.1))
         .bind(form.address.as_deref())
-        .bind(parse_timestamp(&form.start_date)?)
-        .bind(parse_timestamp(&form.end_date)?)
+        .bind(parse_timestamp(form.start_date.as_deref())?)
+        .bind(parse_timestamp(form.end_date.as_deref())?)
         .bind(form.capacity)
         .bind(form.banner_url.as_deref())
         .bind(form.organizer_id.as_deref())
@@ -499,10 +502,10 @@ pub async fn update_event(
 /// kiểm trùng, kiểm chỗ, tăng `registered_count`, ghi vé và cộng 100 điểm.
 pub async fn register_event(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let mut tx = match pool.db().begin().await {
         Ok(tx) => tx,
@@ -529,7 +532,7 @@ pub async fn register_event(
         .fetch_optional(&mut *tx)
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64>(0));
+        .map(|row| row.get::<i64, usize>(0));
 
     if duplicate.is_some() {
         let _ = tx.rollback().await;
@@ -583,11 +586,11 @@ pub async fn register_event(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đăng ký tham gia sự kiện thành công!",
-        "event_title": event.get::<Option<String>>("title").unwrap_or_default(),
+        "event_title": event.get::<Option<String>, &str>("title").unwrap_or_default(),
         "ticket_code": ticket_code,
         "ticket_qr": qr_url,
-        "start_date": event.get::<Option<String>>("start_date").unwrap_or_default(),
-        "location": event.get::<Option<String>>("location_point"),
-        "address": event.get::<Option<String>>("address").unwrap_or_default(),
+        "start_date": event.get::<Option<String>, &str>("start_date").unwrap_or_default(),
+        "location": event.get::<Option<String>, &str>("location_point"),
+        "address": event.get::<Option<String>, &str>("address").unwrap_or_default(),
     }))))
 }

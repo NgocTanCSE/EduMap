@@ -6,17 +6,15 @@
 //! JWT. Tên/mô tả được làm sạch trước khi ghi DB (tương đương
 //! `SanitizeService.clean`).
 
-use crate::common::auth::authenticated_user;
+use crate::common::auth::{AuthUser, authenticated_user};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // DTO
@@ -136,17 +134,17 @@ pub async fn get_items(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String>("id"),
-                "name": row.get::<Option<String>>("name"),
-                "category": row.get::<Option<String>>("category"),
-                "description": row.get::<Option<String>>("description"),
-                "status": row.get::<Option<String>>("status"),
-                "lat": row.get::<Option<f64>>("lat"),
-                "lng": row.get::<Option<f64>>("lng"),
-                "address": row.get::<Option<String>>("address"),
-                "ownerId": row.get::<Option<String>>("owner_id"),
-                "createdAt": row.get::<Option<String>>("created_at"),
-                "updatedAt": row.get::<Option<String>>("updated_at"),
+                "id": row.get::<String, &str>("id"),
+                "name": row.get::<Option<String>, &str>("name"),
+                "category": row.get::<Option<String>, &str>("category"),
+                "description": row.get::<Option<String>, &str>("description"),
+                "status": row.get::<Option<String>, &str>("status"),
+                "lat": row.get::<Option<f64>, &str>("lat"),
+                "lng": row.get::<Option<f64>, &str>("lng"),
+                "address": row.get::<Option<String>, &str>("address"),
+                "ownerId": row.get::<Option<String>, &str>("owner_id"),
+                "createdAt": row.get::<Option<String>, &str>("created_at"),
+                "updatedAt": row.get::<Option<String>, &str>("updated_at"),
             })
         })
         .collect();
@@ -157,10 +155,10 @@ pub async fn get_items(
 /// `POST /api/share/items` — đăng tải tài nguyên mới.
 pub async fn create_item(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateItem>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     let name = clean(&body.name);
     if name.is_empty() {
         return Err(AppError::BadRequest("Tên tài liệu/học cụ không hợp lệ".to_string()));
@@ -178,15 +176,15 @@ pub async fn create_item(
         .await
         .map_err(|e| AppError::Internal(format!("failed to create shared item: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
 }
 
 /// `GET /api/share/me/requests` — danh sách yêu cầu mượn của người dùng.
 pub async fn get_my_requests(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_MY_REQUESTS)
         .bind(user.id.as_str())
@@ -198,15 +196,15 @@ pub async fn get_my_requests(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String>("id"),
-                "itemId": row.get::<Option<String>>("item_id"),
-                "itemName": row.get::<Option<String>>("item_name"),
-                "category": row.get::<Option<String>>("category"),
-                "message": row.get::<Option<String>>("message"),
-                "status": row.get::<Option<String>>("status"),
-                "requesterId": row.get::<Option<String>>("requester_id"),
-                "ownerId": row.get::<Option<String>>("owner_id"),
-                "createdAt": row.get::<Option<String>>("created_at"),
+                "id": row.get::<String, &str>("id"),
+                "itemId": row.get::<Option<String>, &str>("item_id"),
+                "itemName": row.get::<Option<String>, &str>("item_name"),
+                "category": row.get::<Option<String>, &str>("category"),
+                "message": row.get::<Option<String>, &str>("message"),
+                "status": row.get::<Option<String>, &str>("status"),
+                "requesterId": row.get::<Option<String>, &str>("requester_id"),
+                "ownerId": row.get::<Option<String>, &str>("owner_id"),
+                "createdAt": row.get::<Option<String>, &str>("created_at"),
             })
         })
         .collect();
@@ -217,11 +215,11 @@ pub async fn get_my_requests(
 /// `POST /api/share/items/:id/request` — gửi yêu cầu mượn.
 pub async fn request_item(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<BorrowRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let item = sqlx::query(DB_ITEM_BY_ID)
         .bind(id.as_str())
@@ -234,7 +232,7 @@ pub async fn request_item(
         None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
     };
 
-    if item.get::<String>("owner_id") == user.id {
+    if item.get::<String, &str>("owner_id") == user.id {
         return Err(AppError::BadRequest("Không thể mượn chính tài nguyên của mình.".to_string()));
     }
 
@@ -257,16 +255,16 @@ pub async fn request_item(
         .await
         .map_err(|e| AppError::Internal(format!("failed to create borrow request: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String>("id"), "message": "Yêu cầu mượn đã được gửi." }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id"), "message": "Yêu cầu mượn đã được gửi." }))))
 }
 
 /// `POST /api/share/items/:id/return` — chủ sở hữu xác nhận nhận lại.
 pub async fn return_item(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let item = sqlx::query(DB_ITEM_BY_ID)
         .bind(id.as_str())
@@ -279,7 +277,7 @@ pub async fn return_item(
         None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
     };
 
-    if item.get::<String>("owner_id") != user.id {
+    if item.get::<String, &str>("owner_id") != user.id {
         return Err(AppError::Forbidden("Chỉ chủ sở hữu mới có thể xác nhận nhận lại.".to_string()));
     }
 

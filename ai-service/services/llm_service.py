@@ -127,6 +127,11 @@ def _strip_markdown(text: str) -> str:
 
 
 class LLMService:
+    SYSTEM_PROMPT = (
+        "Bạn là trợ lý học tập của EduMap DNTU. Trả lời bằng tiếng Việt, "
+        "ngắn gọn, đúng trọng tâm, dùng văn bản thuần."
+    )
+
     def __init__(self):
 
 
@@ -134,67 +139,27 @@ class LLMService:
 
 
 
-        self.deepseek_key = (os.getenv("DEEPSEEK_API_KEY") or "").strip().strip('"').strip("'")
-        self.deepseek_base_url = (
-            os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").strip().rstrip("/")
+        self.chat_key = (os.getenv("GROQ_API_KEY") or "").strip().strip('"').strip("'")
+        self.chat_base_url = (
+            os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai").strip().rstrip("/")
         )
-        self.deepseek_models = [
+        self.chat_models = [
             m.strip()
-            for m in os.getenv("DEEPSEEK_MODEL", "deepseek-chat,deepseek-reasoner").split(",")
+            for m in os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").split(",")
             if m.strip()
-        ] or ["deepseek-chat"]
-        self.deepseek_model_name = self.deepseek_models[0]
+        ] or ["openai/gpt-oss-120b"]
+        self.chat_model_name = self.chat_models[0]
+        self.chat_timeout = float(os.getenv("GROQ_TIMEOUT_SECONDS", "20"))
+        self.has_chat = bool(self.chat_key)
 
+        self._chat_down_until = 0.0
 
-        self.deepseek_timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "20"))
-        self.has_deepseek = bool(self.deepseek_key)
-
-        self._deepseek_down_until = 0.0
-
-
-
-
-
-
-        self.gemini_key = (os.getenv("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
-        self.gemini_models = [
-            m.strip()
-            for m in os.getenv(
-                "GEMINI_MODEL",
-
-
-
-
-                "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-latest",
-            ).split(",")
-            if m.strip()
-        ]
-        self.gemini_model_name = self.gemini_models[0] if self.gemini_models else "gemini-3.8-flash"
-        self.gemini_timeout = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "8"))
-        self.has_gemini = bool(self.gemini_key)
-
-
-        self._gemini_down_until = 0.0
-
-
-
-
-
-
-
-
-
-
-
-        self.is_ready = self.has_deepseek or self.has_gemini
-        if self.has_deepseek:
-            print(f"INFO: DeepSeek provider configured (primary). Model={self.deepseek_model_name}")
-        if self.has_gemini:
-            print(f"INFO: Google Gemini provider configured (fallback). Model={self.gemini_model_name}")
-        if not self.is_ready:
-            print("ERROR: Khong co DEEPSEEK_API_KEY / GEMINI_API_KEY. Cau hinh de dung AI chat.")
+        self.is_ready = self.has_chat
+        if self.has_chat:
+            print(f"INFO: Groq provider configured (model={self.chat_model_name})")
         else:
-            print("INFO: LLM provider chain: DeepSeek -> Google Gemini -> template")
+            print("INFO: GROQ_API_KEY not set — chat falls back to templates.")
+        print("INFO: LLM provider chain: Groq -> template")
 
         self.adzuna_app_id = os.getenv("ADZUNA_APP_ID")
         self.adzuna_app_key = os.getenv("ADZUNA_APP_KEY")
@@ -227,44 +192,29 @@ class LLMService:
 
 
 
-    def _is_model_not_found(self, code, message):
-        low = (message or "").lower()
-        return (
-            code in (404, 410)
-            or any(r in low for r in self._MODEL_NOT_FOUND_REASONS)
-        )
+    def _chat_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
+        """Call the configured OpenAI-compatible chat provider (Groq).
 
-
-
-    def _deepseek_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Call DeepSeek's OpenAI-compatible ``/chat/completions`` endpoint.
-
-        DeepSeek is the primary text provider (``DEEPSEEK_API_KEY``). Requests
-        go through ``curl --ipv4 --insecure`` for the same container IPv6/TLS
-        reason as Gemini. Any OpenAI-compatible gateway can be used
-        by pointing ``DEEPSEEK_BASE_URL`` at it.
+        Requests go through ``curl --ipv4 --insecure`` for the same container
+        IPv6/TLS reason as every other outbound call. Any OpenAI-compatible
+        gateway works by pointing ``GROQ_BASE_URL`` at it.
         """
         import time as _time
 
-        if not self.has_deepseek:
-            raise RuntimeError("DEEPSEEK_API_KEY not set — cannot use DeepSeek.")
-        if _time.monotonic() < self._deepseek_down_until:
-            raise RuntimeError("DeepSeek temporarily disabled after a network failure.")
+        if not self.has_chat:
+            raise RuntimeError("GROQ_API_KEY not set — cannot generate text.")
+        if _time.monotonic() < self._chat_down_until:
+            raise RuntimeError("Groq temporarily disabled after a network failure.")
 
-        url = f"{self.deepseek_base_url}/chat/completions"
+        url = f"{self.chat_base_url}/chat/completions"
         last_err = None
+        rate_limited = False
 
-        for model in self.deepseek_models:
+        for model in self.chat_models:
             payload = {
                 "model": model,
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "Bạn là trợ lý học tập của EduMap DNTU. Trả lời bằng tiếng Việt, "
-                            "ngắn gọn, đúng trọng tâm, dùng văn bản thuần."
-                        ),
-                    },
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": float(temperature if temperature is not None else 0.7),
@@ -280,49 +230,58 @@ class LLMService:
                     [
                         "curl", "--ipv4", "--insecure", "-sS",
                         "-X", "POST", url,
-                        "-H", f"Authorization: Bearer {self.deepseek_key}",
+                        "-H", f"Authorization: Bearer {self.chat_key}",
                         "-H", "Content-Type: application/json",
                         "-d", body_json,
                         "--connect-timeout", "6",
-                        "--max-time", str(self.deepseek_timeout),
+                        "--max-time", str(self.chat_timeout),
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=self.deepseek_timeout + 2,
+                    timeout=self.chat_timeout + 2,
                 )
             except Exception as e:
-                self._deepseek_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"DeepSeek connection failed: {type(e).__name__}: {e}")
+                self._chat_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"Groq connection failed: {type(e).__name__}: {e}")
 
             if proc.returncode != 0:
                 err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-
-
-                self._deepseek_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"DeepSeek connection failed: {err}")
+                self._chat_down_until = _time.monotonic() + 300
+                raise RuntimeError(f"Groq connection failed: {err}")
 
             try:
                 data = json.loads(proc.stdout or "{}")
             except Exception:
                 last_err = f"{model}: invalid JSON response: {(proc.stdout or '')[:160]}"
-                print(f"DeepSeek model {model} tra ve JSON khong hop le, thu model ke tiep...")
+                print(f"Groq model {model} tra ve JSON khong hop le, thu model ke tiep...")
                 continue
 
             if isinstance(data, dict) and data.get("error"):
                 err = data.get("error") or {}
-                code = int(err.get("code") or 0)
-                message = str(err.get("message") or "")
+                if isinstance(err, dict):
+                    message = str(err.get("message") or "")
+                    raw_code = err.get("code")
+                else:
+                    message = str(err)
+                    raw_code = None
+                try:
+                    code = int(raw_code)
+                except (TypeError, ValueError):
+                    code = 0
                 low = message.lower()
-                if code in (401, 403) or "authentication" in low or "invalid api key" in low:
-                    self._deepseek_down_until = _time.monotonic() + 300
-                    raise RuntimeError(f"DeepSeek auth error (HTTP {code}): {message[:200]}")
-                if code == 402 or "insufficient balance" in low:
-
-
-                    self._deepseek_down_until = _time.monotonic() + 300
-                    raise RuntimeError(f"DeepSeek insufficient balance (HTTP {code}): {message[:160]}")
+                if code in (401, 403) or "invalid api key" in low or "authentication" in low:
+                    self._chat_down_until = _time.monotonic() + 300
+                    raise RuntimeError(f"Groq auth error (HTTP {code}): {message[:200]}")
+                if code == 402 or ("quota" in low and "exhaust" in low):
+                    self._chat_down_until = _time.monotonic() + 300
+                    raise RuntimeError(f"Groq quota exhausted (HTTP {code}): {message[:160]}")
+                if code == 429 or "rate limit" in low or "rate_limit" in low:
+                    rate_limited = True
+                    last_err = f"{model}: HTTP 429 {message[:100]}"
+                    print(f"Groq model {model} bi rate-limit, thu model ke tiep...")
+                    continue
                 last_err = f"{model}: HTTP {code} {message[:120]}"
-                print(f"DeepSeek model {model} loi HTTP {code}, thu model ke tiep...")
+                print(f"Groq model {model} loi HTTP {code}, thu model ke tiep...")
                 continue
 
             text = ""
@@ -335,36 +294,32 @@ class LLMService:
             if text:
                 return text
             last_err = f"{model}: empty text response"
-            print(f"DeepSeek model {model} tra ve empty response, thu model ke tiep...")
+            print(f"Groq model {model} tra ve empty response, thu model ke tiep...")
 
-        raise RuntimeError(f"DeepSeek generation failed: {last_err or 'no model available'}")
+        if rate_limited:
+            self._chat_down_until = _time.monotonic() + 60
+        raise RuntimeError(f"Groq generation failed: {last_err or 'no model available'}")
 
-    def _deepseek_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
-        """Yield tokens from DeepSeek's streaming ``/chat/completions``.
+    def _chat_generate_stream(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None):
+        """Yield tokens from the provider's streaming ``/chat/completions``.
 
         Same SSE shape as OpenAI: ``data: {"choices":[{"delta":{"content":"…"}}]}``.
-        Yields nothing (and returns) if the stream produced no content, so the
-        caller can fall back to the non-streaming cascade.
+        Yields nothing when the stream produced no content so the caller can
+        fall back to the non-streaming cascade.
         """
         import time as _time
 
-        if not self.has_deepseek:
-            raise RuntimeError("DEEPSEEK_API_KEY not set — cannot stream from DeepSeek.")
-        if _time.monotonic() < self._deepseek_down_until:
-            raise RuntimeError("DeepSeek temporarily disabled after a network failure.")
+        if not self.has_chat:
+            raise RuntimeError("GROQ_API_KEY not set — cannot stream from the provider.")
+        if _time.monotonic() < self._chat_down_until:
+            raise RuntimeError("Groq temporarily disabled after a network failure.")
 
-        url = f"{self.deepseek_base_url}/chat/completions"
-        model = self.deepseek_models[0]
+        url = f"{self.chat_base_url}/chat/completions"
+        model = self.chat_models[0]
         payload = {
             "model": model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "Bạn là trợ lý học tập của EduMap DNTU. Trả lời bằng tiếng Việt, "
-                        "ngắn gọn, đúng trọng tâm, dùng văn bản thuần."
-                    ),
-                },
+                {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             "temperature": float(temperature if temperature is not None else 0.7),
@@ -380,11 +335,11 @@ class LLMService:
                 [
                     "curl", "--ipv4", "--insecure", "-sS", "-N",
                     "-X", "POST", url,
-                    "-H", f"Authorization: Bearer {self.deepseek_key}",
+                    "-H", f"Authorization: Bearer {self.chat_key}",
                     "-H", "Content-Type: application/json",
                     "-d", body_json,
                     "--connect-timeout", "6",
-                    "--max-time", str(self.deepseek_timeout),
+                    "--max-time", str(self.chat_timeout),
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -392,8 +347,8 @@ class LLMService:
                 bufsize=1,
             )
         except Exception as e:
-            self._deepseek_down_until = _time.monotonic() + 300
-            raise RuntimeError(f"DeepSeek stream Popen failed: {type(e).__name__}: {e}")
+            self._chat_down_until = _time.monotonic() + 300
+            raise RuntimeError(f"Groq stream Popen failed: {type(e).__name__}: {e}")
 
         try:
             for line in proc.stdout:
@@ -419,122 +374,6 @@ class LLMService:
                 proc.kill()
             except Exception:
                 pass
-
-    def _gemini_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Call Google Gemini generateContent.
-
-        Gemini is the fallback text-generation provider (invoked after
-        DeepSeek fails). Requests use curl so they follow the same
-        IPv4/TLS workaround as the adjacency provider.
-        """
-        import time as _time
-
-        if not self.has_gemini:
-            raise RuntimeError("GEMINI_API_KEY not set — cannot use Gemini.")
-        if _time.monotonic() < self._gemini_down_until:
-            raise RuntimeError("Gemini temporarily disabled after a network failure.")
-
-        last_err = None
-        for raw_model in self.gemini_models:
-            model = (raw_model or "").strip()
-            if model.startswith("models/"):
-                model = model[len("models/"):]
-            if not model:
-                continue
-
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{urllib.parse.quote(model, safe='-')}:generateContent"
-            )
-            payload = {
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": float(temperature),
-                    "maxOutputTokens": int(max_tokens or 2048),
-                },
-            }
-            if top_p is not None:
-                payload["generationConfig"]["topP"] = float(top_p)
-
-
-
-
-
-            if model.startswith("gemini-3"):
-                payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
-            body_json = json.dumps(payload)
-
-            try:
-                proc = subprocess.run(
-                    [
-                        "curl", "--ipv4", "--insecure", "-sS", "-X", "POST",
-                        "-H", f"x-goog-api-key: {self.gemini_key}",
-                        "-H", "Content-Type: application/json",
-                        "-d", body_json,
-                        "--connect-timeout", "6",
-                        "--max-time", str(self.gemini_timeout),
-                        url,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=self.gemini_timeout + 2,
-                )
-            except Exception as e:
-                self._gemini_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"Gemini connection failed: {type(e).__name__}: {e}")
-
-            if proc.returncode != 0:
-                err = (proc.stderr or "").strip()[:200] or f"curl exit {proc.returncode}"
-                self._gemini_down_until = _time.monotonic() + 300
-                raise RuntimeError(f"Gemini connection failed: {err}")
-
-            try:
-                data = json.loads(proc.stdout or "{}")
-            except Exception:
-                last_err = f"{model}: invalid JSON response: {(proc.stdout or '')[:160]}"
-                continue
-
-            if isinstance(data, dict) and data.get("error"):
-                err = data.get("error") or {}
-                code = int(err.get("code") or 0)
-                message = str(err.get("message") or "")
-                low = message.lower()
-                if code in (401, 403) or "api key" in low and ("invalid" in low or "not valid" in low):
-                    raise RuntimeError(f"Gemini auth error (HTTP {code}): {message[:200]}")
-                if code == 429:
-                    last_err = f"{model}: HTTP 429 {message[:100]}"
-                    print(f"Gemini model {model} bi rate-limit (429), thu model ke tiep...")
-                    continue
-                if code in (400, 404) and any(
-                    reason in low
-                    for reason in ("not found", "not supported", "does not exist", "deprecated")
-                ):
-                    last_err = f"{model}: HTTP {code} {message[:100]}"
-                    print(f"Gemini model {model} khong kha dung, thu model ke tiep...")
-                    continue
-                last_err = f"{model}: HTTP {code} {message[:120]}"
-                print(f"Gemini model {model} loi HTTP {code}, thu model ke tiep...")
-                continue
-
-            candidates = data.get("candidates") if isinstance(data, dict) else None
-            if not candidates:
-                feedback = data.get("promptFeedback") if isinstance(data, dict) else None
-                last_err = f"{model}: empty response ({str(feedback)[:120]})"
-                continue
-
-            text = ""
-            try:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                text = "".join(part.get("text", "") for part in parts if isinstance(part, dict)).strip()
-            except (IndexError, AttributeError, TypeError):
-                text = ""
-
-            if text:
-                return text
-            last_err = f"{model}: empty text response"
-            print(f"Gemini model {model} tra ve empty response, thu model ke tiep...")
-
-        raise RuntimeError(f"Gemini generation failed: {last_err or 'no model available'}")
 
     def _store_response_cache(self, cache_key: str, response: str) -> None:
         """Cache a successful LLM response with TTL + FIFO-LRU eviction.
@@ -564,10 +403,10 @@ class LLMService:
         self._response_cache_meta[cache_key] = now
 
     def _generate_text_with_fallback(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
-        """Try LLM providers in priority order: DeepSeek → Google Gemini.
+        """Try the configured chat provider.
 
-        DeepSeek is the primary provider (curl --ipv4 --insecure for
-        container compatibility). Gemini is the fallback.
+        The provider is called through curl --ipv4 --insecure for
+        container compatibility.
 
         Returns the first successful text response. If every provider is
         missing or fails, raises RuntimeError so the caller can use a
@@ -603,45 +442,24 @@ class LLMService:
         self._response_cache_misses += 1
         errors: dict = {}
 
-
-        if self.has_deepseek:
+        if self.has_chat:
             try:
-                result = self._deepseek_generate(
+                result = self._chat_generate(
                     prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
                 )
                 if result:
                     self._store_response_cache(_cache_key, result)
-                    print(f"  -> DeepSeek generate OK (model={self.deepseek_model_name})")
+                    print(f"  -> Groq generate OK (model={self.chat_model_name})")
                     return result
             except Exception as e:
-                errors["DeepSeek"] = str(e)
-                print(f"DeepSeek generate failed: {e}")
-
-
-        if self.has_gemini:
-            try:
-                result = self._gemini_generate(
-                    prompt, temperature=temperature, max_tokens=max_tokens, top_p=top_p
-                )
-                if result:
-                    self._store_response_cache(_cache_key, result)
-                    print("  -> Google Gemini generate OK")
-                    return result
-            except Exception as e:
-                errors["Gemini"] = str(e)
-                print(f"Google Gemini generate failed: {e}")
-
-
+                errors["Groq"] = str(e)
+                print(f"Groq generate failed: {e}")
 
         parts = []
-        if not self.has_deepseek:
-            parts.append("DeepSeek: không cấu hình")
-        elif errors.get("DeepSeek"):
-            parts.append(f"DeepSeek: {errors['DeepSeek'][:150]}")
-        if not self.has_gemini:
-            parts.append("Gemini: không cấu hình")
-        elif errors.get("Gemini"):
-            parts.append(f"Gemini: {errors['Gemini'][:150]}")
+        if not self.has_chat:
+            parts.append("Groq: không cấu hình")
+        elif errors.get("Groq"):
+            parts.append(f"Groq: {errors['Groq'][:150]}")
 
         raise RuntimeError("Không thể sinh nội dung. " + "; ".join(parts))
 
@@ -750,25 +568,17 @@ class LLMService:
 
         reply_text = None
         last_err = None
-        for gen_fn in [
-            self._deepseek_generate if self.has_deepseek else None,
-            self._gemini_generate if self.has_gemini else None,
-        ]:
-            if gen_fn is None:
-                continue
+
+        if self.has_chat:
             try:
-
-
                 response = await asyncio.to_thread(
-                    gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
+                    self._chat_generate, prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 )
                 if response:
                     reply_text = response.strip()
-                    break
             except Exception as e:
                 last_err = str(e)
-                print(f"Chat gen {gen_fn.__name__} failed: {e}")
-                continue
+                print(f"Chat gen failed: {e}")
 
         if not reply_text:
             print(f"AI Generation Error: {last_err or 'no provider available'} — using template fallback")
@@ -787,9 +597,8 @@ class LLMService:
 
         1. Lấy sources từ ChromaDB (giống chat_with_rag).
         2. Build prompt the same way.
-         3. Gọi _deepseek_generate_stream / _gemini_generate_stream để nhận từng token real-time qua SSE.
+         3. Gọi provider chat ở chế độ streaming để nhận từng token qua SSE.
          4. Nếu streaming không khả dụng, fallback sang non-streaming.
-            hình chunks.
 
         Yield format: SSE data lines (``data: {json}\\n\\n``)
         - Metadata chunk (with sources) sent first
@@ -890,10 +699,10 @@ class LLMService:
         yield f"data: {json.dumps({'sources': sources, 'meta': True})}\n\n"
 
 
-        if self.has_deepseek:
+        if self.has_chat:
             try:
                 full_reply = ""
-                for token in self._deepseek_generate_stream(
+                for token in self._chat_generate_stream(
                     prompt, max_tokens=2048, temperature=0.3, top_p=0.8
                 ):
                     full_reply += token
@@ -906,13 +715,12 @@ class LLMService:
                         ttl=3600,
                     )
                     return
-                print("DeepSeek streaming returned empty reply, falling back to non-streaming")
+                print("Groq streaming returned empty reply, falling back to non-streaming")
             except Exception as e:
-                print(f"DeepSeek streaming failed, falling back to non-stream: {e}")
-
+                print(f"Groq streaming failed, falling back to non-stream: {e}")
 
         if not self.is_ready:
-            print("[stream] No LLM providers configured — using template fallback directly")
+            print("[stream] No LLM provider ready — using template fallback directly")
 
 
 
@@ -942,35 +750,29 @@ class LLMService:
 
         reply_text = None
         last_err = None
-        for gen_fn in [
-            self._deepseek_generate if self.has_deepseek else None,
-            self._gemini_generate if self.has_gemini else None,
-        ]:
-            if gen_fn is None:
-                continue
 
-
+        if self.has_chat:
             _gen_elapsed = time.monotonic() - _stream_start
             if _gen_elapsed > _gen_budget:
                 last_err = f"Timeout budget ({_gen_budget}s) exhausted after {_gen_elapsed:.1f}s"
                 print(f"[stream] Generation budget exhausted — falling back to template: {last_err}")
-                break
-            try:
-                response = await asyncio.wait_for(
-                    asyncio.to_thread(gen_fn, prompt, max_tokens=2048, temperature=0.3, top_p=0.8),
-                    timeout=_gen_budget - _gen_elapsed,
-                )
-                if response:
-                    reply_text = response.strip()
-                    break
-            except asyncio.TimeoutError:
-                last_err = f"Provider timeout after {_gen_budget - _gen_elapsed:.1f}s"
-                print(f"[stream] Provider timeout — falling back: {last_err}")
-                continue
-            except Exception as e:
-                last_err = str(e)
-                print(f"[stream] Provider {gen_fn.__name__} failed — {type(e).__name__}: {str(e)[:200]}. Error detail: {last_err[:300]}")
-                continue
+            else:
+                try:
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self._chat_generate, prompt,
+                            max_tokens=2048, temperature=0.3, top_p=0.8,
+                        ),
+                        timeout=max(0.5, _gen_budget - _gen_elapsed),
+                    )
+                    if response:
+                        reply_text = response.strip()
+                except asyncio.TimeoutError:
+                    last_err = f"Provider timeout after {_gen_budget - _gen_elapsed:.1f}s"
+                    print(f"[stream] Provider timeout — falling back: {last_err}")
+                except Exception as e:
+                    last_err = str(e)
+                    print(f"[stream] Chat provider failed — {type(e).__name__}: {str(e)[:200]}")
 
         if not reply_text:
             reply_text = self._chat_fallback_reply(message, sources, context)
@@ -1040,7 +842,7 @@ class LLMService:
 
     def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
      def _chat_fallback_reply(self, message: str, sources: list, context: dict) -> str:
-        """Fallback trả lời khi tất cả LLM provider đều thất bại (DeepSeek/Gemini unreachable từ container).
+        """Fallback trả lời khi provider chat đều thất bại.
         Dựa trên dữ liệu RAG đã lấy được + context hệ thống để trả lời không cần LLM."""
         ctx = context or {}
         available_books = ctx.get("available_books", []) if isinstance(ctx.get("available_books"), list) else []
@@ -1124,8 +926,7 @@ class LLMService:
             return (
                 f"Thông tin kỹ năng: {skills_raw}.\n"
                 f"Hệ thống đang ở chế độ ngoại tuyến (SQLite trống hoặc không có API key)."
-                 f" Để nhận tư vấn chi tiết từ AI, hãy cấu hình DEEPSEEK_API_KEY"
-                f" hoặc GEMINI_API_KEY. Lỗi: {err[:140]}"
+                 f" Để nhận tư vấn chi tiết từ AI, hãy cấu hình GROQ_API_KEY. Lỗi: {err[:140]}"
             )
 
 
@@ -1176,14 +977,14 @@ class LLMService:
         lines.append(
             "Lưu ý: Đây là gợi ý từ SQLite dựa trên từ khóa. Để nhận Tư vấn AI chi "
             "tiết (Roadmap JSON, kỹ năng chi tiết, chiến lược phỏng vấn), hãy "
-            "cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY."
+            "cấu hình GROQ_API_KEY."
         )
         return "\n".join(lines)
 
     async def generate_career_advice(self, user_info: dict):
         """Generate AI career advice.
 
-         Primary:  LLM cascade (DeepSeek → Gemini) when configured.
+         Primary:  the configured chat provider.
         Fallback: SQLite ``career_paths`` keyword matching against the user's
         skills — returns real Vietnamese career data with salary ranges and
         demand levels. This is a genuine data-driven recommendation, not a
@@ -1204,7 +1005,7 @@ class LLMService:
 
         Primary:  Adzuna API (dữ liệu việc làm thật, nếu có ADZUNA_APP_ID/KEY).
         Fallback: SQLite edumap.db (jobs, career_paths — luôn có sẵn trên Space).
-         Được cấu hình bởi DeepSeek hoặc Gemini — không gọi LLM khi không có API.
+         Được cấu hình bởi GROQ_API_KEY — không gọi LLM khi không có API.
         """
 
         keywords = []
@@ -1381,10 +1182,8 @@ class LLMService:
 
 
         providers = []
-        if self.has_deepseek:
-            providers.append((self._deepseek_generate, "DeepSeek"))
-        if self.has_gemini:
-            providers.append((self._gemini_generate, "Gemini"))
+        if self.has_chat:
+            providers.append((self._chat_generate, "Groq"))
         for gen_fn, label in providers:
             try:
                 response = await asyncio.to_thread(gen_fn, prompt)
@@ -1868,8 +1667,7 @@ Trả về mảng JSON: [{{mentor_id, name, match_score, match_reasons: []}}]"""
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
-                    "hoặc GEMINI_API_KEY."
+                    "AI Service chưa sẵn sàng. Cấu hình GROQ_API_KEY."
                 )
 
             max_results = getattr(data, "max_results", 15) or 15
@@ -2000,8 +1798,7 @@ Trả về **mảng JSON** sau:
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
-                    "hoặc GEMINI_API_KEY."
+                    "AI Service chưa sẵn sàng. Cấu hình GROQ_API_KEY."
                 )
 
             max_results = getattr(data, "max_results", 15) or 15
@@ -2305,7 +2102,7 @@ Trả về **mảng JSON** sau:
                 {
                     "title": "Chưa có dữ liệu ngành nghề",
                     "match_score": 0,
-                    "explanation": "Vui lòng cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL hoặc GEMINI_API_KEY để nhận gợi ý AI chi tiết",
+                    "explanation": "Vui lòng cấu hình GROQ_API_KEY để nhận gợi ý AI chi tiết",
                     "missing_skills": [],
                     "demand_level": "Chưa rảnh",
                     "radar_chart": {"Technical": 0, "Soft Skills": 0, "Problem Solving": 0, "Language": 0, "Creativity": 0},
@@ -2515,7 +2312,7 @@ Trả về **mảng JSON** sau:
     async def moderate_text(self, text: str) -> dict:
         """Moderate user-generated content.
 
-         Uses the primary provider cascade (DeepSeek → Gemini). When EVERY provider is unavailable
+         Uses the configured chat provider. When it is unavailable
         conservative safe result (rather than raising) so the community
         router can keep operating. Content reaching this method has already
         passed the regex Layer-1 pre-filter in ``moderation.py`` which catches
@@ -2536,8 +2333,7 @@ Trả về **mảng JSON** sau:
         try:
             if not self.is_ready:
                 raise RuntimeError(
-                    "AI Service chưa sẵn sàng. Cấu hình DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL "
-                    "hoặc GEMINI_API_KEY."
+                    "AI Service chưa sẵn sàng. Cấu hình GROQ_API_KEY."
                 )
             response = await asyncio.to_thread(
                 self._generate_text_with_fallback, prompt,

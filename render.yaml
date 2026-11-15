@@ -3,11 +3,13 @@
 # Cấu hình dịch vụ: Render đang dùng Blueprint `render.yaml` → Dashboard
 # tự tạo 2 service (edumap-api / edumap-ai) nếu chưa tồn tại.
 #
-# Cách deploy chính thức (2026-11-11): GitHub Actions →
+# Cách deploy chính thức: GitHub Actions build image → đẩy lên GHCR →
 #   `.github/workflows/render-deploy.yml`
 #   • trigger: `push` lên `main` + `workflow_dispatch`
-#   • dùng Render CLI (render deploys create) → Render build cho bạn
-#   • Đợi build + restart xong, smoke test (xem `scripts/smoke_render.sh`).
+#   • build 2 image (edumap-api / edumap-ai) rồi push lên GHCR
+#   • dùng Render CLI (render deploys create --image) → Render pull image
+#     vừa build ra deploy, không tự build lại từ Dockerfile
+#   • Đợi deploy + restart xong, smoke test (xem `scripts/smoke_render.sh`).
 #
 # QUAN TRỌNG: Tắt Auto-Deploy trong Render Dashboard của 2 service
 # (Settings -> Build and Deploy -> Auto-Deploy: OFF) để chỉ GitHub Actions
@@ -18,11 +20,11 @@ services:
   # --------------------------------------------------------------- Rust API
   - type: web
     name: edumap-api
-    runtime: docker
+    runtime: image
     plan: free
     region: singapore
-    rootDir: backend
-    dockerfilePath: ./Dockerfile
+    image:
+      url: ghcr.io/ngoctancse/edumap-api:latest
     healthCheckPath: /api/health
     envVars:
       # --- Port / runtime (Rust: BACKEND_PORT, mặc định 3000) ---
@@ -65,9 +67,9 @@ services:
         value: https://router.project-osrm.org
 
       # --- AI provider keys (tuỳ chọn) ---
-      - key: DEEPSEEK_API_KEY
+      - key: GROQ_API_KEY
         sync: false
-      - key: GEMINI_API_KEY
+      - key: JINA_API_KEY
         sync: false
       - key: TAVILY_API_KEY
         sync: false
@@ -84,11 +86,11 @@ services:
   # ------------------------------------------------------------- FastAPI (AI)
   - type: web
     name: edumap-ai
-    runtime: docker
+    runtime: image
     plan: free
     region: singapore
-    rootDir: ai-service
-    dockerfilePath: ./Dockerfile
+    image:
+      url: ghcr.io/ngoctancse/edumap-ai:latest
     healthCheckPath: /health
     envVars:
       - key: PORT
@@ -117,9 +119,9 @@ services:
         value: "false"
 
       # --- AI provider keys (tuỳ chọn) ---
-      - key: DEEPSEEK_API_KEY
+      - key: GROQ_API_KEY
         sync: false
-      - key: GEMINI_API_KEY
+      - key: JINA_API_KEY
         sync: false
       - key: TAVILY_API_KEY
         sync: false

@@ -18,13 +18,12 @@
 //! Tiền bối của old service: `TITLE_JOINS` — 11 loại có join; loại khác trả
 //! về `title = null`.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -34,33 +33,30 @@ use std::collections::HashMap;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (tất cả các endpoint yêu cầu JWT).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // Request / response shapes
 // ---------------------------------------------------------------------------
 
 /// `GET /api/bookmarks?target_type=` — bộ lọc đối tượng bookmark.
+/// `target_type` giữ lại để client gửi kèm (không đọc).
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct ListQuery {
+pub struct ListQuery {
     #[serde(default)]
     target_type: Option<String>,
 }
 
 /// Body của `POST /api/bookmarks` (toggle).
 #[derive(Debug, Deserialize)]
-struct ToggleForm {
+pub struct ToggleForm {
     target_type: String,
     target_id: String,
 }
 
 /// Đối tượng bookmark trả về (bảng `bookmarks`).
+/// `title` không đọc (tiêu đề lấy theo `target_type` riêng — xem `list()`).
+#[allow(dead_code)]
 struct BookmarkItem {
     target_type: String,
     target_id: String,
@@ -151,7 +147,7 @@ async fn title_lookup(
 
     let mut map = HashMap::new();
     for row in rows {
-        map.insert(row.get::<String>("id"), row.get::<String>("title"));
+        map.insert(row.get::<String, &str>("id"), row.get::<String, &str>("title"));
     }
 
     Ok(map)
@@ -193,10 +189,10 @@ const DB_DELETE_BOOKMARK: &str = r#"
 /// join cho mỗi loại). Trả về `{ items }`.
 pub async fn list(
     State(pool): State<DbPool>,
-    req: Request,
-    Query(query): Query<ListQuery>,
+    user: Option<Extension<AuthUser>>,
+    Query(_query): Query<ListQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_SELECT_BOOKMARKS)
         .bind(&user.id)
@@ -208,9 +204,9 @@ pub async fn list(
         .into_iter()
         .map(|r| {
             BookmarkItem {
-                target_type: r.get::<String>("target_type"),
-                target_id: r.get::<String>("target_id"),
-                created_at: r.get::<String>("created_at"),
+                target_type: r.get::<String, &str>("target_type"),
+                target_id: r.get::<String, &str>("target_id"),
+                created_at: r.get::<String, &str>("created_at"),
                 title: None,
             }
         })
@@ -229,7 +225,9 @@ pub async fn list(
     let mut titles: HashMap<String, HashMap<String, String>> = HashMap::new();
     for (target_type, ids) in types {
         match title_lookup(pool.db(), &target_type, &ids).await {
-            Ok(map) => titles.insert(target_type, map),
+            Ok(map) => {
+                titles.insert(target_type, map);
+            }
             Err(e) => {
                 tracing::warn!("Bookmark title lookup failed: {e}");
                 titles.insert(target_type, HashMap::new());
@@ -258,10 +256,10 @@ pub async fn list(
 /// Body: `{ "target_type": "...", "target_id": "..." }`.
 pub async fn toggle(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(form): Json<ToggleForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     if form.target_type.trim().is_empty() || form.target_id.trim().is_empty() {
         return Err(AppError::BadRequest(

@@ -19,14 +19,13 @@
 //! `scholarship.service.ts`. `eligibility_criteria` (jsonb) được đọc/ghi qua
 //! JSON text.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use crate::modules::proxy::proxy_to_ai_service;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -35,17 +34,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập: các route đọc của scholarships còn là public nên
-/// các handler write tự lấy `AuthUser` ra khỏi extensions và trả `401` khi
-/// JWT bị mất.
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 /// `admin` / `moderator` (tương đương `@Roles(ADMIN, MODERATOR)` của old
 /// backend).
@@ -132,33 +120,33 @@ const DB_SELECT_USER: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn scholarship_to_json(row: &sqlx::PgRow) -> Value {
+fn scholarship_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>>("description").unwrap_or_default(),
-        "provider": row.get::<Option<String>>("provider").unwrap_or_default(),
-        "value_amount": row.get::<Option<f64>>("value_amount").unwrap_or(0.0),
-        "deadline": row.get::<Option<String>>("deadline").unwrap_or_default(),
-        "eligibility_criteria": row.get::<Option<String>>("eligibility_criteria")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "apply_url": row.get::<Option<String>>("apply_url"),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "provider": row.get::<Option<String>, &str>("provider").unwrap_or_default(),
+        "value_amount": row.get::<Option<f64>, &str>("value_amount").unwrap_or(0.0),
+        "deadline": row.get::<Option<String>, &str>("deadline").unwrap_or_default(),
+        "eligibility_criteria": row.get::<Option<String>, &str>("eligibility_criteria")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "apply_url": row.get::<Option<String>, &str>("apply_url"),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
-fn application_to_json(row: &sqlx::PgRow) -> Value {
+fn application_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "scholarship_id": row.get::<String>("scholarship_id"),
-        "status": row.get::<Option<String>>("status").unwrap_or_default(),
-        "personal_statement": row.get::<Option<String>>("personal_statement").unwrap_or_default(),
-        "cv_url": row.get::<Option<String>>("cv_url").unwrap_or_default(),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "scholarship_id": row.get::<String, &str>("scholarship_id"),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
+        "personal_statement": row.get::<Option<String>, &str>("personal_statement").unwrap_or_default(),
+        "cv_url": row.get::<Option<String>, &str>("cv_url").unwrap_or_default(),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
         "scholarship": serde_json::json!({
-            "title": row.get::<Option<String>>("scholarship_title").unwrap_or_default(),
-            "provider": row.get::<Option<String>>("scholarship_provider").unwrap_or_default(),
+            "title": row.get::<Option<String>, &str>("scholarship_title").unwrap_or_default(),
+            "provider": row.get::<Option<String>, &str>("scholarship_provider").unwrap_or_default(),
         }),
     })
 }
@@ -193,6 +181,8 @@ pub struct ApplyScholarshipRequest {
     pub cv_url: Option<String>,
 }
 
+/// `user_data` + `scholarship_data` giữ lại theo API cũ (chỉ đọc `transcript_data`).
+#[allow(dead_code)]
 #[derive(Debug, Default, Deserialize)]
 pub struct EligibilityRequest {
     pub user_data: Option<Value>,
@@ -267,11 +257,11 @@ pub async fn get_scholarship_by_id(
 /// học bổng.
 pub async fn check_eligibility(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<EligibilityRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     // Lấy học bổng (id) và user (id của người gọi để gửi AI).
     let scholarship = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
@@ -298,8 +288,8 @@ pub async fn check_eligibility(
 
     let user_data = serde_json::json!({
         "id": user.id,
-        "full_name": user_row.get::<Option<String>>("full_name").unwrap_or_default(),
-        "major": user_row.get::<Option<String>>("major").unwrap_or_default(),
+        "full_name": user_row.get::<Option<String>, &str>("full_name").unwrap_or_default(),
+        "major": user_row.get::<Option<String>, &str>("major").unwrap_or_default(),
     });
 
     let transcript_data = body.transcript_data.unwrap_or_default();
@@ -323,11 +313,11 @@ pub async fn check_eligibility(
 /// `POST /api/scholarships/:id/apply` — nộp đơn học bổng.
 pub async fn apply_scholarship(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<ApplyScholarshipRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&id)
@@ -339,8 +329,8 @@ pub async fn apply_scholarship(
         Some(row) => row,
         None => return Err(AppError::NotFound("Học bổng không tồn tại.".to_string())),
     };
-    if row.get::<String>("status") != "active" {
-        return Err(AppError::BadRequest("Học bổng này đã đóng."));
+    if row.get::<String, &str>("status") != "active" {
+        return Err(AppError::BadRequest("Học bổng này đã đóng.".to_string()));
     }
 
     let existing: Option<i64> = sqlx::query(
@@ -351,10 +341,10 @@ pub async fn apply_scholarship(
     .fetch_optional(pool.db())
     .await
     .map_err(AppError::from)?
-    .map(|row| row.get::<i64>(0));
+    .map(|row| row.get::<i64, usize>(0));
 
     if existing.is_some() {
-        return Err(AppError::Conflict("Bạn đã nộp đơn cho học bổng này rồi."));
+        return Err(AppError::Conflict("Bạn đã nộp đơn cho học bổng này rồi.".to_string()));
     }
 
     let statement = body.personal_statement.unwrap_or_default();
@@ -368,12 +358,12 @@ pub async fn apply_scholarship(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<String>("id");
+        .get::<String, &str>("id");
 
     // Gửi thông báo nộp đơn cho người dùng đó (qua ai-service mail).
-    let _ = send_notification_to_user(pool, &user.id, format!(
+    let _ = send_notification_to_user(&pool, &user.id, format!(
         "Nộp đơn thành công: Bạn đã nộp hồ sơ ứng tuyển học bổng: {}. Vui lòng theo dõi trạng thái.",
-        row.get::<Option<String>>("title").unwrap_or_default(),
+        row.get::<Option<String>, &str>("title").unwrap_or_default(),
     )).await;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -385,9 +375,9 @@ pub async fn apply_scholarship(
 /// `GET /api/scholarships/me/applications` — danh sách đơn nộp của mình.
 pub async fn get_my_applications(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let rows = sqlx::query(DB_SELECT_APPLICATIONS)
         .bind(&user.id)
@@ -397,25 +387,25 @@ pub async fn get_my_applications(
 
     let applications: Vec<Value> = rows.iter().map(application_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(applications)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(applications))))
 }
 
 /// `POST /api/scholarships` — tạo học bổng mới (admin/mod).
 pub async fn create_scholarship(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateScholarshipRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let title = match body.title.as_ref() {
         Some(t) if !t.trim().is_empty() => t,
-        _ => return Err(AppError::BadRequest("Tiêu đề học bổng không được rỗng.")),
+        _ => return Err(AppError::BadRequest("Tiêu đề học bổng không được rỗng.".to_string())),
     };
 
     let row = sqlx::query(DB_INSERT_SCHOLARSHIP)
-        .bind(title.as_deref())
+        .bind(Some(title.as_str()))
         .bind(body.description.as_deref())
         .bind(body.provider.as_deref())
         .bind(body.value_amount)
@@ -433,11 +423,11 @@ pub async fn create_scholarship(
 /// `PUT /api/scholarships/:id` — cập nhật học bổng (admin/mod).
 pub async fn update_scholarship(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<CreateScholarshipRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
     let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
@@ -446,7 +436,7 @@ pub async fn update_scholarship(
         .await
         .map_err(AppError::from)?;
 
-    let row = match row {
+    let _row = match row {
         Some(row) => row,
         None => return Err(AppError::NotFound("Học bổng không tồn tại.".to_string())),
     };
@@ -464,7 +454,7 @@ pub async fn update_scholarship(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<String>("id");
+        .get::<String, &str>("id");
 
     let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&updated_id)
@@ -485,5 +475,5 @@ async fn send_notification_to_user(pool: &DbPool, user_id: &str, message: String
         .execute(pool.db())
         .await
         .map(|_| ())
-        .map_err(AppError::Io)
+        .map_err(|e| AppError::Io(e.to_string()))
 }

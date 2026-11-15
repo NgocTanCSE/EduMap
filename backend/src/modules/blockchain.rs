@@ -15,13 +15,11 @@
 //! Tất cả SQL dùng runtime API (`sqlx::query!` yêu cầu DB khi compile — bị
 //! cấm). Postgres-only.
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, State};
-use axum::http::Request<Body>;
+use axum::extract::{Extension, Path, State};
 use axum::Json;
 use chrono::Utc;
 use serde::Deserialize;
@@ -32,13 +30,6 @@ use sha2::{Digest, Sha256};
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (route `issue` yêu cầu JWT).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string()))
-}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,7 +58,7 @@ fn now_iso() -> String {
 
 /// Request của `POST /api/blockchain/issue`.
 #[derive(Debug, Deserialize)]
-struct IssueForm {
+pub struct IssueForm {
     user_id: String,
     cert_code: String,
     template_name: String,
@@ -121,10 +112,10 @@ pub fn verify_hash(tx_hash: &str) -> Value {
 /// Body: `{ "userId": "...", "certCode": "...", "templateName": "..." }`.
 pub async fn issue_certificate(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<IssueForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
     let _pool = pool;
 
     if body.user_id.is_empty() || body.cert_code.is_empty() || body.template_name.is_empty() {

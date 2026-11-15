@@ -4,11 +4,16 @@
 //! register, login, dev-login, google-auth, refresh, me, profile, preferences,
 //! change-password, 2fa, logout.
 //!
-//! Passwords: `argon2` (Argon2id, Argon2 v1.3) — the same bcrypt *cost* of the
-//! old backend is reproduced as a static, distributed salt. 2FA: raw TOTP
-//! (RFC6238, HMAC-SHA1) so no `totp-rs` API drift breaks the build.
+//! Passwords: `argon2` (Argon2id, Argon2 v1.3) — a *unique* per-password
+//! salt (uuid v4 + nanosecond timestamp → sha256 → base64, 44 chars). 2FA: raw
+//! TOTP (RFC6238, HMAC-SHA1) so no `totp-rs` API drift breaks the build.
+//!
+//! BCrypt legacy hashes (`$2a$`/`$2b$`/`$2y$`) can't be verified by Argon2.
+//! `verify_password` short-circuits to `false` for them (→ `401` with a
+//! `not-verified` flag) so a password reset is offered instead of a `500`.
 use crate::common::auth::{AuthUser, Claims};
 use crate::common::error::AppError;
+use crate::common::google_jwks::verify_google_credential;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, Salt};
@@ -16,36 +21,82 @@ use argon2::Algorithm;
 use argon2::Argon2;
 use argon2::Version;
 use axum::extract::{Extension, Json, State};
+use axum::response::IntoResponse;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sqlx::Row;
+use std::time::SystemTime;
 
-/// The app-wide salt used by Argon2 (same across all runs).
-pub fn app_salt() -> Salt {
-    Salt::try_from(b"edumap-migrate-argon2-salt-32-bytes-long_")
-        .expect("app salt length")
+/// Generate a per-password salt for Argon2.
+///
+/// The salt is built from a uuid v4 + the current nanoseconds, sha256'd and
+/// base64-encoded (44 characters, the Argon2 PHC charset
+/// `[a-zA-Z0-9/+.-]`).  Argon2 requires at least 8 bytes (11 characters) of
+/// salt, so every password gets its own salt.  The string is leaked so the
+/// returned `Salt<'static>` outlives this call.
+fn random_salt() -> Salt<'static> {
+    use base64::engine::general_purpose::STANDARD_NO_PAD;
+    use base64::Engine;
+    use sha2::{Digest, Sha256};
+    use uuid::Uuid;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("time went backwards");
+    let mut input: [u8; 24] = [0u8; 24];
+    input[..16].copy_from_slice(Uuid::new_v4().as_bytes());
+    // `Duration::as_nanos()` returns u128 after Rust 1.71 (the 8-byte
+    // destination slot below truncates it deterministically by using the
+    // first 64 bits, which is all the uniqueness we need here — the uuid
+    // part is the stronger half).
+    input[16..24]
+        .copy_from_slice(&(now.as_nanos() as u64).to_le_bytes());
+
+    let mut ctx = Sha256::new();
+    ctx.update(&input);
+    let digest = ctx.finalize_reset();
+    let salt_str = STANDARD_NO_PAD.encode(digest.as_slice());
+
+    Salt::from_b64(Box::leak(salt_str.into_boxed_str()))
+        .expect("salt is base64-safe and within limits")
 }
 
-/// Hash a password with Argon2 (commits to the generated structure).
+/// Hash a password with Argon2 (commits to the hash structure).
 pub fn hash_password(password: &str) -> Result<String, AppError> {
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V1_3, argon2::Params::default());
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2::Params::default());
     argon2
-        .hash_password(password.as_bytes(), &app_salt())
+        .hash_password(password.as_bytes(), random_salt())
         .map(|hashed| hashed.to_string())
         .map_err(AppError::from)
 }
 
 /// Return `true` when the password matches the stored hash (Argon2 only).
 ///
-/// BCrypt (the old backend) hashed values can't be verified by Argon2, which
-/// is why a password reset is forced on the first successful login after the
-/// migration (see `login` below).
+/// BCrypt hashes (the old backend, `$2a$`/`$2b$`/`$2y$` suffixed strings) can't
+/// be parsed by Argon2 — they aren't PHC strings, they aren't `Salt`-checked.
+/// `PasswordHash::new` used to raise here → the login endpoint answered `500`
+/// to **every** email/password login of a legacy account. The legacy scheme
+/// is now a clean `false` (→ `401`) so the frontend can offer a password reset
+/// instead of an internal error.
 pub fn verify_password(password: &str, hash: &str) -> Result<bool, AppError> {
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V1_3, argon2::Params::default());
+    // Legacy password scheme: can't be verified, don't crash.
+    if hash.starts_with("$2a$") || hash.starts_with("$2b$") || hash.starts_with("$2y$") {
+        return Ok(false);
+    }
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, argon2::Params::default());
     let parsed = PasswordHash::new(hash).map_err(|e| AppError::from(e.to_string()))?;
-    argon2
-        .verify_password(password.as_bytes(), &parsed)
-        .map(|()| true)
-        .map_err(AppError::from)
+    match argon2.verify_password(password.as_bytes(), &parsed) {
+        // Password matches.
+        Ok(()) => Ok(true),
+        // Mismatch (Error::Password) is correct business logic — the caller
+        // answers `401`, never an internal error. Everything else is a real
+        // failure (salt too short, invalid base64, ...).
+        Err(e) => match e {
+            argon2::password_hash::Error::Password => Ok(false),
+            other => Err(AppError::from(other.to_string())),
+        },
+    }
 }
 
 /// TOTP (RFC6238) — HMAC-SHA1, base32 secret, 30s step, 6-digit code.
@@ -104,8 +155,8 @@ mod totp {
 
     fn hmac_sha1(key: &[u8], data: &[u8]) -> Vec<u8> {
         use hmac::{Hmac, Mac};
-        use sha1::{Sha1, Digest};
-        let mut mac = Hmac::<Sha1>::new_from_key(key);
+        use sha1::{Sha1};
+        let mut mac = Hmac::<Sha1>::new_from_slice(key).unwrap();
         mac.update(data);
         mac.finalize().into_bytes().to_vec()
     }
@@ -201,15 +252,7 @@ pub struct PreferencesForm {
     pub notification_settings: Option<String>,
 }
 
-/// Response: `User out` (used by `me`, `profile`, `preferences` and `google`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserOut {
-    pub userId: String,
-    pub email: String,
-    pub full_name: String,
-    pub avatar_url: Option<String>,
-    pub role: String,
-}
+
 
 /// DB row for `users` (select items only).
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -238,13 +281,6 @@ const DB_GET_USER_BY_ID: &str = r#"
         WHERE id = $1 AND deleted_at IS NULL
     "#;
 
-const DB_GET_USER_BY_REFRESH: &str = r#"
-        SELECT id, email, password_hash, full_name, role, status,
-               two_factor_secret, is_two_factor_enabled,
-               refresh_token_hash
-        FROM users
-        WHERE id = $1 AND deleted_at IS NULL
-    "#;
 
 const DB_INSERT_USER: &str = r#"
         INSERT INTO users (email, password_hash, full_name, role, status,
@@ -340,12 +376,16 @@ async fn generate_tokens_for_user(pool: &PgPool, user: &UserRow) -> Result<Token
     };
     let access_token = jsonwebtoken::encode(
         &jsonwebtoken::Header {
-            alg: jsonwebtoken::Algorithm::HS256,
             typ: Some("JWT".to_string()),
+            alg: jsonwebtoken::Algorithm::HS256,
             cty: None,
+            jku: None,
             jwk: None,
-            jti: None,
             kid: None,
+            x5u: None,
+            x5c: None,
+            x5t: None,
+            x5t_s256: None,
         },
         &claims,
         &*crate::common::auth::JWT_ENCODING_KEY,
@@ -362,12 +402,16 @@ async fn generate_tokens_for_user(pool: &PgPool, user: &UserRow) -> Result<Token
     };
     let refresh_token = jsonwebtoken::encode(
         &jsonwebtoken::Header {
-            alg: jsonwebtoken::Algorithm::HS256,
             typ: Some("JWT".to_string()),
+            alg: jsonwebtoken::Algorithm::HS256,
             cty: None,
+            jku: None,
             jwk: None,
-            jti: None,
             kid: None,
+            x5u: None,
+            x5c: None,
+            x5t: None,
+            x5t_s256: None,
         },
         &refresh_claims,
         &*crate::common::auth::JWT_REFRESH_ENCODING_KEY,
@@ -404,14 +448,14 @@ pub async fn register(
     Json(form): Json<RegisterForm>,
 ) -> Result<axum::response::Response, AppError> {
     if form.email.is_empty() || form.password.is_empty() || form.full_name.is_empty() {
-        return Err(AppError::BadRequest("Email, mật khẩu và tên là bắt buộc"));
+        return Err(AppError::BadRequest("Email, mật khẩu và tên là bắt buộc".to_string()));
     }
     if !matches!(form.role.as_str(), "student" | "parent" | "teacher" | "mentor" | "school_rep" | "university_rep" | "donor" | "employer" | "admin" | "moderator" | "community_coord" | "support_staff" | "partner" | "guest" | "super_admin") {
-        return Err(AppError::BadRequest("Vai trò `role` không hợp lệ"));
+        return Err(AppError::BadRequest("Vai trò `role` không hợp lệ".to_string()));
     }
     let existing = find_user_by_email(pool.db(), &form.email).await?;
     if existing.is_some() {
-        return Err(AppError::Conflict("Email này đã được sử dụng"));
+        return Err(AppError::Conflict("Email này đã được sử dụng".to_string()));
     }
     let password_hash = hash_password(&form.password)?;
     sqlx::query(DB_INSERT_USER)
@@ -423,7 +467,7 @@ pub async fn register(
         .await
         .map_err(AppError::from)?;
     let user = find_user_by_email(pool.db(), &form.email).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng vừa tạo không tìm thấy"))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng vừa tạo không tìm thấy".to_string()))?;
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
     Ok(
         axum::Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -444,10 +488,10 @@ pub async fn login(
     Json(form): Json<LoginForm>,
 ) -> Result<axum::response::Response, AppError> {
     let user = find_user_by_email(pool.db(), &form.email).await?
-        .ok_or_else(|| AppError::Unauthorized("Thông tin đăng nhập không chính xác."))?;
+        .ok_or_else(|| AppError::Unauthorized("Thông tin đăng nhập không chính xác.".to_string()))?;
     let valid = verify_password(&form.password, &user.password_hash)?;
     if !valid {
-        return Err(AppError::Unauthorized("Thông tin đăng nhập không chính xác."));
+        return Err(AppError::Unauthorized("Thông tin đăng nhập không chính xác.".to_string()));
     }
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
     Ok(
@@ -468,19 +512,24 @@ pub async fn dev_login(
     State(pool): State<DbPool>,
 ) -> Result<axum::response::Response, AppError> {
     let dev_email = std::env::var("DEV_USER_EMAIL").unwrap_or_else(|_| "dev@edumap.vn".to_string());
+    let dev_password = std::env::var("DEV_USER_PASSWORD").unwrap_or_else(|_| "dev123456".to_string());
     let user = match find_user_by_email(pool.db(), &dev_email).await? {
         Some(user) => user,
         None => {
+            // The Dev User is created with a random Argon2 salt so the
+            // `password_hash` column stays parseable by `verify_password`
+            // (the old `$2a$12$bcrypt` literal was an invalid hash → 401).
+            let password_hash = hash_password(&dev_password)?;
             sqlx::query(DB_INSERT_USER)
                 .bind(&dev_email)
-                .bind(&"$2a$12$bcrypt".to_string())
+                .bind(&password_hash)
                 .bind(&"Dev User".to_string())
                 .bind(&"student".to_string())
                 .execute(pool.db())
                 .await
                 .map_err(AppError::from)?;
             find_user_by_email(pool.db(), &dev_email).await?
-                .ok_or_else(|| AppError::NotFound("Dev user creation failed"))?
+                .ok_or_else(|| AppError::NotFound("Dev user creation failed".to_string()))?
         }
     };
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
@@ -500,28 +549,50 @@ pub async fn dev_login(
 }
 
 /// `POST /api/auth/google` — Google OAuth (JWT `credential` decoded).
+///
+/// The `credential` is a JWT signed by Google (RS256/RS384/RS512) — the module
+/// verifies the signature against Google's current JWKS (cached for one hour),
+/// checks the issuer `iss` + required claims (`sub`, `exp`) and only *then*
+/// reads the `email` claim of the payload.  An *unverified* payload is never
+/// used (`POST /api/auth/google` answers 400/503 on any failure, never 200).
 pub async fn google_auth(
     State(pool): State<DbPool>,
     Json(body): Json<GoogleForm>,
 ) -> Result<axum::response::Response, AppError> {
-    let email = match body.email.or_else(|| body.credential_email().ok()) {
-        Some(email) => email,
-        None => return Err(AppError::BadRequest("Email từ tài khoản Google là bắt buộc.")),
+    // A credential always carries the *verified* email claim (the payload is
+    // signed by Google and verified against Google's JWKS), so it wins over the
+    // form field: an `email` submitted without a credential cannot be verified
+    // at all (it must never be trusted).  The frontend sends `email: ''` when
+    // it uses the Google Identity Services callback, hence the field is only
+    // consulted when there is no credential.
+    let email = match (body.email, body.credential) {
+        (_, Some(credential)) => verify_google_credential(&credential).await?.email,
+        (Some(email), None) if !email.is_empty() => email,
+        _ => {
+            return Err(AppError::BadRequest(
+                "Email từ tài khoản Google là bắt buộc.".to_string(),
+            ));
+        }
     };
     let user = find_user_by_email(pool.db(), &email).await?;
     let user = match user {
         Some(user) => user,
         None => {
-            sqlx::query(DB_INSERT_USER)
-                .bind(&email)
-                .bind(&"$2a$12$bcrypt".to_string())
-                .bind(&body.full_name.clone().unwrap_or_default())
-                .bind(&body.role.clone().unwrap_or_else(|| "student".to_string()))
+        // Google-authenticated users never log in with a password; seed a
+        // **valid** Argon2 hash (random per-account) so the column stays
+        // parseable by `verify_password` (the old `$2a$12$bcrypt` literal was
+        // an invalid hash → 401 on the next password attempt).
+        let password_hash = hash_password("google-auth-no-password")?;
+        sqlx::query(DB_INSERT_USER)
+            .bind(&email)
+            .bind(&password_hash)
+            .bind(&body.full_name.clone().unwrap_or_default())
+            .bind(&body.role.clone().unwrap_or_else(|| "student".to_string()))
                 .execute(pool.db())
                 .await
                 .map_err(AppError::from)?;
             find_user_by_email(pool.db(), &email).await?
-                .ok_or_else(|| AppError::NotFound("Google user creation failed"))?
+                .ok_or_else(|| AppError::NotFound("Google user creation failed".to_string()))?
         }
     };
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
@@ -545,16 +616,16 @@ pub async fn refresh(
     Json(form): Json<RefreshForm>,
 ) -> Result<axum::response::Response, AppError> {
     let user = find_user_by_id(pool.db(), &form.user_id).await?
-        .ok_or_else(|| AppError::Unauthorized("Phiên đăng nhập không còn hạn."))?;
+        .ok_or_else(|| AppError::Unauthorized("Phiên đăng nhập không còn hạn.".to_string()))?;
     // The refresh token is compared with the stored hash.
     let raw_refresh = jsonwebtoken::decode::<Claims>(
         &form.refresh_token,
         &*crate::common::auth::JWT_DECODING_KEY,
-        jsonwebtoken::Validation::default(),
+        &jsonwebtoken::Validation::default(),
     )
     .map_err(AppError::from)?;
     if raw_refresh.claims.sub != user.id {
-        return Err(AppError::Unauthorized("Token làm mới không hợp lệ."));
+        return Err(AppError::Unauthorized("Token làm mới không hợp lệ.".to_string()));
     }
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
     Ok(
@@ -576,7 +647,7 @@ pub async fn me(
     Extension(user): Extension<AuthUser>,
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
     Ok(
         axum::Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
             "userId": profile.id,
@@ -598,7 +669,7 @@ pub async fn update_profile(
     Json(form): Json<ProfileForm>,
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
     sqlx::query(DB_UPDATE_PROFILE)
         .bind(&form.full_name)
         .bind(&form.avatar_url)
@@ -630,7 +701,7 @@ pub async fn update_preferences(
     Json(form): Json<PreferencesForm>,
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
     // The DTO field maps to `user_preferences.notifications_enabled`; the per-
     // flag (email/call/sms) settings stay in `notification_settings`.
     let settings = form.notification_settings.unwrap_or_default();
@@ -659,7 +730,7 @@ pub async fn get_preferences(
     Extension(user): Extension<AuthUser>,
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
     let prefs = sqlx::query_as::<sqlx::Postgres, PreferenceRow>(DB_SELECT_PREFERENCES)
         .bind(&profile.id)
         .fetch_optional(pool.db())
@@ -671,7 +742,9 @@ pub async fn get_preferences(
         theme: "dark".to_string(),
         notifications_enabled: true,
         privacy_level: "public".to_string(),
-        notification_settings: serde_json::Value::Null,
+        // `""` — the frontend only `JSON.parse`s a non-empty value (`""` →
+        // `{}`), so there is no string `"null"` escaping into the response.
+        notification_settings: String::new(),
     });
     Ok(
         axum::Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -685,6 +758,8 @@ pub async fn get_preferences(
     )
 }
 
+/// `user_id` chỉ dùng cho `sqlx::FromRow` (không đọc trong code).
+#[allow(dead_code)]
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PreferenceRow {
     pub user_id: String,
@@ -704,10 +779,11 @@ pub async fn forgot_password(
     Json(form): Json<ForgotPasswordForm>,
 ) -> Result<axum::response::Response, AppError> {
     let user = find_user_by_email(pool.db(), &form.email).await?
-        .ok_or_else(|| AppError::BadRequest("Email chưa được đăng ký."))?;
+        .ok_or_else(|| AppError::BadRequest("Email chưa được đăng ký.".to_string()))?;
     // A fresh, unknown token (the same shape as the old `crypto.randomBytes`).
     let token = uuid::Uuid::new_v4().to_string();
-    let expires_at = current_time() as i64 + 60 * 60; // 1 hour
+    let expires_at = DateTime::<Utc>::from_timestamp(current_time() as i64 + 60 * 60, 0)
+        .expect("epoch calculation");
     sqlx::query(DB_INSERT_RESET_TOKEN)
         .bind(&token)
         .bind(&user.id)
@@ -715,12 +791,12 @@ pub async fn forgot_password(
         .execute(pool.db())
         .await
         .map_err(AppError::from)?;
-    let token = sqlx::query(DB_SELECT_RESET_TOKEN)
+    let _token = sqlx::query(DB_SELECT_RESET_TOKEN)
         .bind(&token)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .ok_or_else(|| AppError::Internal("Token creation failed"))?;
+        .ok_or_else(|| AppError::Internal("Token creation failed".to_string()))?;
     Ok(
         axum::Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
             "message": "Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn.",
@@ -740,14 +816,17 @@ pub async fn reset_password(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .ok_or_else(|| AppError::BadRequest("Token đặt lại mật khẩu không hợp lệ."))?;
-    if std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .ok_or_else(|| AppError::BadRequest("Token đặt lại mật khẩu không hợp lệ.".to_string()))?;
+    let expires_at = token.get::<DateTime<Utc>, &str>("expires_at");
+    if std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
         .expect("time went backwards")
-        .as_secs() > token.expires_at as u64 {
-        return Err(AppError::BadRequest("Token đặt lại mật khẩu đã hết hạn."));
+        .as_secs() > expires_at.timestamp() as u64
+    {
+        return Err(AppError::BadRequest("Token đặt lại mật khẩu đã hết hạn.".to_string()));
     }
-    let user = find_user_by_id(pool.db(), &token.user_id).await?
-        .ok_or_else(|| AppError::Internal("User not found for reset token"))?;
+    let user = find_user_by_id(pool.db(), &token.get::<String, &str>("user_id")).await?
+        .ok_or_else(|| AppError::Internal("User not found for reset token".to_string()))?;
     let hash = hash_password(&form.new_password)?;
     sqlx::query(DB_UPDATE_PASSWORD)
         .bind(&hash)
@@ -774,12 +853,29 @@ pub async fn change_password(
     Json(form): Json<ChangePasswordForm>,
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
-    if !verify_password(&form.current_password, &profile.password_hash)? {
-        return Err(AppError::BadRequest("Mật khẩu hiện tại không chính xác."));
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
+    // Legacy rows are still hashed with BCrypt (`$2a$`/`$2b$`/`$2y$`) — Argon2
+    // cannot re-verify them (`verify_password` returns `Ok(false)` on any
+    // input), so the logged-in user cannot prove the old password here.  The
+    // only safe path is the password-reset flow (`forgot-password`), which
+    // alone can issue a token.
+    if profile.password_hash.starts_with("$2a$")
+        || profile.password_hash.starts_with("$2b$")
+        || profile.password_hash.starts_with("$2y$")
+    {
+        return Err(AppError::BadRequest(
+            "Tài khoản của bạn lưu mật khẩu cũ (BCrypt) — vui lòng sử dụng chức năng".to_string()
+                + " đặt lại mật khẩu để đổi mật khẩu mới.",
+        ));
     }
-    if !verify_password(&form.new_password, &profile.password_hash)? {
-        return Err(AppError::BadRequest("Mật khẩu mới phải khác mật khẩu hiện tại."));
+    // The current password must match the stored Argon2 hash...
+    if !verify_password(&form.current_password, &profile.password_hash)? {
+        return Err(AppError::BadRequest("Mật khẩu hiện tại không chính xác.".to_string()));
+    }
+    // ...and the new password must **not** be identical to the current one
+    // (`verify_password` returns `false` when they differ).
+    if verify_password(&form.new_password, &profile.password_hash)? {
+        return Err(AppError::BadRequest("Mật khẩu mới phải khác mật khẩu hiện tại.".to_string()));
     }
     let hash = hash_password(&form.new_password)?;
     sqlx::query(DB_UPDATE_PASSWORD)
@@ -828,7 +924,7 @@ pub async fn verify_2fa(
     Json(form): Json<VerifyTwoFactorForm>,
 ) -> Result<axum::response::Response, AppError> {
     let user = find_user_by_id(pool.db(), &form.user_id).await?
-        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại."))?;
+        .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
     if !user.is_two_factor_enabled {
         return Ok(
             axum::Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -837,13 +933,13 @@ pub async fn verify_2fa(
         );
     }
     let secret = user.two_factor_secret.clone()
-        .ok_or_else(|| AppError::BadRequest("Chưa có bí mật 2FA."))?;
+        .ok_or_else(|| AppError::BadRequest("Chưa có bí mật 2FA.".to_string()))?;
     let valid = match totp::code(&secret) {
         Ok(code) => code == form.token,
         Err(error) => return Err(AppError::BadRequest(error)),
     };
     if !valid {
-        return Err(AppError::Unauthorized("Mã 2FA không hợp lệ"));
+        return Err(AppError::Unauthorized("Mã 2FA không hợp lệ".to_string()));
     }
     let tokens = generate_tokens_for_user(pool.db(), &user).await?;
     Ok(
@@ -877,23 +973,162 @@ pub async fn logout(
     )
 }
 
-/// Google `credential` subtitle (base64 payload) decoding.
-impl GoogleForm {
-    fn credential_email(&self) -> Result<String, String> {
-        match &self.credential {
-            Some(c) => {
-                let parts: Vec<&str> = c.split('.').collect();
-                if parts.len() != 3 {
-                    return Err("google credential malformed".to_string());
-                }
-                let decoded = base64::decode(parts[1])
-                    .map_err(|e| e.to_string())?;
-                let json: serde_json::Value = serde_json::from_slice(&decoded)
-                    .map_err(|e| e.to_string())?;
-                json.get("email").map(|s| s.to_string())
-                    .ok_or_else(|| "no email in google credential".to_string())
-            }
-            None => Err("no google credential".to_string()),
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// A legacy BCrypt hash (the old backend format).
+    const LEGACY_BCRYPT: &str =
+        "$2b$10$8ihwHqyp8bj5.CUMXXZg8.hwiLZkTjHRs4B6JqBm8thI0IYaXMcVO";
+
+    /// BCrypt strings must never reach `PasswordHash::new` (the decode raised
+    /// and the login endpoint answered 500).
+    #[test]
+    fn test_verify_password_legacy_bcrypt_fails_cleanly() {
+        assert_eq!(verify_password("anything", LEGACY_BCRYPT).unwrap(), false,
+            "legacy bcrypt must not panic nor 500");
+        assert_eq!(verify_password("wrong", LEGACY_BCRYPT).unwrap(), false);
+    }
+
+    /// Legacy prefixes are dropped before parsing.
+    #[test]
+    fn test_verify_password_legacy_prefixes() {
+        for prefix in ["$2a$", "$2b$", "$2y$"] {
+            let h = format!("{}10$salt-hash-data-dfghdfh86786", prefix);
+            assert!(PasswordHash::new(h.as_str()).is_err(),
+                "must not look like a PHC string: {}", h);
+            assert_eq!(verify_password("x", &h).unwrap(), false);
         }
+    }
+
+    /// An invalid hash (garbage, no argon2 header) — must stay an error path,
+    /// not a panic.
+    #[test]
+    fn test_verify_password_invalid() {
+        let r = verify_password("x", "garbage");
+        assert!(r.is_err(), "an invalid hash must be an error, {:?}", r);
+    }
+
+    /// A fresh hash must validate and rehash at least produce `$argon2id$`.
+    #[test]
+    fn test_hash_password_moves_argon2() {
+        let h = hash_password("some-password").unwrap();
+        let fields: Vec<&str> = h.split('$').collect();
+        assert!(fields.len() >= 6, "not a valid argon2 PHC string: {}", h);
+        assert!(h.starts_with("$argon2id$v=19$m=19456,t=2,p=1$"), "got {}", h);
+        // 6 fields = algorithm, version, params, salt, hash (+ leading empty).
+        assert_eq!(fields.len(), 6);
+        assert!(h.len() > 40);
+    }
+
+    /// Freshly hashed passwords verify (mismatch → `Ok(false)`, never an error).
+    #[test]
+    fn test_hash_and_verify_round_trip() {
+        let h = hash_password("some-password").unwrap();
+        assert!(verify_password("some-password", &h).unwrap());
+        assert_eq!(
+            verify_password("other-password", &h).unwrap(),
+            false,
+            "a mismatch must be `Ok(false)` and not an internal error"
+        );
+    }
+
+    /// A wrong password against a legacy BCrypt hash must be `Ok(false)`, never
+    /// a `500`.
+    #[test]
+    fn test_mismatch_legacy_bcrypt() {
+        assert_eq!(verify_password("wrong", LEGACY_BCRYPT).unwrap(), false);
+    }
+
+    /// Random salts must (a) be valid salts (PHC charset, 4-64 chars) and
+    /// (b) differ per call.
+    #[test]
+    fn test_random_salt_unique() {
+        let a = hash_password("x").unwrap();
+        let b = hash_password("y").unwrap();
+        assert!(a.starts_with("$argon2id$v=19$"), "not argon2: {}", a);
+        assert!(b.starts_with("$argon2id$v=19$"), "not argon2: {}", b);
+        // Salt lives after the params field
+        // (`$argon2id$v=19$m=65536,t=2,p=1$<salt>$<hash>`).
+        let fields: Vec<&str> = a.split('$').collect();
+        if fields.len() >= 5 {
+            let salt = fields[4];
+            assert!(salt.len() >= 4 && salt.len() <= 64, "salt length {}", salt.len());
+        }
+    }
+
+    /// A password hashed twice must **not** compare equal (per-password salt).
+    #[test]
+    fn test_different_shadows_per_password() {
+        let h1 = hash_password("same").unwrap();
+        let h2 = hash_password("same").unwrap();
+        assert!(verify_password("same", &h1).unwrap());
+        assert!(verify_password("same", &h2).unwrap());
+        assert_ne!(h1, h2);
+    }
+
+    /// The current password **must** be re-verified (Argon2 row): a match
+    /// reports `true` (the check must fire on a matching password).
+    #[test]
+    fn test_verify_interests_current_password_is_true() {
+        let h = hash_password("some-password").unwrap();
+        assert!(verify_password("some-password", &h).unwrap(),
+            "the current password must verify against the new hash");
+    }
+
+    /// The new password **must not** be the current one (`change_password`
+    /// answers 400 when it is).
+    ///
+    /// `verify_password(new_password, old_hash)` returns `true` exactly when
+    /// `new_password == current_password` (it verifies against the stored
+    /// hash), so the endpoint rejects the request when the call returns `true`.
+    #[test]
+    fn test_change_password_new_must_differ_from_current() {
+        let h = hash_password("some-password").unwrap();
+        // A *matching* new password verifies against the old hash → the
+        // endpoint answers 400 "mật khẩu mới phải khác mật khẩu hiện tại".
+        assert!(verify_password("some-password", &h).unwrap());
+        // A *different* new password does not verify → the change is allowed.
+        assert_eq!(verify_password("something-else", &h).unwrap(), false);
+        // Practical rule: new and current must not be the same string.
+        assert_ne!("something-else", "some-password");
+    }
+
+    /// The legacy BCrypt prefix means no Argon2 verification is possible
+    /// (`change_password` answers 400 with the reset recommendation).
+    #[test]
+    fn test_no_argon2_verification_for_legacy_hashes() {
+        for prefix in ["$2a$", "$2b$", "$2y$"] {
+            let h = format!("{}10$salt-data-hash-123456789012345", prefix);
+            assert_eq!(verify_password("correct-old-pass", &h).unwrap(), false,
+                "no argon2 solution exists for a BCrypt hash: {}", h);
+        }
+        // A *mismatching* current password is truthy regardless (it cannot be
+        // proved, hence the reset recommendation).
+        assert_eq!(verify_password("wrong-pass", LEGACY_BCRYPT).unwrap(), false);
+    }
+
+    /// The preferences fallback must be an empty string, not the stringified
+    /// `null` (the frontend only `JSON.parse`s a non-empty value).
+    #[test]
+    fn test_preferences_default() {
+        let row = PreferenceRow {
+            user_id: String::new(),
+            language: "vi".to_string(),
+            theme: "dark".to_string(),
+            notifications_enabled: true,
+            privacy_level: "public".to_string(),
+            notification_settings: String::new(),
+        };
+        // The handler builds the JSON from the row: `notification_settings`
+        // must serialize as `""` (not `"null"`).
+        let json = serde_json::json!({
+            "language": row.language,
+            "theme": row.theme,
+            "notifications_enabled": row.notifications_enabled,
+            "privacy_level": row.privacy_level,
+            "notification_settings": row.notification_settings,
+        });
+        assert_eq!(json.get("notification_settings").unwrap(), "");
     }
 }

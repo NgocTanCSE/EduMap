@@ -17,13 +17,12 @@
 //! Mirrors `backend/src/modules/survey/survey.controller.ts` +
 //! `survey.service.ts`. `questions_json`/`answers_json` – jsonb (chuỗi UTF-8).
 
-use crate::common::auth::AuthUser;
+use crate::common::auth::{authenticated_user, AuthUser};
 use crate::common::error::AppError;
 use crate::common::response::ApiResponse;
 use crate::db::pool::DbPool;
-use axum::body::Body;
-use axum::extract::{Path, Query, State};
-use axum::http::Request<Body>;
+use sqlx::Row;
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 use serde_json::Value;
@@ -32,15 +31,6 @@ use serde_json::Value;
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-/// Người dùng đã đăng nhập (các route đọc của surveys còn là public).
-fn authenticated_user(req: &Request) -> Result<AuthUser, AppError> {
-    req.extensions()
-        .get::<AuthUser>()
-        .cloned()
-        .ok_or_else(|| {
-            AppError::Unauthorized("Bạn cần đăng nhập để sử dụng api này.".to_string())
-        })
-}
 
 // ---------------------------------------------------------------------------
 // SQL statements
@@ -80,24 +70,24 @@ const DB_COUNT_RESPONSES: &str = r#"
 // JSON builders
 // ---------------------------------------------------------------------------
 
-fn survey_to_json(row: &sqlx::PgRow) -> Value {
+fn survey_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "title": row.get::<Option<String>>("title").unwrap_or_default(),
-        "questions_json": row.get::<Option<String>>("questions_json")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "status": row.get::<Option<String>>("status").unwrap_or_else(|| "active".to_string()),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "questions_json": row.get::<Option<String>, &str>("questions_json")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
-fn response_to_json(row: &sqlx::PgRow) -> Value {
+fn response_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String>("id"),
-        "survey_id": row.get::<String>("survey_id"),
-        "answers_json": row.get::<Option<String>>("answers_json")
-            .and_then(|s| serde_json::from_str(&s).ok()),
-        "created_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+        "id": row.get::<String, &str>("id"),
+        "survey_id": row.get::<String, &str>("survey_id"),
+        "answers_json": row.get::<Option<String>, &str>("answers_json")
+            .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
     })
 }
 
@@ -136,7 +126,7 @@ pub async fn get_surveys(
 
     let surveys: Vec<Value> = rows.iter().map(survey_to_json).collect();
 
-    Ok(Json(ApiResponse::ok(surveys)))
+    Ok(Json(ApiResponse::ok(serde_json::Value::Array(surveys))))
 }
 
 /// `GET /api/surveys/:id` — chi tiết một cuộc khảo sát (public).
@@ -152,7 +142,7 @@ pub async fn get_survey_by_id(
 
     let row = match row {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.")),
+        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
     Ok(Json(ApiResponse::ok(survey_to_json(&row))))
@@ -161,14 +151,14 @@ pub async fn get_survey_by_id(
 /// `POST /api/surveys` — tạo cuộc khảo sát mới (JWT).
 pub async fn create_survey(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Json(body): Json<CreateSurveyForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let title = match body.title.as_deref() {
         Some(v) if !v.trim().is_empty() => v,
-        _ => return Err(AppError::BadRequest("Tiêu đề khảo sát không được rỗng.")),
+        _ => return Err(AppError::BadRequest("Tiêu đề khảo sát không được rỗng.".to_string())),
     };
 
     let questions_json = match body.questions_json.as_ref() {
@@ -190,11 +180,11 @@ pub async fn create_survey(
 /// `POST /api/surveys/:id/submit` — nộp câu trả lời khảo sát (JWT).
 pub async fn submit_response(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Json(body): Json<SubmitResponseForm>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
@@ -204,10 +194,10 @@ pub async fn submit_response(
 
     let row = match row {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.")),
+        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
-    if row.get::<String>("status") != "active" {
-        return Err(AppError::BadRequest("Khảo sát này đã đóng."));
+    if row.get::<String, &str>("status") != "active" {
+        return Err(AppError::BadRequest("Khảo sát này đã đóng.".to_string()));
     }
 
     let existing: Option<i64> = sqlx::query(
@@ -218,10 +208,10 @@ pub async fn submit_response(
     .fetch_optional(pool.db())
     .await
     .map_err(AppError::from)?
-    .map(|row| row.get::<i64>(0));
+    .map(|row| row.get::<i64, usize>(0));
 
     if existing.is_some() {
-        return Err(AppError::Conflict("Bạn đã hoàn thành bài khảo sát này rồi."));
+        return Err(AppError::Conflict("Bạn đã hoàn thành bài khảo sát này rồi.".to_string()));
     }
 
     let answers = body.answers.unwrap_or(Value::Null);
@@ -234,7 +224,7 @@ pub async fn submit_response(
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
-        .get::<String>("id");
+        .get::<String, &str>("id");
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "id": inserted_id,
@@ -245,10 +235,10 @@ pub async fn submit_response(
 /// `GET /api/surveys/:id/analytics` — phân tích dữ liệu khảo sát (JWT).
 pub async fn get_survey_analytics(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
@@ -258,7 +248,7 @@ pub async fn get_survey_analytics(
 
     let row = match row {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.")),
+        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
     // Cỏi các câu trả lời để xây dựng `questions_stats`.
@@ -279,20 +269,20 @@ pub async fn get_survey_analytics(
     // Build a simplified analytics payload: the old service counted per question
     // and averages for `rating`/`choice` types — computed in memory here.
     let mut questions_stats: Vec<Value> = Vec::new();
-    let questions = row.get::<Option<String>>("questions_json").and_then(|s| serde_json::from_str(&s).ok());
+    let questions: Option<Value> = row.get::<Option<String>, &str>("questions_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
     if let Some(questions) = questions {
         if let Some(items) = questions.as_array() {
             for (_idx, q) in items.iter().enumerate() {
-                let q_id = q.get("id").and_then(Value::to_string);
-                let q_text = q.get("text").and_then(Value::to_string);
+                let q_id = q.get("id").and_then(|v| Some(v.to_string()));
+                let q_text = q.get("text").and_then(|v| Some(v.to_string()));
                 let _ = q_id.as_deref();
                 let q_type = q.get("type").and_then(Value::as_str).unwrap_or("text");
 
                 // Filter answers for this question.
                 let answers: Vec<Value> = responses.iter().filter_map(|r| {
-                    let ans = r.get("answers_json").and_then(|v| v.as_object()?);
+                    let ans = r.get("answers_json").and_then(|v| Some(v.as_object()?));
                     if let Some(key) = q_id.as_ref() {
-                        Some(ans.get(key).cloned()?)
+                        ans.and_then(|m| m.get(key).cloned())
                     } else {
                         None
                     }
@@ -310,7 +300,7 @@ pub async fn get_survey_analytics(
     }
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "survey_title": row.get::<Option<String>>("title").unwrap_or_default(),
+        "survey_title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
         "total_responses": total_responses,
         "questions_stats": questions_stats,
     }))))
@@ -320,11 +310,11 @@ pub async fn get_survey_analytics(
 /// khảo sát (JWT).
 pub async fn export_survey_data(
     State(pool): State<DbPool>,
-    req: Request,
+    user: Option<Extension<AuthUser>>,
     Path(id): Path<String>,
     Query(q): Query<FormatQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let _user = authenticated_user(&req)?;
+    let _user = authenticated_user(user)?;
 
     let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
@@ -332,9 +322,9 @@ pub async fn export_survey_data(
         .await
         .map_err(AppError::from)?;
 
-    let row = match row {
+    let _row = match row {
         Some(row) => row,
-        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.")),
+        None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
     let rows = sqlx::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
@@ -344,15 +334,15 @@ pub async fn export_survey_data(
         .map_err(AppError::from)?;
 
     if rows.is_empty() {
-        return Err(AppError::BadRequest("Không có dữ liệu để xuất."));
+        return Err(AppError::BadRequest("Không có dữ liệu để xuất.".to_string()));
     }
 
     let format = q.format.as_deref().unwrap_or("csv");
     let data = rows.iter().map(|row| {
-        let ans = row.get::<Option<String>>("answers_json").and_then(|s| serde_json::from_str(&s).ok());
+        let ans: Option<Value> = row.get::<Option<String>, &str>("answers_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
         serde_json::json!({
-            "user_id": row.get::<String>("user_id"),
-            "submitted_at": row.get::<Option<String>>("created_at").unwrap_or_default(),
+            "user_id": row.get::<String, &str>("user_id"),
+            "submitted_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
             "answers": ans.unwrap_or_default(),
         })
     }).collect::<Vec<Value>>();

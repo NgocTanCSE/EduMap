@@ -87,7 +87,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/health/db", get(health::get_db_status))
         .route("/api/ping", get(ping))
         .route("/api/config", get(config))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `POST /api/auth/*` — account lifecycle (public login endpoints + JWT
     // guarded profile/preferences endpoints).
@@ -107,7 +107,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/auth/forgot-password", post(auth::forgot_password))
         .route("/api/auth/reset-password", post(auth::reset_password))
         .route("/api/auth/logout", post(auth::logout))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `POST /api/ai/*` + `GET /api/ai/*` — AI proxy to the FastAPI ai-service
     // (streaming + genes + generic verbatim proxy).
@@ -124,7 +124,7 @@ pub fn create_router(pool: DbPool) -> Router {
         // learning-path, trends, pdf-transcript, route/explain, auto/*, ...)
         // is forwarded verbatim into the ai-service.
         .route("/api/ai/{*rest}", get(ai::proxy).post(ai::proxy))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `GET /api/map/*` + `POST /api/map/*` — the map hub (POIs, locations,
     // routing, climate, survey, gap-forecast, NL search). All read endpoints
@@ -155,7 +155,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/map/routing/table", get(map::get_distance_table))
         .route("/api/map/routing/flood-zones", get(map::get_flood_zones))
         .route("/api/map/routing/traffic-segments", get(map::traffic_segments))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/certificates/*` — cấp chứng nhận số, xác thực, hồ sơ năng lực
     // và tải PDF chứng nhận.
@@ -164,7 +164,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/certificates/verify/:code", get(certificate::verify_certificate))
         .route("/api/certificates/portfolio", get(certificate::get_portfolio))
         .route("/api/certificates/download/:code.pdf", get(certificate::download_certificate_pdf))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/donations/*` — chiến dịch quyên góp (danh sách, chi tiết, nhà hảo
     // tâm), tạo chiến dịch, URL thanh toán VNPay và ghi nhận khoản quyên góp.
@@ -178,7 +178,7 @@ pub fn create_router(pool: DbPool) -> Router {
         )
         .route("/api/donations/payment-url", post(donate::create_payment_url))
         .route("/api/donations", post(donate::process_donation))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/events/*` — workshop/sự kiện (danh sách, chi tiết, tạo, cập nhật
     // và đăng ký tham gia). Danh sách/chi tiết là public; write handler tự
@@ -187,7 +187,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/events", get(events::get_events).post(events::create_event))
         .route("/api/events/:id", get(events::get_event_by_id).put(events::update_event))
         .route("/api/events/:id/register", post(events::register_event))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/gamification/*` — bảng xếp hạng, huy hiệu, tiến độ và cấp điểm.
     // Leaderboard là public; các endpoint khác tự kiểm JWT/grant kiểm role.
@@ -199,7 +199,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/gamification/progress/:userId", get(gamification::get_user_progress))
         .route("/api/gamification/grant-points", post(gamification::grant_points))
         .route("/api/gamification/grant-achievement", post(gamification::grant_achievement))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/green/*` — thử thách Sống Xanh, ghi nhận hoạt động và impact xanh.
     // Danh sách là public; write handler tự kiểm JWT.
@@ -207,7 +207,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/green/impacts", get(green::get_all_impacts).post(green::add_impact))
         .route("/api/green/challenges", get(green::get_challenges))
         .route("/api/green/activities", post(green::log_activity))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/hackathons/*` — danh sách cuộc thi, đăng ký đội, nộp sản phẩm và
     // chấm điểm. Danh sách/chi tiết là public; write handler tự kiểm JWT.
@@ -217,7 +217,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/hackathons/register", post(hackathon::register_team))
         .route("/api/hackathons/teams/:teamId/submit", post(hackathon::submit_project))
         .route("/api/hackathons/teams/:teamId/judge", post(hackathon::judge_project))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/career/*` — jobs (list/search/create/update/delete), career paths +
     // skill roadmaps, user careers, user skills, applications, resume upload
@@ -241,7 +241,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/career/upload-resume", post(career::upload_resume))
         .route("/api/career/ai-advice", get(career::get_ai_advice))
         .route("/api/career/suggest", post(career::suggest_career))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/admin/*` — admin dashboard stats, user management (list/detail,
     // status changes, soft-delete/restore), pending content review and the AI
@@ -259,13 +259,13 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/admin/question-gaps", get(admin::get_question_gaps))
         .route("/api/admin/auto-scheduler/health", get(admin::get_auto_scheduler_health))
         .route("/api/admin/crawl-map", post(admin::crawl_map))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/audit-logs` — nhật ký hoạt động hệ thống (admin/moderator, giống
     // old backend `@Roles(ADMIN, MODERATOR)`).
     let audit_log_routes = Router::new()
         .route("/api/audit-logs", get(audit_log::get_logs))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/community/*` — study-group posts, comments, likes and groups. The
     // read endpoints are public (`PUBLIC_PATHS`); the write endpoints
@@ -278,7 +278,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/community/posts/:id/comments", get(community::get_comments).post(community::add_comment))
         .route("/api/community/groups", get(community::get_groups).post(community::create_group))
         .route("/api/community/groups/:id/join", post(community::join_group))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/business/*` — hồ sơ doanh nghiệp, sản phẩm, dịch vụ, đánh giá,
     // giỏ hàng, thanh toán và đơn hàng. Danh sách/chi tiết public
@@ -303,11 +303,11 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/business/checkout", post(business::checkout))
         .route("/api/business/orders/me", get(business::get_my_orders))
         .route("/api/business/orders/vendor", get(business::get_vendor_orders))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/hs-connection/*` — tư vấn tuyển sinh, Campus Tour ảo, câu hỏi
-    /// tư vấn và kết nối cựu HS–sinh viên. Danh sách (counseling, questions)
-    /// là public; write handler tự kiểm JWT.
+    // tư vấn và kết nối cựu HS–sinh viên. Danh sách (counseling, questions)
+    // là public; write handler tự kiểm JWT.
     let hs_connection_routes = Router::new()
         .route("/api/hs-connection/counseling", get(hs_connection::get_counseling))
         .route("/api/hs-connection/campus-tour", post(hs_connection::register_campus_tour))
@@ -316,7 +316,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/hs-connection/connect/:userId", post(hs_connection::connect))
         .route("/api/hs-connection/my-network", get(hs_connection::get_my_network))
         .route("/api/hs-connection/network/respond", post(hs_connection::respond_to_request))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/internships/*` — cơ hội thực tập (danh sách, chi tiết, ứng tuyển,
     // tìm gần nhất); đăng tuyển (chỉ doanh nghiệp / JWT). Các endpoint đọc
@@ -326,7 +326,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/internships/nearby", get(internship::get_nearby))
         .route("/api/internships/:id", get(internship::get_internship_by_id))
         .route("/api/internships/:id/apply", post(internship::apply_internship))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/impact-match/*` — ImpactMatch: ghép nối nhu cầu ↔ nhà tài trợ.
     // Danh sách/chi tiết, xếp hạng AI (lưu ý: POST, ngọt mềm khớp body với
@@ -340,7 +340,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/impact-match/sponsors/:id", get(impact_match::get_sponsor_by_id))
         .route("/api/impact-match/rank", post(impact_match::rank))
         .route("/api/impact-match/rankings/cached", get(impact_match::get_cached_rankings))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/intl/*` — chương trình quốc tế `programs` + mạng lưới lưu học
     // sinh `alumni` (trong nước + gần nhất, PostGIS).
@@ -348,7 +348,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/intl/programs", get(intl::get_programs).post(intl::create_program))
         .route("/api/intl/alumni", get(intl::get_alumni).post(intl::create_alumni))
         .route("/api/intl/alumni/nearby", get(intl::get_alumni_nearby))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/library/*` — tài liệu học tập (resources, search, chi tiết, tóm
     // tắt AI, tạo tài liệu). Các endpoint đọc là public; `POST /resources`
@@ -358,7 +358,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/library/resources/:id", get(library::get_resource_by_id))
         .route("/api/library/resources/:id/summary", get(library::summarize_resource))
         .route("/api/library/search", get(library::search_resources))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/learning-spots/*` — địa điểm học tập (lân cận, tính trạng chỗ
     // ngồi, gợi ý AI, giải thích, tạo địa điểm). Các endpoint đọc là public;
@@ -369,7 +369,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/learning-spots/recommend", get(learning_community::recommend_spots))
         .route("/api/learning-spots/explain", post(learning_community::explain_spot))
         .route("/api/learning-spots", post(learning_community::create_spot))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/impact-measurement/*` — báo cáo tác động AI (proxy `ai-service`),
     // gồm cả báo cáo auto-scheduler `auto-cached/{regionId}` (dữ liệu sẵn,
@@ -378,7 +378,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/impact-measurement/metrics", get(impact_measurement::get_metrics))
         .route("/api/impact-measurement/measure", get(impact_measurement::measure))
         .route("/api/impact-measurement/auto-cached/:regionId", get(impact_measurement::get_auto_cached_measure))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/blockchain/*` — ký/xác thực chứng chỉ (hash demo, không ghi DB);
     // `/api/blockchain/verify` là công khai, `/api/blockchain/issue` giữ JWT
@@ -386,27 +386,27 @@ pub fn create_router(pool: DbPool) -> Router {
     let blockchain_routes = Router::new()
         .route("/api/blockchain/issue", post(blockchain::issue_certificate))
         .route("/api/blockchain/verify/:code", get(blockchain::verify))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/bookmarks/*` — bookmark/unbookmark tài nguyên (danh sách theo
     // `?target_type=` + tiêu đề join, toggle). Cần JWT.
     let bookmarks_routes = Router::new()
         .route("/api/bookmarks", get(bookmarks::list).post(bookmarks::toggle))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/offline/*` — Edge AI Tutor: proxy ai-service + đáp ứng mẫu
     // fallback (public, giống old controller `@Public()`).
     let offline_tutor_routes = Router::new()
         .route("/api/offline/tutor", post(offline_tutor::tutor))
         .route("/api/offline/status", get(offline_tutor::status))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/payment/*` — thanh toán (giao dịch kinh doanh + lịch hẹn mentor).
     // Cần JWT (handler tự kiểm).
     let payment_routes = Router::new()
         .route("/api/payment/process/:transactionId", post(payment::process_payment))
         .route("/api/payment/booking/:bookingId", post(payment::create_booking_transaction))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/storage/*` — tải lên, phục vụ file tĩnh (public) và xóa file
     // (JWT, kiểm chủ sở hữu).
@@ -415,7 +415,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/storage/upload", post(storage::upload_file))
         .route("/api/storage/media/:objectName", get(storage::serve_media))
         .route("/api/storage/:id", delete(storage::delete_file))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/mentoring/*` — mentor registration, mentor search, AI matching,
     // availability slots, booking và cập nhật trạng thái lịch hẹn.
@@ -432,7 +432,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/mentoring/me/bookings", get(mentor::get_my_bookings))
         .route("/api/mentoring/student/:studentId/bookings", get(mentor::get_student_bookings))
         .route("/api/mentoring/mentor/:mentorId/bookings", get(mentor::get_mentor_bookings))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/notifications/*` — thông báo của người dùng (tạo, danh sách,
     // chi tiết theo id/người dùng, đánh dấu đã đọc). `PUBLIC_PATHS` cho phép
@@ -443,14 +443,14 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/notifications", get(notifications::get_my_notifications))
         .route("/api/notifications/:userId", get(notifications::get_notifications_for_user))
         .route("/api/notifications/:id/read", put(notifications::mark_as_read))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/pins/*` — ghim bản đồ (danh sách, chi tiết, tạo, sửa, xóa). Các
     // endpoint đọc là public; write handler tự kiểm JWT.
     let pin_routes = Router::new()
         .route("/api/pins", get(pin::find_pins).post(pin::create_pin))
         .route("/api/pins/:id", get(pin::get_pin).patch(pin::update_pin).delete(pin::delete_pin))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/scholarships/*` — học bổng (danh sách/phân trang, chi tiết, nộp
     // đơn, kiểm tra điều kiện AI, đơn của người dùng, admin tạo/cập nhật).
@@ -461,7 +461,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/scholarships/:id/check-eligibility", post(scholar::check_eligibility))
         .route("/api/scholarships/me/applications", get(scholar::get_my_applications))
         .route("/api/scholarships/:id/apply", post(scholar::apply_scholarship))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/summer/*` — chiến dịch Mùa hè xanh (đăng ký, hoạt động, báo
     // cáo, phê duyệt TNV). Các endpoint đọc là public; write handler tự
@@ -472,7 +472,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/summer/campaigns/:id/daily-report", get(summer::get_daily_report))
         .route("/api/summer/campaigns/:id/register", post(summer::register_volunteer))
         .route("/api/summer/registrations/:id/status", patch(summer::update_registration_status))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/surveys/*` — khảo sát (danh sách, chi tiết, tạo, nộp câu trả lời,
     // phân tích, xuất dữ liệu). Các endpoint đọc là public; write handler tự
@@ -483,14 +483,14 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/surveys/:id/submit", post(survey::submit_response))
         .route("/api/surveys/:id/analytics", get(survey::get_survey_analytics))
         .route("/api/surveys/:id/export", get(survey::export_survey_data))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/volunteers/*` — hoạt động tình nguyện (lịch sử personal + ghi
     // nhận giờ).
     let volunteer_routes = Router::new()
         .route("/api/volunteers", get(volunteer::get_volunteers))
         .route("/api/volunteers/activities", get(volunteer::get_activities).post(volunteer::log_activity))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/wifi/*` — bản đồ phủ sóng Wifi miễn phí (danh sách, tìm lân
     // cận, báo cáo, speed-test).
@@ -498,14 +498,14 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/wifi/locations", get(wifi::get_wifi_locations).post(wifi::report_wifi))
         .route("/api/wifi/locations/nearby", get(wifi::get_wifi_nearby))
         .route("/api/wifi/locations/:id/speed-test", post(wifi::submit_speed_test))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/analytics/*` — ghi nhận sự kiện và thống kê (công khai).
     let analytics_routes = Router::new()
         .route("/api/analytics/track", post(analytics::track_event))
         .route("/api/analytics/stats", get(analytics::get_stats))
         .route("/api/analytics/education", get(analytics::get_education_stats))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/crawler/*` — quy trình crawl bản đồ (admin/moderator).
     let crawler_routes = Router::new()
@@ -514,7 +514,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/crawler/history", get(crawler::get_crawl_history))
         .route("/api/crawler/stats", get(crawler::get_crawl_stats))
         .route("/api/crawler/types", get(crawler::get_crawl_types))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/dashboard/*` — tổng quan, insight AI, lịch sử và thống kê.
     let dashboard_routes = Router::new()
@@ -522,14 +522,14 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/dashboard/insight", get(dashboard::get_daily_insight))
         .route("/api/dashboard/history", get(dashboard::get_history))
         .route("/api/dashboard/stats", get(dashboard::get_stats))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/geo/*` — ghép mảnh bản đồ vệ tinh và AI vision phát hiện cơ sở
     // vật chất giáo dục (degraded fallback).
     let geo_routes = Router::new()
         .route("/api/geo/satellite-tiles", get(geo::get_satellite_tiles))
         .route("/api/geo/vision-detect", post(geo::vision_detect))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/opportunities/*` — cơ hội học tập/thực tập, tìm đồng đội và
     // Opportunity Radar (ghép hồ sơ ↔ cơ hội).
@@ -538,7 +538,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/opportunities/:id", get(opportunity::find_one))
         .route("/api/opportunities/:id/team-finding", post(opportunity::toggle_team_finding))
         .route("/api/opportunities/match", post(opportunity::match_opportunities))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/resource-exchange/*` — ghép cung–cầu nguồn lực (sách, thiết bị,
     // giờ tình nguyện). Endpoint đọc + `match` là public; write tự kiểm JWT.
@@ -551,13 +551,13 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/resource-exchange/match", post(resource_exchange::match_resources))
         .route("/api/resource-exchange/cached-matches", get(resource_exchange::get_cached_matches))
         .route("/api/resource-exchange/auto-health", get(resource_exchange::get_auto_health))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/roles/*` — quản lý vai trò RBAC (admin/moderator).
     let role_routes = Router::new()
         .route("/api/roles", get(role::find_all).post(role::create))
         .route("/api/roles/:id", get(role::find_one))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/share/*` — chia sẻ sách/tài liệu/học cụ và yêu cầu mượn.
     let share_routes = Router::new()
@@ -565,7 +565,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/share/me/requests", get(share::get_my_requests))
         .route("/api/share/items/:id/request", post(share::request_item))
         .route("/api/share/items/:id/return", post(share::return_item))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     // `/api/stem/*` — phòng lab STEM, tìm lab gần nhất (PostGIS) và đặt lịch
     // mượn thiết bị.
@@ -574,7 +574,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/stem/labs", get(stem::get_labs).post(stem::register_lab))
         .route("/api/stem/labs/nearby", get(stem::get_nearby))
         .route("/api/stem/labs/:id/book", post(stem::book_lab))
-        .with_state(pool);
+        .with_state(pool.clone());
 
     Router::new()
         .merge(health)
