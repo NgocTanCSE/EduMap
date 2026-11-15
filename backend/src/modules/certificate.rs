@@ -352,7 +352,10 @@ pub async fn get_portfolio(
     }))))
 }
 
-/// `GET /api/certificates/download/:code.pdf` — tải PDF chứng nhận (công khai).
+/// `GET /api/certificates/download/{*code}` — tải PDF chứng nhận (công khai).
+///
+/// `code` nhận toàn bộ phần còn lại của segment (bao gồm `.pdf` nếu có),
+/// handler tự strip hậu tố `.pdf` trước khi tìm chứng chỉ.
 ///
 /// Trả về nhị phân PDF với `Content-Type: application/pdf` và
 /// `Content-Disposition: attachment`. Chứng chỉ không tìm thấy → 404.

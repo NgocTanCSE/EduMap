@@ -163,7 +163,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/certificates/issue", post(certificate::issue_certificate))
         .route("/api/certificates/verify/{code}", get(certificate::verify_certificate))
         .route("/api/certificates/portfolio", get(certificate::get_portfolio))
-        .route("/api/certificates/download/{code}.pdf", get(certificate::download_certificate_pdf))
+        .route("/api/certificates/download/{*code}", get(certificate::download_certificate_pdf))
         .with_state(pool.clone());
 
     // `/api/donations/*` — chiến dịch quyên góp (danh sách, chi tiết, nhà hảo
