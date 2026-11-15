@@ -136,7 +136,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/map/pois", get(map::get_pois).post(map::create_poi))
         .route("/api/map/locations", get(map::get_locations))
         .route("/api/map/categories", get(map::get_categories))
-        .route("/api/map/poi/:id", get(map::get_poi_details))
+        .route("/api/map/poi/{id}", get(map::get_poi_details))
         .route("/api/map/featured-pins", get(map::get_featured_pins))
         .route("/api/map/stats", get(map::get_stats))
         .route("/api/map/gap-forecast", get(map::gap_forecast))
@@ -161,9 +161,9 @@ pub fn create_router(pool: DbPool) -> Router {
     // và tải PDF chứng nhận.
     let certificate_routes = Router::new()
         .route("/api/certificates/issue", post(certificate::issue_certificate))
-        .route("/api/certificates/verify/:code", get(certificate::verify_certificate))
+        .route("/api/certificates/verify/{code}", get(certificate::verify_certificate))
         .route("/api/certificates/portfolio", get(certificate::get_portfolio))
-        .route("/api/certificates/download/:code.pdf", get(certificate::download_certificate_pdf))
+        .route("/api/certificates/download/{code}.pdf", get(certificate::download_certificate_pdf))
         .with_state(pool.clone());
 
     // `/api/donations/*` — chiến dịch quyên góp (danh sách, chi tiết, nhà hảo
@@ -171,10 +171,8 @@ pub fn create_router(pool: DbPool) -> Router {
     // Danh sách/chi tiết là public; các write handler tự kiểm JWT.
     let donation_routes = Router::new()
         .route("/api/donations/campaigns", get(donate::get_campaigns).post(donate::create_campaign))
-        .route("/api/donations/campaigns/:id", get(donate::get_campaign_by_id))
-        .route(
-            "/api/donations/campaigns/:id/donors",
-            get(donate::get_donors_by_campaign_id),
+        .route("/api/donations/campaigns/{id}", get(donate::get_campaign_by_id))
+        .route("/api/donations/campaigns/{id}/donors", get(donate::get_donors_by_campaign_id),
         )
         .route("/api/donations/payment-url", post(donate::create_payment_url))
         .route("/api/donations", post(donate::process_donation))
@@ -185,8 +183,8 @@ pub fn create_router(pool: DbPool) -> Router {
     // kiểm JWT.
     let events_routes = Router::new()
         .route("/api/events", get(events::get_events).post(events::create_event))
-        .route("/api/events/:id", get(events::get_event_by_id).put(events::update_event))
-        .route("/api/events/:id/register", post(events::register_event))
+        .route("/api/events/{id}", get(events::get_event_by_id).put(events::update_event))
+        .route("/api/events/{id}/register", post(events::register_event))
         .with_state(pool.clone());
 
     // `/api/gamification/*` — bảng xếp hạng, huy hiệu, tiến độ và cấp điểm.
@@ -196,7 +194,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/gamification/my-progress", get(gamification::get_my_progress))
         .route("/api/gamification/my-badges", get(gamification::get_user_badges))
         .route("/api/gamification/submit-activity", post(gamification::submit_activity))
-        .route("/api/gamification/progress/:userId", get(gamification::get_user_progress))
+        .route("/api/gamification/progress/{user_id}", get(gamification::get_user_progress))
         .route("/api/gamification/grant-points", post(gamification::grant_points))
         .route("/api/gamification/grant-achievement", post(gamification::grant_achievement))
         .with_state(pool.clone());
@@ -213,10 +211,10 @@ pub fn create_router(pool: DbPool) -> Router {
     // chấm điểm. Danh sách/chi tiết là public; write handler tự kiểm JWT.
     let hackathon_routes = Router::new()
         .route("/api/hackathons", get(hackathon::get_hackathons))
-        .route("/api/hackathons/:id", get(hackathon::get_hackathon_by_id))
+        .route("/api/hackathons/{id}", get(hackathon::get_hackathon_by_id))
         .route("/api/hackathons/register", post(hackathon::register_team))
-        .route("/api/hackathons/teams/:teamId/submit", post(hackathon::submit_project))
-        .route("/api/hackathons/teams/:teamId/judge", post(hackathon::judge_project))
+        .route("/api/hackathons/teams/{team_id}/submit", post(hackathon::submit_project))
+        .route("/api/hackathons/teams/{team_id}/judge", post(hackathon::judge_project))
         .with_state(pool.clone());
 
     // `/api/career/*` — jobs (list/search/create/update/delete), career paths +
@@ -226,18 +224,18 @@ pub fn create_router(pool: DbPool) -> Router {
     // `AuthLayer` skips them); the rest need a JWT.
     let career_routes = Router::new()
         .route("/api/career/jobs", get(career::get_jobs).post(career::create_job))
-        .route("/api/career/jobs/:id", get(career::get_job_by_id).patch(career::update_job).delete(career::delete_job))
+        .route("/api/career/jobs/{id}", get(career::get_job_by_id).patch(career::update_job).delete(career::delete_job))
         .route("/api/career/paths", get(career::get_paths).post(career::create_path))
-        .route("/api/career/paths/:id", get(career::get_path_by_id))
-        .route("/api/career/roadmap/:id", get(career::get_skill_roadmap))
+        .route("/api/career/paths/{id}", get(career::get_path_by_id))
+        .route("/api/career/roadmap/{id}", get(career::get_skill_roadmap))
         .route("/api/career/user-careers", get(career::get_user_careers).post(career::create_user_career))
-        .route("/api/career/user-careers/:id", patch(career::update_user_career).delete(career::delete_user_career))
+        .route("/api/career/user-careers/{id}", patch(career::update_user_career).delete(career::delete_user_career))
         .route("/api/career/user-skills", get(career::get_user_skills).post(career::create_user_skill))
-        .route("/api/career/user-skills/:id", patch(career::update_user_skill).delete(career::delete_user_skill))
+        .route("/api/career/user-skills/{id}", patch(career::update_user_skill).delete(career::delete_user_skill))
         .route("/api/career/applications", get(career::get_user_applications).post(career::apply_to_job))
-        .route("/api/career/applications/:id", get(career::get_application_by_id))
-        .route("/api/career/applications/:id/status", patch(career::update_application_status))
-        .route("/api/career/applications/:id/withdraw", patch(career::withdraw_application))
+        .route("/api/career/applications/{id}", get(career::get_application_by_id))
+        .route("/api/career/applications/{id}/status", patch(career::update_application_status))
+        .route("/api/career/applications/{id}/withdraw", patch(career::withdraw_application))
         .route("/api/career/upload-resume", post(career::upload_resume))
         .route("/api/career/ai-advice", get(career::get_ai_advice))
         .route("/api/career/suggest", post(career::suggest_career))
@@ -251,9 +249,9 @@ pub fn create_router(pool: DbPool) -> Router {
     let admin_routes = Router::new()
         .route("/api/admin/dashboard", get(admin::get_stats))
         .route("/api/admin/users", get(admin::get_users))
-        .route("/api/admin/users/:id", get(admin::get_user_by_id).delete(admin::soft_delete_user))
-        .route("/api/admin/users/:id/status", put(admin::update_user_status))
-        .route("/api/admin/users/:id/restore", post(admin::restore_user))
+        .route("/api/admin/users/{id}", get(admin::get_user_by_id).delete(admin::soft_delete_user))
+        .route("/api/admin/users/{id}/status", put(admin::update_user_status))
+        .route("/api/admin/users/{id}/restore", post(admin::restore_user))
         .route("/api/admin/content/pending", get(admin::get_pending_content))
         .route("/api/admin/data-quality/report", post(admin::data_quality_report))
         .route("/api/admin/question-gaps", get(admin::get_question_gaps))
@@ -273,11 +271,11 @@ pub fn create_router(pool: DbPool) -> Router {
     // text through the ai-service content moderator before storing it.
     let community_routes = Router::new()
         .route("/api/community/posts", get(community::get_posts).post(community::create_post))
-        .route("/api/community/posts/:id", get(community::get_post_by_id))
-        .route("/api/community/posts/:id/like", post(community::like_post))
-        .route("/api/community/posts/:id/comments", get(community::get_comments).post(community::add_comment))
+        .route("/api/community/posts/{id}", get(community::get_post_by_id))
+        .route("/api/community/posts/{id}/like", post(community::like_post))
+        .route("/api/community/posts/{id}/comments", get(community::get_comments).post(community::add_comment))
         .route("/api/community/groups", get(community::get_groups).post(community::create_group))
-        .route("/api/community/groups/:id/join", post(community::join_group))
+        .route("/api/community/groups/{id}/join", post(community::join_group))
         .with_state(pool.clone());
 
     // `/api/business/*` — hồ sơ doanh nghiệp, sản phẩm, dịch vụ, đánh giá,
@@ -287,19 +285,19 @@ pub fn create_router(pool: DbPool) -> Router {
     let business_routes = Router::new()
         .route("/api/business", get(business::get_profiles))
         .route("/api/business/profile", post(business::create_or_update_profile))
-        .route("/api/business/:id/profile", get(business::get_profile))
-        .route("/api/business/:id/verify", post(business::verify_profile))
-        .route("/api/business/:bpId/products", post(business::create_product).get(business::get_products))
-        .route("/api/business/products/:id", get(business::get_product))
-        .route("/api/business/:bpId/products/:id", put(business::update_product).delete(business::delete_product))
-        .route("/api/business/:bpId/services", post(business::create_service).get(business::get_services))
-        .route("/api/business/services/:id", get(business::get_service))
-        .route("/api/business/:bpId/services/:id", put(business::update_service).delete(business::delete_service))
-        .route("/api/business/products/:id/reviews", post(business::create_product_review).get(business::get_product_reviews))
-        .route("/api/business/services/:id/reviews", post(business::create_service_review).get(business::get_service_reviews))
+        .route("/api/business/{id}/profile", get(business::get_profile))
+        .route("/api/business/{id}/verify", post(business::verify_profile))
+        .route("/api/business/{bp_id}/products", post(business::create_product).get(business::get_products))
+        .route("/api/business/products/{id}", get(business::get_product))
+        .route("/api/business/{bp_id}/products/{id}", put(business::update_product).delete(business::delete_product))
+        .route("/api/business/{bp_id}/services", post(business::create_service).get(business::get_services))
+        .route("/api/business/services/{id}", get(business::get_service))
+        .route("/api/business/{bp_id}/services/{id}", put(business::update_service).delete(business::delete_service))
+        .route("/api/business/products/{id}/reviews", post(business::create_product_review).get(business::get_product_reviews))
+        .route("/api/business/services/{id}/reviews", post(business::create_service_review).get(business::get_service_reviews))
         .route("/api/business/cart", get(business::get_cart).delete(business::clear_cart))
         .route("/api/business/cart/add", post(business::add_to_cart))
-        .route("/api/business/cart/:id", delete(business::remove_from_cart))
+        .route("/api/business/cart/{id}", delete(business::remove_from_cart))
         .route("/api/business/checkout", post(business::checkout))
         .route("/api/business/orders/me", get(business::get_my_orders))
         .route("/api/business/orders/vendor", get(business::get_vendor_orders))
@@ -312,8 +310,8 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/hs-connection/counseling", get(hs_connection::get_counseling))
         .route("/api/hs-connection/campus-tour", post(hs_connection::register_campus_tour))
         .route("/api/hs-connection/questions", get(hs_connection::get_questions).post(hs_connection::create_question))
-        .route("/api/hs-connection/questions/:id/answers", post(hs_connection::answer_question))
-        .route("/api/hs-connection/connect/:userId", post(hs_connection::connect))
+        .route("/api/hs-connection/questions/{id}/answers", post(hs_connection::answer_question))
+        .route("/api/hs-connection/connect/{user_id}", post(hs_connection::connect))
         .route("/api/hs-connection/my-network", get(hs_connection::get_my_network))
         .route("/api/hs-connection/network/respond", post(hs_connection::respond_to_request))
         .with_state(pool.clone());
@@ -324,8 +322,8 @@ pub fn create_router(pool: DbPool) -> Router {
     let internship_routes = Router::new()
         .route("/api/internships", get(internship::get_internships).post(internship::create_internship))
         .route("/api/internships/nearby", get(internship::get_nearby))
-        .route("/api/internships/:id", get(internship::get_internship_by_id))
-        .route("/api/internships/:id/apply", post(internship::apply_internship))
+        .route("/api/internships/{id}", get(internship::get_internship_by_id))
+        .route("/api/internships/{id}/apply", post(internship::apply_internship))
         .with_state(pool.clone());
 
     // `/api/impact-match/*` — ImpactMatch: ghép nối nhu cầu ↔ nhà tài trợ.
@@ -335,9 +333,9 @@ pub fn create_router(pool: DbPool) -> Router {
     // JWT và trả 401 khi thiếu.
     let impact_match_routes = Router::new()
         .route("/api/impact-match/needs", get(impact_match::get_needs).post(impact_match::create_need))
-        .route("/api/impact-match/needs/:id", get(impact_match::get_need_by_id))
+        .route("/api/impact-match/needs/{id}", get(impact_match::get_need_by_id))
         .route("/api/impact-match/sponsors", get(impact_match::get_sponsors).post(impact_match::create_sponsor))
-        .route("/api/impact-match/sponsors/:id", get(impact_match::get_sponsor_by_id))
+        .route("/api/impact-match/sponsors/{id}", get(impact_match::get_sponsor_by_id))
         .route("/api/impact-match/rank", post(impact_match::rank))
         .route("/api/impact-match/rankings/cached", get(impact_match::get_cached_rankings))
         .with_state(pool.clone());
@@ -355,8 +353,8 @@ pub fn create_router(pool: DbPool) -> Router {
     // tự kiểm JWT.
     let library_routes = Router::new()
         .route("/api/library/resources", get(library::get_resources).post(library::create_resource))
-        .route("/api/library/resources/:id", get(library::get_resource_by_id))
-        .route("/api/library/resources/:id/summary", get(library::summarize_resource))
+        .route("/api/library/resources/{id}", get(library::get_resource_by_id))
+        .route("/api/library/resources/{id}/summary", get(library::summarize_resource))
         .route("/api/library/search", get(library::search_resources))
         .with_state(pool.clone());
 
@@ -365,7 +363,7 @@ pub fn create_router(pool: DbPool) -> Router {
     // write handler tự kiểm JWT.
     let learning_community_routes = Router::new()
         .route("/api/learning-spots/nearby", get(learning_community::get_nearby))
-        .route("/api/learning-spots/:id/availability", get(learning_community::get_availability))
+        .route("/api/learning-spots/{id}/availability", get(learning_community::get_availability))
         .route("/api/learning-spots/recommend", get(learning_community::recommend_spots))
         .route("/api/learning-spots/explain", post(learning_community::explain_spot))
         .route("/api/learning-spots", post(learning_community::create_spot))
@@ -377,7 +375,7 @@ pub fn create_router(pool: DbPool) -> Router {
     let impact_measurement_routes = Router::new()
         .route("/api/impact-measurement/metrics", get(impact_measurement::get_metrics))
         .route("/api/impact-measurement/measure", get(impact_measurement::measure))
-        .route("/api/impact-measurement/auto-cached/:regionId", get(impact_measurement::get_auto_cached_measure))
+        .route("/api/impact-measurement/auto-cached/{region_id}", get(impact_measurement::get_auto_cached_measure))
         .with_state(pool.clone());
 
     // `/api/blockchain/*` — ký/xác thực chứng chỉ (hash demo, không ghi DB);
@@ -385,7 +383,7 @@ pub fn create_router(pool: DbPool) -> Router {
     // (handler tự kiểm).
     let blockchain_routes = Router::new()
         .route("/api/blockchain/issue", post(blockchain::issue_certificate))
-        .route("/api/blockchain/verify/:code", get(blockchain::verify))
+        .route("/api/blockchain/verify/{code}", get(blockchain::verify))
         .with_state(pool.clone());
 
     // `/api/bookmarks/*` — bookmark/unbookmark tài nguyên (danh sách theo
@@ -404,8 +402,8 @@ pub fn create_router(pool: DbPool) -> Router {
     // `/api/payment/*` — thanh toán (giao dịch kinh doanh + lịch hẹn mentor).
     // Cần JWT (handler tự kiểm).
     let payment_routes = Router::new()
-        .route("/api/payment/process/:transactionId", post(payment::process_payment))
-        .route("/api/payment/booking/:bookingId", post(payment::create_booking_transaction))
+        .route("/api/payment/process/{transaction_id}", post(payment::process_payment))
+        .route("/api/payment/booking/{booking_id}", post(payment::create_booking_transaction))
         .with_state(pool.clone());
 
     // `/api/storage/*` — tải lên, phục vụ file tĩnh (public) và xóa file
@@ -413,25 +411,25 @@ pub fn create_router(pool: DbPool) -> Router {
     let storage_routes = Router::new()
         .route("/api/storage/my-files", get(storage::get_my_files))
         .route("/api/storage/upload", post(storage::upload_file))
-        .route("/api/storage/media/:objectName", get(storage::serve_media))
-        .route("/api/storage/:id", delete(storage::delete_file))
+        .route("/api/storage/media/{object_name}", get(storage::serve_media))
+        .route("/api/storage/{id}", delete(storage::delete_file))
         .with_state(pool.clone());
 
     // `/api/mentoring/*` — mentor registration, mentor search, AI matching,
     // availability slots, booking và cập nhật trạng thái lịch hẹn.
     let mentoring_routes = Router::new()
-        .route("/api/mentoring/register/:userId", post(mentor::register_mentor))
+        .route("/api/mentoring/register/{user_id}", post(mentor::register_mentor))
         .route("/api/mentoring/mentors", get(mentor::get_mentors))
-        .route("/api/mentoring/mentors/:id", get(mentor::get_mentor_by_id))
-        .route("/api/mentoring/mentors/recommend/:userId", get(mentor::recommend_mentors))
-        .route("/api/mentoring/mentors/:mentorId/slots", get(mentor::get_mentor_slots))
+        .route("/api/mentoring/mentors/{id}", get(mentor::get_mentor_by_id))
+        .route("/api/mentoring/mentors/recommend/{user_id}", get(mentor::recommend_mentors))
+        .route("/api/mentoring/mentors/{mentor_id}/slots", get(mentor::get_mentor_slots))
         .route("/api/mentoring/availability", post(mentor::add_availability))
         .route("/api/mentoring/me/availability", get(mentor::get_my_availability))
         .route("/api/mentoring/book", post(mentor::book_session))
-        .route("/api/mentoring/bookings/:id/status", patch(mentor::update_booking_status))
+        .route("/api/mentoring/bookings/{id}/status", patch(mentor::update_booking_status))
         .route("/api/mentoring/me/bookings", get(mentor::get_my_bookings))
-        .route("/api/mentoring/student/:studentId/bookings", get(mentor::get_student_bookings))
-        .route("/api/mentoring/mentor/:mentorId/bookings", get(mentor::get_mentor_bookings))
+        .route("/api/mentoring/student/{student_id}/bookings", get(mentor::get_student_bookings))
+        .route("/api/mentoring/mentor/{mentor_id}/bookings", get(mentor::get_mentor_bookings))
         .with_state(pool.clone());
 
     // `/api/notifications/*` — thông báo của người dùng (tạo, danh sách,
@@ -441,15 +439,15 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/notifications/send", post(notifications::send_notification))
         .route("/api/notifications/subscribe", get(notifications::subscribe_sse))
         .route("/api/notifications", get(notifications::get_my_notifications))
-        .route("/api/notifications/:userId", get(notifications::get_notifications_for_user))
-        .route("/api/notifications/:id/read", put(notifications::mark_as_read))
+        .route("/api/notifications/{user_id}", get(notifications::get_notifications_for_user))
+        .route("/api/notifications/{id}/read", put(notifications::mark_as_read))
         .with_state(pool.clone());
 
     // `/api/pins/*` — ghim bản đồ (danh sách, chi tiết, tạo, sửa, xóa). Các
     // endpoint đọc là public; write handler tự kiểm JWT.
     let pin_routes = Router::new()
         .route("/api/pins", get(pin::find_pins).post(pin::create_pin))
-        .route("/api/pins/:id", get(pin::get_pin).patch(pin::update_pin).delete(pin::delete_pin))
+        .route("/api/pins/{id}", get(pin::get_pin).patch(pin::update_pin).delete(pin::delete_pin))
         .with_state(pool.clone());
 
     // `/api/scholarships/*` — học bổng (danh sách/phân trang, chi tiết, nộp
@@ -457,10 +455,10 @@ pub fn create_router(pool: DbPool) -> Router {
     // Các endpoint đọc là public; write handler tự kiểm JWT.
     let scholar_routes = Router::new()
         .route("/api/scholarships", get(scholar::get_scholarships).post(scholar::create_scholarship))
-        .route("/api/scholarships/:id", get(scholar::get_scholarship_by_id).put(scholar::update_scholarship))
-        .route("/api/scholarships/:id/check-eligibility", post(scholar::check_eligibility))
+        .route("/api/scholarships/{id}", get(scholar::get_scholarship_by_id).put(scholar::update_scholarship))
+        .route("/api/scholarships/{id}/check-eligibility", post(scholar::check_eligibility))
         .route("/api/scholarships/me/applications", get(scholar::get_my_applications))
-        .route("/api/scholarships/:id/apply", post(scholar::apply_scholarship))
+        .route("/api/scholarships/{id}/apply", post(scholar::apply_scholarship))
         .with_state(pool.clone());
 
     // `/api/summer/*` — chiến dịch Mùa hè xanh (đăng ký, hoạt động, báo
@@ -468,10 +466,10 @@ pub fn create_router(pool: DbPool) -> Router {
     // kiểm JWT.
     let summer_routes = Router::new()
         .route("/api/summer/campaigns", get(summer::get_campaigns).post(summer::create_campaign))
-        .route("/api/summer/campaigns/:id/activities", post(summer::add_activity))
-        .route("/api/summer/campaigns/:id/daily-report", get(summer::get_daily_report))
-        .route("/api/summer/campaigns/:id/register", post(summer::register_volunteer))
-        .route("/api/summer/registrations/:id/status", patch(summer::update_registration_status))
+        .route("/api/summer/campaigns/{id}/activities", post(summer::add_activity))
+        .route("/api/summer/campaigns/{id}/daily-report", get(summer::get_daily_report))
+        .route("/api/summer/campaigns/{id}/register", post(summer::register_volunteer))
+        .route("/api/summer/registrations/{id}/status", patch(summer::update_registration_status))
         .with_state(pool.clone());
 
     // `/api/surveys/*` — khảo sát (danh sách, chi tiết, tạo, nộp câu trả lời,
@@ -479,10 +477,10 @@ pub fn create_router(pool: DbPool) -> Router {
     // kiểm JWT.
     let survey_routes = Router::new()
         .route("/api/surveys", get(survey::get_surveys).post(survey::create_survey))
-        .route("/api/surveys/:id", get(survey::get_survey_by_id))
-        .route("/api/surveys/:id/submit", post(survey::submit_response))
-        .route("/api/surveys/:id/analytics", get(survey::get_survey_analytics))
-        .route("/api/surveys/:id/export", get(survey::export_survey_data))
+        .route("/api/surveys/{id}", get(survey::get_survey_by_id))
+        .route("/api/surveys/{id}/submit", post(survey::submit_response))
+        .route("/api/surveys/{id}/analytics", get(survey::get_survey_analytics))
+        .route("/api/surveys/{id}/export", get(survey::export_survey_data))
         .with_state(pool.clone());
 
     // `/api/volunteers/*` — hoạt động tình nguyện (lịch sử personal + ghi
@@ -497,7 +495,7 @@ pub fn create_router(pool: DbPool) -> Router {
     let wifi_routes = Router::new()
         .route("/api/wifi/locations", get(wifi::get_wifi_locations).post(wifi::report_wifi))
         .route("/api/wifi/locations/nearby", get(wifi::get_wifi_nearby))
-        .route("/api/wifi/locations/:id/speed-test", post(wifi::submit_speed_test))
+        .route("/api/wifi/locations/{id}/speed-test", post(wifi::submit_speed_test))
         .with_state(pool.clone());
 
     // `/api/analytics/*` — ghi nhận sự kiện và thống kê (công khai).
@@ -535,8 +533,8 @@ pub fn create_router(pool: DbPool) -> Router {
     // Opportunity Radar (ghép hồ sơ ↔ cơ hội).
     let opportunity_routes = Router::new()
         .route("/api/opportunities", get(opportunity::get_opportunities).post(opportunity::create_opportunity))
-        .route("/api/opportunities/:id", get(opportunity::find_one))
-        .route("/api/opportunities/:id/team-finding", post(opportunity::toggle_team_finding))
+        .route("/api/opportunities/{id}", get(opportunity::find_one))
+        .route("/api/opportunities/{id}/team-finding", post(opportunity::toggle_team_finding))
         .route("/api/opportunities/match", post(opportunity::match_opportunities))
         .with_state(pool.clone());
 
@@ -544,9 +542,9 @@ pub fn create_router(pool: DbPool) -> Router {
     // giờ tình nguyện). Endpoint đọc + `match` là public; write tự kiểm JWT.
     let resource_exchange_routes = Router::new()
         .route("/api/resource-exchange/resources", get(resource_exchange::get_resources).post(resource_exchange::create_resource))
-        .route("/api/resource-exchange/resources/:id", get(resource_exchange::get_resource_by_id))
+        .route("/api/resource-exchange/resources/{id}", get(resource_exchange::get_resource_by_id))
         .route("/api/resource-exchange/requests", get(resource_exchange::get_resource_requests).post(resource_exchange::create_resource_request))
-        .route("/api/resource-exchange/requests/:id", get(resource_exchange::get_resource_request_by_id))
+        .route("/api/resource-exchange/requests/{id}", get(resource_exchange::get_resource_request_by_id))
         .route("/api/resource-exchange/matches", get(resource_exchange::get_resource_matches))
         .route("/api/resource-exchange/match", post(resource_exchange::match_resources))
         .route("/api/resource-exchange/cached-matches", get(resource_exchange::get_cached_matches))
@@ -556,15 +554,15 @@ pub fn create_router(pool: DbPool) -> Router {
     // `/api/roles/*` — quản lý vai trò RBAC (admin/moderator).
     let role_routes = Router::new()
         .route("/api/roles", get(role::find_all).post(role::create))
-        .route("/api/roles/:id", get(role::find_one))
+        .route("/api/roles/{id}", get(role::find_one))
         .with_state(pool.clone());
 
     // `/api/share/*` — chia sẻ sách/tài liệu/học cụ và yêu cầu mượn.
     let share_routes = Router::new()
         .route("/api/share/items", get(share::get_items).post(share::create_item))
         .route("/api/share/me/requests", get(share::get_my_requests))
-        .route("/api/share/items/:id/request", post(share::request_item))
-        .route("/api/share/items/:id/return", post(share::return_item))
+        .route("/api/share/items/{id}/request", post(share::request_item))
+        .route("/api/share/items/{id}/return", post(share::return_item))
         .with_state(pool.clone());
 
     // `/api/stem/*` — phòng lab STEM, tìm lab gần nhất (PostGIS) và đặt lịch
@@ -573,7 +571,7 @@ pub fn create_router(pool: DbPool) -> Router {
         .route("/api/stem", get(stem::get_module_info))
         .route("/api/stem/labs", get(stem::get_labs).post(stem::register_lab))
         .route("/api/stem/labs/nearby", get(stem::get_nearby))
-        .route("/api/stem/labs/:id/book", post(stem::book_lab))
+        .route("/api/stem/labs/{id}/book", post(stem::book_lab))
         .with_state(pool.clone());
 
     Router::new()

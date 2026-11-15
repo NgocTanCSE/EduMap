@@ -1323,6 +1323,17 @@ runtime truth is the host after deploy.
 - `sqlx::query!` / `sqlx::query_as!` **macros are FORBIDDEN** — they need a live
   DB at compile time. Use runtime `sqlx::query(&SQL)` + `sqlx::query_as(&SQL)`
   with explicit `.bind()` calls in position order.
+- `axum` router: **every capture segment must use `{capture}`** (e.g.
+  `/api/map/pois/:id` → `/api/map/pois/{id}`,
+  `/api/certificates/download/:code.pdf` → `/api/certificates/download/{code}.pdf`),
+  **not** `:param` (the old NestJS style). axum 0.8 validates pattern strings at
+  **startup** and panics (`Path segments must not start with \`:`\``) when the
+  old format is still used. `cargo check` does **not** run the router — the panic
+  showed up only after the first deploy. All 84 route strings were converted in
+  `router.rs` (2026-11-16). The `Path<...>` handlers are all `Path<String>`, so
+  capture names are irrelevant to extraction; keep them matching for clarity.
+- Path patterns in `common/auth.rs::PUBLIC_PATHS` (`:id` or `{id}`) describe
+  pattern syntax only — they still match the `{id}` routes; leave them alone.
 - Route filters (list/search endpoints) are compiled into the SQL **text** with
   `'` → `''` literal escaping; only `limit`/`offset` are bound. See
   `modules/career.rs::get_jobs` for the mask pattern.
