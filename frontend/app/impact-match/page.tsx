@@ -309,35 +309,37 @@ export default function ImpactMatchPage() {
             </Button>
           </div>}/>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-end justify-between p-4 bg-card/50 border border-border rounded-xl">
-        <div className="flex flex-col sm:flex-row gap-4 items-stretch flex-1">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase">Khu vực</label>
-            <input type="text" placeholder="Ví dụ: Đồng Nai" value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="w-full sm:w-48 px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-4 items-end justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch flex-1">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground uppercase font-medium">Khu vực</label>
+              <input type="text" placeholder="Ví dụ: Đồng Nai" value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="w-full sm:w-48 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground uppercase font-medium">Danh mục</label>
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary">
+                {NEED_CATEGORIES.map(c => (<option key={c} value={c}>{c === 'Tất cả' ? c : c.replace(/_/g, ' ')}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground uppercase font-medium">Chi phí tối đa (VND)</label>
+              <input type="number" placeholder="500000000" value={maxCostFilter} onChange={(e) => setMaxCostFilter(e.target.value)} className="w-full sm:w-40 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase">Danh mục</label>
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary">
-              {NEED_CATEGORIES.map(c => (<option key={c} value={c}>{c === 'Tất cả' ? c : c.replace(/_/g, ' ')}</option>))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground uppercase">Chi phí tối đa (VND)</label>
-            <input type="number" placeholder="500000000" value={maxCostFilter} onChange={(e) => setMaxCostFilter(e.target.value)} className="w-full sm:w-40 px-3 py-2 bg-card border border-border rounded-lg text-sm outline-none focus:border-primary"/>
-          </div>
+          <Button onClick={handleRank} disabled={loadingRanking} variant={matchesCached ? "outline" : "default"} className={matchesCached ? "px-6 py-3 gap-2" : "bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"}>
+            {loadingRanking ? (<>
+                <Loader2 className="w-4 h-4 animate-spin"/>
+                Đang xếp hạng...
+              </>) : matchesCached ? (<>
+                <RefreshCw className="w-4 h-4"/>
+                Làm mới kết quả
+              </>) : (<>
+                <BrainCircuit className="w-4 h-4"/>
+                Xếp hạng bằng AI
+              </>)}
+          </Button>
         </div>
-        <Button onClick={handleRank} disabled={loadingRanking} variant={matchesCached ? "outline" : "default"} className={matchesCached ? "px-6 py-3 gap-2" : "bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"}>
-          {loadingRanking ? (<>
-              <Loader2 className="w-4 h-4 animate-spin"/>
-              Đang xếp hạng...
-            </>) : matchesCached ? (<>
-              <RefreshCw className="w-4 h-4"/>
-              Làm mới kết quả
-            </>) : (<>
-              <BrainCircuit className="w-4 h-4"/>
-              Xếp hạng bằng AI
-            </>)}
-        </Button>
       </div>
 
       {rankResponse?.degraded && (<div className="p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center gap-3">
