@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Target, Search, Filter, BrainCircuit, Sparkles, DollarSign, MapPin, Clock, Tag, ExternalLink, TrendingUp, CheckCircle, AlertCircle, Loader2, Plus, X, RefreshCw, } from 'lucide-react';
+import { Target, BrainCircuit, Sparkles, DollarSign, MapPin, Clock, TrendingUp, CheckCircle, AlertCircle, Loader2, Plus, X, RefreshCw, } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import ContentShell from '@/components/ui/ContentShell';
