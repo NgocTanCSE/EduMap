@@ -1780,3 +1780,74 @@ adding or deleting any route.
   "study spaces" recommend/explain calls returned 404. Fixed to
   `/api/learning-spots`, matching the BFFs and backend.
 
+
+## 21. Navigation consolidation (2026-11-17)
+The sidebar and feature catalog were running unfocused: 27 of 38 features were
+pinned to the rail, and six group labels did not match what a first-time user
+actually does (`Tổng quan`, `Tìm kiếm & Trợ lý AI`, `Chợ & Đóng góp`).
+Navigation is now a **single source of truth** — `frontend/src/lib/feature-catalog.ts`
+— and the rail carries only what a user reaches for daily.
+
+**Rules that now apply**
+
+- `sidebar: true` ⇒ the feature must be a daily-use entry point **and** its
+  target page must exist (verified: every `sidebar: true` `href` resolves to an
+  `app/` directory or a `map?tool=<id>` tool in
+  `components/map/tools/registry.tsx`).
+- `sidebar: false` ⇒ the page is still reachable by URL and from
+  `/features` (the full catalog, now surfaced inside `/dashboard` as
+  `components/dashboard/FeatureQuickNav.tsx`); it is *not* deleted.
+- Never hand-edit a nav list. Add a catalog entry, or change `sidebar`.
+- Dead routes stay in `backend/src/router.rs` and `PUBLIC_PATHS` (AGENTS §20).
+  Consolidation is a front-end grouping decision — it does not delete API surface.
+
+**What changed**
+
+| Before | After | Rationale |
+|---|---|---|
+| 6 groups (`Tổng quan`, `Tìm kiếm & Trợ lý AI`, `Học tập`, `Hướng nghiệp`, `Cộng đồng`, `Chợ & Đóng góp`) | 6 groups (`Bản đồ & cá nhân`, `Học tập`, `Hướng nghiệp`, `Cộng đồng`, `Trợ lý AI`, `Đóng góp`) | Labels name the job, not the bucket; `ai` and `market` shrink to what is pinned |
+| 27 sidebar entries | 17 sidebar entries | Removed the features that are only useful once in a while |
+| `/features` on the rail | `/features` off the rail, surfaced inside `/dashboard` | A catalog is a reference, not a destination |
+| `knowledge-graph`, `offline-tutor`, `community`, `hs-connection`, `hackathon`, `leaderboard`, `marketplace`, `resource-exchange`, `impact-measurement` pinned | unpinned | Each is a deep-dive tool; pinning them crowded out map/dashboard/career/learn |
+| `features` description said "danh mục đầy đủ" | "danh mục đủ mọi tính năng" | Vietnamese only, matches §8 |
+| 8 unused `lucide-react` imports in the catalog (`CloudRain`, `Crosshair`, `Database`, `Filter`, `MapPin`, `Satellite`, `ScanSearch`, `ShieldCheck`) | removed | They were unused before the change too; now imports == usage exactly |
+
+**Verification (local, no runtime):**
+
+- `tsc --noEmit`-equivalent balance scan green on both touched files.
+- Catalog self-check: 38 unique feature ids, 6 unique groups, every `group`
+  resolves to a declared group, every sidebar target exists, lucide imports
+  equal usage exactly (40), no stale group labels remain.
+- `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`, both
+  `live + dead = total` sums hold (`⊆ True`) — no API surface was lost.
+
+## 22. Map Hub tool grouping (2026-11-17)
+The Map Hub surfaced all 10 tools as one flat tab strip (`app/map/page.tsx`), which
+makes a first-time user scan the whole strip before finding the tool they need.
+Tools are now **tiered** so the strip reads as *what you reach for* first, then
+*what you dig into*.
+
+**Rules**
+
+- `tier: "core"` — looked at on almost every map visit (browse POIs, wifi, green
+  spaces, climate-safe routes, voice search). These sit right after the home tab.
+- `tier: "analysis"` — one-off deep dives (data gaps, gap prediction, resource
+  optimisation, GeoVision satellite detection, survey planning, GIS agent chat).
+  They follow after a `·` separator and a `Phân tích` label.
+- Adding a tool: give it a tier in `components/map/tools/registry.tsx`;
+  `components/map/tools/types.ts` declares the field; `app/map/page.tsx` renders
+  both groups — no per-tool branch in the page.
+- The `home` inline tool (the "Bản đồ" tab) is `tier: "core"` and carries the
+  field so it satisfies the `MapTool` type.
+- This is a presentation change only. No API route, ai-service endpoint or
+  crawler was touched; `/tmp/audit_final.py` still reports `ghosts_be=0`,
+  `ghosts_ai=0`.
+
+**Split:** `components/map/tools/registry.tsx` có 10 công cụ = 4 `core` + 6 `analysis`;
+thêm công cụ ẩn `home`inline (cũng `core`) nên dải tab trên bản đồ đọc là
+5 cơ bản · 6 phân tích.
+
+- core (4 trong registry): `voice-search`, `wifi`, `green`, `climate`
+- analysis (6): `data-hunter`, `gap-predictor`, `resource-optimizer`, `geo-vision`,
+  `survey-planner`, `ai-agent`
+- `home`inline là tab "Bản đồ chính", `tier: "core"`, đứng đầu dải tab

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useDraggable } from "@/src/hooks/useDraggable";
 import { useResizable } from "@/src/hooks/useResizable";
 import { SIDEBAR_EXPANDED_WIDTH, } from "@/src/lib/layout-constants";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Home as HomeIcon, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, Heart, ShoppingCart, } from "lucide-react";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Home as HomeIcon, RefreshCw, AlertCircle, Heart, ShoppingCart, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -726,10 +726,15 @@ export default function MapPage() {
                 id: "home", label: "Bản đồ", longLabel: "Bản đồ chính",
                 icon: HomeIcon, description: "Duyệt POI, tìm kiếm, phân tích AI",
                 longDescription: "Duyệt địa điểm giáo dục, tìm kiếm, phân tích AI, tìm bằng giọng nói.",
-                authRequired: false, hideBaseLayers: false,
+                authRequired: false, hideBaseLayers: false, tier: "core",
                 Panel: (() => null) as any, Overlay: (() => null) as any,
             } as MapTool} isActive={activeTool === "home"} onClick={() => handleToolChange("home")}/>
-            {MAP_TOOLS.map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
+            <span className="mx-1 text-[10px] text-muted-foreground/40 select-none">·</span>
+            <span className="text-[10px] font-semibold text-muted-foreground/60 whitespace-nowrap">Cơ bản</span>
+            {MAP_TOOLS.filter((t) => t.tier === "core").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
+            <span className="mx-1 text-[10px] text-muted-foreground/40 select-none">·</span>
+            <span className="text-[10px] font-semibold text-muted-foreground/60 whitespace-nowrap">Phân tích</span>
+            {MAP_TOOLS.filter((t) => t.tier === "analysis").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
           </div>
         </div>
 

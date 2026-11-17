@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, CloudRain, Compass, Crosshair, Database, Filter, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPin, MapPinned, Medal, MessagesSquare, Mic, Network, Package, Plane, Radar, Rocket, Route, Satellite, ScanSearch, School, ShieldCheck, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
+import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, Compass, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Mic, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
 export type FeatureGroupId = "core" | "ai" | "learn" | "career" | "community" | "market";
 export type IconComponent = ComponentType<{
     className?: string;
@@ -23,38 +23,38 @@ export type FeatureGroup = {
 export const FEATURE_GROUPS: FeatureGroup[] = [
     {
         id: "core",
-        label: "Tổng quan",
-        description: "Bản đồ giáo dục, bảng điều khiển cá nhân và danh mục tính năng.",
+        label: "Bản đồ & cá nhân",
+        description: "Bản đồ giáo dục tương tác và bảng điều khiển cá nhân.",
         icon: Map,
-    },
-    {
-        id: "ai",
-        label: "Tìm kiếm & Trợ lý AI",
-        description: "Hỏi đáp, tìm kiếm bằng giọng nói, dịch và đơn giản hoá văn bản, trợ lý ngoại tuyến.",
-        icon: Sparkles,
     },
     {
         id: "learn",
         label: "Học tập",
-        description: "Học liệu, học bổng, du học và không gian học tập thực tế.",
+        description: "Học bổng, học liệu, du học và phòng lab STEM.",
         icon: BookOpen,
     },
     {
         id: "career",
         label: "Hướng nghiệp",
-        description: "Nghề nghiệp, việc làm, thực tập và các cơ hội đang mở.",
+        description: "Khám phá nghề nghiệp, việc làm và thực tập.",
         icon: Compass,
     },
     {
         id: "community",
         label: "Cộng đồng",
-        description: "Cố vấn, kết nối THPT, sự kiện, hackathon, bảng xếp hạng, thử thách xanh, mùa hè xanh và trạm Wifi.",
+        description: "Cố vấn, sự kiện và các hoạt động đóng góp tại địa phương.",
         icon: Users,
     },
     {
+        id: "ai",
+        label: "Trợ lý AI",
+        description: "Hỏi đáp có trích nguồn, dịch và đơn giản hoá văn bản.",
+        icon: Sparkles,
+    },
+    {
         id: "market",
-        label: "Chợ & Đóng góp",
-        description: "Trao đổi học liệu, quyên góp, ghép nhu cầu và đo lường tác động.",
+        label: "Đóng góp",
+        description: "Quyên góp và ghép nhu cầu của tổ chức với nhà tài trợ.",
         icon: HandHeart,
     },
 ];
@@ -84,9 +84,9 @@ export const FEATURES: Feature[] = [
         label: "Tất cả tính năng",
         href: "/features",
         icon: Layers,
-        description: "Danh mục đầy đủ mọi tính năng, gom theo nhóm và tìm kiếm được.",
+        description: "Danh mục đủ mọi tính năng, gom theo nhóm và tìm kiếm được.",
         group: "core",
-        sidebar: true,
+        sidebar: false,
         keywords: ["danh mục", "tính năng", "features", "hub"],
     },
     {
@@ -134,7 +134,7 @@ export const FEATURES: Feature[] = [
         icon: CloudOff,
         description: "Học tiếp khi mất mạng nhờ mô hình chạy ngay trên máy.",
         group: "ai",
-        sidebar: true,
+        sidebar: false,
         keywords: ["offline", "ngoại tuyến", "tutor"],
     },
     {
@@ -144,7 +144,7 @@ export const FEATURES: Feature[] = [
         icon: Network,
         description: "Khám phá quan hệ giữa trường, học bổng, nghề và kỹ năng.",
         group: "ai",
-        sidebar: true,
+        sidebar: false,
         keywords: ["knowledge graph", "quan hệ", "liên kết"],
     },
     {
@@ -287,7 +287,7 @@ export const FEATURES: Feature[] = [
         icon: MessagesSquare,
         description: "Hỏi đáp, chia sẻ và kết nối với cộng đồng EduMap.",
         group: "community",
-        sidebar: true,
+        sidebar: false,
         keywords: ["cộng đồng", "chia sẻ", "hỏi đáp"],
     },
     {
@@ -297,7 +297,7 @@ export const FEATURES: Feature[] = [
         icon: Network,
         description: "Cầu nối giữa học sinh THPT và trường đại học, doanh nghiệp.",
         group: "community",
-        sidebar: true,
+        sidebar: false,
         keywords: ["thpt", "kết nối", "trường"],
     },
     {
@@ -317,7 +317,7 @@ export const FEATURES: Feature[] = [
         icon: Trophy,
         description: "Cuộc thi lập trình, thể lệ và đội thi đang mở.",
         group: "community",
-        sidebar: true,
+        sidebar: false,
         keywords: ["hackathon", "cuộc thi", "lập trình"],
     },
     {
@@ -327,7 +327,7 @@ export const FEATURES: Feature[] = [
         icon: Medal,
         description: "Điểm đóng góp và thứ hạng của thành viên tích cực.",
         group: "community",
-        sidebar: true,
+        sidebar: false,
         keywords: ["xếp hạng", "leaderboard", "điểm"],
     },
     {
@@ -385,7 +385,7 @@ export const FEATURES: Feature[] = [
         icon: Store,
         description: "Mua bán, trao đổi sách và thiết bị học tập.",
         group: "market",
-        sidebar: true,
+        sidebar: false,
         keywords: ["chợ", "marketplace", "sách", "thiết bị"],
     },
     {
@@ -415,7 +415,7 @@ export const FEATURES: Feature[] = [
         icon: Package,
         description: "Ghép sách, thiết bị và giờ tình nguyện đang dư với nhu cầu.",
         group: "market",
-        sidebar: true,
+        sidebar: false,
         keywords: ["trao đổi", "nguồn lực", "exchange"],
     },
     {
@@ -425,7 +425,7 @@ export const FEATURES: Feature[] = [
         icon: MapPinned,
         description: "Đo thay đổi khả năng tiếp cận trước và sau khi triển khai.",
         group: "market",
-        sidebar: true,
+        sidebar: false,
         keywords: ["tác động", "impact", "đo lường"],
     },
 ];

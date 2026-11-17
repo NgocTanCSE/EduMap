@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map as MapIcon, MessageSquareText, LayoutGrid, Search, ArrowUp, SlidersHorizontal, ChevronDown, Sparkles, BookOpen, User, } from "lucide-react";
+import { Map as MapIcon, MessageSquareText, LayoutGrid, ArrowUp, SlidersHorizontal, ChevronDown, BookOpen, User, } from "lucide-react";
 import { Dock, DockIcon } from "./Dock";
 import AnimatedThemeToggler from "./AnimatedThemeToggler";
 import { cn } from "@/src/lib/utils";
@@ -55,9 +55,9 @@ export function QuickDock({ className }: QuickDockProps) {
         </DockIcon>
 
         <DockIcon>
-          <Link href="/features" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/features"
+          <Link href="/dashboard" className={cn("flex h-full w-full items-center justify-center rounded-full transition-colors", pathname === "/dashboard"
             ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Trung tâm tính năng (/features)">
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground")} title="Bảng điều khiển cá nhân (/dashboard)">
             <LayoutGrid className="h-5 w-5"/>
           </Link>
         </DockIcon>

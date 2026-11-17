@@ -34,6 +34,7 @@ export interface MapTool {
     longDescription: string;
     authRequired: boolean;
     hideBaseLayers: boolean;
+    tier: "core" | "analysis";
     defaultCenter?: {
         lat: number;
         lng: number;

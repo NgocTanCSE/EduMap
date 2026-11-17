@@ -12,6 +12,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Phân tích lưới ô để tìm khu vực chưa có cơ sở giáo dục.",
         authRequired: true,
         hideBaseLayers: true,
+        tier: "analysis",
     },
     {
         id: "gap-predictor",
@@ -22,6 +23,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Sử dụng mô hình dự báo của ai-service để dự báo khu vực thiếu giáo dục.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "analysis",
     },
     {
         id: "resource-optimizer",
@@ -32,6 +34,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Tính toán kế hoạch đầu tư tối ưu dựa trên ngân sách và nhu cầu thực tế.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "analysis",
     },
     {
         id: "geo-vision",
@@ -42,6 +45,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Dò tìm trường học/chợ học chưa được đưa vào bản đồ bằng AI nhận dạng ảnh vệ tinh.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "analysis",
     },
     {
         id: "survey-planner",
@@ -52,6 +56,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Tính toán điểm khảo sát tiếp cận thông tin mới nhất dựa trên thời gian và khoảng cách.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "analysis",
     },
     {
         id: "climate",
@@ -62,6 +67,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Phân tích rủi ro lũ lụt, thời tiết và tiếp cận giao thông để đưa ra gợi ý an toàn.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "core",
     },
     {
         id: "ai-agent",
@@ -72,6 +78,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Nhập câu hỏi bằng ngôn ngữ tự nhiên, AI chuyển thành truy vấn bản đồ và hiển thị kết quả.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "analysis",
     },
     {
         id: "voice-search",
@@ -82,6 +89,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Sử dụng Web Speech API tìm kiếm bản đồ, phân loại intent tự động.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "core",
     },
     {
         id: "wifi",
@@ -92,6 +100,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Hiển thị trạm Wifi miễn phí/trả tiền với phân màu tốc độ.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "core",
     },
     {
         id: "green",
@@ -102,6 +111,7 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         longDescription: "Hiển thị các thử thách xanh và hoạt động sinh thái trên bản đồ.",
         authRequired: false,
         hideBaseLayers: false,
+        tier: "core",
     },
 ];
 const DataHunterPanel = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterPanel), { ssr: false });

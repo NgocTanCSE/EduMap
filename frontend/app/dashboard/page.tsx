@@ -2,10 +2,11 @@
 import { InteractiveGridPattern } from '@/components/ui/magic/InteractiveGridPattern';
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, LogOut, User, Settings, ShieldCheck, BookOpen, Award, Users, Heart, MapPin, Sparkles, ArrowUpRight, Calendar, Compass, } from "lucide-react";
+import { Loader2, LogOut, User, Settings, ShieldCheck, BookOpen, Award, Users, MapPin, Sparkles, ArrowUpRight, Calendar, Compass, } from "lucide-react";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { dashboardService } from "../../src/services/dashboard.service";
 import { PersonalHub } from "@/components/dashboard/PersonalHub";
+import { FeatureQuickNav } from "@/components/dashboard/FeatureQuickNav";
 import { avatarFallback, onImageError } from "@/src/lib/illustrations";
 export default function DashboardPage() {
     const { user, isLoggedIn, loading: authLoading, logout } = useAuth();
@@ -241,6 +242,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      <FeatureQuickNav />
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-[22px] border border-border/80 bg-card p-6 shadow-orvel flex flex-col justify-between">
           <div>
