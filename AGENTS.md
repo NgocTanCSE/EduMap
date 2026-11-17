@@ -1851,3 +1851,23 @@ thêm công cụ ẩn `home`inline (cũng `core`) nên dải tab trên bản đ�
 - analysis (6): `data-hunter`, `gap-predictor`, `resource-optimizer`, `geo-vision`,
   `survey-planner`, `ai-agent`
 - `home`inline là tab "Bản đồ chính", `tier: "core"`, đứng đầu dải tab
+
+## 23. CI build errors fixed from the consolidation run (2026-11-18)
+
+The consolidated working tree broke two unrelated builds. Both fixed:
+
+- **Frontend `TS2307`** — `app/api/admin/data-quality/report/route.ts` was moved one
+  level deeper (`admin/data-quality/route.ts` → `admin/data-quality/report/route.ts`)
+  but its `authService` import kept 4 `../`. Fixed to
+  `../../../../../src/services/auth.service` (5 levels:
+  `app/api/admin/data-quality/report/route.ts` → `frontend/src`).
+  Every `app/api/**/*.ts` was re-scanned: **0** remaining depth mismatches.
+- **Rust `E0308`** — `backend/src/modules/share.rs:265` bound
+  `name.unwrap_or("")`. `name` is `Option<String>` (`body.name.as_deref().map(clean)`),
+  so `unwrap_or("")` returns `&str` where sqlx wants `String`. Fixed to
+  `name.unwrap_or_default()`. Sibling `.bind(x.as_deref().unwrap_or(""))` calls are
+  `&str` and compile fine — only this one needed the change.
+
+Note: `app/api/admin/data-quality/report/route.ts` came from a **prior, unrelated**
+agent run (the `{ => report}/` move in the working tree), not from this consolidation.
+The consolidation itself touched no backend or BFF routes.

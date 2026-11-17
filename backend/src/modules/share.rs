@@ -262,7 +262,7 @@ pub async fn update_item(
 
     let name = body.name.as_deref().map(clean).filter(|s| !s.is_empty());
     let rows = sqlx::query(DB_UPDATE_ITEM)
-        .bind(name.unwrap_or(""))
+        .bind(name.unwrap_or_default())
         .bind(body.category.as_deref().unwrap_or("book"))
         .bind(body.description.as_deref().map(clean).as_deref().unwrap_or(""))
         .bind(body.status.as_deref().unwrap_or("available"))
