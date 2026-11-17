@@ -95,7 +95,7 @@ export const FEATURES: Feature[] = [
         href: "/ai-chat",
         icon: BrainCircuit,
         description: "Hỏi đáp học tập, học bổng và nghề nghiệp có trích nguồn.",
-        group: "ai",
+        group: "core",
         sidebar: true,
         keywords: ["chat", "rag", "trợ lý"],
     },
