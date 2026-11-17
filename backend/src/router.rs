@@ -113,12 +113,10 @@ pub fn create_router(pool: DbPool) -> Router {
     // (streaming + genes + generic verbatim proxy).
     let ai_routes = Router::new()
         .route("/api/ai/chat-stream", post(ai::chat_stream))
-        .route("/api/ai/chat/stream", post(ai::chat_stream))
         .route("/api/ai/agent/chat-stream", post(ai::agent_chat_stream))
         .route("/api/ai/chat", post(ai::chat))
         .route("/api/ai/agent/chat", post(ai::agent_chat))
         .route("/api/ai/history", get(ai::history))
-        .route("/api/ai/search", get(ai::search))
         .route("/api/ai/speech/to-text", post(ai::speech_to_text))
         // Catch-all: every other `/api/ai/{*rest}` (knowledge/*, language/*,
         // learning-path, trends, pdf-transcript, route/explain, auto/*, ...)
@@ -560,6 +558,7 @@ pub fn create_router(pool: DbPool) -> Router {
     // `/api/share/*` — chia sẻ sách/tài liệu/học cụ và yêu cầu mượn.
     let share_routes = Router::new()
         .route("/api/share/items", get(share::get_items).post(share::create_item))
+        .route("/api/share/items/{id}", get(share::get_item).put(share::update_item).delete(share::delete_item))
         .route("/api/share/me/requests", get(share::get_my_requests))
         .route("/api/share/items/{id}/request", post(share::request_item))
         .route("/api/share/items/{id}/return", post(share::return_item))

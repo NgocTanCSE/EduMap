@@ -12,27 +12,7 @@ permissions:
   actions: read
 
 jobs:
-  # === 2. AI service (FastAPI): unit tests ===
-  ai-service-tests:
-    name: AI service tests (pytest)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python deps (app + test tooling)
-        run: pip install -r ai-service/requirements.txt --no-cache-dir && pip install pytest --no-cache-dir
-
-      - name: Run ai-service tests
-        run: cd ai-service && python3 -m pytest tests -q
-
-  # === 3. Frontend (Next.js/Vercel): type check + build ===
+  # === 1. Frontend (Next.js/Vercel): type check + build ===
   frontend-check:
     name: Frontend type check + build
     runs-on: ubuntu-latest

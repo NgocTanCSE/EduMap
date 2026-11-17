@@ -52,7 +52,7 @@ except Exception as e:
     raise
 
 
-router_names = ['chat', 'suggestions', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'search', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'resource_exchange', 'survey', 'system', 'auto', 'route']
+router_names = ['chat', 'analytics', 'career', 'geo', 'learning_path', 'mentor', 'moderation', 'library', 'scholarship', 'predictive', 'forecast', 'pdf_transcript', 'resource', 'data_quality', 'agent', 'talk2map', 'climate', 'offline_tutor', 'impactmatch', 'knowledge', 'opportunity', 'learning_space', 'impact_measure', 'language', 'speech', 'resource_exchange', 'survey', 'system', 'auto', 'route', 'search', 'suggestions']
 
 for name in router_names:
     try:

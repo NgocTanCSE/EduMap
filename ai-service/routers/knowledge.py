@@ -198,6 +198,25 @@ async def approve_extraction(review_id: str, note: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Lỗi duyệt extraction: {str(e)}")
 
 
+@router.post("/sync")
+async def sync_graph():
+    """POST /api/ai/knowledge/sync
+
+    Đồng bộ hóa lại knowledge graph (tương tự seed nhưng skip rebuild nếu
+    graph đã có). Endpoint này giữ nguyên để BFF `knowledge.service.ts.sync()`
+    không trả về 404.
+    """
+    kg = _get_kg()
+    if kg is None:
+        raise HTTPException(status_code=503, detail="Knowledge graph service chưa sẵn sàng.")
+    try:
+        kg.extract_entities()  # refresh nhẹ
+        return {"status": "synced", "message": "Knowledge graph đã được đồng bộ."}
+    except Exception as e:
+        print(f"[knowledge] sync error: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi đồng bộ knowledge graph: {str(e)}")
+
+
 @router.post("/seed")
 async def seed_graph(background: bool = False):
     """POST /api/ai/knowledge/seed

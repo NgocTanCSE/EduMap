@@ -61,7 +61,7 @@ export interface RecommendParams {
     w_capacity?: number;
 }
 class LearningSpaceService {
-    private readonly API_URL = '/api/learning-spaces';
+    private readonly API_URL = '/api/learning-spots';
     private buildQuery(params: Record<string, string | number | boolean | undefined>): string {
         const q = new URLSearchParams();
         for (const [key, value] of Object.entries(params)) {

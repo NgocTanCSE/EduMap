@@ -36,6 +36,17 @@ pub struct CreateItem {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct UpdateItem {
+    pub name: Option<String>,
+    pub category: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub lat: Option<f64>,
+    pub lng: Option<f64>,
+    pub address: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct BorrowRequest {
     pub message: Option<String>,
 }
@@ -53,6 +64,21 @@ WHERE status = 'available'
 "#;
 
 const DB_ITEM_BY_ID: &str = r#"SELECT id, owner_id FROM shared_items WHERE id = $1"#;
+
+const DB_ITEM_FULL: &str = r#"
+SELECT id, name, category, description, status, lat, lng, address, owner_id,
+       CAST(created_at AS TEXT) AS created_at,
+       CAST(updated_at AS TEXT) AS updated_at
+FROM shared_items WHERE id = $1
+"#;
+
+const DB_UPDATE_ITEM: &str = r#"
+UPDATE shared_items SET name = $1, category = $2, description = $3,
+    status = $4, lat = $5, lng = $6, address = $7, updated_at = NOW()
+WHERE id = $8 AND owner_id = $9
+"#;
+
+const DB_DELETE_ITEM: &str = r#"DELETE FROM shared_items WHERE id = $1 AND owner_id = $2"#;
 
 const DB_INSERT_ITEM: &str = r#"
 INSERT INTO shared_items (name, category, description, status, owner_id,
@@ -177,6 +203,97 @@ pub async fn create_item(
         .map_err(|e| AppError::Internal(format!("failed to create shared item: {e}")))?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+}
+
+/// `GET /api/share/items/{id}` — chi tiết một tài nguyên (công khai).
+pub async fn get_item(
+    State(pool): State<DbPool>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let row = sqlx::query(DB_ITEM_FULL)
+        .bind(id.as_str())
+        .fetch_optional(pool.db())
+        .await
+        .map_err(|e| AppError::Internal(format!("failed to read shared item: {e}")))?;
+
+    let item = match row {
+        Some(r) => r,
+        None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
+    };
+
+    Ok(Json(ApiResponse::ok(serde_json::json!({
+        "id": item.get::<String, &str>("id"),
+        "name": item.get::<Option<String>, &str>("name"),
+        "category": item.get::<Option<String>, &str>("category"),
+        "description": item.get::<Option<String>, &str>("description"),
+        "status": item.get::<Option<String>, &str>("status"),
+        "lat": item.get::<Option<f64>, &str>("lat"),
+        "lng": item.get::<Option<f64>, &str>("lng"),
+        "address": item.get::<Option<String>, &str>("address"),
+        "ownerId": item.get::<Option<String>, &str>("owner_id"),
+        "createdAt": item.get::<Option<String>, &str>("created_at"),
+        "updatedAt": item.get::<Option<String>, &str>("updated_at"),
+    }))))
+}
+
+/// `PUT /api/share/items/{id}` — chủ sở hữu cập nhật thông tin tài nguyên.
+pub async fn update_item(
+    State(pool): State<DbPool>,
+    user: Option<Extension<AuthUser>>,
+    Path(id): Path<String>,
+    Json(body): Json<UpdateItem>,
+) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let user = authenticated_user(user)?;
+
+    let owner = sqlx::query("SELECT owner_id FROM shared_items WHERE id = $1")
+        .bind(id.as_str())
+        .fetch_optional(pool.db())
+        .await
+        .map_err(|e| AppError::Internal(format!("failed to read shared item: {e}")))?;
+
+    let owner = match owner {
+        Some(r) => r.get::<String, &str>("owner_id"),
+        None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
+    };
+
+    if owner != user.id {
+        return Err(AppError::Forbidden("Chỉ chủ sở hữu mới có thể chỉnh sửa tài nguyên.".to_string()));
+    }
+
+    let name = body.name.as_deref().map(clean).filter(|s| !s.is_empty());
+    let rows = sqlx::query(DB_UPDATE_ITEM)
+        .bind(name.unwrap_or(""))
+        .bind(body.category.as_deref().unwrap_or("book"))
+        .bind(body.description.as_deref().map(clean).as_deref().unwrap_or(""))
+        .bind(body.status.as_deref().unwrap_or("available"))
+        .bind(body.lat)
+        .bind(body.lng)
+        .bind(body.address.as_deref().unwrap_or(""))
+        .bind(id.as_str())
+        .bind(user.id.as_str())
+        .execute(pool.db())
+        .await
+        .map_err(|e| AppError::Internal(format!("failed to update shared item: {e}")))?;
+
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "updated": rows.rows_affected() > 0 }))))
+}
+
+/// `DELETE /api/share/items/{id}` — chủ sở hữu xóa tài nguyên.
+pub async fn delete_item(
+    State(pool): State<DbPool>,
+    user: Option<Extension<AuthUser>>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<Value>>, AppError> {
+    let user = authenticated_user(user)?;
+
+    let rows = sqlx::query(DB_DELETE_ITEM)
+        .bind(id.as_str())
+        .bind(user.id.as_str())
+        .execute(pool.db())
+        .await
+        .map_err(|e| AppError::Internal(format!("failed to delete shared item: {e}")))?;
+
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "deleted": rows.rows_affected() > 0 }))))
 }
 
 /// `GET /api/share/me/requests` — danh sách yêu cầu mượn của người dùng.

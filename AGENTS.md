@@ -1732,3 +1732,51 @@ Rules that came out of this pass:
 - `docs/` and any `env/` directory are gitignored — deployment templates live
   in `deploy/`, not `docs/` or `deploy/env/`.
 
+## 20. API surface constraints (2026-11-17)
+
+`CONSTRAINTS.md` at the repo root holds the API-surface bar. Read it before
+adding or deleting any route.
+
+- **Never delete a route/backend/ai-service endpoint just because the audit
+  marks it "dead".** A dead endpoint is reservable: keep it if it is a feature
+  that can be turned back on later (all `/api/ai/auto/*`, `/api/ai/predictive/*`,
+  `/api/ai/geo/*`, `/api/ai/impact/*`, `/api/ai/knowledge/*`, `/api/ai/library/*`,
+  the matchers, `/api/ai/survey/*`, `/api/ai/climate/*`, `/api/ai/system/*`,
+  `/api/ai/career/*`, `/api/ai/data/*`, `forecast/*`, `suggestions`).
+- **Ghosts must stay at zero.** Every route change requires re-running
+  `python3 /tmp/audit_final.py` and confirming `ghosts_be=0`, `ghosts_ai=0` and
+  both `live + dead = total` sums holding (`⊆ True`). The script writes
+  `/tmp/audit/{live_be,dead_be,live_ai,dead_ai,chain,mismatches}.json`.
+- **BFF routes (`frontend/app/api/**/route.ts`) must proxy to an existing Rust
+  path** in `backend/src/router.rs`. A mismatch is a ghost: fix the BFF target,
+  add the Rust handler, or delete the BFF — never leave it.
+- **Ai-service paths under `/api/ai/*`** either land on a Rust handler
+  (`/api/ai/chat-stream`, `/api/ai/agent/*`, `/api/ai/search`, `/api/ai/speech/to-text`,
+  `/api/ai/history`, `/api/ai/chat`) or fall through the single catch-all
+  `/api/ai/{*rest}` into ai-service. Anything else is a ghost.
+- **Rust axum paths use `{param}`, never `:param`** — axum panics at startup.
+- **Test coverage (2026-11-17): 0 tests.** `ef7bce1` deleted 35 ai-service test files
+  whose source modules stayed live; the remaining 3 (`conftest.py`,
+  `test_embeddings_jina.py`, `test_providers.py`) and 4 `scripts/smoke_test_*.sh`
+  were deleted afterward. `ai-service/tests/` no longer exists. `backend/src` (Rust)
+  never had tests — no local Rust toolchain; CI only compile-checks it.
+  **Do not delete live source to match a test count that no longer exists.**
+  `scripts/smoke_render.sh` is the only guard left — run it after every deploy.
+- **`backend/package.json` no longer has test scripts.** `test`, `test:watch`,
+  `test:cov`, `test:debug`, `test:e2e` (which pointed at the deleted
+  `backend/test/`), the `jest` config block, and the
+  `jest`/`ts-jest`/`@types/jest`/`supertest`/`@types/supertest`/`@nestjs/testing`
+  devDependencies were removed — the backend is 100% Rust now.
+- **`.github/workflows/ci-cd.yml` has one job left** — `frontend-check` (type check
+  + build). The `ai-service-tests` pytest job was removed: with no tests it would
+  pass vacuously (pytest exits 0 on an empty test dir) and give a false green.
+- **`backend/src/common/auth.rs::PUBLIC_PATHS` (2026-11-17):** stale references to
+  routes that were removed (`/api/ai/chat/stream`, `/api/ai/search`) were filtered
+  out. Other dead routes are kept: a dead route is not a private route, and pruning
+  blindly can block legitimate public endpoints.
+- **`frontend/src/services/learning-space.service.ts` (2026-11-17):** `API_URL` was
+  `/api/learning-spaces`, but the Rust backend only mounts `/api/learning-spots/*`
+  (`nearby`, `{id}/availability`, `recommend`, `explain`, `create_spot`) — the
+  "study spaces" recommend/explain calls returned 404. Fixed to
+  `/api/learning-spots`, matching the BFFs and backend.
+

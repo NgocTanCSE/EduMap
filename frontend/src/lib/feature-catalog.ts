@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, CloudRain, Compass, Crosshair, Database, Filter, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPin, MapPinned, Medal, MessagesSquare, Mic, Network, Package, Plane, Radar, Rocket, Route, Satellite, ScanSearch, School, Search, ShieldCheck, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
+import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, CloudRain, Compass, Crosshair, Database, Filter, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPin, MapPinned, Medal, MessagesSquare, Mic, Network, Package, Plane, Radar, Rocket, Route, Satellite, ScanSearch, School, ShieldCheck, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
 export type FeatureGroupId = "core" | "ai" | "learn" | "career" | "community" | "market";
 export type IconComponent = ComponentType<{
     className?: string;
@@ -107,15 +107,6 @@ export const FEATURES: Feature[] = [
         description: "Đặt câu hỏi dạng GIS, xem từng bước AI gọi công cụ.",
         group: "ai",
         keywords: ["agent", "gis", "công cụ", "tool"],
-    },
-    {
-        id: "talk2map",
-        label: "Talk2Map",
-        href: "/map",
-        icon: Search,
-        description: "Nhập câu tiếng Việt tự nhiên, nhận kết quả trên bản đồ.",
-        group: "ai",
-        keywords: ["tìm kiếm", "ngôn ngữ tự nhiên", "nl search"],
     },
     {
         id: "voice-search",
