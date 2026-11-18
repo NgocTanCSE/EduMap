@@ -468,8 +468,8 @@ pub async fn get_crawl_history(State(pool): State<DbPool>) -> Result<Json<ApiRes
                         "status": crate::db::opt_text(&row, "status"),
                         "startTime": crate::db::opt_text(&row, "start_time"),
                         "endTime": crate::db::opt_text(&row, "end_time"),
-                        "recordsAdded": row.get::<i64, &str>("records_added"),
-                        "errors": row.get::<i64, &str>("errors"),
+                        "recordsAdded": crate::db::int(&row, "records_added"),
+                        "errors": crate::db::int(&row, "errors"),
                         "message": crate::db::opt_text(&row, "message"),
                     })
                 })

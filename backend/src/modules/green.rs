@@ -72,14 +72,14 @@ const DB_CREATE_CHALLENGE: &str = r#"
 // ---------------------------------------------------------------------------
 
 fn challenge_to_json(row: &sqlx::postgres::PgRow) -> Value {
-    let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
+    let points: i64 = crate::db::opt_int(&row, "points_reward").unwrap_or(0);
     serde_json::json!({
         "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
         "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
         "points": points,
         "carbon_saved_kg": (points as f64) * 0.5,
-        "participants_count": row.get::<Option<i64>, &str>("participant_count").unwrap_or(0),
+        "participants_count": crate::db::opt_int(&row, "participant_count").unwrap_or(0),
         "image_url": Value::Null,
         "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
         "lat": crate::db::opt_num(&row, "lat"),
@@ -90,7 +90,7 @@ fn challenge_to_json(row: &sqlx::postgres::PgRow) -> Value {
 }
 
 fn impact_to_json(row: &sqlx::postgres::PgRow) -> Value {
-    let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
+    let points: i64 = crate::db::opt_int(&row, "points_reward").unwrap_or(0);
     serde_json::json!({
         "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
         "initiative": crate::db::opt_text(&row, "title").unwrap_or_default(),
@@ -174,7 +174,7 @@ pub async fn log_activity(
         "user_id": crate::db::text(&row, "user_id"),
         "challenge_id": crate::db::text(&row, "challenge_id"),
         "carbon_saved_kg": crate::db::opt_num(&row, "carbon_saved_kg").unwrap_or(0.0),
-        "points_earned": row.get::<Option<i64>, &str>("points_earned").unwrap_or(0),
+        "points_earned": crate::db::opt_int(&row, "points_earned").unwrap_or(0),
         "created_at": crate::db::text(&row, "created_at"),
     }))))
 }

@@ -191,17 +191,17 @@ pub async fn get_stats(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Ad
         .await
         .map_err(AppError::from)?;
 
-    let pending_verifications = row.get::<i64, &str>("pending_user_verifications")
-        + row.get::<i64, &str>("pending_campaign_approvals")
-        + row.get::<i64, &str>("pending_scholarship_approvals")
-        + row.get::<i64, &str>("pending_event_approvals");
+    let pending_verifications = crate::db::int(&row, "pending_user_verifications")
+        + crate::db::int(&row, "pending_campaign_approvals")
+        + crate::db::int(&row, "pending_scholarship_approvals")
+        + crate::db::int(&row, "pending_event_approvals");
 
     Ok(Json(ApiResponse::ok(AdminStats {
-        total_users: row.get::<i64, &str>("total_users"),
-        active_campaigns: row.get::<i64, &str>("active_campaigns"),
+        total_users: crate::db::int(&row, "total_users"),
+        active_campaigns: crate::db::int(&row, "active_campaigns"),
         pending_verifications,
-        total_scholarships: row.get::<i64, &str>("total_scholarships"),
-        upcoming_events: row.get::<i64, &str>("upcoming_events"),
+        total_scholarships: crate::db::int(&row, "total_scholarships"),
+        upcoming_events: crate::db::int(&row, "upcoming_events"),
     })))
 }
 

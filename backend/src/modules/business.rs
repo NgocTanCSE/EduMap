@@ -482,8 +482,8 @@ fn profile_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "lat": crate::db::opt_text(&row, "lat"),
         "lng": crate::db::opt_text(&row, "lng"),
         "is_verified": row.get::<bool, &str>("is_verified"),
-        "products_count": row.get::<i64, &str>("products_count"),
-        "services_count": row.get::<i64, &str>("services_count"),
+        "products_count": crate::db::int(&row, "products_count"),
+        "services_count": crate::db::int(&row, "services_count"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
     })
@@ -497,7 +497,7 @@ fn product_to_json(row: &sqlx::postgres::PgRow, reviews: Vec<Value>) -> Value {
         "price": crate::db::text(&row, "price"),
         "currency": crate::db::opt_text(&row, "currency"),
         "category": crate::db::opt_text(&row, "category"),
-        "stock": row.get::<i64, &str>("stock"),
+        "stock": crate::db::int(&row, "stock"),
         "image_url": crate::db::opt_text(&row, "image_url"),
         "business_profile_id": crate::db::text(&row, "business_profile_id"),
         "reviews": reviews,
@@ -514,7 +514,7 @@ fn product_list_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "price": crate::db::text(&row, "price"),
         "currency": crate::db::opt_text(&row, "currency"),
         "category": crate::db::opt_text(&row, "category"),
-        "stock": row.get::<i64, &str>("stock"),
+        "stock": crate::db::int(&row, "stock"),
         "image_url": crate::db::opt_text(&row, "image_url"),
         "business_profile_id": crate::db::text(&row, "business_profile_id"),
         "created_at": crate::db::text(&row, "created_at"),
@@ -560,7 +560,7 @@ fn review_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "id": crate::db::text(&row, "id"),
         "user_id": crate::db::text(&row, "user_id"),
         "user_name": crate::db::opt_text(&row, "full_name"),
-        "rating": row.get::<i64, &str>("rating"),
+        "rating": crate::db::int(&row, "rating"),
         "comment": crate::db::opt_text(&row, "comment"),
         "created_at": crate::db::text(&row, "created_at"),
     })
@@ -572,7 +572,7 @@ fn cart_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "user_id": crate::db::text(&row, "userId"),
         "product_id": crate::db::opt_text(&row, "productId"),
         "service_id": crate::db::opt_text(&row, "serviceId"),
-        "quantity": row.get::<i64, &str>("quantity"),
+        "quantity": crate::db::int(&row, "quantity"),
         "product_name": crate::db::opt_text(&row, "product_name"),
         "product_price": crate::db::opt_text(&row, "product_price"),
         "product_image": crate::db::opt_text(&row, "product_image"),
@@ -601,7 +601,7 @@ fn vendor_order_item_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "order_id": crate::db::text(&row, "orderId"),
         "product_id": crate::db::opt_text(&row, "productId"),
         "service_id": crate::db::opt_text(&row, "serviceId"),
-        "quantity": row.get::<i64, &str>("quantity"),
+        "quantity": crate::db::int(&row, "quantity"),
         "price_at_purchase": crate::db::text(&row, "price_at_purchase"),
         "buyer_id": crate::db::text(&row, "buyer_id"),
         "status": crate::db::text(&row, "status"),
@@ -1228,7 +1228,7 @@ pub async fn add_to_cart(
 
     let row = match existing {
         Some(r) => {
-            let new_qty = r.get::<i64, &str>("quantity") + quantity;
+            let new_qty = crate::db::int(&r, "quantity") + quantity;
             crate::db::query(DB_UPDATE_CART_QUANTITY)
                 .bind(new_qty)
                 .bind::<String>(r.get("id"))
@@ -1250,7 +1250,7 @@ pub async fn add_to_cart(
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Thêm vào giỏ hàng thành công.",
         "id": crate::db::text(&row, "id"),
-        "quantity": row.get::<i64, &str>("quantity"),
+        "quantity": crate::db::int(&row, "quantity"),
     }))))
 }
 
@@ -1450,7 +1450,7 @@ pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<Au
                 "id": crate::db::text(&r, "id"),
                 "product_id": crate::db::opt_text(&r, "productId"),
                 "service_id": crate::db::opt_text(&r, "serviceId"),
-                "quantity": r.get::<i64, &str>("quantity"),
+                "quantity": crate::db::int(&r, "quantity"),
                 "price_at_purchase": crate::db::text(&r, "price_at_purchase"),
                 "product_name": crate::db::opt_text(&r, "product_name"),
                 "service_name": crate::db::opt_text(&r, "service_name"),

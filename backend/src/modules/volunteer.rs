@@ -69,7 +69,7 @@ fn activity_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
         "campaign_name": crate::db::opt_text(&row, "campaign_name").unwrap_or_default(),
-        "hours": row.get::<Option<i64>, &str>("hours").unwrap_or(0),
+        "hours": crate::db::opt_int(&row, "hours").unwrap_or(0),
         "date": crate::db::opt_text(&row, "date").unwrap_or_default(),
         "status": crate::db::opt_text(&row, "status").unwrap_or_default(),
         "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),

@@ -298,7 +298,7 @@ pub async fn submit_speed_test(
     };
 
     let current_avg: f64 = crate::db::opt_num(&location, "rating_avg").unwrap_or(0.0);
-    let current_count: i64 = location.get::<Option<i64>, &str>("rating_count").unwrap_or(0);
+    let current_count: i64 = crate::db::opt_int(&location, "rating_count").unwrap_or(0);
     let new_count = current_count + 1;
     let new_avg = (current_avg * current_count as f64 + rating) / (new_count as f64);
 

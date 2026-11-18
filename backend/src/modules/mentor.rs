@@ -748,7 +748,7 @@ pub async fn add_availability(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "id": crate::db::text(&inserted, "id"),
-        "day_of_week": inserted.get::<i64, &str>("day_of_week"),
+        "day_of_week": crate::db::int(&inserted, "day_of_week"),
         "start_time": crate::db::text(&inserted, "start_time"),
         "end_time": crate::db::text(&inserted, "end_time"),
         "is_active": inserted.get::<bool, &str>("is_active"),

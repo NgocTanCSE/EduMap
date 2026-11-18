@@ -214,7 +214,7 @@ pub async fn get_resources(
         .await
         .map_err(|e| AppError::Internal(format!("failed to count resources: {e}")))?;
 
-    let total: i64 = total_rows.get::<i64, &str>("c");
+    let total: i64 = crate::db::int(&total_rows, "c");
 
     let rows = crate::db::query(&format!("{DB_RESOURCES} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
@@ -277,7 +277,7 @@ fn row_to_resource_json(row: &sqlx::postgres::PgRow) -> Value {
         "type": crate::db::opt_text(&row, "type"),
         "title": crate::db::opt_text(&row, "title"),
         "description": crate::db::opt_text(&row, "description"),
-        "condition": row.get::<Option<i64>, &str>("condition"),
+        "condition": crate::db::opt_int(&row, "condition"),
         "location": crate::db::opt_text(&row, "location"),
         "lat": crate::db::opt_num(&row, "lat"),
         "lng": crate::db::opt_num(&row, "lng"),
@@ -323,7 +323,7 @@ pub async fn get_resource_requests(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count requests: {e}")))?;
-    let total: i64 = total_rows.get::<i64, &str>("c");
+    let total: i64 = crate::db::int(&total_rows, "c");
 
     let rows = crate::db::query(&format!("{DB_REQUESTS} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
@@ -389,7 +389,7 @@ fn row_to_request_json(row: &sqlx::postgres::PgRow) -> Value {
         "lat": crate::db::opt_num(&row, "lat"),
         "lng": crate::db::opt_num(&row, "lng"),
         "deadline": crate::db::opt_text(&row, "deadline"),
-        "preferredMinCondition": row.get::<Option<i64>, &str>("preferred_min_condition"),
+        "preferredMinCondition": crate::db::opt_int(&row, "preferred_min_condition"),
         "contactMethod": crate::db::opt_text(&row, "contact_method"),
         "status": crate::db::opt_text(&row, "status"),
         "tags": crate::db::opt_text(&row, "tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),

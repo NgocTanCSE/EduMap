@@ -132,3 +132,39 @@ pub fn opt_num(row: &PgRow, col: &str) -> Option<f64> {
     }
     opt_text(row, col).and_then(|s| s.parse::<f64>().ok())
 }
+
+/// Read a column as `i64`, accepting int/float/numeric-as-text columns and NULL.
+pub fn int(row: &PgRow, col: &str) -> i64 {
+    if let Ok(v) = row.try_get::<i64, _>(col) {
+        return v;
+    }
+    if let Ok(v) = row.try_get::<i32, _>(col) {
+        return v as i64;
+    }
+    if let Ok(v) = row.try_get::<f64, _>(col) {
+        return v as i64;
+    }
+    if let Some(s) = opt_text(row, col) {
+        if let Ok(v) = s.parse::<i64>() {
+            return v;
+        }
+        if let Ok(v) = s.parse::<f64>() {
+            return v as i64;
+        }
+    }
+    0
+}
+
+/// `Option<i64>` counterpart of [`int`].
+pub fn opt_int(row: &PgRow, col: &str) -> Option<i64> {
+    if let Ok(v) = row.try_get::<Option<i64>, _>(col) {
+        return v;
+    }
+    if let Ok(v) = row.try_get::<Option<i32>, _>(col) {
+        return v.map(|x| x as i64);
+    }
+    if let Ok(v) = row.try_get::<Option<f64>, _>(col) {
+        return v.map(|x| x as i64);
+    }
+    opt_text(row, col).and_then(|s| s.parse::<i64>().ok())
+}

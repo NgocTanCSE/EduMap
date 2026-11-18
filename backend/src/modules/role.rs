@@ -74,11 +74,11 @@ pub async fn find_all(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<i64, &str>("id"),
+                "id": crate::db::int(&row, "id"),
                 "name": crate::db::opt_text(&row, "name"),
                 "displayName": crate::db::opt_text(&row, "display_name"),
                 "description": crate::db::opt_text(&row, "description"),
-                "level": row.get::<Option<i64>, &str>("level"),
+                "level": crate::db::opt_int(&row, "level"),
                 "systemCreated": row.get::<Option<bool>, &str>("system_created"),
                 "createdAt": crate::db::opt_text(&row, "created_at"),
             })
@@ -110,11 +110,11 @@ pub async fn find_one(
     };
 
     let result = serde_json::json!({
-        "id": row.get::<i64, &str>("id"),
+        "id": crate::db::int(&row, "id"),
         "name": crate::db::opt_text(&row, "name"),
         "displayName": crate::db::opt_text(&row, "display_name"),
         "description": crate::db::opt_text(&row, "description"),
-        "level": row.get::<Option<i64>, &str>("level"),
+        "level": crate::db::opt_int(&row, "level"),
         "systemCreated": row.get::<Option<bool>, &str>("system_created"),
         "createdAt": crate::db::opt_text(&row, "created_at"),
     });
@@ -146,7 +146,7 @@ pub async fn create(
         .map_err(|e| AppError::Internal(format!("failed to create role: {e}")))?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<i64, &str>("id"),
+        "id": crate::db::int(&row, "id"),
         "name": crate::db::text(&row, "name"),
     }))))
 }

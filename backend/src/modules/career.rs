@@ -321,11 +321,11 @@ fn job_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
         "experience_level": crate::db::opt_text(&row, "experience_level"),
         "application_deadline": crate::db::opt_text(&row, "application_deadline"),
-        "views": row.get::<i64, &str>("views"),
+        "views": crate::db::int(&row, "views"),
         "status": crate::db::text(&row, "status"),
         "posted_by": crate::db::opt_text(&row, "posted_by_name"),
         "posted_by_user_id": crate::db::opt_text(&row, "posted_by_user_id"),
-        "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+        "career_path_id": crate::db::opt_int(&row, "career_path_id"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
     })
@@ -345,9 +345,9 @@ fn job_list_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
         "experience_level": crate::db::opt_text(&row, "experience_level"),
         "application_deadline": crate::db::opt_text(&row, "application_deadline"),
-        "views": row.get::<i64, &str>("views"),
+        "views": crate::db::int(&row, "views"),
         "status": crate::db::text(&row, "status"),
-        "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+        "career_path_id": crate::db::opt_int(&row, "career_path_id"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
     })
@@ -767,7 +767,7 @@ pub async fn get_skill_roadmap(
         .map_err(AppError::from)?;
     let road = match row {
         Some(row) => Roadmap {
-            career_id: row.get::<i64, &str>("id"),
+            career_id: crate::db::int(&row, "id"),
             career_title: crate::db::text(&row, "title"),
             field: crate::db::opt_text(&row, "field"),
             description: crate::db::opt_text(&row, "description"),
@@ -841,7 +841,7 @@ pub async fn get_user_careers(
         .map(|row| serde_json::json!({
             "id": crate::db::text(&row, "id"),
             "user_id": crate::db::text(&row, "user_id"),
-            "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
+            "career_path_id": crate::db::opt_int(&row, "career_path_id"),
             "goal_title": crate::db::text(&row, "goal_title"),
             "description": crate::db::opt_text(&row, "description"),
             "target_date": crate::db::opt_text(&row, "target_date"),

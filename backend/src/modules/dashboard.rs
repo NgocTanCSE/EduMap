@@ -226,19 +226,19 @@ pub async fn get_stats(
     let roles: Vec<Value> = crate::db::query(DB_STATS_ROLES)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "role": crate::db::text(&row, "role"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "role": crate::db::text(&row, "role"), "count": crate::db::int(&row, "c") })
         }).collect();
 
     let trend: Vec<Value> = crate::db::query(DB_STATS_TREND)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "month": crate::db::opt_text(&row, "month"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "month": crate::db::opt_text(&row, "month"), "count": crate::db::int(&row, "c") })
         }).collect();
 
     let top_events: Vec<Value> = crate::db::query(DB_STATS_TOP_EVENTS)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "type": crate::db::opt_text(&row, "type"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "type": crate::db::opt_text(&row, "type"), "count": crate::db::int(&row, "c") })
         }).collect();
 
     let education: Vec<Value> = crate::db::query(DB_STATS_EDUCATION)
@@ -256,7 +256,7 @@ pub async fn get_stats(
             serde_json::json!({
                 "lat": crate::db::num(&row, "lat"),
                 "lng": crate::db::num(&row, "lng"),
-                "category": row.get::<Option<i64>, &str>("category"),
+                "category": crate::db::opt_int(&row, "category"),
                 "intensity": 0.8f64,
             })
         }).collect();

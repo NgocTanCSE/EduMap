@@ -324,7 +324,7 @@ fn row_to_lab_json(row: &sqlx::postgres::PgRow) -> Value {
         "description": crate::db::opt_text(&row, "description"),
         "equipment": row.get::<Option<Vec<String>>, &str>("equipment").unwrap_or_default(),
         "locationPointText": crate::db::opt_text(&row, "location_point_text"),
-        "capacity": row.get::<Option<i64>, &str>("capacity"),
+        "capacity": crate::db::opt_int(&row, "capacity"),
         "bookingAvailable": row.get::<Option<bool>, &str>("booking_available"),
         "photos": crate::db::opt_text(&row, "photos").and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()),
         "contact": crate::db::opt_text(&row, "contact"),

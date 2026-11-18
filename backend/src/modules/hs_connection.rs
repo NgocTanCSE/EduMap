@@ -178,7 +178,7 @@ fn question_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "title": crate::db::text(&row, "title"),
         "content": crate::db::text(&row, "content"),
         "university_target": crate::db::opt_text(&row, "university_target"),
-        "view_count": row.get::<i64, &str>("view_count"),
+        "view_count": crate::db::int(&row, "view_count"),
         "student_name": crate::db::opt_text(&row, "student_name"),
         "student_avatar": crate::db::opt_text(&row, "student_avatar"),
         "created_at": crate::db::text(&row, "created_at"),

@@ -511,7 +511,7 @@ pub async fn vision_detect(
         .map(|row| ExistingPoint {
             id: crate::db::text(&row, "id"),
             name: crate::db::text(&row, "name"),
-            type_: type_name(row.get::<Option<i64>, &str>("type_id")),
+            type_: type_name(crate::db::opt_int(&row, "type_id")),
             lat: crate::db::num(&row, "lat"),
             lng: crate::db::num(&row, "lng"),
         })

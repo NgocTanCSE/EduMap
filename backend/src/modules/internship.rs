@@ -178,7 +178,7 @@ fn row_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "benefits": crate::db::opt_text(&row, "benefits"),
         "deadline": crate::db::opt_text(&row, "deadline"),
         "status": crate::db::text(&row, "status"),
-        "application_count": row.get::<i64, &str>("application_count"),
+        "application_count": crate::db::int(&row, "application_count"),
         "created_at": crate::db::opt_text(&row, "created_at"),
         "updated_at": crate::db::opt_text(&row, "updated_at"),
         "company": {

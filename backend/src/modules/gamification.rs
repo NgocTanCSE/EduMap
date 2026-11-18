@@ -206,7 +206,7 @@ async fn fetch_progress(
         .fetch_optional(pool)
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64, &str>("total"));
+        .map(|row| crate::db::int(&row, "total"));
     let total = sum.unwrap_or(0);
 
     let rows = crate::db::query(DB_USER_BADGES)
@@ -262,7 +262,7 @@ pub async fn get_leaderboard(State(pool): State<DbPool>) -> Result<Json<ApiRespo
     let users: Vec<Value> = rows
         .iter()
         .map(|r| {
-            let points: i64 = r.get::<Option<i64>, &str>("points").unwrap_or(0);
+            let points: i64 = crate::db::opt_int(&r, "points").unwrap_or(0);
             serde_json::json!({
                 "id": crate::db::opt_text(&r, "user_id").unwrap_or_default(),
                 "full_name": crate::db::opt_text(&r, "full_name").unwrap_or_else(|| "Người dùng".to_string()),
@@ -291,14 +291,14 @@ pub async fn get_my_progress(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64, &str>("higher"));
+        .map(|row| crate::db::int(&row, "higher"));
     let rank = higher.unwrap_or(0) + 1;
 
     let total_users: Option<i64> = crate::db::query(DB_USER_RANK_TOTAL)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64, &str>("total"));
+        .map(|row| crate::db::int(&row, "total"));
 
     Ok(Json(ApiResponse::ok(progress_with_rank(
         &user.id,
@@ -354,7 +354,7 @@ pub async fn submit_activity(
         .fetch_optional(&mut *tx)
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<i64, &str>("id"));
+        .map(|row| crate::db::int(&row, "id"));
 
     if activity.is_none() {
         let _ = tx.rollback().await;

@@ -107,7 +107,7 @@ fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
         "id": crate::db::text(&row, "id"),
         "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
-        "year": row.get::<Option<i64>, &str>("year").unwrap_or(0),
+        "year": crate::db::opt_int(&row, "year").unwrap_or(0),
         "location": crate::db::opt_text(&row, "location").unwrap_or_default(),
         "lat": crate::db::opt_num(&row, "lat"),
         "lng": crate::db::opt_num(&row, "lng"),
@@ -122,7 +122,7 @@ fn activity_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "id": crate::db::text(&row, "id"),
         "campaign_id": crate::db::text(&row, "campaign_id"),
         "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
-        "volunteer_count": row.get::<Option<i64>, &str>("volunteer_count").unwrap_or(0),
+        "volunteer_count": crate::db::opt_int(&row, "volunteer_count").unwrap_or(0),
         "hours_spent": crate::db::opt_num(&row, "hours_spent").unwrap_or(0.0),
         "date": crate::db::opt_text(&row, "date").unwrap_or_default(),
         "status": crate::db::opt_text(&row, "status").unwrap_or_default(),

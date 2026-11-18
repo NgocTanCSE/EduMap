@@ -202,7 +202,7 @@ static TICKET_SEQUENCE: AtomicU32 = AtomicU32::new(0);
 const DB_SELECT_EVENTS: &str = r#"
     SELECT CAST("id" AS TEXT) AS "id", "title", "description", "type",
            ST_AsText("location_point") AS "location_point",
-           "address": address,
+           "address",
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",
@@ -219,7 +219,7 @@ const DB_SELECT_EVENTS: &str = r#"
 const DB_SELECT_EVENT_BY_ID: &str = r#"
     SELECT CAST("id" AS TEXT) AS "id", "title", "description", "type",
            ST_AsText("location_point") AS "location_point",
-           "address": address,
+           "address",
            CAST("start_date" AS TEXT) AS "start_date",
            CAST("end_date" AS TEXT) AS "end_date",
            "capacity", "registered_count", "banner_url",
@@ -315,8 +315,8 @@ fn event_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "address": crate::db::opt_text(&row, "address").unwrap_or_default(),
         "start_date": crate::db::opt_text(&row, "start_date").unwrap_or_default(),
         "end_date": crate::db::opt_text(&row, "end_date").unwrap_or_default(),
-        "capacity": row.get::<Option<i64>, &str>("capacity").unwrap_or(100),
-        "registered_count": row.get::<Option<i64>, &str>("registered_count").unwrap_or(0),
+        "capacity": crate::db::opt_int(&row, "capacity").unwrap_or(100),
+        "registered_count": crate::db::opt_int(&row, "registered_count").unwrap_or(0),
         "organizer_id": crate::db::opt_text(&row, "organizer_id").unwrap_or_default(),
         "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "upcoming".to_string()),
         "image_url": crate::db::opt_text(&row, "banner_url"),

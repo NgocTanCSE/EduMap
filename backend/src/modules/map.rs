@@ -534,7 +534,7 @@ pub async fn create_poi(
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
         "id": crate::db::text(&inserted, "id"),
         "name": crate::db::text(&inserted, "name"),
-        "category": type_id_to_category(inserted.get::<i64, &str>("type_id")),
+        "category": type_id_to_category(crate::db::int(&inserted, "type_id")),
         "status": crate::db::text(&inserted, "status"),
         "message": "Point of interest created successfully",
     }))))
@@ -592,7 +592,7 @@ pub async fn get_poi_details(
                     .map(|row| serde_json::json!({
                         "id": crate::db::text(&row, "id"),
                         "name": crate::db::text(&row, "name"),
-                        "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+                        "category": type_id_to_category(crate::db::int(&row, "type_id")),
                         "lat": lat_of_point(crate::db::opt_text(&row, "location").as_deref()),
                         "lng": lng_of_point(crate::db::opt_text(&row, "location").as_deref()),
                         "address": crate::db::opt_text(&row, "address"),
@@ -611,14 +611,14 @@ pub async fn get_poi_details(
         serde_json::json!({
             "id": crate::db::text(&row, "id"),
             "name": crate::db::text(&row, "name"),
-            "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+            "category": type_id_to_category(crate::db::int(&row, "type_id")),
             "lat": lat_of_point(crate::db::opt_text(&row, "location").as_deref()),
             "lng": lng_of_point(crate::db::opt_text(&row, "location").as_deref()),
             "address": crate::db::opt_text(&row, "address"),
             "description": crate::db::opt_text(&row, "description"),
             "city": crate::db::opt_text(&row, "city"),
             "rating_avg": crate::db::opt_num(&row, "rating_avg"),
-            "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+            "rating_count": crate::db::opt_int(&row, "rating_count"),
             "status": crate::db::opt_text(&row, "status"),
             "verified": row.get::<Option<bool>, &str>("verified"),
         })
@@ -815,19 +815,19 @@ pub async fn get_stats(
         .await
         .map_err(AppError::from)?;
 
-    let stats = row.get::<i64, &str>("total");
+    let stats = crate::db::int(&row, "total");
     let categories = serde_json::json!({
-        "university": row.get::<i64, &str>("universities"),
-        "school": row.get::<i64, &str>("schools"),
-        "library": row.get::<i64, &str>("libraries"),
-        "bookstore": row.get::<i64, &str>("bookstores"),
-        "lab": row.get::<i64, &str>("labs"),
-        "wifi": row.get::<i64, &str>("wifi"),
-        "green": row.get::<i64, &str>("green"),
-        "cafe": row.get::<i64, &str>("cafes"),
-        "restaurant": row.get::<i64, &str>("restaurants"),
-        "market": row.get::<i64, &str>("markets"),
-        "convenience": row.get::<i64, &str>("convenience"),
+        "university": crate::db::int(&row, "universities"),
+        "school": crate::db::int(&row, "schools"),
+        "library": crate::db::int(&row, "libraries"),
+        "bookstore": crate::db::int(&row, "bookstores"),
+        "lab": crate::db::int(&row, "labs"),
+        "wifi": crate::db::int(&row, "wifi"),
+        "green": crate::db::int(&row, "green"),
+        "cafe": crate::db::int(&row, "cafes"),
+        "restaurant": crate::db::int(&row, "restaurants"),
+        "market": crate::db::int(&row, "markets"),
+        "convenience": crate::db::int(&row, "convenience"),
     });
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
@@ -1350,13 +1350,13 @@ fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
         "id": crate::db::text(&row, "id"),
         "name": crate::db::text(&row, "name"),
-        "category": type_id_to_category(row.get::<i64, &str>("type_id")),
+        "category": type_id_to_category(crate::db::int(&row, "type_id")),
         "lat": lat_of_point(location.as_deref()),
         "lng": lng_of_point(location.as_deref()),
         "address": crate::db::opt_text(&row, "address"),
         "description": crate::db::opt_text(&row, "description"),
         "rating_avg": crate::db::opt_num(&row, "rating_avg"),
-        "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+        "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
         "verified": row.get::<Option<bool>, &str>("verified"),
     })
@@ -1374,7 +1374,7 @@ fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "address": crate::db::opt_text(&row, "address"),
         "description": crate::db::opt_text(&row, "description"),
         "rating_avg": crate::db::opt_num(&row, "rating_avg"),
-        "rating_count": row.get::<Option<i64>, &str>("rating_count"),
+        "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
         "verified": row.get::<Option<bool>, &str>("is_verified"),
     })

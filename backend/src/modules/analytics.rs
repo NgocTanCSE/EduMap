@@ -108,7 +108,7 @@ pub async fn track_event(
         "tracked": true,
         "event_type": body.event_type,
         "user_id": crate::db::opt_text(&row, "user_id"),
-        "id": row.get::<i64, &str>("id"),
+        "id": crate::db::int(&row, "id"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -126,9 +126,9 @@ pub async fn get_stats(
         .map_err(|e| AppError::Internal(format!("failed to read global stats: {e}")))?;
 
     let result = serde_json::json!({
-        "total_users": row.get::<i64, &str>("total_users"),
-        "total_locations": row.get::<i64, &str>("total_locations"),
-        "total_materials": row.get::<i64, &str>("total_materials"),
+        "total_users": crate::db::int(&row, "total_users"),
+        "total_locations": crate::db::int(&row, "total_locations"),
+        "total_materials": crate::db::int(&row, "total_materials"),
         "system_ready": "100%",
     });
     Ok(Json(ApiResponse::ok(result)))
@@ -162,14 +162,14 @@ pub async fn get_education_stats(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<i64, &str>("id"),
+                "id": crate::db::int(&row, "id"),
                 "region": crate::db::opt_text(&row, "region"),
                 "province": crate::db::opt_text(&row, "province"),
                 "district": crate::db::opt_text(&row, "district"),
                 "metric_type": crate::db::opt_text(&row, "metric_type"),
                 "metric_value": crate::db::opt_text(&row, "metric_value")
                     .and_then(|s| s.parse::<f64>().ok()),
-                "year": row.get::<Option<i64>, &str>("year"),
+                "year": crate::db::opt_int(&row, "year"),
                 "source": crate::db::opt_text(&row, "source"),
                 "created_at": crate::db::opt_text(&row, "created_at"),
             })
