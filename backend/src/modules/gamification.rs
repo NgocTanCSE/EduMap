@@ -72,7 +72,7 @@ const DB_LEADERBOARD: &str = r#"
 const DB_USER_POINTS_SUM: &str = r#"
     SELECT COALESCE(SUM("points"), 0) AS "total"
     FROM "user_points"
-    WHERE "user_id" = $1
+    WHERE "user_id"::text = $1
 "#;
 
 const DB_USER_RANK_ABOVE: &str = r#"
@@ -98,7 +98,7 @@ const DB_USER_BADGES: &str = r#"
            CAST("ub"."earned_at" AS TEXT) AS "earned_at"
     FROM "user_badges" AS "ub"
     JOIN "badges" AS "b" ON "b"."id" = "ub"."badge_id"
-    WHERE "ub"."user_id" = $1
+    WHERE "ub"."user_id"::text = $1
     ORDER BY "ub"."earned_at" DESC
 "#;
 

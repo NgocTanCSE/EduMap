@@ -161,13 +161,13 @@ const DB_SELECT_BOOKMARKS: &str = r#"
     SELECT "id", "user_id", "target_type", "target_id",
            CAST("created_at" AS TEXT) AS "created_at"
     FROM "bookmarks"
-    WHERE "user_id" = $1
+    WHERE "user_id"::text = $1
     ORDER BY "created_at" DESC
 "#;
 
 const DB_SELECT_EXISTING: &str = r#"
     SELECT 1 FROM "bookmarks"
-    WHERE "user_id" = $1 AND "target_type" = $2 AND "target_id" = $3
+    WHERE "user_id"::text = $1 AND "target_type" = $2 AND "target_id" = $3
 "#;
 
 const DB_INSERT_BOOKMARK: &str = r#"
@@ -178,7 +178,7 @@ const DB_INSERT_BOOKMARK: &str = r#"
 
 const DB_DELETE_BOOKMARK: &str = r#"
     DELETE FROM "bookmarks"
-    WHERE "user_id" = $1 AND "target_type" = $2 AND "target_id" = $3
+    WHERE "user_id"::text = $1 AND "target_type" = $2 AND "target_id" = $3
 "#;
 
 // ---------------------------------------------------------------------------

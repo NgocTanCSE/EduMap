@@ -53,12 +53,12 @@ const DB_SELECT_CERT_BY_CODE: &str = r#"
 /// Kiểm tra người dùng đã sở hữu chứng chỉ của mẫu này chưa.
 const DB_SELECT_EXISTING_CERT: &str = r#"
     SELECT id FROM user_certificates
-    WHERE user_id = $1::uuid AND template_id = $2::uuid
+    WHERE user_id::text = $1 AND template_id::text = $2
 "#;
 
 /// Kiểm tra mẫu chứng nhận tồn tại (và lấy tên để gửi sang blockchain).
 const DB_SELECT_TEMPLATE: &str = r#"
-    SELECT id, name FROM certificate_templates WHERE id = $1::uuid
+    SELECT id, name FROM certificate_templates WHERE id::text = $1
 "#;
 
 /// Cấp mã xác thực mới.
@@ -90,7 +90,7 @@ const DB_SELECT_PORTFOLIO: &str = r#"
     JOIN users u ON u.id = uc.user_id
     JOIN certificate_templates t ON t.id = uc.template_id
     LEFT JOIN organizations o ON o.id = t.organization_id
-    WHERE uc.user_id = $1::uuid AND uc.status = 'active'
+    WHERE uc.user_id::text = $1 AND uc.status = 'active'
     ORDER BY uc.issued_at DESC
 "#;
 

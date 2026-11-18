@@ -147,7 +147,7 @@ const DB_MY_FILES: &str = r#"
     SELECT "id", "user_id", "original_name", "file_url", "mime_type",
            "size_kb", CAST("created_at" AS TEXT) AS "created_at"
     FROM "user_files"
-    WHERE "user_id" = $1
+    WHERE "user_id"::text = $1
     ORDER BY "created_at" DESC
 "#;
 
@@ -155,7 +155,7 @@ const DB_USER_FILE_BY_ID: &str = r#"
     SELECT "id", "user_id", "original_name", "file_url", "mime_type",
            "size_kb", CAST("created_at" AS TEXT) AS "created_at"
     FROM "user_files"
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_INSERT_FILE: &str = r#"
@@ -167,7 +167,7 @@ const DB_INSERT_FILE: &str = r#"
 "#;
 
 const DB_DELETE_FILE: &str = r#"
-    DELETE FROM "user_files" WHERE "id" = $1
+    DELETE FROM "user_files" WHERE "id"::text = $1
 "#;
 
 // ---------------------------------------------------------------------------

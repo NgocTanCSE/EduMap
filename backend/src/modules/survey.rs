@@ -45,7 +45,7 @@ const DB_SELECT_SURVEYS: &str = r#"
 const DB_SELECT_SURVEY_BY_ID: &str = r#"
     SELECT id, title, questions_json, status,
            CAST(created_at AS TEXT) AS created_at
-    FROM surveys WHERE id = $1::uuid
+    FROM surveys WHERE id::text = $1
 "#;
 
 const DB_INSERT_SURVEY: &str = r#"
@@ -63,7 +63,7 @@ const DB_INSERT_RESPONSE: &str = r#"
 "#;
 
 const DB_COUNT_RESPONSES: &str = r#"
-    SELECT COUNT(*) FROM survey_responses WHERE survey_id = $1::uuid
+    SELECT COUNT(*) FROM survey_responses WHERE survey_id::text = $1
 "#;
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ pub async fn submit_response(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM survey_responses WHERE survey_id = $1::uuid AND user_id = $2::uuid",
+        "SELECT 1 FROM survey_responses WHERE survey_id::text = $1 AND user_id::text = $2",
     )
     .bind(&id)
     .bind(&user.id)
@@ -252,7 +252,7 @@ pub async fn get_survey_analytics(
     };
 
     // Cỏi các câu trả lời để xây dựng `questions_stats`.
-    let rows = crate::db::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1::uuid")
+    let rows = crate::db::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id::text = $1")
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -328,7 +328,7 @@ pub async fn export_survey_data(
         None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
-    let rows = crate::db::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1::uuid")
+    let rows = crate::db::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id::text = $1")
         .bind(&id)
         .fetch_all(pool.db())
         .await

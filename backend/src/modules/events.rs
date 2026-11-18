@@ -229,7 +229,7 @@ const DB_SELECT_EVENT_BY_ID: &str = r#"
            CAST("created_at" AS TEXT) AS "created_at",
            CAST("updated_at" AS TEXT) AS "updated_at"
     FROM "events"
-    WHERE "id" = $1 AND "deleted_at" IS NULL
+    WHERE "id"::text = $1 AND "deleted_at" IS NULL
 "#;
 
 const DB_INSERT_EVENT: &str = r#"
@@ -262,7 +262,7 @@ const DB_UPDATE_EVENT: &str = r#"
         "is_online" = COALESCE($15, "is_online"),
         "meeting_url" = COALESCE($16, "meeting_url"),
         "updated_at" = NOW()
-    WHERE "id" = $17
+    WHERE "id"::text = $17
     RETURNING CAST("id" AS TEXT) AS "id", CAST("updated_at" AS TEXT) AS "updated_at"
 "#;
 
@@ -272,7 +272,7 @@ const DB_LOCK_EVENT: &str = r#"
            ST_AsText("location_point") AS "location_point",
            "capacity", "registered_count"
     FROM "events"
-    WHERE "id" = $1 AND "deleted_at" IS NULL
+    WHERE "id"::text = $1 AND "deleted_at" IS NULL
     FOR UPDATE
 "#;
 
@@ -286,12 +286,12 @@ const DB_EVENT_REGISTRATION: &str = r#"
 const DB_INCREMENT_REGISTRATIONS: &str = r#"
     UPDATE "events"
     SET "registered_count" = "registered_count" + $1
-    WHERE "id" = $2
+    WHERE "id"::text = $2
 "#;
 
 const DB_DOUBLE_REGISTRATION: &str = r#"
     SELECT 1 FROM "event_registrations"
-    WHERE "event_id" = $1 AND "user_id" = $2
+    WHERE "event_id"::text = $1 AND "user_id"::text = $2
 "#;
 
 const DB_AWARD_POINTS: &str = r#"

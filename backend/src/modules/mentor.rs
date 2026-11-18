@@ -82,7 +82,7 @@ const DB_SELECT_USER: &str = r#"
     SELECT id, full_name, email, avatar_url, major, mbti_type, location,
            CAST(skills AS TEXT) AS skills,
            CAST(interests AS TEXT) AS interests
-    FROM users WHERE id = $1::uuid
+    FROM users WHERE id::text = $1
 "#;
 
 const DB_MENTOR_BASE: &str = r#"
@@ -107,7 +107,7 @@ const DB_MENTOR_BY_ID: &str = r#"
            CAST(u.skills AS TEXT) AS skills,
            CAST(u.interests AS TEXT) AS interests, u.role
     FROM mentors m LEFT JOIN users u ON u.id = m.user_id
-    WHERE m.user_id = $1::uuid
+    WHERE m.user_id::text = $1
 "#;
 
 const DB_MENTORS: &str = r#"
@@ -139,7 +139,7 @@ const DB_AVAILABILITIES: &str = r#"
     SELECT id, day_of_week, start_time, end_time, is_active,
            CAST(created_at AS TEXT) AS created_at
     FROM mentor_availabilities
-    WHERE mentor_id = $1::uuid AND is_active = true
+    WHERE mentor_id::text = $1 AND is_active = true
     ORDER BY day_of_week, start_time
 "#;
 
@@ -161,7 +161,7 @@ const DB_SLOTS: &str = r#"
                  AND TO_CHAR(b.slot_start, 'HH24:MI') = TO_CHAR(a.start_time, 'HH24:MI')
            ) AS is_booked
     FROM mentor_availabilities a
-    WHERE a.mentor_id = $1::uuid AND a.day_of_week = $3 AND a.is_active = true
+    WHERE a.mentor_id::text = $1 AND a.day_of_week = $3 AND a.is_active = true
     ORDER BY a.start_time
 "#;
 
@@ -178,7 +178,7 @@ const DB_INSERT_BOOKING: &str = r#"
 
 const DB_CONFLICT_BOOKING: &str = r#"
     SELECT id FROM bookings
-    WHERE mentor_id = $1::uuid AND slot_start = $2 AND status = 'confirmed'
+    WHERE mentor_id::text = $1 AND slot_start = $2 AND status = 'confirmed'
 "#;
 
 const DB_BOOKING_BY_ID: &str = r#"
@@ -192,12 +192,12 @@ const DB_BOOKING_BY_ID: &str = r#"
     LEFT JOIN mentors m ON m.user_id = b.mentor_id
     LEFT JOIN users u ON u.id = m.user_id
     LEFT JOIN users s ON s.id = b.student_id
-    WHERE b.id = $1::uuid
+    WHERE b.id::text = $1
 "#;
 
 const DB_UPDATE_BOOKING_STATUS: &str = r#"
     UPDATE bookings SET status = $1, updated_at = NOW()
-    WHERE id = $2::uuid
+    WHERE id::text = $2
     RETURNING id, mentor_id, student_id,
               CAST(slot_start AS TEXT) AS slot_start,
               CAST(slot_end AS TEXT) AS slot_end,
@@ -215,7 +215,7 @@ const DB_STUDENT_BOOKINGS: &str = r#"
     FROM bookings b
     LEFT JOIN mentors m ON m.user_id = b.mentor_id
     LEFT JOIN users u ON u.id = m.user_id
-    WHERE b.student_id = $1::uuid
+    WHERE b.student_id::text = $1
     ORDER BY b.slot_start DESC
 "#;
 
@@ -229,7 +229,7 @@ const DB_MENTOR_BOOKINGS: &str = r#"
     FROM bookings b
     LEFT JOIN mentors m ON m.user_id = b.mentor_id
     LEFT JOIN users u ON u.id = m.user_id
-    WHERE b.mentor_id = $1::uuid
+    WHERE b.mentor_id::text = $1
     ORDER BY b.slot_start DESC
 "#;
 
@@ -453,7 +453,7 @@ pub async fn register_mentor(
         Some(_) => {}
     }
 
-    let exists = crate::db::query("SELECT user_id FROM mentors WHERE user_id = $1::uuid")
+    let exists = crate::db::query("SELECT user_id FROM mentors WHERE user_id::text = $1")
         .bind(&user_id)
         .fetch_optional(pool.db())
         .await

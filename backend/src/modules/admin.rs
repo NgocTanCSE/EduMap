@@ -62,7 +62,7 @@ const DB_SELECT_USER_BY_ID: &str = r#"
            CAST(created_at AS TEXT) AS created_at,
            CAST(last_login AS TEXT) AS last_login,
            CAST(updated_at AS TEXT) AS updated_at
-    FROM users WHERE id = $1::uuid
+    FROM users WHERE id::text = $1
 "#;
 
 const DB_SELECT_PENDING_EVENT: &str = r#"
@@ -83,19 +83,19 @@ const DB_SELECT_PENDING_SCHOLARSHIP: &str = r#"
 
 const DB_UPDATE_USER_STATUS: &str = r#"
     UPDATE users SET status = $1, updated_at = NOW()
-    WHERE id = $2::uuid
+    WHERE id::text = $2
     RETURNING id, status, CAST(updated_at AS TEXT) AS updated_at
 "#;
 
 const DB_SOFT_DELETE_USER: &str = r#"
     UPDATE users SET deleted_at = NOW(), updated_at = NOW()
-    WHERE id = $1::uuid
+    WHERE id::text = $1
     RETURNING id, CAST(deleted_at AS TEXT) AS deleted_at
 "#;
 
 const DB_RESTORE_USER: &str = r#"
     UPDATE users SET deleted_at = NULL, updated_at = NOW()
-    WHERE id = $1::uuid
+    WHERE id::text = $1
     RETURNING id, CAST(deleted_at AS TEXT) AS deleted_at
 "#;
 

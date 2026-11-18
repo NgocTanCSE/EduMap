@@ -47,7 +47,7 @@ async fn ensure_owner(
     bp_id: &str,
     user: &AuthUser,
 ) -> Result<(), AppError> {
-    let row = crate::db::query(r#"SELECT "user_id" FROM business_profiles WHERE "id" = $1"#)
+    let row = crate::db::query(r#"SELECT "user_id" FROM business_profiles WHERE "id"::text = $1"#)
         .bind(bp_id)
         .fetch_optional(pool.db())
         .await
@@ -70,7 +70,7 @@ async fn ensure_owner(
 
 /// `business_profiles` của người gọi (dùng cho góc nhìn vendor).
 async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String, AppError> {
-    let row = crate::db::query(r#"SELECT "id" FROM business_profiles WHERE "user_id" = $1"#)
+    let row = crate::db::query(r#"SELECT "id" FROM business_profiles WHERE "user_id"::text = $1"#)
         .bind(&user.id)
         .fetch_optional(pool.db())
         .await
@@ -124,7 +124,7 @@ const DB_SELECT_PROFILE_BY_ID: &str = r#"
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
     FROM business_profiles bp
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_SELECT_PROFILE_BY_USER: &str = r#"
@@ -138,7 +138,7 @@ const DB_SELECT_PROFILE_BY_USER: &str = r#"
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
     FROM business_profiles bp
-    WHERE "user_id" = $1
+    WHERE "user_id"::text = $1
 "#;
 
 const DB_INSERT_PROFILE: &str = r#"
@@ -156,13 +156,13 @@ const DB_UPDATE_PROFILE: &str = r#"
         "website" = COALESCE($4, "website"),
         "logo_url" = COALESCE($5, "logo_url"),
         "updated_at" = NOW()
-    WHERE "user_id" = $6
+    WHERE "user_id"::text = $6
     RETURNING "id", CAST("updated_at" AS TEXT) AS updated_at
 "#;
 
 const DB_VERIFY_PROFILE: &str = r#"
     UPDATE business_profiles SET "is_verified" = true, "updated_at" = NOW()
-    WHERE "id" = $1
+    WHERE "id"::text = $1
     RETURNING "id", "is_verified", CAST("updated_at" AS TEXT) AS updated_at
 "#;
 
@@ -173,7 +173,7 @@ const DB_SELECT_PRODUCTS: &str = r#"
            "category", "stock", "image_url", "business_profile_id",
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
-    FROM products WHERE "business_profile_id" = $1 ORDER BY "created_at" DESC
+    FROM products WHERE "business_profile_id"::text = $1 ORDER BY "created_at" DESC
 "#;
 
 const DB_SELECT_PRODUCT_BY_ID: &str = r#"
@@ -181,7 +181,7 @@ const DB_SELECT_PRODUCT_BY_ID: &str = r#"
            "category", "stock", "image_url", "business_profile_id",
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
-    FROM products WHERE "id" = $1
+    FROM products WHERE "id"::text = $1
 "#;
 
 const DB_INSERT_PRODUCT: &str = r#"
@@ -201,12 +201,12 @@ const DB_UPDATE_PRODUCT: &str = r#"
         "stock" = COALESCE($6, "stock"),
         "image_url" = COALESCE($7, "image_url"),
         "updated_at" = NOW()
-    WHERE "id" = $8 AND "business_profile_id" = $9
+    WHERE "id"::text = $8 AND "business_profile_id"::text = $9
     RETURNING "id", CAST("updated_at" AS TEXT) AS updated_at
 "#;
 
 const DB_DELETE_PRODUCT: &str = r#"
-    DELETE FROM products WHERE "id" = $1 AND "business_profile_id" = $2
+    DELETE FROM products WHERE "id"::text = $1 AND "business_profile_id"::text = $2
 "#;
 
 // --- business_services -------------------------------------------------------
@@ -216,7 +216,7 @@ const DB_SELECT_SERVICES: &str = r#"
            "category", "duration", "location", "business_profile_id",
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
-    FROM business_services WHERE "business_profile_id" = $1 ORDER BY "created_at" DESC
+    FROM business_services WHERE "business_profile_id"::text = $1 ORDER BY "created_at" DESC
 "#;
 
 const DB_SELECT_SERVICE_BY_ID: &str = r#"
@@ -224,7 +224,7 @@ const DB_SELECT_SERVICE_BY_ID: &str = r#"
            "category", "duration", "location", "business_profile_id",
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
-    FROM business_services WHERE "id" = $1
+    FROM business_services WHERE "id"::text = $1
 "#;
 
 const DB_INSERT_SERVICE: &str = r#"
@@ -244,12 +244,12 @@ const DB_UPDATE_SERVICE: &str = r#"
         "duration" = COALESCE($6, "duration"),
         "location" = COALESCE($7, "location"),
         "updated_at" = NOW()
-    WHERE "id" = $8 AND "business_profile_id" = $9
+    WHERE "id"::text = $8 AND "business_profile_id"::text = $9
     RETURNING "id", CAST("updated_at" AS TEXT) AS updated_at
 "#;
 
 const DB_DELETE_SERVICE: &str = r#"
-    DELETE FROM business_services WHERE "id" = $1 AND "business_profile_id" = $2
+    DELETE FROM business_services WHERE "id"::text = $1 AND "business_profile_id"::text = $2
 "#;
 
 // --- reviews -----------------------------------------------------------------
@@ -258,7 +258,7 @@ const DB_SELECT_PRODUCT_REVIEWS: &str = r#"
     SELECT r."id", r."user_id", u.full_name, r."rating", r."comment",
            CAST(r."created_at" AS TEXT) AS created_at
     FROM reviews r LEFT JOIN users u ON u."id" = r."user_id"
-    WHERE r."product_id" = $1 ORDER BY r."created_at" DESC
+    WHERE r."product_id"::text = $1 ORDER BY r."created_at" DESC
 "#;
 
 const DB_SELECT_SERVICE_REVIEWS: &str = r#"
@@ -272,7 +272,7 @@ const DB_SELECT_SERVICE_REVIEWS: &str = r#"
 // `reviews` không có unique constraint nên phải kiểm bằng query.
 const DB_CHECK_REVIEW: &str = r#"
     SELECT "id" FROM reviews
-    WHERE "user_id" = $1 AND COALESCE("product_id", "service_id") = $2
+    WHERE "user_id"::text = $1 AND COALESCE("product_id", "service_id") = $2
 "#;
 
 const DB_INSERT_REVIEW: &str = r#"
@@ -303,7 +303,7 @@ const DB_SELECT_CART_ITEM: &str = r#"
 
 const DB_UPDATE_CART_QUANTITY: &str = r#"
     UPDATE cart_items SET "quantity" = "quantity" + $1, "updated_at" = NOW()
-    WHERE "id" = $2 AND "userId" = $3
+    WHERE "id"::text = $2 AND "userId" = $3
     RETURNING "quantity"
 "#;
 
@@ -314,7 +314,7 @@ const DB_INSERT_CART_ITEM: &str = r#"
 "#;
 
 const DB_DELETE_CART_ITEM: &str = r#"
-    DELETE FROM cart_items WHERE "id" = $1 AND "userId" = $2
+    DELETE FROM cart_items WHERE "id"::text = $1 AND "userId" = $2
 "#;
 
 const DB_CLEAR_CART: &str = r#"
@@ -337,7 +337,7 @@ const DB_CHECKOUT_LOCK_CART: &str = r#"
 "#;
 
 const DB_DECREASE_STOCK: &str = r#"
-    UPDATE products SET "stock" = "stock" - $1 WHERE "id" = $2
+    UPDATE products SET "stock" = "stock" - $1 WHERE "id"::text = $2
 "#;
 
 const DB_INSERT_ORDER: &str = r#"
@@ -385,7 +385,7 @@ const DB_SELECT_VENDOR_ORDERS: &str = r#"
     JOIN orders o ON o."id" = oi."orderId"
     LEFT JOIN products p ON p."id" = oi."productId"
     LEFT JOIN business_services s ON s."id" = oi."serviceId"
-    WHERE p."business_profile_id" = $1 OR s."business_profile_id" = $1
+    WHERE p."business_profile_id"::text = $1 OR s."business_profile_id"::text = $1
     ORDER BY o."created_at" DESC
 "#;
 
@@ -1066,7 +1066,7 @@ pub async fn create_product_review(
     }
 
     // Xác nhận sản phẩm tồn tại (giống old service).
-    let product = crate::db::query(r#"SELECT "id" FROM products WHERE "id" = $1"#)
+    let product = crate::db::query(r#"SELECT "id" FROM products WHERE "id"::text = $1"#)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -1133,7 +1133,7 @@ pub async fn create_service_review(
         return Err(AppError::Conflict("Bạn đã gửi đánh giá cho mục này rồi.".to_string()));
     }
 
-    let service = crate::db::query(r#"SELECT "id" FROM business_services WHERE "id" = $1"#)
+    let service = crate::db::query(r#"SELECT "id" FROM business_services WHERE "id"::text = $1"#)
         .bind(&id)
         .fetch_optional(pool.db())
         .await

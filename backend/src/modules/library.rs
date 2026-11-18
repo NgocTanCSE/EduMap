@@ -108,7 +108,7 @@ const DB_SELECT_RESOURCE_BY_ID: &str = r#"
            file_url, thumbnail_url, file_size, download_count, view_count,
            COALESCE(rating_avg, 0)::float8 AS rating_avg, status, author_id::text AS author_id,
            CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
-    FROM learning_materials WHERE id = $1::uuid
+    FROM learning_materials WHERE id::text = $1
 "#;
 
 const DB_INSERT_RESOURCE: &str = r#"

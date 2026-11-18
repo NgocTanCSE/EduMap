@@ -278,7 +278,7 @@ const DB_GET_USER_BY_ID: &str = r#"
         SELECT id, email, password_hash, full_name, role, status,
                two_factor_secret, is_two_factor_enabled
         FROM users
-        WHERE id = $1::uuid AND deleted_at IS NULL
+        WHERE id::text = $1 AND deleted_at IS NULL
     "#;
 
 
@@ -291,31 +291,31 @@ const DB_INSERT_USER: &str = r#"
 
 const DB_UPDATE_PASSWORD: &str = r#"
         UPDATE users SET password_hash = $1, updated_at = NOW()
-        WHERE id = $2::uuid AND deleted_at IS NULL
+        WHERE id::text = $2 AND deleted_at IS NULL
     "#;
 
 const DB_UPDATE_REFRESH: &str = r#"
         UPDATE users SET refresh_token_hash = $1, updated_at = NOW()
-        WHERE id = $2::uuid AND deleted_at IS NULL
+        WHERE id::text = $2 AND deleted_at IS NULL
     "#;
 
 const DB_UPDATE_2FA: &str = r#"
         UPDATE users SET two_factor_secret = $1,
                is_two_factor_enabled = $2, updated_at = NOW()
-        WHERE id = $3::uuid AND deleted_at IS NULL
+        WHERE id::text = $3 AND deleted_at IS NULL
     "#;
 
 const DB_UPDATE_PROFILE: &str = r#"
         UPDATE users SET full_name = $1, avatar_url = $2, phone = $3,
                bio = $4, location = $5, mbti_type = $6, date_of_birth = $7,
                major = $8, updated_at = NOW()
-        WHERE id = $9::uuid AND deleted_at IS NULL
+        WHERE id::text = $9 AND deleted_at IS NULL
     "#;
 
 const DB_SELECT_PREFERENCES: &str = r#"
         SELECT user_id, language, theme, notifications_enabled, privacy_level,
                notification_settings
-        FROM user_preferences WHERE user_id = $1::uuid
+        FROM user_preferences WHERE user_id::text = $1
     "#;
 
 const DB_UPDATE_PREFERENCES: &str = r#"

@@ -63,7 +63,7 @@ const DB_SELECT_SCHOLARSHIP_BY_ID: &str = r#"
            CAST(status AS TEXT) AS status,
            CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
            apply_url, created_at
-    FROM scholarships WHERE id = $1::uuid
+    FROM scholarships WHERE id::text = $1
 "#;
 
 const DB_INSERT_SCHOLARSHIP: &str = r#"
@@ -86,7 +86,7 @@ const DB_UPDATE_SCHOLARSHIP: &str = r#"
         apply_url = COALESCE($7, apply_url),
         status = COALESCE($8, status),
         updated_at = NOW()
-    WHERE id = $9::uuid
+    WHERE id::text = $9
     RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
@@ -107,13 +107,13 @@ const DB_SELECT_APPLICATIONS: &str = r#"
            s.title AS scholarship_title, s.provider AS scholarship_provider
     FROM scholarship_applications a
     LEFT JOIN scholarships s ON s.id = a.scholarship_id
-    WHERE a.student_id = $1::uuid
+    WHERE a.student_id::text = $1
     ORDER BY a.created_at DESC
 "#;
 
 const DB_SELECT_USER: &str = r#"
     SELECT id, full_name, major, role
-    FROM users WHERE id = $1::uuid
+    FROM users WHERE id::text = $1
 "#;
 
 // ---------------------------------------------------------------------------
@@ -335,7 +335,7 @@ pub async fn apply_scholarship(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM scholarship_applications WHERE scholarship_id = $1::uuid AND student_id = $2::uuid",
+        "SELECT 1 FROM scholarship_applications WHERE scholarship_id::text = $1 AND student_id::text = $2",
     )
     .bind(&id)
     .bind(&user.id)

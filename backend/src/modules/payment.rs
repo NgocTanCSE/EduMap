@@ -59,24 +59,24 @@ const DB_SELECT_TRANSACTION: &str = r#"
            "externalTransactionId": externalTransactionId,
            CAST("created_at" AS TEXT) AS "created_at",
            CAST("updated_at" AS TEXT) AS "updated_at"
-    FROM "business_transactions" WHERE "id" = $1
+    FROM "business_transactions" WHERE "id"::text = $1
 "#;
 
 const DB_UPDATE_TRANSACTION: &str = r#"
     UPDATE "business_transactions"
     SET "status" = 'SUCCESS', "updated_at" = NOW()
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_SELECT_ORDER_BY_ID: &str = r#"
     SELECT "id", "status",
            CAST("created_at" AS TEXT) AS "created_at"
-    FROM "orders" WHERE "id" = $1
+    FROM "orders" WHERE "id"::text = $1
 "#;
 
 const DB_UPDATE_ORDER_STATUS: &str = r#"
     UPDATE "orders" SET "status" = 'PAID', "updated_at" = NOW()
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 /// Giao dịch chưa có `orderId` (booking): chèn `PENDING` với `orderId = NULL`,
@@ -97,13 +97,13 @@ const DB_SELECT_BOOKING: &str = r#"
            CAST(b."created_at" AS TEXT) AS "created_at",
            CAST(b."updated_at" AS TEXT) AS "updated_at"
     FROM "bookings" b
-    WHERE b."id" = $1 AND b."student_id" = $2
+    WHERE b."id"::text = $1 AND b."student_id"::text = $2
 "#;
 
 const DB_UPDATE_BOOKING_PAYMENT: &str = r#"
     UPDATE "bookings"
-    SET "payment_status" = 'paid', "transaction_id" = $1, "updated_at" = NOW()
-    WHERE "id" = $2 AND "student_id" = $3
+    SET "payment_status" = 'paid', "transaction_id"::text = $1, "updated_at" = NOW()
+    WHERE "id"::text = $2 AND "student_id"::text = $3
 "#;
 
 // ---------------------------------------------------------------------------

@@ -180,7 +180,7 @@ const DB_SELECT_POST_BY_ID: &str = r#"
     FROM posts p
     LEFT JOIN users a ON a.id = p.author_id
     LEFT JOIN groups g ON g.id = p.group_id
-    WHERE p.id = $1::uuid AND p.status = 'active' AND p.deleted_at IS NULL
+    WHERE p.id::text = $1 AND p.status = 'active' AND p.deleted_at IS NULL
 "#;
 
 const DB_SELECT_COMMENTS: &str = r#"
@@ -190,7 +190,7 @@ const DB_SELECT_COMMENTS: &str = r#"
            a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role
     FROM comments c
     LEFT JOIN users a ON a.id = c.author_id
-    WHERE c.post_id = $1::uuid AND c.status = 'active' AND c.deleted_at IS NULL
+    WHERE c.post_id::text = $1 AND c.status = 'active' AND c.deleted_at IS NULL
     ORDER BY c.created_at ASC
 "#;
 
@@ -450,7 +450,7 @@ pub async fn like_post(
     // The post must exist and be visible — mirror the old service's
     // `NotFoundException("Bài viết không tồn tại hoặc đã bị khóa")`.
     let visible: Option<i64> = crate::db::query(
-        "SELECT 1 FROM posts WHERE id = $1::uuid AND status = 'active' AND deleted_at IS NULL",
+        "SELECT 1 FROM posts WHERE id::text = $1 AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(&id)
     .fetch_optional(pool.db())
@@ -464,7 +464,7 @@ pub async fn like_post(
         ));
     }
 
-    crate::db::query("UPDATE posts SET like_count = like_count + 1 WHERE id = $1::uuid")
+    crate::db::query("UPDATE posts SET like_count = like_count + 1 WHERE id::text = $1")
         .bind(&id)
         .execute(pool.db())
         .await
@@ -472,7 +472,7 @@ pub async fn like_post(
 
     // Notify the author only when the liker is someone else. Fire-and-forget:
     // a failed notification must not fail the like itself.
-    let author: Option<String> = crate::db::query("SELECT author_id FROM posts WHERE id = $1::uuid")
+    let author: Option<String> = crate::db::query("SELECT author_id FROM posts WHERE id::text = $1")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -504,7 +504,7 @@ pub async fn get_comments(
     let offset = (page - 1) * limit;
 
     let total: i64 = crate::db::query(
-        "SELECT COUNT(*) FROM comments WHERE post_id = $1::uuid \
+        "SELECT COUNT(*) FROM comments WHERE post_id::text = $1 \
          AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(&post_id)
@@ -540,7 +540,7 @@ pub async fn add_comment(
     let user = authenticated_user(user)?;
 
     // The post must exist — mirror the old `NotFoundException`.
-    let post_row = crate::db::query("SELECT id, author_id, title FROM posts WHERE id = $1::uuid AND status = 'active' AND deleted_at IS NULL")
+    let post_row = crate::db::query("SELECT id, author_id, title FROM posts WHERE id::text = $1 AND status = 'active' AND deleted_at IS NULL")
         .bind(&post_id)
         .fetch_optional(pool.db())
         .await
@@ -570,7 +570,7 @@ pub async fn add_comment(
     .map_err(AppError::from)?
     .get::<String, &str>("id");
 
-    crate::db::query("UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1::uuid")
+    crate::db::query("UPDATE posts SET comment_count = comment_count + 1 WHERE id::text = $1")
         .bind(&post_id_db)
         .execute(pool.db())
         .await
@@ -594,7 +594,7 @@ pub async fn add_comment(
                 a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role \
          FROM comments c \
          LEFT JOIN users a ON a.id = c.author_id \
-         WHERE c.id = $1::uuid",
+         WHERE c.id::text = $1",
     )
     .bind(&comment_id)
     .fetch_one(pool.db())
@@ -664,7 +664,7 @@ pub async fn join_group(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let _user = authenticated_user(user)?;
 
-    let name: Option<String> = crate::db::query("SELECT name FROM groups WHERE id = $1::uuid AND deleted_at IS NULL")
+    let name: Option<String> = crate::db::query("SELECT name FROM groups WHERE id::text = $1 AND deleted_at IS NULL")
         .bind(&id)
         .fetch_optional(pool.db())
         .await

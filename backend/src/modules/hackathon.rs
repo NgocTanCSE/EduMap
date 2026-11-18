@@ -53,7 +53,7 @@ const DB_HACKATHON_BY_ID: &str = r#"
            CAST("end_date" AS TEXT) AS "end_date",
            "status", CAST("created_at" AS TEXT) AS "created_at"
     FROM "hackathons"
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_VALID_MEMBER_EMAILS: &str = r#"
@@ -62,7 +62,7 @@ const DB_VALID_MEMBER_EMAILS: &str = r#"
 
 const DB_EXISTING_TEAM_LEADER: &str = r#"
     SELECT 1 FROM "hackathon_teams"
-    WHERE "hackathon_id" = $1 AND "leader_id" = $2
+    WHERE "hackathon_id"::text = $1 AND "leader_id" = $2
 "#;
 
 const DB_REGISTER_TEAM: &str = r#"
@@ -78,7 +78,7 @@ const DB_TEAM_BY_ID_AND_LEADER: &str = r#"
            "repo_url", "demo_video", "score", "feedback", "status",
            CAST("created_at" AS TEXT) AS "created_at"
     FROM "hackathon_teams"
-    WHERE "id" = $1 AND "leader_id" = $2
+    WHERE "id"::text = $1 AND "leader_id" = $2
 "#;
 
 const DB_TEAM_BY_ID: &str = r#"
@@ -86,13 +86,13 @@ const DB_TEAM_BY_ID: &str = r#"
            "repo_url", "demo_video", "score", "feedback", "status",
            CAST("created_at" AS TEXT) AS "created_at"
     FROM "hackathon_teams"
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_SUBMIT_TEAM: &str = r#"
     UPDATE "hackathon_teams"
     SET "repo_url" = $1, "demo_video" = $2, "status" = 'submitted'
-    WHERE "id" = $3 AND "leader_id" = $4
+    WHERE "id"::text = $3 AND "leader_id" = $4
     RETURNING CAST("id" AS TEXT) AS "id", "team_name", "repo_url", "demo_video",
             CAST("created_at" AS TEXT) AS "submitted_at", "status"
 "#;
@@ -100,7 +100,7 @@ const DB_SUBMIT_TEAM: &str = r#"
 const DB_JUDGE_TEAM: &str = r#"
     UPDATE "hackathon_teams"
     SET "score" = $1, "feedback" = $2, "status" = 'judged'
-    WHERE "id" = $3 AND "status" = 'submitted'
+    WHERE "id"::text = $3 AND "status" = 'submitted'
     RETURNING CAST("id" AS TEXT) AS "id", "team_name", "score", "feedback", "status"
 "#;
 

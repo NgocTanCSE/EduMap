@@ -485,7 +485,7 @@ pub async fn history(
         r#"
         SELECT id, user_id, message, response, context, created_at
         FROM chat_histories
-        WHERE user_id = $1::uuid
+        WHERE user_id::text = $1
         ORDER BY created_at ASC
         LIMIT 50
         "#,

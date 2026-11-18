@@ -55,7 +55,7 @@ const DB_SELECT_CAMPAIGNS: &str = r#"
 const DB_SELECT_CAMPAIGN_BY_ID: &str = r#"
     SELECT id, name, year, location, lat, lng, status, description,
            CAST(created_at AS TEXT) AS created_at
-    FROM summer_campaigns WHERE id = $1::uuid AND status = 'active'
+    FROM summer_campaigns WHERE id::text = $1 AND status = 'active'
 "#;
 
 const DB_INSERT_CAMPAIGN: &str = r#"
@@ -78,13 +78,13 @@ const DB_SELECT_ACTIVITIES_BY_CAMPAIGN_DATE: &str = r#"
     SELECT id, title, volunteer_count, hours_spent, date, status,
            CAST(created_at AS TEXT) AS created_at
     FROM summer_activities
-    WHERE campaign_id = $1::uuid AND date = $2
+    WHERE campaign_id::text = $1 AND date = $2
     ORDER BY created_at DESC
 "#;
 
 const DB_COUNT_APPROVED_REGISTRATIONS: &str = r#"
     SELECT COUNT(*) FROM summer_registrations
-    WHERE campaign_id = $1::uuid AND status = 'approved'
+    WHERE campaign_id::text = $1 AND status = 'approved'
 "#;
 
 const DB_INSERT_REGISTRATION: &str = r#"
@@ -96,7 +96,7 @@ const DB_INSERT_REGISTRATION: &str = r#"
 
 const DB_SELECT_REGISTRATION_BY_ID: &str = r#"
     SELECT id, campaign_id, status, user_id
-    FROM summer_registrations WHERE id = $1::uuid
+    FROM summer_registrations WHERE id::text = $1
 "#;
 
 // ---------------------------------------------------------------------------
@@ -331,7 +331,7 @@ pub async fn register_volunteer(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM summer_registrations WHERE user_id = $1::uuid AND campaign_id = $2::uuid",
+        "SELECT 1 FROM summer_registrations WHERE user_id::text = $1 AND campaign_id::text = $2",
     )
     .bind(&user.id)
     .bind(&id)
@@ -391,7 +391,7 @@ pub async fn update_registration_status(
         _ => return Err(AppError::BadRequest("Trạng thái phải là `approved` hoặc `rejected`.".to_string())),
     };
 
-    let _ = crate::db::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2::uuid")
+    let _ = crate::db::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id::text = $2")
         .bind(&status)
         .bind(&id)
         .execute(pool.db())

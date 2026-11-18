@@ -71,7 +71,7 @@ const DB_SELECT_WIFI_BY_ID: &str = r#"
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
-    WHERE l.id = $1::uuid AND l.category_id = 6
+    WHERE l.id::text = $1 AND l.category_id = 6
 "#;
 
 const DB_INSERT_WIFI: &str = r#"
@@ -86,7 +86,7 @@ const DB_UPDATE_SPEED_TEST: &str = r#"
     UPDATE locations SET rating_avg = ($1 * rating_count + $2) / (rating_count + 1),
                          rating_count = rating_count + 1,
                          updated_at = NOW()
-    WHERE id = $3::uuid
+    WHERE id::text = $3
 "#;
 
 // ---------------------------------------------------------------------------

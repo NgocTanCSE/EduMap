@@ -260,7 +260,7 @@ const DB_CAMPAIGN_BY_ID: &str = r#"
            CAST("created_at" AS TEXT) AS "created_at",
            CAST("updated_at" AS TEXT) AS "updated_at"
     FROM "donation_campaigns"
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 const DB_DONORS: &str = r#"
@@ -272,7 +272,7 @@ const DB_DONORS: &str = r#"
            "u"."avatar_url" AS "avatar_url"
     FROM "donations" AS "d"
     JOIN "users" AS "u" ON "u"."id" = "d"."donor_id"
-    WHERE "d"."campaign_id" = $1 AND "d"."status" = 'completed'
+    WHERE "d"."campaign_id"::text = $1 AND "d"."status" = 'completed'
     ORDER BY "d"."created_at" DESC
 "#;
 
@@ -290,7 +290,7 @@ const DB_INSERT_CAMPAIGN: &str = r#"
 const DB_LOCK_CAMPAIGN: &str = r#"
     SELECT "id", "status", "title", "target_amount", "current_amount"
     FROM "donation_campaigns"
-    WHERE "id" = $1 FOR UPDATE
+    WHERE "id"::text = $1 FOR UPDATE
 "#;
 
 const DB_INSERT_DONATION: &str = r#"
@@ -304,13 +304,13 @@ const DB_INSERT_DONATION: &str = r#"
 const DB_INCREMENT_AMOUNT: &str = r#"
     UPDATE "donation_campaigns"
     SET "current_amount" = "current_amount" + $1
-    WHERE "id" = $2
+    WHERE "id"::text = $2
 "#;
 
 const DB_UPDATED_CAMPAIGN: &str = r#"
     SELECT "id", "title", "current_amount", "target_amount"
     FROM "donation_campaigns"
-    WHERE "id" = $1
+    WHERE "id"::text = $1
 "#;
 
 // ---------------------------------------------------------------------------

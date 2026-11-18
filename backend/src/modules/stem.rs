@@ -127,7 +127,7 @@ SELECT id, name, school_id, CAST(location_point AS TEXT) AS location_point,
        booking_available, photos, contact,
        CAST(created_at AS TEXT) AS created_at,
        CAST(updated_at AS TEXT) AS updated_at
-FROM stem_labs WHERE id = $1::uuid
+FROM stem_labs WHERE id::text = $1
 "#;
 
 

@@ -96,7 +96,7 @@ const DB_SELECT_DETAIL: &str = r#"
            o.id AS org_id, o.name AS org_name, o.logo_url AS org_logo_url
     FROM internships i
     LEFT JOIN organizations o ON o.id = i.company_id
-    WHERE i.id = $1::uuid
+    WHERE i.id::text = $1
 "#;
 
 const DB_SELECT_NEARBY_BASE: &str = r#"
@@ -131,7 +131,7 @@ const DB_INSERT_APPLICATION: &str = r#"
 
 const DB_SELECT_EXISTING_APPLICATION: &str = r#"
     SELECT id FROM internship_applications
-    WHERE user_id = $1::uuid AND internship_id = $2::uuid
+    WHERE user_id::text = $1 AND internship_id::text = $2
 "#;
 
 // ---------------------------------------------------------------------------

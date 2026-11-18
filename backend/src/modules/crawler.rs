@@ -119,7 +119,7 @@ RETURNING id
 const DB_UPDATE_CRAWL_HISTORY: &str = r#"
 UPDATE crawl_history SET status = $2, records_added = $3, errors = $4,
     error_message = $5, completed_at = $6
-WHERE id = $1::uuid
+WHERE id::text = $1
 "#;
 
 const DB_HISTORY_ALL: &str = r#"
