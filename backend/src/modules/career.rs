@@ -138,7 +138,7 @@ const DB_UPDATE_JOB: &str = r#"
         job_type = COALESCE($5, job_type), salary_range = $6, required_skills = $7,
         experience_level = $8, application_deadline = $9, status = COALESCE($10, status),
         updated_at = NOW()
-    WHERE id::text = $11 AND posted_by_user_id = $12
+    WHERE id::text = $11 AND posted_by_user_id::text = $12
     RETURNING id, CAST(updated_at AS TEXT) AS updated_at
 "#;
 
@@ -656,7 +656,7 @@ pub async fn delete_job(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
     let deleted = crate::db::query(
-        r#"DELETE FROM jobs WHERE id::text = $1 AND posted_by_user_id = $2"#
+        r#"DELETE FROM jobs WHERE id::text = $1 AND posted_by_user_id::text = $2"#
     )
     .bind(&id)
     .bind(&user.id)

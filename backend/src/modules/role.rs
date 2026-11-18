@@ -43,7 +43,7 @@ FROM roles ORDER BY name
 const DB_ROLE_BY_ID: &str = r#"
 SELECT id, name, display_name, description, level, system_created,
        CAST(created_at AS TEXT) AS created_at
-FROM roles WHERE id = $1
+FROM roles WHERE id::text = $1
 "#;
 
 const DB_INSERT_ROLE: &str = r#"
