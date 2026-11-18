@@ -123,7 +123,7 @@ export const FEATURES: Feature[] = [
         href: "/language-bridge",
         icon: Languages,
         description: "Đơn giản hoá văn bản, dịch thuật và đọc thành tiếng.",
-        group: "ai",
+        group: "learn",
         sidebar: true,
         keywords: ["dịch", "translate", "tts", "đơn giản hoá"],
     },

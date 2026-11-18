@@ -2,8 +2,9 @@
 //!
 //! Retries until the DB is up (startup health check); the pool is shared
 //! (`Arc`) across handlers via `State`.
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::PgPool;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -25,11 +26,13 @@ impl DbPool {
 
         while attempt < 60 {
             attempt += 1;
+            let options = PgConnectOptions::from_str(url)
+                .expect("invalid DB URL")
+                .statement_cache_capacity(0);
             let result = PgPoolOptions::new()
                 .max_connections(10)
-                .statement_cache_capacity(0)
                 .acquire_timeout(Duration::from_secs(10))
-                .connect(url)
+                .connect_with(options)
                 .await;
             match result {
                 Ok(pool) => {
