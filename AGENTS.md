@@ -1871,3 +1871,42 @@ The consolidated working tree broke two unrelated builds. Both fixed:
 Note: `app/api/admin/data-quality/report/route.ts` came from a **prior, unrelated**
 agent run (the `{ => report}/` move in the working tree), not from this consolidation.
 The consolidation itself touched no backend or BFF routes.
+
+## 24. Runtime SQL fixes — Render + Supabase/PgBouncer (2026-11-18/19)
+
+Five independent runtime faults made the Rust backend unusable after deploy
+(`/api/health` 200, every data endpoint 500/502). All are code-level; no env
+change was needed.
+
+1. **`prepared statement "sqlx_s_N" already exists`** — Supabase's PgBouncer
+   (transaction mode) discards named prepared statements between transactions.
+   `statement_cache_capacity(0)` does **not** help (sqlx then re-prepares the
+   same name). Fix: `backend/src/db/mod.rs::query()` wraps
+   `sqlx::query::<DB>(sql).persistent(false)` (unnamed statement) and every
+   call site uses `crate::db::query(...)`. `query_as`/`query_scalar` have no
+   `persistent()` in sqlx 0.8, so their 9 call sites were rewritten to
+   `crate::db::query` + `sqlx::FromRow::from_row` / `Row::get(0)`.
+2. **`panic = "abort"` killed the whole server** on the first bad row decode
+   (one 502 request → every later request 502). Now `panic = "unwind"`: a bad
+   handler fails alone.
+3. **`Row::get` type panics** — `String` is not `Decode` for UUID/timestamptz,
+   `f64` is not `Decode` for NUMERIC, NULL into a non-`Option` panics. Added
+   tolerant readers in `db/mod.rs`: `text`, `opt_text`, `int`, `opt_int`,
+   `num`, `opt_num`, `flag`, `opt_flag`, `json`, `text_list` (each tries every
+   plausible decode and falls back). ~1 100 `row.get::<T, &str>` call sites
+   were rewritten to these.
+4. **`operator does not exist: uuid = text`** — sqlx binds `&str` as TEXT, so
+   `uuid_col = $1` fails (comparisons *and* joins). Fixes: `col::text = $1`
+   for predicates, `a.id::text = b.fk::text` for joins (works whether the
+   column is uuid or text). INSERT placeholders keep `$N::uuid` where the
+   column is uuid.
+5. **`wifi` queried columns that do not exist** on `locations`
+   (`speed_mbps`, `is_free`, `password`, `password_hint`, `verified`) and
+   `ST_X(geography)`. Fixed with literal defaults in the SELECT and
+   `ST_X(coordinates::geometry)`; the INSERT only writes real columns.
+
+Rules going forward:
+- New SQL must use `crate::db::query`, never `sqlx::query`.
+- Read rows only through the `db::*` readers, never `row.get::<T, _>`.
+- Treat ids as TEXT in predicates/joins (`::text`), so the code is agnostic to
+  whether the live Supabase column is `uuid` or `text`.
