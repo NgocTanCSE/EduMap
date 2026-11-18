@@ -311,23 +311,23 @@ pub struct Roadmap {
 /// selects `u.full_name AS posted_by_name`, so it reads that field).
 fn job_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "description": row.get::<String, &str>("description"),
-        "company_name": row.get::<Option<String>, &str>("company_name"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "job_type": row.get::<String, &str>("job_type"),
-        "salary_range": row.get::<Option<String>, &str>("salary_range"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "description": crate::db::text(&row, "description"),
+        "company_name": crate::db::opt_text(&row, "company_name"),
+        "location": crate::db::opt_text(&row, "location"),
+        "job_type": crate::db::text(&row, "job_type"),
+        "salary_range": crate::db::opt_text(&row, "salary_range"),
         "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
-        "experience_level": row.get::<Option<String>, &str>("experience_level"),
-        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
+        "experience_level": crate::db::opt_text(&row, "experience_level"),
+        "application_deadline": crate::db::opt_text(&row, "application_deadline"),
         "views": row.get::<i64, &str>("views"),
-        "status": row.get::<String, &str>("status"),
-        "posted_by": row.get::<Option<String>, &str>("posted_by_name"),
-        "posted_by_user_id": row.get::<Option<String>, &str>("posted_by_user_id"),
+        "status": crate::db::text(&row, "status"),
+        "posted_by": crate::db::opt_text(&row, "posted_by_name"),
+        "posted_by_user_id": crate::db::opt_text(&row, "posted_by_user_id"),
         "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
@@ -335,21 +335,21 @@ fn job_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
 /// old `searchJobs` that didn't load the `posted_by` relation).
 fn job_list_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "description": row.get::<String, &str>("description"),
-        "company_name": row.get::<Option<String>, &str>("company_name"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "job_type": row.get::<String, &str>("job_type"),
-        "salary_range": row.get::<Option<String>, &str>("salary_range"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "description": crate::db::text(&row, "description"),
+        "company_name": crate::db::opt_text(&row, "company_name"),
+        "location": crate::db::opt_text(&row, "location"),
+        "job_type": crate::db::text(&row, "job_type"),
+        "salary_range": crate::db::opt_text(&row, "salary_range"),
         "required_skills": row.get::<Option<serde_json::Value>, &str>("required_skills"),
-        "experience_level": row.get::<Option<String>, &str>("experience_level"),
-        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
+        "experience_level": crate::db::opt_text(&row, "experience_level"),
+        "application_deadline": crate::db::opt_text(&row, "application_deadline"),
         "views": row.get::<i64, &str>("views"),
-        "status": row.get::<String, &str>("status"),
+        "status": crate::db::text(&row, "status"),
         "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
@@ -606,8 +606,8 @@ pub async fn create_job(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String, &str>("id"),
-        "created_at": inserted.get::<String, &str>("created_at"),
+        "id": crate::db::text(&inserted, "id"),
+        "created_at": crate::db::text(&inserted, "created_at"),
     }))))
 }
 
@@ -639,8 +639,8 @@ pub async fn update_job(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Job không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -702,16 +702,16 @@ pub async fn get_paths(
     let rows = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "title": row.get::<String, &str>("title"),
-            "field": row.get::<Option<String>, &str>("field"),
-            "description": row.get::<Option<String>, &str>("description"),
+            "id": crate::db::text(&row, "id"),
+            "title": crate::db::text(&row, "title"),
+            "field": crate::db::opt_text(&row, "field"),
+            "description": crate::db::opt_text(&row, "description"),
             "skills_required": row.get::<Option<serde_json::Value>, &str>("skills_required"),
             "roadmap_json": row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
-            "salary_range": row.get::<Option<String>, &str>("salary_range"),
-            "demand_level": row.get::<Option<String>, &str>("demand_level"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "salary_range": crate::db::opt_text(&row, "salary_range"),
+            "demand_level": crate::db::opt_text(&row, "demand_level"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -735,16 +735,16 @@ pub async fn get_path_by_id(
         .map_err(AppError::from)?;
     let path = match row {
         Some(row) => serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "title": row.get::<String, &str>("title"),
-            "field": row.get::<Option<String>, &str>("field"),
-            "description": row.get::<Option<String>, &str>("description"),
+            "id": crate::db::text(&row, "id"),
+            "title": crate::db::text(&row, "title"),
+            "field": crate::db::opt_text(&row, "field"),
+            "description": crate::db::opt_text(&row, "description"),
             "skills_required": row.get::<Option<serde_json::Value>, &str>("skills_required"),
             "roadmap_json": row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
-            "salary_range": row.get::<Option<String>, &str>("salary_range"),
-            "demand_level": row.get::<Option<String>, &str>("demand_level"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "salary_range": crate::db::opt_text(&row, "salary_range"),
+            "demand_level": crate::db::opt_text(&row, "demand_level"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         }),
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
@@ -768,9 +768,9 @@ pub async fn get_skill_roadmap(
     let road = match row {
         Some(row) => Roadmap {
             career_id: row.get::<i64, &str>("id"),
-            career_title: row.get::<String, &str>("title"),
-            field: row.get::<Option<String>, &str>("field"),
-            description: row.get::<Option<String>, &str>("description"),
+            career_title: crate::db::text(&row, "title"),
+            field: crate::db::opt_text(&row, "field"),
+            description: crate::db::opt_text(&row, "description"),
             skills_required: row.get::<Option<serde_json::Value>, &str>("skills_required"),
             roadmap: row.get::<Option<serde_json::Value>, &str>("roadmap_json"),
         },
@@ -817,8 +817,8 @@ pub async fn create_path(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String, &str>("id"),
-        "created_at": created.get::<String, &str>("created_at"),
+        "id": crate::db::text(&created, "id"),
+        "created_at": crate::db::text(&created, "created_at"),
     }))))
 }
 
@@ -839,15 +839,15 @@ pub async fn get_user_careers(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "user_id": row.get::<String, &str>("user_id"),
+            "id": crate::db::text(&row, "id"),
+            "user_id": crate::db::text(&row, "user_id"),
             "career_path_id": row.get::<Option<i64>, &str>("career_path_id"),
-            "goal_title": row.get::<String, &str>("goal_title"),
-            "description": row.get::<Option<String>, &str>("description"),
-            "target_date": row.get::<Option<String>, &str>("target_date"),
-            "status": row.get::<String, &str>("status"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "goal_title": crate::db::text(&row, "goal_title"),
+            "description": crate::db::opt_text(&row, "description"),
+            "target_date": crate::db::opt_text(&row, "target_date"),
+            "status": crate::db::text(&row, "status"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -883,8 +883,8 @@ pub async fn create_user_career(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String, &str>("id"),
-        "created_at": created.get::<String, &str>("created_at"),
+        "id": crate::db::text(&created, "id"),
+        "created_at": crate::db::text(&created, "created_at"),
     }))))
 }
 
@@ -919,8 +919,8 @@ pub async fn update_user_career(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Nguyện vọng nghề nghiệp không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -970,13 +970,13 @@ pub async fn get_user_skills(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "user_id": row.get::<String, &str>("user_id"),
-            "skill_name": row.get::<String, &str>("skill_name"),
-            "proficiency_level": row.get::<String, &str>("proficiency_level"),
-            "description": row.get::<Option<String>, &str>("description"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "user_id": crate::db::text(&row, "user_id"),
+            "skill_name": crate::db::text(&row, "skill_name"),
+            "proficiency_level": crate::db::text(&row, "proficiency_level"),
+            "description": crate::db::opt_text(&row, "description"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -1006,8 +1006,8 @@ pub async fn create_user_skill(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String, &str>("id"),
-        "created_at": created.get::<String, &str>("created_at"),
+        "id": crate::db::text(&created, "id"),
+        "created_at": crate::db::text(&created, "created_at"),
     }))))
 }
 
@@ -1034,8 +1034,8 @@ pub async fn update_user_skill(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound(
             "Kỹ năng không tìm thấy hoặc bạn không có quyền chỉnh sửa.".to_string(),
@@ -1085,18 +1085,18 @@ pub async fn get_user_applications(
         .map_err(AppError::from)?
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "user_id": row.get::<String, &str>("user_id"),
-            "job_id": row.get::<String, &str>("job_id"),
-            "job_title": row.get::<Option<String>, &str>("job_title"),
-            "job_company_name": row.get::<Option<String>, &str>("job_company_name"),
-            "job_location": row.get::<Option<String>, &str>("job_location"),
-            "job_deadline": row.get::<Option<String>, &str>("job_deadline"),
-            "cover_letter": row.get::<Option<String>, &str>("cover_letter"),
-            "resume_url": row.get::<Option<String>, &str>("resume_url"),
-            "status": row.get::<String, &str>("status"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "user_id": crate::db::text(&row, "user_id"),
+            "job_id": crate::db::text(&row, "job_id"),
+            "job_title": crate::db::opt_text(&row, "job_title"),
+            "job_company_name": crate::db::opt_text(&row, "job_company_name"),
+            "job_location": crate::db::opt_text(&row, "job_location"),
+            "job_deadline": crate::db::opt_text(&row, "job_deadline"),
+            "cover_letter": crate::db::opt_text(&row, "cover_letter"),
+            "resume_url": crate::db::opt_text(&row, "resume_url"),
+            "status": crate::db::text(&row, "status"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         }))
         .collect::<Vec<serde_json::Value>>();
     Ok(Json(ApiResponse::ok(serde_json::json!({
@@ -1120,16 +1120,16 @@ pub async fn get_application_by_id(
         .map_err(AppError::from)?;
     let app = match row {
         Some(row) => serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "user_id": row.get::<String, &str>("user_id"),
-            "job_id": row.get::<String, &str>("job_id"),
-            "job_title": row.get::<Option<String>, &str>("job_title"),
-            "job_location": row.get::<Option<String>, &str>("job_location"),
-            "cover_letter": row.get::<Option<String>, &str>("cover_letter"),
-            "resume_url": row.get::<Option<String>, &str>("resume_url"),
-            "status": row.get::<String, &str>("status"),
-            "updated_at": row.get::<String, &str>("updated_at"),
-            "created_at": row.get::<String, &str>("created_at"),
+            "id": crate::db::text(&row, "id"),
+            "user_id": crate::db::text(&row, "user_id"),
+            "job_id": crate::db::text(&row, "job_id"),
+            "job_title": crate::db::opt_text(&row, "job_title"),
+            "job_location": crate::db::opt_text(&row, "job_location"),
+            "cover_letter": crate::db::opt_text(&row, "cover_letter"),
+            "resume_url": crate::db::opt_text(&row, "resume_url"),
+            "status": crate::db::text(&row, "status"),
+            "updated_at": crate::db::text(&row, "updated_at"),
+            "created_at": crate::db::text(&row, "created_at"),
         }),
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
@@ -1174,9 +1174,9 @@ pub async fn apply_to_job(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String, &str>("id"),
-        "created_at": created.get::<String, &str>("created_at"),
-        "updated_at": created.get::<String, &str>("updated_at"),
+        "id": crate::db::text(&created, "id"),
+        "created_at": crate::db::text(&created, "created_at"),
+        "updated_at": crate::db::text(&created, "updated_at"),
     }))))
 }
 
@@ -1204,7 +1204,7 @@ pub async fn update_application_status(
             "Ứng tuyển không tìm thấy.".to_string(),
         )),
     };
-    let posted_by = application.get::<Option<String>, &str>("posted_by_user_id");
+    let posted_by = crate::db::opt_text(&application, "posted_by_user_id");
     let is_owner = posted_by.as_ref().map(|v| v == &user.id).unwrap_or(false);
     if user.role != "admin" && !is_owner {
         return Err(AppError::NotFound(
@@ -1220,8 +1220,8 @@ pub async fn update_application_status(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Ứng tuyển không tìm thấy.".to_string())),
     }
@@ -1249,7 +1249,7 @@ pub async fn withdraw_application(
             "Ứng tuyển không tìm thấy hoặc bạn không có quyền rút.".to_string(),
         )),
     };
-    let status = application.get::<String, &str>("status");
+    let status = crate::db::text(&application, "status");
     if status == "accepted" || status == "rejected" {
         return Err(AppError::Conflict(
             "Không thể rút ứng tuyển đã được chấp nhận hoặc từ chối.".to_string(),
@@ -1264,8 +1264,8 @@ pub async fn withdraw_application(
         .map_err(AppError::from)?;
     match updated {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "updated_at": row.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "updated_at": crate::db::text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Ứng tuyển không tìm thấy.".to_string())),
     }
@@ -1341,12 +1341,12 @@ pub async fn upload_resume(
         .await
         .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": created.get::<String, &str>("id"),
-        "original_name": created.get::<String, &str>("original_name"),
-        "file_url": created.get::<String, &str>("file_url"),
-        "mime_type": created.get::<String, &str>("mime_type"),
-        "size_kb": created.get::<f64, &str>("size_kb"),
-        "created_at": created.get::<String, &str>("created_at"),
+        "id": crate::db::text(&created, "id"),
+        "original_name": crate::db::text(&created, "original_name"),
+        "file_url": crate::db::text(&created, "file_url"),
+        "mime_type": crate::db::text(&created, "mime_type"),
+        "size_kb": crate::db::num(&created, "size_kb"),
+        "created_at": crate::db::text(&created, "created_at"),
     }))))
 }
 
@@ -1390,21 +1390,21 @@ pub async fn get_ai_advice(
 
     let ai_input = serde_json::json!({
         "user_id": user.id,
-        "full_name": user_row.get::<String, &str>("full_name"),
+        "full_name": crate::db::text(&user_row, "full_name"),
         "skills": skills
             .iter()
             .map(|row| format!(
                 "{} ({})",
-                row.get::<String, &str>("skill_name"),
-                row.get::<String, &str>("proficiency_level")
+                crate::db::text(&row, "skill_name"),
+                crate::db::text(&row, "proficiency_level")
             ))
             .collect::<Vec<String>>(),
-        "mbti_type": user_row.get::<Option<String>, &str>("mbti_type").unwrap_or_else(|| {
+        "mbti_type": crate::db::opt_text(&user_row, "mbti_type").unwrap_or_else(|| {
             "Chưa xác định".to_string()
         }),
         "career_aspirations": careers
             .iter()
-            .map(|row| row.get::<String, &str>("goal_title"))
+            .map(|row| crate::db::text(&row, "goal_title"))
             .collect::<Vec<String>>(),
         "recent_keywords": "Phát triển sự nghiệp bền vững",
     });
@@ -1437,7 +1437,7 @@ pub async fn suggest_career(
         .map_err(AppError::from)?;
     let skill_names: Vec<String> = skills
         .iter()
-        .map(|row| row.get::<String, &str>("skill_name").to_lowercase())
+        .map(|row| crate::db::text(&row, "skill_name").to_lowercase())
         .collect();
 
     let careers = crate::db::query(DB_SELECT_USER_CAREER)
@@ -1448,10 +1448,10 @@ pub async fn suggest_career(
     let interests: Vec<String> = careers
         .iter()
         .filter_map(|row| {
-            row.get::<Option<String>, &str>("goal_title")
+            crate::db::opt_text(&row, "goal_title")
                 .filter(|v| !v.is_empty())
                 .or_else(|| {
-                    row.get::<Option<String>, &str>("career_path_id")
+                    crate::db::opt_text(&row, "career_path_id")
                         .map(|career| career.replace("-", "").replace("(", "").replace(")", ""))
                 })
                 .filter(|v| !v.is_empty())

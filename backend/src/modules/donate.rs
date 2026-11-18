@@ -319,38 +319,35 @@ const DB_UPDATED_CAMPAIGN: &str = r#"
 
 fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "target_amount": row
-            .get::<Option<String>, &str>("target_amount")
+        "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "target_amount": crate::db::opt_text(&row, "target_amount")
             .unwrap_or_else(|| "0".to_string()),
-        "current_amount": row
-            .get::<Option<String>, &str>("current_amount")
+        "current_amount": crate::db::opt_text(&row, "current_amount")
             .unwrap_or_else(|| "0".to_string()),
-        "organizer_id": row.get::<Option<String>, &str>("organizer_id").unwrap_or_default(),
-        "location_point": row.get::<Option<String>, &str>("location_point"),
-        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
-        "start_date": row.get::<Option<String>, &str>("start_date"),
-        "end_date": row.get::<Option<String>, &str>("end_date"),
-        "images": row.get::<Option<String>, &str>("images").map(Value::String).unwrap_or(Value::Null),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
-        "updated_at": row.get::<Option<String>, &str>("updated_at").unwrap_or_default(),
+        "organizer_id": crate::db::opt_text(&row, "organizer_id").unwrap_or_default(),
+        "location_point": crate::db::opt_text(&row, "location_point"),
+        "address": crate::db::opt_text(&row, "address").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
+        "start_date": crate::db::opt_text(&row, "start_date"),
+        "end_date": crate::db::opt_text(&row, "end_date"),
+        "images": crate::db::opt_text(&row, "images").map(Value::String).unwrap_or(Value::Null),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
+        "updated_at": crate::db::opt_text(&row, "updated_at").unwrap_or_default(),
     })
 }
 
 fn donor_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
-        "amount": row
-            .get::<Option<String>, &str>("amount")
+        "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
+        "amount": crate::db::opt_text(&row, "amount")
             .unwrap_or_else(|| "0".to_string()),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         "donor": serde_json::json!({
-            "id": row.get::<Option<String>, &str>("donor_id").unwrap_or_default(),
-            "fullName": row.get::<Option<String>, &str>("full_name").unwrap_or_default(),
-            "avatarUrl": row.get::<Option<String>, &str>("avatar_url").unwrap_or_default(),
+            "id": crate::db::opt_text(&row, "donor_id").unwrap_or_default(),
+            "fullName": crate::db::opt_text(&row, "full_name").unwrap_or_default(),
+            "avatarUrl": crate::db::opt_text(&row, "avatar_url").unwrap_or_default(),
         }),
     })
 }
@@ -558,13 +555,11 @@ pub async fn process_donation(
         "message": "Cảm ơn bạn đã quyên góp hỗ trợ cộng đồng!",
         "transaction_id": transaction_id,
         "campaign": serde_json::json!({
-            "id": updated.get::<Option<String>, &str>("id").unwrap_or_default(),
-            "title": updated.get::<Option<String>, &str>("title").unwrap_or_default(),
-            "current_amount": updated
-                .get::<Option<String>, &str>("current_amount")
+            "id": crate::db::opt_text(&updated, "id").unwrap_or_default(),
+            "title": crate::db::opt_text(&updated, "title").unwrap_or_default(),
+            "current_amount": crate::db::opt_text(&updated, "current_amount")
                 .unwrap_or_else(|| "0".to_string()),
-            "target_amount": updated
-                .get::<Option<String>, &str>("target_amount")
+            "target_amount": crate::db::opt_text(&updated, "target_amount")
                 .unwrap_or_else(|| "0".to_string()),
         }),
     });

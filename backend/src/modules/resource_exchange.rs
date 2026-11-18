@@ -268,29 +268,29 @@ pub async fn create_resource(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to create resource: {e}")))?;
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id") }))))
 }
 
 fn row_to_resource_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "type": row.get::<Option<String>, &str>("type"),
-        "title": row.get::<Option<String>, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
+        "id": crate::db::text(&row, "id"),
+        "type": crate::db::opt_text(&row, "type"),
+        "title": crate::db::opt_text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
         "condition": row.get::<Option<i64>, &str>("condition"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
-        "availableFrom": row.get::<Option<String>, &str>("available_from"),
-        "cost": row.get::<Option<f64>, &str>("cost"),
-        "contactMethod": row.get::<Option<String>, &str>("contact_method"),
-        "status": row.get::<Option<String>, &str>("status"),
+        "location": crate::db::opt_text(&row, "location"),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
+        "availableFrom": crate::db::opt_text(&row, "available_from"),
+        "cost": crate::db::opt_num(&row, "cost"),
+        "contactMethod": crate::db::opt_text(&row, "contact_method"),
+        "status": crate::db::opt_text(&row, "status"),
         "isVerified": row.get::<Option<bool>, &str>("is_verified"),
-        "tags": row.get::<Option<String>, &str>("tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "metadata": row.get::<Option<String>, &str>("metadata").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "createdBy": row.get::<Option<String>, &str>("created_by"),
-        "createdAt": row.get::<Option<String>, &str>("created_at"),
-        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
+        "tags": crate::db::opt_text(&row, "tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "metadata": crate::db::opt_text(&row, "metadata").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "createdBy": crate::db::opt_text(&row, "created_by"),
+        "createdAt": crate::db::opt_text(&row, "created_at"),
+        "updatedAt": crate::db::opt_text(&row, "updated_at"),
     })
 }
 
@@ -375,27 +375,27 @@ pub async fn create_resource_request(
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to create request: {e}")))?;
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id") }))))
 }
 
 fn row_to_request_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "needType": row.get::<Option<String>, &str>("need_type"),
-        "title": row.get::<Option<String>, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "urgency": row.get::<Option<String>, &str>("urgency"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
-        "deadline": row.get::<Option<String>, &str>("deadline"),
+        "id": crate::db::text(&row, "id"),
+        "needType": crate::db::opt_text(&row, "need_type"),
+        "title": crate::db::opt_text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
+        "urgency": crate::db::opt_text(&row, "urgency"),
+        "location": crate::db::opt_text(&row, "location"),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
+        "deadline": crate::db::opt_text(&row, "deadline"),
         "preferredMinCondition": row.get::<Option<i64>, &str>("preferred_min_condition"),
-        "contactMethod": row.get::<Option<String>, &str>("contact_method"),
-        "status": row.get::<Option<String>, &str>("status"),
-        "tags": row.get::<Option<String>, &str>("tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "createdBy": row.get::<Option<String>, &str>("created_by"),
-        "createdAt": row.get::<Option<String>, &str>("created_at"),
-        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
+        "contactMethod": crate::db::opt_text(&row, "contact_method"),
+        "status": crate::db::opt_text(&row, "status"),
+        "tags": crate::db::opt_text(&row, "tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+        "createdBy": crate::db::opt_text(&row, "created_by"),
+        "createdAt": crate::db::opt_text(&row, "created_at"),
+        "updatedAt": crate::db::opt_text(&row, "updated_at"),
     })
 }
 
@@ -430,15 +430,15 @@ pub async fn get_resource_matches(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "resourceId": row.get::<Option<String>, &str>("resource_id"),
-            "requestId": row.get::<Option<String>, &str>("request_id"),
-            "matchScore": row.get::<Option<f64>, &str>("match_score"),
-            "explanation": row.get::<Option<String>, &str>("explanation"),
-            "status": row.get::<Option<String>, &str>("status"),
-            "scheduledPickup": row.get::<Option<String>, &str>("scheduled_pickup"),
-            "transportPlan": row.get::<Option<String>, &str>("transport_plan").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-            "createdAt": row.get::<Option<String>, &str>("created_at"),
+            "id": crate::db::text(&row, "id"),
+            "resourceId": crate::db::opt_text(&row, "resource_id"),
+            "requestId": crate::db::opt_text(&row, "request_id"),
+            "matchScore": crate::db::opt_num(&row, "match_score"),
+            "explanation": crate::db::opt_text(&row, "explanation"),
+            "status": crate::db::opt_text(&row, "status"),
+            "scheduledPickup": crate::db::opt_text(&row, "scheduled_pickup"),
+            "transportPlan": crate::db::opt_text(&row, "transport_plan").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
+            "createdAt": crate::db::opt_text(&row, "created_at"),
         })
     }).collect();
 

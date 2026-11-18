@@ -68,10 +68,10 @@ pub struct CreateResourceForm {
 // ---------------------------------------------------------------------------
 
 const DB_SELECT_RESOURCES: &str = r#"
-    SELECT id, title, description, type, subject, grade,
+    SELECT id::text AS id, title, description, type, subject, grade,
            file_url, thumbnail_url, file_size, download_count, view_count,
-           rating_avg, status, author_id,
-           created_at, updated_at
+           COALESCE(rating_avg, 0)::float8 AS rating_avg, status, author_id::text AS author_id,
+           CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
     FROM learning_materials
     WHERE deleted_at IS NULL
     ORDER BY created_at DESC
@@ -85,10 +85,10 @@ const DB_SELECT_RESOURCES_COUNT: &str = r#"
 "#;
 
 const DB_SELECT_SEARCH: &str = r#"
-    SELECT id, title, description, type, subject, grade,
+    SELECT id::text AS id, title, description, type, subject, grade,
            file_url, thumbnail_url, file_size, download_count, view_count,
-           rating_avg, status, author_id,
-           created_at, updated_at
+           COALESCE(rating_avg, 0)::float8 AS rating_avg, status, author_id::text AS author_id,
+           CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
     FROM learning_materials
     WHERE deleted_at IS NULL
     {where}
@@ -104,10 +104,10 @@ const DB_SELECT_SEARCH_COUNT: &str = r#"
 "#;
 
 const DB_SELECT_RESOURCE_BY_ID: &str = r#"
-    SELECT id, title, description, type, subject, grade,
+    SELECT id::text AS id, title, description, type, subject, grade,
            file_url, thumbnail_url, file_size, download_count, view_count,
-           rating_avg, status, author_id,
-           created_at, updated_at
+           COALESCE(rating_avg, 0)::float8 AS rating_avg, status, author_id::text AS author_id,
+           CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
     FROM learning_materials WHERE id = $1
 "#;
 
@@ -116,7 +116,7 @@ const DB_INSERT_RESOURCE: &str = r#"
                                     author_id, file_url, thumbnail_url, tags,
                                     status, created_at, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', NOW(), NOW())
-    RETURNING id, title, description, type, subject, grade, file_url,
+    RETURNING id::text AS id, title, description, type, subject, grade, file_url,
               thumbnail_url, download_count, view_count, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
@@ -127,22 +127,22 @@ const DB_INSERT_RESOURCE: &str = r#"
 
 fn resource_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "type": row.get::<Option<String>, &str>("type"),
-        "subject": row.get::<Option<String>, &str>("subject"),
-        "grade": row.get::<Option<String>, &str>("grade"),
-        "file_url": row.get::<Option<String>, &str>("file_url"),
-        "thumbnail_url": row.get::<Option<String>, &str>("thumbnail_url"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
+        "type": crate::db::opt_text(&row, "type"),
+        "subject": crate::db::opt_text(&row, "subject"),
+        "grade": crate::db::opt_text(&row, "grade"),
+        "file_url": crate::db::opt_text(&row, "file_url"),
+        "thumbnail_url": crate::db::opt_text(&row, "thumbnail_url"),
         "file_size": row.get::<Option<i64>, &str>("file_size"),
         "download_count": row.get::<i64, &str>("download_count"),
         "view_count": row.get::<i64, &str>("view_count"),
-        "rating_avg": row.get::<f64, &str>("rating_avg"),
-        "status": row.get::<Option<String>, &str>("status"),
-        "author_id": row.get::<Option<String>, &str>("author_id"),
-        "created_at": row.get::<Option<String>, &str>("created_at"),
-        "updated_at": row.get::<Option<String>, &str>("updated_at"),
+        "rating_avg": crate::db::num(&row, "rating_avg"),
+        "status": crate::db::opt_text(&row, "status"),
+        "author_id": crate::db::opt_text(&row, "author_id"),
+        "created_at": crate::db::opt_text(&row, "created_at"),
+        "updated_at": crate::db::opt_text(&row, "updated_at"),
     })
 }
 
@@ -361,7 +361,7 @@ pub async fn create_resource(
             "source": "db_learning_materials",
             "type": form.resource_type,
         },
-        "id": format!("material_{}", row.get::<String, &str>("id")),
+        "id": format!("material_{}", crate::db::text(&row, "id")),
     })).await;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({

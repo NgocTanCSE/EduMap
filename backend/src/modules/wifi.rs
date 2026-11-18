@@ -97,21 +97,21 @@ const DB_UPDATE_SPEED_TEST: &str = r#"
 /// `lat`/`lng`), exactly like the old `Location` entity did.
 fn location_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
-        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
-        "speed_mbps": row.get::<Option<f64>, &str>("speed_mbps"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
+        "address": crate::db::opt_text(&row, "address").unwrap_or_default(),
+        "speed_mbps": crate::db::opt_num(&row, "speed_mbps"),
         "is_free": row.get::<Option<bool>, &str>("is_free").unwrap_or(false),
-        "password": row.get::<Option<String>, &str>("password").unwrap_or_default(),
-        "password_hint": row.get::<Option<String>, &str>("password_hint").unwrap_or_default(),
+        "password": crate::db::opt_text(&row, "password").unwrap_or_default(),
+        "password_hint": crate::db::opt_text(&row, "password_hint").unwrap_or_default(),
         "verified": row.get::<Option<bool>, &str>("verified").unwrap_or(false),
-        "reported_by": row.get::<Option<String>, &str>("created_by").unwrap_or_default(),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
-        "coordinates": row.get::<Option<String>, &str>("coordinates")
+        "reported_by": crate::db::opt_text(&row, "created_by").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
+        "coordinates": crate::db::opt_text(&row, "coordinates")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "location": row.get::<Option<String>, &str>("location")
+        "location": crate::db::opt_text(&row, "location")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
     })
 }
@@ -264,9 +264,9 @@ pub async fn report_wifi(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
+        "id": crate::db::text(&row, "id"),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
         "message": "Đã báo cáo điểm Wifi mới, đang chờ xác minh.",
     }))))
 }
@@ -297,7 +297,7 @@ pub async fn submit_speed_test(
         None => return Err(AppError::NotFound("Wifi location not found.".to_string())),
     };
 
-    let current_avg: f64 = location.get::<Option<f64>, &str>("rating_avg").unwrap_or(0.0);
+    let current_avg: f64 = crate::db::opt_num(&location, "rating_avg").unwrap_or(0.0);
     let current_count: i64 = location.get::<Option<i64>, &str>("rating_count").unwrap_or(0);
     let new_count = current_count + 1;
     let new_avg = (current_avg * current_count as f64 + rating) / (new_count as f64);

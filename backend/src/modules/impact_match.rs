@@ -520,35 +520,35 @@ pub async fn create_sponsor(
 
 fn need_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "category": row.get::<String, &str>("category"),
-        "urgency": row.get::<String, &str>("urgency"),
-        "cost_estimate": row.get::<f64, &str>("cost_estimate"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "status": row.get::<String, &str>("status"),
-        "tags": json_tags(row.get::<Option<String>, &str>("tags")),
-        "apply_url": row.get::<Option<String>, &str>("apply_url"),
-        "provenance": row.get::<Option<String>, &str>("provenance"),
-        "created_by": row.get::<Option<String>, &str>("created_by"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
+        "category": crate::db::text(&row, "category"),
+        "urgency": crate::db::text(&row, "urgency"),
+        "cost_estimate": crate::db::num(&row, "cost_estimate"),
+        "location": crate::db::opt_text(&row, "location"),
+        "status": crate::db::text(&row, "status"),
+        "tags": json_tags(crate::db::opt_text(&row, "tags")),
+        "apply_url": crate::db::opt_text(&row, "apply_url"),
+        "provenance": crate::db::opt_text(&row, "provenance"),
+        "created_by": crate::db::opt_text(&row, "created_by"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 
 fn sponsor_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "focus_areas": json_tags(row.get::<Option<String>, &str>("focus_areas")),
-        "budget_amount": row.get::<f64, &str>("budget_amount"),
-        "budget_currency": row.get::<String, &str>("budget_currency"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "status": row.get::<String, &str>("status"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "focus_areas": json_tags(crate::db::opt_text(&row, "focus_areas")),
+        "budget_amount": crate::db::num(&row, "budget_amount"),
+        "budget_currency": crate::db::text(&row, "budget_currency"),
+        "location": crate::db::opt_text(&row, "location"),
+        "status": crate::db::text(&row, "status"),
         "is_verified": row.get::<bool, &str>("is_verified"),
-        "created_by": row.get::<Option<String>, &str>("created_by"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "created_by": crate::db::opt_text(&row, "created_by"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 

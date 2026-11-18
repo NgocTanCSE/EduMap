@@ -246,13 +246,13 @@ pub async fn get_users(
     let users: Vec<serde_json::Value> = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "email": row.get::<String, &str>("email"),
-            "full_name": row.get::<Option<String>, &str>("full_name"),
-            "role": row.get::<String, &str>("role"),
-            "status": row.get::<String, &str>("status"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "last_login": row.get::<Option<String>, &str>("last_login"),
+            "id": crate::db::text(&row, "id"),
+            "email": crate::db::text(&row, "email"),
+            "full_name": crate::db::opt_text(&row, "full_name"),
+            "role": crate::db::text(&row, "role"),
+            "status": crate::db::text(&row, "status"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "last_login": crate::db::opt_text(&row, "last_login"),
         }))
         .collect();
 
@@ -280,14 +280,14 @@ pub async fn get_user_by_id(
 
     match row {
         Some(row) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "email": row.get::<String, &str>("email"),
-            "full_name": row.get::<Option<String>, &str>("full_name"),
-            "role": row.get::<String, &str>("role"),
-            "status": row.get::<String, &str>("status"),
-            "created_at": row.get::<String, &str>("created_at"),
-            "last_login": row.get::<Option<String>, &str>("last_login"),
-            "updated_at": row.get::<Option<String>, &str>("updated_at"),
+            "id": crate::db::text(&row, "id"),
+            "email": crate::db::text(&row, "email"),
+            "full_name": crate::db::opt_text(&row, "full_name"),
+            "role": crate::db::text(&row, "role"),
+            "status": crate::db::text(&row, "status"),
+            "created_at": crate::db::text(&row, "created_at"),
+            "last_login": crate::db::opt_text(&row, "last_login"),
+            "updated_at": crate::db::opt_text(&row, "updated_at"),
         })))),
         None => Err(AppError::NotFound(format!(
             "Không tìm thấy người dùng."
@@ -326,9 +326,9 @@ pub async fn update_user_status(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "status": row.get::<String, &str>("status"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "id": crate::db::text(&row, "id"),
+        "status": crate::db::text(&row, "status"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     }))))
 }
 
@@ -354,7 +354,7 @@ pub async fn soft_delete_user(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Xả mềm người dùng thành công.",
-        "id": deleted.get::<String, &str>("id"),
+        "id": crate::db::text(&deleted, "id"),
     }))))
 }
 
@@ -380,7 +380,7 @@ pub async fn restore_user(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Khôi phục người dùng thành công.",
-        "id": restored.get::<String, &str>("id"),
+        "id": crate::db::text(&restored, "id"),
     }))))
 }
 
@@ -431,11 +431,11 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String, &str>("id"),
-                    "title": row.get::<String, &str>("title"),
-                    "address": row.get::<Option<String>, &str>("address"),
-                    "start_date": row.get::<Option<String>, &str>("start_date"),
-                    "end_date": row.get::<Option<String>, &str>("end_date"),
+                    "id": crate::db::text(&row, "id"),
+                    "title": crate::db::text(&row, "title"),
+                    "address": crate::db::opt_text(&row, "address"),
+                    "start_date": crate::db::opt_text(&row, "start_date"),
+                    "end_date": crate::db::opt_text(&row, "end_date"),
                 }))
                 .collect();
             (items, total)
@@ -449,10 +449,10 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String, &str>("id"),
-                    "title": row.get::<String, &str>("title"),
-                    "address": row.get::<Option<String>, &str>("address"),
-                    "start_date": row.get::<Option<String>, &str>("start_date"),
+                    "id": crate::db::text(&row, "id"),
+                    "title": crate::db::text(&row, "title"),
+                    "address": crate::db::opt_text(&row, "address"),
+                    "start_date": crate::db::opt_text(&row, "start_date"),
                 }))
                 .collect();
             (items, total)
@@ -466,10 +466,10 @@ pub async fn get_pending_content(
             let items: Vec<serde_json::Value> = rows
                 .iter()
                 .map(|row| serde_json::json!({
-                    "id": row.get::<String, &str>("id"),
-                    "title": row.get::<String, &str>("title"),
-                    "provider": row.get::<Option<String>, &str>("provider"),
-                    "deadline": row.get::<Option<String>, &str>("deadline"),
+                    "id": crate::db::text(&row, "id"),
+                    "title": crate::db::text(&row, "title"),
+                    "provider": crate::db::opt_text(&row, "provider"),
+                    "deadline": crate::db::opt_text(&row, "deadline"),
                 }))
                 .collect();
             (items, total)

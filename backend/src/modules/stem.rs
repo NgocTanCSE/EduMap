@@ -193,7 +193,7 @@ pub async fn get_nearby(
         .into_iter()
         .map(|row| {
             let mut v = row_to_lab_json(&row);
-            if let Some(distance) = row.get::<Option<f64>, &str>("distance_m") {
+            if let Some(distance) = crate::db::opt_num(&row, "distance_m") {
                 v.as_object_mut().unwrap().insert("distanceMeters".to_string(), serde_json::Value::Number(
                     serde_json::Number::from_f64(distance).unwrap_or(serde_json::Number::from(0)),
                 ));
@@ -243,7 +243,7 @@ RETURNING id
     .await
     .map_err(|e| AppError::Internal(format!("failed to register stem lab: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id") }))))
 }
 
 /// `POST /api/stem/labs/:id/book` — đặt lịch mượn thiết bị (chống trùng).
@@ -317,18 +317,18 @@ pub async fn book_lab(
 
 fn row_to_lab_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<Option<String>, &str>("name"),
-        "schoolId": row.get::<Option<String>, &str>("school_id"),
-        "locationPoint": row.get::<Option<String>, &str>("location_point"),
-        "description": row.get::<Option<String>, &str>("description"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::opt_text(&row, "name"),
+        "schoolId": crate::db::opt_text(&row, "school_id"),
+        "locationPoint": crate::db::opt_text(&row, "location_point"),
+        "description": crate::db::opt_text(&row, "description"),
         "equipment": row.get::<Option<Vec<String>>, &str>("equipment").unwrap_or_default(),
-        "locationPointText": row.get::<Option<String>, &str>("location_point_text"),
+        "locationPointText": crate::db::opt_text(&row, "location_point_text"),
         "capacity": row.get::<Option<i64>, &str>("capacity"),
         "bookingAvailable": row.get::<Option<bool>, &str>("booking_available"),
-        "photos": row.get::<Option<String>, &str>("photos").and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()),
-        "contact": row.get::<Option<String>, &str>("contact"),
-        "createdAt": row.get::<Option<String>, &str>("created_at"),
-        "updatedAt": row.get::<Option<String>, &str>("updated_at"),
+        "photos": crate::db::opt_text(&row, "photos").and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()),
+        "contact": crate::db::opt_text(&row, "contact"),
+        "createdAt": crate::db::opt_text(&row, "created_at"),
+        "updatedAt": crate::db::opt_text(&row, "updated_at"),
     })
 }

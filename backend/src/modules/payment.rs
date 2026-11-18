@@ -112,14 +112,14 @@ const DB_UPDATE_BOOKING_PAYMENT: &str = r#"
 
 fn transaction_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "order_id": row.get::<Option<String>, &str>("orderId"),
-        "payment_method": row.get::<Option<String>, &str>("paymentMethod").unwrap_or_else(|| "COD".to_string()),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "PENDING".to_string()),
-        "amount": row.get::<Option<String>, &str>("amount").unwrap_or_default(),
-        "external_transaction_id": row.get::<Option<String>, &str>("externalTransactionId"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<Option<String>, &str>("updated_at"),
+        "id": crate::db::text(&row, "id"),
+        "order_id": crate::db::opt_text(&row, "orderId"),
+        "payment_method": crate::db::opt_text(&row, "paymentMethod").unwrap_or_else(|| "COD".to_string()),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "PENDING".to_string()),
+        "amount": crate::db::opt_text(&row, "amount").unwrap_or_default(),
+        "external_transaction_id": crate::db::opt_text(&row, "externalTransactionId"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::opt_text(&row, "updated_at"),
     })
 }
 
@@ -155,7 +155,7 @@ pub async fn process_payment(
     };
 
     // Giao dịch đã được thanh toán trước đó (replayed request).
-    if transaction.get::<Option<String>, &str>("status") == Some("SUCCESS".to_string()) {
+    if crate::db::opt_text(&transaction, "status") == Some("SUCCESS".to_string()) {
         return Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Giao dịch này đã được thanh toán thành công.",
             "demo": true,
@@ -173,7 +173,7 @@ pub async fn process_payment(
         .map_err(AppError::from);
 
     // Thanh toán đơn hàng (nếu giao dịch có order_id).
-    if let Some(order_id) = transaction.get::<Option<String>, &str>("orderId") {
+    if let Some(order_id) = crate::db::opt_text(&transaction, "orderId") {
         let order = crate::db::query(DB_SELECT_ORDER_BY_ID)
             .bind(&order_id)
             .fetch_optional(pool.db())
@@ -181,7 +181,7 @@ pub async fn process_payment(
             .map_err(AppError::from)?;
 
         if let Some(order) = order {
-            let order_status: String = order.get::<Option<String>, &str>("status").unwrap_or_default();
+            let order_status: String = crate::db::opt_text(&order, "status").unwrap_or_default();
             if order_status != "PAID" {
                 crate::db::query(DB_UPDATE_ORDER_STATUS)
                     .bind(&order_id)
@@ -230,7 +230,7 @@ pub async fn create_booking_transaction(
         }
     };
 
-    if booking.get::<Option<String>, &str>("payment_status") == Some("paid".to_string()) {
+    if crate::db::opt_text(&booking, "payment_status") == Some("paid".to_string()) {
         return Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Lịch hẹn đã được thanh toán.",
             "demo": true,
@@ -243,7 +243,7 @@ pub async fn create_booking_transaction(
         .bind(None::<Option<String>>)
         .bind(payment_method)
         .bind("PENDING")
-        .bind(booking.get::<Option<String>, &str>("amount").unwrap_or_default())
+        .bind(crate::db::opt_text(&booking, "amount").unwrap_or_default())
         .fetch_optional(pool.db())
         .await
     {
@@ -259,7 +259,7 @@ pub async fn create_booking_transaction(
 
     let txn_id = txn
         .as_ref()
-        .and_then(|r| r.get::<Option<String>, &str>("id"))
+        .and_then(|r| crate::db::opt_text(&r, "id"))
         .unwrap_or_default();
 
     crate::db::query(DB_UPDATE_BOOKING_PAYMENT)

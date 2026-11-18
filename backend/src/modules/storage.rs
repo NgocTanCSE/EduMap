@@ -128,13 +128,13 @@ impl MyFile {
 
     fn from_row(row: &sqlx::postgres::PgRow) -> Self {
         Self {
-            id: row.get::<Option<String>, &str>("id").unwrap_or_default(),
-            user_id: row.get::<Option<String>, &str>("user_id").unwrap_or_default(),
-            original_name: row.get::<Option<String>, &str>("original_name").unwrap_or_default(),
-            file_url: row.get::<Option<String>, &str>("file_url").unwrap_or_default(),
-            mime_type: row.get::<Option<String>, &str>("mime_type").unwrap_or_default(),
-            size_kb: row.get::<Option<f64>, &str>("size_kb").unwrap_or(0.0),
-            created_at: row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+            id: crate::db::opt_text(&row, "id").unwrap_or_default(),
+            user_id: crate::db::opt_text(&row, "user_id").unwrap_or_default(),
+            original_name: crate::db::opt_text(&row, "original_name").unwrap_or_default(),
+            file_url: crate::db::opt_text(&row, "file_url").unwrap_or_default(),
+            mime_type: crate::db::opt_text(&row, "mime_type").unwrap_or_default(),
+            size_kb: crate::db::opt_num(&row, "size_kb").unwrap_or(0.0),
+            created_at: crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         }
     }
 }
@@ -315,13 +315,13 @@ pub async fn delete_file(
         None => return Err(AppError::NotFound("Không tìm thấy tập tin".to_string())),
     };
 
-    if user_file.get::<String, &str>("user_id") != user.id {
+    if crate::db::text(&user_file, "user_id") != user.id {
         return Err(AppError::Forbidden(
             "Bạn không có quyền xóa tập tin này".to_string(),
         ));
     }
 
-    let file_url = user_file.get::<Option<String>, &str>("file_url").unwrap_or_default();
+    let file_url = crate::db::opt_text(&user_file, "file_url").unwrap_or_default();
     let object_name = file_url.rsplit('/').last().unwrap_or(&id);
     let file_path = PathBuf::from(STORAGE_DIR.as_str()).join(safe_name(object_name));
     if fs::remove_file(&file_path).is_err() {

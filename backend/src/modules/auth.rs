@@ -846,7 +846,7 @@ pub async fn reset_password(
     {
         return Err(AppError::BadRequest("Token đặt lại mật khẩu đã hết hạn.".to_string()));
     }
-    let user = find_user_by_id(pool.db(), &token.get::<String, &str>("user_id")).await?
+    let user = find_user_by_id(pool.db(), &crate::db::text(&token, "user_id")).await?
         .ok_or_else(|| AppError::Internal("User not found for reset token".to_string()))?;
     let hash = hash_password(&form.new_password)?;
     crate::db::query(DB_UPDATE_PASSWORD)

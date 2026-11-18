@@ -58,7 +58,7 @@ const DB_INSERT_SURVEY: &str = r#"
 const DB_INSERT_RESPONSE: &str = r#"
     INSERT INTO survey_responses (survey_id, user_id, answers_json)
     VALUES ($1, $2, $3)
-    RETURNING id, survey_id, user_id,
+    RETURNING id::text AS id, survey_id, user_id,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
@@ -72,22 +72,22 @@ const DB_COUNT_RESPONSES: &str = r#"
 
 fn survey_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "questions_json": row.get::<Option<String>, &str>("questions_json")
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "questions_json": crate::db::opt_text(&row, "questions_json")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
 fn response_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "survey_id": row.get::<String, &str>("survey_id"),
-        "answers_json": row.get::<Option<String>, &str>("answers_json")
+        "id": crate::db::text(&row, "id"),
+        "survey_id": crate::db::text(&row, "survey_id"),
+        "answers_json": crate::db::opt_text(&row, "answers_json")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
@@ -196,7 +196,7 @@ pub async fn submit_response(
         Some(row) => row,
         None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
-    if row.get::<String, &str>("status") != "active" {
+    if crate::db::text(&row, "status") != "active" {
         return Err(AppError::BadRequest("Khảo sát này đã đóng.".to_string()));
     }
 
@@ -270,7 +270,7 @@ pub async fn get_survey_analytics(
     // Build a simplified analytics payload: the old service counted per question
     // and averages for `rating`/`choice` types — computed in memory here.
     let mut questions_stats: Vec<Value> = Vec::new();
-    let questions: Option<Value> = row.get::<Option<String>, &str>("questions_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
+    let questions: Option<Value> = crate::db::opt_text(&row, "questions_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
     if let Some(questions) = questions {
         if let Some(items) = questions.as_array() {
             for (_idx, q) in items.iter().enumerate() {
@@ -301,7 +301,7 @@ pub async fn get_survey_analytics(
     }
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "survey_title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "survey_title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "total_responses": total_responses,
         "questions_stats": questions_stats,
     }))))
@@ -340,10 +340,10 @@ pub async fn export_survey_data(
 
     let format = q.format.as_deref().unwrap_or("csv");
     let data = rows.iter().map(|row| {
-        let ans: Option<Value> = row.get::<Option<String>, &str>("answers_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
+        let ans: Option<Value> = crate::db::opt_text(&row, "answers_json").and_then(|s| serde_json::from_str::<Value>(&s).ok());
         serde_json::json!({
-            "user_id": row.get::<String, &str>("user_id"),
-            "submitted_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+            "user_id": crate::db::text(&row, "user_id"),
+            "submitted_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
             "answers": ans.unwrap_or_default(),
         })
     }).collect::<Vec<Value>>();

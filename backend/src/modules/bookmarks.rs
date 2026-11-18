@@ -147,7 +147,7 @@ async fn title_lookup(
 
     let mut map = HashMap::new();
     for row in rows {
-        map.insert(row.get::<String, &str>("id"), row.get::<String, &str>("title"));
+        map.insert(crate::db::text(&row, "id"), crate::db::text(&row, "title"));
     }
 
     Ok(map)
@@ -204,9 +204,9 @@ pub async fn list(
         .into_iter()
         .map(|r| {
             BookmarkItem {
-                target_type: r.get::<String, &str>("target_type"),
-                target_id: r.get::<String, &str>("target_id"),
-                created_at: r.get::<String, &str>("created_at"),
+                target_type: crate::db::text(&r, "target_type"),
+                target_id: crate::db::text(&r, "target_id"),
+                created_at: crate::db::text(&r, "created_at"),
                 title: None,
             }
         })

@@ -163,26 +163,26 @@ pub struct GetQuestionsQuery {
 
 fn counseling_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "university_name": row.get::<String, &str>("university_name"),
-        "program_info": row.get::<Option<String>, &str>("program_info"),
-        "contact_email": row.get::<Option<String>, &str>("contact_email"),
-        "admission_criteria": row.get::<Option<String>, &str>("admission_criteria"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "university_name": crate::db::text(&row, "university_name"),
+        "program_info": crate::db::opt_text(&row, "program_info"),
+        "contact_email": crate::db::opt_text(&row, "contact_email"),
+        "admission_criteria": crate::db::opt_text(&row, "admission_criteria"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 
 fn question_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "content": row.get::<String, &str>("content"),
-        "university_target": row.get::<Option<String>, &str>("university_target"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "content": crate::db::text(&row, "content"),
+        "university_target": crate::db::opt_text(&row, "university_target"),
         "view_count": row.get::<i64, &str>("view_count"),
-        "student_name": row.get::<Option<String>, &str>("student_name"),
-        "student_avatar": row.get::<Option<String>, &str>("student_avatar"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "student_name": crate::db::opt_text(&row, "student_name"),
+        "student_avatar": crate::db::opt_text(&row, "student_avatar"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
@@ -190,12 +190,12 @@ fn question_to_json(row: &sqlx::postgres::PgRow) -> Value {
 
 fn connection_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "connection_id": row.get::<String, &str>("connection_id"),
-        "status": row.get::<String, &str>("status"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "friend_id": row.get::<String, &str>("friend_id"),
-        "friend_name": row.get::<String, &str>("name"),
-        "friend_avatar": row.get::<Option<String>, &str>("avatar_url"),
+        "connection_id": crate::db::text(&row, "connection_id"),
+        "status": crate::db::text(&row, "status"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "friend_id": crate::db::text(&row, "friend_id"),
+        "friend_name": crate::db::text(&row, "name"),
+        "friend_avatar": crate::db::opt_text(&row, "avatar_url"),
     })
 }
 
@@ -265,8 +265,8 @@ pub async fn create_question(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -347,8 +347,8 @@ pub async fn answer_question(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -395,9 +395,9 @@ pub async fn connect(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
+        "id": crate::db::text(&row, "id"),
         "status": "pending",
-        "created_at": row.get::<String, &str>("created_at"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -424,12 +424,12 @@ pub async fn get_my_network(
         .map_err(AppError::from)?
         .iter()
         .map(|r| serde_json::json!({
-            "connection_id": r.get::<String, &str>("connection_id"),
-            "status": r.get::<String, &str>("status"),
-            "created_at": r.get::<String, &str>("created_at"),
-            "requester_id": r.get::<String, &str>("requester_id"),
-            "requester_name": r.get::<String, &str>("requester_name"),
-            "requester_avatar": r.get::<Option<String>, &str>("requester_avatar"),
+            "connection_id": crate::db::text(&r, "connection_id"),
+            "status": crate::db::text(&r, "status"),
+            "created_at": crate::db::text(&r, "created_at"),
+            "requester_id": crate::db::text(&r, "requester_id"),
+            "requester_name": crate::db::text(&r, "requester_name"),
+            "requester_avatar": crate::db::opt_text(&r, "requester_avatar"),
         }))
         .collect::<Vec<_>>();
 
@@ -474,7 +474,7 @@ pub async fn respond_to_request(
             .map_err(AppError::from)?;
 
             Ok(Json(ApiResponse::ok(serde_json::json!({
-                "connection_id": r.get::<String, &str>("id"),
+                "connection_id": crate::db::text(&r, "id"),
                 "status": new_status,
             }))))
         }

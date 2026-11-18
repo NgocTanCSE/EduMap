@@ -110,29 +110,29 @@ const DB_JUDGE_TEAM: &str = r#"
 
 fn hackathon_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "start_date": row.get::<Option<String>, &str>("start_date"),
-        "end_date": row.get::<Option<String>, &str>("end_date"),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "upcoming".to_string()),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "start_date": crate::db::opt_text(&row, "start_date"),
+        "end_date": crate::db::opt_text(&row, "end_date"),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "upcoming".to_string()),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
 fn team_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
-        "hackathon_id": row.get::<Option<String>, &str>("hackathon_id").unwrap_or_default(),
-        "leader_id": row.get::<Option<String>, &str>("leader_id").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "team_name": crate::db::opt_text(&row, "team_name").unwrap_or_default(),
+        "hackathon_id": crate::db::opt_text(&row, "hackathon_id").unwrap_or_default(),
+        "leader_id": crate::db::opt_text(&row, "leader_id").unwrap_or_default(),
         "members": row.get::<Option<Vec<String>>, &str>("members").unwrap_or_default(),
-        "repo_url": row.get::<Option<String>, &str>("repo_url"),
-        "demo_video": row.get::<Option<String>, &str>("demo_video"),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "registered".to_string()),
-        "score": row.get::<Option<f64>, &str>("score"),
-        "feedback": row.get::<Option<String>, &str>("feedback"),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "repo_url": crate::db::opt_text(&row, "repo_url"),
+        "demo_video": crate::db::opt_text(&row, "demo_video"),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "registered".to_string()),
+        "score": crate::db::opt_num(&row, "score"),
+        "feedback": crate::db::opt_text(&row, "feedback"),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
@@ -247,7 +247,7 @@ pub async fn register_team(
         .await
         .map_err(AppError::from)?
         .into_iter()
-        .map(|row| row.get::<String, &str>("email"))
+        .map(|row| crate::db::text(&row, "email"))
         .collect();
 
     if valid.len() != body.members.len() {
@@ -332,11 +332,10 @@ pub async fn submit_project(
         "success": true,
         "message": "Nộp bài dự thi thành công! Vui lòng chờ Ban giám khảo chấm điểm.",
         "submission": {
-            "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
-            "repo_url": row.get::<Option<String>, &str>("repo_url"),
-            "demo_video": row.get::<Option<String>, &str>("demo_video"),
-            "submitted_at": row
-                .get::<Option<String>, &str>("submitted_at")
+            "team_name": crate::db::opt_text(&row, "team_name").unwrap_or_default(),
+            "repo_url": crate::db::opt_text(&row, "repo_url"),
+            "demo_video": crate::db::opt_text(&row, "demo_video"),
+            "submitted_at": crate::db::opt_text(&row, "submitted_at")
                 .unwrap_or_else(|| Utc::now().to_rfc3339()),
         },
     }))))
@@ -389,9 +388,9 @@ pub async fn judge_project(
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,
         "message": "Chấm điểm dự án thành công!",
-        "team_name": row.get::<Option<String>, &str>("team_name").unwrap_or_default(),
+        "team_name": crate::db::opt_text(&row, "team_name").unwrap_or_default(),
         "total_score": total_score,
-        "feedback": row.get::<Option<String>, &str>("feedback").unwrap_or_else(|| feedback.to_string()),
+        "feedback": crate::db::opt_text(&row, "feedback").unwrap_or_else(|| feedback.to_string()),
         "status": "judged",
     }))))
 }

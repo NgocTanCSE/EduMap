@@ -54,7 +54,7 @@ async fn ensure_owner(
         .map_err(to_app_error)?;
 
     let owner = match row {
-        Some(r) => r.get::<String, &str>("user_id"),
+        Some(r) => crate::db::text(&r, "user_id"),
         None => {
             return Err(AppError::NotFound("Hồ sơ doanh nghiệp không tồn tại.".to_string()))
         }
@@ -77,7 +77,7 @@ async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String,
         .map_err(to_app_error)?;
 
     match row {
-        Some(r) => Ok(r.get::<String, &str>("id")),
+        Some(r) => Ok(crate::db::text(&r, "id")),
         None => Err(AppError::Forbidden("Chỉ dành cho doanh nghiệp.".to_string())),
     }
 }
@@ -471,144 +471,144 @@ pub struct CheckoutForm {
 
 fn profile_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "user_id": row.get::<Option<String>, &str>("user_id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "industry": row.get::<Option<String>, &str>("industry"),
-        "website": row.get::<Option<String>, &str>("website"),
-        "logo_url": row.get::<Option<String>, &str>("logo_url"),
-        "address": row.get::<Option<String>, &str>("address"),
-        "lat": row.get::<Option<String>, &str>("lat"),
-        "lng": row.get::<Option<String>, &str>("lng"),
+        "id": crate::db::text(&row, "id"),
+        "user_id": crate::db::opt_text(&row, "user_id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "industry": crate::db::opt_text(&row, "industry"),
+        "website": crate::db::opt_text(&row, "website"),
+        "logo_url": crate::db::opt_text(&row, "logo_url"),
+        "address": crate::db::opt_text(&row, "address"),
+        "lat": crate::db::opt_text(&row, "lat"),
+        "lng": crate::db::opt_text(&row, "lng"),
         "is_verified": row.get::<bool, &str>("is_verified"),
         "products_count": row.get::<i64, &str>("products_count"),
         "services_count": row.get::<i64, &str>("services_count"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
 fn product_to_json(row: &sqlx::postgres::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "price": row.get::<String, &str>("price"),
-        "currency": row.get::<Option<String>, &str>("currency"),
-        "category": row.get::<Option<String>, &str>("category"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "price": crate::db::text(&row, "price"),
+        "currency": crate::db::opt_text(&row, "currency"),
+        "category": crate::db::opt_text(&row, "category"),
         "stock": row.get::<i64, &str>("stock"),
-        "image_url": row.get::<Option<String>, &str>("image_url"),
-        "business_profile_id": row.get::<String, &str>("business_profile_id"),
+        "image_url": crate::db::opt_text(&row, "image_url"),
+        "business_profile_id": crate::db::text(&row, "business_profile_id"),
         "reviews": reviews,
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
 fn product_list_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "price": row.get::<String, &str>("price"),
-        "currency": row.get::<Option<String>, &str>("currency"),
-        "category": row.get::<Option<String>, &str>("category"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "price": crate::db::text(&row, "price"),
+        "currency": crate::db::opt_text(&row, "currency"),
+        "category": crate::db::opt_text(&row, "category"),
         "stock": row.get::<i64, &str>("stock"),
-        "image_url": row.get::<Option<String>, &str>("image_url"),
-        "business_profile_id": row.get::<String, &str>("business_profile_id"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "image_url": crate::db::opt_text(&row, "image_url"),
+        "business_profile_id": crate::db::text(&row, "business_profile_id"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
 fn service_to_json(row: &sqlx::postgres::PgRow, reviews: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "price": row.get::<String, &str>("price"),
-        "currency": row.get::<Option<String>, &str>("currency"),
-        "category": row.get::<Option<String>, &str>("category"),
-        "duration": row.get::<Option<String>, &str>("duration"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "business_profile_id": row.get::<String, &str>("business_profile_id"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "price": crate::db::text(&row, "price"),
+        "currency": crate::db::opt_text(&row, "currency"),
+        "category": crate::db::opt_text(&row, "category"),
+        "duration": crate::db::opt_text(&row, "duration"),
+        "location": crate::db::opt_text(&row, "location"),
+        "business_profile_id": crate::db::text(&row, "business_profile_id"),
         "reviews": reviews,
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
 fn service_list_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "price": row.get::<String, &str>("price"),
-        "currency": row.get::<Option<String>, &str>("currency"),
-        "category": row.get::<Option<String>, &str>("category"),
-        "duration": row.get::<Option<String>, &str>("duration"),
-        "location": row.get::<Option<String>, &str>("location"),
-        "business_profile_id": row.get::<String, &str>("business_profile_id"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "description": crate::db::opt_text(&row, "description"),
+        "price": crate::db::text(&row, "price"),
+        "currency": crate::db::opt_text(&row, "currency"),
+        "category": crate::db::opt_text(&row, "category"),
+        "duration": crate::db::opt_text(&row, "duration"),
+        "location": crate::db::opt_text(&row, "location"),
+        "business_profile_id": crate::db::text(&row, "business_profile_id"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
 fn review_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "user_id": row.get::<String, &str>("user_id"),
-        "user_name": row.get::<Option<String>, &str>("full_name"),
+        "id": crate::db::text(&row, "id"),
+        "user_id": crate::db::text(&row, "user_id"),
+        "user_name": crate::db::opt_text(&row, "full_name"),
         "rating": row.get::<i64, &str>("rating"),
-        "comment": row.get::<Option<String>, &str>("comment"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "comment": crate::db::opt_text(&row, "comment"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 
 fn cart_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "user_id": row.get::<String, &str>("userId"),
-        "product_id": row.get::<Option<String>, &str>("productId"),
-        "service_id": row.get::<Option<String>, &str>("serviceId"),
+        "id": crate::db::text(&row, "id"),
+        "user_id": crate::db::text(&row, "userId"),
+        "product_id": crate::db::opt_text(&row, "productId"),
+        "service_id": crate::db::opt_text(&row, "serviceId"),
         "quantity": row.get::<i64, &str>("quantity"),
-        "product_name": row.get::<Option<String>, &str>("product_name"),
-        "product_price": row.get::<Option<String>, &str>("product_price"),
-        "product_image": row.get::<Option<String>, &str>("product_image"),
-        "service_name": row.get::<Option<String>, &str>("service_name"),
-        "service_price": row.get::<Option<String>, &str>("service_price"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "product_name": crate::db::opt_text(&row, "product_name"),
+        "product_price": crate::db::opt_text(&row, "product_price"),
+        "product_image": crate::db::opt_text(&row, "product_image"),
+        "service_name": crate::db::opt_text(&row, "service_name"),
+        "service_price": crate::db::opt_text(&row, "service_price"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 
 fn order_to_json(order_row: &sqlx::postgres::PgRow, items: Vec<Value>) -> Value {
     serde_json::json!({
-        "id": order_row.get::<String, &str>("id"),
-        "user_id": order_row.get::<String, &str>("userId"),
-        "total_amount": order_row.get::<String, &str>("total_amount"),
-        "currency": order_row.get::<Option<String>, &str>("currency"),
-        "status": order_row.get::<String, &str>("status"),
-        "shipping_address": order_row.get::<Option<String>, &str>("shippingAddress"),
-        "created_at": order_row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&order_row, "id"),
+        "user_id": crate::db::text(&order_row, "userId"),
+        "total_amount": crate::db::text(&order_row, "total_amount"),
+        "currency": crate::db::opt_text(&order_row, "currency"),
+        "status": crate::db::text(&order_row, "status"),
+        "shipping_address": crate::db::opt_text(&order_row, "shippingAddress"),
+        "created_at": crate::db::text(&order_row, "created_at"),
         "items": items,
     })
 }
 
 fn vendor_order_item_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "order_id": row.get::<String, &str>("orderId"),
-        "product_id": row.get::<Option<String>, &str>("productId"),
-        "service_id": row.get::<Option<String>, &str>("serviceId"),
+        "id": crate::db::text(&row, "id"),
+        "order_id": crate::db::text(&row, "orderId"),
+        "product_id": crate::db::opt_text(&row, "productId"),
+        "service_id": crate::db::opt_text(&row, "serviceId"),
         "quantity": row.get::<i64, &str>("quantity"),
-        "price_at_purchase": row.get::<String, &str>("price_at_purchase"),
-        "buyer_id": row.get::<String, &str>("buyer_id"),
-        "status": row.get::<String, &str>("status"),
-        "shipping_address": row.get::<Option<String>, &str>("shippingAddress"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "product_name": row.get::<Option<String>, &str>("product_name"),
-        "service_name": row.get::<Option<String>, &str>("service_name"),
+        "price_at_purchase": crate::db::text(&row, "price_at_purchase"),
+        "buyer_id": crate::db::text(&row, "buyer_id"),
+        "status": crate::db::text(&row, "status"),
+        "shipping_address": crate::db::opt_text(&row, "shippingAddress"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "product_name": crate::db::opt_text(&row, "product_name"),
+        "service_name": crate::db::opt_text(&row, "service_name"),
     })
 }
 
@@ -765,9 +765,9 @@ pub async fn verify_profile(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Xác minh hồ sơ doanh nghiệp thành công.",
-            "id": r.get::<String, &str>("id"),
+            "id": crate::db::text(&r, "id"),
             "is_verified": r.get::<bool, &str>("is_verified"),
-            "updated_at": r.get::<String, &str>("updated_at"),
+            "updated_at": crate::db::text(&r, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Doanh nghiệp không tồn tại.".to_string())),
     }
@@ -806,8 +806,8 @@ pub async fn create_product(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Tạo sản phẩm thành công.",
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -874,8 +874,8 @@ pub async fn update_product(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Cập nhật sản phẩm thành công.",
-            "id": r.get::<String, &str>("id"),
-            "updated_at": r.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&r, "id"),
+            "updated_at": crate::db::text(&r, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Sản phẩm không tồn tại.".to_string())),
     }
@@ -938,8 +938,8 @@ pub async fn create_service(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Tạo dịch vụ thành công.",
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -1006,8 +1006,8 @@ pub async fn update_service(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Cập nhật dịch vụ thành công.",
-            "id": r.get::<String, &str>("id"),
-            "updated_at": r.get::<String, &str>("updated_at"),
+            "id": crate::db::text(&r, "id"),
+            "updated_at": crate::db::text(&r, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Dịch vụ không tồn tại.".to_string())),
     }
@@ -1088,8 +1088,8 @@ pub async fn create_product_review(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đánh giá sản phẩm thành công.",
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -1155,8 +1155,8 @@ pub async fn create_service_review(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đánh giá dịch vụ thành công.",
-        "id": row.get::<String, &str>("id"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 
@@ -1249,7 +1249,7 @@ pub async fn add_to_cart(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Thêm vào giỏ hàng thành công.",
-        "id": row.get::<String, &str>("id"),
+        "id": crate::db::text(&row, "id"),
         "quantity": row.get::<i64, &str>("quantity"),
     }))))
 }
@@ -1430,7 +1430,7 @@ pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<Au
 
     let order_ids: Vec<Uuid> = rows
         .iter()
-        .filter_map(|r| r.get::<String, &str>("id").parse().ok())
+        .filter_map(|r| crate::db::text(&r, "id").parse().ok())
         .collect();
 
     let items_by_order: Vec<Vec<Value>> = if order_ids.is_empty() {
@@ -1447,17 +1447,17 @@ pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<Au
         for r in &item_rows {
             let order_id: String = r.get("orderId");
             by_order.entry(order_id).or_default().push(serde_json::json!({
-                "id": r.get::<String, &str>("id"),
-                "product_id": r.get::<Option<String>, &str>("productId"),
-                "service_id": r.get::<Option<String>, &str>("serviceId"),
+                "id": crate::db::text(&r, "id"),
+                "product_id": crate::db::opt_text(&r, "productId"),
+                "service_id": crate::db::opt_text(&r, "serviceId"),
                 "quantity": r.get::<i64, &str>("quantity"),
-                "price_at_purchase": r.get::<String, &str>("price_at_purchase"),
-                "product_name": r.get::<Option<String>, &str>("product_name"),
-                "service_name": r.get::<Option<String>, &str>("service_name"),
+                "price_at_purchase": crate::db::text(&r, "price_at_purchase"),
+                "product_name": crate::db::opt_text(&r, "product_name"),
+                "service_name": crate::db::opt_text(&r, "service_name"),
             }));
         }
         rows.iter()
-            .map(|r| by_order.remove(&r.get::<String, &str>("id")).unwrap_or_default())
+            .map(|r| by_order.remove(&crate::db::text(&r, "id")).unwrap_or_default())
             .collect()
     };
 

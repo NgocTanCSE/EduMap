@@ -75,7 +75,7 @@ const DB_INSERT_PIN: &str = r#"
                       created_at, updated_at)
     VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_GeomFromGeoJSON($6), 4326),
             $7, $8, $9, $10, $11, $12, NOW(), NOW())
-    RETURNING id, title, content, CAST(type AS TEXT) AS type,
+    RETURNING id::text AS id, title, content, CAST(type AS TEXT) AS type,
               poster_name, posted_by, ST_AsText(location) AS location,
               city, district, province,
               CAST(photos AS TEXT) AS photos, CAST(tags AS TEXT) AS tags,
@@ -94,23 +94,23 @@ const DB_USER_FULL_NAME: &str = r#"
 
 fn pin_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "content": row.get::<Option<String>, &str>("content").unwrap_or_default(),
-        "type": row.get::<Option<String>, &str>("type").unwrap_or_default(),
-        "poster_name": row.get::<Option<String>, &str>("poster_name").unwrap_or_default(),
-        "posted_by": row.get::<Option<String>, &str>("posted_by").unwrap_or_default(),
-        "location": row.get::<Option<String>, &str>("location").unwrap_or_default(),
-        "city": row.get::<Option<String>, &str>("city").unwrap_or_default(),
-        "district": row.get::<Option<String>, &str>("district").unwrap_or_default(),
-        "province": row.get::<Option<String>, &str>("province").unwrap_or_default(),
-        "photos": row.get::<Option<String>, &str>("photos")
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "content": crate::db::opt_text(&row, "content").unwrap_or_default(),
+        "type": crate::db::opt_text(&row, "type").unwrap_or_default(),
+        "poster_name": crate::db::opt_text(&row, "poster_name").unwrap_or_default(),
+        "posted_by": crate::db::opt_text(&row, "posted_by").unwrap_or_default(),
+        "location": crate::db::opt_text(&row, "location").unwrap_or_default(),
+        "city": crate::db::opt_text(&row, "city").unwrap_or_default(),
+        "district": crate::db::opt_text(&row, "district").unwrap_or_default(),
+        "province": crate::db::opt_text(&row, "province").unwrap_or_default(),
+        "photos": crate::db::opt_text(&row, "photos")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "tags": row.get::<Option<String>, &str>("tags")
+        "tags": crate::db::opt_text(&row, "tags")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "status": row.get::<String, &str>("status"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "status": crate::db::text(&row, "status"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
     })
 }
 
@@ -293,7 +293,7 @@ pub async fn get_pin(
     };
 
     // Pin chưa duyệt (hoặc bị từ chối) chỉ hiện với chủ sở hữu và admin.
-    let status = row.get::<String, &str>("status");
+    let status = crate::db::text(&row, "status");
     if status == "published" {
         return Ok(Json(ApiResponse::ok(pin_to_json(&row))));
     }
@@ -305,7 +305,7 @@ pub async fn get_pin(
     };
     let is_admin = user.as_ref().map_or(false, |u| is_admin(u));
 
-    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
+    let posted_by = crate::db::opt_text(&row, "posted_by").unwrap_or_default();
     if posted_by == user_id || is_admin {
         return Ok(Json(ApiResponse::ok(pin_to_json(&row))));
     }
@@ -338,7 +338,7 @@ pub async fn create_pin(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<Option<String>, &str>("full_name").unwrap_or_default());
+        .map(|row| crate::db::opt_text(&row, "full_name").unwrap_or_default());
 
     let filter = poster_name.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
     let poster_name = if filter { poster_name } else { Some("Ẩn danh".to_string()) };
@@ -394,7 +394,7 @@ pub async fn update_pin(
         None => return Err(AppError::NotFound("Pin không tồn tại.".to_string())),
     };
 
-    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
+    let posted_by = crate::db::opt_text(&row, "posted_by").unwrap_or_default();
     let user_id = user.id.as_str();
     let can_edit = posted_by == user_id || is_admin(&user);
     if !can_edit {
@@ -488,7 +488,7 @@ pub async fn delete_pin(
         None => return Err(AppError::NotFound("Pin không tồn tại.".to_string())),
     };
 
-    let posted_by = row.get::<Option<String>, &str>("posted_by").unwrap_or_default();
+    let posted_by = crate::db::opt_text(&row, "posted_by").unwrap_or_default();
     if posted_by != user.id && !is_admin(&user) {
         return Err(AppError::Forbidden(
             "Chỉ chủ sở hữu hoặc admin mới được xóa pin.".to_string(),

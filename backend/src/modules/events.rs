@@ -307,26 +307,26 @@ const DB_AWARD_POINTS: &str = r#"
 
 fn event_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "type": row.get::<Option<String>, &str>("type").unwrap_or_else(|| "workshop".to_string()),
-        "location": row.get::<Option<String>, &str>("location_point"),
-        "address": row.get::<Option<String>, &str>("address").unwrap_or_default(),
-        "start_date": row.get::<Option<String>, &str>("start_date").unwrap_or_default(),
-        "end_date": row.get::<Option<String>, &str>("end_date").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "type": crate::db::opt_text(&row, "type").unwrap_or_else(|| "workshop".to_string()),
+        "location": crate::db::opt_text(&row, "location_point"),
+        "address": crate::db::opt_text(&row, "address").unwrap_or_default(),
+        "start_date": crate::db::opt_text(&row, "start_date").unwrap_or_default(),
+        "end_date": crate::db::opt_text(&row, "end_date").unwrap_or_default(),
         "capacity": row.get::<Option<i64>, &str>("capacity").unwrap_or(100),
         "registered_count": row.get::<Option<i64>, &str>("registered_count").unwrap_or(0),
-        "organizer_id": row.get::<Option<String>, &str>("organizer_id").unwrap_or_default(),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "upcoming".to_string()),
-        "image_url": row.get::<Option<String>, &str>("banner_url"),
-        "price": row.get::<Option<f64>, &str>("price").unwrap_or(0.0),
-        "tags": row.get::<Option<String>, &str>("tags")
+        "organizer_id": crate::db::opt_text(&row, "organizer_id").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "upcoming".to_string()),
+        "image_url": crate::db::opt_text(&row, "banner_url"),
+        "price": crate::db::opt_num(&row, "price").unwrap_or(0.0),
+        "tags": crate::db::opt_text(&row, "tags")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
         "is_online": row.get::<Option<bool>, &str>("is_online").unwrap_or(false),
-        "meeting_url": row.get::<Option<String>, &str>("meeting_url"),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
-        "updated_at": row.get::<Option<String>, &str>("updated_at").unwrap_or_default(),
+        "meeting_url": crate::db::opt_text(&row, "meeting_url"),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
+        "updated_at": crate::db::opt_text(&row, "updated_at").unwrap_or_default(),
     })
 }
 
@@ -586,11 +586,11 @@ pub async fn register_event(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "message": "Đăng ký tham gia sự kiện thành công!",
-        "event_title": event.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "event_title": crate::db::opt_text(&event, "title").unwrap_or_default(),
         "ticket_code": ticket_code,
         "ticket_qr": qr_url,
-        "start_date": event.get::<Option<String>, &str>("start_date").unwrap_or_default(),
-        "location": event.get::<Option<String>, &str>("location_point"),
-        "address": event.get::<Option<String>, &str>("address").unwrap_or_default(),
+        "start_date": crate::db::opt_text(&event, "start_date").unwrap_or_default(),
+        "location": crate::db::opt_text(&event, "location_point"),
+        "address": crate::db::opt_text(&event, "address").unwrap_or_default(),
     }))))
 }

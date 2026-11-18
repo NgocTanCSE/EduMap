@@ -509,11 +509,11 @@ pub async fn vision_detect(
     let existing: Vec<ExistingPoint> = existing_rows
         .into_iter()
         .map(|row| ExistingPoint {
-            id: row.get::<String, &str>("id"),
-            name: row.get::<String, &str>("name"),
+            id: crate::db::text(&row, "id"),
+            name: crate::db::text(&row, "name"),
             type_: type_name(row.get::<Option<i64>, &str>("type_id")),
-            lat: row.get::<f64, &str>("lat"),
-            lng: row.get::<f64, &str>("lng"),
+            lat: crate::db::num(&row, "lat"),
+            lng: crate::db::num(&row, "lng"),
         })
         .collect();
 

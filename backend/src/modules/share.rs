@@ -160,17 +160,17 @@ pub async fn get_items(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String, &str>("id"),
-                "name": row.get::<Option<String>, &str>("name"),
-                "category": row.get::<Option<String>, &str>("category"),
-                "description": row.get::<Option<String>, &str>("description"),
-                "status": row.get::<Option<String>, &str>("status"),
-                "lat": row.get::<Option<f64>, &str>("lat"),
-                "lng": row.get::<Option<f64>, &str>("lng"),
-                "address": row.get::<Option<String>, &str>("address"),
-                "ownerId": row.get::<Option<String>, &str>("owner_id"),
-                "createdAt": row.get::<Option<String>, &str>("created_at"),
-                "updatedAt": row.get::<Option<String>, &str>("updated_at"),
+                "id": crate::db::text(&row, "id"),
+                "name": crate::db::opt_text(&row, "name"),
+                "category": crate::db::opt_text(&row, "category"),
+                "description": crate::db::opt_text(&row, "description"),
+                "status": crate::db::opt_text(&row, "status"),
+                "lat": crate::db::opt_num(&row, "lat"),
+                "lng": crate::db::opt_num(&row, "lng"),
+                "address": crate::db::opt_text(&row, "address"),
+                "ownerId": crate::db::opt_text(&row, "owner_id"),
+                "createdAt": crate::db::opt_text(&row, "created_at"),
+                "updatedAt": crate::db::opt_text(&row, "updated_at"),
             })
         })
         .collect();
@@ -202,7 +202,7 @@ pub async fn create_item(
         .await
         .map_err(|e| AppError::Internal(format!("failed to create shared item: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id") }))))
 }
 
 /// `GET /api/share/items/{id}` — chi tiết một tài nguyên (công khai).
@@ -222,17 +222,17 @@ pub async fn get_item(
     };
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": item.get::<String, &str>("id"),
-        "name": item.get::<Option<String>, &str>("name"),
-        "category": item.get::<Option<String>, &str>("category"),
-        "description": item.get::<Option<String>, &str>("description"),
-        "status": item.get::<Option<String>, &str>("status"),
-        "lat": item.get::<Option<f64>, &str>("lat"),
-        "lng": item.get::<Option<f64>, &str>("lng"),
-        "address": item.get::<Option<String>, &str>("address"),
-        "ownerId": item.get::<Option<String>, &str>("owner_id"),
-        "createdAt": item.get::<Option<String>, &str>("created_at"),
-        "updatedAt": item.get::<Option<String>, &str>("updated_at"),
+        "id": crate::db::text(&item, "id"),
+        "name": crate::db::opt_text(&item, "name"),
+        "category": crate::db::opt_text(&item, "category"),
+        "description": crate::db::opt_text(&item, "description"),
+        "status": crate::db::opt_text(&item, "status"),
+        "lat": crate::db::opt_num(&item, "lat"),
+        "lng": crate::db::opt_num(&item, "lng"),
+        "address": crate::db::opt_text(&item, "address"),
+        "ownerId": crate::db::opt_text(&item, "owner_id"),
+        "createdAt": crate::db::opt_text(&item, "created_at"),
+        "updatedAt": crate::db::opt_text(&item, "updated_at"),
     }))))
 }
 
@@ -252,7 +252,7 @@ pub async fn update_item(
         .map_err(|e| AppError::Internal(format!("failed to read shared item: {e}")))?;
 
     let owner = match owner {
-        Some(r) => r.get::<String, &str>("owner_id"),
+        Some(r) => crate::db::text(&r, "owner_id"),
         None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
     };
 
@@ -313,15 +313,15 @@ pub async fn get_my_requests(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String, &str>("id"),
-                "itemId": row.get::<Option<String>, &str>("item_id"),
-                "itemName": row.get::<Option<String>, &str>("item_name"),
-                "category": row.get::<Option<String>, &str>("category"),
-                "message": row.get::<Option<String>, &str>("message"),
-                "status": row.get::<Option<String>, &str>("status"),
-                "requesterId": row.get::<Option<String>, &str>("requester_id"),
-                "ownerId": row.get::<Option<String>, &str>("owner_id"),
-                "createdAt": row.get::<Option<String>, &str>("created_at"),
+                "id": crate::db::text(&row, "id"),
+                "itemId": crate::db::opt_text(&row, "item_id"),
+                "itemName": crate::db::opt_text(&row, "item_name"),
+                "category": crate::db::opt_text(&row, "category"),
+                "message": crate::db::opt_text(&row, "message"),
+                "status": crate::db::opt_text(&row, "status"),
+                "requesterId": crate::db::opt_text(&row, "requester_id"),
+                "ownerId": crate::db::opt_text(&row, "owner_id"),
+                "createdAt": crate::db::opt_text(&row, "created_at"),
             })
         })
         .collect();
@@ -349,7 +349,7 @@ pub async fn request_item(
         None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
     };
 
-    if item.get::<String, &str>("owner_id") == user.id {
+    if crate::db::text(&item, "owner_id") == user.id {
         return Err(AppError::BadRequest("Không thể mượn chính tài nguyên của mình.".to_string()));
     }
 
@@ -372,7 +372,7 @@ pub async fn request_item(
         .await
         .map_err(|e| AppError::Internal(format!("failed to create borrow request: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id"), "message": "Yêu cầu mượn đã được gửi." }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id"), "message": "Yêu cầu mượn đã được gửi." }))))
 }
 
 /// `POST /api/share/items/:id/return` — chủ sở hữu xác nhận nhận lại.
@@ -394,7 +394,7 @@ pub async fn return_item(
         None => return Err(AppError::NotFound("Tài nguyên không tồn tại".to_string())),
     };
 
-    if item.get::<String, &str>("owner_id") != user.id {
+    if crate::db::text(&item, "owner_id") != user.id {
         return Err(AppError::Forbidden("Chỉ chủ sở hữu mới có thể xác nhận nhận lại.".to_string()));
     }
 

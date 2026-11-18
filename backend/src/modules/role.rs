@@ -75,12 +75,12 @@ pub async fn find_all(
         .map(|row| {
             serde_json::json!({
                 "id": row.get::<i64, &str>("id"),
-                "name": row.get::<Option<String>, &str>("name"),
-                "displayName": row.get::<Option<String>, &str>("display_name"),
-                "description": row.get::<Option<String>, &str>("description"),
+                "name": crate::db::opt_text(&row, "name"),
+                "displayName": crate::db::opt_text(&row, "display_name"),
+                "description": crate::db::opt_text(&row, "description"),
                 "level": row.get::<Option<i64>, &str>("level"),
                 "systemCreated": row.get::<Option<bool>, &str>("system_created"),
-                "createdAt": row.get::<Option<String>, &str>("created_at"),
+                "createdAt": crate::db::opt_text(&row, "created_at"),
             })
         })
         .collect();
@@ -111,12 +111,12 @@ pub async fn find_one(
 
     let result = serde_json::json!({
         "id": row.get::<i64, &str>("id"),
-        "name": row.get::<Option<String>, &str>("name"),
-        "displayName": row.get::<Option<String>, &str>("display_name"),
-        "description": row.get::<Option<String>, &str>("description"),
+        "name": crate::db::opt_text(&row, "name"),
+        "displayName": crate::db::opt_text(&row, "display_name"),
+        "description": crate::db::opt_text(&row, "description"),
         "level": row.get::<Option<i64>, &str>("level"),
         "systemCreated": row.get::<Option<bool>, &str>("system_created"),
-        "createdAt": row.get::<Option<String>, &str>("created_at"),
+        "createdAt": crate::db::opt_text(&row, "created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -147,6 +147,6 @@ pub async fn create(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "id": row.get::<i64, &str>("id"),
-        "name": row.get::<String, &str>("name"),
+        "name": crate::db::text(&row, "name"),
     }))))
 }

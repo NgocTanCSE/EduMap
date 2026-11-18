@@ -164,27 +164,27 @@ fn parse_point_text(text: &str) -> Option<[f64; 2]> {
 /// `location_point` is a PostGIS `GEOGRAPHY(POINT)` — `ST_AsText()` emits
 /// `POINT (lng lat)`, so the first coordinate is the longitude.
 fn row_to_json(row: &sqlx::postgres::PgRow) -> Value {
-    let location = row.get::<Option<String>, &str>("location_point")
+    let location = crate::db::opt_text(&row, "location_point")
         .and_then(|s| parse_point_text(&s));
 
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "field": row.get::<Option<String>, &str>("field"),
-        "salary_range": row.get::<Option<String>, &str>("salary_range"),
-        "duration": row.get::<Option<String>, &str>("duration"),
-        "requirements": row.get::<Option<String>, &str>("requirements"),
-        "benefits": row.get::<Option<String>, &str>("benefits"),
-        "deadline": row.get::<Option<String>, &str>("deadline"),
-        "status": row.get::<String, &str>("status"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
+        "field": crate::db::opt_text(&row, "field"),
+        "salary_range": crate::db::opt_text(&row, "salary_range"),
+        "duration": crate::db::opt_text(&row, "duration"),
+        "requirements": crate::db::opt_text(&row, "requirements"),
+        "benefits": crate::db::opt_text(&row, "benefits"),
+        "deadline": crate::db::opt_text(&row, "deadline"),
+        "status": crate::db::text(&row, "status"),
         "application_count": row.get::<i64, &str>("application_count"),
-        "created_at": row.get::<Option<String>, &str>("created_at"),
-        "updated_at": row.get::<Option<String>, &str>("updated_at"),
+        "created_at": crate::db::opt_text(&row, "created_at"),
+        "updated_at": crate::db::opt_text(&row, "updated_at"),
         "company": {
-            "id": row.get::<Option<String>, &str>("org_id"),
-            "full_name": row.get::<Option<String>, &str>("org_name"),
-            "avatar_url": row.get::<Option<String>, &str>("org_logo_url"),
+            "id": crate::db::opt_text(&row, "org_id"),
+            "full_name": crate::db::opt_text(&row, "org_name"),
+            "avatar_url": crate::db::opt_text(&row, "org_logo_url"),
         },
         "location": location,
     })
@@ -327,7 +327,7 @@ pub async fn create_internship(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "internship": {
-            "id": row.get::<String, &str>("id"),
+            "id": crate::db::text(&row, "id"),
         },
     }))))
 }
@@ -351,7 +351,7 @@ pub async fn apply_internship(
 
     match row {
         Some(r) => {
-            if r.get::<String, &str>("status") != "open" {
+            if crate::db::text(&r, "status") != "open" {
                 return Err(AppError::BadRequest(
                     "Vị trí thực tập này đã đóng đăng ký.".to_string(),
                 ));

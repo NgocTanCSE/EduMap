@@ -132,7 +132,7 @@ pub async fn get_overview(
         .map_err(|e| AppError::Internal(format!("failed to load dashboard: {e}")))?;
 
     let parse_opt = |row: &sqlx::postgres::PgRow, key: &str| -> Option<Value> {
-        row.get::<Option<String>, &str>(key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        crate::db::opt_text(&row, key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
     };
 
     let result = serde_json::json!({
@@ -161,7 +161,7 @@ pub async fn get_daily_insight(
         .map_err(|e| AppError::Internal(format!("failed to load dashboard: {e}")))?;
 
     let parse_opt = |key: &str| -> Option<Value> {
-        row.get::<Option<String>, &str>(key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        crate::db::opt_text(&row, key).and_then(|s| serde_json::from_str::<Value>(&s).ok())
     };
 
     let payload = serde_json::json!({
@@ -197,10 +197,10 @@ pub async fn get_history(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "type": row.get::<String, &str>("type"),
-            "title": row.get::<Option<String>, &str>("title"),
-            "status": row.get::<Option<String>, &str>("status"),
-            "created_at": row.get::<Option<String>, &str>("created_at"),
+            "type": crate::db::text(&row, "type"),
+            "title": crate::db::opt_text(&row, "title"),
+            "status": crate::db::opt_text(&row, "status"),
+            "created_at": crate::db::opt_text(&row, "created_at"),
         })
     }).collect();
 
@@ -226,27 +226,27 @@ pub async fn get_stats(
     let roles: Vec<Value> = crate::db::query(DB_STATS_ROLES)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "role": row.get::<String, &str>("role"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "role": crate::db::text(&row, "role"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let trend: Vec<Value> = crate::db::query(DB_STATS_TREND)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "month": row.get::<Option<String>, &str>("month"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "month": crate::db::opt_text(&row, "month"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let top_events: Vec<Value> = crate::db::query(DB_STATS_TOP_EVENTS)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
-            serde_json::json!({ "type": row.get::<Option<String>, &str>("type"), "count": row.get::<i64, &str>("c") })
+            serde_json::json!({ "type": crate::db::opt_text(&row, "type"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
     let education: Vec<Value> = crate::db::query(DB_STATS_EDUCATION)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({
-                "metric_type": row.get::<Option<String>, &str>("metric_type"),
-                "metric_value": row.get::<Option<String>, &str>("metric_value"),
+                "metric_type": crate::db::opt_text(&row, "metric_type"),
+                "metric_value": crate::db::opt_text(&row, "metric_value"),
             })
         }).collect();
 
@@ -254,8 +254,8 @@ pub async fn get_stats(
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({
-                "lat": row.get::<f64, &str>("lat"),
-                "lng": row.get::<f64, &str>("lng"),
+                "lat": crate::db::num(&row, "lat"),
+                "lng": crate::db::num(&row, "lng"),
                 "category": row.get::<Option<i64>, &str>("category"),
                 "intensity": 0.8f64,
             })

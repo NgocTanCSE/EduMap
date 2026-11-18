@@ -210,42 +210,42 @@ const DB_SELECT_GROUPS: &str = r#"
 
 fn author_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("author_id").unwrap_or_default(),
-        "full_name": row.get::<Option<String>, &str>("author_name").unwrap_or_default(),
-        "avatar_url": row.get::<Option<String>, &str>("author_avatar").unwrap_or_default(),
-        "role": row.get::<Option<String>, &str>("author_role").unwrap_or_default(),
+        "id": crate::db::opt_text(&row, "author_id").unwrap_or_default(),
+        "full_name": crate::db::opt_text(&row, "author_name").unwrap_or_default(),
+        "avatar_url": crate::db::opt_text(&row, "author_avatar").unwrap_or_default(),
+        "role": crate::db::opt_text(&row, "author_role").unwrap_or_default(),
     })
 }
 
 fn group_to_json(row: &sqlx::postgres::PgRow) -> Value {
-    let name: Option<String> = row.get::<Option<String>, &str>("group_name");
+    let name: Option<String> = crate::db::opt_text(&row, "group_name");
     if name.as_deref().filter(|n| !n.trim().is_empty()).is_none() {
         return Value::Null;
     }
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("group_row_id").unwrap_or_default(),
+        "id": crate::db::opt_text(&row, "group_row_id").unwrap_or_default(),
         "name": name.unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("group_description").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "group_description").unwrap_or_default(),
     })
 }
 
 fn post_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "content": row.get::<Option<String>, &str>("content").unwrap_or_default(),
-        "author_id": row.get::<Option<String>, &str>("author_id").unwrap_or_default(),
-        "group_id": row.get::<Option<String>, &str>("group_id").unwrap_or_default(),
-        "media_urls": row.get::<Option<String>, &str>("media_urls")
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "content": crate::db::opt_text(&row, "content").unwrap_or_default(),
+        "author_id": crate::db::opt_text(&row, "author_id").unwrap_or_default(),
+        "group_id": crate::db::opt_text(&row, "group_id").unwrap_or_default(),
+        "media_urls": crate::db::opt_text(&row, "media_urls")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "tags": row.get::<Option<String>, &str>("tags")
+        "tags": crate::db::opt_text(&row, "tags")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
         "like_count": row.get::<i64, &str>("like_count"),
         "comment_count": row.get::<i64, &str>("comment_count"),
-        "status": row.get::<String, &str>("status"),
+        "status": crate::db::text(&row, "status"),
         "pinned": row.get::<bool, &str>("pinned"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
         "author": author_to_json(row),
         "group": group_to_json(row),
     })
@@ -253,28 +253,28 @@ fn post_to_json(row: &sqlx::postgres::PgRow) -> Value {
 
 fn comment_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "post_id": row.get::<String, &str>("post_id"),
-        "author_id": row.get::<String, &str>("author_id"),
-        "content": row.get::<String, &str>("content"),
+        "id": crate::db::text(&row, "id"),
+        "post_id": crate::db::text(&row, "post_id"),
+        "author_id": crate::db::text(&row, "author_id"),
+        "content": crate::db::text(&row, "content"),
         "like_count": row.get::<i64, &str>("like_count"),
-        "status": row.get::<String, &str>("status"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "status": crate::db::text(&row, "status"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
         "author": serde_json::json!({
-            "id": row.get::<String, &str>("author_id"),
-            "full_name": row.get::<Option<String>, &str>("author_name").unwrap_or_default(),
-            "avatar_url": row.get::<Option<String>, &str>("author_avatar").unwrap_or_default(),
-            "role": row.get::<Option<String>, &str>("author_role").unwrap_or_default(),
+            "id": crate::db::text(&row, "author_id"),
+            "full_name": crate::db::opt_text(&row, "author_name").unwrap_or_default(),
+            "avatar_url": crate::db::opt_text(&row, "author_avatar").unwrap_or_default(),
+            "role": crate::db::opt_text(&row, "author_role").unwrap_or_default(),
         }),
     })
 }
 
 fn group_to_json_flat(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
     })
 }
 
@@ -400,7 +400,7 @@ pub async fn create_post(
         "INSERT INTO posts (author_id, group_id, title, content, \
          like_count, comment_count, status, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, 0, 0, 'active', NOW(), NOW()) \
-         RETURNING id",
+         RETURNING id::text AS id",
     )
     .bind(&user.id)
     .bind(group_id)
@@ -477,7 +477,7 @@ pub async fn like_post(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String, &str>("author_id"));
+        .map(|row| crate::db::text(&row, "author_id"));
 
     if let Some(author_id) = author.filter(|a| *a != user.id) {
         notify_author(
@@ -548,9 +548,9 @@ pub async fn add_comment(
 
     let (post_id_db, author_id, title) = match post_row {
         Some(row) => (
-            row.get::<String, &str>("id"),
-            row.get::<String, &str>("author_id"),
-            row.get::<Option<String>, &str>("title").unwrap_or_default(),
+            crate::db::text(&row, "id"),
+            crate::db::text(&row, "author_id"),
+            crate::db::opt_text(&row, "title").unwrap_or_default(),
         ),
         None => return Err(AppError::NotFound("Không tìm thấy bài viết".to_string())),
     };
@@ -560,7 +560,7 @@ pub async fn add_comment(
     let comment_id: String = crate::db::query(
         "INSERT INTO comments (post_id, author_id, content, status, created_at, updated_at) \
          VALUES ($1, $2, $3, 'active', NOW(), NOW()) \
-         RETURNING id",
+         RETURNING id::text AS id",
     )
     .bind(&post_id_db)
     .bind(&user.id)
@@ -635,7 +635,7 @@ pub async fn create_group(
         "INSERT INTO groups (name, description, avatar_url, cover_url, type, \
          member_count, privacy, owner_id, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, $5, 1, $6, $7, NOW(), NOW()) \
-         RETURNING id",
+         RETURNING id::text AS id",
     )
     .bind(name)
     .bind(body.description.as_deref())
@@ -669,7 +669,7 @@ pub async fn join_group(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String, &str>("name"));
+        .map(|row| crate::db::text(&row, "name"));
 
     let name = match name {
         Some(name) => name,

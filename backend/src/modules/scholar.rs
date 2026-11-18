@@ -70,7 +70,7 @@ const DB_INSERT_SCHOLARSHIP: &str = r#"
     INSERT INTO scholarships (title, description, provider, value_amount,
                               deadline, eligibility_criteria, apply_url, status)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING id, title, description, provider, value_amount, deadline,
+    RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
               apply_url, created_at
@@ -87,7 +87,7 @@ const DB_UPDATE_SCHOLARSHIP: &str = r#"
         status = COALESCE($8, status),
         updated_at = NOW()
     WHERE id = $9
-    RETURNING id, title, description, provider, value_amount, deadline,
+    RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
               apply_url, created_at
@@ -97,7 +97,7 @@ const DB_INSERT_APPLICATION: &str = r#"
     INSERT INTO scholarship_applications (scholarship_id, student_id,
                                           personal_statement, cv_url, status)
     VALUES ($1, $2, $3, $4, 'pending')
-    RETURNING id, scholarship_id, student_id, status,
+    RETURNING id::text AS id, scholarship_id, student_id, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
@@ -122,31 +122,31 @@ const DB_SELECT_USER: &str = r#"
 
 fn scholarship_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "provider": row.get::<Option<String>, &str>("provider").unwrap_or_default(),
-        "value_amount": row.get::<Option<f64>, &str>("value_amount").unwrap_or(0.0),
-        "deadline": row.get::<Option<String>, &str>("deadline").unwrap_or_default(),
-        "eligibility_criteria": row.get::<Option<String>, &str>("eligibility_criteria")
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "provider": crate::db::opt_text(&row, "provider").unwrap_or_default(),
+        "value_amount": crate::db::opt_num(&row, "value_amount").unwrap_or(0.0),
+        "deadline": crate::db::opt_text(&row, "deadline").unwrap_or_default(),
+        "eligibility_criteria": crate::db::opt_text(&row, "eligibility_criteria")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "apply_url": row.get::<Option<String>, &str>("apply_url"),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "apply_url": crate::db::opt_text(&row, "apply_url"),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
 fn application_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "scholarship_id": row.get::<String, &str>("scholarship_id"),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
-        "personal_statement": row.get::<Option<String>, &str>("personal_statement").unwrap_or_default(),
-        "cv_url": row.get::<Option<String>, &str>("cv_url").unwrap_or_default(),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "scholarship_id": crate::db::text(&row, "scholarship_id"),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_default(),
+        "personal_statement": crate::db::opt_text(&row, "personal_statement").unwrap_or_default(),
+        "cv_url": crate::db::opt_text(&row, "cv_url").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         "scholarship": serde_json::json!({
-            "title": row.get::<Option<String>, &str>("scholarship_title").unwrap_or_default(),
-            "provider": row.get::<Option<String>, &str>("scholarship_provider").unwrap_or_default(),
+            "title": crate::db::opt_text(&row, "scholarship_title").unwrap_or_default(),
+            "provider": crate::db::opt_text(&row, "scholarship_provider").unwrap_or_default(),
         }),
     })
 }
@@ -289,8 +289,8 @@ pub async fn check_eligibility(
 
     let user_data = serde_json::json!({
         "id": user.id,
-        "full_name": user_row.get::<Option<String>, &str>("full_name").unwrap_or_default(),
-        "major": user_row.get::<Option<String>, &str>("major").unwrap_or_default(),
+        "full_name": crate::db::opt_text(&user_row, "full_name").unwrap_or_default(),
+        "major": crate::db::opt_text(&user_row, "major").unwrap_or_default(),
     });
 
     let transcript_data = body.transcript_data.unwrap_or_default();
@@ -330,7 +330,7 @@ pub async fn apply_scholarship(
         Some(row) => row,
         None => return Err(AppError::NotFound("Học bổng không tồn tại.".to_string())),
     };
-    if row.get::<String, &str>("status") != "active" {
+    if crate::db::text(&row, "status") != "active" {
         return Err(AppError::BadRequest("Học bổng này đã đóng.".to_string()));
     }
 
@@ -364,7 +364,7 @@ pub async fn apply_scholarship(
     // Gửi thông báo nộp đơn cho người dùng đó (qua ai-service mail).
     let _ = send_notification_to_user(&pool, &user.id, format!(
         "Nộp đơn thành công: Bạn đã nộp hồ sơ ứng tuyển học bổng: {}. Vui lòng theo dõi trạng thái.",
-        row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        crate::db::opt_text(&row, "title").unwrap_or_default(),
     )).await;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({

@@ -367,29 +367,29 @@ fn text_array_to_vec(raw: Option<String>) -> Vec<String> {
 /// Turn a joined mentor/user row into the object the frontend expects
 /// (`user_id`, mentor fields + a nested `user` block).
 fn mentor_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
-    let user_id = row.get::<String, &str>("user_id");
-    let full_name = row.get::<Option<String>, &str>("full_name");
+    let user_id = crate::db::text(&row, "user_id");
+    let full_name = crate::db::opt_text(&row, "full_name");
     serde_json::json!({
         "user_id": user_id,
-        "bio": row.get::<Option<String>, &str>("bio"),
+        "bio": crate::db::opt_text(&row, "bio"),
         "specialties": row.get::<Option<serde_json::Value>, &str>("specialties"),
-        "location": row.get::<Option<String>, &str>("location"),
+        "location": crate::db::opt_text(&row, "location"),
         "experience_years": row.get::<i32, &str>("experience_years"),
-        "rating_avg": row.get::<Option<String>, &str>("rating_avg").unwrap_or_else(|| "0".to_string()),
-        "hourly_rate": row.get::<Option<String>, &str>("hourly_rate"),
+        "rating_avg": crate::db::opt_text(&row, "rating_avg").unwrap_or_else(|| "0".to_string()),
+        "hourly_rate": crate::db::opt_text(&row, "hourly_rate"),
         "is_verified": row.get::<bool, &str>("is_verified"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "updated_at": row.get::<String, &str>("updated_at"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "updated_at": crate::db::text(&row, "updated_at"),
         "user": {
             "id": user_id.clone(),
             "full_name": full_name,
-            "email": row.get::<Option<String>, &str>("email"),
-            "avatar_url": row.get::<Option<String>, &str>("avatar_url"),
-            "major": row.get::<Option<String>, &str>("major"),
-            "mbti_type": row.get::<Option<String>, &str>("mbti_type"),
-            "skills": text_array_to_vec(row.get::<Option<String>, &str>("skills")),
-            "interests": text_array_to_vec(row.get::<Option<String>, &str>("interests")),
-            "role": row.get::<Option<String>, &str>("role"),
+            "email": crate::db::opt_text(&row, "email"),
+            "avatar_url": crate::db::opt_text(&row, "avatar_url"),
+            "major": crate::db::opt_text(&row, "major"),
+            "mbti_type": crate::db::opt_text(&row, "mbti_type"),
+            "skills": text_array_to_vec(crate::db::opt_text(&row, "skills")),
+            "interests": text_array_to_vec(crate::db::opt_text(&row, "interests")),
+            "role": crate::db::opt_text(&row, "role"),
         }
     })
 }
@@ -397,18 +397,18 @@ fn mentor_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
 /// A bookings row, with the mentor/student names flattened.
 fn booking_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "mentor_id": row.get::<String, &str>("mentor_id"),
-        "student_id": row.get::<String, &str>("student_id"),
-        "slot_start": row.get::<String, &str>("slot_start"),
-        "slot_end": row.get::<String, &str>("slot_end"),
-        "status": row.get::<String, &str>("status"),
-        "payment_status": row.get::<Option<String>, &str>("payment_status"),
-        "amount": row.get::<Option<String>, &str>("amount"),
-        "meeting_url": row.get::<Option<String>, &str>("meeting_url"),
-        "created_at": row.get::<String, &str>("created_at"),
-        "mentor_name": row.get::<Option<String>, &str>("mentor_name"),
-        "student_name": row.get::<Option<String>, &str>("student_name"),
+        "id": crate::db::text(&row, "id"),
+        "mentor_id": crate::db::text(&row, "mentor_id"),
+        "student_id": crate::db::text(&row, "student_id"),
+        "slot_start": crate::db::text(&row, "slot_start"),
+        "slot_end": crate::db::text(&row, "slot_end"),
+        "status": crate::db::text(&row, "status"),
+        "payment_status": crate::db::opt_text(&row, "payment_status"),
+        "amount": crate::db::opt_text(&row, "amount"),
+        "meeting_url": crate::db::opt_text(&row, "meeting_url"),
+        "created_at": crate::db::text(&row, "created_at"),
+        "mentor_name": crate::db::opt_text(&row, "mentor_name"),
+        "student_name": crate::db::opt_text(&row, "student_name"),
     })
 }
 
@@ -570,12 +570,12 @@ pub async fn recommend_mentors(
         if let Some(ref s) = q.specialty {
             filters.push(s.clone());
         }
-        if let Some(ref major) = user.get::<Option<String>, &str>("major") {
+        if let Some(ref major) = crate::db::opt_text(&user, "major") {
             filters.push(major.clone());
         }
-        let skills = text_array_to_vec(user.get::<Option<String>, &str>("skills"));
+        let skills = text_array_to_vec(crate::db::opt_text(&user, "skills"));
         filters.extend(skills.into_iter().take(3));
-        let interests = text_array_to_vec(user.get::<Option<String>, &str>("interests"));
+        let interests = text_array_to_vec(crate::db::opt_text(&user, "interests"));
         filters.extend(interests.into_iter().take(2));
 
         let mut seen = std::collections::HashSet::new();
@@ -630,35 +630,35 @@ pub async fn recommend_mentors(
     let available_mentors: Vec<serde_json::Value> = mentors
         .iter()
         .map(|row| {
-            let name = row.get::<Option<String>, &str>("full_name").unwrap_or_default();
+            let name = crate::db::opt_text(&row, "full_name").unwrap_or_default();
             let specs = row
                 .get::<Option<serde_json::Value>, &str>("specialties")
                 .and_then(|v| v.as_array().cloned())
                 .unwrap_or_default();
             serde_json::json!({
-                "mentor_id": row.get::<String, &str>("user_id"),
+                "mentor_id": crate::db::text(&row, "user_id"),
                 "name": name,
-                "bio": row.get::<Option<String>, &str>("bio"),
+                "bio": crate::db::opt_text(&row, "bio"),
                 "skills": specs.clone(),
-                "mbti": user.get::<Option<String>, &str>("mbti_type").unwrap_or_default(),
+                "mbti": crate::db::opt_text(&user, "mbti_type").unwrap_or_default(),
                 "available_days": Vec::<String>::new(),
                 "specialties": specs,
-                "location": row.get::<Option<String>, &str>("location"),
+                "location": crate::db::opt_text(&row, "location"),
                 "experience_years": row.get::<i32, &str>("experience_years"),
-                "rating_avg": row.get::<Option<String>, &str>("rating_avg")
+                "rating_avg": crate::db::opt_text(&row, "rating_avg")
                     .and_then(|s| s.parse::<f64>().ok()),
             })
         })
         .collect();
 
-    let skills = text_array_to_vec(user.get::<Option<String>, &str>("skills"));
+    let skills = text_array_to_vec(crate::db::opt_text(&user, "skills"));
     let payload = serde_json::json!({
         "student_id": user_id,
         "student_skills_needed": if_empty(&skills, vec![
             "Giao tiếp".to_string(),
             "Định hướng nghề nghiệp".to_string(),
         ]),
-        "student_mbti": user.get::<Option<String>, &str>("mbti_type").unwrap_or_else(|| "ENFP".to_string()),
+        "student_mbti": crate::db::opt_text(&user, "mbti_type").unwrap_or_else(|| "ENFP".to_string()),
         "preferred_days": vec!["T7", "CN"],
         "available_mentors": available_mentors,
         "student_region": q.region,
@@ -701,9 +701,9 @@ pub async fn get_mentor_slots(
         .iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String, &str>("id"),
-                "start": row.get::<String, &str>("start_time"),
-                "end": row.get::<String, &str>("end_time"),
+                "id": crate::db::text(&row, "id"),
+                "start": crate::db::text(&row, "start_time"),
+                "end": crate::db::text(&row, "end_time"),
                 "is_booked": row.get::<bool, &str>("is_booked"),
             })
         })
@@ -747,12 +747,12 @@ pub async fn add_availability(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String, &str>("id"),
+        "id": crate::db::text(&inserted, "id"),
         "day_of_week": inserted.get::<i64, &str>("day_of_week"),
-        "start_time": inserted.get::<String, &str>("start_time"),
-        "end_time": inserted.get::<String, &str>("end_time"),
+        "start_time": crate::db::text(&inserted, "start_time"),
+        "end_time": crate::db::text(&inserted, "end_time"),
         "is_active": inserted.get::<bool, &str>("is_active"),
-        "created_at": inserted.get::<String, &str>("created_at"),
+        "created_at": crate::db::text(&inserted, "created_at"),
     }))))
 }
 
@@ -772,12 +772,12 @@ pub async fn get_my_availability(
         .iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String, &str>("id"),
+                "id": crate::db::text(&row, "id"),
                 "day_of_week": row.get::<i32, &str>("day_of_week"),
-                "start_time": row.get::<String, &str>("start_time"),
-                "end_time": row.get::<String, &str>("end_time"),
+                "start_time": crate::db::text(&row, "start_time"),
+                "end_time": crate::db::text(&row, "end_time"),
                 "is_active": row.get::<bool, &str>("is_active"),
-                "created_at": row.get::<String, &str>("created_at"),
+                "created_at": crate::db::text(&row, "created_at"),
             })
         })
         .collect();
@@ -832,8 +832,7 @@ pub async fn book_session(
         return Err(AppError::BadRequest("Khung giờ này đã có người đặt".to_string()));
     }
 
-    let hourly_rate = mentor
-        .get::<Option<String>, &str>("hourly_rate")
+    let hourly_rate = crate::db::opt_text(&mentor, "hourly_rate")
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
@@ -873,9 +872,9 @@ pub async fn update_booking_status(
         None => return Err(AppError::NotFound("Không tìm thấy lịch hẹn".to_string())),
     };
 
-    let mentor_id = row.get::<String, &str>("mentor_id");
-    let student_id = row.get::<String, &str>("student_id");
-    let current = row.get::<String, &str>("status");
+    let mentor_id = crate::db::text(&row, "mentor_id");
+    let student_id = crate::db::text(&row, "student_id");
+    let current = crate::db::text(&row, "status");
 
     if user.id != mentor_id && user.id != student_id {
         ensure_admin(&user)?;

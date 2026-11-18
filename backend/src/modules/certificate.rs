@@ -230,7 +230,7 @@ pub async fn issue_certificate(
 
     let cert_code = generate_verify_code();
     let blockchain_metadata =
-        sign_with_blockchain(&body.user_id, &cert_code, &template.get::<String, &str>("name"));
+        sign_with_blockchain(&body.user_id, &cert_code, &crate::db::text(&template, "name"));
 
     let inserted = crate::db::query(DB_INSERT_CERTIFICATE)
         .bind(&uuid::Uuid::new_v4().to_string())
@@ -247,12 +247,12 @@ pub async fn issue_certificate(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": inserted.get::<String, &str>("id"),
-        "verify_code": inserted.get::<String, &str>("verify_code"),
-        "issued_at": inserted.get::<String, &str>("issued_at"),
-        "status": inserted.get::<String, &str>("status"),
-        "pdf_url": inserted.get::<Option<String>, &str>("pdf_url"),
-        "qr_url": inserted.get::<Option<String>, &str>("qr_url"),
+        "id": crate::db::text(&inserted, "id"),
+        "verify_code": crate::db::text(&inserted, "verify_code"),
+        "issued_at": crate::db::text(&inserted, "issued_at"),
+        "status": crate::db::text(&inserted, "status"),
+        "pdf_url": crate::db::opt_text(&inserted, "pdf_url"),
+        "qr_url": crate::db::opt_text(&inserted, "qr_url"),
         "blockchain_metadata": inserted.get::<Option<serde_json::Value>, &str>("blockchain_metadata"),
         "degraded": blockchain_metadata.is_none(),
     }))))
@@ -282,20 +282,19 @@ pub async fn verify_certificate(
         }
     };
 
-    let blockchain: Option<serde_json::Value> = cert
-        .get::<Option<String>, &str>("blockchain_metadata")
+    let blockchain: Option<serde_json::Value> = crate::db::opt_text(&cert, "blockchain_metadata")
         .and_then(|s| s.parse::<serde_json::Value>().ok());
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "isValid": true,
         "message": "Chứng nhận hợp lệ!",
         "details": {
-            "title": cert.get::<String, &str>("template_name"),
-            "recipient": cert.get::<Option<String>, &str>("full_name"),
-            "issued_at": cert.get::<String, &str>("issued_at"),
+            "title": crate::db::text(&cert, "template_name"),
+            "recipient": crate::db::opt_text(&cert, "full_name"),
+            "issued_at": crate::db::text(&cert, "issued_at"),
             "blockchain": blockchain,
-            "template_type": cert.get::<Option<String>, &str>("template_type"),
-            "organization_name": cert.get::<Option<String>, &str>("organization_name"),
+            "template_type": crate::db::opt_text(&cert, "template_type"),
+            "organization_name": crate::db::opt_text(&cert, "organization_name"),
         }
     }))))
 }
@@ -329,19 +328,19 @@ pub async fn get_portfolio(
         .into_iter()
         .map(|row| {
             serde_json::json!({
-                "id": row.get::<String, &str>("id"),
-                "user_id": row.get::<String, &str>("user_id"),
-                "template_id": row.get::<String, &str>("template_id"),
-                "issued_at": row.get::<String, &str>("issued_at"),
-                "verify_code": row.get::<String, &str>("verify_code"),
-                "qr_url": row.get::<Option<String>, &str>("qr_url"),
-                "pdf_url": row.get::<Option<String>, &str>("pdf_url"),
-                "status": row.get::<String, &str>("status"),
-                "created_at": row.get::<String, &str>("created_at"),
-                "full_name": row.get::<Option<String>, &str>("full_name"),
-                "template_name": row.get::<String, &str>("template_name"),
-                "template_type": row.get::<String, &str>("template_type"),
-                "organization_name": row.get::<Option<String>, &str>("organization_name"),
+                "id": crate::db::text(&row, "id"),
+                "user_id": crate::db::text(&row, "user_id"),
+                "template_id": crate::db::text(&row, "template_id"),
+                "issued_at": crate::db::text(&row, "issued_at"),
+                "verify_code": crate::db::text(&row, "verify_code"),
+                "qr_url": crate::db::opt_text(&row, "qr_url"),
+                "pdf_url": crate::db::opt_text(&row, "pdf_url"),
+                "status": crate::db::text(&row, "status"),
+                "created_at": crate::db::text(&row, "created_at"),
+                "full_name": crate::db::opt_text(&row, "full_name"),
+                "template_name": crate::db::text(&row, "template_name"),
+                "template_type": crate::db::text(&row, "template_type"),
+                "organization_name": crate::db::opt_text(&row, "organization_name"),
             })
         })
         .collect();
@@ -466,7 +465,7 @@ fn render_certificate_pdf(row: &sqlx::postgres::PgRow) -> Result<Vec<u8>, AppErr
     layer.write_text(subtitle, &font);
 
     // Tên người nhận (màu vàng, lớn)
-    let recipient: String = row.get::<Option<String>, &str>("full_name").unwrap_or_default();
+    let recipient: String = crate::db::opt_text(&row, "full_name").unwrap_or_default();
     let recipient_name = if recipient.is_empty() {
         "Học viên EduMap".to_string()
     } else {
@@ -487,7 +486,7 @@ fn render_certificate_pdf(row: &sqlx::postgres::PgRow) -> Result<Vec<u8>, AppErr
     layer.write_text("Vì đã hoàn thành xuất sắc:", &font);
 
     // Tên mẫu chứng chỉ
-    let template_name: String = row.get::<String, &str>("template_name");
+    let template_name: String = crate::db::text(&row, "template_name");
     layer.set_font(&font, 25.0);
     layer.set_text_cursor(center_x(&template_name, 25.0), Mm(70.0));
     layer.write_text(&template_name, &font);
@@ -496,19 +495,19 @@ fn render_certificate_pdf(row: &sqlx::postgres::PgRow) -> Result<Vec<u8>, AppErr
     layer.set_font(&font, 12.0);
     layer.set_text_cursor(Mm(30.0), Mm(38.0));
     layer.write_text(
-        &format!("Mã xác thực: {}", row.get::<String, &str>("verify_code")),
+        &format!("Mã xác thực: {}", crate::db::text(&row, "verify_code")),
         &font,
     );
     layer.set_text_cursor(Mm(30.0), Mm(32.0));
     layer.write_text(
-        &format!("Ngày cấp: {}", row.get::<String, &str>("issued_at")),
+        &format!("Ngày cấp: {}", crate::db::text(&row, "issued_at")),
         &font,
     );
 
     layer.end_text_section();
 
     // QR code: quét để xác thực online.
-    let verify_code: String = row.get::<String, &str>("verify_code");
+    let verify_code: String = crate::db::text(&row, "verify_code");
     let qr_url = format!("https://edumap.vn/verify/{}", verify_code);
     let qr_code = QrCode::new(qr_url.as_bytes())
         .map_err(|e| AppError::Internal(format!("tạo QR thất bại: {}", e)))?;

@@ -218,20 +218,20 @@ pub async fn get_opportunities(
 
     let items: Vec<Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "title": row.get::<Option<String>, &str>("title"),
-            "description": row.get::<Option<String>, &str>("description"),
-            "type": row.get::<Option<String>, &str>("type"),
-            "organization": row.get::<Option<String>, &str>("organization"),
-            "address": row.get::<Option<String>, &str>("address"),
-            "deadline": row.get::<Option<String>, &str>("deadline"),
-            "requirements": row.get::<Option<String>, &str>("requirements"),
-            "benefits": row.get::<Option<String>, &str>("benefits"),
-            "url": row.get::<Option<String>, &str>("url"),
-            "region": row.get::<Option<String>, &str>("region"),
-            "status": row.get::<Option<String>, &str>("status"),
+            "id": crate::db::text(&row, "id"),
+            "title": crate::db::opt_text(&row, "title"),
+            "description": crate::db::opt_text(&row, "description"),
+            "type": crate::db::opt_text(&row, "type"),
+            "organization": crate::db::opt_text(&row, "organization"),
+            "address": crate::db::opt_text(&row, "address"),
+            "deadline": crate::db::opt_text(&row, "deadline"),
+            "requirements": crate::db::opt_text(&row, "requirements"),
+            "benefits": crate::db::opt_text(&row, "benefits"),
+            "url": crate::db::opt_text(&row, "url"),
+            "region": crate::db::opt_text(&row, "region"),
+            "status": crate::db::opt_text(&row, "status"),
             "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
-            "createdAt": row.get::<Option<String>, &str>("created_at"),
+            "createdAt": crate::db::opt_text(&row, "created_at"),
         })
     }).collect();
 
@@ -281,7 +281,7 @@ RETURNING id
         .await
         .map_err(|e| AppError::Internal(format!("failed to create opportunity: {e}")))?;
 
-    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": row.get::<String, &str>("id") }))))
+    Ok(Json(ApiResponse::ok(serde_json::json!({ "id": crate::db::text(&row, "id") }))))
 }
 
 /// `GET /api/opportunities/:id` — chi tiết một cơ hội.
@@ -301,20 +301,20 @@ pub async fn find_one(
     };
 
     let result = serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "type": row.get::<Option<String>, &str>("type"),
-        "organization": row.get::<Option<String>, &str>("organization"),
-        "address": row.get::<Option<String>, &str>("address"),
-        "deadline": row.get::<Option<String>, &str>("deadline"),
-        "requirements": row.get::<Option<String>, &str>("requirements"),
-        "benefits": row.get::<Option<String>, &str>("benefits"),
-        "url": row.get::<Option<String>, &str>("url"),
-        "region": row.get::<Option<String>, &str>("region"),
-        "status": row.get::<Option<String>, &str>("status"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title"),
+        "description": crate::db::opt_text(&row, "description"),
+        "type": crate::db::opt_text(&row, "type"),
+        "organization": crate::db::opt_text(&row, "organization"),
+        "address": crate::db::opt_text(&row, "address"),
+        "deadline": crate::db::opt_text(&row, "deadline"),
+        "requirements": crate::db::opt_text(&row, "requirements"),
+        "benefits": crate::db::opt_text(&row, "benefits"),
+        "url": crate::db::opt_text(&row, "url"),
+        "region": crate::db::opt_text(&row, "region"),
+        "status": crate::db::opt_text(&row, "status"),
         "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
-        "createdAt": row.get::<Option<String>, &str>("created_at"),
+        "createdAt": crate::db::opt_text(&row, "created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))
 }
@@ -337,7 +337,7 @@ pub async fn toggle_team_finding(
 
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
-            "id": r.get::<String, &str>("id"),
+            "id": crate::db::text(&r, "id"),
             "isTeamFindingOpen": r.get::<bool, &str>("is_team_finding_open"),
             "message": if r.get::<bool, &str>("is_team_finding_open") {
                 "Đã bật tìm đồng đội cho cơ hội này."
@@ -367,13 +367,13 @@ pub async fn match_opportunities(
 
     let profile = match user_row {
         Some(r) => UserProfile {
-            id: r.get::<String, &str>("id"),
-            full_name: r.get::<Option<String>, &str>("full_name").unwrap_or_default(),
-            major: r.get::<Option<String>, &str>("major").unwrap_or_default(),
-            skills: r.get::<Option<String>, &str>("skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
-            interests: r.get::<Option<String>, &str>("interests").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
-            location: r.get::<Option<String>, &str>("location").unwrap_or_default(),
-            role: r.get::<String, &str>("role"),
+            id: crate::db::text(&r, "id"),
+            full_name: crate::db::opt_text(&r, "full_name").unwrap_or_default(),
+            major: crate::db::opt_text(&r, "major").unwrap_or_default(),
+            skills: crate::db::opt_text(&r, "skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            interests: crate::db::opt_text(&r, "interests").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            location: crate::db::opt_text(&r, "location").unwrap_or_default(),
+            role: crate::db::text(&r, "role"),
             gpa: query.gpa,
         },
         None => return Err(AppError::NotFound("Người dùng không tồn tại".to_string())),
@@ -418,58 +418,58 @@ pub async fn match_opportunities(
     let mut candidates: Vec<NormalizedOpportunity> = Vec::new();
     for row in opp_rows {
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String, &str>("id"),
-            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
-            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
-            type_: row.get::<Option<String>, &str>("type").unwrap_or_default(),
-            organization: row.get::<Option<String>, &str>("organization").unwrap_or_default(),
-            requirements: row.get::<Option<String>, &str>("requirements").unwrap_or_default(),
-            benefits: row.get::<Option<String>, &str>("benefits").unwrap_or_default(),
-            url: row.get::<Option<String>, &str>("url").unwrap_or_default(),
-            field_tags: row.get::<Option<String>, &str>("field_tags").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
-            region: row.get::<Option<String>, &str>("region").unwrap_or_default(),
-            deadline: row.get::<Option<String>, &str>("deadline"),
+            id: crate::db::text(&row, "id"),
+            title: crate::db::opt_text(&row, "title").unwrap_or_default(),
+            description: crate::db::opt_text(&row, "description").unwrap_or_default(),
+            type_: crate::db::opt_text(&row, "type").unwrap_or_default(),
+            organization: crate::db::opt_text(&row, "organization").unwrap_or_default(),
+            requirements: crate::db::opt_text(&row, "requirements").unwrap_or_default(),
+            benefits: crate::db::opt_text(&row, "benefits").unwrap_or_default(),
+            url: crate::db::opt_text(&row, "url").unwrap_or_default(),
+            field_tags: crate::db::opt_text(&row, "field_tags").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default(),
+            region: crate::db::opt_text(&row, "region").unwrap_or_default(),
+            deadline: crate::db::opt_text(&row, "deadline"),
             source_table: "opportunities".to_string(),
-            status: row.get::<Option<String>, &str>("status").unwrap_or_default(),
+            status: crate::db::opt_text(&row, "status").unwrap_or_default(),
         });
     }
     for row in scholarships_rows {
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String, &str>("id"),
-            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
-            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
+            id: crate::db::text(&row, "id"),
+            title: crate::db::opt_text(&row, "title").unwrap_or_default(),
+            description: crate::db::opt_text(&row, "description").unwrap_or_default(),
             type_: "scholarship".to_string(),
-            organization: row.get::<Option<String>, &str>("provider").unwrap_or_default(),
-            requirements: row.get::<Option<String>, &str>("eligibility_criteria").unwrap_or_default(),
-            benefits: row.get::<Option<String>, &str>("apply_url").map(|u| format!("Áp dụng tại: {u}")).unwrap_or_default(),
-            url: row.get::<Option<String>, &str>("apply_url").unwrap_or_default(),
+            organization: crate::db::opt_text(&row, "provider").unwrap_or_default(),
+            requirements: crate::db::opt_text(&row, "eligibility_criteria").unwrap_or_default(),
+            benefits: crate::db::opt_text(&row, "apply_url").map(|u| format!("Áp dụng tại: {u}")).unwrap_or_default(),
+            url: crate::db::opt_text(&row, "apply_url").unwrap_or_default(),
             field_tags: Vec::new(),
             region: "".to_string(),
-            deadline: row.get::<Option<String>, &str>("deadline"),
+            deadline: crate::db::opt_text(&row, "deadline"),
             source_table: "scholarships".to_string(),
-            status: row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+            status: crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
         });
     }
     for row in jobs_rows {
-        let skills = row.get::<Option<String>, &str>("required_skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default();
+        let skills = crate::db::opt_text(&row, "required_skills").map(|s| parse_json_array(&serde_json::from_str::<Value>(&s).unwrap_or_default())).unwrap_or_default();
         candidates.push(NormalizedOpportunity {
-            id: row.get::<String, &str>("id"),
-            title: row.get::<Option<String>, &str>("title").unwrap_or_default(),
-            description: row.get::<Option<String>, &str>("description").unwrap_or_default(),
-            type_: row.get::<Option<String>, &str>("job_type").unwrap_or_default(),
-            organization: row.get::<Option<String>, &str>("company_name").unwrap_or_default(),
+            id: crate::db::text(&row, "id"),
+            title: crate::db::opt_text(&row, "title").unwrap_or_default(),
+            description: crate::db::opt_text(&row, "description").unwrap_or_default(),
+            type_: crate::db::opt_text(&row, "job_type").unwrap_or_default(),
+            organization: crate::db::opt_text(&row, "company_name").unwrap_or_default(),
             requirements: {
                 let mut r = skills.clone();
-                if let Some(e) = row.get::<Option<String>, &str>("experience_level") { r.push(e) };
+                if let Some(e) = crate::db::opt_text(&row, "experience_level") { r.push(e) };
                 r.join("; ")
             },
-            benefits: row.get::<Option<String>, &str>("salary_range").unwrap_or_default(),
+            benefits: crate::db::opt_text(&row, "salary_range").unwrap_or_default(),
             url: "".to_string(),
             field_tags: skills,
-            region: row.get::<Option<String>, &str>("location").unwrap_or_default(),
-            deadline: row.get::<Option<String>, &str>("application_deadline"),
+            region: crate::db::opt_text(&row, "location").unwrap_or_default(),
+            deadline: crate::db::opt_text(&row, "application_deadline"),
             source_table: "jobs".to_string(),
-            status: row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
+            status: crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
         });
     }
 

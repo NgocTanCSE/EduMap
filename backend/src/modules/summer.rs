@@ -105,28 +105,28 @@ const DB_SELECT_REGISTRATION_BY_ID: &str = r#"
 
 fn campaign_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
         "year": row.get::<Option<i64>, &str>("year").unwrap_or(0),
-        "location": row.get::<Option<String>, &str>("location").unwrap_or_default(),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "location": crate::db::opt_text(&row, "location").unwrap_or_default(),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
 fn activity_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "campaign_id": row.get::<String, &str>("campaign_id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "campaign_id": crate::db::text(&row, "campaign_id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "volunteer_count": row.get::<Option<i64>, &str>("volunteer_count").unwrap_or(0),
-        "hours_spent": row.get::<Option<f64>, &str>("hours_spent").unwrap_or(0.0),
-        "date": row.get::<Option<String>, &str>("date").unwrap_or_default(),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "hours_spent": crate::db::opt_num(&row, "hours_spent").unwrap_or(0.0),
+        "date": crate::db::opt_text(&row, "date").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
@@ -297,9 +297,9 @@ pub async fn get_daily_report(
         .get::<i64, _>(0);
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "campaign_id": campaign.get::<String, &str>("id"),
-        "campaign_name": campaign.get::<Option<String>, &str>("name").unwrap_or_default(),
-        "location": campaign.get::<Option<String>, &str>("location").unwrap_or_default(),
+        "campaign_id": crate::db::text(&campaign, "id"),
+        "campaign_name": crate::db::opt_text(&campaign, "name").unwrap_or_default(),
+        "location": crate::db::opt_text(&campaign, "location").unwrap_or_default(),
         "date": date,
         "activities": activities,
         "total_volunteers_approved": total_volunteers_approved,
@@ -326,7 +326,7 @@ pub async fn register_volunteer(
         Some(row) => row,
         None => return Err(AppError::NotFound("Chiến dịch Mùa hè xanh không tồn tại.".to_string())),
     };
-    if campaign.get::<String, &str>("status") != "active" {
+    if crate::db::text(&campaign, "status") != "active" {
         return Err(AppError::BadRequest("Chiến dịch đã kết thúc, không thể đăng ký thêm.".to_string()));
     }
 
@@ -353,13 +353,13 @@ pub async fn register_volunteer(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,
-        "message": format!("Đăng ký tham gia chiến dịch {} thành công!", campaign.get::<Option<String>, &str>("name").unwrap_or_default()),
+        "message": format!("Đăng ký tham gia chiến dịch {} thành công!", crate::db::opt_text(&campaign, "name").unwrap_or_default()),
         "registration": serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "user_id": row.get::<String, &str>("user_id"),
-            "campaign_id": row.get::<String, &str>("campaign_id"),
-            "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
-            "registered_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+            "id": crate::db::text(&row, "id"),
+            "user_id": crate::db::text(&row, "user_id"),
+            "campaign_id": crate::db::text(&row, "campaign_id"),
+            "status": crate::db::opt_text(&row, "status").unwrap_or_default(),
+            "registered_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         }),
     }))))
 }
@@ -400,9 +400,9 @@ pub async fn update_registration_status(
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "registration": serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "campaign_id": row.get::<String, &str>("campaign_id"),
-            "user_id": row.get::<String, &str>("user_id"),
+            "id": crate::db::text(&row, "id"),
+            "campaign_id": crate::db::text(&row, "campaign_id"),
+            "user_id": crate::db::text(&row, "user_id"),
             "status": status.clone(),
         }),
         "message": format!("Cập nhật trạng thái đăng ký thành công: {}.", status.unwrap_or_default()),

@@ -76,14 +76,14 @@ const DB_INSERT_NOTIFICATION: &str = r#"
 
 fn notification_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "user_id": row.get::<String, &str>("user_id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "body": row.get::<Option<String>, &str>("body").unwrap_or_default(),
-        "channel": row.get::<Option<String>, &str>("channel").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "user_id": crate::db::text(&row, "user_id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "body": crate::db::opt_text(&row, "body").unwrap_or_default(),
+        "channel": crate::db::opt_text(&row, "channel").unwrap_or_default(),
         "is_read": row.get::<bool, &str>("is_read"),
-        "sent_at": row.get::<String, &str>("sent_at"),
-        "read_at": row.get::<Option<String>, &str>("read_at").unwrap_or_default(),
+        "sent_at": crate::db::text(&row, "sent_at"),
+        "read_at": crate::db::opt_text(&row, "read_at").unwrap_or_default(),
     })
 }
 
@@ -134,12 +134,12 @@ pub async fn send_notification(
 
     // Broadcast the new row through the hub (the SSE subscribers of that user).
     let payload = crate::common::notifications::Notification {
-        id: row.get::<String, &str>("id"),
-        user_id: row.get::<String, &str>("user_id"),
-        title: row.get::<String, &str>("title"),
-        body: row.get::<String, &str>("body"),
-        channel: row.get::<String, &str>("channel"),
-        sent_at: row.get::<String, &str>("sent_at"),
+        id: crate::db::text(&row, "id"),
+        user_id: crate::db::text(&row, "user_id"),
+        title: crate::db::text(&row, "title"),
+        body: crate::db::text(&row, "body"),
+        channel: crate::db::text(&row, "channel"),
+        sent_at: crate::db::text(&row, "sent_at"),
         data: None,
     };
     hub().notify_user(&payload.user_id, &payload).await;
@@ -231,7 +231,7 @@ pub async fn mark_as_read(
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
-        .map(|row| row.get::<String, &str>("user_id"));
+        .map(|row| crate::db::text(&row, "user_id"));
 
     match owner {
         Some(owner_id)

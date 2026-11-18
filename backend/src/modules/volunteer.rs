@@ -51,7 +51,7 @@ const DB_INSERT_ACTIVITY: &str = r#"
     INSERT INTO volunteer_activities (volunteer_id, title, description,
                                       campaign_name, hours, date, status)
     VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-    RETURNING id, title, description, campaign_name, hours, date, status,
+    RETURNING id::text AS id, title, description, campaign_name, hours, date, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
@@ -65,14 +65,14 @@ const DB_SUM_TOTAL_HOURS: &str = r#"
 
 fn activity_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
-        "campaign_name": row.get::<Option<String>, &str>("campaign_name").unwrap_or_default(),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
+        "campaign_name": crate::db::opt_text(&row, "campaign_name").unwrap_or_default(),
         "hours": row.get::<Option<i64>, &str>("hours").unwrap_or(0),
-        "date": row.get::<Option<String>, &str>("date").unwrap_or_default(),
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_default(),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "date": crate::db::opt_text(&row, "date").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_default(),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 

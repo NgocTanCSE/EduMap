@@ -74,29 +74,28 @@ const DB_CREATE_CHALLENGE: &str = r#"
 fn challenge_to_json(row: &sqlx::postgres::PgRow) -> Value {
     let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
-        "title": row.get::<Option<String>, &str>("title").unwrap_or_default(),
-        "description": row.get::<Option<String>, &str>("description").unwrap_or_default(),
+        "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
+        "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
+        "description": crate::db::opt_text(&row, "description").unwrap_or_default(),
         "points": points,
         "carbon_saved_kg": (points as f64) * 0.5,
         "participants_count": row.get::<Option<i64>, &str>("participant_count").unwrap_or(0),
         "image_url": Value::Null,
-        "status": row.get::<Option<String>, &str>("status").unwrap_or_else(|| "active".to_string()),
-        "lat": row.get::<Option<f64>, &str>("lat"),
-        "lng": row.get::<Option<f64>, &str>("lng"),
-        "address": row.get::<Option<String>, &str>("address"),
-        "created_at": row.get::<Option<String>, &str>("created_at").unwrap_or_default(),
+        "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
+        "lat": crate::db::opt_num(&row, "lat"),
+        "lng": crate::db::opt_num(&row, "lng"),
+        "address": crate::db::opt_text(&row, "address"),
+        "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })
 }
 
 fn impact_to_json(row: &sqlx::postgres::PgRow) -> Value {
     let points: i64 = row.get::<Option<i64>, &str>("points_reward").unwrap_or(0);
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
-        "initiative": row.get::<Option<String>, &str>("title").unwrap_or_default(),
+        "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
+        "initiative": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "carbonSavedKg": (points as f64) * 0.5,
-        "date": row
-            .get::<Option<String>, &str>("created_at")
+        "date": crate::db::opt_text(&row, "created_at")
             .unwrap_or_default()
             .split('T')
             .next()
@@ -171,12 +170,12 @@ pub async fn log_activity(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "user_id": row.get::<String, &str>("user_id"),
-        "challenge_id": row.get::<String, &str>("challenge_id"),
-        "carbon_saved_kg": row.get::<Option<f64>, &str>("carbon_saved_kg").unwrap_or(0.0),
+        "id": crate::db::text(&row, "id"),
+        "user_id": crate::db::text(&row, "user_id"),
+        "challenge_id": crate::db::text(&row, "challenge_id"),
+        "carbon_saved_kg": crate::db::opt_num(&row, "carbon_saved_kg").unwrap_or(0.0),
         "points_earned": row.get::<Option<i64>, &str>("points_earned").unwrap_or(0),
-        "created_at": row.get::<String, &str>("created_at"),
+        "created_at": crate::db::text(&row, "created_at"),
     }))))
 }
 

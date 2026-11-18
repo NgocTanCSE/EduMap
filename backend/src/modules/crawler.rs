@@ -463,14 +463,14 @@ pub async fn get_crawl_history(State(pool): State<DbPool>) -> Result<Json<ApiRes
                 .into_iter()
                 .map(|row| {
                     serde_json::json!({
-                        "id": row.get::<String, &str>("id"),
-                        "type": row.get::<Option<String>, &str>("type"),
-                        "status": row.get::<Option<String>, &str>("status"),
-                        "startTime": row.get::<Option<String>, &str>("start_time"),
-                        "endTime": row.get::<Option<String>, &str>("end_time"),
+                        "id": crate::db::text(&row, "id"),
+                        "type": crate::db::opt_text(&row, "type"),
+                        "status": crate::db::opt_text(&row, "status"),
+                        "startTime": crate::db::opt_text(&row, "start_time"),
+                        "endTime": crate::db::opt_text(&row, "end_time"),
                         "recordsAdded": row.get::<i64, &str>("records_added"),
                         "errors": row.get::<i64, &str>("errors"),
-                        "message": row.get::<Option<String>, &str>("message"),
+                        "message": crate::db::opt_text(&row, "message"),
                     })
                 })
                 .collect()

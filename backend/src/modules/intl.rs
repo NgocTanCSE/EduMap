@@ -155,30 +155,30 @@ fn point_to_geojson(text: Option<&str>) -> Option<Value> {
 
 fn program_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "title": row.get::<String, &str>("title"),
-        "type": row.get::<String, &str>("type"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "host_country": row.get::<Option<String>, &str>("host_country"),
-        "organization": row.get::<Option<String>, &str>("organization"),
-        "application_deadline": row.get::<Option<String>, &str>("application_deadline"),
-        "benefits": row.get::<Option<String>, &str>("benefits"),
-        "apply_url": row.get::<Option<String>, &str>("apply_url"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "title": crate::db::text(&row, "title"),
+        "type": crate::db::text(&row, "type"),
+        "description": crate::db::opt_text(&row, "description"),
+        "host_country": crate::db::opt_text(&row, "host_country"),
+        "organization": crate::db::opt_text(&row, "organization"),
+        "application_deadline": crate::db::opt_text(&row, "application_deadline"),
+        "benefits": crate::db::opt_text(&row, "benefits"),
+        "apply_url": crate::db::opt_text(&row, "apply_url"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 
 fn alumni_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "full_name": row.get::<String, &str>("full_name"),
-        "university": row.get::<String, &str>("university"),
-        "country": row.get::<String, &str>("country"),
-        "major": row.get::<String, &str>("major"),
-        "location": point_to_geojson(row.get::<Option<String>, &str>("location_point").as_deref()),
-        "contact_email": row.get::<Option<String>, &str>("contact_email"),
-        "status": row.get::<String, &str>("status"),
-        "created_at": row.get::<String, &str>("created_at"),
+        "id": crate::db::text(&row, "id"),
+        "full_name": crate::db::text(&row, "full_name"),
+        "university": crate::db::text(&row, "university"),
+        "country": crate::db::text(&row, "country"),
+        "major": crate::db::text(&row, "major"),
+        "location": point_to_geojson(crate::db::opt_text(&row, "location_point").as_deref()),
+        "contact_email": crate::db::opt_text(&row, "contact_email"),
+        "status": crate::db::text(&row, "status"),
+        "created_at": crate::db::text(&row, "created_at"),
     })
 }
 

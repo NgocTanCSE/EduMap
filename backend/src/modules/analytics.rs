@@ -107,7 +107,7 @@ pub async fn track_event(
     let result = serde_json::json!({
         "tracked": true,
         "event_type": body.event_type,
-        "user_id": row.get::<Option<String>, &str>("user_id"),
+        "user_id": crate::db::opt_text(&row, "user_id"),
         "id": row.get::<i64, &str>("id"),
     });
     Ok(Json(ApiResponse::ok(result)))
@@ -163,16 +163,15 @@ pub async fn get_education_stats(
         .map(|row| {
             serde_json::json!({
                 "id": row.get::<i64, &str>("id"),
-                "region": row.get::<Option<String>, &str>("region"),
-                "province": row.get::<Option<String>, &str>("province"),
-                "district": row.get::<Option<String>, &str>("district"),
-                "metric_type": row.get::<Option<String>, &str>("metric_type"),
-                "metric_value": row
-                    .get::<Option<String>, &str>("metric_value")
+                "region": crate::db::opt_text(&row, "region"),
+                "province": crate::db::opt_text(&row, "province"),
+                "district": crate::db::opt_text(&row, "district"),
+                "metric_type": crate::db::opt_text(&row, "metric_type"),
+                "metric_value": crate::db::opt_text(&row, "metric_value")
                     .and_then(|s| s.parse::<f64>().ok()),
                 "year": row.get::<Option<i64>, &str>("year"),
-                "source": row.get::<Option<String>, &str>("source"),
-                "created_at": row.get::<Option<String>, &str>("created_at"),
+                "source": crate::db::opt_text(&row, "source"),
+                "created_at": crate::db::opt_text(&row, "created_at"),
             })
         })
         .collect();

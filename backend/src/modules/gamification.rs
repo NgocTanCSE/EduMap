@@ -162,12 +162,12 @@ fn progress_with_rank(user_id: &str, total: i64, rank: i64, total_users: i64, ba
 
 fn badge_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<Option<String>, &str>("id").unwrap_or_default(),
-        "badge_id": row.get::<Option<String>, &str>("badge_id").unwrap_or_default(),
-        "name": row.get::<Option<String>, &str>("name").unwrap_or_default(),
-        "category": row.get::<Option<String>, &str>("category").unwrap_or_default(),
-        "rarity": row.get::<Option<String>, &str>("rarity").unwrap_or_default(),
-        "earned_at": row.get::<Option<String>, &str>("earned_at").unwrap_or_default(),
+        "id": crate::db::opt_text(&row, "id").unwrap_or_default(),
+        "badge_id": crate::db::opt_text(&row, "badge_id").unwrap_or_default(),
+        "name": crate::db::opt_text(&row, "name").unwrap_or_default(),
+        "category": crate::db::opt_text(&row, "category").unwrap_or_default(),
+        "rarity": crate::db::opt_text(&row, "rarity").unwrap_or_default(),
+        "earned_at": crate::db::opt_text(&row, "earned_at").unwrap_or_default(),
     })
 }
 
@@ -216,7 +216,7 @@ async fn fetch_progress(
         .map_err(AppError::from)?;
     let badges: Vec<String> = rows
         .iter()
-        .map(|r| r.get::<Option<String>, &str>("name").unwrap_or_default())
+        .map(|r| crate::db::opt_text(&r, "name").unwrap_or_default())
         .collect();
     Ok((total, badges))
 }
@@ -264,9 +264,9 @@ pub async fn get_leaderboard(State(pool): State<DbPool>) -> Result<Json<ApiRespo
         .map(|r| {
             let points: i64 = r.get::<Option<i64>, &str>("points").unwrap_or(0);
             serde_json::json!({
-                "id": r.get::<Option<String>, &str>("user_id").unwrap_or_default(),
-                "full_name": r.get::<Option<String>, &str>("full_name").unwrap_or_else(|| "Người dùng".to_string()),
-                "avatar_url": r.get::<Option<String>, &str>("avatar_url").unwrap_or_default(),
+                "id": crate::db::opt_text(&r, "user_id").unwrap_or_default(),
+                "full_name": crate::db::opt_text(&r, "full_name").unwrap_or_else(|| "Người dùng".to_string()),
+                "avatar_url": crate::db::opt_text(&r, "avatar_url").unwrap_or_default(),
                 "points": points,
                 "level": (points / 100) + 1,
             })
@@ -451,7 +451,7 @@ pub async fn grant_achievement(
         .map_err(AppError::from)?;
 
     let badge_id: String = match badge_row {
-        Some(row) => row.get::<String, &str>("id"),
+        Some(row) => crate::db::text(&row, "id"),
         None => {
             crate::db::query(DB_CREATE_BADGE)
                 .bind(body.achievement.trim())

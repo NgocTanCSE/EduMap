@@ -223,21 +223,21 @@ fn to_latlng(location: Option<&Value>) -> Option<[f64; 2]> {
 
 fn spot_to_json(row: &sqlx::postgres::PgRow) -> Value {
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "type": row.get::<Option<String>, &str>("type"),
-        "address": row.get::<Option<String>, &str>("address"),
-        "description": row.get::<Option<String>, &str>("description"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "type": crate::db::opt_text(&row, "type"),
+        "address": crate::db::opt_text(&row, "address"),
+        "description": crate::db::opt_text(&row, "description"),
         "has_wifi": row.get::<bool, &str>("has_wifi"),
         "has_power_outlets": row.get::<bool, &str>("has_power_outlets"),
         "quietness": row.get::<Option<i64>, &str>("quietness"),
-        "opening_hours": row.get::<Option<String>, &str>("opening_hours"),
-        "amenities": row.get::<Option<String>, &str>("amenities"),
-        "rating_avg": row.get::<f64, &str>("rating_avg"),
+        "opening_hours": crate::db::opt_text(&row, "opening_hours"),
+        "amenities": crate::db::opt_text(&row, "amenities"),
+        "rating_avg": crate::db::num(&row, "rating_avg"),
         "total_capacity": row.get::<i64, &str>("total_capacity"),
-        "location": point_to_geojson(row.get::<Option<String>, &str>("location_point").as_deref()),
-        "created_at": row.get::<Option<String>, &str>("created_at"),
-        "last_updated": row.get::<Option<String>, &str>("last_updated"),
+        "location": point_to_geojson(crate::db::opt_text(&row, "location_point").as_deref()),
+        "created_at": crate::db::opt_text(&row, "created_at"),
+        "last_updated": crate::db::opt_text(&row, "last_updated"),
     })
 }
 
@@ -453,8 +453,8 @@ pub async fn get_availability(
                 "available"
             };
             Ok(Json(ApiResponse::ok(serde_json::json!({
-                "spot_id": r.get::<String, &str>("id"),
-                "spot_name": r.get::<String, &str>("name"),
+                "spot_id": crate::db::text(&r, "id"),
+                "spot_name": crate::db::text(&r, "name"),
                 "total_capacity": total_capacity,
                 "current_occupancy": current_occupancy,
                 "available_seats": available_seats,

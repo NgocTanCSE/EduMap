@@ -532,10 +532,10 @@ pub async fn create_poi(
         .map_err(AppError::from)?;
 
     Ok(Json(ApiResponse::<serde_json::Value>::ok(serde_json::json!({
-        "id": inserted.get::<String, &str>("id"),
-        "name": inserted.get::<String, &str>("name"),
+        "id": crate::db::text(&inserted, "id"),
+        "name": crate::db::text(&inserted, "name"),
         "category": type_id_to_category(inserted.get::<i64, &str>("type_id")),
-        "status": inserted.get::<String, &str>("status"),
+        "status": crate::db::text(&inserted, "status"),
         "message": "Point of interest created successfully",
     }))))
 }
@@ -577,7 +577,7 @@ pub async fn get_poi_details(
     // is not live when `poi.map(...)` moves it below.
     let nearby: Vec<serde_json::Value> = match poi.as_ref() {
         Some(p) => {
-            let loc = p.get::<Option<String>, &str>("location");
+            let loc = crate::db::opt_text(&p, "location");
             let lat = lat_of_point(loc.as_deref());
             let lng = lng_of_point(loc.as_deref());
             match crate::db::query(DB_SELECT_NEARBY_POIS)
@@ -590,12 +590,12 @@ pub async fn get_poi_details(
                 Ok(rows) => rows
                     .iter()
                     .map(|row| serde_json::json!({
-                        "id": row.get::<String, &str>("id"),
-                        "name": row.get::<String, &str>("name"),
+                        "id": crate::db::text(&row, "id"),
+                        "name": crate::db::text(&row, "name"),
                         "category": type_id_to_category(row.get::<i64, &str>("type_id")),
-                        "lat": lat_of_point(row.get::<Option<String>, &str>("location").as_deref()),
-                        "lng": lng_of_point(row.get::<Option<String>, &str>("location").as_deref()),
-                        "address": row.get::<Option<String>, &str>("address"),
+                        "lat": lat_of_point(crate::db::opt_text(&row, "location").as_deref()),
+                        "lng": lng_of_point(crate::db::opt_text(&row, "location").as_deref()),
+                        "address": crate::db::opt_text(&row, "address"),
                     }))
                     .collect(),
                 Err(e) => {
@@ -609,17 +609,17 @@ pub async fn get_poi_details(
 
     let details = poi.map(|row| {
         serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "name": row.get::<String, &str>("name"),
+            "id": crate::db::text(&row, "id"),
+            "name": crate::db::text(&row, "name"),
             "category": type_id_to_category(row.get::<i64, &str>("type_id")),
-            "lat": lat_of_point(row.get::<Option<String>, &str>("location").as_deref()),
-            "lng": lng_of_point(row.get::<Option<String>, &str>("location").as_deref()),
-            "address": row.get::<Option<String>, &str>("address"),
-            "description": row.get::<Option<String>, &str>("description"),
-            "city": row.get::<Option<String>, &str>("city"),
-            "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+            "lat": lat_of_point(crate::db::opt_text(&row, "location").as_deref()),
+            "lng": lng_of_point(crate::db::opt_text(&row, "location").as_deref()),
+            "address": crate::db::opt_text(&row, "address"),
+            "description": crate::db::opt_text(&row, "description"),
+            "city": crate::db::opt_text(&row, "city"),
+            "rating_avg": crate::db::opt_num(&row, "rating_avg"),
             "rating_count": row.get::<Option<i64>, &str>("rating_count"),
-            "status": row.get::<Option<String>, &str>("status"),
+            "status": crate::db::opt_text(&row, "status"),
             "verified": row.get::<Option<bool>, &str>("verified"),
         })
     });
@@ -651,7 +651,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("location_point").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(crate::db::opt_text(&row, "location_point").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -659,13 +659,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("stem-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("stem-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "stem".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>, &str>("description"),
-            address: row.get::<Option<String>, &str>("location_point_text"),
+            description: crate::db::opt_text(&row, "description"),
+            address: crate::db::opt_text(&row, "location_point_text"),
             feature_link: feature_link_for("stem").to_string(),
         });
     }
@@ -676,19 +676,19 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64, &str>("lat");
-        let lng = row.get::<f64, &str>("lng");
+        let lat = crate::db::num(&row, "lat");
+        let lng = crate::db::num(&row, "lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("green-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("green-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "green".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>, &str>("description"),
-            address: row.get::<Option<String>, &str>("address"),
+            description: crate::db::opt_text(&row, "description"),
+            address: crate::db::opt_text(&row, "address"),
             feature_link: feature_link_for("green").to_string(),
         });
     }
@@ -699,19 +699,19 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64, &str>("lat");
-        let lng = row.get::<f64, &str>("lng");
+        let lat = crate::db::num(&row, "lat");
+        let lng = crate::db::num(&row, "lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("summer-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("summer-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "summer".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>, &str>("description"),
-            address: Some(row.get::<Option<String>, &str>("location").unwrap_or_default()),
+            description: crate::db::opt_text(&row, "description"),
+            address: Some(crate::db::opt_text(&row, "location").unwrap_or_default()),
             feature_link: feature_link_for("summer").to_string(),
         });
     }
@@ -722,7 +722,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("coordinates").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(crate::db::opt_text(&row, "coordinates").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -730,13 +730,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("wifi-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("wifi-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "wifi".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>, &str>("description"),
-            address: row.get::<Option<String>, &str>("address"),
+            description: crate::db::opt_text(&row, "description"),
+            address: crate::db::opt_text(&row, "address"),
             feature_link: feature_link_for("wifi").to_string(),
         });
     }
@@ -747,7 +747,7 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let (lng, lat) = match parse_ewkt_point(row.get::<Option<String>, &str>("location_point").as_deref()) {
+        let (lng, lat) = match parse_ewkt_point(crate::db::opt_text(&row, "location_point").as_deref()) {
             Some(c) => c,
             None => continue,
         };
@@ -755,13 +755,13 @@ pub async fn get_featured_pins(
             continue;
         }
         pins.push(FeaturedPin {
-            id: format!("donate-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("donate-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "donate".to_string(),
             lat,
             lng,
-            description: row.get::<Option<String>, &str>("description"),
-            address: row.get::<Option<String>, &str>("address"),
+            description: crate::db::opt_text(&row, "description"),
+            address: crate::db::opt_text(&row, "address"),
             feature_link: feature_link_for("donate").to_string(),
         });
     }
@@ -772,29 +772,29 @@ pub async fn get_featured_pins(
         .await
         .map_err(AppError::from)?
     {
-        let lat = row.get::<f64, &str>("lat");
-        let lng = row.get::<f64, &str>("lng");
+        let lat = crate::db::num(&row, "lat");
+        let lng = crate::db::num(&row, "lng");
         if !is_valid_latlng(lat, lng) || !bounds.includes(lat, lng) {
             continue;
         }
-        let desc = match row.get::<Option<String>, &str>("category") {
-            Some(cat) => match row.get::<Option<String>, &str>("description") {
+        let desc = match crate::db::opt_text(&row, "category") {
+            Some(cat) => match crate::db::opt_text(&row, "description") {
                 Some(d) => format!("{} · {}", cat, d),
                 None => cat,
             },
-            None => match row.get::<Option<String>, &str>("description") {
+            None => match crate::db::opt_text(&row, "description") {
                 Some(d) => d,
                 None => String::new(),
             },
         };
         pins.push(FeaturedPin {
-            id: format!("market-{}", row.get::<String, &str>("id")),
-            name: row.get::<String, &str>("name"),
+            id: format!("market-{}", crate::db::text(&row, "id")),
+            name: crate::db::text(&row, "name"),
             category: "market".to_string(),
             lat,
             lng,
             description: Some(desc),
-            address: row.get::<Option<String>, &str>("address"),
+            address: crate::db::opt_text(&row, "address"),
             feature_link: feature_link_for("market").to_string(),
         });
     }
@@ -997,10 +997,10 @@ pub async fn get_flood_zones(
 
     let result = zones.iter().map(|z| {
         serde_json::json!({
-            "id": z.get::<String, &str>("id"),
-            "name": z.get::<String, &str>("name"),
-            "riskLevel": z.get::<String, &str>("riskLevel"),
-            "coordinates": z.get::<Option<String>, &str>("coordinates"),
+            "id": crate::db::text(&z, "id"),
+            "name": crate::db::text(&z, "name"),
+            "riskLevel": crate::db::text(&z, "riskLevel"),
+            "coordinates": crate::db::opt_text(&z, "coordinates"),
             "metadata": z.get::<Option<serde_json::Value>, &str>("metadata"),
         })
     }).collect::<Vec<serde_json::Value>>();
@@ -1346,36 +1346,36 @@ fn lng_of_point(location: Option<&str>) -> f64 {
 
 /// Point of interest from `map_points` (geometry in `location`.)
 fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
-    let location = row.get::<Option<String>, &str>("location");
+    let location = crate::db::opt_text(&row, "location");
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
         "category": type_id_to_category(row.get::<i64, &str>("type_id")),
         "lat": lat_of_point(location.as_deref()),
         "lng": lng_of_point(location.as_deref()),
-        "address": row.get::<Option<String>, &str>("address"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+        "address": crate::db::opt_text(&row, "address"),
+        "description": crate::db::opt_text(&row, "description"),
+        "rating_avg": crate::db::opt_num(&row, "rating_avg"),
         "rating_count": row.get::<Option<i64>, &str>("rating_count"),
-        "status": row.get::<Option<String>, &str>("status"),
+        "status": crate::db::opt_text(&row, "status"),
         "verified": row.get::<Option<bool>, &str>("verified"),
     })
 }
 
 /// Point of interest from `locations` (geometry in `coordinates`.)
 fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
-    let location = row.get::<Option<String>, &str>("coordinates");
+    let location = crate::db::opt_text(&row, "coordinates");
     serde_json::json!({
-        "id": row.get::<String, &str>("id"),
-        "name": row.get::<String, &str>("name"),
-        "category": row.get::<Option<String>, &str>("category_name").unwrap_or_else(|| "other".to_string()),
+        "id": crate::db::text(&row, "id"),
+        "name": crate::db::text(&row, "name"),
+        "category": crate::db::opt_text(&row, "category_name").unwrap_or_else(|| "other".to_string()),
         "lat": lat_of_point(location.as_deref()),
         "lng": lng_of_point(location.as_deref()),
-        "address": row.get::<Option<String>, &str>("address"),
-        "description": row.get::<Option<String>, &str>("description"),
-        "rating_avg": row.get::<Option<f64>, &str>("rating_avg"),
+        "address": crate::db::opt_text(&row, "address"),
+        "description": crate::db::opt_text(&row, "description"),
+        "rating_avg": crate::db::opt_num(&row, "rating_avg"),
         "rating_count": row.get::<Option<i64>, &str>("rating_count"),
-        "status": row.get::<Option<String>, &str>("status"),
+        "status": crate::db::opt_text(&row, "status"),
         "verified": row.get::<Option<bool>, &str>("is_verified"),
     })
 }

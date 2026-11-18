@@ -146,18 +146,18 @@ pub async fn get_logs(
     let items: Vec<Value> = rows
         .iter()
         .map(|row| serde_json::json!({
-            "id": row.get::<String, &str>("id"),
-            "action": row.get::<String, &str>("action"),
-            "resource": row.get::<Option<String>, &str>("resource"),
-            "resource_id": row.get::<Option<String>, &str>("resource_id"),
+            "id": crate::db::text(&row, "id"),
+            "action": crate::db::text(&row, "action"),
+            "resource": crate::db::opt_text(&row, "resource"),
+            "resource_id": crate::db::opt_text(&row, "resource_id"),
             "old_data": row.get::<Option<Value>, &str>("old_data"),
             "new_data": row.get::<Option<Value>, &str>("new_data"),
-            "ip_address": row.get::<Option<String>, &str>("ip_address"),
-            "user_agent": row.get::<Option<String>, &str>("user_agent"),
-            "created_at": row.get::<String, &str>("created_at"),
+            "ip_address": crate::db::opt_text(&row, "ip_address"),
+            "user_agent": crate::db::opt_text(&row, "user_agent"),
+            "created_at": crate::db::text(&row, "created_at"),
             "user": {
-                "full_name": row.get::<Option<String>, &str>("user_full_name"),
-                "email": row.get::<Option<String>, &str>("user_email"),
+                "full_name": crate::db::opt_text(&row, "user_full_name"),
+                "email": crate::db::opt_text(&row, "user_email"),
             },
         }))
         .collect();
