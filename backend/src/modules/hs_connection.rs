@@ -45,7 +45,7 @@ const DB_SELECT_QUESTIONS: &str = r#"
            q.created_at, q.updated_at,
            u.full_name AS student_name, u.avatar_url AS student_avatar
     FROM hs_questions q
-    LEFT JOIN users u ON u.id = q.student_id
+    LEFT JOIN users u ON u.id::text = q.student_id::text
 "#;
 
 const DB_INSERT_QUESTION: &str = r#"
@@ -62,7 +62,7 @@ const DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY: &str = r#"
            q.created_at, q.updated_at,
            u.full_name AS student_name, u.avatar_url AS student_avatar
     FROM hs_questions q
-    LEFT JOIN users u ON u.id = q.student_id
+    LEFT JOIN users u ON u.id::text = q.student_id::text
 "#;
 
 
@@ -87,8 +87,8 @@ const DB_SELECT_MY_NETWORK: &str = r#"
         CASE WHEN c.requester_id = $1 THEN r.avatar_url ELSE s.avatar_url END AS avatar_url,
         CASE WHEN c.requester_id = $1 THEN r.id ELSE s.id END AS friend_id
     FROM student_connections c
-    JOIN users r ON r.id = c.requester_id
-    JOIN users s ON s.id = c.receiver_id
+    JOIN users r ON r.id::text = c.requester_id::text
+    JOIN users s ON s.id::text = c.receiver_id::text
     WHERE (c.requester_id = $1 AND c.status = 'accepted')
        OR (c.receiver_id = $1 AND c.status = 'accepted')
 "#;
@@ -98,7 +98,7 @@ const DB_SELECT_PENDING_REQUESTS: &str = r#"
            u.full_name AS requester_name, u.avatar_url AS requester_avatar,
            u.id AS requester_id
     FROM student_connections c
-    JOIN users u ON u.id = c.requester_id
+    JOIN users u ON u.id::text = c.requester_id::text
     WHERE c.receiver_id = $1 AND c.status = 'pending'
 "#;
 

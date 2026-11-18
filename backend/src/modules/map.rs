@@ -50,7 +50,7 @@ const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
            l.rating_count, l.status, l.is_verified, l.coordinates,
            l.created_at
     FROM locations l
-    LEFT JOIN location_categories c ON c.id = l.category_id
+    LEFT JOIN location_categories c ON c.id::text = l.category_id::text
     WHERE ST_Intersects(l.coordinates, ST_MakeEnvelope($1, $2, $3, $4, 4326))
     LIMIT 5000
 "#;

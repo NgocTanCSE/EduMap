@@ -94,7 +94,7 @@ const DB_MENTOR_BASE: &str = r#"
            u.full_name, u.email, u.avatar_url, u.major, u.mbti_type,
            CAST(u.skills AS TEXT) AS skills,
            CAST(u.interests AS TEXT) AS interests, u.role
-    FROM mentors m LEFT JOIN users u ON u.id = m.user_id
+    FROM mentors m LEFT JOIN users u ON u.id::text = m.user_id::text
 "#;
 
 const DB_MENTOR_BY_ID: &str = r#"
@@ -106,7 +106,7 @@ const DB_MENTOR_BY_ID: &str = r#"
            u.full_name, u.email, u.avatar_url, u.major, u.mbti_type,
            CAST(u.skills AS TEXT) AS skills,
            CAST(u.interests AS TEXT) AS interests, u.role
-    FROM mentors m LEFT JOIN users u ON u.id = m.user_id
+    FROM mentors m LEFT JOIN users u ON u.id::text = m.user_id::text
     WHERE m.user_id::text = $1
 "#;
 
@@ -119,7 +119,7 @@ const DB_MENTORS: &str = r#"
            u.full_name, u.email, u.avatar_url, u.major, u.mbti_type,
            CAST(u.skills AS TEXT) AS skills,
            CAST(u.interests AS TEXT) AS interests, u.role
-    FROM mentors m LEFT JOIN users u ON u.id = m.user_id
+    FROM mentors m LEFT JOIN users u ON u.id::text = m.user_id::text
     WHERE m.is_verified = true
     ORDER BY m.rating_avg DESC
 "#;
@@ -189,9 +189,9 @@ const DB_BOOKING_BY_ID: &str = r#"
            CAST(b.created_at AS TEXT) AS created_at,
            u.full_name AS mentor_name, s.full_name AS student_name
     FROM bookings b
-    LEFT JOIN mentors m ON m.user_id = b.mentor_id
-    LEFT JOIN users u ON u.id = m.user_id
-    LEFT JOIN users s ON s.id = b.student_id
+    LEFT JOIN mentors m ON m.user_id::text = b.mentor_id::text
+    LEFT JOIN users u ON u.id::text = m.user_id::text
+    LEFT JOIN users s ON s.id::text = b.student_id::text
     WHERE b.id::text = $1
 "#;
 
@@ -213,8 +213,8 @@ const DB_STUDENT_BOOKINGS: &str = r#"
            CAST(b.created_at AS TEXT) AS created_at,
            u.full_name AS mentor_name
     FROM bookings b
-    LEFT JOIN mentors m ON m.user_id = b.mentor_id
-    LEFT JOIN users u ON u.id = m.user_id
+    LEFT JOIN mentors m ON m.user_id::text = b.mentor_id::text
+    LEFT JOIN users u ON u.id::text = m.user_id::text
     WHERE b.student_id::text = $1
     ORDER BY b.slot_start DESC
 "#;
@@ -227,8 +227,8 @@ const DB_MENTOR_BOOKINGS: &str = r#"
            CAST(b.created_at AS TEXT) AS created_at,
            u.full_name AS mentor_name
     FROM bookings b
-    LEFT JOIN mentors m ON m.user_id = b.mentor_id
-    LEFT JOIN users u ON u.id = m.user_id
+    LEFT JOIN mentors m ON m.user_id::text = b.mentor_id::text
+    LEFT JOIN users u ON u.id::text = m.user_id::text
     WHERE b.mentor_id::text = $1
     ORDER BY b.slot_start DESC
 "#;

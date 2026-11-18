@@ -45,7 +45,7 @@ const DB_SELECT_LOGS: &str = r#"
            CAST(a.created_at AS TEXT) AS created_at,
            u.full_name AS user_full_name, u.email AS user_email
     FROM audit_logs a
-    LEFT JOIN users u ON u.id = a.user_id
+    LEFT JOIN users u ON u.id::text = a.user_id::text
     {where}
     ORDER BY a.created_at DESC
 "#;
@@ -55,7 +55,7 @@ const DB_COUNT_LOGS: &str = r#"
     SELECT COUNT(*) FROM (
         SELECT a.id
         FROM audit_logs a
-        LEFT JOIN users u ON u.id = a.user_id
+        LEFT JOIN users u ON u.id::text = a.user_id::text
         {where}
     ) t
 "#;

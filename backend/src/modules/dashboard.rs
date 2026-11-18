@@ -40,8 +40,8 @@ WITH user_base AS (
 ), bookings_f AS (
     SELECT b.id, b.slot_start, b.meeting_url, u.full_name AS mentor_name
     FROM bookings b
-    JOIN mentors m ON m.user_id = b.mentor_id
-    JOIN users u ON u.id = m.user_id
+    JOIN mentors m ON m.user_id::text = b.mentor_id::text
+    JOIN users u ON u.id::text = m.user_id::text
     WHERE b.student_id::text = $1 AND b.status = 'confirmed'
       AND b.slot_start >= $2::TIMESTAMP WITH TIME ZONE
     ORDER BY b.slot_start ASC LIMIT 3
@@ -62,17 +62,17 @@ SELECT
 const DB_DASHBOARD_HISTORY: &str = r#"
 SELECT type, title, status, CAST(created_at AS TEXT) AS created_at FROM (
     SELECT 'application' AS type, j.title, a.status, a.created_at
-    FROM applications a JOIN jobs j ON j.id = a.job_id WHERE a.user_id::text = $1
+    FROM applications a JOIN jobs j ON j.id::text = a.job_id::text WHERE a.user_id::text = $1
     UNION ALL
     SELECT 'registration', e.title, er.status, er.created_at
-    FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE er.user_id::text = $1
+    FROM event_registrations er JOIN events e ON e.id::text = er.event_id::text WHERE er.user_id::text = $1
     UNION ALL
     SELECT 'intern_application', i.title, ia.status, ia.created_at
-    FROM internship_applications ia JOIN internships i ON i.id = ia.internship_id
+    FROM internship_applications ia JOIN internships i ON i.id::text = ia.internship_id::text
     WHERE ia.user_id::text = $1
     UNION ALL
     SELECT 'scholar_application', s.title, sa.status, sa.created_at
-    FROM scholarship_applications sa JOIN scholarships s ON s.id = sa.scholarship_id
+    FROM scholarship_applications sa JOIN scholarships s ON s.id::text = sa.scholarship_id::text
     WHERE sa.student_id::text = $1
     UNION ALL
     SELECT 'summer_registration', CAST(cr.campaign_id AS TEXT), cr.status, cr.created_at

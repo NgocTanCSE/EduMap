@@ -44,9 +44,9 @@ const DB_SELECT_CERT_BY_CODE: &str = r#"
            t.type AS template_type,
            o.name AS organization_name
     FROM user_certificates uc
-    JOIN users u ON u.id = uc.user_id
-    JOIN certificate_templates t ON t.id = uc.template_id
-    LEFT JOIN organizations o ON o.id = t.organization_id
+    JOIN users u ON u.id::text = uc.user_id::text
+    JOIN certificate_templates t ON t.id::text = uc.template_id::text
+    LEFT JOIN organizations o ON o.id::text = t.organization_id::text
     WHERE uc.verify_code = $1
 "#;
 
@@ -87,9 +87,9 @@ const DB_SELECT_PORTFOLIO: &str = r#"
            t.type AS template_type,
            o.name AS organization_name
     FROM user_certificates uc
-    JOIN users u ON u.id = uc.user_id
-    JOIN certificate_templates t ON t.id = uc.template_id
-    LEFT JOIN organizations o ON o.id = t.organization_id
+    JOIN users u ON u.id::text = uc.user_id::text
+    JOIN certificate_templates t ON t.id::text = uc.template_id::text
+    LEFT JOIN organizations o ON o.id::text = t.organization_id::text
     WHERE uc.user_id::text = $1 AND uc.status = 'active'
     ORDER BY uc.issued_at DESC
 "#;

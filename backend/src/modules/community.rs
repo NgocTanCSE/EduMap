@@ -162,8 +162,8 @@ const DB_SELECT_POSTS: &str = r#"
                a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role,
                g.name AS group_name, g.description AS group_description, g.id AS group_row_id
         FROM posts p
-        LEFT JOIN users a ON a.id = p.author_id
-        LEFT JOIN groups g ON g.id = p.group_id
+        LEFT JOIN users a ON a.id::text = p.author_id::text
+        LEFT JOIN groups g ON g.id::text = p.group_id::text
         WHERE p.status = 'active' AND p.deleted_at IS NULL
     ) sub
 "#;
@@ -178,8 +178,8 @@ const DB_SELECT_POST_BY_ID: &str = r#"
            a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role,
            g.name AS group_name, g.description AS group_description, g.id AS group_row_id
     FROM posts p
-    LEFT JOIN users a ON a.id = p.author_id
-    LEFT JOIN groups g ON g.id = p.group_id
+    LEFT JOIN users a ON a.id::text = p.author_id::text
+    LEFT JOIN groups g ON g.id::text = p.group_id::text
     WHERE p.id::text = $1 AND p.status = 'active' AND p.deleted_at IS NULL
 "#;
 
@@ -189,7 +189,7 @@ const DB_SELECT_COMMENTS: &str = r#"
            CAST(c.updated_at AS TEXT) AS updated_at,
            a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role
     FROM comments c
-    LEFT JOIN users a ON a.id = c.author_id
+    LEFT JOIN users a ON a.id::text = c.author_id::text
     WHERE c.post_id::text = $1 AND c.status = 'active' AND c.deleted_at IS NULL
     ORDER BY c.created_at ASC
 "#;
@@ -593,7 +593,7 @@ pub async fn add_comment(
                 CAST(c.updated_at AS TEXT) AS updated_at, \
                 a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role \
          FROM comments c \
-         LEFT JOIN users a ON a.id = c.author_id \
+         LEFT JOIN users a ON a.id::text = c.author_id::text \
          WHERE c.id::text = $1",
     )
     .bind(&comment_id)

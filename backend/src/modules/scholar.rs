@@ -106,7 +106,7 @@ const DB_SELECT_APPLICATIONS: &str = r#"
            a.created_at,
            s.title AS scholarship_title, s.provider AS scholarship_provider
     FROM scholarship_applications a
-    LEFT JOIN scholarships s ON s.id = a.scholarship_id
+    LEFT JOIN scholarships s ON s.id::text = a.scholarship_id::text
     WHERE a.student_id::text = $1
     ORDER BY a.created_at DESC
 "#;

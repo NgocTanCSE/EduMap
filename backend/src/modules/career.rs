@@ -65,7 +65,7 @@ const DB_SELECT_JOB_BY_ID: &str = r#"
            CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at,
            u.full_name AS posted_by_name
     FROM jobs j
-    LEFT JOIN users u ON u.id = j.posted_by_user_id
+    LEFT JOIN users u ON u.id::text = j.posted_by_user_id::text
     WHERE id::text = $1
 "#;
 
@@ -104,7 +104,7 @@ const DB_SELECT_APPLICATIONS: &str = r#"
            job.location AS job_location, CAST(job.application_deadline AS TEXT)
            AS job_deadline
     FROM applications a
-    LEFT JOIN jobs job ON job.id = a.job_id
+    LEFT JOIN jobs job ON job.id::text = a.job_id::text
     WHERE a.user_id::text = $1 ORDER BY a.created_at DESC
 "#;
 
@@ -114,7 +114,7 @@ const DB_SELECT_APPLICATION_BY_ID: &str = r#"
            CAST(created_at AS TEXT) AS created_at,
            job.title AS job_title, job.location AS job_location
     FROM applications a
-    LEFT JOIN jobs job ON job.id = a.job_id
+    LEFT JOIN jobs job ON job.id::text = a.job_id::text
     WHERE id::text = $1 AND user_id::text = $2
 "#;
 
@@ -1191,7 +1191,7 @@ pub async fn update_application_status(
     let user = authenticated_user(user)?;
     let application = crate::db::query(
         r#"SELECT a.id, a.status, a.user_id, job.posted_by_user_id
-           FROM applications a LEFT JOIN jobs job ON job.id = a.job_id
+           FROM applications a LEFT JOIN jobs job ON job.id::text = a.job_id::text
            WHERE a.id::text = $1"#
     )
     .bind(&id)

@@ -92,7 +92,7 @@ SELECT br.id, br.item_id, br.message, br.status, br.requester_id,
        si.name AS item_name, si.category, si.owner_id,
        CAST(br.created_at AS TEXT) AS created_at
 FROM borrow_requests br
-JOIN shared_items si ON si.id = br.item_id
+JOIN shared_items si ON si.id::text = br.item_id::text
 WHERE br.requester_id = $1
 ORDER BY br.created_at DESC
 "#;

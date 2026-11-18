@@ -76,7 +76,7 @@ const DB_SELECT_LIST_BASE: &str = r#"
            ST_AsText(i.location_point) AS location_point,
            o.id AS org_id, o.name AS org_name, o.logo_url AS org_logo_url
     FROM internships i
-    LEFT JOIN organizations o ON o.id = i.company_id
+    LEFT JOIN organizations o ON o.id::text = i.company_id::text
     WHERE (i.status = 'open' OR i.status = 'draft')
     ORDER BY i.created_at DESC
     LIMIT $1 OFFSET $2
@@ -95,7 +95,7 @@ const DB_SELECT_DETAIL: &str = r#"
            ST_AsText(i.location_point) AS location_point,
            o.id AS org_id, o.name AS org_name, o.logo_url AS org_logo_url
     FROM internships i
-    LEFT JOIN organizations o ON o.id = i.company_id
+    LEFT JOIN organizations o ON o.id::text = i.company_id::text
     WHERE i.id::text = $1
 "#;
 
@@ -106,7 +106,7 @@ const DB_SELECT_NEARBY_BASE: &str = r#"
            ST_AsText(i.location_point) AS location_point,
            o.id AS org_id, o.name AS org_name, o.logo_url AS org_logo_url
     FROM internships i
-    LEFT JOIN organizations o ON o.id = i.company_id
+    LEFT JOIN organizations o ON o.id::text = i.company_id::text
     WHERE i.location_point IS NOT NULL
       AND ST_DWithin(i.location_point,
                      ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)
