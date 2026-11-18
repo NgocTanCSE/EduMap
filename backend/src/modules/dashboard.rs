@@ -22,7 +22,7 @@ use serde_json::Value;
 /// `GET /api/dashboard/overview` — tất cả trong một lần round-trip.
 const DB_DASHBOARD_OVERVIEW: &str = r#"
 WITH user_base AS (
-    SELECT id, full_name, email, avatar_url, role FROM users WHERE id = $1
+    SELECT id, full_name, email, avatar_url, role FROM users WHERE id = $1::uuid
 ), learning AS (
     SELECT COUNT(*) AS c FROM user_learning_history WHERE user_id = $1::uuid
 ), skills AS (

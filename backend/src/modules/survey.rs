@@ -45,7 +45,7 @@ const DB_SELECT_SURVEYS: &str = r#"
 const DB_SELECT_SURVEY_BY_ID: &str = r#"
     SELECT id, title, questions_json, status,
            CAST(created_at AS TEXT) AS created_at
-    FROM surveys WHERE id = $1
+    FROM surveys WHERE id = $1::uuid
 "#;
 
 const DB_INSERT_SURVEY: &str = r#"

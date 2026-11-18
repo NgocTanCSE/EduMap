@@ -63,22 +63,22 @@ FROM shared_items
 WHERE status = 'available'
 "#;
 
-const DB_ITEM_BY_ID: &str = r#"SELECT id, owner_id FROM shared_items WHERE id = $1"#;
+const DB_ITEM_BY_ID: &str = r#"SELECT id, owner_id FROM shared_items WHERE id = $1::uuid"#;
 
 const DB_ITEM_FULL: &str = r#"
 SELECT id, name, category, description, status, lat, lng, address, owner_id,
        CAST(created_at AS TEXT) AS created_at,
        CAST(updated_at AS TEXT) AS updated_at
-FROM shared_items WHERE id = $1
+FROM shared_items WHERE id = $1::uuid
 "#;
 
 const DB_UPDATE_ITEM: &str = r#"
 UPDATE shared_items SET name = $1, category = $2, description = $3,
     status = $4, lat = $5, lng = $6, address = $7, updated_at = NOW()
-WHERE id = $8 AND owner_id = $9::uuid
+WHERE id = $8::uuid AND owner_id = $9::uuid
 "#;
 
-const DB_DELETE_ITEM: &str = r#"DELETE FROM shared_items WHERE id = $1 AND owner_id = $2::uuid"#;
+const DB_DELETE_ITEM: &str = r#"DELETE FROM shared_items WHERE id = $1::uuid AND owner_id = $2::uuid"#;
 
 const DB_INSERT_ITEM: &str = r#"
 INSERT INTO shared_items (name, category, description, status, owner_id,
@@ -245,7 +245,7 @@ pub async fn update_item(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let owner = crate::db::query("SELECT owner_id FROM shared_items WHERE id = $1")
+    let owner = crate::db::query("SELECT owner_id FROM shared_items WHERE id = $1::uuid")
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await

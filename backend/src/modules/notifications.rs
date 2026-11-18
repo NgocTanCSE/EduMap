@@ -43,7 +43,7 @@ const DB_SELECT_NOTIFICATION: &str = r#"
     SELECT id, user_id, title, body, channel, is_read,
            CAST(sent_at AS TEXT) AS sent_at,
            CAST(read_at AS TEXT) AS read_at
-    FROM notifications WHERE id = $1
+    FROM notifications WHERE id = $1::uuid
 "#;
 
 const DB_SELECT_USER_NOTIFICATIONS: &str = r#"
@@ -226,7 +226,7 @@ pub async fn mark_as_read(
     let user = authenticated_user(user)?;
 
     // Chỉ chủ sở hữu hoặc admin/moderator mới cập nhật được.
-    let owner: Option<String> = crate::db::query("SELECT user_id FROM notifications WHERE id = $1")
+    let owner: Option<String> = crate::db::query("SELECT user_id FROM notifications WHERE id = $1::uuid")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -247,7 +247,7 @@ pub async fn mark_as_read(
         _ => {}
     }
 
-    let _row = match crate::db::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1 RETURNING id")
+    let _row = match crate::db::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1::uuid RETURNING id")
         .bind(&id)
         .fetch_optional(pool.db())
         .await

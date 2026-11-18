@@ -58,7 +58,7 @@ const DB_SELECT_EXISTING_CERT: &str = r#"
 
 /// Kiểm tra mẫu chứng nhận tồn tại (và lấy tên để gửi sang blockchain).
 const DB_SELECT_TEMPLATE: &str = r#"
-    SELECT id, name FROM certificate_templates WHERE id = $1
+    SELECT id, name FROM certificate_templates WHERE id = $1::uuid
 "#;
 
 /// Cấp mã xác thực mới.

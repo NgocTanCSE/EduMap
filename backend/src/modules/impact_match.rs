@@ -209,7 +209,7 @@ const DB_SELECT_NEED_BY_ID: &str = r#"
            status, tags, apply_url, provenance, created_by,
            CAST(created_at AS TEXT) AS created_at
     FROM sponsor_needs
-    WHERE id = $1 AND deleted_at IS NULL
+    WHERE id = $1::uuid AND deleted_at IS NULL
 "#;
 
 const DB_INSERT_NEED: &str = r#"
@@ -241,7 +241,7 @@ const DB_SELECT_SPONSOR_BY_ID: &str = r#"
            location, status, is_verified, created_by,
            CAST(created_at AS TEXT) AS created_at
     FROM sponsor_profiles
-    WHERE id = $1
+    WHERE id = $1::uuid
 "#;
 
 const DB_INSERT_SPONSOR: &str = r#"

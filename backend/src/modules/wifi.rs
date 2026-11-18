@@ -41,7 +41,7 @@ const DB_SELECT_WIFI_LOCATIONS: &str = r#"
     SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
-           ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
+           ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
@@ -53,7 +53,7 @@ const DB_SELECT_WIFI_NEARBY: &str = r#"
     SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
-           ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
+           ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
@@ -67,7 +67,7 @@ const DB_SELECT_WIFI_BY_ID: &str = r#"
     SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
            NULL::text AS password, NULL::text AS password_hint,
            l.is_verified AS verified, l.created_by, l.created_at,
-           ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
+           ST_X(l.coordinates::geometry) AS lng, ST_Y(l.coordinates::geometry) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
@@ -79,7 +79,7 @@ const DB_INSERT_WIFI: &str = r#"
                            created_at, updated_at)
     VALUES ($1,$2,6,ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,$5::uuid,NOW(),NOW())
     RETURNING id::text AS id,
-              ST_X(coordinates) AS lng, ST_Y(coordinates) AS lat
+              ST_X(coordinates::geometry) AS lng, ST_Y(coordinates::geometry) AS lat
 "#;
 
 const DB_UPDATE_SPEED_TEST: &str = r#"

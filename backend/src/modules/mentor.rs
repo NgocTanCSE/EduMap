@@ -82,7 +82,7 @@ const DB_SELECT_USER: &str = r#"
     SELECT id, full_name, email, avatar_url, major, mbti_type, location,
            CAST(skills AS TEXT) AS skills,
            CAST(interests AS TEXT) AS interests
-    FROM users WHERE id = $1
+    FROM users WHERE id = $1::uuid
 "#;
 
 const DB_MENTOR_BASE: &str = r#"
@@ -192,12 +192,12 @@ const DB_BOOKING_BY_ID: &str = r#"
     LEFT JOIN mentors m ON m.user_id = b.mentor_id
     LEFT JOIN users u ON u.id = m.user_id
     LEFT JOIN users s ON s.id = b.student_id
-    WHERE b.id = $1
+    WHERE b.id = $1::uuid
 "#;
 
 const DB_UPDATE_BOOKING_STATUS: &str = r#"
     UPDATE bookings SET status = $1, updated_at = NOW()
-    WHERE id = $2
+    WHERE id = $2::uuid
     RETURNING id, mentor_id, student_id,
               CAST(slot_start AS TEXT) AS slot_start,
               CAST(slot_end AS TEXT) AS slot_end,

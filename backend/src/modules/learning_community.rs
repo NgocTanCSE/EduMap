@@ -84,7 +84,7 @@ const DB_SELECT_SPOT_BY_ID: &str = r#"
            amenities, rating_avg, total_capacity,
            CAST(created_at AS TEXT) AS created_at,
            CAST(last_updated AS TEXT) AS last_updated
-    FROM learning_spots WHERE id = $1
+    FROM learning_spots WHERE id = $1::uuid
 "#;
 
 const DB_SELECT_SPOTS_NEARBY: &str = r#"

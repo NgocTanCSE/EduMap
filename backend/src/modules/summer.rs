@@ -55,7 +55,7 @@ const DB_SELECT_CAMPAIGNS: &str = r#"
 const DB_SELECT_CAMPAIGN_BY_ID: &str = r#"
     SELECT id, name, year, location, lat, lng, status, description,
            CAST(created_at AS TEXT) AS created_at
-    FROM summer_campaigns WHERE id = $1 AND status = 'active'
+    FROM summer_campaigns WHERE id = $1::uuid AND status = 'active'
 "#;
 
 const DB_INSERT_CAMPAIGN: &str = r#"
@@ -96,7 +96,7 @@ const DB_INSERT_REGISTRATION: &str = r#"
 
 const DB_SELECT_REGISTRATION_BY_ID: &str = r#"
     SELECT id, campaign_id, status, user_id
-    FROM summer_registrations WHERE id = $1
+    FROM summer_registrations WHERE id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------
@@ -391,7 +391,7 @@ pub async fn update_registration_status(
         _ => return Err(AppError::BadRequest("Trạng thái phải là `approved` hoặc `rejected`.".to_string())),
     };
 
-    let _ = crate::db::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2")
+    let _ = crate::db::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2::uuid")
         .bind(&status)
         .bind(&id)
         .execute(pool.db())

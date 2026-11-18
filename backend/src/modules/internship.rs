@@ -96,7 +96,7 @@ const DB_SELECT_DETAIL: &str = r#"
            o.id AS org_id, o.name AS org_name, o.logo_url AS org_logo_url
     FROM internships i
     LEFT JOIN organizations o ON o.id = i.company_id
-    WHERE i.id = $1
+    WHERE i.id = $1::uuid
 "#;
 
 const DB_SELECT_NEARBY_BASE: &str = r#"

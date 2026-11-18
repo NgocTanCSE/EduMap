@@ -54,7 +54,7 @@ const DB_SELECT_PIN_BY_ID: &str = r#"
            CAST(photos AS TEXT) AS photos, CAST(tags AS TEXT) AS tags,
            status, CAST(created_at AS TEXT) AS created_at,
            CAST(updated_at AS TEXT) AS updated_at
-    FROM pins WHERE id = $1 AND deleted_at IS NULL
+    FROM pins WHERE id = $1::uuid AND deleted_at IS NULL
 "#;
 
 /// `SELECT` danh sách pin (filter NEWS INTO SQL text, `limit/offset` bind).
@@ -85,7 +85,7 @@ const DB_INSERT_PIN: &str = r#"
 
 /// `SELECT` `full_name` của một user dùng cho `poster_name` (dùng khi tạo pin).
 const DB_USER_FULL_NAME: &str = r#"
-    SELECT full_name FROM users WHERE id = $1
+    SELECT full_name FROM users WHERE id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------
@@ -495,7 +495,7 @@ pub async fn delete_pin(
         ));
     }
 
-    crate::db::query("UPDATE pins SET deleted_at = NOW() WHERE id = $1")
+    crate::db::query("UPDATE pins SET deleted_at = NOW() WHERE id = $1::uuid")
         .bind(&id)
         .execute(pool.db())
         .await

@@ -63,7 +63,7 @@ const DB_SELECT_SCHOLARSHIP_BY_ID: &str = r#"
            CAST(status AS TEXT) AS status,
            CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
            apply_url, created_at
-    FROM scholarships WHERE id = $1
+    FROM scholarships WHERE id = $1::uuid
 "#;
 
 const DB_INSERT_SCHOLARSHIP: &str = r#"
@@ -86,7 +86,7 @@ const DB_UPDATE_SCHOLARSHIP: &str = r#"
         apply_url = COALESCE($7, apply_url),
         status = COALESCE($8, status),
         updated_at = NOW()
-    WHERE id = $9
+    WHERE id = $9::uuid
     RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
@@ -113,7 +113,7 @@ const DB_SELECT_APPLICATIONS: &str = r#"
 
 const DB_SELECT_USER: &str = r#"
     SELECT id, full_name, major, role
-    FROM users WHERE id = $1
+    FROM users WHERE id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------

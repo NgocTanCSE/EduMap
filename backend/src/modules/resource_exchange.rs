@@ -140,7 +140,7 @@ SELECT id, type, title, description, condition, location, lat, lng,
 FROM resources
 "#;
 
-const DB_RESOURCE_BY_ID: &str = r#"SELECT * FROM resources WHERE id = $1"#;
+const DB_RESOURCE_BY_ID: &str = r#"SELECT * FROM resources WHERE id = $1::uuid"#;
 
 const DB_INSERT_RESOURCE: &str = r#"
 INSERT INTO resources (type, title, description, condition, location, lat, lng,
@@ -160,7 +160,7 @@ SELECT id, need_type, title, description, urgency, location, lat, lng,
 FROM resource_requests
 "#;
 
-const DB_REQUEST_BY_ID: &str = r#"SELECT * FROM resource_requests WHERE id = $1"#;
+const DB_REQUEST_BY_ID: &str = r#"SELECT * FROM resource_requests WHERE id = $1::uuid"#;
 
 const DB_INSERT_REQUEST: &str = r#"
 INSERT INTO resource_requests (need_type, title, description, urgency, location,

@@ -111,7 +111,7 @@ SELECT id, title, description, type, organization,
        CAST(created_by AS TEXT) AS created_by, is_team_finding_open,
        CAST(tags AS TEXT) AS tags,
        CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
-FROM opportunities WHERE id = $1 AND deleted_at IS NULL
+FROM opportunities WHERE id = $1::uuid AND deleted_at IS NULL
 "#;
 
 
@@ -119,7 +119,7 @@ FROM opportunities WHERE id = $1 AND deleted_at IS NULL
 const DB_TOGGLE_TEAM_FINDING: &str = r#"
 UPDATE opportunities SET is_team_finding_open = NOT is_team_finding_open,
     updated_at = NOW()
-WHERE id = $1 AND created_by = $2::UUID AND deleted_at IS NULL
+WHERE id = $1::uuid AND created_by = $2::UUID AND deleted_at IS NULL
 RETURNING id, is_team_finding_open
 "#;
 
@@ -146,7 +146,7 @@ SELECT id, full_name, major,
        CAST(skills AS TEXT) AS skills,
        CAST(interests AS TEXT) AS interests,
        CAST(location AS TEXT) AS location, role
-FROM users WHERE id = $1
+FROM users WHERE id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------

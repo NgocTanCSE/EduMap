@@ -61,7 +61,7 @@ const DB_SELECT_POI_BY_ID: &str = r#"
     SELECT id, name, description, type_id, address, city, ST_AsText(location) AS location,
            status, verified, CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
     FROM map_points
-    WHERE id = $1 AND deleted_at IS NULL
+    WHERE id = $1::uuid AND deleted_at IS NULL
 "#;
 
 const DB_SELECT_NEARBY_POIS: &str = r#"

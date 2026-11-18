@@ -105,7 +105,7 @@ const DB_SELECT_PENDING_REQUESTS: &str = r#"
 const DB_SELECT_REQUEST_BY_ID: &str = r#"
     SELECT c.id, c.requester_id, c.receiver_id, c.status
     FROM student_connections c
-    WHERE c.id = $1 AND c.receiver_id = $2 AND c.status = 'pending'
+    WHERE c.id = $1::uuid AND c.receiver_id = $2 AND c.status = 'pending'
 "#;
 
 const DB_SELECT_EXISTING_CONNECTION: &str = r#"
@@ -115,7 +115,7 @@ const DB_SELECT_EXISTING_CONNECTION: &str = r#"
 "#;
 
 const DB_SELECT_USER_BY_ID: &str = r#"
-    SELECT id, full_name FROM users WHERE id = $1
+    SELECT id, full_name FROM users WHERE id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ pub async fn answer_question(
     }
 
     // Câu hỏi phải tồn tại.
-    let question = crate::db::query(r#"SELECT id FROM hs_questions WHERE id = $1"#)
+    let question = crate::db::query(r#"SELECT id FROM hs_questions WHERE id = $1::uuid"#)
         .bind(&form.question_id)
         .fetch_optional(pool.db())
         .await
@@ -465,7 +465,7 @@ pub async fn respond_to_request(
         Some(r) => {
             let new_status = if form.accept { "accepted" } else { "rejected" };
             crate::db::query(
-                r#"UPDATE student_connections SET status = $1 WHERE id = $2"#,
+                r#"UPDATE student_connections SET status = $1 WHERE id = $2::uuid"#,
             )
             .bind(new_status)
             .bind(&form.connection_id)
