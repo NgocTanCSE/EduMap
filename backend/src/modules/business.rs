@@ -144,7 +144,7 @@ const DB_SELECT_PROFILE_BY_USER: &str = r#"
 const DB_INSERT_PROFILE: &str = r#"
     INSERT INTO business_profiles ("user_id", "name", "description", "industry",
         "website", "logo_url", "address", "lat", "lng", "is_verified")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10)
     RETURNING "id", CAST("created_at" AS TEXT) AS created_at,
               CAST("updated_at" AS TEXT) AS updated_at
 "#;
@@ -187,7 +187,7 @@ const DB_SELECT_PRODUCT_BY_ID: &str = r#"
 const DB_INSERT_PRODUCT: &str = r#"
     INSERT INTO products ("name", "description", "price", "currency", "category",
         "stock", "image_url", "business_profile_id")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8::uuid)
     RETURNING "id", CAST("created_at" AS TEXT) AS created_at,
               CAST("updated_at" AS TEXT) AS updated_at
 "#;
@@ -230,7 +230,7 @@ const DB_SELECT_SERVICE_BY_ID: &str = r#"
 const DB_INSERT_SERVICE: &str = r#"
     INSERT INTO business_services ("name", "description", "price", "currency",
         "category", "duration", "location", "business_profile_id")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8::uuid)
     RETURNING "id", CAST("created_at" AS TEXT) AS created_at,
               CAST("updated_at" AS TEXT) AS updated_at
 "#;
@@ -277,7 +277,7 @@ const DB_CHECK_REVIEW: &str = r#"
 
 const DB_INSERT_REVIEW: &str = r#"
     INSERT INTO reviews ("user_id", "product_id", "service_id", "rating", "comment")
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1::uuid,$2::uuid,$3,$4,$5)
     RETURNING "id", CAST("created_at" AS TEXT) AS created_at
 "#;
 

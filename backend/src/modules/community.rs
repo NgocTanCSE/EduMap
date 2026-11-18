@@ -190,7 +190,7 @@ const DB_SELECT_COMMENTS: &str = r#"
            a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role
     FROM comments c
     LEFT JOIN users a ON a.id = c.author_id
-    WHERE c.post_id = $1 AND c.status = 'active' AND c.deleted_at IS NULL
+    WHERE c.post_id = $1::uuid AND c.status = 'active' AND c.deleted_at IS NULL
     ORDER BY c.created_at ASC
 "#;
 
@@ -504,7 +504,7 @@ pub async fn get_comments(
     let offset = (page - 1) * limit;
 
     let total: i64 = crate::db::query(
-        "SELECT COUNT(*) FROM comments WHERE post_id = $1 \
+        "SELECT COUNT(*) FROM comments WHERE post_id = $1::uuid \
          AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(&post_id)

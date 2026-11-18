@@ -38,8 +38,9 @@ use serde_json::Value;
 /// + `lat`/`lng` trực tiếp để frontend (Leaflet) đọc. `coordinates` = cfold
 /// geojson (cùng shape với `location`).
 const DB_SELECT_WIFI_LOCATIONS: &str = r#"
-    SELECT l.id, l.name, l.address, l.speed_mbps, l.is_free, l.password,
-           l.password_hint, l.verified, l.created_by, l.created_at,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+           NULL::text AS password, NULL::text AS password_hint,
+           l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
@@ -49,8 +50,9 @@ const DB_SELECT_WIFI_LOCATIONS: &str = r#"
 "#;
 
 const DB_SELECT_WIFI_NEARBY: &str = r#"
-    SELECT l.id, l.name, l.address, l.speed_mbps, l.is_free, l.password,
-           l.password_hint, l.verified, l.created_by, l.created_at,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+           NULL::text AS password, NULL::text AS password_hint,
+           l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
@@ -62,23 +64,21 @@ const DB_SELECT_WIFI_NEARBY: &str = r#"
 "#;
 
 const DB_SELECT_WIFI_BY_ID: &str = r#"
-    SELECT l.id, l.name, l.address, l.speed_mbps, l.is_free, l.password,
-           l.password_hint, l.verified, l.created_by, l.created_at,
+    SELECT l.id::text AS id, l.name, l.address, NULL::int AS speed_mbps, true AS is_free,
+           NULL::text AS password, NULL::text AS password_hint,
+           l.is_verified AS verified, l.created_by, l.created_at,
            ST_X(l.coordinates) AS lng, ST_Y(l.coordinates) AS lat,
            ST_AsGeoJSON(l.coordinates::geometry) AS coordinates,
            ST_AsGeoJSON(l.coordinates::geometry) AS location
     FROM locations l
-    WHERE l.id = $1 AND l.category_id = 6
+    WHERE l.id = $1::uuid AND l.category_id = 6
 "#;
 
 const DB_INSERT_WIFI: &str = r#"
-    INSERT INTO locations (name, address, category_id, coordinates, speed_mbps,
-                           is_free, password, password_hint, verified, created_by,
+    INSERT INTO locations (name, address, category_id, coordinates, created_by,
                            created_at, updated_at)
-    VALUES ($1, $2, 6, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5, $6, $7, $8,
-            false, $9, NOW(), NOW())
-    RETURNING id, name, address, speed_mbps, is_free, password, password_hint,
-              verified, created_by, created_at,
+    VALUES ($1,$2,6,ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,$5::uuid,NOW(),NOW())
+    RETURNING id::text AS id,
               ST_X(coordinates) AS lng, ST_Y(coordinates) AS lat
 "#;
 
@@ -86,7 +86,7 @@ const DB_UPDATE_SPEED_TEST: &str = r#"
     UPDATE locations SET rating_avg = ($1 * rating_count + $2) / (rating_count + 1),
                          rating_count = rating_count + 1,
                          updated_at = NOW()
-    WHERE id = $3
+    WHERE id = $3::uuid
 "#;
 
 // ---------------------------------------------------------------------------
@@ -254,10 +254,6 @@ pub async fn report_wifi(
         .bind(body.address.as_deref())
         .bind(&lng)
         .bind(&lat)
-        .bind(body.speed_mbps)
-        .bind(body.is_free)
-        .bind(body.password.as_deref())
-        .bind(body.password_hint.as_deref())
         .bind(&user.id)
         .fetch_one(pool.db())
         .await

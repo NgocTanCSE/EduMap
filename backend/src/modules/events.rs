@@ -279,7 +279,7 @@ const DB_LOCK_EVENT: &str = r#"
 const DB_EVENT_REGISTRATION: &str = r#"
     INSERT INTO "event_registrations"
         ("event_id", "user_id", "status", "ticket_code", "created_at")
-    VALUES ($1, $2, 'registered', $3, NOW())
+    VALUES ($1::uuid,$2::uuid,'registered',$3,NOW())
     RETURNING CAST("id" AS TEXT) AS "id", "ticket_code"
 "#;
 
@@ -297,7 +297,7 @@ const DB_DOUBLE_REGISTRATION: &str = r#"
 const DB_AWARD_POINTS: &str = r#"
     INSERT INTO "user_points"
         ("user_id", "points", "action", "source_type", "source_id", "created_at")
-    VALUES ($1, 100, 'EVENT_REGISTRATION', 'event_registration', $2, NOW())
+    VALUES ($1::uuid,100,'EVENT_REGISTRATION','event_registration',$2,NOW())
     ON CONFLICT ("user_id", "action", "source_id") DO NOTHING
 "#;
 

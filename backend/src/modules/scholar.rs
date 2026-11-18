@@ -96,7 +96,7 @@ const DB_UPDATE_SCHOLARSHIP: &str = r#"
 const DB_INSERT_APPLICATION: &str = r#"
     INSERT INTO scholarship_applications (scholarship_id, student_id,
                                           personal_statement, cv_url, status)
-    VALUES ($1, $2, $3, $4, 'pending')
+    VALUES ($1::uuid,$2::uuid,$3,$4,'pending')
     RETURNING id::text AS id, scholarship_id, student_id, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
@@ -107,7 +107,7 @@ const DB_SELECT_APPLICATIONS: &str = r#"
            s.title AS scholarship_title, s.provider AS scholarship_provider
     FROM scholarship_applications a
     LEFT JOIN scholarships s ON s.id = a.scholarship_id
-    WHERE a.student_id = $1
+    WHERE a.student_id = $1::uuid
     ORDER BY a.created_at DESC
 "#;
 
@@ -335,7 +335,7 @@ pub async fn apply_scholarship(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM scholarship_applications WHERE scholarship_id = $1 AND student_id = $2",
+        "SELECT 1 FROM scholarship_applications WHERE scholarship_id = $1::uuid AND student_id = $2::uuid",
     )
     .bind(&id)
     .bind(&user.id)
@@ -468,7 +468,7 @@ pub async fn update_scholarship(
 
 /// Helper: gửi thông báo in-app cho người dùng (các admin mới gửi).
 async fn send_notification_to_user(pool: &DbPool, user_id: &str, message: String) -> Result<(), AppError> {
-    crate::db::query("INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at) VALUES ($1, $2, $3, $4, false, NOW())")
+    crate::db::query("INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at) VALUES ($1::uuid,$2,$3,$4,false,NOW())")
         .bind(user_id)
         .bind("Gửi đơn")
         .bind(&message)

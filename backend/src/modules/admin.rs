@@ -101,7 +101,7 @@ const DB_RESTORE_USER: &str = r#"
 
 const DB_INSERT_AUDIT_LOG: &str = r#"
     INSERT INTO audit_logs (user_id, action, resource, resource_id, old_data, new_data)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1::uuid,$2,$3,$4::uuid,$5,$6)
 "#;
 
 // ---------------------------------------------------------------------------

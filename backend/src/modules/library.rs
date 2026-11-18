@@ -115,7 +115,7 @@ const DB_INSERT_RESOURCE: &str = r#"
     INSERT INTO learning_materials (title, description, type, subject, grade,
                                     author_id, file_url, thumbnail_url, tags,
                                     status, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', NOW(), NOW())
+    VALUES ($1,$2,$3,$4,$5,$6::uuid,$7,$8,$9,'draft',NOW(),NOW())
     RETURNING id::text AS id, title, description, type, subject, grade, file_url,
               thumbnail_url, download_count, view_count, status,
               CAST(created_at AS TEXT) AS created_at

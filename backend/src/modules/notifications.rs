@@ -50,7 +50,7 @@ const DB_SELECT_USER_NOTIFICATIONS: &str = r#"
     SELECT id, user_id, title, body, channel, is_read,
            CAST(sent_at AS TEXT) AS sent_at,
            CAST(read_at AS TEXT) AS read_at
-    FROM notifications WHERE user_id = $1
+    FROM notifications WHERE user_id = $1::uuid
     ORDER BY sent_at DESC
 "#;
 
@@ -58,13 +58,13 @@ const DB_SELECT_NOTIFICATIONS_BY_USER: &str = r#"
     SELECT id, user_id, title, body, channel, is_read,
            CAST(sent_at AS TEXT) AS sent_at,
            CAST(read_at AS TEXT) AS read_at
-    FROM notifications WHERE user_id = $1
+    FROM notifications WHERE user_id = $1::uuid
     ORDER BY sent_at DESC
 "#;
 
 const DB_INSERT_NOTIFICATION: &str = r#"
     INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at)
-    VALUES ($1, $2, $3, $4, false, NOW())
+    VALUES ($1::uuid,$2,$3,$4,false,NOW())
     RETURNING id, user_id, title, body, channel, is_read,
               CAST(sent_at AS TEXT) AS sent_at,
               CAST(read_at AS TEXT) AS read_at

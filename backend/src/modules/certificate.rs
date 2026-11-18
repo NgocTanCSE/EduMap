@@ -53,7 +53,7 @@ const DB_SELECT_CERT_BY_CODE: &str = r#"
 /// Kiểm tra người dùng đã sở hữu chứng chỉ của mẫu này chưa.
 const DB_SELECT_EXISTING_CERT: &str = r#"
     SELECT id FROM user_certificates
-    WHERE user_id = $1 AND template_id = $2
+    WHERE user_id = $1::uuid AND template_id = $2::uuid
 "#;
 
 /// Kiểm tra mẫu chứng nhận tồn tại (và lấy tên để gửi sang blockchain).
@@ -66,7 +66,7 @@ const DB_INSERT_CERTIFICATE: &str = r#"
     INSERT INTO user_certificates
         (id, user_id, template_id, issued_at, verify_code,
          blockchain_metadata, pdf_url, qr_url, status)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9)
     RETURNING id,
             verify_code,
             CAST(issued_at AS TEXT) AS issued_at,
@@ -90,7 +90,7 @@ const DB_SELECT_PORTFOLIO: &str = r#"
     JOIN users u ON u.id = uc.user_id
     JOIN certificate_templates t ON t.id = uc.template_id
     LEFT JOIN organizations o ON o.id = t.organization_id
-    WHERE uc.user_id = $1 AND uc.status = 'active'
+    WHERE uc.user_id = $1::uuid AND uc.status = 'active'
     ORDER BY uc.issued_at DESC
 "#;
 

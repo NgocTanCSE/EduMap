@@ -146,8 +146,7 @@ const DB_INSERT_RESOURCE: &str = r#"
 INSERT INTO resources (type, title, description, condition, location, lat, lng,
     available_from, cost, contact_method, status, is_verified, tags, metadata,
     created_by, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-    NOW(), NOW())
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::uuid,NOW(),NOW())
 RETURNING id
 "#;
 
@@ -167,7 +166,7 @@ const DB_INSERT_REQUEST: &str = r#"
 INSERT INTO resource_requests (need_type, title, description, urgency, location,
     lat, lng, deadline, preferred_min_condition, contact_method, status, tags,
     created_by, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::uuid,NOW(),NOW())
 RETURNING id
 "#;
 

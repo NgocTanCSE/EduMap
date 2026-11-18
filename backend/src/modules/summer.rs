@@ -68,7 +68,7 @@ const DB_INSERT_CAMPAIGN: &str = r#"
 const DB_INSERT_ACTIVITY: &str = r#"
     INSERT INTO summer_activities (campaign_id, title, description, volunteer_count,
                                    hours_spent, date, status)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1::uuid,$2,$3,$4,$5,$6,$7)
     RETURNING id, campaign_id, title, description, volunteer_count,
               hours_spent, date, status,
               CAST(created_at AS TEXT) AS created_at
@@ -78,18 +78,18 @@ const DB_SELECT_ACTIVITIES_BY_CAMPAIGN_DATE: &str = r#"
     SELECT id, title, volunteer_count, hours_spent, date, status,
            CAST(created_at AS TEXT) AS created_at
     FROM summer_activities
-    WHERE campaign_id = $1 AND date = $2
+    WHERE campaign_id = $1::uuid AND date = $2
     ORDER BY created_at DESC
 "#;
 
 const DB_COUNT_APPROVED_REGISTRATIONS: &str = r#"
     SELECT COUNT(*) FROM summer_registrations
-    WHERE campaign_id = $1 AND status = 'approved'
+    WHERE campaign_id = $1::uuid AND status = 'approved'
 "#;
 
 const DB_INSERT_REGISTRATION: &str = r#"
     INSERT INTO summer_registrations (user_id, campaign_id, status)
-    VALUES ($1, $2, 'pending')
+    VALUES ($1::uuid,$2::uuid,'pending')
     RETURNING id, user_id, campaign_id, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
@@ -331,7 +331,7 @@ pub async fn register_volunteer(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM summer_registrations WHERE user_id = $1 AND campaign_id = $2",
+        "SELECT 1 FROM summer_registrations WHERE user_id = $1::uuid AND campaign_id = $2::uuid",
     )
     .bind(&user.id)
     .bind(&id)

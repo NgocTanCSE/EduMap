@@ -55,7 +55,7 @@ const DB_CHALLENGES: &str = r#"
 const DB_LOG_ACTIVITY: &str = r#"
     INSERT INTO "green_challenge_activities"
         ("user_id", "challenge_id", "carbon_saved_kg", "points_earned", "created_at")
-    VALUES ($1, $2, $3, $4, NOW())
+    VALUES ($1::uuid,$2::uuid,$3,$4,NOW())
     RETURNING CAST("id" AS TEXT) AS "id", "user_id", CAST("challenge_id" AS TEXT) AS "challenge_id", "carbon_saved_kg", "points_earned",
             CAST("created_at" AS TEXT) AS "created_at"
 "#;
@@ -63,7 +63,7 @@ const DB_LOG_ACTIVITY: &str = r#"
 const DB_CREATE_CHALLENGE: &str = r#"
     INSERT INTO "green_challenges"
         ("title", "description", "points_reward", "status", "created_by", "created_at")
-    VALUES ($1, $2, $3, 'active', $4, NOW())
+    VALUES ($1,$2,$3,'active',$4::uuid,NOW())
     RETURNING CAST("id" AS TEXT) AS "id", "title", "points_reward", CAST("created_at" AS TEXT) AS "created_at"
 "#;
 

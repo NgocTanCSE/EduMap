@@ -75,15 +75,15 @@ FROM shared_items WHERE id = $1
 const DB_UPDATE_ITEM: &str = r#"
 UPDATE shared_items SET name = $1, category = $2, description = $3,
     status = $4, lat = $5, lng = $6, address = $7, updated_at = NOW()
-WHERE id = $8 AND owner_id = $9
+WHERE id = $8 AND owner_id = $9::uuid
 "#;
 
-const DB_DELETE_ITEM: &str = r#"DELETE FROM shared_items WHERE id = $1 AND owner_id = $2"#;
+const DB_DELETE_ITEM: &str = r#"DELETE FROM shared_items WHERE id = $1 AND owner_id = $2::uuid"#;
 
 const DB_INSERT_ITEM: &str = r#"
 INSERT INTO shared_items (name, category, description, status, owner_id,
     lat, lng, address, created_at, updated_at)
-VALUES ($1, $2, $3, 'available', $4, $5, $6, $7, NOW(), NOW())
+VALUES ($1,$2,$3,'available',$4::uuid,$5,$6,$7,NOW(),NOW())
 RETURNING id
 "#;
 

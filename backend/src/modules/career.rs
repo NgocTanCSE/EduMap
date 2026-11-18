@@ -88,13 +88,13 @@ const DB_SELECT_USER_CAREER: &str = r#"
     SELECT id, user_id, career_path_id, goal_title, description,
            CAST(target_date AS TEXT) AS target_date, status,
            CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
-    FROM user_careers WHERE user_id = $1 ORDER BY created_at DESC
+    FROM user_careers WHERE user_id = $1::uuid ORDER BY created_at DESC
 "#;
 
 const DB_SELECT_USER_SKILL: &str = r#"
     SELECT id, user_id, skill_name, proficiency_level, description,
            CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at
-    FROM user_skills WHERE user_id = $1 ORDER BY skill_name ASC
+    FROM user_skills WHERE user_id = $1::uuid ORDER BY skill_name ASC
 "#;
 
 const DB_SELECT_APPLICATIONS: &str = r#"
@@ -105,7 +105,7 @@ const DB_SELECT_APPLICATIONS: &str = r#"
            AS job_deadline
     FROM applications a
     LEFT JOIN jobs job ON job.id = a.job_id
-    WHERE a.user_id = $1 ORDER BY a.created_at DESC
+    WHERE a.user_id = $1::uuid ORDER BY a.created_at DESC
 "#;
 
 const DB_SELECT_APPLICATION_BY_ID: &str = r#"
@@ -115,7 +115,7 @@ const DB_SELECT_APPLICATION_BY_ID: &str = r#"
            job.title AS job_title, job.location AS job_location
     FROM applications a
     LEFT JOIN jobs job ON job.id = a.job_id
-    WHERE id = $1 AND user_id = $2
+    WHERE id = $1 AND user_id = $2::uuid
 "#;
 
 const DB_INSERT_JOB: &str = r#"
@@ -145,7 +145,7 @@ const DB_UPDATE_JOB: &str = r#"
 const DB_CREATE_USER_CAREER: &str = r#"
     INSERT INTO user_careers (user_id, career_path_id, goal_title, description,
                               target_date, status)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1::uuid,$2,$3,$4,$5,$6)
     RETURNING id, CAST(created_at AS TEXT) AS created_at
 "#;
 
@@ -153,13 +153,13 @@ const DB_UPDATE_USER_CAREER: &str = r#"
     UPDATE user_careers SET career_path_id = COALESCE($1, career_path_id),
         goal_title = $2, description = $3, target_date = COALESCE($4, target_date),
         status = $5, updated_at = NOW()
-    WHERE id = $6 AND user_id = $7
+    WHERE id = $6 AND user_id = $7::uuid
     RETURNING id, CAST(updated_at AS TEXT) AS updated_at
 "#;
 
 const DB_CREATE_USER_SKILL: &str = r#"
     INSERT INTO user_skills (user_id, skill_name, proficiency_level, description)
-    VALUES ($1, $2, $3, $4)
+    VALUES ($1::uuid,$2,$3,$4)
     ON CONFLICT (user_id, skill_name) DO UPDATE SET
         proficiency_level = EXCLUDED.proficiency_level,
         description = EXCLUDED.description,
@@ -170,26 +170,26 @@ const DB_CREATE_USER_SKILL: &str = r#"
 const DB_UPDATE_USER_SKILL: &str = r#"
     UPDATE user_skills SET proficiency_level = COALESCE($1, proficiency_level),
         description = $2, updated_at = NOW()
-    WHERE id = $3 AND user_id = $4
+    WHERE id = $3 AND user_id = $4::uuid
     RETURNING id, CAST(updated_at AS TEXT) AS updated_at
 "#;
 
 const DB_INSERT_APPLICATION: &str = r#"
     INSERT INTO applications (user_id, job_id, cover_letter, resume_url, status)
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1::uuid,$2::uuid,$3,$4,$5)
     RETURNING id, CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT)
            AS updated_at
 "#;
 
 const DB_UPDATE_APPLICATION_STATUS: &str = r#"
     UPDATE applications SET status = $1, updated_at = NOW()
-    WHERE id = $2 AND user_id = $3
+    WHERE id = $2 AND user_id = $3::uuid
     RETURNING id, CAST(updated_at AS TEXT) AS updated_at
 "#;
 
 const DB_INSERT_USER_FILE: &str = r#"
     INSERT INTO user_files (user_id, original_name, file_url, mime_type, size_kb)
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1::uuid,$2,$3,$4,$5)
     RETURNING id, original_name, file_url, mime_type, size_kb,
               CAST(created_at AS TEXT) AS created_at
 "#;
@@ -936,7 +936,7 @@ pub async fn delete_user_career(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
     let deleted = crate::db::query(
-        r#"DELETE FROM user_careers WHERE id = $1 AND user_id = $2"#
+        r#"DELETE FROM user_careers WHERE id = $1 AND user_id = $2::uuid"#
     )
     .bind(&id)
     .bind(&user.id)
@@ -1051,7 +1051,7 @@ pub async fn delete_user_skill(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
     let deleted = crate::db::query(
-        r#"DELETE FROM user_skills WHERE id = $1 AND user_id = $2"#
+        r#"DELETE FROM user_skills WHERE id = $1 AND user_id = $2::uuid"#
     )
     .bind(&id)
     .bind(&user.id)
@@ -1144,7 +1144,7 @@ pub async fn apply_to_job(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
     let existing = crate::db::query(
-        r#"SELECT id FROM applications WHERE user_id = $1 AND job_id = $2"#
+        r#"SELECT id FROM applications WHERE user_id = $1::uuid AND job_id = $2::uuid"#
     )
     .bind(&user.id)
     .bind(&form.job_id)
@@ -1236,7 +1236,7 @@ pub async fn withdraw_application(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
     let application = crate::db::query(
-        r#"SELECT id, status FROM applications WHERE id = $1 AND user_id = $2"#
+        r#"SELECT id, status FROM applications WHERE id = $1 AND user_id = $2::uuid"#
     )
     .bind(&id)
     .bind(&user.id)

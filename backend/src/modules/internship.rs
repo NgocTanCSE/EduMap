@@ -118,21 +118,20 @@ const DB_INSERT_INTERNSHIP: &str = r#"
     INSERT INTO internships (title, description, field, company_id, location_point,
                              salary_range, duration, requirements, benefits, deadline,
                              status, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326),
-            $7, $8, $9, $10, $11, 'open', NOW(), NOW())
+    VALUES ($1,$2,$3,$4::uuid,ST_SetSRID(ST_MakePoint($5, $6), 4326),$7,$8,$9,$10,$11,'open',NOW(),NOW())
     RETURNING id, CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_INSERT_APPLICATION: &str = r#"
     INSERT INTO internship_applications (user_id, internship_id, cover_letter,
                                          status, tracking_id, created_at)
-    VALUES ($1, $2, $3, 'reviewing', $4, NOW())
+    VALUES ($1::uuid,$2::uuid,$3,'reviewing',$4,NOW())
     RETURNING id, CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_SELECT_EXISTING_APPLICATION: &str = r#"
     SELECT id FROM internship_applications
-    WHERE user_id = $1 AND internship_id = $2
+    WHERE user_id = $1::uuid AND internship_id = $2::uuid
 "#;
 
 // ---------------------------------------------------------------------------

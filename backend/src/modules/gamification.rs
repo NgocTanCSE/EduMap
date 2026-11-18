@@ -114,21 +114,21 @@ const DB_CREATE_BADGE: &str = r#"
 
 const DB_GRANT_BADGE: &str = r#"
     INSERT INTO "user_badges" ("user_id", "badge_id", "earned_at")
-    VALUES ($1, $2, NOW())
+    VALUES ($1::uuid,$2::uuid,NOW())
     ON CONFLICT ("user_id", "badge_id") DO NOTHING
 "#;
 
 const DB_AWARD_POINTS: &str = r#"
     INSERT INTO "user_points"
         ("user_id", "points", "action", "source_type", "source_id", "created_at")
-    VALUES ($1, $2, $3, $4, $5, NOW())
+    VALUES ($1::uuid,$2,$3,$4,$5,NOW())
     ON CONFLICT ("user_id", "action", "source_id") DO NOTHING
 "#;
 
 const DB_SUBMIT_ACTIVITY: &str = r#"
     INSERT INTO "green_activities"
         ("user_id", "activity_type", "description", "proof_url", "status", "ai_confidence", "created_at", "updated_at")
-    VALUES ($1, $2, $3, $4, 'pending', 0, NOW(), NOW())
+    VALUES ($1::uuid,$2,$3,$4,'pending',0,NOW(),NOW())
     RETURNING CAST("id" AS TEXT) AS "id"
 "#;
 

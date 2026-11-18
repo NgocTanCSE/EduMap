@@ -315,13 +315,13 @@ const DB_UPDATE_PROFILE: &str = r#"
 const DB_SELECT_PREFERENCES: &str = r#"
         SELECT user_id, language, theme, notifications_enabled, privacy_level,
                notification_settings
-        FROM user_preferences WHERE user_id = $1
+        FROM user_preferences WHERE user_id = $1::uuid
     "#;
 
 const DB_UPDATE_PREFERENCES: &str = r#"
         INSERT INTO user_preferences (user_id, language, theme, notifications_enabled,
                                       privacy_level, notification_settings, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        VALUES ($1::uuid,$2,$3,$4,$5,$6,NOW())
         ON CONFLICT (user_id) DO UPDATE SET
             language = $2, theme = $3, notifications_enabled = $4,
             privacy_level = $5, notification_settings = $6, updated_at = NOW()
@@ -330,7 +330,7 @@ const DB_UPDATE_PREFERENCES: &str = r#"
 const DB_INSERT_RESET_TOKEN: &str = r#"
         INSERT INTO password_reset_tokens (token, user_id, expires_at, is_used,
                                            created_at, updated_at)
-        VALUES ($1, $2, $3, false, NOW(), NOW())
+        VALUES ($1,$2::uuid,$3,false,NOW(),NOW())
         RETURNING token, user_id, expires_at, is_used
     "#;
 

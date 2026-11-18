@@ -314,7 +314,7 @@ async fn save_history(pool: &DbPool, user_id: &str, message: &str, sources: &ser
     crate::db::query(
         r#"
         INSERT INTO chat_histories (user_id, message, response, context, created_at)
-        VALUES ($1, $2, $3, $4, NOW())
+        VALUES ($1::uuid,$2,$3,$4,NOW())
         "#,
     )
     .bind(&user_id)
@@ -485,7 +485,7 @@ pub async fn history(
         r#"
         SELECT id, user_id, message, response, context, created_at
         FROM chat_histories
-        WHERE user_id = $1
+        WHERE user_id = $1::uuid
         ORDER BY created_at ASC
         LIMIT 50
         "#,

@@ -50,7 +50,7 @@ const DB_SELECT_QUESTIONS: &str = r#"
 
 const DB_INSERT_QUESTION: &str = r#"
     INSERT INTO hs_questions (student_id, title, content, university_target)
-    VALUES ($1, $2, $3, $4)
+    VALUES ($1::uuid,$2,$3,$4)
     RETURNING id, CAST(created_at AS TEXT) AS created_at
 "#;
 
@@ -68,7 +68,7 @@ const DB_SELECT_QUESTIONS_COMMENT_BY_UNIVERSITY: &str = r#"
 
 const DB_INSERT_ANSWER: &str = r#"
     INSERT INTO hs_answers (question_id, mentor_id, content)
-    VALUES ($1, $2, $3)
+    VALUES ($1::uuid,$2::uuid,$3)
     RETURNING id, CAST(created_at AS TEXT) AS created_at
 "#;
 

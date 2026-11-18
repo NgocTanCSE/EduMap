@@ -133,7 +133,7 @@ const DB_SELECT_CATEGORIES_COUNTS: &str = r#"
 const DB_INSERT_POI: &str = r#"
     INSERT INTO map_points (name, description, address, type_id,
                             status, location, created_by, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, 'pending', ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, NOW(), NOW())
+    VALUES ($1,$2,$3,$4,'pending',ST_SetSRID(ST_MakePoint($5, $6), 4326),$7::uuid,NOW(),NOW())
     RETURNING id, name, description, type_id, address, city, status, created_at
 "#;
 

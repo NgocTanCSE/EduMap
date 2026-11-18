@@ -161,7 +161,7 @@ const DB_USER_FILE_BY_ID: &str = r#"
 const DB_INSERT_FILE: &str = r#"
     INSERT INTO "user_files" ("user_id", "original_name", "file_url",
                               "mime_type", "size_kb")
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1::uuid,$2,$3,$4,$5)
     RETURNING "id", "original_name", "file_url", "mime_type", "size_kb",
               CAST("created_at" AS TEXT) AS "created_at"
 "#;

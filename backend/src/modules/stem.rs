@@ -226,7 +226,7 @@ pub async fn register_lab(
 INSERT INTO stem_labs (name, school_id, location_point, description, equipment,
     location_point_text, capacity, booking_available, photos, contact,
     created_at, updated_at)
-VALUES ($1, $2, {location_sql}, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+VALUES ($1,$2::uuid,{location_sql},$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
 RETURNING id
 "#,
     ))

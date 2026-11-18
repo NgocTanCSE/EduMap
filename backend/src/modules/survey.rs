@@ -50,20 +50,20 @@ const DB_SELECT_SURVEY_BY_ID: &str = r#"
 
 const DB_INSERT_SURVEY: &str = r#"
     INSERT INTO surveys (title, questions_json, created_by, status)
-    VALUES ($1, $2, $3, 'active')
+    VALUES ($1,$2,$3::uuid,'active')
     RETURNING id, title, questions_json, status,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_INSERT_RESPONSE: &str = r#"
     INSERT INTO survey_responses (survey_id, user_id, answers_json)
-    VALUES ($1, $2, $3)
+    VALUES ($1::uuid,$2::uuid,$3)
     RETURNING id::text AS id, survey_id, user_id,
               CAST(created_at AS TEXT) AS created_at
 "#;
 
 const DB_COUNT_RESPONSES: &str = r#"
-    SELECT COUNT(*) FROM survey_responses WHERE survey_id = $1
+    SELECT COUNT(*) FROM survey_responses WHERE survey_id = $1::uuid
 "#;
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ pub async fn submit_response(
     }
 
     let existing: Option<i64> = crate::db::query(
-        "SELECT 1 FROM survey_responses WHERE survey_id = $1 AND user_id = $2",
+        "SELECT 1 FROM survey_responses WHERE survey_id = $1::uuid AND user_id = $2::uuid",
     )
     .bind(&id)
     .bind(&user.id)
@@ -252,7 +252,7 @@ pub async fn get_survey_analytics(
     };
 
     // Cỏi các câu trả lời để xây dựng `questions_stats`.
-    let rows = crate::db::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
+    let rows = crate::db::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1::uuid")
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -328,7 +328,7 @@ pub async fn export_survey_data(
         None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
-    let rows = crate::db::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
+    let rows = crate::db::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1::uuid")
         .bind(&id)
         .fetch_all(pool.db())
         .await

@@ -172,7 +172,7 @@ const DB_SELECT_EXISTING: &str = r#"
 
 const DB_INSERT_BOOKMARK: &str = r#"
     INSERT INTO "bookmarks" ("user_id", "target_type", "target_id", "created_at")
-    VALUES ($1, $2, $3, NOW())
+    VALUES ($1::uuid,$2,$3,NOW())
     RETURNING 1
 "#;
 

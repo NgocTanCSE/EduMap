@@ -68,7 +68,7 @@ const DB_EXISTING_TEAM_LEADER: &str = r#"
 const DB_REGISTER_TEAM: &str = r#"
     INSERT INTO "hackathon_teams"
         ("team_name", "hackathon_id", "leader_id", "members", "status", "created_at")
-    VALUES ($1, $2, $3, $4, 'registered', NOW())
+    VALUES ($1,$2::uuid,$3,$4,'registered',NOW())
     RETURNING CAST("id" AS TEXT) AS "id", "team_name", "hackathon_id", "leader_id", "members", "status",
             CAST("created_at" AS TEXT) AS "created_at"
 "#;

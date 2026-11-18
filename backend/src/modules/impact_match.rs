@@ -216,7 +216,7 @@ const DB_INSERT_NEED: &str = r#"
     INSERT INTO sponsor_needs
         (title, description, category, urgency, cost_estimate, location,
          tags, apply_url, created_by, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::uuid,NOW(),NOW())
     RETURNING id, title, description, category, urgency, cost_estimate, location,
               status, tags, apply_url, provenance, created_by,
               CAST(created_at AS TEXT) AS created_at
@@ -249,7 +249,7 @@ const DB_INSERT_SPONSOR: &str = r#"
         (name, description, focus_areas, budget_amount, budget_currency, location,
          website_url, contact_email, created_by, status, is_verified,
          created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', $10, NOW(), NOW())
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::uuid,'active',$10,NOW(),NOW())
     RETURNING id, name, description, focus_areas, budget_amount, budget_currency,
               location, status, is_verified, created_by,
               CAST(created_at AS TEXT) AS created_at

@@ -297,7 +297,7 @@ const DB_INSERT_DONATION: &str = r#"
     INSERT INTO "donations"
         ("campaign_id", "donor_id", "amount", "currency", "payment_method",
          "payment_status", "transaction_id", "is_anonymous")
-    VALUES ($1, $2, $3, 'VND', 'bank_transfer', 'completed', $4, $5)
+    VALUES ($1::uuid,$2,$3,'VND','bank_transfer','completed',$4::uuid,$5)
     RETURNING "id", "transaction_id"
 "#;
 

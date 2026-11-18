@@ -44,7 +44,7 @@ pub struct EducationStatsQuery {
 
 const DB_INSERT_EVENT: &str = r#"
 INSERT INTO user_events (user_id, event_type, metadata, created_at)
-VALUES ($1, $2, $3, NOW())
+VALUES ($1::uuid,$2,$3,NOW())
 RETURNING id, user_id, event_type, created_at
 "#;
 
