@@ -202,7 +202,7 @@ pub async fn issue_certificate(
         ));
     }
 
-    let template = sqlx::query(DB_SELECT_TEMPLATE)
+    let template = crate::db::query(DB_SELECT_TEMPLATE)
         .bind(&body.template_id)
         .fetch_optional(pool.db())
         .await
@@ -215,7 +215,7 @@ pub async fn issue_certificate(
         }
     };
 
-    let existing = sqlx::query(DB_SELECT_EXISTING_CERT)
+    let existing = crate::db::query(DB_SELECT_EXISTING_CERT)
         .bind(&body.user_id)
         .bind(&body.template_id)
         .fetch_optional(pool.db())
@@ -232,7 +232,7 @@ pub async fn issue_certificate(
     let blockchain_metadata =
         sign_with_blockchain(&body.user_id, &cert_code, &template.get::<String, &str>("name"));
 
-    let inserted = sqlx::query(DB_INSERT_CERTIFICATE)
+    let inserted = crate::db::query(DB_INSERT_CERTIFICATE)
         .bind(&uuid::Uuid::new_v4().to_string())
         .bind(&body.user_id)
         .bind(&body.template_id)
@@ -266,7 +266,7 @@ pub async fn verify_certificate(
     State(pool): State<DbPool>,
     Path(code): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_CERT_BY_CODE)
+    let row = crate::db::query(DB_SELECT_CERT_BY_CODE)
         .bind(&code)
         .fetch_optional(pool.db())
         .await
@@ -310,7 +310,7 @@ pub async fn get_portfolio(
     let user = authenticated_user(user)?;
 
     // Sai DB → trả về rỗng thay vì 500 (giống cũ service `getUserPortfolio`).
-    let certs = match sqlx::query(DB_SELECT_PORTFOLIO)
+    let certs = match crate::db::query(DB_SELECT_PORTFOLIO)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -368,7 +368,7 @@ pub async fn download_certificate_pdf(
         .unwrap_or(&code)
         .to_string();
 
-    let cert = sqlx::query(DB_SELECT_CERT_BY_CODE)
+    let cert = crate::db::query(DB_SELECT_CERT_BY_CODE)
         .bind(&verify_code)
         .fetch_optional(pool.db())
         .await

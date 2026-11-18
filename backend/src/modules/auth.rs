@@ -349,20 +349,34 @@ const DB_UPDATE_RESET_TOKEN: &str = r#"
 
 /// Load a `UserRow` by email.
 async fn find_user_by_email(pool: &PgPool, email: &str) -> Result<Option<UserRow>, AppError> {
-    sqlx::query_as::<sqlx::Postgres, UserRow>(DB_GET_USER_BY_EMAIL)
+    let row = crate::db::query(DB_GET_USER_BY_EMAIL)
         .bind(&email)
         .fetch_optional(pool)
         .await
-        .map_err(AppError::from)
+        .map_err(AppError::from)?;
+    match row {
+        Some(r) => {
+            let user: UserRow = sqlx::FromRow::from_row(&r).map_err(AppError::from)?;
+            Ok(Some(user))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Load a `UserRow` by id.
 async fn find_user_by_id(pool: &PgPool, user_id: &str) -> Result<Option<UserRow>, AppError> {
-    sqlx::query_as::<sqlx::Postgres, UserRow>(DB_GET_USER_BY_ID)
+    let row = crate::db::query(DB_GET_USER_BY_ID)
         .bind(&user_id)
         .fetch_optional(pool)
         .await
-        .map_err(AppError::from)
+        .map_err(AppError::from)?;
+    match row {
+        Some(r) => {
+            let user: UserRow = sqlx::FromRow::from_row(&r).map_err(AppError::from)?;
+            Ok(Some(user))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Generate the JWT tokens (access + refresh) for a user row.
@@ -419,7 +433,7 @@ async fn generate_tokens_for_user(pool: &PgPool, user: &UserRow) -> Result<Token
     .expect("jwt encode failed");
 
     let refresh_token_hash = crate::common::auth::hash_refresh_token(&refresh_token);
-    sqlx::query(DB_UPDATE_REFRESH)
+    crate::db::query(DB_UPDATE_REFRESH)
         .bind(&refresh_token_hash)
         .bind(&user.id)
         .execute(pool)
@@ -458,7 +472,7 @@ pub async fn register(
         return Err(AppError::Conflict("Email này đã được sử dụng".to_string()));
     }
     let password_hash = hash_password(&form.password)?;
-    sqlx::query(DB_INSERT_USER)
+    crate::db::query(DB_INSERT_USER)
         .bind(&form.email)
         .bind(&password_hash)
         .bind(&form.full_name)
@@ -520,7 +534,7 @@ pub async fn dev_login(
             // `password_hash` column stays parseable by `verify_password`
             // (the old `$2a$12$bcrypt` literal was an invalid hash → 401).
             let password_hash = hash_password(&dev_password)?;
-            sqlx::query(DB_INSERT_USER)
+            crate::db::query(DB_INSERT_USER)
                 .bind(&dev_email)
                 .bind(&password_hash)
                 .bind(&"Dev User".to_string())
@@ -583,7 +597,7 @@ pub async fn google_auth(
         // parseable by `verify_password` (the old `$2a$12$bcrypt` literal was
         // an invalid hash → 401 on the next password attempt).
         let password_hash = hash_password("google-auth-no-password")?;
-        sqlx::query(DB_INSERT_USER)
+        crate::db::query(DB_INSERT_USER)
             .bind(&email)
             .bind(&password_hash)
             .bind(&body.full_name.clone().unwrap_or_default())
@@ -670,7 +684,7 @@ pub async fn update_profile(
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
         .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
-    sqlx::query(DB_UPDATE_PROFILE)
+    crate::db::query(DB_UPDATE_PROFILE)
         .bind(&form.full_name)
         .bind(&form.avatar_url)
         .bind(&form.phone)
@@ -705,7 +719,7 @@ pub async fn update_preferences(
     // The DTO field maps to `user_preferences.notifications_enabled`; the per-
     // flag (email/call/sms) settings stay in `notification_settings`.
     let settings = form.notification_settings.unwrap_or_default();
-    sqlx::query(DB_UPDATE_PREFERENCES)
+    crate::db::query(DB_UPDATE_PREFERENCES)
         .bind(&profile.id)
         .bind(&form.language.unwrap_or_else(|| "vi".to_string()))
         .bind(&form.theme.unwrap_or_else(|| "dark".to_string()))
@@ -731,11 +745,18 @@ pub async fn get_preferences(
 ) -> Result<axum::response::Response, AppError> {
     let profile = find_user_by_id(pool.db(), &user.id).await?
         .ok_or_else(|| AppError::NotFound("Người dùng không tồn tại.".to_string()))?;
-    let prefs = sqlx::query_as::<sqlx::Postgres, PreferenceRow>(DB_SELECT_PREFERENCES)
+    let prefs_row = crate::db::query(DB_SELECT_PREFERENCES)
         .bind(&profile.id)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?;
+    let prefs = match prefs_row {
+        Some(r) => {
+            let p: PreferenceRow = sqlx::FromRow::from_row(&r).map_err(AppError::from)?;
+            Some(p)
+        }
+        None => None,
+    };
     let prefs = prefs.unwrap_or_else(|| PreferenceRow {
         user_id: profile.id.clone(),
         language: "vi".to_string(),
@@ -784,14 +805,14 @@ pub async fn forgot_password(
     let token = uuid::Uuid::new_v4().to_string();
     let expires_at = DateTime::<Utc>::from_timestamp(current_time() as i64 + 60 * 60, 0)
         .expect("epoch calculation");
-    sqlx::query(DB_INSERT_RESET_TOKEN)
+    crate::db::query(DB_INSERT_RESET_TOKEN)
         .bind(&token)
         .bind(&user.id)
         .bind(&expires_at)
         .execute(pool.db())
         .await
         .map_err(AppError::from)?;
-    let _token = sqlx::query(DB_SELECT_RESET_TOKEN)
+    let _token = crate::db::query(DB_SELECT_RESET_TOKEN)
         .bind(&token)
         .fetch_optional(pool.db())
         .await
@@ -811,7 +832,7 @@ pub async fn reset_password(
     State(pool): State<DbPool>,
     Json(form): Json<ResetPasswordForm>,
 ) -> Result<axum::response::Response, AppError> {
-    let token = sqlx::query(DB_SELECT_RESET_TOKEN)
+    let token = crate::db::query(DB_SELECT_RESET_TOKEN)
         .bind(&form.token)
         .fetch_optional(pool.db())
         .await
@@ -828,13 +849,13 @@ pub async fn reset_password(
     let user = find_user_by_id(pool.db(), &token.get::<String, &str>("user_id")).await?
         .ok_or_else(|| AppError::Internal("User not found for reset token".to_string()))?;
     let hash = hash_password(&form.new_password)?;
-    sqlx::query(DB_UPDATE_PASSWORD)
+    crate::db::query(DB_UPDATE_PASSWORD)
         .bind(&hash)
         .bind(&user.id)
         .execute(pool.db())
         .await
         .map_err(AppError::from)?;
-    sqlx::query(DB_UPDATE_RESET_TOKEN)
+    crate::db::query(DB_UPDATE_RESET_TOKEN)
         .bind(&form.token)
         .execute(pool.db())
         .await
@@ -878,7 +899,7 @@ pub async fn change_password(
         return Err(AppError::BadRequest("Mật khẩu mới phải khác mật khẩu hiện tại.".to_string()));
     }
     let hash = hash_password(&form.new_password)?;
-    sqlx::query(DB_UPDATE_PASSWORD)
+    crate::db::query(DB_UPDATE_PASSWORD)
         .bind(&hash)
         .bind(&profile.id)
         .execute(pool.db())
@@ -901,7 +922,7 @@ pub async fn generate_2fa(
     Extension(user): Extension<AuthUser>,
 ) -> Result<axum::response::Response, AppError> {
     let secret = crate::common::auth::generate_totp_secret();
-    sqlx::query(DB_UPDATE_2FA)
+    crate::db::query(DB_UPDATE_2FA)
         .bind(&secret)
         .bind(&true)
         .bind(&user.id)
@@ -960,7 +981,7 @@ pub async fn logout(
     State(pool): State<DbPool>,
     Extension(user): Extension<AuthUser>,
 ) -> Result<axum::response::Response, AppError> {
-    sqlx::query(DB_UPDATE_REFRESH)
+    crate::db::query(DB_UPDATE_REFRESH)
         .bind("invalidated")
         .bind(&user.id)
         .execute(pool.db())

@@ -175,7 +175,7 @@ pub struct JudgeProjectForm {
 
 /// `GET /api/hackathons` — lấy danh sách các cuộc thi Hackathon (public).
 pub async fn get_hackathons(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_HACKATHONS)
+    let rows = crate::db::query(DB_HACKATHONS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -189,7 +189,7 @@ pub async fn get_hackathon_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_HACKATHON_BY_ID)
+    let row = crate::db::query(DB_HACKATHON_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -212,7 +212,7 @@ pub async fn register_team(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let hackathon = sqlx::query(DB_HACKATHON_BY_ID)
+    let hackathon = crate::db::query(DB_HACKATHON_BY_ID)
         .bind(&body.hackathon_id)
         .fetch_optional(pool.db())
         .await
@@ -241,7 +241,7 @@ pub async fn register_team(
         ));
     }
 
-    let valid: Vec<String> = sqlx::query(DB_VALID_MEMBER_EMAILS)
+    let valid: Vec<String> = crate::db::query(DB_VALID_MEMBER_EMAILS)
         .bind(&body.members)
         .fetch_all(pool.db())
         .await
@@ -263,7 +263,7 @@ pub async fn register_team(
         )));
     }
 
-    let existing: Option<i64> = sqlx::query(DB_EXISTING_TEAM_LEADER)
+    let existing: Option<i64> = crate::db::query(DB_EXISTING_TEAM_LEADER)
         .bind(&body.hackathon_id)
         .bind(&user.id)
         .fetch_optional(pool.db())
@@ -277,7 +277,7 @@ pub async fn register_team(
         ));
     }
 
-    let row = sqlx::query(DB_REGISTER_TEAM)
+    let row = crate::db::query(DB_REGISTER_TEAM)
         .bind(team_name)
         .bind(&body.hackathon_id)
         .bind(&user.id)
@@ -299,7 +299,7 @@ pub async fn submit_project(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SUBMIT_TEAM)
+    let row = crate::db::query(DB_SUBMIT_TEAM)
         .bind(&body.repo_url)
         .bind(&body.demo_video)
         .bind(&team_id)
@@ -311,7 +311,7 @@ pub async fn submit_project(
     let row = match row {
         Some(row) => row,
         None => {
-            let team = sqlx::query(DB_TEAM_BY_ID_AND_LEADER)
+            let team = crate::db::query(DB_TEAM_BY_ID_AND_LEADER)
                 .bind(&team_id)
                 .bind(&user.id)
                 .fetch_optional(pool.db())
@@ -359,7 +359,7 @@ pub async fn judge_project(
     let total_score: f64 = body.scores.iter().map(|s| s.score).sum();
     let feedback = body.feedback.as_deref().unwrap_or("Chấm điểm bởi Hội đồng Ban Giám Khảo");
 
-    let row = sqlx::query(DB_JUDGE_TEAM)
+    let row = crate::db::query(DB_JUDGE_TEAM)
         .bind(&total_score)
         .bind(feedback)
         .bind(&team_id)
@@ -370,7 +370,7 @@ pub async fn judge_project(
     let row = match row {
         Some(row) => row,
         None => {
-            let team = sqlx::query(DB_TEAM_BY_ID)
+            let team = crate::db::query(DB_TEAM_BY_ID)
                 .bind(&team_id)
                 .fetch_optional(pool.db())
                 .await

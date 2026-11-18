@@ -343,7 +343,7 @@ pub async fn get_needs(
     // `COUNT(*)` trên cùng điều kiện (lọc text = literal text, bind duy nhất
     // `limit`/`offset`).
     let count_sql = format!("{}{}", DB_COUNT_NEEDS, where_clause);
-    let total: i64 = sqlx::query(&count_sql)
+    let total: i64 = crate::db::query(&count_sql)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -351,7 +351,7 @@ pub async fn get_needs(
 
     let list_sql = format!("{}{}", DB_SELECT_NEEDS, where_clause);
     let list_sql = format!("{} ORDER BY created_at DESC LIMIT $1 OFFSET $2", list_sql);
-    let rows = sqlx::query(&list_sql)
+    let rows = crate::db::query(&list_sql)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -374,7 +374,7 @@ pub async fn get_need_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_NEED_BY_ID)
+    let row = crate::db::query(DB_SELECT_NEED_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -401,7 +401,7 @@ pub async fn create_need(
     }
 
     let tags = json_tags_text(form.tags.as_ref());
-    let inserted = sqlx::query(DB_INSERT_NEED)
+    let inserted = crate::db::query(DB_INSERT_NEED)
         .bind(&form.title)
         .bind(&form.description)
         .bind(&form.category)
@@ -437,7 +437,7 @@ pub async fn get_sponsors(
     };
 
     let count_sql = format!("{}{}", DB_COUNT_SPONSORS, where_clause);
-    let total: i64 = sqlx::query(&count_sql)
+    let total: i64 = crate::db::query(&count_sql)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -445,7 +445,7 @@ pub async fn get_sponsors(
 
     let list_sql = format!("{}{}", DB_SELECT_SPONSORS, where_clause);
     let list_sql = format!("{} ORDER BY budget_amount DESC LIMIT $1 OFFSET $2", list_sql);
-    let rows = sqlx::query(&list_sql)
+    let rows = crate::db::query(&list_sql)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -468,7 +468,7 @@ pub async fn get_sponsor_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_SPONSOR_BY_ID)
+    let row = crate::db::query(DB_SELECT_SPONSOR_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -494,7 +494,7 @@ pub async fn create_sponsor(
     }
 
     let focus_areas = json_tags_text(Some(&form.focus_areas));
-    let inserted = sqlx::query(DB_INSERT_SPONSOR)
+    let inserted = crate::db::query(DB_INSERT_SPONSOR)
         .bind(&form.name)
         .bind(&form.description)
         .bind(focus_areas.as_deref())
@@ -584,13 +584,13 @@ pub async fn rank(
         Some(c) if c > 0.0 => 200,
         _ => 50,
     };
-    let need_rows = sqlx::query(&format!("{} ORDER BY created_at DESC LIMIT $1", DB_SELECT_NEEDS_OPEN))
+    let need_rows = crate::db::query(&format!("{} ORDER BY created_at DESC LIMIT $1", DB_SELECT_NEEDS_OPEN))
         .bind(&fetch_limit)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
 
-    let sponsor_rows = sqlx::query(&format!(
+    let sponsor_rows = crate::db::query(&format!(
         "{} ORDER BY budget_amount DESC LIMIT $1",
         DB_SELECT_SPONSORS
     ))

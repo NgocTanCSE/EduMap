@@ -426,7 +426,7 @@ async fn list_pois(
         // category filter on `map_points.type_id` (+ the description words
         // that describe the category)
         if let Some(type_id) = category_to_type_id(Some(&cat)) {
-            if let Ok(result) = sqlx::query(DB_SELECT_POIS_BY_TYPE_ID)
+            if let Ok(result) = crate::db::query(DB_SELECT_POIS_BY_TYPE_ID)
                 .bind(&type_id)
                 .bind(&format!("%{}%", cat.to_lowercase()))
                 .bind(&format!("%{}%", map_point_alias(&Some(cat.clone())).to_lowercase()))
@@ -440,7 +440,7 @@ async fn list_pois(
         }
     } else {
         // whole map: map_points + locations
-        if let Ok(result) = sqlx::query(DB_SELECT_POIS_BY_BBOX)
+        if let Ok(result) = crate::db::query(DB_SELECT_POIS_BY_BBOX)
             .bind(&bounds.min_lng.unwrap_or(-90.0))
             .bind(&bounds.min_lat.unwrap_or(-90.0))
             .bind(&bounds.max_lng.unwrap_or(180.0))
@@ -453,7 +453,7 @@ async fn list_pois(
             }
         }
 
-        if let Ok(result) = sqlx::query(DB_SELECT_LOCATIONS_BY_BBOX)
+        if let Ok(result) = crate::db::query(DB_SELECT_LOCATIONS_BY_BBOX)
             .bind(&bounds.min_lng.unwrap_or(-90.0))
             .bind(&bounds.min_lat.unwrap_or(-90.0))
             .bind(&bounds.max_lng.unwrap_or(180.0))
@@ -519,7 +519,7 @@ pub async fn create_poi(
         Some(t) => t,
         None => 0,
     };
-    let inserted = sqlx::query(DB_INSERT_POI)
+    let inserted = crate::db::query(DB_INSERT_POI)
         .bind(&form.name)
         .bind(&form.description)
         .bind(&form.address)
@@ -567,7 +567,7 @@ pub async fn get_poi_details(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let poi = sqlx::query(DB_SELECT_POI_BY_ID)
+    let poi = crate::db::query(DB_SELECT_POI_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -580,7 +580,7 @@ pub async fn get_poi_details(
             let loc = p.get::<Option<String>, &str>("location");
             let lat = lat_of_point(loc.as_deref());
             let lng = lng_of_point(loc.as_deref());
-            match sqlx::query(DB_SELECT_NEARBY_POIS)
+            match crate::db::query(DB_SELECT_NEARBY_POIS)
                 .bind(&lng)
                 .bind(&lat)
                 .bind(&3000.0)
@@ -646,7 +646,7 @@ pub async fn get_featured_pins(
     let mut pins: Vec<FeaturedPin> = Vec::new();
 
     // 1. stem labs (equipment + science centres).
-    for row in sqlx::query(DB_SELECT_STEM_LABS)
+    for row in crate::db::query(DB_SELECT_STEM_LABS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -671,7 +671,7 @@ pub async fn get_featured_pins(
     }
 
     // 2. green challenges (active reforestation / park actions).
-    for row in sqlx::query(DB_SELECT_GREEN_CHALLENGES)
+    for row in crate::db::query(DB_SELECT_GREEN_CHALLENGES)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -694,7 +694,7 @@ pub async fn get_featured_pins(
     }
 
     // 3. summer campaigns.
-    for row in sqlx::query(DB_SELECT_SUMMER_CAMPAIGNS)
+    for row in crate::db::query(DB_SELECT_SUMMER_CAMPAIGNS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -717,7 +717,7 @@ pub async fn get_featured_pins(
     }
 
     // 4. wifi locations (description or name mentions wifi).
-    for row in sqlx::query(DB_SELECT_WIFI_LOCATIONS)
+    for row in crate::db::query(DB_SELECT_WIFI_LOCATIONS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -742,7 +742,7 @@ pub async fn get_featured_pins(
     }
 
     // 5. donation campaigns.
-    for row in sqlx::query(DB_SELECT_DONATION_CAMPAIGNS)
+    for row in crate::db::query(DB_SELECT_DONATION_CAMPAIGNS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -767,7 +767,7 @@ pub async fn get_featured_pins(
     }
 
     // 6. shared items (marketplace donations left on the map).
-    for row in sqlx::query(DB_SELECT_SHARED_ITEMS)
+    for row in crate::db::query(DB_SELECT_SHARED_ITEMS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?
@@ -810,7 +810,7 @@ pub async fn get_featured_pins(
 pub async fn get_stats(
     State(pool): State<DbPool>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_CATEGORIES_COUNTS)
+    let row = crate::db::query(DB_SELECT_CATEGORIES_COUNTS)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -990,7 +990,7 @@ pub async fn get_flood_zones(
     State(pool): State<DbPool>,
     Query(_q): Query<FloodZonesQuery>,
 ) -> Result<Json<ApiResponse<Vec<serde_json::Value>>>, AppError> {
-    let zones = sqlx::query(DB_SELECT_FLOOD_ZONES)
+    let zones = crate::db::query(DB_SELECT_FLOOD_ZONES)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;

@@ -162,7 +162,7 @@ pub async fn get_module_info() -> Result<Json<ApiResponse<Value>>, AppError> {
 
 /// `GET /api/stem/labs` — danh sách phòng lab STEM.
 pub async fn get_labs(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_LABS)
+    let rows = crate::db::query(DB_LABS)
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read stem labs: {e}")))?;
@@ -181,7 +181,7 @@ pub async fn get_nearby(
         return Err(AppError::BadRequest("radius phải nằm trong khoảng (0, 1_000_000] mét.".to_string()));
     }
 
-    let rows = sqlx::query(DB_NEARBY)
+    let rows = crate::db::query(DB_NEARBY)
         .bind(q.lng)
         .bind(q.lat)
         .bind(radius)
@@ -221,7 +221,7 @@ pub async fn register_lab(
         _ => return Err(AppError::BadRequest("latitude và longitude là bắt buộc để đăng ký lab.".to_string())),
     };
 
-    let row = sqlx::query(&format!(
+    let row = crate::db::query(&format!(
         r#"
 INSERT INTO stem_labs (name, school_id, location_point, description, equipment,
     location_point_text, capacity, booking_available, photos, contact,
@@ -255,7 +255,7 @@ pub async fn book_lab(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let lab = sqlx::query(DB_LAB_BY_ID)
+    let lab = crate::db::query(DB_LAB_BY_ID)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await

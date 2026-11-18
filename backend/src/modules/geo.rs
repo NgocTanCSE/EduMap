@@ -497,7 +497,7 @@ pub async fn vision_detect(
     };
 
     let detections = ai_result.get("detections").and_then(|d| d.as_array()).cloned().unwrap_or_default();
-    let existing_rows = sqlx::query(DB_POINTS_IN_BOUNDS)
+    let existing_rows = crate::db::query(DB_POINTS_IN_BOUNDS)
         .bind(bounds.min_lng)
         .bind(bounds.min_lat)
         .bind(bounds.max_lng)

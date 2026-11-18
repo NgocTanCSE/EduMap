@@ -132,7 +132,7 @@ fn notify_author(pg_pool: PgPool, author_id: String, message: String) {
             .send()
             .await;
         // Best effort only; the write above is the contract, not this.
-        if let Err(e) = sqlx::query(
+        if let Err(e) = crate::db::query(
             "INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at) \
              VALUES ($1, $2, $3, 'in-app', false, NOW())",
         )
@@ -350,7 +350,7 @@ pub async fn get_posts(
         format!(" AND {}", filters.join(" AND "))
     };
 
-    let total: i64 = sqlx::query(&format!(
+    let total: i64 = crate::db::query(&format!(
         "SELECT COUNT(*) FROM posts WHERE status = 'active' AND deleted_at IS NULL{}",
         where_clause
     ))
@@ -359,7 +359,7 @@ pub async fn get_posts(
     .map_err(AppError::from)?
     .get::<i64, usize>(0);
 
-    let rows = sqlx::query(&format!(
+    let rows = crate::db::query(&format!(
         "{}{} ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         DB_SELECT_POSTS, where_clause
     ))
@@ -396,7 +396,7 @@ pub async fn create_post(
         .filter(|v| !v.trim().is_empty())
         .map(|v| v.as_str());
 
-    let post_id: String = sqlx::query(
+    let post_id: String = crate::db::query(
         "INSERT INTO posts (author_id, group_id, title, content, \
          like_count, comment_count, status, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, 0, 0, 'active', NOW(), NOW()) \
@@ -411,7 +411,7 @@ pub async fn create_post(
     .map_err(AppError::from)?
     .get::<String, &str>("id");
 
-    let row = sqlx::query(DB_SELECT_POST_BY_ID)
+    let row = crate::db::query(DB_SELECT_POST_BY_ID)
         .bind(&post_id)
         .fetch_one(pool.db())
         .await
@@ -425,7 +425,7 @@ pub async fn get_post_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_POST_BY_ID)
+    let row = crate::db::query(DB_SELECT_POST_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -449,7 +449,7 @@ pub async fn like_post(
 
     // The post must exist and be visible — mirror the old service's
     // `NotFoundException("Bài viết không tồn tại hoặc đã bị khóa")`.
-    let visible: Option<i64> = sqlx::query(
+    let visible: Option<i64> = crate::db::query(
         "SELECT 1 FROM posts WHERE id = $1 AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(&id)
@@ -464,7 +464,7 @@ pub async fn like_post(
         ));
     }
 
-    sqlx::query("UPDATE posts SET like_count = like_count + 1 WHERE id = $1")
+    crate::db::query("UPDATE posts SET like_count = like_count + 1 WHERE id = $1")
         .bind(&id)
         .execute(pool.db())
         .await
@@ -472,7 +472,7 @@ pub async fn like_post(
 
     // Notify the author only when the liker is someone else. Fire-and-forget:
     // a failed notification must not fail the like itself.
-    let author: Option<String> = sqlx::query("SELECT author_id FROM posts WHERE id = $1")
+    let author: Option<String> = crate::db::query("SELECT author_id FROM posts WHERE id = $1")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -503,7 +503,7 @@ pub async fn get_comments(
     let limit = q.limit.unwrap_or(20).clamp(1, 100);
     let offset = (page - 1) * limit;
 
-    let total: i64 = sqlx::query(
+    let total: i64 = crate::db::query(
         "SELECT COUNT(*) FROM comments WHERE post_id = $1 \
          AND status = 'active' AND deleted_at IS NULL",
     )
@@ -513,7 +513,7 @@ pub async fn get_comments(
     .map_err(AppError::from)?
     .get::<i64, usize>(0);
 
-    let rows = sqlx::query(&format!("{} LIMIT $1 OFFSET $2", DB_SELECT_COMMENTS))
+    let rows = crate::db::query(&format!("{} LIMIT $1 OFFSET $2", DB_SELECT_COMMENTS))
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -540,7 +540,7 @@ pub async fn add_comment(
     let user = authenticated_user(user)?;
 
     // The post must exist — mirror the old `NotFoundException`.
-    let post_row = sqlx::query("SELECT id, author_id, title FROM posts WHERE id = $1 AND status = 'active' AND deleted_at IS NULL")
+    let post_row = crate::db::query("SELECT id, author_id, title FROM posts WHERE id = $1 AND status = 'active' AND deleted_at IS NULL")
         .bind(&post_id)
         .fetch_optional(pool.db())
         .await
@@ -557,7 +557,7 @@ pub async fn add_comment(
 
     assert_content_approved(&user.id, &body.content).await?;
 
-    let comment_id: String = sqlx::query(
+    let comment_id: String = crate::db::query(
         "INSERT INTO comments (post_id, author_id, content, status, created_at, updated_at) \
          VALUES ($1, $2, $3, 'active', NOW(), NOW()) \
          RETURNING id",
@@ -570,7 +570,7 @@ pub async fn add_comment(
     .map_err(AppError::from)?
     .get::<String, &str>("id");
 
-    sqlx::query("UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1")
+    crate::db::query("UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1")
         .bind(&post_id_db)
         .execute(pool.db())
         .await
@@ -587,7 +587,7 @@ pub async fn add_comment(
         );
     }
 
-    let row = sqlx::query(
+    let row = crate::db::query(
         "SELECT c.id, c.post_id, c.author_id, c.content, c.like_count, c.status, \
                 CAST(c.created_at AS TEXT) AS created_at, \
                 CAST(c.updated_at AS TEXT) AS updated_at, \
@@ -606,7 +606,7 @@ pub async fn add_comment(
 
 /// `GET /api/community/groups` — lấy danh sách các nhóm học tập công cộng.
 pub async fn get_groups(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_GROUPS)
+    let rows = crate::db::query(DB_SELECT_GROUPS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -631,7 +631,7 @@ pub async fn create_group(
         return Err(AppError::BadRequest("Tên nhóm không được rỗng".to_string()));
     }
 
-    let group_id: String = sqlx::query(
+    let group_id: String = crate::db::query(
         "INSERT INTO groups (name, description, avatar_url, cover_url, type, \
          member_count, privacy, owner_id, created_at, updated_at) \
          VALUES ($1, $2, $3, $4, $5, 1, $6, $7, NOW(), NOW()) \
@@ -664,7 +664,7 @@ pub async fn join_group(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let _user = authenticated_user(user)?;
 
-    let name: Option<String> = sqlx::query("SELECT name FROM groups WHERE id = $1 AND deleted_at IS NULL")
+    let name: Option<String> = crate::db::query("SELECT name FROM groups WHERE id = $1 AND deleted_at IS NULL")
         .bind(&id)
         .fetch_optional(pool.db())
         .await

@@ -186,7 +186,7 @@ fn deleted_at_clause() -> String {
 
 /// `GET /api/admin/dashboard` — the admin dashboard statistics.
 pub async fn get_stats(State(pool): State<DbPool>) -> Result<Json<ApiResponse<AdminStats>>, AppError> {
-    let row = sqlx::query(DB_SELECT_STATS)
+    let row = crate::db::query(DB_SELECT_STATS)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -230,13 +230,13 @@ pub async fn get_users(
 
     let total_sql = format!("SELECT COUNT(*) FROM ({}) {}", DB_SELECT_USER, where_clause);
 
-    let total = sqlx::query(total_sql.as_str())
+    let total = crate::db::query(total_sql.as_str())
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
         .get::<i64, &str>("total");
 
-    let rows = sqlx::query(&list_sql)
+    let rows = crate::db::query(&list_sql)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -272,7 +272,7 @@ pub async fn get_user_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_USER_BY_ID)
+    let row = crate::db::query(DB_SELECT_USER_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -314,7 +314,7 @@ pub async fn update_user_status(
         ));
     }
 
-    let row = sqlx::query(DB_UPDATE_USER_STATUS)
+    let row = crate::db::query(DB_UPDATE_USER_STATUS)
         .bind(&form.status)
         .bind(&id)
         .fetch_one(pool.db())
@@ -342,7 +342,7 @@ pub async fn soft_delete_user(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let deleted = sqlx::query(DB_SOFT_DELETE_USER)
+    let deleted = crate::db::query(DB_SOFT_DELETE_USER)
         .bind(&id)
         .fetch_one(pool.db())
         .await
@@ -368,7 +368,7 @@ pub async fn restore_user(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let restored = sqlx::query(DB_RESTORE_USER)
+    let restored = crate::db::query(DB_RESTORE_USER)
         .bind(&id)
         .fetch_one(pool.db())
         .await
@@ -397,7 +397,7 @@ async fn log_user_action(
     let old_data = serde_json::json!({});
     let new_data = serde_json::json!({ "action": action, "status": status, "reason": reason });
 
-    sqlx::query(DB_INSERT_AUDIT_LOG)
+    crate::db::query(DB_INSERT_AUDIT_LOG)
         .bind(&user.id)
         .bind(action)
         .bind(resource)
@@ -423,7 +423,7 @@ pub async fn get_pending_content(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let (items, total) = match q.r#type.as_str() {
         "event" => {
-            let rows = sqlx::query(DB_SELECT_PENDING_EVENT)
+            let rows = crate::db::query(DB_SELECT_PENDING_EVENT)
                 .fetch_all(pool.db())
                 .await
                 .map_err(AppError::from)?;
@@ -441,7 +441,7 @@ pub async fn get_pending_content(
             (items, total)
         }
         "campaign" => {
-            let rows = sqlx::query(DB_SELECT_PENDING_CAMPAIGN)
+            let rows = crate::db::query(DB_SELECT_PENDING_CAMPAIGN)
                 .fetch_all(pool.db())
                 .await
                 .map_err(AppError::from)?;
@@ -458,7 +458,7 @@ pub async fn get_pending_content(
             (items, total)
         }
         "scholarship" => {
-            let rows = sqlx::query(DB_SELECT_PENDING_SCHOLARSHIP)
+            let rows = crate::db::query(DB_SELECT_PENDING_SCHOLARSHIP)
                 .fetch_all(pool.db())
                 .await
                 .map_err(AppError::from)?;

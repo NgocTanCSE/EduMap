@@ -128,7 +128,7 @@ pub struct ImpactForm {
 
 /// `GET /api/green/impacts` — danh sách impact xanh (public).
 pub async fn get_all_impacts(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_CHALLENGES)
+    let rows = crate::db::query(DB_CHALLENGES)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -140,7 +140,7 @@ pub async fn get_all_impacts(State(pool): State<DbPool>) -> Result<Json<ApiRespo
 /// `GET /api/green/challenges` — danh sách thử thách đang active, kèm số
 /// người tham gia (public).
 pub async fn get_challenges(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_CHALLENGES)
+    let rows = crate::db::query(DB_CHALLENGES)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -161,7 +161,7 @@ pub async fn log_activity(
     let carbon = body.carbon_saved_kg.unwrap_or(0.0);
     let points = (carbon * 2.0).round() as i64;
 
-    let row = sqlx::query(DB_LOG_ACTIVITY)
+    let row = crate::db::query(DB_LOG_ACTIVITY)
         .bind(&user.id)
         .bind(&body.challenge_id)
         .bind(&carbon)
@@ -195,7 +195,7 @@ pub async fn add_impact(
 
     let points = (body.carbon_saved_kg.unwrap_or(0.0) * 2.0).round() as i64;
 
-    let row = sqlx::query(DB_CREATE_CHALLENGE)
+    let row = crate::db::query(DB_CREATE_CHALLENGE)
         .bind(initiative)
         .bind("")
         .bind(&points)

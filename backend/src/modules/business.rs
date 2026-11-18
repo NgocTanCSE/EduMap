@@ -47,7 +47,7 @@ async fn ensure_owner(
     bp_id: &str,
     user: &AuthUser,
 ) -> Result<(), AppError> {
-    let row = sqlx::query(r#"SELECT "user_id" FROM business_profiles WHERE "id" = $1"#)
+    let row = crate::db::query(r#"SELECT "user_id" FROM business_profiles WHERE "id" = $1"#)
         .bind(bp_id)
         .fetch_optional(pool.db())
         .await
@@ -70,7 +70,7 @@ async fn ensure_owner(
 
 /// `business_profiles` của người gọi (dùng cho góc nhìn vendor).
 async fn user_business_profile(pool: &DbPool, user: &AuthUser) -> Result<String, AppError> {
-    let row = sqlx::query(r#"SELECT "id" FROM business_profiles WHERE "user_id" = $1"#)
+    let row = crate::db::query(r#"SELECT "id" FROM business_profiles WHERE "user_id" = $1"#)
         .bind(&user.id)
         .fetch_optional(pool.db())
         .await
@@ -626,7 +626,7 @@ async fn fetch_reviews(
         "product" => DB_SELECT_PRODUCT_REVIEWS,
         _ => DB_SELECT_SERVICE_REVIEWS,
     };
-    let rows = sqlx::query(sql)
+    let rows = crate::db::query(sql)
         .bind(item_id)
         .fetch_all(pool.db())
         .await
@@ -645,7 +645,7 @@ fn is_blank(s: Option<&String>) -> bool {
 
 /// `GET /api/business` — danh sách tất cả hồ sơ doanh nghiệp liên kết.
 pub async fn get_profiles(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_PROFILES)
+    let rows = crate::db::query(DB_SELECT_PROFILES)
         .fetch_all(pool.db())
         .await
         .map_err(to_app_error)?;
@@ -660,7 +660,7 @@ pub async fn get_profile(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_PROFILE_BY_ID)
+    let row = crate::db::query(DB_SELECT_PROFILE_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -692,7 +692,7 @@ pub async fn create_or_update_profile(
         return Err(AppError::BadRequest("Tên doanh nghiệp là bắt buộc.".to_string()));
     }
 
-    let existing = sqlx::query(DB_SELECT_PROFILE_BY_USER)
+    let existing = crate::db::query(DB_SELECT_PROFILE_BY_USER)
         .bind(&user.id)
         .fetch_optional(pool.db())
         .await
@@ -701,7 +701,7 @@ pub async fn create_or_update_profile(
     // Cập nhật: old service chỉ ghi đè name / description / industry /
     // website / logo_url; address / lat / lng giữ nguyên.
     if existing.is_some() {
-        sqlx::query(DB_UPDATE_PROFILE)
+        crate::db::query(DB_UPDATE_PROFILE)
             .bind(form.name.as_deref())
             .bind(form.description.as_deref())
             .bind(form.industry.as_deref())
@@ -713,7 +713,7 @@ pub async fn create_or_update_profile(
             .map_err(to_app_error)?;
     } else {
         // Tạo mới: `is_verified = false`, chờ admin/moderator xác minh.
-        sqlx::query(DB_INSERT_PROFILE)
+        crate::db::query(DB_INSERT_PROFILE)
             .bind(&user.id)
             .bind(form.name.as_deref().unwrap())
             .bind(form.description.as_deref())
@@ -730,7 +730,7 @@ pub async fn create_or_update_profile(
     }
 
     // Trả lại toàn bộ hồ sơ (giống old service trả về entity đã save).
-    let row = sqlx::query(DB_SELECT_PROFILE_BY_USER)
+    let row = crate::db::query(DB_SELECT_PROFILE_BY_USER)
         .bind(&user.id)
         .fetch_one(pool.db())
         .await
@@ -756,7 +756,7 @@ pub async fn verify_profile(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let row = sqlx::query(DB_VERIFY_PROFILE)
+    let row = crate::db::query(DB_VERIFY_PROFILE)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -791,7 +791,7 @@ pub async fn create_product(
         return Err(AppError::BadRequest("Tên sản phẩm và giá là bắt buộc.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_PRODUCT)
+    let row = crate::db::query(DB_INSERT_PRODUCT)
         .bind(&form.name)
         .bind(form.description.as_deref())
         .bind(&form.price)
@@ -816,7 +816,7 @@ pub async fn get_products(
     State(pool): State<DbPool>,
     Path(bp_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_PRODUCTS)
+    let rows = crate::db::query(DB_SELECT_PRODUCTS)
         .bind(&bp_id)
         .fetch_all(pool.db())
         .await
@@ -832,7 +832,7 @@ pub async fn get_product(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_PRODUCT_BY_ID)
+    let row = crate::db::query(DB_SELECT_PRODUCT_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -857,7 +857,7 @@ pub async fn update_product(
     let user = authenticated_user(user)?;
     ensure_owner(&pool, &bp_id, &user).await?;
 
-    let row = sqlx::query(DB_UPDATE_PRODUCT)
+    let row = crate::db::query(DB_UPDATE_PRODUCT)
         .bind(form.name.as_deref())
         .bind(form.description.as_deref())
         .bind(form.price.as_deref())
@@ -890,7 +890,7 @@ pub async fn delete_product(
     let user = authenticated_user(user)?;
     ensure_owner(&pool, &bp_id, &user).await?;
 
-    let res = sqlx::query(DB_DELETE_PRODUCT)
+    let res = crate::db::query(DB_DELETE_PRODUCT)
         .bind(&id)
         .bind(&bp_id)
         .execute(pool.db())
@@ -923,7 +923,7 @@ pub async fn create_service(
         return Err(AppError::BadRequest("Tên dịch vụ và giá là bắt buộc.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_SERVICE)
+    let row = crate::db::query(DB_INSERT_SERVICE)
         .bind(&form.name)
         .bind(form.description.as_deref())
         .bind(&form.price)
@@ -948,7 +948,7 @@ pub async fn get_services(
     State(pool): State<DbPool>,
     Path(bp_id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_SERVICES)
+    let rows = crate::db::query(DB_SELECT_SERVICES)
         .bind(&bp_id)
         .fetch_all(pool.db())
         .await
@@ -964,7 +964,7 @@ pub async fn get_service(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_SERVICE_BY_ID)
+    let row = crate::db::query(DB_SELECT_SERVICE_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -989,7 +989,7 @@ pub async fn update_service(
     let user = authenticated_user(user)?;
     ensure_owner(&pool, &bp_id, &user).await?;
 
-    let row = sqlx::query(DB_UPDATE_SERVICE)
+    let row = crate::db::query(DB_UPDATE_SERVICE)
         .bind(form.name.as_deref())
         .bind(form.description.as_deref())
         .bind(form.price.as_deref())
@@ -1022,7 +1022,7 @@ pub async fn delete_service(
     let user = authenticated_user(user)?;
     ensure_owner(&pool, &bp_id, &user).await?;
 
-    let res = sqlx::query(DB_DELETE_SERVICE)
+    let res = crate::db::query(DB_DELETE_SERVICE)
         .bind(&id)
         .bind(&bp_id)
         .execute(pool.db())
@@ -1054,7 +1054,7 @@ pub async fn create_product_review(
         return Err(AppError::BadRequest("Đánh giá phải từ 1 đến 5 sao.".to_string()));
     }
 
-    let exists = sqlx::query(DB_CHECK_REVIEW)
+    let exists = crate::db::query(DB_CHECK_REVIEW)
         .bind(&user.id)
         .bind(&id)
         .fetch_optional(pool.db())
@@ -1066,7 +1066,7 @@ pub async fn create_product_review(
     }
 
     // Xác nhận sản phẩm tồn tại (giống old service).
-    let product = sqlx::query(r#"SELECT "id" FROM products WHERE "id" = $1"#)
+    let product = crate::db::query(r#"SELECT "id" FROM products WHERE "id" = $1"#)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -1076,7 +1076,7 @@ pub async fn create_product_review(
         return Err(AppError::NotFound("Sản phẩm không tồn tại.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_REVIEW)
+    let row = crate::db::query(DB_INSERT_REVIEW)
         .bind(&user.id)
         .bind::<Option<String>>(Some(id.clone()))
         .bind::<Option<String>>(None)
@@ -1098,7 +1098,7 @@ pub async fn get_product_reviews(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_PRODUCT_REVIEWS)
+    let rows = crate::db::query(DB_SELECT_PRODUCT_REVIEWS)
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -1122,7 +1122,7 @@ pub async fn create_service_review(
         return Err(AppError::BadRequest("Đánh giá phải từ 1 đến 5 sao.".to_string()));
     }
 
-    let exists = sqlx::query(DB_CHECK_REVIEW)
+    let exists = crate::db::query(DB_CHECK_REVIEW)
         .bind(&user.id)
         .bind(&id)
         .fetch_optional(pool.db())
@@ -1133,7 +1133,7 @@ pub async fn create_service_review(
         return Err(AppError::Conflict("Bạn đã gửi đánh giá cho mục này rồi.".to_string()));
     }
 
-    let service = sqlx::query(r#"SELECT "id" FROM business_services WHERE "id" = $1"#)
+    let service = crate::db::query(r#"SELECT "id" FROM business_services WHERE "id" = $1"#)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -1143,7 +1143,7 @@ pub async fn create_service_review(
         return Err(AppError::NotFound("Dịch vụ không tồn tại.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_REVIEW)
+    let row = crate::db::query(DB_INSERT_REVIEW)
         .bind(&user.id)
         .bind::<Option<String>>(None)
         .bind::<Option<String>>(Some(id.clone()))
@@ -1165,7 +1165,7 @@ pub async fn get_service_reviews(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_SERVICE_REVIEWS)
+    let rows = crate::db::query(DB_SELECT_SERVICE_REVIEWS)
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -1183,7 +1183,7 @@ pub async fn get_service_reviews(
 /// `GET /api/business/cart` — nội dung giỏ hàng của người dùng.
 pub async fn get_cart(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_SELECT_CART)
+    let rows = crate::db::query(DB_SELECT_CART)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -1218,7 +1218,7 @@ pub async fn add_to_cart(
         return Err(AppError::BadRequest("quantity phải lớn hơn 0.".to_string()));
     }
 
-    let existing = sqlx::query(DB_SELECT_CART_ITEM)
+    let existing = crate::db::query(DB_SELECT_CART_ITEM)
         .bind(&user.id)
         .bind(product_id.as_deref())
         .bind(service_id.as_deref())
@@ -1229,7 +1229,7 @@ pub async fn add_to_cart(
     let row = match existing {
         Some(r) => {
             let new_qty = r.get::<i64, &str>("quantity") + quantity;
-            sqlx::query(DB_UPDATE_CART_QUANTITY)
+            crate::db::query(DB_UPDATE_CART_QUANTITY)
                 .bind(new_qty)
                 .bind::<String>(r.get("id"))
                 .bind(&user.id)
@@ -1237,7 +1237,7 @@ pub async fn add_to_cart(
                 .await
                 .map_err(to_app_error)?
         }
-        None => sqlx::query(DB_INSERT_CART_ITEM)
+        None => crate::db::query(DB_INSERT_CART_ITEM)
             .bind(&user.id)
             .bind(product_id.as_deref())
             .bind(service_id.as_deref())
@@ -1262,7 +1262,7 @@ pub async fn remove_from_cart(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let res = sqlx::query(DB_DELETE_CART_ITEM)
+    let res = crate::db::query(DB_DELETE_CART_ITEM)
         .bind(&id)
         .bind(&user.id)
         .execute(pool.db())
@@ -1281,7 +1281,7 @@ pub async fn remove_from_cart(
 pub async fn clear_cart(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    sqlx::query(DB_CLEAR_CART)
+    crate::db::query(DB_CLEAR_CART)
         .bind(&user.id)
         .execute(pool.db())
         .await
@@ -1319,7 +1319,7 @@ pub async fn checkout(
         Err(e) => return Err(to_app_error(e)),
     };
 
-    let cart_rows = sqlx::query(DB_CHECKOUT_LOCK_CART)
+    let cart_rows = crate::db::query(DB_CHECKOUT_LOCK_CART)
         .bind(&user.id)
         .fetch_all(&mut *tx)
         .await
@@ -1348,7 +1348,7 @@ pub async fn checkout(
                     name
                 )));
             }
-            sqlx::query(DB_DECREASE_STOCK)
+            crate::db::query(DB_DECREASE_STOCK)
                 .bind(quantity)
                 .bind(&pid)
                 .execute(&mut *tx)
@@ -1367,7 +1367,7 @@ pub async fn checkout(
         }
     }
 
-    let order_row = sqlx::query(DB_INSERT_ORDER)
+    let order_row = crate::db::query(DB_INSERT_ORDER)
         .bind(&user.id)
         .bind(&format!("{:.2}", total_amount))
         .bind(&form.shipping_address)
@@ -1378,7 +1378,7 @@ pub async fn checkout(
     let order_id: String = order_row.get("id");
 
     for (pid, sid, qty, price_str) in order_items {
-        sqlx::query(DB_INSERT_ORDER_ITEM)
+        crate::db::query(DB_INSERT_ORDER_ITEM)
             .bind(&order_id)
             .bind(pid.as_deref())
             .bind(sid.as_deref())
@@ -1389,7 +1389,7 @@ pub async fn checkout(
             .map_err(to_app_error)?;
     }
 
-    sqlx::query(DB_INSERT_TRANSACTION)
+    crate::db::query(DB_INSERT_TRANSACTION)
         .bind(&order_id)
         .bind(&form.payment_method)
         .bind(&format!("{:.2}", total_amount))
@@ -1397,7 +1397,7 @@ pub async fn checkout(
         .await
         .map_err(to_app_error)?;
 
-    sqlx::query(DB_CLEAR_CART)
+    crate::db::query(DB_CLEAR_CART)
         .bind(&user.id)
         .execute(&mut *tx)
         .await
@@ -1422,7 +1422,7 @@ pub async fn checkout(
 pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<AuthUser>>) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_SELECT_MY_ORDERS)
+    let rows = crate::db::query(DB_SELECT_MY_ORDERS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -1436,7 +1436,7 @@ pub async fn get_my_orders(State(pool): State<DbPool>, user: Option<Extension<Au
     let items_by_order: Vec<Vec<Value>> = if order_ids.is_empty() {
         Vec::new()
     } else {
-        let item_rows = sqlx::query(DB_SELECT_ORDER_ITEMS)
+        let item_rows = crate::db::query(DB_SELECT_ORDER_ITEMS)
             .bind(&order_ids)
             .fetch_all(pool.db())
             .await
@@ -1481,7 +1481,7 @@ pub async fn get_vendor_orders(
     let user = authenticated_user(user)?;
     let profile_id = user_business_profile(&pool, &user).await?;
 
-    let rows = sqlx::query(DB_SELECT_VENDOR_ORDERS)
+    let rows = crate::db::query(DB_SELECT_VENDOR_ORDERS)
         .bind(&profile_id)
         .fetch_all(pool.db())
         .await

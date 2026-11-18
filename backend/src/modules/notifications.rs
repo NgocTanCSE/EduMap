@@ -123,7 +123,7 @@ pub async fn send_notification(
 
     // `message` fills both `title` + `body` (the old backend kept a single
     // `message` field for the notification text).
-    let row = sqlx::query(DB_INSERT_NOTIFICATION)
+    let row = crate::db::query(DB_INSERT_NOTIFICATION)
         .bind(&body.user_id)
         .bind(&body.message)
         .bind(&body.message)
@@ -170,7 +170,7 @@ pub async fn get_my_notifications(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_SELECT_USER_NOTIFICATIONS)
+    let rows = crate::db::query(DB_SELECT_USER_NOTIFICATIONS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -206,7 +206,7 @@ pub async fn get_notifications_for_user(
         ));
     }
 
-    let rows = sqlx::query(DB_SELECT_NOTIFICATIONS_BY_USER)
+    let rows = crate::db::query(DB_SELECT_NOTIFICATIONS_BY_USER)
         .bind(&user_id)
         .fetch_all(pool.db())
         .await
@@ -226,7 +226,7 @@ pub async fn mark_as_read(
     let user = authenticated_user(user)?;
 
     // Chỉ chủ sở hữu hoặc admin/moderator mới cập nhật được.
-    let owner: Option<String> = sqlx::query("SELECT user_id FROM notifications WHERE id = $1")
+    let owner: Option<String> = crate::db::query("SELECT user_id FROM notifications WHERE id = $1")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -247,7 +247,7 @@ pub async fn mark_as_read(
         _ => {}
     }
 
-    let _row = match sqlx::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1 RETURNING id")
+    let _row = match crate::db::query("UPDATE notifications SET is_read = true, read_at = NOW() WHERE id = $1 RETURNING id")
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -261,7 +261,7 @@ pub async fn mark_as_read(
         }
     };
 
-    let row = sqlx::query(DB_SELECT_NOTIFICATION)
+    let row = crate::db::query(DB_SELECT_NOTIFICATION)
         .bind(&id)
         .fetch_one(pool.db())
         .await

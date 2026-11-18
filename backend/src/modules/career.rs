@@ -520,7 +520,7 @@ pub async fn get_jobs(
         "SELECT COUNT(*) FROM jobs WHERE status = 'active'{}",
         where_clause
     );
-    let total: i64 = sqlx::query(&count_sql)
+    let total: i64 = crate::db::query(&count_sql)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -529,7 +529,7 @@ pub async fn get_jobs(
     // The job list (page + order by `created_at` DESC).
     let list_sql = format!("{}{}", DB_SELECT_JOBS, where_clause);
     let list_sql = format!("{} LIMIT $1 OFFSET $2", list_sql);
-    let rows = sqlx::query(&list_sql)
+    let rows = crate::db::query(&list_sql)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -556,7 +556,7 @@ pub async fn get_job_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_JOB_BY_ID)
+    let row = crate::db::query(DB_SELECT_JOB_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -565,7 +565,7 @@ pub async fn get_job_by_id(
         Some(row) => job_to_json(&row),
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
-    sqlx::query(
+    crate::db::query(
         r#"UPDATE jobs SET views = views + 1 WHERE id = $1 RETURNING id"#
     )
     .bind(&id)
@@ -589,7 +589,7 @@ pub async fn create_job(
         .and_then(|v| v.parse::<i64>().ok());
     let job_type = form.job_type.clone().unwrap_or_else(|| "full_time".to_string());
     let deadline = to_naive_datetime(&form.application_deadline);
-    let inserted = sqlx::query(DB_INSERT_JOB)
+    let inserted = crate::db::query(DB_INSERT_JOB)
         .bind(&form.title)
         .bind(&form.description)
         .bind(&form.company_name)
@@ -621,7 +621,7 @@ pub async fn update_job(
     let user = authenticated_user(user)?;
     let skills = from_json_array(&form.required_skills);
     let deadline = to_naive_datetime(&form.application_deadline);
-    let updated = sqlx::query(DB_UPDATE_JOB)
+    let updated = crate::db::query(DB_UPDATE_JOB)
         .bind(&form.title)
         .bind(&form.description)
         .bind(&form.company_name)
@@ -655,7 +655,7 @@ pub async fn delete_job(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let deleted = sqlx::query(
+    let deleted = crate::db::query(
         r#"DELETE FROM jobs WHERE id = $1 AND posted_by_user_id = $2"#
     )
     .bind(&id)
@@ -689,12 +689,12 @@ pub async fn get_paths(
         None => format!("{} ORDER BY created_at DESC", DB_SELECT_PATHS),
     };
     let rows = match use_field {
-        Some(field) => sqlx::query(&sql)
+        Some(field) => crate::db::query(&sql)
             .bind(field)
             .fetch_all(pool.db())
             .await
             .map_err(AppError::from)?,
-        None => sqlx::query(&sql)
+        None => crate::db::query(&sql)
             .fetch_all(pool.db())
             .await
             .map_err(AppError::from)?,
@@ -728,7 +728,7 @@ pub async fn get_path_by_id(
     let path_id = id
         .parse::<i64>()
         .map_err(|_| AppError::BadRequest("id phải là số".to_string()))?;
-    let row = sqlx::query(DB_SELECT_PATH_BY_ID)
+    let row = crate::db::query(DB_SELECT_PATH_BY_ID)
         .bind(&path_id)
         .fetch_optional(pool.db())
         .await
@@ -760,7 +760,7 @@ pub async fn get_skill_roadmap(
     let path_id = id
         .parse::<i64>()
         .map_err(|_| AppError::BadRequest("id phải là số".to_string()))?;
-    let row = sqlx::query(DB_SELECT_PATH_BY_ID)
+    let row = crate::db::query(DB_SELECT_PATH_BY_ID)
         .bind(&path_id)
         .fetch_optional(pool.db())
         .await
@@ -805,7 +805,7 @@ pub async fn create_path(
     ensure_admin(&user)?;
     let skills = from_json_array(&form.skills_required);
     let roadmap = from_json_array(&form.roadmap_json);
-    let created = sqlx::query(DB_INSERT_CAREER_PATH)
+    let created = crate::db::query(DB_INSERT_CAREER_PATH)
         .bind(&form.title)
         .bind(&form.field)
         .bind(&form.description)
@@ -832,7 +832,7 @@ pub async fn get_user_careers(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_SELECT_USER_CAREER)
+    let rows = crate::db::query(DB_SELECT_USER_CAREER)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -872,7 +872,7 @@ pub async fn create_user_career(
         .clone()
         .unwrap_or_else(|| "active".to_string());
     let target_date = form.target_date.as_ref().map(|v| v.to_string());
-    let created = sqlx::query(DB_CREATE_USER_CAREER)
+    let created = crate::db::query(DB_CREATE_USER_CAREER)
         .bind(&user.id)
         .bind(&career_path_id)
         .bind(&form.goal_title)
@@ -906,7 +906,7 @@ pub async fn update_user_career(
         .as_ref()
         .cloned()
         .unwrap_or_else(|| "active".to_string());
-    let updated = sqlx::query(DB_UPDATE_USER_CAREER)
+    let updated = crate::db::query(DB_UPDATE_USER_CAREER)
         .bind(&career_path_id)
         .bind(&form.goal_title)
         .bind(&form.description)
@@ -935,7 +935,7 @@ pub async fn delete_user_career(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let deleted = sqlx::query(
+    let deleted = crate::db::query(
         r#"DELETE FROM user_careers WHERE id = $1 AND user_id = $2"#
     )
     .bind(&id)
@@ -963,7 +963,7 @@ pub async fn get_user_skills(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_SELECT_USER_SKILL)
+    let rows = crate::db::query(DB_SELECT_USER_SKILL)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -997,7 +997,7 @@ pub async fn create_user_skill(
         .as_ref()
         .cloned()
         .unwrap_or_else(|| "beginner".to_string());
-    let created = sqlx::query(DB_CREATE_USER_SKILL)
+    let created = crate::db::query(DB_CREATE_USER_SKILL)
         .bind(&user.id)
         .bind(&form.skill_name)
         .bind(&proficiency)
@@ -1024,7 +1024,7 @@ pub async fn update_user_skill(
         .as_ref()
         .cloned()
         .unwrap_or_else(|| "beginner".to_string());
-    let updated = sqlx::query(DB_UPDATE_USER_SKILL)
+    let updated = crate::db::query(DB_UPDATE_USER_SKILL)
         .bind(&proficiency)
         .bind(&form.description)
         .bind(&id)
@@ -1050,7 +1050,7 @@ pub async fn delete_user_skill(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let deleted = sqlx::query(
+    let deleted = crate::db::query(
         r#"DELETE FROM user_skills WHERE id = $1 AND user_id = $2"#
     )
     .bind(&id)
@@ -1078,7 +1078,7 @@ pub async fn get_user_applications(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_SELECT_APPLICATIONS)
+    let rows = crate::db::query(DB_SELECT_APPLICATIONS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -1112,7 +1112,7 @@ pub async fn get_application_by_id(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let row = sqlx::query(DB_SELECT_APPLICATION_BY_ID)
+    let row = crate::db::query(DB_SELECT_APPLICATION_BY_ID)
         .bind(&id)
         .bind(&user.id)
         .fetch_optional(pool.db())
@@ -1143,7 +1143,7 @@ pub async fn apply_to_job(
     Json(form): Json<ApplyJobForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let existing = sqlx::query(
+    let existing = crate::db::query(
         r#"SELECT id FROM applications WHERE user_id = $1 AND job_id = $2"#
     )
     .bind(&user.id)
@@ -1154,7 +1154,7 @@ pub async fn apply_to_job(
     if existing.is_some() {
         return Err(AppError::Conflict("Bạn đã ứng tuyển vào Job này rồi.".to_string()));
     }
-    let job = sqlx::query(
+    let job = crate::db::query(
         r#"SELECT id FROM jobs WHERE id = $1 AND status = 'active'"#
     )
     .bind(&form.job_id)
@@ -1164,7 +1164,7 @@ pub async fn apply_to_job(
     if job.is_none() {
         return Err(AppError::NotFound("Job không tìm thấy.".to_string()));
     }
-    let created = sqlx::query(DB_INSERT_APPLICATION)
+    let created = crate::db::query(DB_INSERT_APPLICATION)
         .bind(&user.id)
         .bind(&form.job_id)
         .bind(&form.cover_letter)
@@ -1189,7 +1189,7 @@ pub async fn update_application_status(
     Json(form): Json<UpdateApplicationStatusForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let application = sqlx::query(
+    let application = crate::db::query(
         r#"SELECT a.id, a.status, a.user_id, job.posted_by_user_id
            FROM applications a LEFT JOIN jobs job ON job.id = a.job_id
            WHERE a.id = $1"#
@@ -1211,7 +1211,7 @@ pub async fn update_application_status(
             "Bạn không có quyền cập nhật trạng thái ứng tuyển này.".to_string(),
         ));
     }
-    let updated = sqlx::query(DB_UPDATE_APPLICATION_STATUS)
+    let updated = crate::db::query(DB_UPDATE_APPLICATION_STATUS)
         .bind(&form.status)
         .bind(&id)
         .bind(&user.id)
@@ -1235,7 +1235,7 @@ pub async fn withdraw_application(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let application = sqlx::query(
+    let application = crate::db::query(
         r#"SELECT id, status FROM applications WHERE id = $1 AND user_id = $2"#
     )
     .bind(&id)
@@ -1255,7 +1255,7 @@ pub async fn withdraw_application(
             "Không thể rút ứng tuyển đã được chấp nhận hoặc từ chối.".to_string(),
         ));
     }
-    let updated = sqlx::query(DB_UPDATE_APPLICATION_STATUS)
+    let updated = crate::db::query(DB_UPDATE_APPLICATION_STATUS)
         .bind(&"withdrawn".to_string())
         .bind(&id)
         .bind(&user.id)
@@ -1331,7 +1331,7 @@ pub async fn upload_resume(
     fs::write(&filepath, &data).map_err(AppError::from)?;
     let size_kb = (data.len() as f64 / 1024.0).round() as f64;
 
-    let created = sqlx::query(DB_INSERT_USER_FILE)
+    let created = crate::db::query(DB_INSERT_USER_FILE)
         .bind(&user.id)
         .bind(&original_name)
         .bind(&file_url)
@@ -1364,7 +1364,7 @@ pub async fn get_ai_advice(
     // The old backend fetched the user + skills + careers before asking the AI;
     // the AI service handles a user id — the payload is the minimum the endpoint
     // expects.
-    let user_row = sqlx::query(
+    let user_row = crate::db::query(
         r#"SELECT id, full_name, email, avatar_url, role, mbti_type FROM users WHERE id = $1"#
     )
     .bind(&user.id)
@@ -1377,12 +1377,12 @@ pub async fn get_ai_advice(
             "Không tìm thấy thông tin người dùng.".to_string(),
         )),
     };
-    let skills = sqlx::query(DB_SELECT_USER_SKILL)
+    let skills = crate::db::query(DB_SELECT_USER_SKILL)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
-    let careers = sqlx::query(DB_SELECT_USER_CAREER)
+    let careers = crate::db::query(DB_SELECT_USER_CAREER)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -1430,7 +1430,7 @@ pub async fn suggest_career(
     let user = authenticated_user(user)?;
 
     // The AI follows the same data: skills + career goals (interests).
-    let skills = sqlx::query(DB_SELECT_USER_SKILL)
+    let skills = crate::db::query(DB_SELECT_USER_SKILL)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -1440,7 +1440,7 @@ pub async fn suggest_career(
         .map(|row| row.get::<String, &str>("skill_name").to_lowercase())
         .collect();
 
-    let careers = sqlx::query(DB_SELECT_USER_CAREER)
+    let careers = crate::db::query(DB_SELECT_USER_CAREER)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await

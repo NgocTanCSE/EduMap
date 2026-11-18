@@ -119,7 +119,7 @@ pub struct FormatQuery {
 pub async fn get_surveys(
     State(pool): State<DbPool>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_SURVEYS)
+    let rows = crate::db::query(DB_SELECT_SURVEYS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -134,7 +134,7 @@ pub async fn get_survey_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
+    let row = crate::db::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -166,7 +166,7 @@ pub async fn create_survey(
         None => String::new(),
     };
 
-    let row = sqlx::query(DB_INSERT_SURVEY)
+    let row = crate::db::query(DB_INSERT_SURVEY)
         .bind(title)
         .bind(questions_json)
         .bind(&user.id)
@@ -186,7 +186,7 @@ pub async fn submit_response(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
+    let row = crate::db::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -200,7 +200,7 @@ pub async fn submit_response(
         return Err(AppError::BadRequest("Khảo sát này đã đóng.".to_string()));
     }
 
-    let existing: Option<i64> = sqlx::query(
+    let existing: Option<i64> = crate::db::query(
         "SELECT 1 FROM survey_responses WHERE survey_id = $1 AND user_id = $2",
     )
     .bind(&id)
@@ -217,7 +217,7 @@ pub async fn submit_response(
     let answers = body.answers.unwrap_or(Value::Null);
     let answers_json = serde_json::to_string(&answers).unwrap_or_default();
 
-    let inserted_id: String = sqlx::query(DB_INSERT_RESPONSE)
+    let inserted_id: String = crate::db::query(DB_INSERT_RESPONSE)
         .bind(&id)
         .bind(&user.id)
         .bind(answers_json)
@@ -240,7 +240,7 @@ pub async fn get_survey_analytics(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let _user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
+    let row = crate::db::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -252,7 +252,7 @@ pub async fn get_survey_analytics(
     };
 
     // Cỏi các câu trả lời để xây dựng `questions_stats`.
-    let rows = sqlx::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
+    let rows = crate::db::query("SELECT answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -260,11 +260,12 @@ pub async fn get_survey_analytics(
 
     let responses: Vec<Value> = rows.iter().map(response_to_json).collect();
 
-    let total_responses: i64 = sqlx::query_scalar(DB_COUNT_RESPONSES)
+    let total_responses: i64 = crate::db::query(DB_COUNT_RESPONSES)
         .bind(&id)
         .fetch_one(pool.db())
         .await
-        .map_err(AppError::from)?;
+        .map_err(AppError::from)?
+        .get::<i64, _>(0);
 
     // Build a simplified analytics payload: the old service counted per question
     // and averages for `rating`/`choice` types — computed in memory here.
@@ -316,7 +317,7 @@ pub async fn export_survey_data(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let _user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_SURVEY_BY_ID)
+    let row = crate::db::query(DB_SELECT_SURVEY_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -327,7 +328,7 @@ pub async fn export_survey_data(
         None => return Err(AppError::NotFound("Không tìm thấy cuộc khảo sát này.".to_string())),
     };
 
-    let rows = sqlx::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
+    let rows = crate::db::query("SELECT survey_id, user_id, answers_json, CAST(created_at AS TEXT) AS created_at FROM survey_responses WHERE survey_id = $1")
         .bind(&id)
         .fetch_all(pool.db())
         .await

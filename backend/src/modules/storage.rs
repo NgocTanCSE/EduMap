@@ -182,7 +182,7 @@ pub async fn get_my_files(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_MY_FILES)
+    let rows = crate::db::query(DB_MY_FILES)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -239,7 +239,7 @@ pub async fn upload_file(
     let file_path = dir.join(&object_name);
     fs::write(&file_path, &data).map_err(AppError::from)?;
 
-    let created = sqlx::query(DB_INSERT_FILE)
+    let created = crate::db::query(DB_INSERT_FILE)
         .bind(&user.id)
         .bind(&original_name)
         .bind(&file_url)
@@ -304,7 +304,7 @@ pub async fn delete_file(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let user_file = sqlx::query(DB_USER_FILE_BY_ID)
+    let user_file = crate::db::query(DB_USER_FILE_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -329,7 +329,7 @@ pub async fn delete_file(
         tracing::debug!(path = ?file_path, "không tìm thấy file, bỏ qua xóa trên đĩa");
     }
 
-    sqlx::query(DB_DELETE_FILE)
+    crate::db::query(DB_DELETE_FILE)
         .bind(&id)
         .execute(pool.db())
         .await

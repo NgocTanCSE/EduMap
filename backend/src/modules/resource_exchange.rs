@@ -209,14 +209,14 @@ pub async fn get_resources(
         format!("WHERE {}", filters.join(" AND "))
     };
 
-    let total_rows = sqlx::query(&format!("SELECT COUNT(*) AS c FROM resources {where_clause}"))
+    let total_rows = crate::db::query(&format!("SELECT COUNT(*) AS c FROM resources {where_clause}"))
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count resources: {e}")))?;
 
     let total: i64 = total_rows.get::<i64, &str>("c");
 
-    let rows = sqlx::query(&format!("{DB_RESOURCES} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
+    let rows = crate::db::query(&format!("{DB_RESOURCES} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read resources: {e}")))?;
@@ -230,7 +230,7 @@ pub async fn get_resource_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_RESOURCE_BY_ID)
+    let row = crate::db::query(DB_RESOURCE_BY_ID)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -249,7 +249,7 @@ pub async fn create_resource(
     Json(body): Json<CreateResource>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let row = sqlx::query(DB_INSERT_RESOURCE)
+    let row = crate::db::query(DB_INSERT_RESOURCE)
         .bind(body.type_.as_str())
         .bind(body.title.as_str())
         .bind(body.description.as_deref().unwrap_or(""))
@@ -319,13 +319,13 @@ pub async fn get_resource_requests(
         format!("WHERE {}", filters.join(" AND "))
     };
 
-    let total_rows = sqlx::query(&format!("SELECT COUNT(*) AS c FROM resource_requests {where_clause}"))
+    let total_rows = crate::db::query(&format!("SELECT COUNT(*) AS c FROM resource_requests {where_clause}"))
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count requests: {e}")))?;
     let total: i64 = total_rows.get::<i64, &str>("c");
 
-    let rows = sqlx::query(&format!("{DB_REQUESTS} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
+    let rows = crate::db::query(&format!("{DB_REQUESTS} {where_clause} ORDER BY created_at DESC LIMIT {} OFFSET {}", q.page_limit(), q.page_offset()))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read requests: {e}")))?;
@@ -339,7 +339,7 @@ pub async fn get_resource_request_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_REQUEST_BY_ID)
+    let row = crate::db::query(DB_REQUEST_BY_ID)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -358,7 +358,7 @@ pub async fn create_resource_request(
     Json(body): Json<CreateResourceRequest>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let row = sqlx::query(DB_INSERT_REQUEST)
+    let row = crate::db::query(DB_INSERT_REQUEST)
         .bind(body.need_type.as_str())
         .bind(body.title.as_str())
         .bind(body.description.as_deref().unwrap_or(""))
@@ -423,7 +423,7 @@ pub async fn get_resource_matches(
         sql = sql.replace("FROM resource_matches", &format!("FROM resource_matches WHERE {}", filters.join(" AND ")));
     }
 
-    let rows = sqlx::query(&format!("{sql} ORDER BY match_score DESC, created_at DESC LIMIT 100"))
+    let rows = crate::db::query(&format!("{sql} ORDER BY match_score DESC, created_at DESC LIMIT 100"))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read matches: {e}")))?;
@@ -442,7 +442,7 @@ pub async fn get_resource_matches(
         })
     }).collect();
 
-    let _total_rows = sqlx::query(DB_COUNT_MATCHES)
+    let _total_rows = crate::db::query(DB_COUNT_MATCHES)
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to count matches: {e}")))?;

@@ -219,14 +219,14 @@ pub async fn get_internships(
     let limit = q.limit.as_deref().unwrap_or("10").parse::<i64>().unwrap_or(10).max(1).min(100);
     let offset = (page - 1) * limit;
 
-    let rows = sqlx::query(DB_SELECT_LIST_BASE)
+    let rows = crate::db::query(DB_SELECT_LIST_BASE)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
         .await
         .map_err(to_app_error)?;
 
-    let total = sqlx::query(DB_SELECT_COUNT_BASE)
+    let total = crate::db::query(DB_SELECT_COUNT_BASE)
         .fetch_one(pool.db())
         .await
         .map_err(to_app_error)?
@@ -254,7 +254,7 @@ pub async fn get_nearby(
     let limit: i64 = 50;
     let offset: i64 = 0;
 
-    let rows = sqlx::query(DB_SELECT_NEARBY_BASE)
+    let rows = crate::db::query(DB_SELECT_NEARBY_BASE)
         .bind(&lng)
         .bind(&lat)
         .bind(&radius)
@@ -279,7 +279,7 @@ pub async fn get_internship_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_DETAIL)
+    let row = crate::db::query(DB_SELECT_DETAIL)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -309,7 +309,7 @@ pub async fn create_internship(
         ));
     }
 
-    let row = sqlx::query(DB_INSERT_INTERNSHIP)
+    let row = crate::db::query(DB_INSERT_INTERNSHIP)
         .bind(form.title.as_deref().unwrap())
         .bind(form.description.as_deref().unwrap())
         .bind(form.field.as_deref().unwrap())
@@ -343,7 +343,7 @@ pub async fn apply_internship(
 
     let cover_letter: String = form.coverLetter.unwrap_or_default().trim().to_string();
 
-    let row = sqlx::query(DB_SELECT_DETAIL)
+    let row = crate::db::query(DB_SELECT_DETAIL)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -357,7 +357,7 @@ pub async fn apply_internship(
                 ));
             }
 
-            let existing = sqlx::query(DB_SELECT_EXISTING_APPLICATION)
+            let existing = crate::db::query(DB_SELECT_EXISTING_APPLICATION)
                 .bind(&user.id)
                 .bind(&id)
                 .fetch_optional(pool.db())
@@ -375,7 +375,7 @@ pub async fn apply_internship(
                 user.id[0..8].to_uppercase().trim(),
                 chrono::Utc::now().timestamp_millis());
 
-            sqlx::query(DB_INSERT_APPLICATION)
+            crate::db::query(DB_INSERT_APPLICATION)
                 .bind(&user.id)
                 .bind(&id)
                 .bind(&cover_letter)

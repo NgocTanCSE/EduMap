@@ -216,7 +216,7 @@ async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64
         if title.is_empty() {
             continue;
         }
-        let exists = sqlx::query(DB_LEARNING_MATERIAL_EXISTS)
+        let exists = crate::db::query(DB_LEARNING_MATERIAL_EXISTS)
             .bind(title)
             .fetch_optional(pool.db())
             .await
@@ -233,7 +233,7 @@ async fn crawl_books(client: &Client, pool: &DbPool, keyword: String, limit: i64
             .map(|i| format!("https://covers.openlibrary.org/b/id/{i}-M.jpg"));
         let ol_url = doc.get("key").and_then(|x| x.as_str())
             .map(|k| format!("https://openlibrary.org{k}"));
-        sqlx::query(DB_LEARNING_MATERIAL_INSERT)
+        crate::db::query(DB_LEARNING_MATERIAL_INSERT)
             .bind(title)
             .bind(format!("Author: {author}{}", year.map_or_else(String::new, |y| format!(" | Year: {y}"))))
             .bind("book")
@@ -291,7 +291,7 @@ pub async fn trigger_crawl(
     let history_id = format!("crawl-{}", epoch());
     let started = now_iso();
     // persist the running row
-    let _ = sqlx::query(DB_INSERT_CRAWL_HISTORY)
+    let _ = crate::db::query(DB_INSERT_CRAWL_HISTORY)
         .bind(&body.type_)
         .bind("running")
         .bind(0_i64)
@@ -402,7 +402,7 @@ pub async fn trigger_crawl(
     };
 
     // Ghi kết quả crawl vào DB sau khi nhả lock.
-    let _ = sqlx::query(DB_UPDATE_CRAWL_HISTORY)
+    let _ = crate::db::query(DB_UPDATE_CRAWL_HISTORY)
         .bind(&history_id)
         .bind(&outcome.0)
         .bind(outcome.1)
@@ -456,7 +456,7 @@ pub async fn get_crawl_history(State(pool): State<DbPool>) -> Result<Json<ApiRes
         Some(h) => h,
         None => {
             // Khởi động lại: lịch sử còn trống -> lấy từ DB.
-            sqlx::query(DB_HISTORY_ALL)
+            crate::db::query(DB_HISTORY_ALL)
                 .fetch_all(pool.db())
                 .await
                 .map_err(|e| AppError::Internal(format!("failed to read crawl history: {e}")))?

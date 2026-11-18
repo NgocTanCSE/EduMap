@@ -184,7 +184,7 @@ async fn award_points(
     action: &str,
     reference_id: Option<&str>,
 ) -> Result<(), AppError> {
-    sqlx::query(DB_AWARD_POINTS)
+    crate::db::query(DB_AWARD_POINTS)
         .bind(user_id)
         .bind(&points)
         .bind(action)
@@ -201,7 +201,7 @@ async fn fetch_progress(
     pool: &sqlx::PgPool,
     user_id: &str,
 ) -> Result<(i64, Vec<String>), AppError> {
-    let sum: Option<i64> = sqlx::query(DB_USER_POINTS_SUM)
+    let sum: Option<i64> = crate::db::query(DB_USER_POINTS_SUM)
         .bind(user_id)
         .fetch_optional(pool)
         .await
@@ -209,7 +209,7 @@ async fn fetch_progress(
         .map(|row| row.get::<i64, &str>("total"));
     let total = sum.unwrap_or(0);
 
-    let rows = sqlx::query(DB_USER_BADGES)
+    let rows = crate::db::query(DB_USER_BADGES)
         .bind(user_id)
         .fetch_all(pool)
         .await
@@ -254,7 +254,7 @@ pub struct GrantAchievementForm {
 /// `GET /api/gamification/leaderboard` — bảng xếp hạng 10 người dẫn đầu
 /// (public).
 pub async fn get_leaderboard(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_LEADERBOARD)
+    let rows = crate::db::query(DB_LEADERBOARD)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -286,7 +286,7 @@ pub async fn get_my_progress(
 
     let (total, badges) = fetch_progress(pool.db(), &user.id).await?;
 
-    let higher: Option<i64> = sqlx::query(DB_USER_RANK_ABOVE)
+    let higher: Option<i64> = crate::db::query(DB_USER_RANK_ABOVE)
         .bind(&total)
         .fetch_optional(pool.db())
         .await
@@ -294,7 +294,7 @@ pub async fn get_my_progress(
         .map(|row| row.get::<i64, &str>("higher"));
     let rank = higher.unwrap_or(0) + 1;
 
-    let total_users: Option<i64> = sqlx::query(DB_USER_RANK_TOTAL)
+    let total_users: Option<i64> = crate::db::query(DB_USER_RANK_TOTAL)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?
@@ -316,7 +316,7 @@ pub async fn get_user_badges(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_USER_BADGES)
+    let rows = crate::db::query(DB_USER_BADGES)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -346,7 +346,7 @@ pub async fn submit_activity(
 
     let mut tx = pool.db().begin().await.map_err(AppError::from)?;
 
-    let activity: Option<i64> = sqlx::query(DB_SUBMIT_ACTIVITY)
+    let activity: Option<i64> = crate::db::query(DB_SUBMIT_ACTIVITY)
         .bind(&user.id)
         .bind(activity_type.unwrap())
         .bind(body.description.as_deref().unwrap_or(""))
@@ -444,7 +444,7 @@ pub async fn grant_achievement(
 
     let mut tx = pool.db().begin().await.map_err(AppError::from)?;
 
-    let badge_row = sqlx::query(DB_BADGE_BY_NAME)
+    let badge_row = crate::db::query(DB_BADGE_BY_NAME)
         .bind(body.achievement.trim())
         .fetch_optional(&mut *tx)
         .await
@@ -453,7 +453,7 @@ pub async fn grant_achievement(
     let badge_id: String = match badge_row {
         Some(row) => row.get::<String, &str>("id"),
         None => {
-            sqlx::query(DB_CREATE_BADGE)
+            crate::db::query(DB_CREATE_BADGE)
                 .bind(body.achievement.trim())
                 .fetch_one(&mut *tx)
                 .await
@@ -462,7 +462,7 @@ pub async fn grant_achievement(
         }
     };
 
-    sqlx::query(DB_GRANT_BADGE)
+    crate::db::query(DB_GRANT_BADGE)
         .bind(&body.user_id)
         .bind(&badge_id)
         .execute(&mut *tx)

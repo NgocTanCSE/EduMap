@@ -208,7 +208,7 @@ fn connection_to_json(row: &sqlx::postgres::PgRow) -> Value {
 pub async fn get_counseling(
     State(pool): State<DbPool>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_COUNSELING)
+    let rows = crate::db::query(DB_SELECT_COUNSELING)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -255,7 +255,7 @@ pub async fn create_question(
         ));
     }
 
-    let row = sqlx::query(DB_INSERT_QUESTION)
+    let row = crate::db::query(DB_INSERT_QUESTION)
         .bind(&user.id)
         .bind(&form.title)
         .bind(&form.content)
@@ -292,7 +292,7 @@ pub async fn get_questions(
 
     let _ = sql_text; // kept for the eslint-like template guard below.
 
-    let rows = sqlx::query(DB_SELECT_QUESTIONS)
+    let rows = crate::db::query(DB_SELECT_QUESTIONS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -329,7 +329,7 @@ pub async fn answer_question(
     }
 
     // Câu hỏi phải tồn tại.
-    let question = sqlx::query(r#"SELECT id FROM hs_questions WHERE id = $1"#)
+    let question = crate::db::query(r#"SELECT id FROM hs_questions WHERE id = $1"#)
         .bind(&form.question_id)
         .fetch_optional(pool.db())
         .await
@@ -338,7 +338,7 @@ pub async fn answer_question(
         return Err(AppError::NotFound("Câu hỏi không tồn tại.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_ANSWER)
+    let row = crate::db::query(DB_INSERT_ANSWER)
         .bind(&form.question_id)
         .bind(&user.id)
         .bind(&form.content)
@@ -366,7 +366,7 @@ pub async fn connect(
         ));
     }
 
-    let receiver = sqlx::query(DB_SELECT_USER_BY_ID)
+    let receiver = crate::db::query(DB_SELECT_USER_BY_ID)
         .bind(&receiver_id)
         .fetch_optional(pool.db())
         .await
@@ -375,7 +375,7 @@ pub async fn connect(
         return Err(AppError::NotFound("Người dùng không tồn tại.".to_string()));
     }
 
-    let existing = sqlx::query(DB_SELECT_EXISTING_CONNECTION)
+    let existing = crate::db::query(DB_SELECT_EXISTING_CONNECTION)
         .bind(&user.id)
         .bind(&receiver_id)
         .fetch_optional(pool.db())
@@ -387,7 +387,7 @@ pub async fn connect(
         ));
     }
 
-    let row = sqlx::query(DB_INSERT_CONNECTION)
+    let row = crate::db::query(DB_INSERT_CONNECTION)
         .bind(&user.id)
         .bind(&receiver_id)
         .fetch_one(pool.db())
@@ -408,7 +408,7 @@ pub async fn get_my_network(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let friends = sqlx::query(DB_SELECT_MY_NETWORK)
+    let friends = crate::db::query(DB_SELECT_MY_NETWORK)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -417,7 +417,7 @@ pub async fn get_my_network(
         .map(connection_to_json)
         .collect::<Vec<_>>();
 
-    let requests = sqlx::query(DB_SELECT_PENDING_REQUESTS)
+    let requests = crate::db::query(DB_SELECT_PENDING_REQUESTS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -454,7 +454,7 @@ pub async fn respond_to_request(
         ));
     }
 
-    let row = sqlx::query(DB_SELECT_REQUEST_BY_ID)
+    let row = crate::db::query(DB_SELECT_REQUEST_BY_ID)
         .bind(&form.connection_id)
         .bind(&user.id)
         .fetch_optional(pool.db())
@@ -464,7 +464,7 @@ pub async fn respond_to_request(
     match row {
         Some(r) => {
             let new_status = if form.accept { "accepted" } else { "rejected" };
-            sqlx::query(
+            crate::db::query(
                 r#"UPDATE student_connections SET status = $1 WHERE id = $2"#,
             )
             .bind(new_status)

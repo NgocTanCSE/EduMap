@@ -442,7 +442,7 @@ pub async fn register_mentor(
         ensure_admin(&actor)?;
     }
 
-    let user_row = sqlx::query(DB_SELECT_USER)
+    let user_row = crate::db::query(DB_SELECT_USER)
         .bind(&user_id)
         .fetch_optional(pool.db())
         .await
@@ -453,7 +453,7 @@ pub async fn register_mentor(
         Some(_) => {}
     }
 
-    let exists = sqlx::query("SELECT user_id FROM mentors WHERE user_id = $1")
+    let exists = crate::db::query("SELECT user_id FROM mentors WHERE user_id = $1")
         .bind(&user_id)
         .fetch_optional(pool.db())
         .await
@@ -473,7 +473,7 @@ pub async fn register_mentor(
         .unwrap_or(0);
     let hourly_rate = form.hourly_rate.as_deref().and_then(|v| v.parse::<f64>().ok());
 
-    let inserted = sqlx::query(DB_INSERT_MENTOR)
+    let inserted = crate::db::query(DB_INSERT_MENTOR)
         .bind(&user_id)
         .bind(&form.bio)
         .bind(&serde_json::Value::from(specialties))
@@ -510,7 +510,7 @@ pub async fn get_mentors(
         None => DB_MENTORS.to_string(),
     };
 
-    let rows = sqlx::query(&sql)
+    let rows = crate::db::query(&sql)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -524,7 +524,7 @@ pub async fn get_mentor_by_id(
     State(pool): State<DbPool>,
     Path(mentor_id): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let row = sqlx::query(DB_MENTOR_BY_ID)
+    let row = crate::db::query(DB_MENTOR_BY_ID)
         .bind(&mentor_id)
         .fetch_optional(pool.db())
         .await
@@ -544,14 +544,14 @@ pub async fn recommend_mentors(
     Query(q): Query<RecommendQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     // Sinh viên: lấy hồ sơ thật, nếu không có thì dùng tài khoản demo.
-    let user_row = sqlx::query(DB_SELECT_USER)
+    let user_row = crate::db::query(DB_SELECT_USER)
         .bind(&user_id)
         .fetch_optional(pool.db())
         .await
         .map_err(AppError::from)?;
 
     let user_row = if user_row.is_none() {
-        sqlx::query(DB_SELECT_USER)
+        crate::db::query(DB_SELECT_USER)
             .bind(DEV_USER_UUID)
             .fetch_optional(pool.db())
             .await
@@ -611,7 +611,7 @@ pub async fn recommend_mentors(
         format!(" AND m.is_verified = true AND ({})", filters.join(" OR "))
     };
 
-    let mentors = sqlx::query(&format!(
+    let mentors = crate::db::query(&format!(
         "{}{} ORDER BY m.rating_avg DESC LIMIT {}",
         DB_MENTOR_BASE,
         where_clause,
@@ -689,7 +689,7 @@ pub async fn get_mentor_slots(
     let parsed = parse_date(&date)?;
     let day_of_week = parsed.weekday().num_days_from_sunday() as i64;
 
-    let rows = sqlx::query(DB_SLOTS)
+    let rows = crate::db::query(DB_SLOTS)
         .bind(&mentor_id)
         .bind(&date)
         .bind(&(day_of_week as i32))
@@ -737,7 +737,7 @@ pub async fn add_availability(
         ));
     }
 
-    let inserted = sqlx::query(DB_INSERT_AVAILABILITY)
+    let inserted = crate::db::query(DB_INSERT_AVAILABILITY)
         .bind(&user.id)
         .bind(form.day_of_week as i32)
         .bind(&form.start_time)
@@ -762,7 +762,7 @@ pub async fn get_my_availability(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_AVAILABILITIES)
+    let rows = crate::db::query(DB_AVAILABILITIES)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -810,7 +810,7 @@ pub async fn book_session(
         return Err(AppError::BadRequest("slot.end phải lớn hơn slot.start".to_string()));
     }
 
-    let mentor = sqlx::query(DB_MENTOR_BY_ID)
+    let mentor = crate::db::query(DB_MENTOR_BY_ID)
         .bind(&mentor_id)
         .fetch_optional(pool.db())
         .await
@@ -821,7 +821,7 @@ pub async fn book_session(
         None => return Err(AppError::NotFound("Mentor không tồn tại".to_string())),
     };
 
-    let conflict = sqlx::query(DB_CONFLICT_BOOKING)
+    let conflict = crate::db::query(DB_CONFLICT_BOOKING)
         .bind(&mentor_id)
         .bind(&slot_start)
         .fetch_optional(pool.db())
@@ -837,7 +837,7 @@ pub async fn book_session(
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
-    let saved = sqlx::query(DB_INSERT_BOOKING)
+    let saved = crate::db::query(DB_INSERT_BOOKING)
         .bind(&mentor_id)
         .bind(&user.id)
         .bind(&slot_start)
@@ -862,7 +862,7 @@ pub async fn update_booking_status(
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_BOOKING_BY_ID)
+    let row = crate::db::query(DB_BOOKING_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -892,7 +892,7 @@ pub async fn update_booking_status(
         ));
     }
 
-    let updated = sqlx::query(DB_UPDATE_BOOKING_STATUS)
+    let updated = crate::db::query(DB_UPDATE_BOOKING_STATUS)
         .bind(&form.status)
         .bind(&id)
         .fetch_one(pool.db())
@@ -908,7 +908,7 @@ pub async fn get_my_bookings(
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let user = authenticated_user(user)?;
-    let rows = sqlx::query(DB_STUDENT_BOOKINGS)
+    let rows = crate::db::query(DB_STUDENT_BOOKINGS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -930,7 +930,7 @@ pub async fn get_student_bookings(
     let user = authenticated_user(user)?;
     ensure_self_or_admin(&user, &student_id, "Bạn chỉ có thể xem lịch đặt của chính mình.")?;
 
-    let rows = sqlx::query(DB_STUDENT_BOOKINGS)
+    let rows = crate::db::query(DB_STUDENT_BOOKINGS)
         .bind(&student_id)
         .fetch_all(pool.db())
         .await
@@ -952,7 +952,7 @@ pub async fn get_mentor_bookings(
     let user = authenticated_user(user)?;
     ensure_self_or_admin(&user, &mentor_id, "Bạn chỉ có thể xem lịch hẹn của chính mình.")?;
 
-    let rows = sqlx::query(DB_MENTOR_BOOKINGS)
+    let rows = crate::db::query(DB_MENTOR_BOOKINGS)
         .bind(&mentor_id)
         .fetch_all(pool.db())
         .await

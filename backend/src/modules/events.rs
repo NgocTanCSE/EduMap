@@ -339,7 +339,7 @@ pub async fn get_events(
     State(pool): State<DbPool>,
     Query(_): Query<Value>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_EVENTS)
+    let rows = crate::db::query(DB_SELECT_EVENTS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -353,7 +353,7 @@ pub async fn get_event_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_EVENT_BY_ID)
+    let row = crate::db::query(DB_SELECT_EVENT_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -404,7 +404,7 @@ pub async fn create_event(
         longitude: form.longitude,
     })?;
 
-    let inserted = sqlx::query(DB_INSERT_EVENT)
+    let inserted = crate::db::query(DB_INSERT_EVENT)
         .bind(title)
         .bind(description)
         .bind(form.r#type.as_deref().unwrap_or("workshop"))
@@ -426,7 +426,7 @@ pub async fn create_event(
         .map_err(AppError::from)?;
 
     let id: String = inserted.get("id");
-    let row = sqlx::query(DB_SELECT_EVENT_BY_ID)
+    let row = crate::db::query(DB_SELECT_EVENT_BY_ID)
         .bind(&id)
         .fetch_one(pool.db())
         .await
@@ -461,7 +461,7 @@ pub async fn update_event(
         longitude: form.longitude,
     })?;
 
-    let updated = sqlx::query(DB_UPDATE_EVENT)
+    let updated = crate::db::query(DB_UPDATE_EVENT)
         .bind(form.title.as_deref())
         .bind(form.description.as_deref())
         .bind(form.r#type.as_deref())
@@ -488,7 +488,7 @@ pub async fn update_event(
         None => return Err(AppError::NotFound("Không tìm thấy sự kiện".to_string())),
     }
 
-    let row = sqlx::query(DB_SELECT_EVENT_BY_ID)
+    let row = crate::db::query(DB_SELECT_EVENT_BY_ID)
         .bind(&id)
         .fetch_one(pool.db())
         .await
@@ -512,7 +512,7 @@ pub async fn register_event(
         Err(e) => return Err(AppError::from(e)),
     };
 
-    let event = sqlx::query(DB_LOCK_EVENT)
+    let event = crate::db::query(DB_LOCK_EVENT)
         .bind(&id)
         .fetch_optional(&mut *tx)
         .await
@@ -526,7 +526,7 @@ pub async fn register_event(
         }
     };
 
-    let duplicate: Option<i64> = sqlx::query(DB_DOUBLE_REGISTRATION)
+    let duplicate: Option<i64> = crate::db::query(DB_DOUBLE_REGISTRATION)
         .bind(&id)
         .bind(&user.id)
         .fetch_optional(&mut *tx)
@@ -556,7 +556,7 @@ pub async fn register_event(
         TICKET_SEQUENCE.fetch_add(1, Ordering::SeqCst) % 10_000
     );
 
-    let reg = sqlx::query(DB_EVENT_REGISTRATION)
+    let reg = crate::db::query(DB_EVENT_REGISTRATION)
         .bind(&id)
         .bind(&user.id)
         .bind(&ticket_code)
@@ -566,14 +566,14 @@ pub async fn register_event(
 
     let reg_id: String = reg.get("id");
 
-    sqlx::query(DB_INCREMENT_REGISTRATIONS)
+    crate::db::query(DB_INCREMENT_REGISTRATIONS)
         .bind(1_i64)
         .bind(&id)
         .execute(&mut *tx)
         .await
         .map_err(AppError::from)?;
 
-    sqlx::query(DB_AWARD_POINTS)
+    crate::db::query(DB_AWARD_POINTS)
         .bind(&user.id)
         .bind(&reg_id)
         .execute(&mut *tx)

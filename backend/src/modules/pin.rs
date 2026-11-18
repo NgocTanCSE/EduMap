@@ -259,7 +259,7 @@ pub async fn find_pins(
         DB_SELECT_PINS, where_clause
     );
 
-    let mut q = sqlx::query(sql.as_str());
+    let mut q = crate::db::query(sql.as_str());
     q = q.bind(&limit).bind(&offset);
     for b in binds {
         q = q.bind(b);
@@ -281,7 +281,7 @@ pub async fn get_pin(
     Path(id): Path<String>,
     user: Option<Extension<AuthUser>>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_PIN_BY_ID)
+    let row = crate::db::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -333,7 +333,7 @@ pub async fn create_pin(
     let location = body.location.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default());
 
     // resolve poster_name = full_name của người đăng (ẩn danh nếu chưa đặt).
-    let poster_name: Option<String> = sqlx::query(DB_USER_FULL_NAME)
+    let poster_name: Option<String> = crate::db::query(DB_USER_FULL_NAME)
         .bind(&user.id)
         .fetch_optional(pool.db())
         .await
@@ -347,7 +347,7 @@ pub async fn create_pin(
     let sql = DB_INSERT_PIN;
     let kind: Option<&str> = Some(body.kind.as_str())
         .filter(|v| !v.trim().is_empty());
-    let inserted_id: String = sqlx::query(sql)
+    let inserted_id: String = crate::db::query(sql)
         .bind(title.as_str())
         .bind(body.content.as_deref())
         .bind(kind)
@@ -365,7 +365,7 @@ pub async fn create_pin(
         .map_err(AppError::from)?
         .get::<String, &str>("id");
 
-    let row = sqlx::query(DB_SELECT_PIN_BY_ID)
+    let row = crate::db::query(DB_SELECT_PIN_BY_ID)
         .bind(&inserted_id)
         .fetch_one(pool.db())
         .await
@@ -383,7 +383,7 @@ pub async fn update_pin(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_PIN_BY_ID)
+    let row = crate::db::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -452,7 +452,7 @@ pub async fn update_pin(
         binds.len() + 1
     );
 
-    let mut query = sqlx::query(&sql);
+    let mut query = crate::db::query(&sql);
     for bind in binds {
         query = query.bind(bind);
     }
@@ -477,7 +477,7 @@ pub async fn delete_pin(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_PIN_BY_ID)
+    let row = crate::db::query(DB_SELECT_PIN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -495,7 +495,7 @@ pub async fn delete_pin(
         ));
     }
 
-    sqlx::query("UPDATE pins SET deleted_at = NOW() WHERE id = $1")
+    crate::db::query("UPDATE pins SET deleted_at = NOW() WHERE id = $1")
         .bind(&id)
         .execute(pool.db())
         .await

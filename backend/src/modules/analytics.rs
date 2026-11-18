@@ -96,7 +96,7 @@ pub async fn track_event(
             })
         });
 
-    let row = sqlx::query(DB_INSERT_EVENT)
+    let row = crate::db::query(DB_INSERT_EVENT)
         .bind(user_id.as_deref())
         .bind(&body.event_type)
         .bind(body.metadata.as_ref().map(|m| m.to_string()).unwrap_or_default())
@@ -120,7 +120,7 @@ pub async fn get_stats(
     State(pool): State<DbPool>,
     _query: Query<StatsQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_GLOBAL_STATS)
+    let row = crate::db::query(DB_GLOBAL_STATS)
         .fetch_one(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read global stats: {e}")))?;
@@ -153,7 +153,7 @@ pub async fn get_education_stats(
         sql = sql.replace("WHERE TRUE", &format!("WHERE {}", filters.join(" AND ")));
     }
 
-    let rows = sqlx::query(&sql)
+    let rows = crate::db::query(&sql)
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read education stats: {e}")))?;

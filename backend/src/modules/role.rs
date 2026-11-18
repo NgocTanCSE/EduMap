@@ -65,7 +65,7 @@ pub async fn find_all(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let rows = sqlx::query(DB_ROLES)
+    let rows = crate::db::query(DB_ROLES)
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read roles: {e}")))?;
@@ -98,7 +98,7 @@ pub async fn find_one(
     ensure_admin(&user)?;
 
     let id_num = id.parse::<i64>().map_err(|_| AppError::BadRequest("Role id must be an integer.".to_string()))?;
-    let row = sqlx::query(DB_ROLE_BY_ID)
+    let row = crate::db::query(DB_ROLE_BY_ID)
         .bind(id_num)
         .fetch_optional(pool.db())
         .await
@@ -135,7 +135,7 @@ pub async fn create(
         return Err(AppError::BadRequest("name is required and must not be empty.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_ROLE)
+    let row = crate::db::query(DB_INSERT_ROLE)
         .bind(name)
         .bind(body.display_name.as_deref())
         .bind(body.description.as_deref())

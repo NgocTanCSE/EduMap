@@ -127,7 +127,7 @@ async fn title_lookup(
         placeholders = placeholders.join(","),
     );
 
-    let mut query = sqlx::query(&sql);
+    let mut query = crate::db::query(&sql);
     for id in ids {
         query = query.bind(id);
     }
@@ -194,7 +194,7 @@ pub async fn list(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_SELECT_BOOKMARKS)
+    let rows = crate::db::query(DB_SELECT_BOOKMARKS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -267,7 +267,7 @@ pub async fn toggle(
         ));
     }
 
-    let existing = sqlx::query(DB_SELECT_EXISTING)
+    let existing = crate::db::query(DB_SELECT_EXISTING)
         .bind(&user.id)
         .bind(&form.target_type)
         .bind(&form.target_id)
@@ -280,7 +280,7 @@ pub async fn toggle(
     // `existing` is moved into the block by this match.
     match existing {
         Some(_row) => {
-            sqlx::query(DB_DELETE_BOOKMARK)
+            crate::db::query(DB_DELETE_BOOKMARK)
                 .bind(&user.id)
                 .bind(&form.target_type)
                 .bind(&form.target_id)
@@ -289,7 +289,7 @@ pub async fn toggle(
                 .map_err(AppError::from)?;
         }
         None => {
-            sqlx::query(DB_INSERT_BOOKMARK)
+            crate::db::query(DB_INSERT_BOOKMARK)
                 .bind(&user.id)
                 .bind(&form.target_type)
                 .bind(&form.target_id)

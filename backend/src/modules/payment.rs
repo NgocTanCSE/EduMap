@@ -139,7 +139,7 @@ pub async fn process_payment(
     let _user = authenticated_user(user)?;
     let _payment_method = form.payment_method;
 
-    let existing = sqlx::query(DB_SELECT_TRANSACTION)
+    let existing = crate::db::query(DB_SELECT_TRANSACTION)
         .bind(&transaction_id)
         .fetch_optional(pool.db())
         .await
@@ -166,7 +166,7 @@ pub async fn process_payment(
     let txn_id: String = transaction.get("id");
 
     // SIMD: log lỗi lệnh; trả về kết quả nhà.
-    let _ = sqlx::query(DB_UPDATE_TRANSACTION)
+    let _ = crate::db::query(DB_UPDATE_TRANSACTION)
         .bind(&txn_id)
         .execute(pool.db())
         .await
@@ -174,7 +174,7 @@ pub async fn process_payment(
 
     // Thanh toán đơn hàng (nếu giao dịch có order_id).
     if let Some(order_id) = transaction.get::<Option<String>, &str>("orderId") {
-        let order = sqlx::query(DB_SELECT_ORDER_BY_ID)
+        let order = crate::db::query(DB_SELECT_ORDER_BY_ID)
             .bind(&order_id)
             .fetch_optional(pool.db())
             .await
@@ -183,7 +183,7 @@ pub async fn process_payment(
         if let Some(order) = order {
             let order_status: String = order.get::<Option<String>, &str>("status").unwrap_or_default();
             if order_status != "PAID" {
-                sqlx::query(DB_UPDATE_ORDER_STATUS)
+                crate::db::query(DB_UPDATE_ORDER_STATUS)
                     .bind(&order_id)
                     .execute(pool.db())
                     .await
@@ -214,7 +214,7 @@ pub async fn create_booking_transaction(
     let user = authenticated_user(user)?;
     let payment_method = form.payment_method.as_deref().unwrap_or("BANK_TRANSFER");
 
-    let booking = sqlx::query(DB_SELECT_BOOKING)
+    let booking = crate::db::query(DB_SELECT_BOOKING)
         .bind(&booking_id)
         .bind(&user.id)
         .fetch_optional(pool.db())
@@ -239,7 +239,7 @@ pub async fn create_booking_transaction(
 
     // Chèn giao dịch `PENDING` cho thanh toán (nếu không thể — ràng buộc
     // `orderId` — log cảnh báo và vẫn thực thi liên kết nếu được).
-    let txn = match sqlx::query(DB_INSERT_TRANSACTION)
+    let txn = match crate::db::query(DB_INSERT_TRANSACTION)
         .bind(None::<Option<String>>)
         .bind(payment_method)
         .bind("PENDING")
@@ -262,7 +262,7 @@ pub async fn create_booking_transaction(
         .and_then(|r| r.get::<Option<String>, &str>("id"))
         .unwrap_or_default();
 
-    sqlx::query(DB_UPDATE_BOOKING_PAYMENT)
+    crate::db::query(DB_UPDATE_BOOKING_PAYMENT)
         .bind(&txn_id)
         .bind(&booking_id)
         .bind(&user.id)

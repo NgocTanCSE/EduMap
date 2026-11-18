@@ -151,7 +151,7 @@ pub async fn get_items(
         );
     }
 
-    let rows = sqlx::query(&sql)
+    let rows = crate::db::query(&sql)
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read shared items: {e}")))?;
@@ -190,7 +190,7 @@ pub async fn create_item(
         return Err(AppError::BadRequest("Tên tài liệu/học cụ không hợp lệ".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_ITEM)
+    let row = crate::db::query(DB_INSERT_ITEM)
         .bind(&name)
         .bind(body.category.as_deref().unwrap_or("book"))
         .bind(body.description.as_deref().map(|d| clean(d)).as_deref().unwrap_or(""))
@@ -210,7 +210,7 @@ pub async fn get_item(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_ITEM_FULL)
+    let row = crate::db::query(DB_ITEM_FULL)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -245,7 +245,7 @@ pub async fn update_item(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let owner = sqlx::query("SELECT owner_id FROM shared_items WHERE id = $1")
+    let owner = crate::db::query("SELECT owner_id FROM shared_items WHERE id = $1")
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -261,7 +261,7 @@ pub async fn update_item(
     }
 
     let name = body.name.as_deref().map(clean).filter(|s| !s.is_empty());
-    let rows = sqlx::query(DB_UPDATE_ITEM)
+    let rows = crate::db::query(DB_UPDATE_ITEM)
         .bind(name.unwrap_or_default())
         .bind(body.category.as_deref().unwrap_or("book"))
         .bind(body.description.as_deref().map(clean).as_deref().unwrap_or(""))
@@ -286,7 +286,7 @@ pub async fn delete_item(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_DELETE_ITEM)
+    let rows = crate::db::query(DB_DELETE_ITEM)
         .bind(id.as_str())
         .bind(user.id.as_str())
         .execute(pool.db())
@@ -303,7 +303,7 @@ pub async fn get_my_requests(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_MY_REQUESTS)
+    let rows = crate::db::query(DB_MY_REQUESTS)
         .bind(user.id.as_str())
         .fetch_all(pool.db())
         .await
@@ -338,7 +338,7 @@ pub async fn request_item(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let item = sqlx::query(DB_ITEM_BY_ID)
+    let item = crate::db::query(DB_ITEM_BY_ID)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -353,7 +353,7 @@ pub async fn request_item(
         return Err(AppError::BadRequest("Không thể mượn chính tài nguyên của mình.".to_string()));
     }
 
-    let dup = sqlx::query(DB_PENDING_REQUEST)
+    let dup = crate::db::query(DB_PENDING_REQUEST)
         .bind(id.as_str())
         .bind(user.id.as_str())
         .fetch_optional(pool.db())
@@ -364,7 +364,7 @@ pub async fn request_item(
         return Err(AppError::Conflict("Bạn đã có yêu cầu mượn đang chờ cho tài nguyên này.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_REQUEST)
+    let row = crate::db::query(DB_INSERT_REQUEST)
         .bind(id.as_str())
         .bind(user.id.as_str())
         .bind(body.message.as_deref().unwrap_or(""))
@@ -383,7 +383,7 @@ pub async fn return_item(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let item = sqlx::query(DB_ITEM_BY_ID)
+    let item = crate::db::query(DB_ITEM_BY_ID)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -398,7 +398,7 @@ pub async fn return_item(
         return Err(AppError::Forbidden("Chỉ chủ sở hữu mới có thể xác nhận nhận lại.".to_string()));
     }
 
-    let updated = sqlx::query(DB_RETURN_REQUEST)
+    let updated = crate::db::query(DB_RETURN_REQUEST)
         .bind(id.as_str())
         .execute(pool.db())
         .await

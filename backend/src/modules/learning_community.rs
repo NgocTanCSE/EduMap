@@ -396,7 +396,7 @@ pub async fn get_nearby(
     let lng = q.longitude.unwrap_or(106.66);
     let radius = q.radius.unwrap_or(5000.0);
 
-    let rows = sqlx::query(DB_SELECT_SPOTS_NEARBY)
+    let rows = crate::db::query(DB_SELECT_SPOTS_NEARBY)
         .bind(&lng)
         .bind(&lat)
         .bind(&radius)
@@ -421,7 +421,7 @@ pub async fn get_availability(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_SPOT_BY_ID)
+    let row = crate::db::query(DB_SELECT_SPOT_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -513,7 +513,7 @@ pub async fn recommend_spots(
     }
 
     // Tất cả các địa điểm trong bán kính.
-    let rows = sqlx::query(DB_SELECT_SPOTS_NEARBY)
+    let rows = crate::db::query(DB_SELECT_SPOTS_NEARBY)
         .bind(&lng)
         .bind(&lat)
         .bind(&radius_m)
@@ -649,7 +649,7 @@ pub async fn create_spot(
         ));
     }
 
-    let row = sqlx::query(DB_INSERT_SPOT)
+    let row = crate::db::query(DB_INSERT_SPOT)
         .bind(&form.name)
         .bind(&form.longitude)
         .bind(&form.latitude)

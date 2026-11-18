@@ -222,14 +222,14 @@ pub async fn get_programs(
         format!("WHERE {}", where_clause)
     };
 
-    let rows = sqlx::query(DB_SELECT_PROGRAMS.replace("{where}", &where_clause).as_str())
+    let rows = crate::db::query(DB_SELECT_PROGRAMS.replace("{where}", &where_clause).as_str())
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
 
-    let total = sqlx::query(DB_SELECT_PROGRAMS_COUNT.replace("{where}", &where_clause).as_str())
+    let total = crate::db::query(DB_SELECT_PROGRAMS_COUNT.replace("{where}", &where_clause).as_str())
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -260,7 +260,7 @@ pub async fn create_program(
         .filter(|v| !v.trim().is_empty())
         .map(|v| if v.starts_with('[') { v.to_string() } else { format!("['{}']", v.replace('\'', "''")) });
 
-    let row = sqlx::query(DB_INSERT_PROGRAM)
+    let row = crate::db::query(DB_INSERT_PROGRAM)
         .bind(&form.title)
         .bind(&form.resource_type)
         .bind(form.description.as_deref())
@@ -287,7 +287,7 @@ pub async fn get_alumni(
     let limit = q.limit.unwrap_or_else(|| "50".to_string()).parse::<i64>().unwrap_or(50).max(1).min(200);
     let offset = (page - 1) * limit;
 
-    let rows = sqlx::query(&DB_SELECT_ALUMNI.replace("{where}", ""))
+    let rows = crate::db::query(&DB_SELECT_ALUMNI.replace("{where}", ""))
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -322,7 +322,7 @@ pub async fn create_alumni(
         ));
     }
 
-    let row = sqlx::query(DB_INSERT_ALUMNI)
+    let row = crate::db::query(DB_INSERT_ALUMNI)
         .bind(&form.full_name)
         .bind(&form.university)
         .bind(&form.country)
@@ -351,7 +351,7 @@ pub async fn get_alumni_nearby(
     let limit: i64 = 100;
     let offset: i64 = 0;
 
-    let rows = sqlx::query(DB_SELECT_ALUMNI_NEARBY)
+    let rows = crate::db::query(DB_SELECT_ALUMNI_NEARBY)
         .bind(&lng)
         .bind(&lat)
         .bind(&radius)

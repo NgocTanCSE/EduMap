@@ -130,13 +130,13 @@ pub async fn get_logs(
         DB_COUNT_LOGS.replace("{where}", &where_clause),
     );
 
-    let total = sqlx::query(total_sql.as_str())
+    let total = crate::db::query(total_sql.as_str())
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
         .get::<i64, &str>("count");
 
-    let rows = sqlx::query(&list_sql)
+    let rows = crate::db::query(&list_sql)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())

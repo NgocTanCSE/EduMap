@@ -109,7 +109,7 @@ pub async fn get_activities(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_SELECT_ACTIVITIES)
+    let rows = crate::db::query(DB_SELECT_ACTIVITIES)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -117,11 +117,12 @@ pub async fn get_activities(
 
     let activities: Vec<Value> = rows.iter().map(activity_to_json).collect();
 
-    let total_hours: i64 = sqlx::query_scalar(DB_SUM_TOTAL_HOURS)
+    let total_hours: i64 = crate::db::query(DB_SUM_TOTAL_HOURS)
         .bind(&user.id)
         .fetch_one(pool.db())
         .await
-        .map_err(AppError::from)?;
+        .map_err(AppError::from)?
+        .get::<i64, _>(0);
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "activities": activities,
@@ -139,7 +140,7 @@ pub async fn get_volunteers(
     let limit = page.limit.unwrap_or(20).clamp(1, 200);
     let offset = (current_page - 1) * limit;
 
-    let rows = sqlx::query(DB_SELECT_ALL_ACTIVITIES)
+    let rows = crate::db::query(DB_SELECT_ALL_ACTIVITIES)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
@@ -174,7 +175,7 @@ pub async fn log_activity(
         _ => return Err(AppError::BadRequest("Ngày hoạt động không được rỗng.".to_string())),
     };
 
-    let _inserted_id: String = sqlx::query(DB_INSERT_ACTIVITY)
+    let _inserted_id: String = crate::db::query(DB_INSERT_ACTIVITY)
         .bind(&user.id)
         .bind(title)
         .bind(body.description.as_deref())
@@ -186,18 +187,19 @@ pub async fn log_activity(
         .map_err(AppError::from)?
         .get::<String, &str>("id");
 
-    let activity_rows = sqlx::query(DB_SELECT_ACTIVITIES)
+    let activity_rows = crate::db::query(DB_SELECT_ACTIVITIES)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
     let activities: Vec<Value> = activity_rows.iter().map(activity_to_json).collect();
 
-    let total_hours: i64 = sqlx::query_scalar(DB_SUM_TOTAL_HOURS)
+    let total_hours: i64 = crate::db::query(DB_SUM_TOTAL_HOURS)
         .bind(&user.id)
         .fetch_one(pool.db())
         .await
-        .map_err(AppError::from)?;
+        .map_err(AppError::from)?
+        .get::<i64, _>(0);
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "success": true,

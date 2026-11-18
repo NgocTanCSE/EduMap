@@ -162,7 +162,7 @@ pub struct SpeedTestForm {
 pub async fn get_wifi_locations(
     State(pool): State<DbPool>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_WIFI_LOCATIONS)
+    let rows = crate::db::query(DB_SELECT_WIFI_LOCATIONS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -203,7 +203,7 @@ pub async fn get_wifi_nearby(
     let limit = q.limit.unwrap_or(300).clamp(1, 500);
     let offset = (q.page.unwrap_or(1) - 1).clamp(0, i64::MAX) * limit;
 
-    let rows = sqlx::query(DB_SELECT_WIFI_NEARBY)
+    let rows = crate::db::query(DB_SELECT_WIFI_NEARBY)
         .bind(&lng)
         .bind(&lat)
         .bind(&radius)
@@ -249,7 +249,7 @@ pub async fn report_wifi(
         _ => return Err(AppError::BadRequest("Toạ độ điểm Wifi là bắt buộc.".to_string())),
     };
 
-    let row = sqlx::query(DB_INSERT_WIFI)
+    let row = crate::db::query(DB_INSERT_WIFI)
         .bind(body.name.as_deref().unwrap_or(""))
         .bind(body.address.as_deref())
         .bind(&lng)
@@ -286,7 +286,7 @@ pub async fn submit_speed_test(
         _ => return Err(AppError::BadRequest("Đánh giá tốc độ phải là số.".to_string())),
     };
 
-    let location = sqlx::query(DB_SELECT_WIFI_BY_ID)
+    let location = crate::db::query(DB_SELECT_WIFI_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -302,7 +302,7 @@ pub async fn submit_speed_test(
     let new_count = current_count + 1;
     let new_avg = (current_avg * current_count as f64 + rating) / (new_count as f64);
 
-    sqlx::query(DB_UPDATE_SPEED_TEST)
+    crate::db::query(DB_UPDATE_SPEED_TEST)
         .bind(&new_avg)
         .bind(&rating)
         .bind(&id)

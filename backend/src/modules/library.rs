@@ -166,14 +166,14 @@ pub async fn get_resources(
     let limit = q.limit.unwrap_or_else(|| "10".to_string()).parse::<i64>().unwrap_or(10).max(1).min(100);
     let offset = (page - 1) * limit;
 
-    let rows = sqlx::query(DB_SELECT_RESOURCES)
+    let rows = crate::db::query(DB_SELECT_RESOURCES)
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
 
-    let total = sqlx::query(DB_SELECT_RESOURCES_COUNT)
+    let total = crate::db::query(DB_SELECT_RESOURCES_COUNT)
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -228,14 +228,14 @@ pub async fn search_resources(
     let sql = DB_SELECT_SEARCH.replace("{where}", &where_clause);
     let count_sql = DB_SELECT_SEARCH_COUNT.replace("{where}", &where_clause);
 
-    let rows = sqlx::query(sql.as_str())
+    let rows = crate::db::query(sql.as_str())
         .bind(&limit)
         .bind(&offset)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
 
-    let total = sqlx::query(count_sql.as_str())
+    let total = crate::db::query(count_sql.as_str())
         .fetch_one(pool.db())
         .await
         .map_err(AppError::from)?
@@ -257,7 +257,7 @@ pub async fn get_resource_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_RESOURCE_BY_ID)
+    let row = crate::db::query(DB_SELECT_RESOURCE_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -279,7 +279,7 @@ pub async fn summarize_resource(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_RESOURCE_BY_ID)
+    let row = crate::db::query(DB_SELECT_RESOURCE_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -332,7 +332,7 @@ pub async fn create_resource(
         .filter(|v| !v.trim().is_empty())
         .map(|v| if v.starts_with('[') { v.to_string() } else { format!("['{}']", v.replace('\'', "''")) });
 
-    let row = sqlx::query(DB_INSERT_RESOURCE)
+    let row = crate::db::query(DB_INSERT_RESOURCE)
         .bind(&form.title)
         .bind(form.description.as_deref())
         .bind(form.resource_type.as_deref())

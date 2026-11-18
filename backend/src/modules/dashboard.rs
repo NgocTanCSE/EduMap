@@ -124,7 +124,7 @@ pub async fn get_overview(
     let user = authenticated_user(user)?;
     let today = today_midnight();
 
-    let row = sqlx::query(DB_DASHBOARD_OVERVIEW)
+    let row = crate::db::query(DB_DASHBOARD_OVERVIEW)
         .bind(user.id.as_str())
         .bind(&today)
         .fetch_one(pool.db())
@@ -153,7 +153,7 @@ pub async fn get_daily_insight(
     let user = authenticated_user(user)?;
     let today = today_midnight();
 
-    let row = sqlx::query(DB_DASHBOARD_OVERVIEW)
+    let row = crate::db::query(DB_DASHBOARD_OVERVIEW)
         .bind(user.id.as_str())
         .bind(&today)
         .fetch_one(pool.db())
@@ -189,7 +189,7 @@ pub async fn get_history(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_DASHBOARD_HISTORY)
+    let rows = crate::db::query(DB_DASHBOARD_HISTORY)
         .bind(user.id.as_str())
         .fetch_all(pool.db())
         .await
@@ -216,32 +216,32 @@ pub async fn get_stats(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let user_count = sqlx::query(DB_STATS_USERS)
+    let user_count = crate::db::query(DB_STATS_USERS)
         .fetch_one(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .get::<i64, &str>("c");
-    let event_count = sqlx::query(DB_STATS_EVENTS)
+    let event_count = crate::db::query(DB_STATS_EVENTS)
         .fetch_one(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .get::<i64, &str>("c");
 
-    let roles: Vec<Value> = sqlx::query(DB_STATS_ROLES)
+    let roles: Vec<Value> = crate::db::query(DB_STATS_ROLES)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({ "role": row.get::<String, &str>("role"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
-    let trend: Vec<Value> = sqlx::query(DB_STATS_TREND)
+    let trend: Vec<Value> = crate::db::query(DB_STATS_TREND)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({ "month": row.get::<Option<String>, &str>("month"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
-    let top_events: Vec<Value> = sqlx::query(DB_STATS_TOP_EVENTS)
+    let top_events: Vec<Value> = crate::db::query(DB_STATS_TOP_EVENTS)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({ "type": row.get::<Option<String>, &str>("type"), "count": row.get::<i64, &str>("c") })
         }).collect();
 
-    let education: Vec<Value> = sqlx::query(DB_STATS_EDUCATION)
+    let education: Vec<Value> = crate::db::query(DB_STATS_EDUCATION)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({
@@ -250,7 +250,7 @@ pub async fn get_stats(
             })
         }).collect();
 
-    let heatmap: Vec<Value> = sqlx::query(DB_STATS_HEATMAP)
+    let heatmap: Vec<Value> = crate::db::query(DB_STATS_HEATMAP)
         .fetch_all(pool.db()).await.map_err(|e| AppError::Internal(e.to_string()))?
         .into_iter().map(|row| {
             serde_json::json!({

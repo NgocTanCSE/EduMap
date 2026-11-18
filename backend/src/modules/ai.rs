@@ -311,7 +311,7 @@ fn degraded_stream_reply(message: &str, detail: &str) -> String {
 /// Save the streamed conversation into the backend's own `chat_histories`
 /// (mirrors the old backend's `saveToHistory`, fire-and-forget).
 async fn save_history(pool: &DbPool, user_id: &str, message: &str, sources: &serde_json::Value) -> Result<(), AppError> {
-    sqlx::query(
+    crate::db::query(
         r#"
         INSERT INTO chat_histories (user_id, message, response, context, created_at)
         VALUES ($1, $2, $3, $4, NOW())
@@ -481,7 +481,7 @@ pub async fn history(
     State(pool): State<DbPool>,
     Extension(user): Extension<AuthUser>,
 ) -> Result<Response, AppError> {
-    let rows = sqlx::query_as::<sqlx::Postgres, ChatHistoryRow>(
+    let raw_rows = crate::db::query(
         r#"
         SELECT id, user_id, message, response, context, created_at
         FROM chat_histories
@@ -494,6 +494,13 @@ pub async fn history(
     .fetch_all(pool.db())
     .await
     .map_err(AppError::from)?;
+    let rows = raw_rows
+        .iter()
+        .map(|r| {
+            let row: ChatHistoryRow = sqlx::FromRow::from_row(r).map_err(AppError::from)?;
+            Ok(row)
+        })
+        .collect::<Result<Vec<ChatHistoryRow>, AppError>>()?;
     let messages: Vec<serde_json::Value> = rows
         .iter()
         .map(|row| {

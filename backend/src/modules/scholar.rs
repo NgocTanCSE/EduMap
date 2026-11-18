@@ -203,12 +203,13 @@ pub async fn get_scholarships(
     let limit = q.limit.unwrap_or(10).clamp(1, 100);
     let offset = (page - 1) * limit;
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM scholarships WHERE deleted_at IS NULL")
+    let total: i64 = crate::db::query("SELECT COUNT(*) FROM scholarships WHERE deleted_at IS NULL")
         .fetch_one(pool.db())
         .await
-        .map_err(AppError::from)?;
+        .map_err(AppError::from)?
+        .get::<i64, _>(0);
 
-    let rows = sqlx::query(&format!(
+    let rows = crate::db::query(&format!(
         "{} ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         DB_SELECT_SCHOLARSHIPS
     ))
@@ -237,7 +238,7 @@ pub async fn get_scholarship_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
+    let row = crate::db::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -264,7 +265,7 @@ pub async fn check_eligibility(
     let user = authenticated_user(user)?;
 
     // Lấy học bổng (id) và user (id của người gọi để gửi AI).
-    let scholarship = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
+    let scholarship = crate::db::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -275,7 +276,7 @@ pub async fn check_eligibility(
         None => return Err(AppError::NotFound("Học bổng không tồn tại.".to_string())),
     };
 
-    let user_row = sqlx::query(DB_SELECT_USER)
+    let user_row = crate::db::query(DB_SELECT_USER)
         .bind(&user.id)
         .fetch_optional(pool.db())
         .await
@@ -319,7 +320,7 @@ pub async fn apply_scholarship(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
+    let row = crate::db::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -333,7 +334,7 @@ pub async fn apply_scholarship(
         return Err(AppError::BadRequest("Học bổng này đã đóng.".to_string()));
     }
 
-    let existing: Option<i64> = sqlx::query(
+    let existing: Option<i64> = crate::db::query(
         "SELECT 1 FROM scholarship_applications WHERE scholarship_id = $1 AND student_id = $2",
     )
     .bind(&id)
@@ -350,7 +351,7 @@ pub async fn apply_scholarship(
     let statement = body.personal_statement.unwrap_or_default();
     let cv_url = body.cv_url.unwrap_or_default();
 
-    let inserted_id: String = sqlx::query(DB_INSERT_APPLICATION)
+    let inserted_id: String = crate::db::query(DB_INSERT_APPLICATION)
         .bind(&id)
         .bind(&user.id)
         .bind(&statement)
@@ -379,7 +380,7 @@ pub async fn get_my_applications(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let rows = sqlx::query(DB_SELECT_APPLICATIONS)
+    let rows = crate::db::query(DB_SELECT_APPLICATIONS)
         .bind(&user.id)
         .fetch_all(pool.db())
         .await
@@ -404,7 +405,7 @@ pub async fn create_scholarship(
         _ => return Err(AppError::BadRequest("Tiêu đề học bổng không được rỗng.".to_string())),
     };
 
-    let row = sqlx::query(DB_INSERT_SCHOLARSHIP)
+    let row = crate::db::query(DB_INSERT_SCHOLARSHIP)
         .bind(Some(title.as_str()))
         .bind(body.description.as_deref())
         .bind(body.provider.as_deref())
@@ -430,7 +431,7 @@ pub async fn update_scholarship(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
+    let row = crate::db::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -441,7 +442,7 @@ pub async fn update_scholarship(
         None => return Err(AppError::NotFound("Học bổng không tồn tại.".to_string())),
     };
 
-    let updated_id: String = sqlx::query(DB_UPDATE_SCHOLARSHIP)
+    let updated_id: String = crate::db::query(DB_UPDATE_SCHOLARSHIP)
         .bind(body.title.as_deref())
         .bind(body.description.as_deref())
         .bind(body.provider.as_deref())
@@ -456,7 +457,7 @@ pub async fn update_scholarship(
         .map_err(AppError::from)?
         .get::<String, &str>("id");
 
-    let row = sqlx::query(DB_SELECT_SCHOLARSHIP_BY_ID)
+    let row = crate::db::query(DB_SELECT_SCHOLARSHIP_BY_ID)
         .bind(&updated_id)
         .fetch_one(pool.db())
         .await
@@ -467,7 +468,7 @@ pub async fn update_scholarship(
 
 /// Helper: gửi thông báo in-app cho người dùng (các admin mới gửi).
 async fn send_notification_to_user(pool: &DbPool, user_id: &str, message: String) -> Result<(), AppError> {
-    sqlx::query("INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at) VALUES ($1, $2, $3, $4, false, NOW())")
+    crate::db::query("INSERT INTO notifications (user_id, title, body, channel, is_read, sent_at) VALUES ($1, $2, $3, $4, false, NOW())")
         .bind(user_id)
         .bind("Gửi đơn")
         .bind(&message)

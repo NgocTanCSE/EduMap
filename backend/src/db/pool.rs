@@ -2,9 +2,9 @@
 //!
 //! Retries until the DB is up (startup health check); the pool is shared
 //! (`Arc`) across handlers via `State`.
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -15,24 +15,16 @@ pub struct DbPool {
 impl DbPool {
     /// Connect to the DSN (built by `Config::db_url`), retrying until the DB
     /// is available — the containers start in sequence (db first).
-    /// `statement_cache_capacity(0)` disables sqlx's prepared-statement cache,
-    /// which is required when the DSN points at a PgBouncer in transaction
-    /// mode (Supabase's default) — otherwise sqlx reuses a statement that
-    /// PgBouncer has already discarded and returns
-    /// "prepared statement sqlx_s_N already exists".
     pub async fn connect(url: &str) -> Self {
         let mut attempt = 0;
         let mut last = None;
 
         while attempt < 60 {
             attempt += 1;
-            let options = PgConnectOptions::from_str(url)
-                .expect("invalid DB URL")
-                .statement_cache_capacity(0);
             let result = PgPoolOptions::new()
                 .max_connections(10)
                 .acquire_timeout(Duration::from_secs(10))
-                .connect_with(options)
+                .connect(url)
                 .await;
             match result {
                 Ok(pool) => {
@@ -68,7 +60,7 @@ impl DbPool {
 pub async fn is_healthy(pool: &DbPool) -> bool {
     use sqlx::Executor;
     pool.db()
-        .execute(sqlx::query("SELECT 1"))
+        .execute(crate::db::query("SELECT 1"))
         .await
         .is_ok()
 }

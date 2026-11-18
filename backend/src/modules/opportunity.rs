@@ -211,7 +211,7 @@ pub async fn get_opportunities(
     .map(Option::unwrap)
     .collect();
 
-    let rows = sqlx::query(&build_opportunity_sql(&filters))
+    let rows = crate::db::query(&build_opportunity_sql(&filters))
         .fetch_all(pool.db())
         .await
         .map_err(|e| AppError::Internal(format!("failed to read opportunities: {e}")))?;
@@ -252,7 +252,7 @@ pub async fn create_opportunity(
         _ => "NULL".to_string(),
     };
 
-    let row = sqlx::query(&format!(
+    let row = crate::db::query(&format!(
         r#"
 INSERT INTO opportunities (title, type, description, organization, location_point,
     address, deadline, requirements, benefits, url, field_tags, region, status,
@@ -289,7 +289,7 @@ pub async fn find_one(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_SELECT_OPPORTUNITY)
+    let row = crate::db::query(DB_SELECT_OPPORTUNITY)
         .bind(id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -328,7 +328,7 @@ pub async fn toggle_team_finding(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let row = sqlx::query(DB_TOGGLE_TEAM_FINDING)
+    let row = crate::db::query(DB_TOGGLE_TEAM_FINDING)
         .bind(id.as_str())
         .bind(user.id.as_str())
         .fetch_optional(pool.db())
@@ -359,7 +359,7 @@ pub async fn match_opportunities(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let user_row = sqlx::query(DB_USER_PROFILE)
+    let user_row = crate::db::query(DB_USER_PROFILE)
         .bind(user.id.as_str())
         .fetch_optional(pool.db())
         .await
@@ -399,7 +399,7 @@ pub async fn match_opportunities(
             kw.replace('\'', "''")
         ));
     }
-    let opp_rows = sqlx::query(&format!(
+    let opp_rows = crate::db::query(&format!(
         "SELECT id, title, description, type, organization, requirements, benefits, url,
                 CAST(field_tags AS TEXT) AS field_tags, region, status, deadline
          FROM opportunities WHERE {} LIMIT $1",
@@ -410,9 +410,9 @@ pub async fn match_opportunities(
         .await
         .map_err(|e| AppError::Internal(format!("failed to read opportunities: {e}")))?;
 
-    let scholarships_rows = sqlx::query(&format!("{} LIMIT $1", DB_SCHOLARSHIPS)).bind(&limit).fetch_all(pool.db())
+    let scholarships_rows = crate::db::query(&format!("{} LIMIT $1", DB_SCHOLARSHIPS)).bind(&limit).fetch_all(pool.db())
         .await.map_err(|e| AppError::Internal(format!("failed to read scholarships: {e}")))?;
-    let jobs_rows = sqlx::query(&format!("{} LIMIT $1", DB_JOBS)).bind(&limit).fetch_all(pool.db())
+    let jobs_rows = crate::db::query(&format!("{} LIMIT $1", DB_JOBS)).bind(&limit).fetch_all(pool.db())
         .await.map_err(|e| AppError::Internal(format!("failed to read jobs: {e}")))?;
 
     let mut candidates: Vec<NormalizedOpportunity> = Vec::new();

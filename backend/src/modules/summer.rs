@@ -175,7 +175,7 @@ pub struct CreateActivityForm {
 pub async fn get_campaigns(
     State(pool): State<DbPool>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_SELECT_CAMPAIGNS)
+    let rows = crate::db::query(DB_SELECT_CAMPAIGNS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -199,7 +199,7 @@ pub async fn create_campaign(
         _ => return Err(AppError::BadRequest("Tên chiến dịch không được rỗng.".to_string())),
     };
 
-    let row = sqlx::query(DB_INSERT_CAMPAIGN)
+    let row = crate::db::query(DB_INSERT_CAMPAIGN)
         .bind(name)
         .bind(body.year)
         .bind(body.location.as_deref())
@@ -225,7 +225,7 @@ pub async fn add_activity(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let campaign = sqlx::query(DB_SELECT_CAMPAIGN_BY_ID)
+    let campaign = crate::db::query(DB_SELECT_CAMPAIGN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -241,7 +241,7 @@ pub async fn add_activity(
         _ => return Err(AppError::BadRequest("Tên hoạt động không được rỗng.".to_string())),
     };
 
-    let row = sqlx::query(DB_INSERT_ACTIVITY)
+    let row = crate::db::query(DB_INSERT_ACTIVITY)
         .bind(&id)
         .bind(title)
         .bind(body.description.as_deref())
@@ -263,7 +263,7 @@ pub async fn get_daily_report(
     Path(id): Path<String>,
     Query(q): Query<DailyReportQuery>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let campaign = sqlx::query(DB_SELECT_CAMPAIGN_BY_ID)
+    let campaign = crate::db::query(DB_SELECT_CAMPAIGN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -279,7 +279,7 @@ pub async fn get_daily_report(
         _ => chrono::Utc::now().format("%Y-%m-%d").to_string(),
     };
 
-    let activities = sqlx::query(DB_SELECT_ACTIVITIES_BY_CAMPAIGN_DATE)
+    let activities = crate::db::query(DB_SELECT_ACTIVITIES_BY_CAMPAIGN_DATE)
         .bind(&id)
         .bind(&date)
         .fetch_all(pool.db())
@@ -289,11 +289,12 @@ pub async fn get_daily_report(
         .map(activity_to_json)
         .collect::<Vec<Value>>();
 
-    let total_volunteers_approved: i64 = sqlx::query_scalar(DB_COUNT_APPROVED_REGISTRATIONS)
+    let total_volunteers_approved: i64 = crate::db::query(DB_COUNT_APPROVED_REGISTRATIONS)
         .bind(&id)
         .fetch_one(pool.db())
         .await
-        .map_err(AppError::from)?;
+        .map_err(AppError::from)?
+        .get::<i64, _>(0);
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "campaign_id": campaign.get::<String, &str>("id"),
@@ -315,7 +316,7 @@ pub async fn register_volunteer(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let campaign = sqlx::query(DB_SELECT_CAMPAIGN_BY_ID)
+    let campaign = crate::db::query(DB_SELECT_CAMPAIGN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -329,7 +330,7 @@ pub async fn register_volunteer(
         return Err(AppError::BadRequest("Chiến dịch đã kết thúc, không thể đăng ký thêm.".to_string()));
     }
 
-    let existing: Option<i64> = sqlx::query(
+    let existing: Option<i64> = crate::db::query(
         "SELECT 1 FROM summer_registrations WHERE user_id = $1 AND campaign_id = $2",
     )
     .bind(&user.id)
@@ -343,7 +344,7 @@ pub async fn register_volunteer(
         return Err(AppError::Conflict("Bạn đã đăng ký tham gia chiến dịch này rồi.".to_string()));
     }
 
-    let row = sqlx::query(DB_INSERT_REGISTRATION)
+    let row = crate::db::query(DB_INSERT_REGISTRATION)
         .bind(&user.id)
         .bind(&id)
         .fetch_one(pool.db())
@@ -374,7 +375,7 @@ pub async fn update_registration_status(
     let user = authenticated_user(user)?;
     ensure_admin(&user)?;
 
-    let row = sqlx::query(DB_SELECT_REGISTRATION_BY_ID)
+    let row = crate::db::query(DB_SELECT_REGISTRATION_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -390,7 +391,7 @@ pub async fn update_registration_status(
         _ => return Err(AppError::BadRequest("Trạng thái phải là `approved` hoặc `rejected`.".to_string())),
     };
 
-    let _ = sqlx::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2")
+    let _ = crate::db::query("UPDATE summer_registrations SET status = $1, updated_at = NOW() WHERE id = $2")
         .bind(&status)
         .bind(&id)
         .execute(pool.db())

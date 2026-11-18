@@ -361,7 +361,7 @@ fn donor_to_json(row: &sqlx::postgres::PgRow) -> Value {
 
 /// `GET /api/donations/campaigns` — danh sách chiến dịch (public).
 pub async fn get_campaigns(State(pool): State<DbPool>) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_CAMPAIGNS)
+    let rows = crate::db::query(DB_CAMPAIGNS)
         .fetch_all(pool.db())
         .await
         .map_err(AppError::from)?;
@@ -374,7 +374,7 @@ pub async fn get_campaign_by_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let row = sqlx::query(DB_CAMPAIGN_BY_ID)
+    let row = crate::db::query(DB_CAMPAIGN_BY_ID)
         .bind(&id)
         .fetch_optional(pool.db())
         .await
@@ -392,7 +392,7 @@ pub async fn get_donors_by_campaign_id(
     State(pool): State<DbPool>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
-    let rows = sqlx::query(DB_DONORS)
+    let rows = crate::db::query(DB_DONORS)
         .bind(&id)
         .fetch_all(pool.db())
         .await
@@ -409,7 +409,7 @@ pub async fn create_campaign(
 ) -> Result<Json<ApiResponse<Value>>, AppError> {
     let user = authenticated_user(user)?;
 
-    let inserted = sqlx::query(DB_INSERT_CAMPAIGN)
+    let inserted = crate::db::query(DB_INSERT_CAMPAIGN)
         .bind(&form.title)
         .bind(&form.description)
         .bind(&form.target_amount)
@@ -424,7 +424,7 @@ pub async fn create_campaign(
         .map_err(to_app_error)?;
 
     let id: String = inserted.get("id");
-    let row = sqlx::query(DB_CAMPAIGN_BY_ID)
+    let row = crate::db::query(DB_CAMPAIGN_BY_ID)
         .bind(&id)
         .fetch_one(pool.db())
         .await
@@ -504,7 +504,7 @@ pub async fn process_donation(
         Err(e) => return Err(AppError::from(e)),
     };
 
-    let campaign = sqlx::query(DB_LOCK_CAMPAIGN)
+    let campaign = crate::db::query(DB_LOCK_CAMPAIGN)
         .bind(&form.campaign_id)
         .fetch_optional(&mut *tx)
         .await
@@ -528,7 +528,7 @@ pub async fn process_donation(
 
     let amount_text = format!("{:.2}", form.amount);
 
-    sqlx::query(DB_INSERT_DONATION)
+    crate::db::query(DB_INSERT_DONATION)
         .bind(&form.campaign_id)
         .bind(donor_id.as_deref())
         .bind(&amount_text)
@@ -538,14 +538,14 @@ pub async fn process_donation(
         .await
         .map_err(to_app_error)?;
 
-    sqlx::query(DB_INCREMENT_AMOUNT)
+    crate::db::query(DB_INCREMENT_AMOUNT)
         .bind(&amount_text)
         .bind(&form.campaign_id)
         .execute(&mut *tx)
         .await
         .map_err(to_app_error)?;
 
-    let updated = sqlx::query(DB_UPDATED_CAMPAIGN)
+    let updated = crate::db::query(DB_UPDATED_CAMPAIGN)
         .bind(&form.campaign_id)
         .fetch_one(&mut *tx)
         .await
