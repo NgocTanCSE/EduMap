@@ -323,7 +323,7 @@ fn event_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "price": crate::db::opt_num(&row, "price").unwrap_or(0.0),
         "tags": crate::db::opt_text(&row, "tags")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
-        "is_online": row.get::<Option<bool>, &str>("is_online").unwrap_or(false),
+        "is_online": crate::db::opt_flag(&row, "is_online").unwrap_or(false),
         "meeting_url": crate::db::opt_text(&row, "meeting_url"),
         "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
         "updated_at": crate::db::opt_text(&row, "updated_at").unwrap_or_default(),

@@ -285,7 +285,7 @@ fn row_to_resource_json(row: &sqlx::postgres::PgRow) -> Value {
         "cost": crate::db::opt_num(&row, "cost"),
         "contactMethod": crate::db::opt_text(&row, "contact_method"),
         "status": crate::db::opt_text(&row, "status"),
-        "isVerified": row.get::<Option<bool>, &str>("is_verified"),
+        "isVerified": crate::db::opt_flag(&row, "is_verified"),
         "tags": crate::db::opt_text(&row, "tags").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
         "metadata": crate::db::opt_text(&row, "metadata").and_then(|s| serde_json::from_str::<Value>(&s).ok()),
         "createdBy": crate::db::opt_text(&row, "created_by"),

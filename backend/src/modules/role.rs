@@ -79,7 +79,7 @@ pub async fn find_all(
                 "displayName": crate::db::opt_text(&row, "display_name"),
                 "description": crate::db::opt_text(&row, "description"),
                 "level": crate::db::opt_int(&row, "level"),
-                "systemCreated": row.get::<Option<bool>, &str>("system_created"),
+                "systemCreated": crate::db::opt_flag(&row, "system_created"),
                 "createdAt": crate::db::opt_text(&row, "created_at"),
             })
         })
@@ -115,7 +115,7 @@ pub async fn find_one(
         "displayName": crate::db::opt_text(&row, "display_name"),
         "description": crate::db::opt_text(&row, "description"),
         "level": crate::db::opt_int(&row, "level"),
-        "systemCreated": row.get::<Option<bool>, &str>("system_created"),
+        "systemCreated": crate::db::opt_flag(&row, "system_created"),
         "createdAt": crate::db::opt_text(&row, "created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))

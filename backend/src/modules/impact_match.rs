@@ -546,7 +546,7 @@ fn sponsor_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "budget_currency": crate::db::text(&row, "budget_currency"),
         "location": crate::db::opt_text(&row, "location"),
         "status": crate::db::text(&row, "status"),
-        "is_verified": row.get::<bool, &str>("is_verified"),
+        "is_verified": crate::db::flag(&row, "is_verified"),
         "created_by": crate::db::opt_text(&row, "created_by"),
         "created_at": crate::db::text(&row, "created_at"),
     })

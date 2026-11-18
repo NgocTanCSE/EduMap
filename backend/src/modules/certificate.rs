@@ -253,7 +253,7 @@ pub async fn issue_certificate(
         "status": crate::db::text(&inserted, "status"),
         "pdf_url": crate::db::opt_text(&inserted, "pdf_url"),
         "qr_url": crate::db::opt_text(&inserted, "qr_url"),
-        "blockchain_metadata": inserted.get::<Option<serde_json::Value>, &str>("blockchain_metadata"),
+        "blockchain_metadata": crate::db::json(&inserted, "blockchain_metadata"),
         "degraded": blockchain_metadata.is_none(),
     }))))
 }

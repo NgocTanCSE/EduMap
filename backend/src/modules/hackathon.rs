@@ -126,7 +126,7 @@ fn team_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "team_name": crate::db::opt_text(&row, "team_name").unwrap_or_default(),
         "hackathon_id": crate::db::opt_text(&row, "hackathon_id").unwrap_or_default(),
         "leader_id": crate::db::opt_text(&row, "leader_id").unwrap_or_default(),
-        "members": row.get::<Option<Vec<String>>, &str>("members").unwrap_or_default(),
+        "members": crate::db::text_list(&row, "members"),
         "repo_url": crate::db::opt_text(&row, "repo_url"),
         "demo_video": crate::db::opt_text(&row, "demo_video"),
         "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "registered".to_string()),

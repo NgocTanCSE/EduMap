@@ -243,7 +243,7 @@ fn post_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "like_count": crate::db::int(&row, "like_count"),
         "comment_count": crate::db::int(&row, "comment_count"),
         "status": crate::db::text(&row, "status"),
-        "pinned": row.get::<bool, &str>("pinned"),
+        "pinned": crate::db::flag(&row, "pinned"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
         "author": author_to_json(row),

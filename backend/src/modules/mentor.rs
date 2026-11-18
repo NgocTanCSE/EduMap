@@ -372,12 +372,12 @@ fn mentor_to_json(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     serde_json::json!({
         "user_id": user_id,
         "bio": crate::db::opt_text(&row, "bio"),
-        "specialties": row.get::<Option<serde_json::Value>, &str>("specialties"),
+        "specialties": crate::db::json(&row, "specialties"),
         "location": crate::db::opt_text(&row, "location"),
         "experience_years": row.get::<i32, &str>("experience_years"),
         "rating_avg": crate::db::opt_text(&row, "rating_avg").unwrap_or_else(|| "0".to_string()),
         "hourly_rate": crate::db::opt_text(&row, "hourly_rate"),
-        "is_verified": row.get::<bool, &str>("is_verified"),
+        "is_verified": crate::db::flag(&row, "is_verified"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
         "user": {
@@ -631,8 +631,7 @@ pub async fn recommend_mentors(
         .iter()
         .map(|row| {
             let name = crate::db::opt_text(&row, "full_name").unwrap_or_default();
-            let specs = row
-                .get::<Option<serde_json::Value>, &str>("specialties")
+            let specs = crate::db::json(&row, "specialties")
                 .and_then(|v| v.as_array().cloned())
                 .unwrap_or_default();
             serde_json::json!({
@@ -704,7 +703,7 @@ pub async fn get_mentor_slots(
                 "id": crate::db::text(&row, "id"),
                 "start": crate::db::text(&row, "start_time"),
                 "end": crate::db::text(&row, "end_time"),
-                "is_booked": row.get::<bool, &str>("is_booked"),
+                "is_booked": crate::db::flag(&row, "is_booked"),
             })
         })
         .collect();
@@ -751,7 +750,7 @@ pub async fn add_availability(
         "day_of_week": crate::db::int(&inserted, "day_of_week"),
         "start_time": crate::db::text(&inserted, "start_time"),
         "end_time": crate::db::text(&inserted, "end_time"),
-        "is_active": inserted.get::<bool, &str>("is_active"),
+        "is_active": crate::db::flag(&inserted, "is_active"),
         "created_at": crate::db::text(&inserted, "created_at"),
     }))))
 }
@@ -776,7 +775,7 @@ pub async fn get_my_availability(
                 "day_of_week": row.get::<i32, &str>("day_of_week"),
                 "start_time": crate::db::text(&row, "start_time"),
                 "end_time": crate::db::text(&row, "end_time"),
-                "is_active": row.get::<bool, &str>("is_active"),
+                "is_active": crate::db::flag(&row, "is_active"),
                 "created_at": crate::db::text(&row, "created_at"),
             })
         })

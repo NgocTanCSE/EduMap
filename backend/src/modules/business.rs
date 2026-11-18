@@ -481,7 +481,7 @@ fn profile_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "address": crate::db::opt_text(&row, "address"),
         "lat": crate::db::opt_text(&row, "lat"),
         "lng": crate::db::opt_text(&row, "lng"),
-        "is_verified": row.get::<bool, &str>("is_verified"),
+        "is_verified": crate::db::flag(&row, "is_verified"),
         "products_count": crate::db::int(&row, "products_count"),
         "services_count": crate::db::int(&row, "services_count"),
         "created_at": crate::db::text(&row, "created_at"),
@@ -743,7 +743,7 @@ pub async fn create_or_update_profile(
         } else {
             "Tạo hồ sơ doanh nghiệp thành công. Chờ xác minh."
         },
-        "is_verified": row.get::<bool, &str>("is_verified"),
+        "is_verified": crate::db::flag(&row, "is_verified"),
     }))))
 }
 
@@ -766,7 +766,7 @@ pub async fn verify_profile(
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "message": "Xác minh hồ sơ doanh nghiệp thành công.",
             "id": crate::db::text(&r, "id"),
-            "is_verified": r.get::<bool, &str>("is_verified"),
+            "is_verified": crate::db::flag(&r, "is_verified"),
             "updated_at": crate::db::text(&r, "updated_at"),
         })))),
         None => Err(AppError::NotFound("Doanh nghiệp không tồn tại.".to_string())),

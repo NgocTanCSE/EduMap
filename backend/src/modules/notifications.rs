@@ -81,7 +81,7 @@ fn notification_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "title": crate::db::opt_text(&row, "title").unwrap_or_default(),
         "body": crate::db::opt_text(&row, "body").unwrap_or_default(),
         "channel": crate::db::opt_text(&row, "channel").unwrap_or_default(),
-        "is_read": row.get::<bool, &str>("is_read"),
+        "is_read": crate::db::flag(&row, "is_read"),
         "sent_at": crate::db::text(&row, "sent_at"),
         "read_at": crate::db::opt_text(&row, "read_at").unwrap_or_default(),
     })
@@ -178,7 +178,7 @@ pub async fn get_my_notifications(
 
     let notifications: Vec<Value> = rows.iter().map(notification_to_json).collect();
     let unread_count: i64 =
-        rows.iter().filter(|row| !row.get::<bool, &str>("is_read")).count() as i64;
+        rows.iter().filter(|row| !crate::db::flag(&row, "is_read")).count() as i64;
 
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "notifications": notifications,

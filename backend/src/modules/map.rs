@@ -620,7 +620,7 @@ pub async fn get_poi_details(
             "rating_avg": crate::db::opt_num(&row, "rating_avg"),
             "rating_count": crate::db::opt_int(&row, "rating_count"),
             "status": crate::db::opt_text(&row, "status"),
-            "verified": row.get::<Option<bool>, &str>("verified"),
+            "verified": crate::db::opt_flag(&row, "verified"),
         })
     });
 
@@ -1001,7 +1001,7 @@ pub async fn get_flood_zones(
             "name": crate::db::text(&z, "name"),
             "riskLevel": crate::db::text(&z, "riskLevel"),
             "coordinates": crate::db::opt_text(&z, "coordinates"),
-            "metadata": z.get::<Option<serde_json::Value>, &str>("metadata"),
+            "metadata": crate::db::json(&z, "metadata"),
         })
     }).collect::<Vec<serde_json::Value>>();
 
@@ -1358,7 +1358,7 @@ fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "rating_avg": crate::db::opt_num(&row, "rating_avg"),
         "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
-        "verified": row.get::<Option<bool>, &str>("verified"),
+        "verified": crate::db::opt_flag(&row, "verified"),
     })
 }
 
@@ -1376,7 +1376,7 @@ fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "rating_avg": crate::db::opt_num(&row, "rating_avg"),
         "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
-        "verified": row.get::<Option<bool>, &str>("is_verified"),
+        "verified": crate::db::opt_flag(&row, "is_verified"),
     })
 }
 

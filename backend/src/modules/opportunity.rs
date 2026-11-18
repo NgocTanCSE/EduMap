@@ -230,7 +230,7 @@ pub async fn get_opportunities(
             "url": crate::db::opt_text(&row, "url"),
             "region": crate::db::opt_text(&row, "region"),
             "status": crate::db::opt_text(&row, "status"),
-            "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
+            "isTeamFindingOpen": crate::db::opt_flag(&row, "is_team_finding_open"),
             "createdAt": crate::db::opt_text(&row, "created_at"),
         })
     }).collect();
@@ -313,7 +313,7 @@ pub async fn find_one(
         "url": crate::db::opt_text(&row, "url"),
         "region": crate::db::opt_text(&row, "region"),
         "status": crate::db::opt_text(&row, "status"),
-        "isTeamFindingOpen": row.get::<Option<bool>, &str>("is_team_finding_open"),
+        "isTeamFindingOpen": crate::db::opt_flag(&row, "is_team_finding_open"),
         "createdAt": crate::db::opt_text(&row, "created_at"),
     });
     Ok(Json(ApiResponse::ok(result)))
@@ -338,8 +338,8 @@ pub async fn toggle_team_finding(
     match row {
         Some(r) => Ok(Json(ApiResponse::ok(serde_json::json!({
             "id": crate::db::text(&r, "id"),
-            "isTeamFindingOpen": r.get::<bool, &str>("is_team_finding_open"),
-            "message": if r.get::<bool, &str>("is_team_finding_open") {
+            "isTeamFindingOpen": crate::db::flag(&r, "is_team_finding_open"),
+            "message": if crate::db::flag(&r, "is_team_finding_open") {
                 "Đã bật tìm đồng đội cho cơ hội này."
             } else {
                 "Đã tắt tìm đồng đội cho cơ hội này."

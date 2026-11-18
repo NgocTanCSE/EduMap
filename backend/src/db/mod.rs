@@ -168,3 +168,58 @@ pub fn opt_int(row: &PgRow, col: &str) -> Option<i64> {
     }
     opt_text(row, col).and_then(|s| s.parse::<i64>().ok())
 }
+
+/// Read a JSON column, accepting `jsonb` or a text cast of it.
+pub fn json(row: &PgRow, col: &str) -> Option<serde_json::Value> {
+    if let Ok(v) = row.try_get::<Option<serde_json::Value>, _>(col) {
+        return v;
+    }
+    if let Ok(v) = row.try_get::<serde_json::Value, _>(col) {
+        return Some(v);
+    }
+    opt_text(row, col).and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+}
+
+/// Read a boolean column, accepting `bool`, int or text representations.
+pub fn flag(row: &PgRow, col: &str) -> bool {
+    if let Ok(v) = row.try_get::<bool, _>(col) {
+        return v;
+    }
+    if let Ok(v) = row.try_get::<i64, _>(col) {
+        return v != 0;
+    }
+    if let Ok(v) = row.try_get::<i32, _>(col) {
+        return v != 0;
+    }
+    match opt_text(row, col).as_deref() {
+        Some("t") | Some("true") | Some("1") | Some("yes") => true,
+        _ => false,
+    }
+}
+
+/// `Option<bool>` counterpart of [`flag`].
+pub fn opt_flag(row: &PgRow, col: &str) -> Option<bool> {
+    if let Ok(v) = row.try_get::<Option<bool>, _>(col) {
+        return v;
+    }
+    if let Ok(v) = row.try_get::<Option<i64>, _>(col) {
+        return v.map(|x| x != 0);
+    }
+    if let Ok(v) = row.try_get::<Option<i32>, _>(col) {
+        return v.map(|x| x != 0);
+    }
+    opt_text(row, col).map(|s| matches!(s.as_str(), "t" | "true" | "1" | "yes"))
+}
+
+/// Read a text array (JSON array or Postgres array literal).
+pub fn text_list(row: &PgRow, col: &str) -> Vec<String> {
+    if let Ok(v) = row.try_get::<Option<Vec<String>>, _>(col) {
+        return v.unwrap_or_default();
+    }
+    if let Some(s) = opt_text(row, col) {
+        if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&s) {
+            return parsed;
+        }
+    }
+    Vec::new()
+}

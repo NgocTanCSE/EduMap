@@ -266,7 +266,7 @@ pub async fn book_lab(
         None => return Err(AppError::NotFound("Phòng lab không tồn tại.".to_string())),
     };
 
-    if !lab.get::<bool, &str>("booking_available") {
+    if !crate::db::flag(&lab, "booking_available") {
         return Err(AppError::Conflict("Phòng lab này hiện không nhận đặt lịch.".to_string()));
     }
 
@@ -322,10 +322,10 @@ fn row_to_lab_json(row: &sqlx::postgres::PgRow) -> Value {
         "schoolId": crate::db::opt_text(&row, "school_id"),
         "locationPoint": crate::db::opt_text(&row, "location_point"),
         "description": crate::db::opt_text(&row, "description"),
-        "equipment": row.get::<Option<Vec<String>>, &str>("equipment").unwrap_or_default(),
+        "equipment": crate::db::text_list(&row, "equipment"),
         "locationPointText": crate::db::opt_text(&row, "location_point_text"),
         "capacity": crate::db::opt_int(&row, "capacity"),
-        "bookingAvailable": row.get::<Option<bool>, &str>("booking_available"),
+        "bookingAvailable": crate::db::opt_flag(&row, "booking_available"),
         "photos": crate::db::opt_text(&row, "photos").and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()),
         "contact": crate::db::opt_text(&row, "contact"),
         "createdAt": crate::db::opt_text(&row, "created_at"),
