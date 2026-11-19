@@ -24,13 +24,13 @@ Graceful degradation:
 """
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column, pick_image_urls
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
 from tavily_client import TavilyClient, tavily_search_and_extract
-from tavily_parse import clean_text
+from tavily_parse import clean_text, coerce_published
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
@@ -79,7 +79,8 @@ def _location_layer(location_str):
 
 
 def _event_row(title, description, address, start_date=None, banner_url=None,
-               meeting_url=None, tags=None, price=0, query=None):
+               meeting_url=None, tags=None, price=0, query=None,
+               source_url="", published_at=None):
     """Turn one Tavily search result into an events row dict."""
     title = (title or "").strip()
     if not title or title.lower() in ("see all", "xem tất cả"):
@@ -109,6 +110,8 @@ def _event_row(title, description, address, start_date=None, banner_url=None,
         "is_online": is_online,
         "meeting_url": meeting_url,
         "price": price,
+        "source_url": source_url or None,
+        "published_at": published_at,
     }
 
 
@@ -146,7 +149,10 @@ def crawl():
                     description=r.get("raw_content", "") or r.get("content", ""),
                     address="Việt Nam",
                     start_date=None,  
+                    banner_url=(pick_image_urls(r.get("images") or [], limit=1) or [None])[0],
                     query=q,
+                    source_url=r.get("url", ""),
+                    published_at=coerce_published(r.get("published_date")),
                 )
                 if row and title not in by_title:
                     by_title[title] = row
@@ -166,8 +172,9 @@ def run():
     print(f"  [scope] crawl_years={crawl_years()} | layers={[l['label'] for l in LOCATION_LAYERS]}")
     conn = get_conn()
     try:
-        ensure_column(conn, "events", "image_url", "TEXT")
         ensure_column(conn, "events", "location_scope", "TEXT")
+        ensure_column(conn, "events", "source_url", "TEXT")
+        ensure_column(conn, "events", "published_at", "TIMESTAMP WITH TIME ZONE")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "events", rows, ["title"])

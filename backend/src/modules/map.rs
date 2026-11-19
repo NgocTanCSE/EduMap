@@ -25,7 +25,9 @@ use tracing::error;
 const DB_SELECT_POIS_BY_BBOX: &str = r#"
     SELECT id, name, description, type_id, address, city,
            ST_AsText(location) AS location, status, verified,
-           CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
+           CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at,
+           to_jsonb(map_points)->>'photos'     AS photos,
+           to_jsonb(map_points)->>'source_url' AS source_url
     FROM map_points
     WHERE ST_Intersects(location::geometry, ST_MakeEnvelope($1, $2, $3, $4, 4326))
     AND deleted_at IS NULL
@@ -35,7 +37,9 @@ const DB_SELECT_POIS_BY_BBOX: &str = r#"
 const DB_SELECT_POIS_BY_TYPE_ID: &str = r#"
     SELECT id, name, description, type_id, address, city,
            ST_AsText(location) AS location, status, verified,
-           CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
+           CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at,
+           to_jsonb(map_points)->>'photos'     AS photos,
+           to_jsonb(map_points)->>'source_url' AS source_url
     FROM map_points
     WHERE (type_id = $1
            OR LOWER(description) LIKE $2
@@ -48,7 +52,9 @@ const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
     SELECT l.id, l.name, l.description, l.category_id, c.name AS category_name,
            l.address, l.city, CAST(l.rating_avg AS DOUBLE PRECISION) AS rating_avg,
            l.rating_count, l.status, l.is_verified, ST_AsText(l.coordinates) AS coordinates,
-           l.created_at
+           l.created_at,
+           to_jsonb(l)->>'photos'     AS photos,
+           to_jsonb(l)->>'source_url' AS source_url
     FROM locations l
     LEFT JOIN location_categories c ON c.id::text = l.category_id::text
     WHERE ST_Intersects(l.coordinates::geometry, ST_MakeEnvelope($1, $2, $3, $4, 4326))
@@ -59,7 +65,10 @@ const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
 
 const DB_SELECT_POI_BY_ID: &str = r#"
     SELECT id, name, description, type_id, address, city, ST_AsText(location) AS location,
-           status, verified, CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
+           status, verified, CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count,
+           created_at,
+           to_jsonb(map_points)->>'photos'     AS photos,
+           to_jsonb(map_points)->>'source_url' AS source_url
     FROM map_points
     WHERE id::text = $1 AND deleted_at IS NULL
 "#;
@@ -649,6 +658,8 @@ pub async fn get_poi_details(
             "rating_count": crate::db::opt_int(&row, "rating_count"),
             "status": crate::db::opt_text(&row, "status"),
             "verified": crate::db::opt_flag(&row, "verified"),
+            "photos": photos_of(&row),
+            "source_url": crate::db::opt_text(&row, "source_url"),
         })
     });
 
@@ -1489,6 +1500,8 @@ fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
         "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
         "verified": crate::db::opt_flag(&row, "verified"),
+        "photos": photos_of(row),
+        "source_url": crate::db::opt_text(&row, "source_url"),
     })
 }
 
@@ -1512,7 +1525,18 @@ fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> Option<serde_json::Value>
         "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
         "verified": crate::db::opt_flag(&row, "is_verified"),
+        "photos": photos_of(row),
+        "source_url": crate::db::opt_text(&row, "source_url"),
     }))
+}
+
+/// `photos` is jsonb (an array of URLs). Rows without it return `[]` so the
+/// frontend never has to null-check before rendering an image slot.
+fn photos_of(row: &sqlx::postgres::PgRow) -> serde_json::Value {
+    crate::db::opt_text(row, "photos")
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .filter(|v| v.is_array())
+        .unwrap_or_else(|| serde_json::json!([]))
 }
 
 /// The crawled `locations.description` column stores the raw OSM type

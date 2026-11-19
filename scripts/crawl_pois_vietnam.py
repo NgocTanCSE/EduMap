@@ -31,8 +31,18 @@ TARGET = int(os.getenv("CRAWL_TARGET_POIS", "300"))
 CAP = int(os.getenv("CRAWL_CAP_POIS", "500"))
 
 TYPE_MAP = {
-    "market": 10,      
-    "convenience": 11, 
+    "university": 1,
+    "school": 2,
+    "library": 3,
+    "bookstore": 4,
+    "lab": 5,
+    "wifi": 6,
+    "green": 7,
+    "park": 7,
+    "cafe": 8,
+    "restaurant": 9,
+    "market": 10,
+    "convenience": 11,
 }
 BX_PATTERNS = ("bách hóa xanh", "bach hoa xanh", "bx", "bhc", "b.h.x")
 
@@ -130,6 +140,89 @@ def upsert_sqlite(conn, pois: list[dict]) -> tuple[int, int]:
     return inserted, skipped
 
 
+def upsert_postgres(pois: list[dict]) -> tuple[int, int]:
+    """Upsert POI rows into Supabase Postgres ``map_points``.
+
+    Coordinates come from ``geocode.verify_or_replace`` (address-anchored), so a
+    row is only written when its position was resolved from a real address or
+    from a coordinate string that appears in the source article.
+
+    Dedup = same name within 100 m. An existing row is refreshed (description,
+    address, photos, source_url) instead of duplicated.
+    """
+    import psycopg2
+    from psycopg2.extras import Json
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
+    from db_utils import DB_CFG
+
+    inserted = skipped = 0
+    if DRY_RUN or not pois:
+        return 0, 0
+
+    conn = psycopg2.connect(**DB_CFG)
+    try:
+        with conn.cursor() as cur:
+            for p in pois:
+                lat = round(float(p["lat"]), 7)
+                lng = round(float(p["lng"]), 7)
+                name = (p.get("name") or "")[:255]
+                if not name:
+                    continue
+                type_id = TYPE_MAP.get((p.get("category") or "").strip().lower(), 10)
+                desc = (p.get("description") or "")[:500]
+                addr = (p.get("address") or "")[:300]
+                photos = p.get("photos") or []
+                source_url = p.get("source_url") or ""
+
+                cur.execute(
+                    """
+                    SELECT id FROM map_points
+                    WHERE LOWER(name) = LOWER(%s)
+                      AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, 100)
+                      AND deleted_at IS NULL
+                    LIMIT 1
+                    """,
+                    (name, lng, lat),
+                )
+                existing = cur.fetchone()
+                if existing:
+                    cur.execute(
+                        """
+                        UPDATE map_points
+                        SET description = COALESCE(NULLIF(%s, ''), description),
+                            address     = COALESCE(NULLIF(%s, ''), address),
+                            photos      = COALESCE(%s::jsonb, photos),
+                            source_url  = COALESCE(NULLIF(%s, ''), source_url),
+                            updated_at  = NOW()
+                        WHERE id = %s
+                        """,
+                        (desc, addr, Json(photos) if photos else None, source_url, existing[0]),
+                    )
+                    skipped += 1
+                    continue
+
+                cur.execute(
+                    """
+                    INSERT INTO map_points (name, description, type_id, location, address,
+                                            photos, source_url, status, verified, created_at, updated_at)
+                    VALUES (%s, %s, %s,
+                            ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                            %s, %s, %s, 'pending', false, NOW(), NOW())
+                    """,
+                    (name, desc, type_id, lng, lat, addr,
+                     Json(photos) if photos else None, source_url or None),
+                )
+                inserted += 1
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return inserted, skipped
+
+
 def parse_args(argv: list[str]) -> dict:
     cfg = {"DRY_RUN": DRY_RUN, "BBOX": DEFAULT_BBOX, "TARGET": TARGET, "CAP": CAP}
     i = 1
@@ -157,16 +250,18 @@ def main(argv: list[str] | None = None) -> int:
     log(f"  [scope] crawl_years={_CY} | location layers={[l['label'] for l in LOCATION_LAYERS]}")
     log("  Source: Tavily AI Search + Extract (https://api.tavily.com)")
 
+    db_type = (os.getenv("DB_TYPE", "postgres") or "postgres").strip().lower()
+    sqlite_conn = None
     if cfg["DRY_RUN"]:
         log("  DRY RUN — no DB writes.")
-        conn = None
-    else:
+    elif db_type == "sqlite":
         import sqlite3
         if not os.path.exists(db_path):
             log(f"  ! DB not found: {db_path} — continuing in DRY-RUN mode.")
-            conn = None
         else:
-            conn = sqlite3.connect(db_path)
+            sqlite_conn = sqlite3.connect(db_path)
+    else:
+        log("  Target: Postgres (Supabase)")
 
     pois = crawl_pois_markets(SCOPE_BBOXES)
 
@@ -200,9 +295,11 @@ def main(argv: list[str] | None = None) -> int:
     log(f"  per-layer: {layer_counts}")
 
     inserted = skipped = 0
-    if conn:
-        inserted, skipped = upsert_sqlite(conn, uniq)
-        conn.close()
+    if sqlite_conn:
+        inserted, skipped = upsert_sqlite(sqlite_conn, uniq)
+        sqlite_conn.close()
+    elif not cfg["DRY_RUN"] and db_type != "sqlite":
+        inserted, skipped = upsert_postgres(uniq)
     log(f"  DB: inserted={inserted} skipped={skipped} dry_run={cfg['DRY_RUN']}")
     log(f"  [scope] crawl_years={_CY} | layers={layer_counts}")
     log("Crawl done.")

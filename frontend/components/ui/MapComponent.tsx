@@ -830,7 +830,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
                       <span className="font-bold text-xs">{p.name}</span>
                     </Tooltip>
                     <Popup>
-                      <MapPopupContent title={p.name} address={p.address} description={p.description} amenities={p.amenities} showNearby={p.id === selectedPoint?.id} nearbyPoints={(nearbyPoints || []).map((f: any) => ({
+                      <MapPopupContent title={p.name} address={p.address} description={p.description} photos={p.photos} sourceUrl={p.source_url} amenities={p.amenities} showNearby={p.id === selectedPoint?.id} nearbyPoints={(nearbyPoints || []).map((f: any) => ({
                         id: f.id,
                         name: f.name,
                         category: f.category,

@@ -20,6 +20,8 @@ export interface MapPopupContentProps {
     title: string;
     address?: string;
     description?: string;
+    photos?: string[];
+    sourceUrl?: string;
     amenities?: PoiAmenity[];
     nearbyPoints?: NearbyFacility[];
     showNearby?: boolean;
@@ -40,10 +42,13 @@ function AmenityLabel({ icon, label }: {
       <span>{label}</span>
     </span>);
 }
-export function MapPopupContent({ title, address, description, amenities, nearbyPoints, showNearby = false, onRouteNearby, onRouteHere, showVerified = false, facilityIcons, poiId, }: MapPopupContentProps) {
+export function MapPopupContent({ title, address, description, photos, sourceUrl, amenities, nearbyPoints, showNearby = false, onRouteNearby, onRouteHere, showVerified = false, facilityIcons, poiId, }: MapPopupContentProps) {
     const hasNearby = showNearby && nearbyPoints && nearbyPoints.length > 0;
     const hasActions = !!onRouteHere;
+    const photo = photos?.find((url) => typeof url === "string" && url.startsWith("http"));
     return (<div className="map-popup max-w-[420px] bg-card text-foreground font-sans">
+      {photo && (<img src={photo} alt={title} loading="lazy" className="mb-2 h-32 w-full rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }}/>)}
+
       <h4 className="text-base font-bold text-foreground leading-tight mb-1">
         {title}
       </h4>
@@ -57,6 +62,9 @@ export function MapPopupContent({ title, address, description, amenities, nearby
       {description && (<p className="text-sm text-muted-foreground/80 leading-snug mb-2 line-clamp-3">
           {description}
         </p>)}
+      {sourceUrl && (<a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="mb-2 inline-block text-xs font-semibold text-primary hover:underline">
+          Nguồn chính thức ↗
+        </a>)}
       {hasNearby && (<div className="pt-2 border-t border-border">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
             Tiện ích xung quanh (≤1km)

@@ -190,9 +190,10 @@ export default function ScholarshipDetailPage({ params }: {
               </span>
               <span className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-primary"/>
-                Hạn nộp: {deadline.toLocaleDateString('vi-VN')}
+                Hạn nộp: {deadline.getTime() > 0 ? deadline.toLocaleDateString('vi-VN') : 'Xem trang chính thức'}
               </span>
             </div>
+            {scholarship.image_url && (<img src={scholarship.image_url} alt={scholarship.title} className="mt-6 h-56 w-full rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }}/>)}
           </div>
         </div>
 

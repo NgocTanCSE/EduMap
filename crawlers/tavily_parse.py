@@ -23,6 +23,30 @@ import html as _html
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
+from db_utils import pick_image_urls
+
+
+def coerce_published(raw: Any) -> Optional[datetime]:
+    """Parse a Tavily ``published_date`` into an aware UTC datetime.
+
+    Returns ``None`` for a missing/garbled value so the row simply stores NULL
+    instead of a wrong date (provenance must be true or absent).
+    """
+    if not raw:
+        return None
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+    text = str(raw).strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            dt = datetime.strptime(text[:25], fmt)
+            return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
 
 def clean_text(text: Any) -> str:
     """Unescape HTML entities, strip tags, collapse whitespace.
@@ -88,15 +112,22 @@ def extract_deadline(text: str) -> Optional[str]:
             return f"{y:04d}-{mo:02d}-{d:02d}"
         except ValueError:
             pass
-    m = re.search(r"(?:tháng\s*(\d{1,2})|(\d{1,2})[\/\-](\d{4}))", text.lower())
+    m = re.search(r"tháng\s*(\d{1,2})\s*(?:[/\-. ]\s*)?(?:năm\s*)?(\d{4})", text.lower())
     if m:
-        month = m.group(1) or m.group(2)
-        year = m.group(3) or m.group(4)
-        if month and year:
-            try:
-                return f"{int(year):04d}-{int(month):02d}-28"
-            except (ValueError, TypeError):
-                pass
+        month, year = m.group(1), m.group(2)
+        try:
+            return f"{int(year):04d}-{int(month):02d}-28"
+        except (ValueError, TypeError):
+            pass
+    m = re.search(r"\b(\d{1,2})[\/\-](\d{4})\b", text)
+    if m:
+        month, year = m.group(1), m.group(2)
+        try:
+            month_i = int(month)
+            if 1 <= month_i <= 12:
+                return f"{int(year):04d}-{month_i:02d}-28"
+        except (ValueError, TypeError):
+            pass
     return None
 
 
@@ -386,18 +417,22 @@ def make_post_row(
     comment_count: int = 0,
     post_tag: str = "community",  
     source_url: str = "",
+    published_at: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Build a ``posts`` row dict (tag=community/social/hackathon)."""
     return {
         "title": (title or "")[:255],
         "source": source,
         "content": clean_text(content)[:3000],
-        "media_urls": _json(media_urls or []),
+        "media_urls": _json(pick_image_urls(media_urls or [], limit=3)),
         "tags": _json([post_tag, source] + (tags or [])),
         "like_count": like_count,
         "comment_count": comment_count,
         "status": "active",
         "pinned": False,
+        "location_scope": "vietnam",
+        "source_url": source_url or "",
+        "published_at": published_at,
     }
 
 
@@ -695,13 +730,15 @@ def parse_tavily_posts(
             "title": title,
             "source": source_name,
             "content": content,
-            "media_urls": _json([]),
+            "media_urls": _json(pick_image_urls(res.get("images") or [], limit=3)),
             "tags": _json([post_tag, source_name]),
             "like_count": 0,
             "comment_count": 0,
             "status": "active",
             "pinned": False,
             "location_scope": "vietnam",
+            "source_url": res.get("url") or "",
+            "published_at": coerce_published(res.get("published_date")),
         })
     return rows
 

@@ -1,13 +1,13 @@
 
 import os, re, sys, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column, pick_image_urls
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
 from tavily_client import TavilyClient, tavily_search_and_extract
-from tavily_parse import parse_date_or_default, clean_text, extract_deadline
+from tavily_parse import parse_date_or_default, clean_text, extract_deadline, coerce_published
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
@@ -65,7 +65,7 @@ def _scope_deadline(d):
 
 
 def _scholarship_row(title, description, provider, deadline=None, image_url=None,
-                     apply_url="", source_url="", query=None):
+                     apply_url="", source_url="", query=None, published_at=None):
     """Map one Tavily search result to a scholarships row dict."""
     title = (title or "").strip()
     if not title:
@@ -89,6 +89,8 @@ def _scholarship_row(title, description, provider, deadline=None, image_url=None
         "image_url": image_url,
         "eligibility_criteria": Jsonb({"source": source_url, "query": query}),
         "apply_url": apply_url or source_url,
+        "source_url": source_url or None,
+        "published_at": published_at,
         "status": "active",
     }
 
@@ -131,9 +133,11 @@ def crawl():
                         title=title,
                         description=blob,
                         provider=provider,
+                        image_url=(pick_image_urls(r.get("images") or [], limit=1) or [None])[0],
                         apply_url=r.get("url", ""),
                         source_url=r.get("url", ""),
                         query=q,
+                        published_at=coerce_published(r.get("published_date")),
                     )
         except Exception as e:
             print(f"  [scholarships] [warn] Tavily query failed '{q[:50]}...': {e}")
@@ -153,6 +157,8 @@ def run():
     try:
         ensure_column(conn, "scholarships", "image_url", "TEXT")
         ensure_column(conn, "scholarships", "location_scope", "TEXT")
+        ensure_column(conn, "scholarships", "source_url", "TEXT")
+        ensure_column(conn, "scholarships", "published_at", "TIMESTAMP WITH TIME ZONE")
         rows = crawl()
         if rows:
             r = upsert_rows(conn, "scholarships", rows, ["title"])

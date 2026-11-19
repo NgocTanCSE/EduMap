@@ -161,6 +161,7 @@ class TavilyClient:
         max_results: int = MAX_RESULTS_DEFAULT,
         include_answer: bool = True,
         include_raw_content: bool = True,
+        include_images: bool = False,
         time_range: Optional[str] = None,
         language: Optional[str] = "vietnamese",
     ) -> List[Dict[str, Any]]:
@@ -180,7 +181,7 @@ class TavilyClient:
             "max_results": max_results,
             "include_answer": include_answer,
             "include_raw_content": include_raw_content,
-            "include_images": False,
+            "include_images": include_images,
             "include_favicon": False,
         }
         if time_range:
@@ -249,11 +250,13 @@ class TavilyClient:
         max_results: int = MAX_RESULTS_DEFAULT,
         extract_top_k: int = 5,
         extract_depth: str = "basic",
+        include_images: bool = True,
     ) -> List[Dict[str, Any]]:
         """Search Tavily, then extract full content from the top ``extract_top_k`` URLs.
 
         Each returned dict has ``title``, ``url``, ``content`` (search snippet),
-        ``raw_content`` (full extracted article text), ``score``.
+        ``raw_content`` (full extracted article text), ``score``, and ``images``
+        (absolute image URLs found on *that* article — never another article's).
 
         This is the main entry point for crawlers: the ``raw_content`` field is
         where structured fields (salary, deadline, address, etc.) live.
@@ -268,17 +271,20 @@ class TavilyClient:
         if not results:
             return []
         urls = [r["url"] for r in results[:extract_top_k] if r.get("url", "").startswith("http")]
-        extracted = self.extract(urls, extract_depth=extract_depth) if urls else []
-        ext_by_url = {e["url"]: e.get("raw_content", "") for e in extracted}
+        extracted = self.extract(urls, extract_depth=extract_depth, include_images=include_images) if urls else []
+        ext_by_url = {e["url"]: e for e in extracted}
         out: List[Dict[str, Any]] = []
         for r in results:
             url = r.get("url", "")
+            ext = ext_by_url.get(url) or {}
             out.append({
                 "title": r.get("title", ""),
                 "url": url,
                 "content": r.get("content", ""),
-                "raw_content": ext_by_url.get(url, r.get("raw_content", "")),
+                "raw_content": ext.get("raw_content") or r.get("raw_content", ""),
                 "score": r.get("score", 0.0),
+                "images": ext.get("images") or [],
+                "published_date": r.get("published_date"),
                 "source": r.get("favicon", "").replace("//", "").replace("/", "") or "web",
             })
         return out

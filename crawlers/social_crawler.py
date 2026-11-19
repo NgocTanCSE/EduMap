@@ -126,7 +126,9 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
-        ensure_column(conn, "posts", "image_url", "TEXT")
+        ensure_column(conn, "posts", "source", "TEXT")
+        ensure_column(conn, "posts", "source_url", "TEXT")
+        ensure_column(conn, "posts", "published_at", "TIMESTAMP WITH TIME ZONE")
         ensure_column(conn, "posts", "location_scope", "TEXT")
         if rows:
             r = upsert_rows(conn, "posts", rows, ["title", "source"])

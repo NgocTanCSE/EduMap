@@ -264,6 +264,7 @@ export default function ScholarshipPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {paginatedScholarships.map(item => (<Card key={item.id} className="group flex h-full flex-col justify-between rounded-[22px] border border-border/80 bg-card p-5 shadow-orvel hover:shadow-pop transition-all hover:border-primary/50">
                 <div>
+                  {item.image_url && (<img src={item.image_url} alt={item.title} loading="lazy" className="mb-4 h-32 w-full rounded-[14px] object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }}/>)}
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-[14px] bg-primary/10 border border-primary/20 flex items-center justify-center text-lg font-bold text-primary shrink-0 shadow-xs">

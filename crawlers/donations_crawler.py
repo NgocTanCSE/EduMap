@@ -1,13 +1,13 @@
 
 import os, re, sys, time, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column, pick_image_urls
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
 from tavily_client import TavilyClient, tavily_search_and_extract
-from tavily_parse import clean_text, make_donation_row, extract_deadline
+from tavily_parse import clean_text, make_donation_row, extract_deadline, coerce_published
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
@@ -69,7 +69,7 @@ def _parse_amounts(text):
     return cur, tgt
 
 
-def _donation_row(title, description, source_url, query=None):
+def _donation_row(title, description, source_url, query=None, images=None, published_at=None):
     """Map one Tavily result to a donation_campaigns row dict."""
     title = (title or "").strip()
     if not title:
@@ -77,11 +77,12 @@ def _donation_row(title, description, source_url, query=None):
     desc = clean_text(description or "")
     cur, tgt = _parse_amounts(desc)
     suffix = f" (tìm theo '{query}')" if query else ""
-    banner = None
-    m = re.search(r'(https?://[^\s"\'<>]+?\.(?:jpg|jpeg|png|gif|webp))', desc[:2000])
-    if m:
-        banner = m.group(1)
-    return make_donation_row(
+    banner = (pick_image_urls(images or [], limit=1) or [None])[0]
+    if not banner:
+        m = re.search(r'(https?://[^\s"\'<>]+?\.(?:jpg|jpeg|png|gif|webp))', desc[:2000])
+        if m:
+            banner = m.group(1)
+    row = make_donation_row(
         title=title[:255],
         description=f"Chiến dịch quyên góp tìm thấy qua Tavily{suffix}. {desc[:500]}",
         target_amount=tgt or 0,
@@ -89,6 +90,9 @@ def _donation_row(title, description, source_url, query=None):
         image_url=banner,
         source_url=source_url,
     )
+    row["source_url"] = source_url or ""
+    row["published_at"] = published_at
+    return row
 
 
 def crawl():
@@ -124,6 +128,8 @@ def crawl():
                     description=r.get("raw_content", "") or r.get("content", ""),
                     source_url=r.get("url", ""),
                     query=q,
+                    images=r.get("images") or [],
+                    published_at=coerce_published(r.get("published_date")),
                 )
                 if row and title not in by_title:
                     by_title[title] = row
@@ -144,8 +150,9 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
-        ensure_column(conn, "donation_campaigns", "image_url", "TEXT")
         ensure_column(conn, "donation_campaigns", "location_scope", "TEXT")
+        ensure_column(conn, "donation_campaigns", "source_url", "TEXT")
+        ensure_column(conn, "donation_campaigns", "published_at", "TIMESTAMP WITH TIME ZONE")
         if rows:
             r = upsert_rows(conn, "donation_campaigns", rows, ["title"])
             print(f"donations_crawler: {r}")

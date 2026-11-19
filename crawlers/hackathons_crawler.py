@@ -1,13 +1,13 @@
 
 import os, re, sys, time, datetime, json
 sys.path.insert(0, os.path.dirname(__file__))
-from db_utils import get_conn, upsert_rows, Jsonb, ensure_column
+from db_utils import get_conn, upsert_rows, Jsonb, ensure_column, pick_image_urls
 from crawl_scope import (
     crawl_years, in_year_scope, year_scope_range,
     LOCATION_LAYERS, location_matches, keywords_for_layers,
 )
 from tavily_client import TavilyClient, tavily_search_and_extract
-from tavily_parse import clean_text, parse_tavily_posts
+from tavily_parse import clean_text, parse_tavily_posts, coerce_published
 
 NOW = datetime.datetime.utcnow()
 _CRAWL_YEARS = crawl_years()
@@ -30,19 +30,21 @@ _TAVILY_HACKATHON_QUERIES = [
 ]
 
 
-def _hackathon_row(title, content, url, media_urls=None):
+def _hackathon_row(title, content, url, media_urls=None, published_at=None):
     """Build a posts row dict for a hackathon listing."""
     return {
         "title": (title or "")[:255],
         "source": "tavily",
         "content": clean_text(content or "")[:3000],
-        "media_urls": Jsonb(media_urls or []),
+        "media_urls": Jsonb(pick_image_urls(media_urls or [], limit=3)),
         "tags": Jsonb(["hackathon", "tavily"]),
         "location_scope": "vietnam",
         "like_count": 0,
         "comment_count": 0,
         "status": "active",
         "pinned": False,
+        "source_url": url or "",
+        "published_at": published_at,
     }
 
 
@@ -85,6 +87,8 @@ def crawl():
                         title=title,
                         content=r.get("raw_content", "") or r.get("content", ""),
                         url=r.get("url", ""),
+                        media_urls=pick_image_urls(r.get("images") or [], limit=3),
+                        published_at=coerce_published(r.get("published_date")),
                     )
         except Exception as e:
             print(f"  [hackathons] [warn] Tavily query failed '{q[:50]}...': {e}")
@@ -104,7 +108,9 @@ def run():
     rows = crawl()
     conn = get_conn()
     try:
-        ensure_column(conn, "posts", "image_url", "TEXT")
+        ensure_column(conn, "posts", "source", "TEXT")
+        ensure_column(conn, "posts", "source_url", "TEXT")
+        ensure_column(conn, "posts", "published_at", "TIMESTAMP WITH TIME ZONE")
         ensure_column(conn, "posts", "location_scope", "TEXT")
         if rows:
             r = upsert_rows(conn, "posts", rows, ["title", "source"])

@@ -10,6 +10,9 @@ export interface Scholarship {
     deadline: string;
     requirements: any;
     apply_url?: string;
+    image_url?: string;
+    source_url?: string;
+    published_at?: string;
     eligibility_criteria?: string;
     location?: string;
     status?: string;

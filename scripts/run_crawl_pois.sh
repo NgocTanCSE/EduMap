@@ -17,8 +17,7 @@ cd "$(dirname "$0")/.."
 set -a; . ./.env 2>/dev/null || . /app/.env 2>/dev/null; set +a
 
 
-export DB_TYPE="${DB_TYPE:-sqlite}"
-export DB_SQLITE_PATH="${DB_SQLITE_PATH:-/app/data/edumap.db}"
+export DB_TYPE="${DB_TYPE:-postgres}"
 
 
 

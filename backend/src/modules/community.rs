@@ -159,6 +159,9 @@ const DB_SELECT_POSTS: &str = r#"
                p.like_count, p.comment_count, p.status, p.pinned,
                CAST(p.created_at AS TEXT) AS created_at,
                CAST(p.updated_at AS TEXT) AS updated_at,
+               to_jsonb(p)->>'source'       AS source,
+               to_jsonb(p)->>'source_url'   AS source_url,
+               to_jsonb(p)->>'published_at' AS published_at,
                a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role,
                g.name AS group_name, g.description AS group_description, g.id AS group_row_id
         FROM posts p
@@ -175,6 +178,9 @@ const DB_SELECT_POST_BY_ID: &str = r#"
            p.like_count, p.comment_count, p.status, p.pinned,
            CAST(p.created_at AS TEXT) AS created_at,
            CAST(p.updated_at AS TEXT) AS updated_at,
+           to_jsonb(p)->>'source'       AS source,
+           to_jsonb(p)->>'source_url'   AS source_url,
+           to_jsonb(p)->>'published_at' AS published_at,
            a.full_name AS author_name, a.avatar_url AS author_avatar, a.role AS author_role,
            g.name AS group_name, g.description AS group_description, g.id AS group_row_id
     FROM posts p
@@ -246,6 +252,9 @@ fn post_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "pinned": crate::db::flag(&row, "pinned"),
         "created_at": crate::db::text(&row, "created_at"),
         "updated_at": crate::db::text(&row, "updated_at"),
+        "source": crate::db::opt_text(&row, "source"),
+        "source_url": crate::db::opt_text(&row, "source_url"),
+        "published_at": crate::db::opt_text(&row, "published_at"),
         "author": author_to_json(row),
         "group": group_to_json(row),
     })
@@ -347,7 +356,7 @@ pub async fn get_posts(
     let where_clause = if filters.is_empty() {
         String::new()
     } else {
-        format!(" AND {}", filters.join(" AND "))
+        format!(" WHERE {}", filters.join(" AND "))
     };
 
     let total: i64 = crate::db::query(&format!(

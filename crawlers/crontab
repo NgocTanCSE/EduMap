@@ -2,27 +2,28 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MAILTO=""
 
-# Explicit env vars (cron doesn't inherit Docker ENV).
-# host runs SQLite only — crawlers must upsert into edumap.db.
-DB_TYPE=sqlite
-DB_SQLITE_PATH=/app/frontend/public/edumap.db
+# Explicit env vars (cron does not inherit Docker ENV).
+# Production DB is Supabase Postgres (AGENTS.md §16). SQLite is only the
+# retired local/legacy path — set DB_TYPE=sqlite explicitly if you need it.
+DB_TYPE=postgres
+# Never let a stale SQLite default win.
+DB_SQLITE_PATH=
 # Crawl year window for scope filtering.
 EDUMAP_CRAWL_YEAR=2026
 
 # EduMap crawler crontab (container TZ = Asia/Ho_Chi_Minh, so 0 0 * * * == 00:00 local).
 
 # --- nightly FEATURE crawlers (00:00) — UPSERT only, NEVER DROP SCHEMA / wipe ---
-# Populates jobs, internships, hackathons->posts, events, scholarships,
-# donations->campaigns, community+social->posts, gamification badges/challenges.
+# Populates news (scholarships/posts from VN news RSS), jobs, internships,
+# hackathons->posts, events, scholarships, donations->campaigns,
+# community+social->posts, gamification badges/challenges.
 # Each crawler is idempotent and degrades gracefully (blocked source -> 0 rows).
 0 0 * * * root bash /app/scripts/run_feature_crawlers.sh >> /app/crawlers/crawled_data/feature_crawl.log 2>&1
 
 # --- nightly Tavily POI upsert (01:00) — markets, schools, greens, wifi... ---
 # SAFE: crawl_pois_vietnam.py upserts (dedup via name+coords), NEVER drops schema
-# or wipes user rows. Uses Tavily AI Search (TAVILY_API_KEY). Runs 1h after
-# feature crawlers so the DB is warm. A post-reset DB auto-heals nightly when
-# TAVILY_API_KEY is set; without it, the crawler degrades to 0 rows and curated
-# snapshots fill the gaps.
+# or wipes user rows. Coordinates are address-anchored via geocode.py.
+# Runs 1h after feature crawlers so the DB is warm.
 0 1 * * * root bash /app/scripts/run_crawl_pois.sh >> /app/crawlers/crawled_data/pois_crawl.log 2>&1
 
 # --- optional FULL REFRESH (nationwide POI crawl + seed rebuild, DROPS schema) ---

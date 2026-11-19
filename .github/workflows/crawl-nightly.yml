@@ -1,0 +1,118 @@
+name: Crawl data nightly
+
+# Chạy crawler thật trên Supabase (production DB).
+#
+# Vì sao ở đây chứ không phải Render: Render free tier chỉ có 2 web service
+# (`edumap-api`, `edumap-ai`) và KHÔNG chạy cron. Container crawler chỉ tồn tại
+# trong `docker-compose.yml` (máy local). GitHub Actions chạy thay, ghi thẳng
+# vào Supabase qua biến môi trường DB_* — không cần thêm service nào.
+#
+# Secrets cần khai trong Settings → Secrets and variables → Actions:
+#   DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE
+#   TAVILY_API_KEY   (tuỳ chọn — thiếu thì crawler Tavily trả 0 dòng, RSS vẫn chạy)
+#
+# Thiếu secret nào thì phần đó degrade thành 0 dòng, job vẫn xanh.
+
+on:
+  schedule:
+    # 17:00 UTC = 00:00 giờ Việt Nam (UTC+7)
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+    inputs:
+      crawlers:
+        description: "Danh sách crawler, cách nhau bởi dấu cách"
+        required: false
+        default: "news jobs internships hackathons events community_posts social scholarships donations gamification"
+      run_pois:
+        description: "Chạy thêm crawler POI (map_points)"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: crawl-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  crawl:
+    name: Run crawlers against Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install crawler dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.28.0" "psycopg2-binary>=2.9.9"
+
+      - name: Check DB configuration
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          if [ -z "$DB_HOST" ] || [ -z "$DB_PASSWORD" ]; then
+            echo "::warning::DB_HOST/DB_PASSWORD chưa được khai — crawler sẽ chạy ở chế độ dry (0 dòng ghi)."
+          else
+            echo "DB configured: $DB_HOST"
+          fi
+
+      - name: Apply provenance columns (idempotent)
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+        run: |
+          if [ -z "${DB_HOST}" ] || [ -z "${DB_PASSWORD}" ]; then
+            echo "::warning::DB secrets chưa khai — bỏ qua bước migration."
+            exit 0
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          psql -h "${DB_HOST}" -p "${DB_PORT:-6543}" -U "${DB_USERNAME}" -d "${DB_DATABASE}" \
+               -v ON_ERROR_STOP=1 \
+               -f backend/src/database/migrations/add_content_provenance_columns.sql
+
+      - name: Run feature crawlers
+        env:
+          DB_TYPE: postgres
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          EDUMAP_CRAWL_YEAR: "2026"
+          CRAWLERS: ${{ github.event.inputs.crawlers || 'news jobs internships hackathons events community_posts social scholarships donations gamification' }}
+        run: |
+          for c in $CRAWLERS; do
+            echo "::group::$c"
+            python3 "crawlers/${c}_crawler.py" || echo "::warning::$c failed (continuing)"
+            echo "::endgroup::"
+          done
+
+      - name: Run POI crawler
+        if: ${{ (github.event.inputs.run_pois == 'true') || (github.event_name == 'schedule') }}
+        env:
+          DB_TYPE: postgres
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          EDUMAP_CRAWL_YEAR: "2026"
+          GEOCODE_ENABLED: "true"
+          GEOCODE_MAX_PER_RUN: "150"
+        run: |
+          python3 scripts/crawl_pois_vietnam.py || echo "::warning::poi crawler failed (continuing)"

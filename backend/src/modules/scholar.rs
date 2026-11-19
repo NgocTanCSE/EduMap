@@ -54,7 +54,11 @@ const DB_SELECT_SCHOLARSHIPS: &str = r#"
     SELECT id, title, provider, value_amount, deadline,
            CAST(status AS TEXT) AS status,
            CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
-           apply_url, created_at
+           apply_url,
+           to_jsonb(scholarships)->>'image_url'        AS image_url,
+           to_jsonb(scholarships)->>'source_url'       AS source_url,
+           to_jsonb(scholarships)->>'published_at'     AS published_at,
+           created_at
     FROM scholarships WHERE deleted_at IS NULL
 "#;
 
@@ -62,7 +66,11 @@ const DB_SELECT_SCHOLARSHIP_BY_ID: &str = r#"
     SELECT id, title, description, provider, value_amount, deadline,
            CAST(status AS TEXT) AS status,
            CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
-           apply_url, created_at
+           apply_url,
+           to_jsonb(scholarships)->>'image_url'        AS image_url,
+           to_jsonb(scholarships)->>'source_url'       AS source_url,
+           to_jsonb(scholarships)->>'published_at'     AS published_at,
+           created_at
     FROM scholarships WHERE id::text = $1
 "#;
 
@@ -73,7 +81,11 @@ const DB_INSERT_SCHOLARSHIP: &str = r#"
     RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
-              apply_url, created_at
+              apply_url,
+              to_jsonb(scholarships)->>'image_url'    AS image_url,
+              to_jsonb(scholarships)->>'source_url'   AS source_url,
+              to_jsonb(scholarships)->>'published_at' AS published_at,
+              created_at
 "#;
 
 const DB_UPDATE_SCHOLARSHIP: &str = r#"
@@ -90,7 +102,11 @@ const DB_UPDATE_SCHOLARSHIP: &str = r#"
     RETURNING id::text AS id, title, description, provider, value_amount, deadline,
               CAST(status AS TEXT) AS status,
               CAST(eligibility_criteria AS TEXT) AS eligibility_criteria,
-              apply_url, created_at
+              apply_url,
+              to_jsonb(scholarships)->>'image_url'    AS image_url,
+              to_jsonb(scholarships)->>'source_url'   AS source_url,
+              to_jsonb(scholarships)->>'published_at' AS published_at,
+              created_at
 "#;
 
 const DB_INSERT_APPLICATION: &str = r#"
@@ -131,6 +147,9 @@ fn scholarship_to_json(row: &sqlx::postgres::PgRow) -> Value {
         "eligibility_criteria": crate::db::opt_text(&row, "eligibility_criteria")
             .and_then(|s| serde_json::from_str::<Value>(&s).ok()),
         "apply_url": crate::db::opt_text(&row, "apply_url"),
+        "image_url": crate::db::opt_text(&row, "image_url"),
+        "source_url": crate::db::opt_text(&row, "source_url"),
+        "published_at": crate::db::opt_text(&row, "published_at"),
         "status": crate::db::opt_text(&row, "status").unwrap_or_else(|| "active".to_string()),
         "created_at": crate::db::opt_text(&row, "created_at").unwrap_or_default(),
     })

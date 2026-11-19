@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from tavily_client import TavilyClient, tavily_search_and_extract  
 from tavily_parse import clean_text, extract_coords, _location_layer  
+from db_utils import pick_image_urls
+from geocode import verify_or_replace
 
 _LAT_MIN, _LAT_MAX = 8.0, 24.0
 _LNG_MIN, _LNG_MAX = 102.0, 109.5
@@ -83,9 +85,9 @@ def search_pois_tavily(
             continue
 
         blob = clean_text(raw_content) or clean_text(title)
-        lat, lng = extract_coords(blob)
-        if lat is None or lng is None or not _valid_coords(lat, lng):
-            continue
+        text_lat, text_lng = extract_coords(blob)
+        if text_lat is not None and not _valid_coords(text_lat, text_lng or 0.0):
+            text_lat, text_lng = None, None
 
         name = title if title else None
         if not name or len(name) < 3:
@@ -93,17 +95,24 @@ def search_pois_tavily(
         if not name or len(name) < 3:
             continue
 
-        key = (name.lower(), round(lat, 6), round(lng, 6))
-        if key in seen:
-            continue
-        seen.add(key)
-
         addr = ""
         m = re.search(r"(?:địa chỉ|địa chỉ:|address)[:\s]+((?:[^\n,;]{5,80}?)(?:,|\n))", blob, re.IGNORECASE)
         if m:
             addr = clean_text(m.group(1))[:300]
         if not addr:
             addr = title[:200]
+
+        anchored = verify_or_replace(addr, text_lat, text_lng)
+        if anchored is None:
+            continue
+        lat, lng, coord_source = anchored
+        if not _valid_coords(lat, lng):
+            continue
+
+        key = (name.lower(), round(lat, 6), round(lng, 6))
+        if key in seen:
+            continue
+        seen.add(key)
 
         pois.append({
             "name": name[:255],
@@ -115,6 +124,8 @@ def search_pois_tavily(
             "location_scope": location_scope,
             "source": "tavily",
             "source_url": url,
+            "photos": pick_image_urls(r.get("images") or [], limit=3),
+            "coord_source": coord_source,
         })
 
     return pois

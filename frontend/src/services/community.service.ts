@@ -22,6 +22,11 @@ export interface Post {
     comment_count: number;
     status: string;
     created_at: string;
+    media_urls?: string[] | null;
+    tags?: string[] | null;
+    source?: string | null;
+    source_url?: string | null;
+    published_at?: string | null;
     author: UserInfo;
     group?: Group;
 }

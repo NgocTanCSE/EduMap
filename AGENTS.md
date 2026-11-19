@@ -2157,3 +2157,144 @@ có lớp phủ tối, không còn trang danh sách trùng lặp.
 - `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`, tổng
   `live + dead = total` vẫn khớp.
 - Runtime truth vẫn là host sau khi người dùng deploy.
+
+## 26. P0 de-hallucination + P1 dữ liệu thật (2026-11-19/20)
+
+Mục tiêu: `/map` và các danh sách không còn dữ liệu bịa. P0 chặn dữ liệu bịa
+ngay tại nguồn; P1 bổ sung nguồn thật (báo chí VN, ảnh thật của bài, toạ độ
+neo theo địa chỉ, scheduler chạy hằng đêm) — không sinh thêm dòng nào bằng
+random hay bằng LLM.
+
+### 26.1 P0 — ngăn dữ liệu bịa tại nguồn
+
+| Vị trí | Trước | Sau |
+|---|---|---|
+| `ai-service/routers/geo.py` `/analyze` | luôn gọi LLM kể cả khi 1-2 điểm → bịa mật độ/xu hướng | `GEO_ANALYSIS_MIN_POINTS` (mặc định 10); dưới ngưỡng trả `degraded=true` + `stats` đếm được (`_bbox_area_km2`, `_summarize_points`, `_data_only_analysis`), không gọi LLM |
+| `llm_service.analyze_geo_density` | prompt không ràng buộc số liệu | prompt chỉ được dùng `stats` được truyền vào (temperature 0.2); `_geo_analysis_fallback` không còn bịa `density_score=50.0` |
+| `llm_service.explain_learning_space_recommendation` | LLM tự thêm chi tiết | prompt cấm thêm dữ kiện ngoài dữ liệu |
+| `backend/src/modules/map.rs::ai_analysis` | không truyền POI thật | `AiAnalysisForm` nhận `min_lat/max_lat/min_lng/max_lng`; handler đọc POI thật (`list_pois`/`list_all_pois`), cap 800 điểm hợp lệ rồi mới gọi ai-service |
+| `map.rs::list_pois` | lộ row tên kiểu `"{category} tại lat,lng"` | `is_synthetic_poi_name()` lọc bỏ |
+| `crawlers/tavily_poi.py` | tạo tên `"{category} tại lat,lng"` khi thiếu tiêu đề | bỏ dòng đó (skip) thay vì bịa tên; chỉ nhận URL `http(s)` |
+| `ai-service/routers/analytics.py` | `education_stats` trả cả dòng không nguồn | `_filter_sourced_stats()` loại dòng thiếu `source` (trừ khi `EDUCATION_STATS_ALLOW_UNSOURCED=true`) |
+| `scripts/seed_analytics_data.py`, `seed_analytics.sql` | sinh số liệu random | xoá khối `education_stats` (60 dòng) + xoá `scripts/seed_education.py`, `seed_education_stats.sql`; thêm `cleanup_synthetic_education_stats.sql` |
+| `frontend/app/map/page.tsx` | "Phân tích AI khu vực" gửi câu hỏi chung | `runAiAnalysis` gửi bbox viewport + `query: "Khu vực đang xem"`, đọc `data.ai_analysis`, truyền `hubs` dạng GeoJSON; `AiPanel` hiện mật độ theo điểm/km², chip số liệu, ghi chú `degraded` màu amber, "Ghi nhận từ dữ liệu" |
+
+### 26.2 P1 — ảnh thật cho mọi nội dung crawl
+
+- `crawlers/db_utils.py`: `pick_image_urls()` (nhận `str`/`{"url"}`/hỗn hợp,
+  xử lý `//cdn…`, loại tracking pixel/spacer/logo/icon/`data:`; chấp nhận đuôi
+  `.jpg.avif` và path hint `/images/ /photo/ /media/ /uploads/`), `image_from_html()`.
+  `_IMG_EXT_RE` / `_IMG_REJECT` là hằng module.
+- `crawlers/tavily_client.py`: `search(include_images=…)`, `extract` truyền tiếp,
+  `search_and_extract(include_images=True)` trả về **ảnh của riêng từng bài**
+  (`ext_by_url`), kèm `published_date` + `source`.
+- `crawlers/tavily_parse.py`: `coerce_published()` (RFC/ISO/`dd/mm/yyyy` → UTC,
+  sai thì `None` chứ không đoán); `parse_tavily_posts` phát `media_urls`,
+  `source_url`, `published_at`; `make_post_row` nhận `published_at` + chuẩn hoá
+  ảnh. Sửa lỗi có sẵn `IndexError: no such group` trong `extract_deadline()`
+  (regex 3 group nhưng code đọc `group(4)`).
+- 6 crawler ghi ảnh/nguồn/ngày thật: `scholarships_crawler` (`image_url`,
+  `source_url`, `published_at`), `events_crawler` (`banner_url` — bỏ cột chết
+  `events.image_url`), `hackathons_crawler`, `donations_crawler`
+  (`images` + `source_url`), `community_posts_crawler`, `social_crawler`.
+
+### 26.3 P1 — crawler báo chí thật (RSS)
+
+- `crawlers/news_sources.py`: 8 feed giáo dục đã kiểm HTTP 200 —
+  Tiền Phong, Dân trí, Thanh Niên, Tuổi Trẻ, VnExpress, VietnamNet
+  (`https://vietnamnet.vn/giao-duc.rss`, bản `/rss/` trả 301), VietnamPlus
+  (TTXVN), Giáo dục & Thời đại. `parse_feed()` đọc cả RSS 2.0 và Atom, trả `[]`
+  (không raise) khi XML hỏng; `parse_published()` RFC822 + ISO; `strip_html()`
+  hai lần unescape.
+- `classify(title, summary)` **ưu tiên tiêu đề**: chỉ nhận tín hiệu từ summary
+  khi có đúng cụm "học bổng" — tránh xếp tin thường thành học bổng/cuộc thi.
+- `crawlers/news_crawler.py`: ghi `scholarships` (key `title`) và `posts`
+  (key `title`+`source`), `description`/`content` kết thúc bằng
+  `Nguồn chính thức: <url> · Kiểm chứng: <ngày>`. Hạn nộp không xác định →
+  **NULL** (frontend hiện "Xem trang chính thức"), không bịa `NOW+60d`.
+- Chạy thử thật: 31 scholarships + 83 posts, URL/ảnh/ngày đều lấy từ bài gốc.
+
+### 26.4 P1 — toạ độ neo theo địa chỉ
+
+- `crawlers/geocode.py`: Nominatim (`NOMINATIM_URL`), ép IPv4, throttle 1.1 s,
+  cache JSON trong `/tmp`, `GEOCODE_MAX_PER_RUN=150`,
+  `GEOCODE_MAX_DISTANCE_KM=15`, `GEOCODE_REQUIRE` (bật thì bỏ dòng không
+  resolve được địa chỉ). `verify_or_replace(addr, lat, lng)` trả
+  `(lat, lng, "geocode"|"text")` hoặc `None`; không bao giờ trả `(0, 0)` và
+  chỉ nhận toạ độ trong khung VN (lat 8–24, lng 102–109.6).
+- `crawlers/tavily_poi.py` neo mọi POI qua `verify_or_replace` trước khi ghi,
+  thêm `photos` + `coord_source`. Đã kiểm: địa chỉ DNTU →
+  `(10.9844801, 106.8696454)` thay cho toạ độ regex lệch.
+- `scripts/crawl_pois_vietnam.py`: `TYPE_MAP` mở rộng đủ taxonomy
+  (university/school/library/bookstore/lab/wifi/green/park/cafe/restaurant/
+  market/convenience); `upsert_postgres()` (psycopg2, `ST_DWithin` 100 m +
+  tên, refresh description/address/photos/source_url thay vì nhân bản);
+  `main()` rẽ nhánh `DB_TYPE` (mặc định `postgres`).
+
+### 26.5 P1 — scheduler thật + cột provenance
+
+- `crawlers/crontab`: `DB_TYPE=postgres`, `DB_SQLITE_PATH=` rỗng, thêm khối
+  news crawler.
+- `scripts/run_feature_crawlers.sh`: mặc định `postgres`, `news` chạy đầu danh
+  sách `news jobs internships hackathons events community_posts social
+  scholarships donations gamification`.
+- `scripts/run_crawl_pois.sh`: mặc định `postgres`, bỏ `DB_SQLITE_PATH`.
+- `.github/workflows/crawl-nightly.yml`: Render free tier không chạy cron nên
+  GitHub Actions làm scheduler — cron `0 17 * * *` (= 00:00 VN),
+  `workflow_dispatch` với input `crawlers` / `run_pois`; áp
+  `add_content_provenance_columns.sql` rồi chạy crawler. Thiếu secret DB thì
+  bước migration bỏ qua kèm `::warning::` (job vẫn xanh).
+- Secret cần khai trong GitHub: `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
+  `DB_PASSWORD`, `DB_DATABASE`, `TAVILY_API_KEY` (tuỳ chọn).
+- `backend/src/database/migrations/add_content_provenance_columns.sql`
+  (idempotent `ADD COLUMN IF NOT EXISTS` + 4 index) và `schema.sql`:
+  `scholarships.image_url/source_url/published_at/location_scope`,
+  `events.source_url/published_at`, `posts.source/source_url/published_at/
+  location_scope`, `donation_campaigns.source_url/published_at/location_scope`,
+  `locations.source_url`, `map_points.source_url`.
+
+### 26.6 P1 — backend + frontend đọc dữ liệu mới
+
+- Cột mới trong Rust đọc qua `to_jsonb(<table>)->>'col'` (scholar.rs,
+  community.rs, map.rs) → nếu migration chưa chạy thì trả `null` chứ không 500.
+- `scholar.rs`: `image_url`/`source_url`/`published_at` trong 2 SELECT, 2
+  RETURNING và `scholarship_to_json`.
+- `community.rs`: `source`/`source_url`/`published_at` trong
+  `DB_SELECT_POSTS`, `DB_SELECT_POST_BY_ID`, `post_to_json`; **sửa 500 có sẵn**:
+  filter từ `" AND {filters}"` nối sau `) sub` → `" WHERE {filters}"`.
+- `map.rs`: `photos` + `source_url` trong POI bbox/type/by-id/locations;
+  helper `photos_of()` trả `[]` khi thiếu.
+- Frontend: `MapPopupContent` (`photos`, `sourceUrl`, thumbnail `onError` ẩn,
+  link "Nguồn chính thức ↗"), `MapComponent` truyền 2 prop; `scholarships`
+  (thumbnail thẻ + ảnh hero + deadline null-safe), `community` (thumbnail
+  `media_urls[0]` + link nguồn ở cả card và popup chi tiết);
+  `scholarship.service.ts` / `community.service.ts` thêm field optional.
+
+### 26.7 Kiểm chứng P0+P1 (local, không chạy runtime)
+
+- `py_compile` OK toàn bộ `crawlers/*.py` + `scripts/crawl_pois_vietnam.py`;
+  import sweep 15 module crawler sạch.
+- `bash -n` OK: `crawlers/entrypoint.sh`, `run_feature_crawlers.sh`,
+  `run_crawl_pois.sh`.
+- News crawler chạy thật (RSS): 31 scholarships + 83 posts, ảnh/URL/ngày thật.
+- Geocode chạy thật: DNTU resolve đúng, địa chỉ rác giữ toạ độ gốc.
+- Brace-balance BALANCED: `map.rs`, `scholar.rs`, `community.rs`, `geo.py`.
+- Frontend: parse toàn bộ `.ts/.tsx` **PARSE OK**; `tsc` scoped trên 22 file →
+  chỉ `TS2307` (thiếu `node_modules` local), **0 lỗi type thật**;
+  `/tmp/unused.js` sạch.
+- `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`,
+  `155+88=243 ⊆ True`, `17+55=72 ⊆ True`.
+- **Chưa kiểm được**: đường Tavily `include_images` (máy local không có
+  `TAVILY_API_KEY`); runtime truth vẫn là host sau khi người dùng deploy.
+
+### 26.8 Việc người dùng phải làm khi deploy
+
+1. Chạy `backend/src/database/migrations/add_content_provenance_columns.sql`
+   trên Supabase (workflow cũng tự chạy nếu có secret DB).
+2. Chạy một lần `cleanup_synthetic_education_stats.sql` để xoá số liệu random
+   còn trong production (trong lúc chưa chạy, ai-service đã lọc ẩn chúng).
+3. Khai secret GitHub Actions: `DB_*` + `TAVILY_API_KEY`, rồi
+   `workflow_dispatch` `crawl-nightly` một lần để làm đầy dữ liệu thật.
+4. Smoketest sau deploy: `/api/scholarships` (có `image_url`/`source_url`),
+   `/api/community/posts` (có `source_url`, filter không 500), `/api/map/pois`
+   (POI có `photos`), `/map` → "Phân tích AI khu vực" (số liệu khớp POI thật).

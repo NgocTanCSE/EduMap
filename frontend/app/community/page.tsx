@@ -244,6 +244,10 @@ export default function CommunityPage() {
                             <p className="text-sm text-foreground/80 leading-relaxed line-clamp-4 whitespace-pre-line">
                                 {post.content}
                             </p>
+                            {post.media_urls && post.media_urls.length > 0 && (<img src={post.media_urls[0]} alt={post.title} loading="lazy" className="mt-2 h-44 w-full rounded-xl object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }}/>)}
+                            {post.source_url && (<a href={post.source_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-block text-xs font-semibold text-primary hover:underline">
+                                Nguồn chính thức ↗
+                              </a>)}
                         </div>
 
                         
@@ -352,6 +356,10 @@ export default function CommunityPage() {
             <p className="text-foreground/90 leading-relaxed whitespace-pre-line text-sm">
               {selectedPost.content}
             </p>
+            {selectedPost.media_urls && selectedPost.media_urls.length > 0 && (<img src={selectedPost.media_urls[0]} alt={selectedPost.title} loading="lazy" className="h-56 w-full rounded-xl object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }}/>)}
+            {selectedPost.source_url && (<a href={selectedPost.source_url} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-semibold text-primary hover:underline">
+                Nguồn chính thức ↗
+              </a>)}
             {selectedPost.group && (<p className="text-xs text-muted-foreground">
                 Đăng trong nhóm: <strong className="text-primary">{selectedPost.group.name}</strong>
               </p>)}

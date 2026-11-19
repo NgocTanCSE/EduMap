@@ -62,6 +62,72 @@ def ensure_column(conn, table, column, col_type="TEXT"):
 
 
 
+_IMG_EXT_RE = re.compile(
+    r"\.(?:jpe?g|png|webp|avif|gif)(?:\.[a-z0-9]{2,5})*(?:[?#]|$)", re.IGNORECASE
+)
+_IMG_PATH_HINT = ("/images/", "/image/", "/photo/", "/media/", "/uploads/", "/thumb/")
+_IMG_REJECT = (
+    "pixel", "track", "spacer", "loading", "placeholder", "logo",
+    "avatar", "icon", "sprite", "banner-quang-cao", "1x1", "blank.gif",
+    "data:image", "facebook.com/tr", "google-analytics",
+)
+
+
+def pick_image_urls(images, limit=3):
+    """Normalise an image list into clean absolute http(s) URLs.
+
+    Accepts ``["url", ...]``, ``[{"url": "..."}, ...]``, or a mix (Tavily's
+    extract API returns ``{"url": ...}`` objects).  Drops tracking pixels,
+    sprites, site logos and relative/protocol-relative junk, dedupes, and caps
+    the result.  Used by every crawler so ``image_url`` / ``media_urls`` /
+    ``banner_url`` only ever hold a real, loadable image from the article.
+    """
+    if not images:
+        return []
+    if isinstance(images, (str, dict)):
+        images = [images]
+    out = []
+    seen = set()
+    for item in images:
+        if isinstance(item, dict):
+            url = item.get("url") or item.get("src") or ""
+        else:
+            url = item
+        if not isinstance(url, str):
+            continue
+        url = url.strip()
+        if url.startswith("//"):
+            url = "https:" + url
+        if not url.startswith("http"):
+            continue
+        low = url.lower()
+        if any(bad in low for bad in _IMG_REJECT):
+            continue
+        path = low.split("?")[0]
+        if not _IMG_EXT_RE.search(path) and not any(h in path for h in _IMG_PATH_HINT):
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append(url)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def image_from_html(html, limit=1):
+    """Return the first content image URL found in an HTML fragment."""
+    if not html:
+        return []
+    tags = re.findall(r'<img\s+[^>]*>', html, re.IGNORECASE | re.DOTALL)
+    cands = []
+    for tag in tags:
+        m = re.search(r'(?:src|data-src)\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if m:
+            cands.append(m.group(1))
+    return pick_image_urls(cands, limit=limit)
+
+
 def extract_card_image(card_html, source_domain=None):
     """Extract the FIRST relevant <img> src from a single card's HTML block.
 
