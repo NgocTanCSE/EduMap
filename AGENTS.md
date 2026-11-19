@@ -1935,3 +1935,73 @@ Rules going forward:
 
 Verified on the host (2026-11-19): 25 public endpoints and 8 authenticated
 endpoints all return 200, including `/api/library/*` (the original report).
+
+### 24.2 Browser mock layer, PostGIS casts, POI dedupe panic (2026-11-19)
+
+The page the user saw as "12 cái mock sẵn" was the **client-side mock API**
+(`frontend/src/mock/install.ts`), not fake rows in Postgres. It patched
+`window.fetch` for every same-origin `/api/*` call and, for any route it did not
+know, answered `{data:[],items:[],meta:{total:0},mock:true}` — and its seed had
+exactly 12 `libraryResources`. Four independent faults had to be fixed:
+
+1. **Mock gate (fixed, commit `72aec9b`).** `installMockApi()` defaulted to ON
+   (`flag !== 'false'`). It is now opt-in **and** never installs in production:
+   `NODE_ENV === 'production'` → disabled; otherwise only when
+   `NEXT_PUBLIC_USE_MOCK_API === 'true'`. Verified on the live bundle: the new
+   `app/layout-*.js` no longer contains `__edumapMockInstalled`/`window.fetch=`.
+   The mock *data module* (`src/mock/db.ts`, storage key `edumap-mock-db-v4`) is
+   still bundled, which is expected — it is only *installed* by the gate.
+2. **PostGIS mixed `geography`/`geometry` (commit `1359347`).** `ST_Intersects`
+   / `ST_DWithin` / `ST_Distance` with a raw `ST_MakeEnvelope`/`ST_MakePoint`
+   are ambiguous for `GEOGRAPHY` columns. All such predicates now cast
+   explicitly: `col::geometry` for bbox tests (`map_points.location`,
+   `locations.coordinates`, `geo.rs`, `opportunity.rs`) and
+   `ST_SetSRID(ST_MakePoint(...), 4326)::geography` for distance tests
+   (`map.rs` nearby/ORDER BY, `internship.rs`, `intl.rs`,
+   `learning_community.rs`). `summer_campaigns` has no `address` column — the
+   pin query selects `location`.
+3. **`levenshtein_simple` transposed matrix (commit `02250d0`).** The DP table
+   was `vec![Vec; n+1]` (rows = `a`) but the inner loops wrote `matrix[j][i]`
+   (rows = `b`). Whenever a POI cluster made `m > n` the index ran off the end
+   and panicked → Render returned **502 with `content-length: 0`** for
+   `/api/map/pois` on any dense bbox (city-centre DNTU bbox failed, a rural
+   single-POI bbox worked). Rewritten to `matrix[i][j]` with the standard
+   insert/delete/substitute recurrence. `locations.coordinates` is now also
+   `ST_AsText(...)` (it was selected raw, so every location row decoded to
+   `lat=0,lng=0`).
+4. **BFF unwrap (commit after `02250d0`).** `frontend/app/api/map/pois/route.ts`
+   called `.filter()` on the unwrapped payload, but the Rust handler returns
+   `{items,total}` — so the BFF threw and answered 502 `Không tải được dữ liệu
+   bản đồ` while the backend was healthy. It now accepts `items`, filters
+   non-finite lat/lng and slices 5000.
+
+**Also fixed in the same pass (map AI proxies).**
+`get_data_gaps` sent `bounds: {minLat:null,...}` (ai-service 422
+`float_type`) and **no `points`**, so the endpoint could never analyse
+anything. It now parses the four bbox values, sends `bounds` only when all four
+are present (plain `null` otherwise) and ships up to 2000 POIs from
+`list_all_pois`. `list_all_pois` read `body.0.data.as_array()`, but `list_pois`
+returns `{items,total}` → it was **always empty**, which also starved the
+resource-optimisation demand points; it reads `.data["items"]` now.
+`survey_params` sent `current_lat`/`min_lat` flat while
+`/api/ai/survey/*` expects `current_location: {lat,lng}` + `bbox: {min_lat,...}`
++ `points`, so the survey planner always fell back to the 7 static Biên Hòa
+candidates; it now builds the nested body, omits absent optionals (a `null` for
+a constrained `float` is a 422), and includes up to 2000 POIs.
+`DataGapsQuery` / `PoiBoundsQuery` gained camelCase `serde(alias=...)` so a
+client sending `minLat` works as well as `min_lat`.
+
+**Render free-tier networking.** `AI_SERVICE_URL` was `http://edumap-ai:8000`.
+Render's own docs: *"Free web services can send private network requests, but
+they can't receive them"* — so the Rust service timed out against the internal
+hostname (`error sending request for url (http://edumap-ai:8000/...)`) and
+`/api/map/{data-gaps,gap-forecast,resource-optimization}` answered 500.
+`render.yaml` now uses the **public** URL `https://edumap-ai-0xlt.onrender.com`
+(the same value must be set on the live `edumap-api` service in the Render
+dashboard — the blueprint only applies on a fresh sync).
+
+Verified on the host after deploy: `/api/map/pois` with a wide bbox → 200 with
+1222 items and **0 zero-coordinate rows**; a DNTU-sized bbox → 200 with 6
+items; `/api/map/locations`, `/api/map/featured-pins`, `/api/map/stats`,
+`/api/map/categories` → 200; through the Vercel BFF `/api/map/pois` → 200 with
+1222 items.

@@ -239,11 +239,17 @@ pub struct ClimateAlternativesForm {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DataGapsQuery {
+    #[serde(alias = "gridSizeKm")]
     pub grid_size_km: Option<String>,
+    #[serde(alias = "topN")]
     pub top_n: Option<String>,
+    #[serde(alias = "minLat")]
     pub min_lat: Option<String>,
+    #[serde(alias = "maxLat")]
     pub max_lat: Option<String>,
+    #[serde(alias = "minLng")]
     pub min_lng: Option<String>,
+    #[serde(alias = "maxLng")]
     pub max_lng: Option<String>,
     pub categories: Option<String>,
 }
@@ -493,7 +499,8 @@ async fn list_all_pois(pool: DbPool) -> Vec<serde_json::Value> {
         Ok(body) => body
             .0
             .data
-            .as_array()
+            .get("items")
+            .and_then(|v| v.as_array())
             .map(|v| v.to_vec())
             .unwrap_or_default(),
         Err(_) => Vec::new(),
@@ -1104,17 +1111,31 @@ pub async fn post_climate_alternatives(
 /// `GET /map/data-gaps` — data gap analysis (proxy into
 /// `/api/ai/data/gaps`).
 pub async fn get_data_gaps(
+    State(pool): State<DbPool>,
     Query(q): Query<DataGapsQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let grid_size = q.grid_size_km.as_ref().and_then(|v| v.parse::<f64>().ok()).unwrap_or(1.0);
     let top_n = q.top_n.as_ref().and_then(|v| v.parse::<i64>().ok()).unwrap_or(50).max(1).min(500);
-    let bounds = serde_json::json!({
-        "minLat": q.min_lat.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "maxLat": q.max_lat.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "minLng": q.min_lng.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "maxLng": q.max_lng.as_ref().and_then(|v| v.parse::<f64>().ok()),
-    });
+
+    let min_lat = q.min_lat.as_ref().and_then(|v| v.parse::<f64>().ok());
+    let max_lat = q.max_lat.as_ref().and_then(|v| v.parse::<f64>().ok());
+    let min_lng = q.min_lng.as_ref().and_then(|v| v.parse::<f64>().ok());
+    let max_lng = q.max_lng.as_ref().and_then(|v| v.parse::<f64>().ok());
+
+    let bounds = match (min_lat, max_lat, min_lng, max_lng) {
+        (Some(a), Some(b), Some(c), Some(d)) => Some(serde_json::json!({
+            "minLat": a,
+            "maxLat": b,
+            "minLng": c,
+            "maxLng": d,
+        })),
+        _ => None,
+    };
+
     let cats = q.categories.as_ref().map(|v| v.split(',').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect::<Vec<String>>());
+
+    let mut points = list_all_pois(pool).await;
+    points.truncate(2000);
 
     let result = proxy_to_ai_service(
         "/api/ai/data/gaps",
@@ -1123,6 +1144,7 @@ pub async fn get_data_gaps(
             "top_n": top_n,
             "bounds": bounds,
             "categories": cats,
+            "points": points,
         }),
     ).await?;
 
@@ -1131,9 +1153,10 @@ pub async fn get_data_gaps(
 
 /// `GET /map/survey/priorities` — the active-learning prioritisation.
 pub async fn get_survey_priorities(
+    State(pool): State<DbPool>,
     Query(q): Query<SurveyQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let params = survey_params(&q);
+    let params = survey_params(&q, pool).await;
     let result = proxy_to_ai_service(
         "/api/ai/survey/priorities",
         params,
@@ -1143,9 +1166,10 @@ pub async fn get_survey_priorities(
 
 /// `GET /map/survey/next` — the next best survey point.
 pub async fn get_survey_next(
+    State(pool): State<DbPool>,
     Query(q): Query<SurveyQuery>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let params = survey_params(&q);
+    let params = survey_params(&q, pool).await;
     let result = proxy_to_ai_service(
         "/api/ai/survey/next",
         params,
@@ -1395,21 +1419,81 @@ fn coordinates_from_semicolon(value: &str) -> Vec<serde_json::Value> {
 }
 
 /// Survey params — merges optional params from the query.
-fn survey_params(q: &SurveyQuery) -> serde_json::Value {
-    serde_json::json!({
-        "current_lat": q.current_lat.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "current_lng": q.current_lng.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "min_lat": q.min_lat.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "max_lat": q.max_lat.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "min_lng": q.min_lng.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "max_lng": q.max_lng.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "grid_size_km": q.grid_size_km.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "top_n": q.top_n.as_ref().and_then(|v| v.parse::<i64>().ok()).map(|n| n as f64),
-        "survey_time_hours": q.survey_time_hours.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "surveyor_speed_kmh": q.surveyor_speed_kmh.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "influence_radius_km": q.influence_radius_km.as_ref().and_then(|v| v.parse::<f64>().ok()),
-        "spatial_weight": q.spatial_weight.as_ref().and_then(|v| v.parse::<f64>().ok()),
-    })
+async fn survey_params(q: &SurveyQuery, pool: DbPool) -> serde_json::Value {
+    let parsed = SurveyParsed::from(q);
+    let mut points = list_all_pois(pool).await;
+    points.truncate(2000);
+    parsed.into_body(points)
+}
+
+struct SurveyParsed {
+    current_location: Option<serde_json::Value>,
+    bbox: Option<serde_json::Value>,
+    grid_size_km: Option<f64>,
+    top_n: Option<i64>,
+    survey_time_hours: Option<f64>,
+    surveyor_speed_kmh: Option<f64>,
+    influence_radius_km: Option<f64>,
+    spatial_weight: Option<f64>,
+}
+
+impl From<&SurveyQuery> for SurveyParsed {
+    fn from(q: &SurveyQuery) -> Self {
+        let num = |v: &Option<String>| v.as_ref().and_then(|s| s.parse::<f64>().ok());
+        let current_lat = num(&q.current_lat);
+        let current_lng = num(&q.current_lng);
+        let (min_lat, max_lat) = (num(&q.min_lat), num(&q.max_lat));
+        let (min_lng, max_lng) = (num(&q.min_lng), num(&q.max_lng));
+
+        let current_location = match (current_lat, current_lng) {
+            (Some(lat), Some(lng)) => Some(serde_json::json!({ "lat": lat, "lng": lng })),
+            _ => None,
+        };
+        let bbox = match (min_lat, max_lat, min_lng, max_lng) {
+            (Some(a), Some(b), Some(c), Some(d)) => Some(serde_json::json!({
+                "min_lat": a,
+                "max_lat": b,
+                "min_lng": c,
+                "max_lng": d,
+            })),
+            _ => None,
+        };
+        Self {
+            current_location,
+            bbox,
+            grid_size_km: num(&q.grid_size_km),
+            top_n: q.top_n.as_ref().and_then(|s| s.parse::<i64>().ok()),
+            survey_time_hours: num(&q.survey_time_hours),
+            surveyor_speed_kmh: num(&q.surveyor_speed_kmh),
+            influence_radius_km: num(&q.influence_radius_km),
+            spatial_weight: num(&q.spatial_weight),
+        }
+    }
+}
+
+impl SurveyParsed {
+    fn into_body(self, points: Vec<serde_json::Value>) -> serde_json::Value {
+        let mut body = serde_json::Map::new();
+        body.insert("points".to_string(), serde_json::Value::Array(points));
+        if let Some(v) = self.current_location {
+            body.insert("current_location".to_string(), v);
+        }
+        if let Some(v) = self.bbox {
+            body.insert("bbox".to_string(), v);
+        }
+        let mut push = |key: &str, value: Option<serde_json::Value>| {
+            if let Some(v) = value {
+                body.insert(key.to_string(), v);
+            }
+        };
+        push("grid_size_km", self.grid_size_km.map(|v| serde_json::json!(v)));
+        push("top_n", self.top_n.map(|v| serde_json::json!(v)));
+        push("survey_time_hours", self.survey_time_hours.map(|v| serde_json::json!(v)));
+        push("surveyor_speed_kmh", self.surveyor_speed_kmh.map(|v| serde_json::json!(v)));
+        push("influence_radius_km", self.influence_radius_km.map(|v| serde_json::json!(v)));
+        push("spatial_weight", self.spatial_weight.map(|v| serde_json::json!(v)));
+        serde_json::Value::Object(body)
+    }
 }
 
 /// `featureLink` for a featured pin category.
