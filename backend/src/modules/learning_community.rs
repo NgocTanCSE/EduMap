@@ -96,7 +96,7 @@ const DB_SELECT_SPOTS_NEARBY: &str = r#"
     FROM learning_spots
     WHERE location IS NOT NULL
       AND ST_DWithin(location,
-                     ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)
+                     ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
     ORDER BY created_at DESC
 "#;
 

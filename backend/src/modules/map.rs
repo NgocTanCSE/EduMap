@@ -27,7 +27,7 @@ const DB_SELECT_POIS_BY_BBOX: &str = r#"
            ST_AsText(location) AS location, status, verified,
            CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
     FROM map_points
-    WHERE ST_Intersects(location, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+    WHERE ST_Intersects(location::geometry, ST_MakeEnvelope($1, $2, $3, $4, 4326))
     AND deleted_at IS NULL
     LIMIT 5000
 "#;
@@ -51,7 +51,7 @@ const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
            l.created_at
     FROM locations l
     LEFT JOIN location_categories c ON c.id::text = l.category_id::text
-    WHERE ST_Intersects(l.coordinates, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+    WHERE ST_Intersects(l.coordinates::geometry, ST_MakeEnvelope($1, $2, $3, $4, 4326))
     LIMIT 5000
 "#;
 
@@ -68,8 +68,8 @@ const DB_SELECT_NEARBY_POIS: &str = r#"
     SELECT id, name, description, type_id, address, city, ST_AsText(location) AS location,
            status, verified, CAST(rating_avg AS DOUBLE PRECISION) AS rating_avg, rating_count, created_at
     FROM map_points
-    WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)
-    ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+    WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+    ORDER BY ST_Distance(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography)
     LIMIT 20
 "#;
 
@@ -89,7 +89,7 @@ const DB_SELECT_GREEN_CHALLENGES: &str = r#"
 
 const DB_SELECT_SUMMER_CAMPAIGNS: &str = r#"
     SELECT id, name, description, CAST(lat AS DOUBLE PRECISION) AS lat,
-           CAST(lng AS DOUBLE PRECISION) AS lng, address
+           CAST(lng AS DOUBLE PRECISION) AS lng, location
     FROM summer_campaigns WHERE lat IS NOT NULL AND lng IS NOT NULL LIMIT 5000
 "#;
 
@@ -150,9 +150,13 @@ const DB_SELECT_FLOOD_ZONES: &str = r#"
 #[derive(Debug, Clone, Deserialize)]
 pub struct PoiBoundsQuery {
     pub category: Option<String>,
+    #[serde(alias = "minLat")]
     pub min_lat: Option<String>,
+    #[serde(alias = "maxLat")]
     pub max_lat: Option<String>,
+    #[serde(alias = "minLng")]
     pub min_lng: Option<String>,
+    #[serde(alias = "maxLng")]
     pub max_lng: Option<String>,
 }
 

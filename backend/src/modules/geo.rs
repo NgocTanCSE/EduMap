@@ -344,7 +344,7 @@ SELECT id, name, type_id,
        ST_Y(location::geometry) AS lat,
        ST_X(location::geometry) AS lng
 FROM map_points
-WHERE location && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+WHERE location::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
   AND deleted_at IS NULL
 LIMIT 5000
 "#;

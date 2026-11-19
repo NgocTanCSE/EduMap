@@ -118,7 +118,7 @@ const DB_SELECT_ALUMNI_NEARBY: &str = r#"
     FROM alumni_networks
     WHERE location IS NOT NULL
       AND ST_DWithin(location,
-                     ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)
+                     ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
     ORDER BY created_at DESC
     LIMIT $4 OFFSET $5
 "#;

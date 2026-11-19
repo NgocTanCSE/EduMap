@@ -198,7 +198,7 @@ pub async fn get_opportunities(
             let parts: Vec<&str> = b.split(',').collect();
             if parts.len() == 4 {
                 format!(
-                    "location_point && ST_MakeEnvelope({}, {}, {}, {}, 4326)",
+                    "location_point::geometry && ST_MakeEnvelope({}, {}, {}, {}, 4326)",
                     parts[0], parts[1], parts[2], parts[3]
                 )
             } else {

@@ -109,7 +109,7 @@ const DB_SELECT_NEARBY_BASE: &str = r#"
     LEFT JOIN organizations o ON o.id::text = i.company_id::text
     WHERE i.location_point IS NOT NULL
       AND ST_DWithin(i.location_point,
-                     ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)
+                     ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
     ORDER BY i.created_at DESC
     LIMIT $4 OFFSET $5
 "#;
