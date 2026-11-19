@@ -350,7 +350,6 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         }>;
         trafficAnalysis?: any;
     } | null>(null);
-    const [safeRouteMode, setSafeRouteMode] = useState(false);
     const ROUTE_STORAGE_KEY = 'edumap_saved_routes';
     const [savedRoutes, setSavedRoutes] = useState<Array<{
         id: string;
@@ -724,19 +723,6 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
     const startRouting = useCallback((mode: 'setting_origin' | 'setting_destination') => {
         setRoutingMode(mode);
     }, []);
-    useEffect(() => {
-        if (typeof window === 'undefined')
-            return;
-        const handler = () => {
-            onDirectionsOpen?.();
-            setSafeRouteMode(true);
-            if (!origin || !destination) {
-                setRoutingMode('setting_origin');
-            }
-        };
-        window.addEventListener('toggleSafeRoute', handler);
-        return () => window.removeEventListener('toggleSafeRoute', handler);
-    }, [origin, destination, onDirectionsOpen]);
     const routeToPoi = useCallback((p: any) => {
         const lat = Number(p.lat);
         const lng = Number(p.lng);
@@ -763,7 +749,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
     const routingActive = routingMode !== 'idle' || !!origin || !!destination || !!routeGeometry;
     const routingVisible = routingActive || menuTab === 'directions';
     const standaloneMode = !menuSlot && menuTab === null;
-    const routingPanel = (<RoutingPanel embedded={!!menuSlot} onGetRoute={fetchRoute} onGetSafeRoute={fetchSafeRoute} onSelectSafeRoute={handleSelectSafeRoute} onClearRoute={() => { clearRoute(); setSafeRouteMode(false); setSelectedSafeRoute(null); }} routeInfo={routeInfo} safeRoutes={safeRoutes} routeExplanation={routeExplanation} isLoading={isLoadingRoute} isSafeRouteLoading={isSafeRouteLoading} origin={origin} destination={destination} onSetOrigin={setOriginPoint} onSetDestination={setDestinationPoint} onSwap={swapLocations} onSaveRoute={saveCurrentRoute} savedRoutes={savedRoutes} onLoadRoute={loadRoute} onDeleteRoute={deleteSavedRoute} defaultAvoidFlood={safeRouteMode} defaultAvoidTraffic={safeRouteMode} onSelectOnMap={(mode) => setRoutingMode(mode)}/>);
+    const routingPanel = (<RoutingPanel embedded={!!menuSlot} onGetRoute={fetchRoute} onGetSafeRoute={fetchSafeRoute} onSelectSafeRoute={handleSelectSafeRoute} onClearRoute={() => { clearRoute(); setSelectedSafeRoute(null); }} routeInfo={routeInfo} safeRoutes={safeRoutes} routeExplanation={routeExplanation} isLoading={isLoadingRoute} isSafeRouteLoading={isSafeRouteLoading} origin={origin} destination={destination} onSetOrigin={setOriginPoint} onSetDestination={setDestinationPoint} onSwap={swapLocations} onSaveRoute={saveCurrentRoute} savedRoutes={savedRoutes} onLoadRoute={loadRoute} onDeleteRoute={deleteSavedRoute} onSelectOnMap={(mode) => setRoutingMode(mode)}/>);
     return (<div className="w-full h-full relative">
       
       {menuSlot && routingVisible ? createPortal(routingPanel, menuSlot) : null}

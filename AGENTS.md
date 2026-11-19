@@ -80,12 +80,13 @@ BACKEND_URL / AI_SERVICE_URL = the host's URL.
 Multiple standalone pages that share a domain have been consolidated into
 **hub pages with tab/tool navigation**:
 
-- **`/map` (Map Hub)** — 10 tool tabs in a single sidebar panel:
+- **`/map` (Map Hub)** — 9 tool tabs in a single sidebar panel:
   Data Hunter, Gap Predictor, Resource Optimizer, GeoVision AI, Survey Planner,
-  Climate Guardian, AI Agent, Voice Search, Wifi, Green.
+  Climate Guardian, AI Agent, Wifi, Green.
   - Old routes (`/map/data-hunter`, `/climate-guardian`, `/ai-agent`,
-    `/voice-search`, `/talk2map`) still redirect to `/map?tool=<id>` (or `/map`
-    for Talk2Map since search is built into the map page).
+    `/talk2map`) still redirect to `/map?tool=<id>` (or `/map` for Talk2Map
+    since search is built into the map page). `/voice-search` redirects to
+    `/map` (voice search lives in the map rail, not as a separate tool).
     - **Exception (2026-10-30):** `/green` and `/wifi` are no longer plain
       redirect popups. They are now full **listing hubs** modeled on the
       `/hackathon` page (`ContentShell` + `SectionHeader` + `SearchInput` +
@@ -405,13 +406,14 @@ currently has no inference provider, so the endpoint always returns
     user identity; frontend captures audio client-side). 30s timeout,
     degrades to empty text + `degraded=True` on ai-service unreachable.
   - BFF route: `app/api/ai/speech/to-text/route.ts` (POST proxy → backend).
-    Frontend page: `app/voice-search/page.tsx` (full-page voice search:
-    record button → Web Speech API → Whisper fallback → nl-search → results
-    overlay; report_form intent shows a pre-filled report form).
+    Voice search is surfaced on `/map` (rail "Tìm bằng giọng nói" →
+    `VoiceSearchPopup` → Web Speech API → nl-search → results card);
+    `/voice-search` redirects to `/map`.
   - Voice buttons on `/map` (floating control panel) and `/ai-chat`
     (input area) — both use Web Speech API, fall back to Whisper, and
     route transcripts through the Talk2Map nl-search pipeline.
-  - Nav entry: "Tìm bằng giọng nói" (Mic icon) under "Học tập" in `Sidebar.tsx`.
+  - Nav entry: không còn mục sidebar riêng; nút rail "Tìm bằng giọng nói"
+    trên `/map` là điểm vào.
   - Smoke test: `scripts/smoke_test_voice_geo.sh` (STT degraded path + intent
     classification for geo_recommend / geo_query / report_form).
   - Tests: `tests/test_speech.py` (26 tests: SpeechService + intent + router).
@@ -694,7 +696,7 @@ inventing new values.
     (`absolute inset-y-0 right-0`, rail tròn `w-14` + panel `380px`).
   - Rail tròn là nơi duy nhất chứa điều hướng: `Bản đồ`, `Chỉ đường`, rồi nhóm
     lớp/tiện ích (`Lớp nhiệt`, `Ghim đặc trưng`, `Chú giải ghim`, `Phân tích AI`,
-    `Tìm bằng giọng nói`) và nhóm cuối (`Lộ trình an toàn AI`, `Toàn màn hình`).
+    `Tìm bằng giọng nói`) và nhóm cuối (`Toàn màn hình`).
     Nhãn chữ hiện bên trái nút khi hover; nút cuối rail thu gọn/mở rộng panel.
   - **"Chỉ đường" và "Bản đồ" nằm chung một menu**: panel có 2 tab nội dung
     (`menuTab: "map" | "directions"`). Tab `map` giữ nguyên thanh công cụ
@@ -707,8 +709,8 @@ inventing new values.
     khác dùng `MapComponent`) → giữ panel `fixed` + nút "Chỉ đường" như cũ.
   - `MapComponent` nhận `menuSlot` (phần tử DOM của tab `directions`) và
     `menuTab`; khi có `menuSlot` nó `createPortal(<RoutingPanel embedded/>, menuSlot)`.
-    `onDirectionsOpen` được gọi khi bấm "Dẫn đường" trên popup POI hoặc sự kiện
-    `toggleSafeRoute`, để trang tự mở tab `Chỉ đường`.
+    `onDirectionsOpen` được gọi khi bấm "Dẫn đường" trên popup POI, để trang tự mở
+    tab `Chỉ đường`.
   - Không còn `useDraggable`/bảng "Bản đồ" trôi nổi ở `/map`; menu mặc định mở
     trên desktop (`>= 1024px`), chỉ hiện rail trên mobile. `?tool=<id>` mở menu.
   - Bản đồ vẫn `absolute inset-0` phía sau menu, pan/zoom bình thường; zoom
@@ -716,7 +718,16 @@ inventing new values.
   - Popup ghim rộng `max-w-[720px]`; form "Ghim vị trí mới" `max-w-[84rem]`.
   - Chú giải ghim và kết quả giọng nói là thẻ `absolute bottom-6 right-[4.5rem]`
     để không chồng lên rail.
-  - Hook `useDraggable` vẫn còn trong repo nhưng `/map` không dùng nữa.
+  - Hook `useDraggable` đã bị xoá (không còn nơi dùng).
+  - Đợt tinh giản (2026-11-19): xoá công cụ trùng `voice-search`
+    (`components/map/tools/VoiceSearchTool.tsx`, mục registry + `feature-catalog`),
+    nút "Phân tích AI khu vực" trùng trong panel (giữ mục rail `Phân tích AI`),
+    mục rail trùng `Lộ trình an toàn AI` (giữ nút `Chỉ đường` + checkbox trong
+    `RoutingPanel`), danh sách "Gần đây" trùng trong panel (giữ popup POI), fetch
+    `/api/map/locations` + quick-pick trong form ghim, nhánh chết
+    `authRequired && !user` (trang đã gate bằng `useRequireAuth`), các prop chết
+    của `MapPopupContent` và sự kiện `toggleSafeRoute`/`safeRouteMode` trong
+    `MapComponent`. Không đụng route API/BFF.
 
 - **Sidebar `useState` build break (2026-10-28):** `components/Sidebar.tsx`
   used the bare `useState()` call on line 192 while the rest of the file
@@ -1855,11 +1866,11 @@ Tools are now **tiered** so the strip reads as *what you reach for* first, then
   crawler was touched; `/tmp/audit_final.py` still reports `ghosts_be=0`,
   `ghosts_ai=0`.
 
-**Split:** `components/map/tools/registry.tsx` có 10 công cụ = 4 `core` + 6 `analysis`;
+**Split:** `components/map/tools/registry.tsx` có 9 công cụ = 3 `core` + 6 `analysis`;
 thêm công cụ ẩn `home`inline (cũng `core`) nên dải tab trên bản đồ đọc là
-5 cơ bản · 6 phân tích.
+4 cơ bản · 6 phân tích.
 
-- core (4 trong registry): `voice-search`, `wifi`, `green`, `climate`
+- core (3 trong registry): `wifi`, `green`, `climate`
 - analysis (6): `data-hunter`, `gap-predictor`, `resource-optimizer`, `geo-vision`,
   `survey-planner`, `ai-agent`
 - `home`inline là tab "Bản đồ chính", `tier: "core"`, đứng đầu dải tab

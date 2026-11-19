@@ -1,7 +1,7 @@
 "use client";
 import type { MapTool } from "./types";
 import dynamic from "next/dynamic";
-import { Target, Flame, ThermometerSun, Camera, CloudRain, Wifi, Leaf, Bot, Mic, } from "lucide-react";
+import { Target, Flame, ThermometerSun, Camera, CloudRain, Wifi, Leaf, Bot, } from "lucide-react";
 const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
     {
         id: "data-hunter",
@@ -81,17 +81,6 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         tier: "analysis",
     },
     {
-        id: "voice-search",
-        label: "Giọng nói",
-        longLabel: "Tìm bằng giọng nói",
-        icon: Mic,
-        description: "Tìm địa điểm trên bản đồ bằng giọng nói.",
-        longDescription: "Sử dụng Web Speech API tìm kiếm bản đồ, phân loại intent tự động.",
-        authRequired: false,
-        hideBaseLayers: false,
-        tier: "core",
-    },
-    {
         id: "wifi",
         label: "Wifi",
         longLabel: "Trạm Wifi",
@@ -121,7 +110,6 @@ const GeoVisionPanel = dynamic(() => import("./GeoVisionTool").then((m) => m.Geo
 const SurveyPlannerPanel = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerPanel), { ssr: false });
 const ClimateGuardianPanel = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianPanel), { ssr: false });
 const AiAgentPanel = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentPanel), { ssr: false });
-const VoiceSearchPanel = dynamic(() => import("./VoiceSearchTool").then((m) => m.VoiceSearchPanel), { ssr: false });
 const WifiPanel = dynamic(() => import("./WifiTool").then((m) => m.WifiPanel), { ssr: false });
 const GreenPanel = dynamic(() => import("./GreenTool").then((m) => m.GreenPanel), { ssr: false });
 const DataHunterOverlay = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterOverlay), { ssr: false });
@@ -131,7 +119,6 @@ const GeoVisionOverlay = dynamic(() => import("./GeoVisionTool").then((m) => m.G
 const SurveyPlannerOverlay = dynamic(() => import("./SurveyPlannerTool").then((m) => m.SurveyPlannerOverlay), { ssr: false });
 const ClimateGuardianOverlay = dynamic(() => import("./ClimateGuardianTool").then((m) => m.ClimateGuardianOverlay), { ssr: false });
 const AiAgentOverlay = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentOverlay), { ssr: false });
-const VoiceSearchOverlay = dynamic(() => import("./VoiceSearchTool").then((m) => m.VoiceSearchOverlay), { ssr: false });
 const WifiOverlay = dynamic(() => import("./WifiTool").then((m) => m.WifiOverlay), { ssr: false });
 const GreenOverlay = dynamic(() => import("./GreenTool").then((m) => m.GreenOverlay), { ssr: false });
 export const MAP_TOOLS: MapTool[] = [
@@ -157,13 +144,10 @@ export const MAP_TOOLS: MapTool[] = [
         ...TOOL_META[6], Panel: AiAgentPanel, Overlay: AiAgentOverlay,
     },
     {
-        ...TOOL_META[7], Panel: VoiceSearchPanel, Overlay: VoiceSearchOverlay,
+        ...TOOL_META[7], Panel: WifiPanel, Overlay: WifiOverlay,
     },
     {
-        ...TOOL_META[8], Panel: WifiPanel, Overlay: WifiOverlay,
-    },
-    {
-        ...TOOL_META[9], Panel: GreenPanel, Overlay: GreenOverlay,
+        ...TOOL_META[8], Panel: GreenPanel, Overlay: GreenOverlay,
     },
 ];
 export const MAP_TOOL_BY_ID: Record<string, MapTool> = Object.fromEntries(MAP_TOOLS.map((t) => [t.id, t]));

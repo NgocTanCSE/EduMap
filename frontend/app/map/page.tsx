@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import MapMenu, { type MapMenuItem } from "@/components/map/MapMenu";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Navigation, Home as HomeIcon, RefreshCw, AlertCircle, Heart, ShoppingCart, } from "lucide-react";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, Heart, ShoppingCart, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -274,7 +274,6 @@ export default function MapPage() {
     const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<FeaturedPin | null>(null);
     const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
     const [isSavingPin, setIsSavingPin] = useState(false);
-    const [fixedLocations, setFixedLocations] = useState<Location[]>([]);
     const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
     const [showFeaturedPins, setShowFeaturedPins] = useState(true);
     const [visiblePinCategories, setVisiblePinCategories] = useState<Set<string>>(new Set(["stem", "green", "summer", "wifi", "donate", "market"]));
@@ -534,18 +533,6 @@ export default function MapPage() {
             toast.error("Lỗi tìm kiếm bằng giọng nói — vui lòng thử lại.");
         }
     }, []);
-    const fetchFixedLocations = useCallback(async () => {
-        try {
-            const res = await fetchWithRetry("/api/map/locations");
-            const json = await res.json();
-            const data = unwrapApiResponse<any[]>(json);
-            const list = Array.isArray(data) ? data : [];
-            setFixedLocations(list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))));
-        }
-        catch (error) {
-            logger.error("Error fetching fixed locations", error);
-        }
-    }, []);
     const fetchFeaturedPins = useCallback(async () => {
         try {
             const res = await fetchWithRetry("/api/map/featured-pins");
@@ -562,7 +549,6 @@ export default function MapPage() {
     useEffect(() => {
         fetchStats();
         fetchCategoriesOnce();
-        fetchFixedLocations();
         fetchFeaturedPins();
     }, [fetchStats, fetchCategoriesOnce, fetchFeaturedPins]);
     const handleCategoryChange = (c: string) => {
@@ -591,13 +577,6 @@ export default function MapPage() {
         setPinningCoord({ lat, lng });
         setPinForm({ name: "", category: "school", description: "", address: "" });
     }, [selectedFeaturedPin]);
-    const handleSelectFixedLocation = (loc: Location) => {
-        setPinningCoord({ lat: loc.lat, lng: loc.lng });
-        setPinForm({
-            name: loc.name, category: loc.category,
-            description: loc.description || "", address: loc.address || "",
-        });
-    };
     const filteredLocations = locations.filter((loc) => {
         const term = searchTerm.toLowerCase().trim();
         if (!term)
@@ -698,10 +677,6 @@ export default function MapPage() {
                 } },
         ],
         [
-            { id: "safe-route", label: "Lộ trình an toàn AI", icon: Shield, onClick: () => {
-                    handleMenuTabChange("directions");
-                    window.dispatchEvent(new CustomEvent("toggleSafeRoute"));
-                } },
             { id: "fullscreen", label: fs ? "Thoát toàn màn hình" : "Toàn màn hình", icon: fs ? Minimize : Maximize, active: fs, onClick: toggleFullscreen },
         ],
     ];
@@ -774,35 +749,6 @@ export default function MapPage() {
                   </div>
                 </div>)}
 
-              
-              {selectedLocation && nearbyPois.length > 0 && (<div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                    <Users className="w-3.5 h-3.5"/>
-                    <span>Gần đây ({nearbyPois.length})</span>
-                  </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
-                    {nearbyPois.map((poi) => (<button key={poi.id} onClick={() => setSelectedLocation(poi)} className="w-full flex items-center gap-2 p-2 text-left rounded-lg hover:bg-muted/30 transition-colors">
-                        <div className="w-5 h-5 flex items-center justify-center">
-                          {React.createElement(facilityIconFor(poi.category).Icon, { className: "w-3 h-3 text-primary" })}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-foreground truncate">{poi.name}</div>
-                          <div className="text-xs text-muted-foreground/60">{poi.category}</div>
-                        </div>
-                      </button>))}
-                  </div>
-                </div>)}
-
-              
-              <button onClick={() => { setShowAiPanel(true); runAiAnalysis(); }} disabled={analyzing} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-60">
-                {analyzing ? (<>
-                    <RefreshCw className="w-4 h-4 animate-spin"/> Đang phân tích AI…
-                  </>) : (<>
-                    <BrainCircuit className="w-4 h-4"/> Phân tích AI khu vực
-                  </>)}
-              </button>
-
-              
               {mapStats && (<div className="p-3 rounded-xl bg-muted/10 border border-border">
                   <div className="flex items-center gap-2 text-xs font-semibold text-foreground mb-2">
                     <Info className="w-3.5 h-3.5"/>
@@ -815,13 +761,7 @@ export default function MapPage() {
                       </div>))}
                   </div>
                 </div>)}
-            </>) : activeToolDef ? (activeToolDef.authRequired && !user ? (<div className="p-4 text-center text-muted-foreground">
-                <AlertCircle className="w-8 h-8 mx-auto mb-2"/>
-                <p className="text-sm">Cần đăng nhập để sử dụng công cụ này.</p>
-                <button onClick={() => (window.location.href = "/auth/login")} className="mt-2 text-primary hover:underline text-xs font-medium">
-                  Đăng nhập →
-                </button>
-              </div>) : (<activeToolDef.Panel {...toolPanelProps!}/>)) : null}
+            </>) : activeToolDef ? (<activeToolDef.Panel {...toolPanelProps!}/>) : null}
             </div>
           </div>
           <div ref={setDirectionsSlot} className={menuTab === "directions" ? "flex min-h-0 flex-1 flex-col" : "hidden"}/>
@@ -906,16 +846,6 @@ export default function MapPage() {
                 <X className="w-4 h-4"/>
               </button>
             </div>
-
-            {fixedLocations.length > 0 && (<div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
-                <label className="label-form block mb-2">Chọn từ địa điểm cố định</label>
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
-                  {fixedLocations.map((loc) => (<button key={loc.id} onClick={() => handleSelectFixedLocation(loc)} className="px-2.5 py-1 text-xs rounded border border-border hover:bg-primary hover:text-primary-foreground transition-colors whitespace-nowrap">
-                      {loc.name}
-                    </button>))}
-                </div>
-                <p className="text-xs text-muted-foreground/65 mt-2">Nhấn một địa điểm để tự động điền.</p>
-              </div>)}
 
             <label className="label-form block mb-2">Tên địa điểm</label>
             <Input type="text" value={pinForm.name} onChange={(e) => setPinForm({ ...pinForm, name: e.target.value })} placeholder="VD: Thư viện ABC" className="form-input mb-3"/>

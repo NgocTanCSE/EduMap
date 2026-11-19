@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, Compass, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Mic, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
+import { Atom, BarChart3, BookMarked, BookOpen, Bot, BrainCircuit, Briefcase, Building2, Calendar, ClipboardList, CloudOff, Compass, GraduationCap, HandHeart, HeartHandshake, Languages, Layers, LayoutDashboard, Leaf, Map, MapPinned, Medal, MessagesSquare, Network, Package, Plane, Radar, Rocket, Route, School, Sparkles, Store, Sun, Target, TrendingUp, Trophy, Users, Wallet, Wifi, } from "lucide-react";
 export type FeatureGroupId = "core" | "ai" | "learn" | "career" | "community" | "market";
 export type IconComponent = ComponentType<{
     className?: string;
@@ -64,10 +64,10 @@ export const FEATURES: Feature[] = [
         label: "Bản đồ",
         href: "/map",
         icon: Map,
-        description: "Bản đồ giáo dục tương tác: trường học, thư viện, Wifi. Gồm 10 công cụ: Data Hunter, Gap Predictor, Tối ưu nguồn lực, GeoVision AI, Kế hoạch khảo sát, Bảo vệ khí hậu, AI Agent, Tìm bằng giọng nói, Trạm Wifi, Thử thách xanh.",
+        description: "Bản đồ giáo dục tương tác: trường học, thư viện, Wifi. Gồm 9 công cụ: Data Hunter, Gap Predictor, Tối ưu nguồn lực, GeoVision AI, Kế hoạch khảo sát, Bảo vệ khí hậu, AI Agent, Trạm Wifi, Thử thách xanh.",
         group: "core",
         sidebar: true,
-        keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "ai-agent", "voice-search", "wifi", "green"],
+        keywords: ["bản đồ", "map", "gis", "poi", "data-hunter", "gap-predictor", "geo-vision", "survey-planner", "climate", "resource-optimizer", "ai-agent", "wifi", "green"],
     },
     {
         id: "dashboard",
@@ -107,15 +107,6 @@ export const FEATURES: Feature[] = [
         description: "Đặt câu hỏi dạng GIS, xem từng bước AI gọi công cụ.",
         group: "ai",
         keywords: ["agent", "gis", "công cụ", "tool"],
-    },
-    {
-        id: "voice-search",
-        label: "Tìm bằng giọng nói",
-        href: "/map?tool=voice-search",
-        icon: Mic,
-        description: "Nói câu tìm kiếm, EduMap chuyển thành truy vấn bản đồ.",
-        group: "ai",
-        keywords: ["giọng nói", "voice", "speech", "stt"],
     },
     {
         id: "language-bridge",

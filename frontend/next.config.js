@@ -109,7 +109,7 @@ const nextConfig = {
         permanent: false,
       },
       { source: '/ai-agent', destination: '/map?tool=ai-agent', permanent: false },
-      { source: '/voice-search', destination: '/map?tool=voice-search', permanent: false },
+      { source: '/voice-search', destination: '/map', permanent: false },
       { source: '/talk2map', destination: '/map', permanent: false },
       { source: '/climate-guardian', destination: '/map?tool=climate', permanent: false },
       { source: '/map/data-hunter', destination: '/map?tool=data-hunter', permanent: false },

@@ -149,16 +149,14 @@ interface RoutingPanelProps {
     }>;
     onLoadRoute?: (route: any) => void;
     onDeleteRoute?: (id: string) => void;
-    defaultAvoidFlood?: boolean;
-    defaultAvoidTraffic?: boolean;
 }
-export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRoute, onSelectSafeRoute, onClearRoute, routeInfo, safeRoutes, routeExplanation, isLoading, isSafeRouteLoading, origin, destination, onSetOrigin, onSetDestination, onSwap, onSaveRoute, savedRoutes = [], onLoadRoute, onDeleteRoute, defaultAvoidFlood = false, defaultAvoidTraffic = false, onSelectOnMap, }: RoutingPanelProps & {
+export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRoute, onSelectSafeRoute, onClearRoute, routeInfo, safeRoutes, routeExplanation, isLoading, isSafeRouteLoading, origin, destination, onSetOrigin, onSetDestination, onSwap, onSaveRoute, savedRoutes = [], onLoadRoute, onDeleteRoute, onSelectOnMap, }: RoutingPanelProps & {
     embedded?: boolean;
 }) {
     const [originInput, setOriginInput] = useState('');
     const [destInput, setDestInput] = useState('');
-    const [avoidFlood, setAvoidFlood] = useState(defaultAvoidFlood);
-    const [avoidTraffic, setAvoidTraffic] = useState(defaultAvoidTraffic);
+    const [avoidFlood, setAvoidFlood] = useState(false);
+    const [avoidTraffic, setAvoidTraffic] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [selectedSafeRouteIdx, setSelectedSafeRouteIdx] = useState<number | null>(null);
@@ -207,12 +205,6 @@ export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRo
         if (destination)
             setDestInput(`${destination.lat.toFixed(6)}, ${destination.lng.toFixed(6)}`);
     }, [destination]);
-    useEffect(() => {
-        if (defaultAvoidFlood)
-            setAvoidFlood(true);
-        if (defaultAvoidTraffic)
-            setAvoidTraffic(true);
-    }, [defaultAvoidFlood, defaultAvoidTraffic]);
     const applyCoordinate = (type: 'origin' | 'destination') => {
         const value = type === 'origin' ? originInput : destInput;
         const coords = parseCoordinate(value);
