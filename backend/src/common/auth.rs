@@ -375,6 +375,8 @@ where
         // decision to the async block so `self.0.call` stays movable.
         let maybe_user = if !is_pub {
             decode_user(&req)
+        } else if req.headers().contains_key("authorization") {
+            Ok(decode_user(&req).ok().flatten())
         } else {
             Ok(None)
         };
