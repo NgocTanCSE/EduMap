@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { adminService } from '../../../src/services/admin.service';
 import { aiService } from '../../../src/services/ai.service';
 import { Users, Activity, TrendingUp, Shield, MapPin, BookOpen, Heart, Leaf, BrainCircuit } from 'lucide-react';
@@ -113,7 +113,7 @@ export default function AdminDashboardPage() {
                   {[
             { name: 'Bản đồ', status: 'Hoạt động', icon: MapPin, href: '/map' },
             { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
-            { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/green' },
+            { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/map?tool=green' },
             { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
         ].map((mod, i) => (<div key={i} className="flex items-center justify-between p-4 rounded-lg bg-card/20 border border-border">
                        <div className="flex items-center gap-3">

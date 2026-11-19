@@ -109,6 +109,8 @@ const nextConfig = {
         permanent: false,
       },
       { source: '/ai-agent', destination: '/map?tool=ai-agent', permanent: false },
+      { source: '/wifi', destination: '/map?tool=wifi', permanent: false },
+      { source: '/green', destination: '/map?tool=green', permanent: false },
       { source: '/voice-search', destination: '/map', permanent: false },
       { source: '/talk2map', destination: '/map', permanent: false },
       { source: '/climate-guardian', destination: '/map?tool=climate', permanent: false },

@@ -140,8 +140,8 @@ class LLMService:
 
 
         self.chat_key = (os.getenv("GROQ_API_KEY") or "").strip().strip('"').strip("'")
-        self.chat_base_url = (
-            os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai").strip().rstrip("/")
+        self.chat_base_url = self._normalize_groq_base_url(
+            os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
         )
         self.chat_models = [
             m.strip()
@@ -156,7 +156,10 @@ class LLMService:
 
         self.is_ready = self.has_chat
         if self.has_chat:
-            print(f"INFO: Groq provider configured (model={self.chat_model_name})")
+            print(
+                f"INFO: Groq provider configured "
+                f"(model={self.chat_model_name}, base_url={self.chat_base_url})"
+            )
         else:
             print("INFO: GROQ_API_KEY not set — chat falls back to templates.")
         print("INFO: LLM provider chain: Groq -> template")
@@ -191,6 +194,27 @@ class LLMService:
 
 
 
+
+    @staticmethod
+    def _normalize_groq_base_url(raw: str) -> str:
+        """Normalise an OpenAI-compatible chat base URL.
+
+        Groq's OpenAI-compatible API lives under ``/openai/v1``. The older
+        default ``https://api.groq.com/openai`` (no ``/v1``) makes every call
+        fail with ``Unknown request URL: POST /openai/chat/completions`` — so a
+        stale ``GROQ_BASE_URL`` from the host env is repaired here rather than
+        502-ing the whole chat cascade. Custom (non-Groq) gateways are returned
+        unchanged, since they may already carry a version/deployment path.
+        """
+        url = (raw or "").strip().strip('"').strip("'").rstrip("/")
+        if not url:
+            return "https://api.groq.com/openai/v1"
+        if "api.groq.com" in url and not url.endswith("/v1"):
+            if url.rstrip("/") in ("https://api.groq.com", "http://api.groq.com"):
+                url = f"{url}/openai/v1"
+            else:
+                url = f"{url}/v1"
+        return url
 
     def _chat_generate(self, prompt: str, temperature=0.7, max_tokens=None, top_p=None) -> str:
         """Call the configured OpenAI-compatible chat provider (Groq).

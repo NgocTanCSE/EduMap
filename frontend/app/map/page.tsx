@@ -16,7 +16,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { VoiceSearchPopup } from "@/components/ui/VoiceSearchPopup";
-import { FeaturedPinPopup } from "@/components/ui/FeaturedPinPopup";
+import { FeaturedPinCard } from "@/components/map/FeaturedPinCard";
 const InteractiveMap = dynamic(() => import("@/components/ui/MapComponent"), {
     ssr: false,
     loading: () => (<div className="h-full w-full flex items-center justify-center bg-background">
@@ -242,6 +242,11 @@ export default function MapPage() {
     };
     const openDirections = useCallback(() => {
         setMenuTab("directions");
+        setMenuOpen(true);
+    }, []);
+    const handleFeaturedPinClick = useCallback((pin: FeaturedPin) => {
+        setSelectedFeaturedPin(pin);
+        setMenuTab("map");
         setMenuOpen(true);
     }, []);
     const handleToolResult = useCallback((toolId: string, data: any) => {
@@ -576,6 +581,8 @@ export default function MapPage() {
         }
         setPinningCoord({ lat, lng });
         setPinForm({ name: "", category: "school", description: "", address: "" });
+        setMenuTab("map");
+        setMenuOpen(true);
     }, [selectedFeaturedPin]);
     const filteredLocations = locations.filter((loc) => {
         const term = searchTerm.toLowerCase().trim();
@@ -685,7 +692,7 @@ export default function MapPage() {
     return (<div className="h-[calc(100dvh-3.5rem)] w-full bg-background relative lg:h-screen overflow-hidden">
       
       <main className="absolute inset-0 z-0">
-        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin)} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections}/>
+        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections}/>
       </main>
 
       
@@ -715,6 +722,41 @@ export default function MapPage() {
             <div ref={menuBodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto scrollbar-hide p-4">
 
         
+          {selectedFeaturedPin && (<FeaturedPinCard pin={selectedFeaturedPin} onClose={() => setSelectedFeaturedPin(null)} onGo={(href) => {
+                setSelectedFeaturedPin(null);
+                window.location.href = href;
+            }}/>)}
+
+          {pinningCoord && (<div className="card-surface p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-foreground">Ghim vị trí mới</h3>
+                <button onClick={() => setPinningCoord(null)} aria-label="Đóng" className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground/60">
+                  <X className="w-3 h-3"/>
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/60 mb-2">
+                {pinningCoord.lat.toFixed(5)}, {pinningCoord.lng.toFixed(5)}
+              </p>
+              <label className="label-form block mb-1">Tên địa điểm</label>
+              <Input type="text" value={pinForm.name} onChange={(e) => setPinForm({ ...pinForm, name: e.target.value })} placeholder="VD: Thư viện ABC" className="form-input mb-2"/>
+              <label className="label-form block mb-1">Danh mục</label>
+              <Select value={pinForm.category} onChange={(e) => setPinForm({ ...pinForm, category: e.target.value })} className="form-select mb-2">
+                {categoriesLoaded && categories.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </Select>
+              <label className="label-form block mb-1">Địa chỉ</label>
+              <Input type="text" value={pinForm.address} onChange={(e) => setPinForm({ ...pinForm, address: e.target.value })} placeholder="Số nhà, đường, phường..." className="form-input mb-2"/>
+              <label className="label-form block mb-1">Mô tả</label>
+              <Textarea value={pinForm.description} onChange={(e) => setPinForm({ ...pinForm, description: e.target.value })} placeholder="Mô tả ngắn gọn (giờ mở cửa, tiện ích...)" rows={2} className="form-textarea mb-2"/>
+              <div className="flex gap-2 pt-1">
+                <Button onClick={() => setPinningCoord(null)} variant="outline" className="flex-1 h-9 text-xs font-medium">
+                  Hủy
+                </Button>
+                <Button onClick={handleSavePin} disabled={isSavingPin || !pinForm.name} loading={isSavingPin} icon={<Save className="w-3 h-3"/>} loadingText="ĐANG LƯU..." className="flex-1 h-9 text-xs font-semibold bg-primary">
+                  Lưu địa điểm
+                </Button>
+              </div>
+            </div>)}
+
           {showHomeControls ? (<>
               
               <div className="relative">
@@ -837,47 +879,9 @@ export default function MapPage() {
       
       {showHomeControls && (<AiPanel open={showAiPanel} onClose={() => setShowAiPanel(false)} analysis={aiAnalysis} loading={analyzing}/>)}
 
-      
-      {pinningCoord && (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
-          <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[90dvh] overflow-y-auto p-5 mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="h3-card">Ghim vị trí mới</h3>
-              <button onClick={() => setPinningCoord(null)} className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground">
-                <X className="w-4 h-4"/>
-              </button>
-            </div>
-
-            <label className="label-form block mb-2">Tên địa điểm</label>
-            <Input type="text" value={pinForm.name} onChange={(e) => setPinForm({ ...pinForm, name: e.target.value })} placeholder="VD: Thư viện ABC" className="form-input mb-3"/>
-            <label className="label-form block mb-2">Danh mục</label>
-            <Select value={pinForm.category} onChange={(e) => setPinForm({ ...pinForm, category: e.target.value })} className="form-select mb-3">
-              {categoriesLoaded && categories.map((c) => (<option key={c} value={c}>{c}</option>))}
-            </Select>
-            <label className="label-form block mb-2">Địa chỉ</label>
-            <Input type="text" value={pinForm.address} onChange={(e) => setPinForm({ ...pinForm, address: e.target.value })} placeholder="Số nhà, đường, phường..." className="form-input mb-3"/>
-            <label className="label-form block mb-2">Mô tả</label>
-            <Textarea value={pinForm.description} onChange={(e) => setPinForm({ ...pinForm, description: e.target.value })} placeholder="Mô tả ngắn gọn (giờ mở cửa, tiện ích...)" rows={3} className="form-textarea mb-3"/>
-            <div className="flex gap-2 pt-1">
-              <Button onClick={() => setPinningCoord(null)} variant="outline" className="flex-1 h-10 text-sm font-medium">
-                Hủy
-              </Button>
-              <Button onClick={handleSavePin} disabled={isSavingPin || !pinForm.name} loading={isSavingPin} icon={<Save className="w-4 h-4"/>} loadingText="ĐANG LƯU..." className="flex-1 h-10 text-sm font-semibold bg-primary">
-                Lưu địa điểm
-              </Button>
-            </div>
-          </div>
-        </div>)}
-
-      
       <VoiceSearchPopup open={showVoicePopup} onClose={() => setShowVoicePopup(false)} onResult={(text, intent) => {
             setVoiceTranscript(text);
             void sendVoiceQuery(text);
-        }}/>
-
-      
-      <FeaturedPinPopup open={!!selectedFeaturedPin} pin={selectedFeaturedPin || null} onClose={() => setSelectedFeaturedPin(null)} onGo={(href) => {
-            setSelectedFeaturedPin(null);
-            window.location.href = href;
         }}/>
 
     </div>);

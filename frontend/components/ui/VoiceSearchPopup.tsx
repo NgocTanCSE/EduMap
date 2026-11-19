@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, X, Search, MapPin } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Mic, MicOff, X, Search } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 interface VoiceSearchPopupProps {
     open: boolean;
@@ -84,15 +84,14 @@ export function VoiceSearchPopup({ open, onClose, onResult, }: VoiceSearchPopupP
     };
     if (!open)
         return null;
-    return (<div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}/>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 mx-4 animate-in slide-in-from-top fade-in duration-300">
+    return (<div className="fixed bottom-6 left-1/2 z-[100] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2">
+      <div className="bg-card border border-border rounded-2xl shadow-2xl max-h-[70vh] overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Mic className="w-5 h-5 text-primary"/>
             <h3 className="font-semibold text-foreground">Tìm bằng giọng nói</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
+          <button onClick={onClose} aria-label="Đóng" className="p-1 rounded-lg hover:bg-muted text-muted-foreground">
             <X className="w-5 h-5"/>
           </button>
         </div>

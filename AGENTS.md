@@ -87,15 +87,13 @@ Multiple standalone pages that share a domain have been consolidated into
     `/talk2map`) still redirect to `/map?tool=<id>` (or `/map` for Talk2Map
     since search is built into the map page). `/voice-search` redirects to
     `/map` (voice search lives in the map rail, not as a separate tool).
-    - **Exception (2026-10-30):** `/green` and `/wifi` are no longer plain
-      redirect popups. They are now full **listing hubs** modeled on the
-      `/hackathon` page (`ContentShell` + `SectionHeader` + `SearchInput` +
-      card grid + `EmptyState`), with a prominent "XEM TRÊN BẢN ĐỒ" button that
-      opens the matching Map Hub tool (`/map?tool=green` / `/map?tool=wifi`).
-      The `green`/`wifi` entries in `feature-catalog.ts` now point to
-      `/green` and `/wifi` respectively.
+    - **Map-only (2026-11-19):** `/green` and `/wifi` no longer have standalone
+      pages. Both redirect to `/map?tool=green` / `/map?tool=wifi`; their list,
+      search and stats live in the map tool panels (`GreenTool`, `WifiTool`).
+      The `green`/`wifi` entries in `feature-catalog.ts` point to
+      `/map?tool=green` / `/map?tool=wifi`.
   - Tools use `next/dynamic({ ssr: false })` to avoid leaflet SSR crashes.
-  - Registry: `components/map/tools/registry.tsx` (10 tools, `MAP_TOOLS` array).
+  - Registry: `components/map/tools/registry.tsx` (9 tools, `MAP_TOOLS` array).
   - Each tool module exports `XxxPanel` + `XxxOverlay` as named exports.
   - **Coordinate fix (2026-10-30):**
     - `GreenOverlay` renders `green_challenges.lat`/`lng` directly. The shipped
@@ -495,7 +493,7 @@ runs their own deployment tooling (`git push` → host rebuild). Use the `git` /
   chat degrades to template fallbacks + cached SQLite data, and the vector store
   degrades to query-only when every remote provider is unreachable.
 - `GROQ_API_KEY` — chat provider (host secret, optional).
-- `GROQ_BASE_URL` (default `https://api.groq.com/openai`), `GROQ_MODEL`
+- `GROQ_BASE_URL` (default `https://api.groq.com/openai/v1`), `GROQ_MODEL`
   (default `openai/gpt-oss-120b`, comma-separated = failover order),
   `GROQ_TIMEOUT_SECONDS` (default 20).
 - `JINA_API_KEY` — embedding provider (host secret, optional; free key from
@@ -954,6 +952,22 @@ Verification: `python3 -m py_compile` OK on all modified files;
   returns while `selectedFeaturedPin` is set (belt-and-braces against stacked
   modals). `MapPopupContent` remains for regular POI markers only.
   Verified: `npx tsc --noEmit` = 0.
+
+- **Featured pin no longer dims the map (2026-11-19):** clicking any featured
+  pin still opened `FeaturedPinPopup` — a `fixed inset-0 bg-black/50` overlay
+  that greyed the whole viewport. Replaced by `components/map/FeaturedPinCard.tsx`
+  rendered inside the Map Hub panel (no overlay, no `backdrop-blur`).
+  `onFeaturedPinClick` now switches to the `map` tab, opens the menu and sets
+  `selectedFeaturedPin`; `MapClickHandler` also ignores `.marker-cluster`,
+  `.edumap-pin`, `.edumap-cluster-marker` and `.leaflet-control` so a marker
+  click can never open the "Ghim vị trí mới" form.
+
+- **Không còn lớp phủ tối trên `/map` (2026-11-19):**
+  - `VoiceSearchPopup` bỏ `bg-black/60 backdrop-blur-sm`; giờ là card nổi
+    `fixed bottom-6 left-1/2 -translate-x-1/2` (dùng chung với `/ai-chat`).
+  - Form "Ghim vị trí mới" bỏ modal `fixed inset-0 bg-black/40`; chuyển thành
+    `card-surface` trong panel Map Hub. `handleMapClick` mở tab `map` + panel
+    khi bấm vùng trống.
 
 ### UX consistency: apply forms as popups (2026-11-01)
 - **Base map tiles (2026-11-12):** tile URLs/attribution are centralized in

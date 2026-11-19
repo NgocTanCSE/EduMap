@@ -213,7 +213,11 @@ function MapClickHandler({ onClick }: {
                     target.closest('.leaflet-popup-content-wrapper') ||
                     target.closest('.leaflet-popup-content') ||
                     target.closest('.leaflet-marker-icon') ||
+                    target.closest('.marker-cluster') ||
+                    target.closest('.edumap-pin') ||
+                    target.closest('.edumap-cluster-marker') ||
                     target.closest('.leaflet-tooltip') ||
+                    target.closest('.leaflet-control') ||
                     target.closest('.leaflet-popup-pane')) {
                     return;
                 }
