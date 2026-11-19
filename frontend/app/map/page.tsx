@@ -184,6 +184,8 @@ function getResultCount(toolId: string, result: any): number | undefined {
         return result?.features?.length;
     if (toolId === "climate")
         return result?.risk_ranking?.length;
+    if (Array.isArray(result))
+        return result.length;
     return undefined;
 }
 export default function MapPage() {
@@ -277,6 +279,8 @@ export default function MapPage() {
         lng: number;
     } | null>(null);
     const [selectedFeaturedPin, setSelectedFeaturedPin] = useState<FeaturedPin | null>(null);
+    const [directionsTarget, setDirectionsTarget] = useState<{ lat: number; lng: number } | null>(null);
+    const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number } | null>(null);
     const [pinForm, setPinForm] = useState({ name: "", category: "school", description: "", address: "" });
     const [isSavingPin, setIsSavingPin] = useState(false);
     const [featuredPins, setFeaturedPins] = useState<FeaturedPin[]>([]);
@@ -692,7 +696,7 @@ export default function MapPage() {
     return (<div className="h-[calc(100dvh-3.5rem)] w-full bg-background relative lg:h-screen overflow-hidden">
       
       <main className="absolute inset-0 z-0">
-        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections}/>
+        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={handleFeaturedPinClick} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections} directionsTarget={directionsTarget} focusTarget={focusTarget}/>
       </main>
 
       
@@ -725,6 +729,12 @@ export default function MapPage() {
           {selectedFeaturedPin && (<FeaturedPinCard pin={selectedFeaturedPin} onClose={() => setSelectedFeaturedPin(null)} onGo={(href) => {
                 setSelectedFeaturedPin(null);
                 window.location.href = href;
+            }} onOpenTool={(toolId) => {
+                setFocusTarget({ lat: selectedFeaturedPin.lat, lng: selectedFeaturedPin.lng });
+                setSelectedFeaturedPin(null);
+                handleToolChange(toolId);
+            }} onRoute={(pin) => {
+                setDirectionsTarget({ lat: pin.lat, lng: pin.lng });
             }}/>)}
 
           {pinningCoord && (<div className="card-surface p-3">

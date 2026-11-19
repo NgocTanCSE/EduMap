@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Target, BrainCircuit, Sparkles, DollarSign, MapPin, Clock, TrendingUp, CheckCircle, AlertCircle, Loader2, Plus, X, RefreshCw, } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -8,7 +8,6 @@ import SectionHeader from '@/components/ui/SectionHeader';
 import EmptyState from '@/components/ui/EmptyState';
 import { toast } from "@/src/lib/toast";
 import { impactMatchService, SponsorNeed, SponsorProfile, MatchResult, RankMatchesResponse } from '../../src/services/impact-match.service';
-import { authService } from '../../src/services/auth.service';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import Pagination from '@/components/ui/Pagination';
 const NEED_CATEGORIES = ['Tất cả', 'education_equipment', 'scholarship', 'infrastructure', 'environment', 'social_welfare'];
@@ -81,7 +80,7 @@ export default function ImpactMatchPage() {
     };
     const handleRank = async () => {
         if (needs.length === 0 || sponsors.length === 0) {
-            toast.warning('Cần có đủ dữ liệu nhu cầu và nhà tài trợ để ghẹp nối');
+            toast.warning('Cần có đủ dữ liệu nhu cầu và nhà tài trợ để ghép nối');
             return;
         }
         try {
@@ -189,22 +188,25 @@ export default function ImpactMatchPage() {
           </span>
         </div>
         <h4 className="font-bold text-sm sm:text-base text-foreground mb-1.5 line-clamp-1">{need.title}</h4>
-        {need.description && (<p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{need.description}</p>)}
-        {need.tags && need.tags.length > 0 && (<div className="flex flex-wrap gap-1 mb-3">
-            {need.tags.slice(0, 3).map(tag => (<span key={tag} className="px-1.5 py-0.5 bg-card/60 border border-border rounded text-[10px] text-muted-foreground">
-              </span>))}
-          </div>)}
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 min-h-[2.5rem] leading-relaxed">
+          {need.description || 'Chưa có mô tả cho nhu cầu này.'}
+        </p>
+        <div className="flex flex-wrap gap-1 mb-3 min-h-[1.75rem]">
+          {need.tags?.slice(0, 3).map(tag => (<span key={tag} className="px-1.5 py-0.5 bg-card/60 border border-border rounded text-[10px] text-muted-foreground">
+              {tag}
+            </span>))}
+        </div>
       </div>
 
-      <div className="pt-2.5 border-t border-border/80 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1 font-semibold text-accent">
+      <div className="pt-2.5 border-t border-border/80 flex h-6 items-center justify-between gap-2 text-xs">
+        <div className="flex shrink-0 items-center gap-1 font-semibold text-accent">
           <DollarSign className="w-3.5 h-3.5"/>
           <span>{formatCurrency(Number(need.cost_estimate))}</span>
         </div>
-        {need.location && (<div className="flex items-center gap-1 text-muted-foreground text-[11px] truncate max-w-[150px]">
-            <MapPin className="w-3 h-3 text-primary shrink-0"/>
-            <span className="truncate">{need.location}</span>
-          </div>)}
+        <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-[11px]">
+          <MapPin className="w-3 h-3 shrink-0 text-primary"/>
+          <span className="truncate">{need.location || 'Toàn quốc'}</span>
+        </div>
       </div>
     </div>);
     const SponsorCard = ({ sponsor }: {
@@ -218,23 +220,25 @@ export default function ImpactMatchPage() {
           <h4 className="font-bold text-sm sm:text-base text-foreground line-clamp-1">{sponsor.name}</h4>
           {sponsor.is_verified && (<CheckCircle className="w-4 h-4 text-accent shrink-0"/>)}
         </div>
-        {sponsor.description && (<p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">{sponsor.description}</p>)}
-        {sponsor.focus_areas && sponsor.focus_areas.length > 0 && (<div className="flex flex-wrap gap-1 mb-3">
-            {sponsor.focus_areas.slice(0, 3).map(fa => (<span key={fa} className="px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md text-[10px] font-medium text-primary">
-                {fa}
-              </span>))}
-          </div>)}
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 min-h-[2.5rem] leading-relaxed">
+          {sponsor.description || 'Chưa có mô tả cho nhà tài trợ này.'}
+        </p>
+        <div className="flex flex-wrap gap-1 mb-3 min-h-[1.75rem]">
+          {sponsor.focus_areas?.slice(0, 3).map(fa => (<span key={fa} className="px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-md text-[10px] font-medium text-primary">
+              {fa}
+            </span>))}
+        </div>
       </div>
 
-      <div className="pt-2.5 border-t border-border/80 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1 font-semibold text-accent">
+      <div className="pt-2.5 border-t border-border/80 flex h-6 items-center justify-between gap-2 text-xs">
+        <div className="flex shrink-0 items-center gap-1 font-semibold text-accent">
           <DollarSign className="w-3.5 h-3.5"/>
           <span>{formatCurrency(Number(sponsor.budget_amount))}</span>
         </div>
-        {sponsor.location && (<div className="flex items-center gap-1 text-muted-foreground text-[11px] truncate max-w-[150px]">
-            <MapPin className="w-3 h-3 text-primary shrink-0"/>
-            <span className="truncate">{sponsor.location}</span>
-          </div>)}
+        <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-[11px]">
+          <MapPin className="w-3 h-3 shrink-0 text-primary"/>
+          <span className="truncate">{sponsor.location || 'Toàn quốc'}</span>
+        </div>
       </div>
     </div>);
     const MatchResultCard = ({ match, idx }: {
@@ -309,25 +313,23 @@ export default function ImpactMatchPage() {
             </Button>
           </div>}/>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-4 items-end justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch flex-1">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground uppercase font-medium">Khu vực</label>
-              <input type="text" placeholder="Ví dụ: Đồng Nai" value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="w-full sm:w-48 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground uppercase font-medium">Danh mục</label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary">
-                {NEED_CATEGORIES.map(c => (<option key={c} value={c}>{c === 'Tất cả' ? c : c.replace(/_/g, ' ')}</option>))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground uppercase font-medium">Chi phí tối đa (VND)</label>
-              <input type="number" placeholder="500000000" value={maxCostFilter} onChange={(e) => setMaxCostFilter(e.target.value)} className="w-full sm:w-40 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
-            </div>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium uppercase leading-4 text-muted-foreground">Khu vực</label>
+            <input type="text" placeholder="Ví dụ: Đồng Nai" value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
           </div>
-          <Button onClick={handleRank} disabled={loadingRanking} variant={matchesCached ? "outline" : "default"} className={matchesCached ? "px-6 py-3 gap-2" : "bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 gap-2"}>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium uppercase leading-4 text-muted-foreground">Danh mục</label>
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
+              {NEED_CATEGORIES.map(c => (<option key={c} value={c}>{c === 'Tất cả' ? c : c.replace(/_/g, ' ')}</option>))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-medium uppercase leading-4 text-muted-foreground">Chi phí tối đa (VND)</label>
+            <input type="number" placeholder="500000000" value={maxCostFilter} onChange={(e) => setMaxCostFilter(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
+          </div>
+          <Button onClick={handleRank} disabled={loadingRanking} variant={matchesCached ? "outline" : "default"} className={`h-10 w-full gap-2 lg:w-auto ${matchesCached ? "px-5" : "bg-primary px-5 text-primary-foreground hover:bg-primary/90"}`}>
             {loadingRanking ? (<>
                 <Loader2 className="w-4 h-4 animate-spin"/>
                 Đang xếp hạng...
@@ -352,7 +354,7 @@ export default function ImpactMatchPage() {
       {showResults && rankedMatches.length > 0 && (<div className="space-y-6">
           <div className="flex items-center gap-2 text-xl font-bold">
             <Sparkles className="text-primary/70"/>
-            <h2>Kết quả ghẹp nối ({rankedMatches.length} cặp)</h2>
+            <h2>Kết quả ghép nối ({rankedMatches.length} cặp)</h2>
         </div>
           <div className="space-y-4">
             {rankedMatches.map((match, idx) => (<MatchResultCard key={`${match.need_id}-${match.sponsor_id}`} match={match} idx={idx}/>))}
@@ -406,7 +408,7 @@ export default function ImpactMatchPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Tiêu đề *</label>
-                <input type="text" placeholder="Ví dụ: Xây thư viện STEM cho THPT Trấn Biên" value={needForm.title} onChange={e => setNeedForm({ ...needForm, title: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="Ví dụ: Xây thư viện STEM cho THPT Trấn Biên" value={needForm.title} onChange={e => setNeedForm({ ...needForm, title: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Mô tả chi tiết *</label>
@@ -415,7 +417,7 @@ export default function ImpactMatchPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium mb-1 block">Danh mục *</label>
-                  <select value={needForm.category} onChange={e => setNeedForm({ ...needForm, category: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary">
+                  <select value={needForm.category} onChange={e => setNeedForm({ ...needForm, category: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
                     <option value="education_equipment">Thiết bị giáo dục</option>
                     <option value="scholarship">Học bổng</option>
                     <option value="infrastructure">Cơ sở hạ tầng</option>
@@ -425,7 +427,7 @@ export default function ImpactMatchPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-1 block">Độ khẩn cấp *</label>
-                  <select value={needForm.urgency} onChange={e => setNeedForm({ ...needForm, urgency: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary">
+                  <select value={needForm.urgency} onChange={e => setNeedForm({ ...needForm, urgency: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary">
                     <option value="critical">Khẩn cấp</option>
                     <option value="high">Cao</option>
                     <option value="medium">Trung bình</option>
@@ -435,19 +437,19 @@ export default function ImpactMatchPage() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Chi phí dự kiến (VND) *</label>
-                <input type="number" placeholder="200000000" value={needForm.cost_estimate} onChange={e => setNeedForm({ ...needForm, cost_estimate: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="number" placeholder="200000000" value={needForm.cost_estimate} onChange={e => setNeedForm({ ...needForm, cost_estimate: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Khu vực</label>
-                <input type="text" placeholder="Biên Hòa, Đồng Nai" value={needForm.location} onChange={e => setNeedForm({ ...needForm, location: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="Biên Hòa, Đồng Nai" value={needForm.location} onChange={e => setNeedForm({ ...needForm, location: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Thẻ (tags) — cách nhau bằng dấu phẩy</label>
-                <input type="text" placeholder="stem, education, library" value={needForm.tags} onChange={e => setNeedForm({ ...needForm, tags: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="stem, education, library" value={needForm.tags} onChange={e => setNeedForm({ ...needForm, tags: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">URL nguồn chính thức (provenance)</label>
-                <input type="url" placeholder="https://..." value={needForm.apply_url} onChange={e => setNeedForm({ ...needForm, apply_url: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="url" placeholder="https://..." value={needForm.apply_url} onChange={e => setNeedForm({ ...needForm, apply_url: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -472,7 +474,7 @@ export default function ImpactMatchPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Tên tổ chức *</label>
-                <input type="text" placeholder="Ví dụ: Bộ Giáo dục và Đào tạo" value={sponsorForm.name} onChange={e => setSponsorForm({ ...sponsorForm, name: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="Ví dụ: Bộ Giáo dục và Đào tạo" value={sponsorForm.name} onChange={e => setSponsorForm({ ...sponsorForm, name: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Mô tả</label>
@@ -480,23 +482,23 @@ export default function ImpactMatchPage() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Lĩnh vực tài trợ (cách nhau bằng dấu phẩy) *</label>
-                <input type="text" placeholder="education, scholarship, stem" value={sponsorForm.focus_areas} onChange={e => setSponsorForm({ ...sponsorForm, focus_areas: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="education, scholarship, stem" value={sponsorForm.focus_areas} onChange={e => setSponsorForm({ ...sponsorForm, focus_areas: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Ngân sách tối đa (VND) *</label>
-                <input type="number" placeholder="1000000000" value={sponsorForm.budget_amount} onChange={e => setSponsorForm({ ...sponsorForm, budget_amount: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="number" placeholder="1000000000" value={sponsorForm.budget_amount} onChange={e => setSponsorForm({ ...sponsorForm, budget_amount: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Khu vực</label>
-                <input type="text" placeholder="Hà Nội" value={sponsorForm.location} onChange={e => setSponsorForm({ ...sponsorForm, location: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="text" placeholder="Hà Nội" value={sponsorForm.location} onChange={e => setSponsorForm({ ...sponsorForm, location: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Website</label>
-                <input type="url" placeholder="https://..." value={sponsorForm.website_url} onChange={e => setSponsorForm({ ...sponsorForm, website_url: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="url" placeholder="https://..." value={sponsorForm.website_url} onChange={e => setSponsorForm({ ...sponsorForm, website_url: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Email liên hệ</label>
-                <input type="email" placeholder="contact@org.vn" value={sponsorForm.contact_email} onChange={e => setSponsorForm({ ...sponsorForm, contact_email: e.target.value })} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:border-primary"/>
+                <input type="email" placeholder="contact@org.vn" value={sponsorForm.contact_email} onChange={e => setSponsorForm({ ...sponsorForm, contact_email: e.target.value })} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"/>
               </div>
             </div>
             <div className="flex gap-3 mt-6">

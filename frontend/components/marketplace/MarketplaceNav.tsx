@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { GraduationCap, ShoppingBag, ShoppingCart, Store } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 const TABS = [
-    { href: '/marketplace', label: 'Chia sẻ & trao đổi', icon: Store },
+    { href: '/map?tool=market', label: 'Chia sẻ & trao đổi', icon: Store },
     { href: '/marketplace/products', label: 'Văn phòng phẩm', icon: ShoppingBag },
     { href: '/marketplace/services', label: 'Khóa học & dịch vụ', icon: GraduationCap },
     { href: '/marketplace/cart', label: 'Giỏ hàng', icon: ShoppingCart },
@@ -15,7 +15,7 @@ export function MarketplaceNav({ cartCount = 0 }: {
     const pathname = usePathname() || '/marketplace';
     return (<nav aria-label="Khu chợ EduMap" className="inline-flex gap-1.5 overflow-x-auto rounded-2xl border border-border/80 bg-muted/60 p-1.5 shadow-xs">
       {TABS.map(({ href, label, icon: Icon }) => {
-            const active = href === '/marketplace' ? pathname === '/marketplace' : pathname.startsWith(href);
+            const active = href === '/map?tool=market' ? false : pathname.startsWith(href);
             return (<Link key={href} href={href} aria-current={active ? 'page' : undefined} className={cn('inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors', active
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground')}>

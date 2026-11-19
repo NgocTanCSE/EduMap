@@ -1547,12 +1547,12 @@ impl SurveyParsed {
 /// `featureLink` for a featured pin category.
 fn feature_link_for(category: &str) -> &'static str {
     match category {
-        "stem" => "/stem",
-        "green" => "/green",
-        "summer" => "/summer",
-        "wifi" => "/wifi",
-        "donate" => "/donate",
-        "market" => "/marketplace",
+        "stem" => "/map?tool=stem",
+        "green" => "/map?tool=green",
+        "summer" => "/map?tool=summer",
+        "wifi" => "/map?tool=wifi",
+        "donate" => "/map?tool=donate",
+        "market" => "/map?tool=market",
         _ => "/",
     }
 }

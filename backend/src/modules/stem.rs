@@ -50,6 +50,7 @@ pub struct RegisterLab {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BookLab {
     pub equipment_name: String,
     pub start_time: String,

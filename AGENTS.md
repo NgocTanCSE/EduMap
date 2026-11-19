@@ -80,20 +80,28 @@ BACKEND_URL / AI_SERVICE_URL = the host's URL.
 Multiple standalone pages that share a domain have been consolidated into
 **hub pages with tab/tool navigation**:
 
-- **`/map` (Map Hub)** — 9 tool tabs in a single sidebar panel:
+- **`/map` (Map Hub)** — 14 tool tabs in a single sidebar panel:
   Data Hunter, Gap Predictor, Resource Optimizer, GeoVision AI, Survey Planner,
-  Climate Guardian, AI Agent, Wifi, Green.
+  Climate Guardian, AI Agent, Wifi, Green, Nơi học, STEM Lab, Mùa hè,
+  Quyên góp, Chợ chia sẻ.
   - Old routes (`/map/data-hunter`, `/climate-guardian`, `/ai-agent`,
     `/talk2map`) still redirect to `/map?tool=<id>` (or `/map` for Talk2Map
     since search is built into the map page). `/voice-search` redirects to
     `/map` (voice search lives in the map rail, not as a separate tool).
-    - **Map-only (2026-11-19):** `/green` and `/wifi` no longer have standalone
-      pages. Both redirect to `/map?tool=green` / `/map?tool=wifi`; their list,
-      search and stats live in the map tool panels (`GreenTool`, `WifiTool`).
-      The `green`/`wifi` entries in `feature-catalog.ts` point to
-      `/map?tool=green` / `/map?tool=wifi`.
+    - **Map-only (2026-11-19, mở rộng):** các trang danh sách `/green`,
+      `/wifi`, `/learning-spaces`, `/stem`, `/summer`, `/donate` và
+      `/marketplace` đã bị xoá; tất cả redirect sang `/map?tool=<id>` và
+      danh sách/tìm kiếm/hành động nằm trong panel map tool tương ứng
+      (`GreenTool`, `WifiTool`, `LearningSpaceTool`, `StemTool`, `SummerTool`,
+      `DonateTool`, `MarketTool`). Các trang chi tiết vẫn giữ:
+      `/donate/campaign/[id]`, `/marketplace/{products,services,cart}`.
+      `backend/src/modules/map.rs::feature_link_for`
+      trả thẳng `/map?tool=...` cho cả 6 category ghim.
   - Tools use `next/dynamic({ ssr: false })` to avoid leaflet SSR crashes.
-  - Registry: `components/map/tools/registry.tsx` (9 tools, `MAP_TOOLS` array).
+  - Registry: `components/map/tools/registry.tsx` (14 tools, `MAP_TOOLS` array:
+    6 `core` — climate, wifi, green, learning-space, donate, market — và
+    8 `analysis` — data-hunter, gap-predictor, resource-optimizer, geo-vision,
+    survey-planner, ai-agent, stem, summer).
   - Each tool module exports `XxxPanel` + `XxxOverlay` as named exports.
   - **Coordinate fix (2026-10-30):**
     - `GreenOverlay` renders `green_challenges.lat`/`lng` directly. The shipped
@@ -2086,3 +2094,66 @@ depends only on the request body, so `ai-service/services/response_cache.py`
 Cache hits return `metadata.cached = true` (the stored copy is not mutated).
 Repeat calls are now sub-second; the first call after a container restart still
 pays the full computation.
+
+## 25. Map-first pass — ghim thao tác tại chỗ, bỏ modal phủ tối (2026-11-19)
+
+Mục tiêu: `/map` hành xử như Windy — mọi tương tác diễn ra trên bản đồ, không
+có lớp phủ tối, không còn trang danh sách trùng lặp.
+
+### 25.1 Không còn lớp phủ tối trên `/map`
+- `FeaturedPinPopup` (`fixed inset-0 bg-black/50`) bị xoá; chi tiết ghim giờ là
+  `components/map/FeaturedPinCard.tsx` render **trong** panel Map Hub.
+- `VoiceSearchPopup` bỏ `bg-black/60 backdrop-blur-sm` → card nổi
+  `fixed bottom-6 left-1/2 -translate-x-1/2` (dùng chung với `/ai-chat`).
+- Form "Ghim vị trí mới" bỏ modal `fixed inset-0 bg-black/40` → `card-surface`
+  trong panel; `handleMapClick` tự mở tab `map` + panel.
+- `MapClickHandler` (`components/ui/MapComponent.tsx`) bỏ qua
+  `.leaflet-popup*`, `.leaflet-marker-icon`, `.marker-cluster`, `.edumap-pin`,
+  `.edumap-cluster-marker`, `.leaflet-tooltip`, `.leaflet-control` — bấm ghim
+  không bao giờ mở form ghim.
+
+### 25.2 Ghim chức năng thao tác tại chỗ
+`FeaturedPinCard` có 2 hành động:
+- **Chỉ đường** → `onRoute(pin)` → page set `directionsTarget` →
+  `InteractiveMap` gọi `routeToPoi()` (định vị GPS, mở tab `Chỉ đường`, tính
+  lộ trình). `directionsTarget` được chống lặp bằng ref khoá `lat,lng`.
+- **Xem trên bản đồ** → `onOpenTool(toolId)` → page set `focusTarget` (flyTo)
+  rồi `handleToolChange(toolId)`; tool overlay vẽ danh sách tương ứng.
+  `MAP_TOOL_FOR_CATEGORY` map đủ 6 category: wifi, green, stem, summer, donate,
+  market. Category lạ mới rơi về nút "Mở trang ..." (`featureLink`).
+
+### 25.3 Bảy trang danh sách → map tool
+| Trang cũ | Tool | Panel làm gì |
+|---|---|---|
+| `/learning-spaces` | `learning-space` (core) | lọc bán kính/WiFi/rating/yên tĩnh/giờ mở, GPS, danh sách điểm + điểm AI, focus marker, giải thích AI |
+| `/stem` | `stem` (analysis) | tìm lab, chọn thiết bị, form đặt lịch ngay trong panel (`stemService.bookEquipment`) |
+| `/summer` | `summer` (analysis) | danh sách chiến dịch, đăng ký TNV, báo cáo hoạt động theo ngày |
+| `/donate` | `donate` (core) | tiến độ chiến dịch, form ủng hộ (nhanh + tuỳ chọn, ẩn danh) |
+| `/marketplace` | `market` (core) | sách/học cụ, lọc category, form mượn, form đăng tài liệu |
+| `/wifi` | `wifi` (core) | đã có từ trước |
+| `/green` | `green` (core) | đã có từ trước |
+
+- Panel dùng chung `card-surface`, KHÔNG dùng modal; mọi form đều inline.
+- Giữ nguyên detail/checkout: `/donate/campaign/[id]`,
+  `/marketplace/{products,services,cart}`.
+- `next.config.js` redirect 7 đường dẫn cũ; `feature-catalog.ts` trỏ
+  `/map?tool=...`; `bookmark.service.ts` map thêm `learning_space`, `stem_lab`.
+- `app/sitemap.ts` bỏ `/green` và `/marketplace`.
+
+### 25.4 `/impact-match` — sửa "cái cao cái thấp"
+- Hàng lọc đổi từ `flex` lệch chiều cao sang grid
+  `sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end`; mọi
+  input/select/button dùng `h-10` (kể cả input trong 2 modal).
+- Thẻ nhu cầu/nhà tài trợ: mô tả `min-h-[2.5rem]`, khu tag `min-h-[1.75rem]`,
+  hàng đáy `h-6` + `Toàn quốc` khi thiếu địa bàn → mọi thẻ trong cột cùng
+  chiều cao.
+- Sửa lỗi tag render rỗng (`{tag}` bị thiếu) và typo "ghẹp nối" → "ghép nối".
+
+### 25.5 Kiểm chứng (local, không chạy runtime)
+- Parse toàn bộ `.ts/.tsx` frontend: **PARSE OK**.
+- `tsc` scoped trên 12 file đã đổi: chỉ còn `TS2307`/`TS2591` do thiếu
+  `node_modules` local, **0 lỗi type thật**.
+- `node /tmp/unused.js`: không còn import thừa ở các file đã sửa.
+- `python3 /tmp/audit_final.py`: `ghosts_be=0`, `ghosts_ai=0`, tổng
+  `live + dead = total` vẫn khớp.
+- Runtime truth vẫn là host sau khi người dùng deploy.

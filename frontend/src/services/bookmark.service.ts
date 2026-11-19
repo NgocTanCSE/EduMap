@@ -38,7 +38,8 @@ const LABEL: Record<string, string> = {
     opportunity: 'Cơ hội',
     internships: 'Thực tập',
     scholarships: 'Học bổng',
-    lab: 'Laboratory',
+    lab: 'Phòng Lab',
+    stem_lab: 'Phòng Lab',
     community_post: 'Bài viết',
     marketplace_product: 'Sản phẩm',
     marketplace_service: 'Dịch vụ',
@@ -48,6 +49,7 @@ const LABEL: Record<string, string> = {
     donate_campaign: 'Chiến dịch',
     green: 'Điểm xanh',
     wifi: 'Wifi',
+    learning_space: 'Nơi học',
     summer: 'Mùa hè',
     hackathon: 'Hackathon',
 };
@@ -65,15 +67,17 @@ export function targetUrl(type: string, id: string): string | null {
         community_post: (id) => `/community/post/${id}`,
         marketplace_product: () => '/marketplace/products',
         marketplace_service: () => '/marketplace/services',
-        shared_item: () => '/marketplace',
+        shared_item: () => '/map?tool=market',
         library_item: () => '/library',
         mentor: (id) => `/mentor/${id}`,
         donate_campaign: (id) => `/donate/campaign/${id}`,
         green: () => '/map?tool=green',
         wifi: () => '/map?tool=wifi',
-        summer: () => '/summer',
+        learning_space: () => '/map?tool=learning-space',
+        summer: () => '/map?tool=summer',
         hackathon: (id) => `/hackathon/${id}`,
-        lab: () => '/stem',
+        lab: () => '/map?tool=stem',
+        stem_lab: () => '/map?tool=stem',
     };
     const fn = MAP[type];
     return fn ? fn(id) : null;

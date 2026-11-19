@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, GeoJSON } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
@@ -200,6 +200,24 @@ function MapEvents({ onBoundsChange }: {
     }, [map, onBoundsChange]);
     return null;
 }
+function FocusHandler({ target }: {
+    target?: {
+        lat: number;
+        lng: number;
+    } | null;
+}) {
+    const map = useMap();
+    useEffect(() => {
+        if (!target)
+            return;
+        const lat = Number(target.lat);
+        const lng = Number(target.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng))
+            return;
+        map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+    }, [target, map]);
+    return null;
+}
 function MapClickHandler({ onClick }: {
     onClick: (lat: number, lng: number) => void;
 }) {
@@ -287,8 +305,16 @@ interface InteractiveMapProps {
     menuSlot?: HTMLElement | null;
     menuTab?: string | null;
     onDirectionsOpen?: () => void;
+    directionsTarget?: {
+        lat: number;
+        lng: number;
+    } | null;
+    focusTarget?: {
+        lat: number;
+        lng: number;
+    } | null;
 }
-export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, menuSlot = null, menuTab = null, onDirectionsOpen, }: InteractiveMapProps) {
+export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, menuSlot = null, menuTab = null, onDirectionsOpen, directionsTarget = null, focusTarget = null, }: InteractiveMapProps) {
     const defaultCenter: [
         number,
         number
@@ -750,6 +776,16 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
             start({ lat: defaultCenter[0], lng: defaultCenter[1] });
         }
     }, [fetchRoute, defaultCenter, onDirectionsOpen]);
+    const handledDirectionsTarget = useRef<string | null>(null);
+    useEffect(() => {
+        if (!directionsTarget)
+            return;
+        const key = `${directionsTarget.lat},${directionsTarget.lng}`;
+        if (handledDirectionsTarget.current === key)
+            return;
+        handledDirectionsTarget.current = key;
+        routeToPoi(directionsTarget);
+    }, [directionsTarget, routeToPoi]);
     const routingActive = routingMode !== 'idle' || !!origin || !!destination || !!routeGeometry;
     const routingVisible = routingActive || menuTab === 'directions';
     const standaloneMode = !menuSlot && menuTab === null;
@@ -820,6 +856,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         {overlay}
 
         <MapController selectedPoint={selectedPoint}/>
+        <FocusHandler target={focusTarget}/>
         <MapEvents onBoundsChange={onBoundsChange}/>
         <MapClickHandler onClick={handleMapClick}/>
       </MapContainer>

@@ -166,7 +166,7 @@ export default function CartPage() {
               Thanh toán trong bản demo được mô phỏng, không phát sinh giao dịch thật.
             </p>
 
-            <Link href="/marketplace" className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/80">
+            <Link href="/map?tool=market" className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/80">
               Quay lại khu chợ
             </Link>
           </div>
@@ -178,7 +178,7 @@ export default function CartPage() {
         <MarketplaceNav cartCount={cartCount}/>
 
         <div className="flex items-center gap-4">
-          <Link href="/marketplace" aria-label="Quay lại khu chợ" className="rounded-xl border border-border bg-card p-2 transition-colors hover:border-primary/50">
+          <Link href="/map?tool=market" aria-label="Quay lại khu chợ" className="rounded-xl border border-border bg-card p-2 transition-colors hover:border-primary/50">
             <ArrowLeft className="h-5 w-5"/>
           </Link>
           <div>
@@ -205,7 +205,7 @@ export default function CartPage() {
           </div>) : cartItems.length === 0 ? (<div className="rounded-xl border border-border bg-card py-14 text-center">
             <ShoppingCart className="mx-auto mb-4 h-16 w-16 text-muted-foreground/20"/>
             <p className="text-sm text-muted-foreground">Giỏ hàng của bạn đang trống.</p>
-            <Link href="/marketplace" className="mt-5 inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/80">
+            <Link href="/map?tool=market" className="mt-5 inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/80">
               Bắt đầu mua sắm
             </Link>
           </div>) : (<div className="grid grid-cols-1 gap-8 lg:grid-cols-3">

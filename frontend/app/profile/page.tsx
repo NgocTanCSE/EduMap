@@ -322,7 +322,7 @@ export default function ProfilePage() {
                     <span className="flex items-center gap-2"><Globe className="w-3.5 h-3.5 text-primary"/> Diễn đàn cộng đồng</span>
                     <ArrowRight className="w-3.5 h-3.5"/>
                   </Link>
-                  <Link href="/stem" className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 hover:text-primary transition-all text-xs font-medium border border-border/60">
+                  <Link href="/map?tool=stem" className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 hover:bg-primary/10 hover:text-primary transition-all text-xs font-medium border border-border/60">
                     <span className="flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-primary"/> Phòng Lab STEM</span>
                     <ArrowRight className="w-3.5 h-3.5"/>
                   </Link>

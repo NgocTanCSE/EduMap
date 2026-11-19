@@ -107,12 +107,12 @@ export function createSeed(): MockDb {
         ],
 
         featuredPins: [
-            { id: 'pin-stem-dntu', name: 'Phòng STEM DNTU', category: 'stem', lat: 10.9761, lng: 106.8472, description: 'Đăng ký sử dụng phòng thí nghiệm STEM tại DNTU.', address: 'Trảng Dài, Biên Hoà', featureLink: '/stem', is_verified: true, status: 'active' },
+            { id: 'pin-stem-dntu', name: 'Phòng STEM DNTU', category: 'stem', lat: 10.9761, lng: 106.8472, description: 'Đăng ký sử dụng phòng thí nghiệm STEM tại DNTU.', address: 'Trảng Dài, Biên Hoà', featureLink: '/map?tool=stem', is_verified: true, status: 'active' },
             { id: 'pin-green-buulong', name: 'Ngày hội Xanh Bửu Long', category: 'green', lat: 10.9633, lng: 106.7952, description: 'Nhặt rác và trồng cây tại Công viên Bửu Long.', featureLink: '/map?tool=green', points: 120, carbon_saved_kg: 18, participants_count: 84, status: 'active' },
-            { id: 'pin-summer-bienhoa', name: 'Chiến dịch Mùa hè xanh Đồng Nai 2026', category: 'summer', lat: 10.9451, lng: 106.8241, description: 'Tình nguyện dạy học hè cho học sinh Biên Hoà.', featureLink: '/summer', participants_count: 120, status: 'upcoming' },
+            { id: 'pin-summer-bienhoa', name: 'Chiến dịch Mùa hè xanh Đồng Nai 2026', category: 'summer', lat: 10.9451, lng: 106.8241, description: 'Tình nguyện dạy học hè cho học sinh Biên Hoà.', featureLink: '/map?tool=summer', participants_count: 120, status: 'upcoming' },
             { id: 'pin-wifi-thuvien', name: 'Wifi miễn phí Thư viện Đồng Nai', category: 'wifi', lat: 10.9576, lng: 106.8186, description: 'SSID ThuvienDongNai — miễn phí, tốc độ 45 Mbps.', featureLink: '/map?tool=wifi', is_verified: true, is_free: true, speed_label: 'Nhanh' },
-            { id: 'pin-donate-anh-sang', name: 'Quỹ Ánh Sáng Học Đường', category: 'donate', lat: 10.9701, lng: 106.8391, description: 'Quyên góp học bổng cho học sinh khó khăn Đồng Nai.', featureLink: '/donate', current_amount: 182000000, target_amount: 300000000, status: 'active' },
-            { id: 'pin-market-sach', name: 'Chợ sách cũ Biên Hoà', category: 'market', lat: 10.9604, lng: 106.8302, description: 'Trao đổi và mượn sách giáo trình cũ.', featureLink: '/marketplace', status: 'active' },
+            { id: 'pin-donate-anh-sang', name: 'Quỹ Ánh Sáng Học Đường', category: 'donate', lat: 10.9701, lng: 106.8391, description: 'Quyên góp học bổng cho học sinh khó khăn Đồng Nai.', featureLink: '/map?tool=donate', current_amount: 182000000, target_amount: 300000000, status: 'active' },
+            { id: 'pin-market-sach', name: 'Chợ sách cũ Biên Hoà', category: 'market', lat: 10.9604, lng: 106.8302, description: 'Trao đổi và mượn sách giáo trình cũ.', featureLink: '/map?tool=market', status: 'active' },
         ],
 
         learningSpots: [

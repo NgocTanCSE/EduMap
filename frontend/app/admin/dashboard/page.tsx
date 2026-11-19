@@ -114,7 +114,7 @@ export default function AdminDashboardPage() {
             { name: 'Bản đồ', status: 'Hoạt động', icon: MapPin, href: '/map' },
             { name: 'Thư viện tài liệu', status: 'Hoạt động', icon: BookOpen, href: '/library' },
             { name: 'Cộng đồng Xanh', status: 'Hoạt động', icon: Leaf, href: '/map?tool=green' },
-            { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/donate' },
+            { name: 'Quỹ quyên góp', status: 'Hoạt động', icon: Heart, href: '/map?tool=donate' },
         ].map((mod, i) => (<div key={i} className="flex items-center justify-between p-4 rounded-lg bg-card/20 border border-border">
                        <div className="flex items-center gap-3">
                           <mod.icon className="w-5 h-5 text-muted-foreground/20"/>

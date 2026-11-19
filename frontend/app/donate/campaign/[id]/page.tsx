@@ -72,7 +72,7 @@ export default function DonationDetailPage({ params }: {
         return (<div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-2xl font-semibold mb-4">404</h1>
         <p className="text-muted-foreground/60 mb-8">Không tìm thấy chiến dịch quyên góp này.</p>
-        <button onClick={() => (window.location.href = '/donate')} className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80">
+        <button onClick={() => (window.location.href = '/map?tool=donate')} className="px-6 py-2.5 rounded-full bg-primary font-medium hover:bg-primary/80">
           Quay lại danh sách
         </button>
       </div>);

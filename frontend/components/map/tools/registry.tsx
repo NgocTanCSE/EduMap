@@ -1,7 +1,7 @@
 "use client";
 import type { MapTool } from "./types";
 import dynamic from "next/dynamic";
-import { Target, Flame, ThermometerSun, Camera, CloudRain, Wifi, Leaf, Bot, } from "lucide-react";
+import { Target, Flame, ThermometerSun, Camera, CloudRain, Wifi, Leaf, Bot, BookOpen, Atom, Sun, Heart, ShoppingCart, } from "lucide-react";
 const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
     {
         id: "data-hunter",
@@ -102,6 +102,61 @@ const TOOL_META: Omit<MapTool, "Panel" | "Overlay">[] = [
         hideBaseLayers: false,
         tier: "core",
     },
+    {
+        id: "learning-space",
+        label: "Nơi học",
+        longLabel: "AI gợi ý nơi học",
+        icon: BookOpen,
+        description: "Tìm không gian học tập phù hợp và giải thích bằng AI.",
+        longDescription: "Gợi ý nơi học theo khoảng cách, WiFi, độ yên tĩnh và giờ mở cửa, kèm lý do do AI giải thích.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "core",
+    },
+    {
+        id: "stem",
+        label: "STEM Lab",
+        longLabel: "Phòng Lab STEM",
+        icon: Atom,
+        description: "Tìm phòng lab STEM và đặt thiết bị ngay trên bản đồ.",
+        longDescription: "Hiển thị phòng lab STEM đối tác, danh sách thiết bị và đặt lịch sử dụng ngay trong panel bản đồ.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+    {
+        id: "summer",
+        label: "Mùa hè",
+        longLabel: "Chiến dịch mùa hè",
+        icon: Sun,
+        description: "Chiến dịch tình nguyện mùa hè và đăng ký tham gia trên bản đồ.",
+        longDescription: "Xem chiến dịch Mùa hè xanh theo địa bàn, báo cáo hoạt động hằng ngày và đăng ký tham gia ngay trong panel bản đồ.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "analysis",
+    },
+    {
+        id: "donate",
+        label: "Quyên góp",
+        longLabel: "Chiến dịch quyên góp",
+        icon: Heart,
+        description: "Chiến dịch quyên góp và ủng hộ ngay trên bản đồ.",
+        longDescription: "Xem tiến độ các chiến dịch quyên góp theo địa điểm và ủng hộ trực tiếp trong panel bản đồ.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "core",
+    },
+    {
+        id: "market",
+        label: "Chợ chia sẻ",
+        longLabel: "Chợ chia sẻ & trao đổi",
+        icon: ShoppingCart,
+        description: "Tài liệu, sách và học cụ cộng đồng đang được chia sẻ trên bản đồ.",
+        longDescription: "Xem sách, học cụ được cộng đồng chia sẻ theo vị trí, gửi yêu cầu mượn hoặc đăng tài liệu mới ngay trong panel bản đồ.",
+        authRequired: false,
+        hideBaseLayers: false,
+        tier: "core",
+    },
 ];
 const DataHunterPanel = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterPanel), { ssr: false });
 const GapPredictorPanel = dynamic(() => import("./GapPredictorTool").then((m) => m.GapPredictorPanel), { ssr: false });
@@ -112,6 +167,11 @@ const ClimateGuardianPanel = dynamic(() => import("./ClimateGuardianTool").then(
 const AiAgentPanel = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentPanel), { ssr: false });
 const WifiPanel = dynamic(() => import("./WifiTool").then((m) => m.WifiPanel), { ssr: false });
 const GreenPanel = dynamic(() => import("./GreenTool").then((m) => m.GreenPanel), { ssr: false });
+const LearningSpacePanel = dynamic(() => import("./LearningSpaceTool").then((m) => m.LearningSpacePanel), { ssr: false });
+const StemPanel = dynamic(() => import("./StemTool").then((m) => m.StemPanel), { ssr: false });
+const SummerPanel = dynamic(() => import("./SummerTool").then((m) => m.SummerPanel), { ssr: false });
+const DonatePanel = dynamic(() => import("./DonateTool").then((m) => m.DonatePanel), { ssr: false });
+const MarketPanel = dynamic(() => import("./MarketTool").then((m) => m.MarketPanel), { ssr: false });
 const DataHunterOverlay = dynamic(() => import("./DataHunterTool").then((m) => m.DataHunterOverlay), { ssr: false });
 const GapPredictorOverlay = dynamic(() => import("./GapPredictorTool").then((m) => m.GapPredictorOverlay), { ssr: false });
 const ResourceOptimizerOverlay = dynamic(() => import("./ResourceOptimizerTool").then((m) => m.ResourceOptimizerOverlay), { ssr: false });
@@ -121,6 +181,11 @@ const ClimateGuardianOverlay = dynamic(() => import("./ClimateGuardianTool").the
 const AiAgentOverlay = dynamic(() => import("./AiAgentTool").then((m) => m.AiAgentOverlay), { ssr: false });
 const WifiOverlay = dynamic(() => import("./WifiTool").then((m) => m.WifiOverlay), { ssr: false });
 const GreenOverlay = dynamic(() => import("./GreenTool").then((m) => m.GreenOverlay), { ssr: false });
+const LearningSpaceOverlay = dynamic(() => import("./LearningSpaceTool").then((m) => m.LearningSpaceOverlay), { ssr: false });
+const StemOverlay = dynamic(() => import("./StemTool").then((m) => m.StemOverlay), { ssr: false });
+const SummerOverlay = dynamic(() => import("./SummerTool").then((m) => m.SummerOverlay), { ssr: false });
+const DonateOverlay = dynamic(() => import("./DonateTool").then((m) => m.DonateOverlay), { ssr: false });
+const MarketOverlay = dynamic(() => import("./MarketTool").then((m) => m.MarketOverlay), { ssr: false });
 export const MAP_TOOLS: MapTool[] = [
     {
         ...TOOL_META[0], Panel: DataHunterPanel, Overlay: DataHunterOverlay,
@@ -148,6 +213,21 @@ export const MAP_TOOLS: MapTool[] = [
     },
     {
         ...TOOL_META[8], Panel: GreenPanel, Overlay: GreenOverlay,
+    },
+    {
+        ...TOOL_META[9], Panel: LearningSpacePanel, Overlay: LearningSpaceOverlay,
+    },
+    {
+        ...TOOL_META[10], Panel: StemPanel, Overlay: StemOverlay,
+    },
+    {
+        ...TOOL_META[11], Panel: SummerPanel, Overlay: SummerOverlay,
+    },
+    {
+        ...TOOL_META[12], Panel: DonatePanel, Overlay: DonateOverlay,
+    },
+    {
+        ...TOOL_META[13], Panel: MarketPanel, Overlay: MarketOverlay,
     },
 ];
 export const MAP_TOOL_BY_ID: Record<string, MapTool> = Object.fromEntries(MAP_TOOLS.map((t) => [t.id, t]));

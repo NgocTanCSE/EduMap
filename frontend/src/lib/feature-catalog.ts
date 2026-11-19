@@ -171,7 +171,7 @@ export const FEATURES: Feature[] = [
     {
         id: "stem",
         label: "STEM Labs",
-        href: "/stem",
+        href: "/map?tool=stem",
         icon: Atom,
         description: "Đặt phòng lab, thiết bị STEM và xem lịch còn trống.",
         group: "learn",
@@ -181,7 +181,7 @@ export const FEATURES: Feature[] = [
     {
         id: "learning-spaces",
         label: "Không gian học tập",
-        href: "/learning-spaces",
+        href: "/map?tool=learning-space",
         icon: School,
         description: "So sánh phòng tự học, thư viện và không gian yên tĩnh.",
         group: "learn",
@@ -334,7 +334,7 @@ export const FEATURES: Feature[] = [
     {
         id: "summer",
         label: "Mùa hè xanh",
-        href: "/summer",
+        href: "/map?tool=summer",
         icon: Sun,
         description: "Chiến dịch hè, hoạt động tình nguyện theo mùa.",
         group: "community",
@@ -372,7 +372,7 @@ export const FEATURES: Feature[] = [
     {
         id: "marketplace",
         label: "Chợ trao đổi",
-        href: "/marketplace",
+        href: "/map?tool=market",
         icon: Store,
         description: "Mua bán, trao đổi sách và thiết bị học tập.",
         group: "market",
@@ -382,7 +382,7 @@ export const FEATURES: Feature[] = [
     {
         id: "donate",
         label: "Quyên góp",
-        href: "/donate",
+        href: "/map?tool=donate",
         icon: Wallet,
         description: "Chiến dịch gây quỹ đã kiểm chứng cho học sinh khó khăn.",
         group: "market",

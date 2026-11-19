@@ -1,13 +1,23 @@
 "use client";
 import React from "react";
-import { X, MapPin, Star, ExternalLink, Atom, Leaf, GraduationCap, Wifi, ShoppingCart, Heart } from "lucide-react";
+import { X, MapPin, Star, ExternalLink, Atom, Leaf, GraduationCap, Wifi, ShoppingCart, Heart, Navigation } from "lucide-react";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
 import type { FeaturedPin } from "@/components/map/FeaturedPinsLayer";
 interface FeaturedPinCardProps {
     pin: FeaturedPin;
     onClose: () => void;
     onGo: (href: string) => void;
+    onOpenTool?: (toolId: string) => void;
+    onRoute?: (pin: FeaturedPin) => void;
 }
+const MAP_TOOL_FOR_CATEGORY: Record<string, string> = {
+    wifi: "wifi",
+    green: "green",
+    stem: "stem",
+    summer: "summer",
+    donate: "donate",
+    market: "market",
+};
 const CATEGORY_LABELS: Record<string, string> = {
     stem: "Phòng thí nghiệm STEM",
     green: "Thử thách sống xanh",
@@ -34,7 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     market: "text-primary",
     donate: "text-red-500",
 };
-export function FeaturedPinCard({ pin, onClose, onGo }: FeaturedPinCardProps) {
+export function FeaturedPinCard({ pin, onClose, onGo, onOpenTool, onRoute }: FeaturedPinCardProps) {
     const cat = (pin.category || "default").toLowerCase();
     const CatIcon = CATEGORY_ICONS[cat] || Star;
     const catColor = CATEGORY_COLORS[cat] || "text-accent";
@@ -104,10 +114,19 @@ export function FeaturedPinCard({ pin, onClose, onGo }: FeaturedPinCardProps) {
 
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
         <BookmarkButton targetType="featured_pin" targetId={pin.id} size="sm" showLabel className="text-xs"/>
-        <button onClick={() => onGo(pin.featureLink)} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-          <ExternalLink className="w-3 h-3"/>
-          Mở trang {catLabel.toLowerCase()}
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onRoute && (<button onClick={() => onRoute(pin)} className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted/40 transition-colors">
+              <Navigation className="w-3 h-3"/>
+              Chỉ đường
+            </button>)}
+          {MAP_TOOL_FOR_CATEGORY[cat] && onOpenTool ? (<button onClick={() => onOpenTool(MAP_TOOL_FOR_CATEGORY[cat])} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+              <CatIcon className="w-3 h-3"/>
+              Xem trên bản đồ
+            </button>) : (<button onClick={() => onGo(pin.featureLink)} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+              <ExternalLink className="w-3 h-3"/>
+              Mở trang {catLabel.toLowerCase()}
+            </button>)}
+        </div>
       </div>
     </div>);
 }
