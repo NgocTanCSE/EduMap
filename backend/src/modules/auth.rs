@@ -285,7 +285,7 @@ const DB_GET_USER_BY_ID: &str = r#"
 const DB_INSERT_USER: &str = r#"
         INSERT INTO users (email, password_hash, full_name, role, status,
                            email_verified, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, 'active', false, NOW(), NOW())
+        VALUES ($1, $2, $3, $4::user_role_enum, 'active', false, NOW(), NOW())
         RETURNING id, email, full_name, role, status, two_factor_secret
     "#;
 

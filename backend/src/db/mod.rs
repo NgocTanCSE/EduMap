@@ -19,7 +19,7 @@ pub mod pool;
 
 use sqlx::query::Query;
 use sqlx::postgres::PgRow;
-use sqlx::{database::HasStatementCache, Database, Row};
+use sqlx::{database::HasStatementCache, Database, Row, ValueRef};
 
 /// `sqlx::query` equivalent that never keeps a named prepared statement.
 pub fn query<'q, DB>(sql: &'q str) -> Query<'q, DB, <DB as Database>::Arguments<'q>>
@@ -65,6 +65,15 @@ pub fn text(row: &PgRow, col: &str) -> String {
     if let Ok(v) = row.try_get::<bool, _>(col) {
         return as_text(v);
     }
+    if let Ok(raw) = row.try_get_raw(col) {
+        if !raw.is_null() {
+            if let Ok(bytes) = raw.as_bytes() {
+                if let Ok(s) = std::str::from_utf8(bytes) {
+                    return s.to_string();
+                }
+            }
+        }
+    }
     String::new()
 }
 
@@ -96,6 +105,16 @@ pub fn opt_text(row: &PgRow, col: &str) -> Option<String> {
     }
     if let Ok(v) = row.try_get::<Option<bool>, _>(col) {
         return v.map(as_text);
+    }
+    if let Ok(raw) = row.try_get_raw(col) {
+        if raw.is_null() {
+            return None;
+        }
+        if let Ok(bytes) = raw.as_bytes() {
+            if let Ok(s) = std::str::from_utf8(bytes) {
+                return Some(s.to_string());
+            }
+        }
     }
     None
 }
