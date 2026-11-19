@@ -1,9 +1,6 @@
 import uuid
 import random
 import json
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "crawlers"))
-from crawl_scope import crawl_years
 from datetime import datetime, timedelta
 
 def gen_id():
@@ -17,7 +14,6 @@ def escape(s):
 
 event_types = ['page_view', 'click_career', 'search_scholarship', 'view_ai_trends', 'mentor_booking', 'apply_internship']
 pages = ['/dashboard', '/map', '/career', '/scholarships', '/analytics/trends', '/mentor', '/internships']
-regions = ['Đồng Nai', 'TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ']
 
 sql = []
 
@@ -38,20 +34,6 @@ for i in range(1000):
     created_at = datetime.now() - timedelta(days=random.randint(0, 90), minutes=random.randint(0, 1440))
 
     sql.append(f"INSERT INTO user_events (id, user_id, event_type, metadata, created_at) VALUES ({escape(gen_id())}, {escape(uid)}, {escape(etype)}, {escape(metadata)}, {escape(created_at.strftime('%Y-%m-%d %H:%M:%S'))});")
-
-print("-- Seeding education_stats")
-metrics = [
-    ('Enrollment Rate', 92, 98),
-    ('Graduation Rate', 85, 95),
-    ('STEM Lab Usage', 40, 90),
-    ('Online Learning Adoption', 60, 95)
-]
-
-for year in crawl_years():
-    for region in regions:
-        for metric_name, min_v, max_v in metrics:
-            val = random.uniform(min_v, max_v)
-            sql.append(f"INSERT INTO education_stats (region, province, metric_type, metric_value, year) VALUES ({escape(region)}, {escape(region)}, {escape(metric_name)}, {val}, {year});")
 
 with open('backend/src/database/migrations/seed_analytics.sql', 'w', encoding='utf-8') as f:
     f.write('\n'.join(sql))

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import MapMenu, { type MapMenuItem } from "@/components/map/MapMenu";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, Heart, ShoppingCart, } from "lucide-react";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, AlertCircle, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Wifi, Atom, Globe, Leaf, Coffee, Star, Mic, MicOff, Navigation, Home as HomeIcon, Heart, ShoppingCart, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -134,19 +134,36 @@ function AiPanel({ open, onClose, analysis, loading }: {
             <div className="h-3 bg-muted rounded animate-pulse w-5/6"/>
             <div className="h-3 bg-muted rounded animate-pulse w-4/6"/>
           </div>) : analysis ? (<>
-            <div className="flex items-center gap-2">
-              <ThermometerSun className="w-5 h-5 text-primary"/>
-              <span className="text-sm font-medium">
-                Mật độ hoạt động: <b className="text-foreground">{analysis.density_score}</b>
-              </span>
-            </div>
+            {analysis.density_score !== null && analysis.density_score !== undefined && (<div className="flex items-center gap-2">
+                <ThermometerSun className="w-5 h-5 text-primary"/>
+                <span className="text-sm font-medium">
+                  Mật độ: <b className="text-foreground">{analysis.density_score}</b> địa điểm/km²
+                </span>
+              </div>)}
+            {analysis.stats?.total !== undefined && (<div className="flex flex-wrap gap-1.5 text-[11px]">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                  {analysis.stats.total} địa điểm trong dữ liệu
+                </span>
+                {analysis.stats.density_per_km2 !== null && analysis.stats.density_per_km2 !== undefined && (<span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                    {analysis.stats.density_per_km2} điểm/km²
+                  </span>)}
+                {Object.entries(analysis.stats.by_category || {}).slice(0, 5).map(([name, count]) => (<span key={name} className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                    {name}: {String(count)}
+                  </span>))}
+              </div>)}
+            {analysis.degraded && (<div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                <AlertCircle className="w-3 h-3 mt-0.5 shrink-0"/>
+                <span>
+                  {analysis.reason || "Dữ liệu còn mỏng — chỉ hiển thị số liệu đếm được, không suy diễn thêm."}
+                </span>
+              </div>)}
             {analysis.summary && (<p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>)}
             {analysis.recommendations && analysis.recommendations.length > 0 && (<div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Gợi ý xung quanh bạn</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Ghi nhận từ dữ liệu</p>
                 {analysis.recommendations.map((r: any, i: number) => (<div key={i} className="text-sm text-muted-foreground/70">• {r}</div>))}
               </div>)}
           </>) : (<p className="text-sm text-muted-foreground/60">
-            Nhấn "Phân tích AI" để nhận gợi ý địa điểm học tập quanh Biên Hòa.
+            Nhấn "Phân tích AI" để xem số liệu đếm được trong khu vực đang xem.
           </p>)}
       </div>
     </div>);
@@ -438,24 +455,37 @@ export default function MapPage() {
         setGeoJsonData(null);
         try {
             const accessToken = authService.getAccessToken();
+            const bbox = viewport
+                ? {
+                    min_lat: viewport.minLat,
+                    max_lat: viewport.maxLat,
+                    min_lng: viewport.minLng,
+                    max_lng: viewport.maxLng,
+                }
+                : {};
             const res = await fetchWithRetry("/api/map/ai-analysis", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
                 },
-                body: JSON.stringify({ query: "Biên Hòa" }),
+                body: JSON.stringify({ query: "Khu vực đang xem", ...bbox }),
             });
             if (!res.ok)
                 throw new Error(`AI analysis failed: ${res.status}`);
             const json = await res.json();
             const data = unwrapApiResponse<any>(json);
+            const analysis = data?.ai_analysis || data || {};
             setAiAnalysis({
-                density_score: data.density_score,
-                summary: data.summary,
-                recommendations: data.recommendations || [],
+                density_score: analysis.density_score ?? null,
+                summary: analysis.summary,
+                recommendations: analysis.recommendations || [],
+                degraded: !!data?.degraded,
+                reason: data?.reason || null,
+                stats: data?.stats || null,
             });
-            setGeoJsonData(data.geojson && data.geojson.type === "FeatureCollection" ? data.geojson : null);
+            const hubs = data?.hubs;
+            setGeoJsonData(hubs && hubs.type === "FeatureCollection" ? hubs : null);
         }
         catch (err) {
             logger.error("AI analysis error", err);
@@ -464,7 +494,7 @@ export default function MapPage() {
         finally {
             setAnalyzing(false);
         }
-    }, []);
+    }, [viewport]);
     const startVoiceSearch = useCallback(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognition) {

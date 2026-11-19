@@ -79,6 +79,8 @@ def search_pois_tavily(
         raw_content = r.get("raw_content", "") or r.get("content", "")
         title = clean_text(r.get("title", ""))[:255]
         url = r.get("url", "")
+        if not url.startswith("http"):
+            continue
 
         blob = clean_text(raw_content) or clean_text(title)
         lat, lng = extract_coords(blob)
@@ -88,8 +90,8 @@ def search_pois_tavily(
         name = title if title else None
         if not name or len(name) < 3:
             name, _, _ = _extract_name_and_coords(blob)
-        if not name:
-            name = f"{category} tại {lat:.4f},{lng:.4f}"
+        if not name or len(name) < 3:
+            continue
 
         key = (name.lower(), round(lat, 6), round(lng, 6))
         if key in seen:

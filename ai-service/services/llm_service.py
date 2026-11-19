@@ -1473,32 +1473,45 @@ class LLMService:
             print(f"Error in generate_learning_path: {e}")
             return self._learning_path_fallback(data, str(e))
 
-    async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None) -> dict:
+    async def analyze_geo_density(self, data: GeoDensityAnalysisRequest, hubs: list = None, stats: dict = None) -> dict:
         """Analyze education density. Falls back to a template analysis when all providers are down."""
         hubs = hubs or []
         try:
             if not self.is_ready:
                 raise RuntimeError("AI Service chưa sẵn sàng.")
+            stats = stats or {}
+            by_category = stats.get("by_category") or {}
+            point_count = stats.get("total", len(getattr(data, "points", []) or []))
             prompt = f"""
-            Phân tích mật độ giáo dục tại {data.city}.
-            Các cụm giáo dục (Hubs) được phát hiện: {json.dumps(hubs)}.
-            Tổng số điểm: {len(data.points)}.
+            Phân tích mật độ giáo dục tại {data.city}. CHỈ được dùng đúng các số liệu sau:
+            - Tổng số địa điểm trong dữ liệu: {point_count}
+            - Phân bố theo loại: {json.dumps(by_category, ensure_ascii=False)}
+            - Diện tích vùng dữ liệu: {stats.get('area_km2')} km²
+            - Mật độ: {stats.get('density_per_km2')} địa điểm/km²
+            - Các cụm giáo dục (Hubs) phát hiện được: {json.dumps(hubs, ensure_ascii=False, default=str)}
+
+            QUY TẮC BẮT BUỘC:
+            - Không suy đoán, không bịa thêm số liệu, tên trường, tên địa phương hay thống kê ngoài dữ liệu trên.
+            - Nếu dữ liệu còn mỏng, phải nói rõ "dữ liệu còn mỏng" thay vì đưa kết luận chắc chắn.
+            - Mỗi nhận xét phải gắn với một số liệu có trong dữ liệu.
 
             Hãy đưa ra:
             1. Nhận xét về sự phân bổ.
             2. Đánh giá mức độ thuận tiện cho sinh viên.
-            3. Đề xuất khu vực cần đầu tư thêm.
+            3. Đề xuất khu vực cần đầu tư thêm (chỉ dựa trên dữ liệu đã cho).
 
             Trả về JSON: {{summary, density_score, recommendations: []}}
             """
-            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.3, max_tokens=1024, top_p=0.8)
+            response = await asyncio.to_thread(self._generate_text_with_fallback, prompt, temperature=0.2, max_tokens=1024, top_p=0.8)
             result = self._extract_json(response)
             if result is None:
                 raise RuntimeError("AI trả về JSON không hợp lệ cho analyze_geo_density.")
+            if not result.get("density_score"):
+                result["density_score"] = stats.get("density_per_km2")
             return result
         except Exception as e:
             print(f"Error in analyze_geo_density: {e}")
-            return self._geo_analysis_fallback(data, hubs, str(e))
+            return self._geo_analysis_fallback(data, hubs, str(e), stats)
 
     async def summarize_material(self, data: MaterialSummaryRequest) -> dict:
         """Summarize learning material. Falls back to a template summary when all providers are down."""
@@ -1565,6 +1578,9 @@ class LLMService:
                 f"đánh giá {_fmt(criteria.get('rating'))}, wifi {_fmt(criteria.get('wifi'))}, "
                 f"yên tĩnh {_fmt(criteria.get('quietness'))}, mở cửa {_fmt(criteria.get('open_now'))}. "
                 f"Người dùng ưu tiên: {json.dumps(preferences, default=str, ensure_ascii=False)}. "
+                f"QUY TẮC: chỉ diễn đạt lại đúng các thuộc tính trên, không thêm địa chỉ, "
+                f"tiện ích, số liệu hay chi tiết nào không có trong dữ liệu; "
+                f"nếu thiếu thông tin thì nói là chưa có dữ liệu. "
                 f"Trả về JSON: {{explanation: \"...\"}}"
             )
 
@@ -2299,7 +2315,7 @@ Trả về **mảng JSON** sau:
         scored.sort(key=lambda x: x.get("match_score", 0), reverse=True)
         return scored[:5]
 
-    def _geo_analysis_fallback(self, data: "GeoDensityAnalysisRequest", hubs: list, err: str = "") -> dict:
+    def _geo_analysis_fallback(self, data: "GeoDensityAnalysisRequest", hubs: list, err: str = "", stats: dict = None) -> dict:
         """Template-based geo analysis when all LLM providers are down.
 
         ``hubs`` may arrive as a GeoJSON ``FeatureCollection`` (the new shape
@@ -2311,14 +2327,27 @@ Trả về **mảng JSON** sau:
             hub_count = len(hubs.get("features", []))
         else:
             hub_count = len(hubs or [])
-        point_count = len(getattr(data, "points", []) or [])
+        stats = stats or {}
+        point_count = stats.get("total", len(getattr(data, "points", []) or []))
+        by_category = stats.get("by_category") or {}
+        top = sorted(by_category.items(), key=lambda kv: kv[1], reverse=True)[:4]
+        detail = ", ".join(f"{name}: {count}" for name, count in top)
+        density = stats.get("density_per_km2")
+
+        summary = (
+            f"Dữ liệu hiện có cho {city}: {point_count} địa điểm"
+            + (f" ({detail})" if detail else "")
+            + f", {hub_count} cụm."
+            + (f" Mật độ {density} địa điểm/km²." if density is not None else "")
+            + " Mô hình ngôn ngữ không khả dụng nên chỉ hiển thị số liệu đếm được."
+        )
+
+        recommendations = [f"Đã có {count} địa điểm loại {name}." for name, count in top if count > 0]
+
         return {
-            "summary": f"Phân tích dựa trên dữ liệu thống kê tĩnh cho {city}: {hub_count} cụm giáo dục, {point_count} điểm.",
-            "density_score": round(hub_count / max(point_count, 1) * 100, 1) if point_count else 50.0,
-            "recommendations": [
-                "Xem xét mở thêm cơ sở giáo dục ở khu vực chưa đủ.",
-                "Tăng cường kết nối giữa các cụm giáo dục hiện có.",
-            ],
+            "summary": summary,
+            "density_score": density,
+            "recommendations": recommendations,
             "_degraded": True,
             "_reason": f"AI unavailable -- template fallback ({err[:140]})",
         }

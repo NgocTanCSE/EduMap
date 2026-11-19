@@ -182,6 +182,14 @@ pub struct CreatePoiForm {
 pub struct AiAnalysisForm {
     pub query: String,
     pub context: Option<serde_json::Value>,
+    #[serde(alias = "minLat")]
+    pub min_lat: Option<f64>,
+    #[serde(alias = "maxLat")]
+    pub max_lat: Option<f64>,
+    #[serde(alias = "minLng")]
+    pub min_lng: Option<f64>,
+    #[serde(alias = "maxLng")]
+    pub max_lng: Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -478,6 +486,13 @@ async fn list_pois(
             }
         }
     }
+
+    // Drop synthetic rows produced by the old Tavily coordinate-regex path
+    // (names like "market tại 10.9300,106.8300" or "AI trả lời: ...").
+    rows.retain(|row| {
+        let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        !is_synthetic_poi_name(name)
+    });
 
     // Server-side dedupe (merging near-duplicate POIs).
     let unique = deduplicate_pois(rows);
@@ -1043,7 +1058,7 @@ pub async fn traffic_segments(
 /// `POST /map/ai-analysis` — the geo-density analysis via the ai-service
 /// (`/api/ai/geo/analyze`).
 pub async fn ai_analysis(
-    State(_pool): State<DbPool>,
+    State(pool): State<DbPool>,
     user: Option<Extension<AuthUser>>,
     Json(form): Json<AiAnalysisForm>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
@@ -1052,11 +1067,56 @@ pub async fn ai_analysis(
         return Err(AppError::BadRequest("Query string is required for AI analysis".to_string()));
     }
 
+    let has_bounds = form.min_lat.is_some()
+        || form.max_lat.is_some()
+        || form.min_lng.is_some()
+        || form.max_lng.is_some();
+
+    let items = if has_bounds {
+        let bounds = BaylonBounds {
+            min_lat: form.min_lat,
+            max_lat: form.max_lat,
+            min_lng: form.min_lng,
+            max_lng: form.max_lng,
+        };
+        let body = list_pois(pool.clone(), None, bounds).await?;
+        body.0
+            .data
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        list_all_pois(pool.clone()).await
+    };
+
+    let points: Vec<serde_json::Value> = items
+        .iter()
+        .filter_map(|p| {
+            let lat = p.get("lat").and_then(|v| v.as_f64())?;
+            let lng = p.get("lng").and_then(|v| v.as_f64())?;
+            if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lng) {
+                return None;
+            }
+            if lat == 0.0 && lng == 0.0 {
+                return None;
+            }
+            Some(serde_json::json!({
+                "name": p.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                "category": p.get("category").cloned().unwrap_or(serde_json::Value::Null),
+                "lat": lat,
+                "lng": lng,
+            }))
+        })
+        .take(800)
+        .collect();
+
     let result = proxy_to_ai_service(
         "/api/ai/geo/analyze",
         serde_json::json!({
             "city": form.query,
             "context": form.context,
+            "points": points,
         }),
     ).await?;
 
@@ -1387,6 +1447,31 @@ fn lat_of_point(location: Option<&str>) -> f64 {
 
 fn lng_of_point(location: Option<&str>) -> f64 {
     parse_ewkt_point(location).map_or(0.0, |(lng, _)| lng)
+}
+
+/// True for rows the old crawler synthesised instead of extracting a real name:
+/// `"{category} tại 10.9300,106.8300"` (regex coordinate fallback) or the
+/// Tavily answer pseudo-result (`"AI trả lời: ..."`). Those pin a placeholder
+/// at possibly-wrong coordinates, so they must never reach the map.
+fn is_synthetic_poi_name(name: &str) -> bool {
+    let lowered = name.trim().to_lowercase();
+    if lowered.chars().count() < 3 {
+        return true;
+    }
+    if lowered.starts_with("ai trả lời") {
+        return true;
+    }
+    if let Some(idx) = lowered.find(" tại ") {
+        let tail = lowered[idx + 5..].trim();
+        let parts: Vec<&str> = tail.split(',').collect();
+        if parts.len() == 2
+            && parts[0].trim().parse::<f64>().is_ok()
+            && parts[1].trim().parse::<f64>().is_ok()
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Point of interest from `map_points` (geometry in `location`.)

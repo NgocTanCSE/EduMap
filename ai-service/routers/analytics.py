@@ -51,6 +51,24 @@ def _query_sqlite(sql: str) -> List[Dict[str, Any]]:
                 pass
 
 
+def _filter_sourced_stats(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep only statistics that cite a source.
+
+    The old seeding path generated ``education_stats`` with ``random.uniform``
+    and left ``source`` empty; forecasting on those rows produced confident but
+    meaningless "predictions". Unsourced rows are dropped unless the operator
+    explicitly opts in with ``EDUCATION_STATS_ALLOW_UNSOURCED=true``.
+    """
+    if os.getenv("EDUCATION_STATS_ALLOW_UNSOURCED", "false").strip().lower() == "true":
+        return rows
+    kept = []
+    for row in rows:
+        source = row.get("source") if isinstance(row, dict) else None
+        if isinstance(source, str) and source.strip():
+            kept.append(row)
+    return kept
+
+
 def _load_education_stats() -> List[Dict[str, Any]]:
     """Load education stats from PostgreSQL when configured, else from SQLite.
 
@@ -65,14 +83,14 @@ def _load_education_stats() -> List[Dict[str, Any]]:
         if db_service is not None:
             rows = db_service.get_education_stats_all() or []
             if rows:
-                return [dict(r) for r in rows]
+                return _filter_sourced_stats([dict(r) for r in rows])
     except Exception as e:
         logger.error(f"DB error fetching education stats: {e}")
 
-    return _query_sqlite(
+    return _filter_sourced_stats(_query_sqlite(
         "SELECT region, province, district, metric_type, metric_value, year, source "
         "FROM education_stats ORDER BY year ASC"
-    )
+    ))
 
 
 def _load_user_events(limit: int = 500) -> List[Dict[str, Any]]:
