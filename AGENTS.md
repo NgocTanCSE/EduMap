@@ -1910,3 +1910,28 @@ Rules going forward:
 - Read rows only through the `db::*` readers, never `row.get::<T, _>`.
 - Treat ids as TEXT in predicates/joins (`::text`), so the code is agnostic to
   whether the live Supabase column is `uuid` or `text`.
+
+### 24.1 Follow-up fixes (same deploy chain)
+
+- **Auth on public routes.** `AuthLayer` used to skip token decoding for any
+  path in `PUBLIC_PATHS`, so handlers that need an identity (dashboard,
+  notifications, bookmarks, business, certificates) always saw `None` → 401.
+  It now decodes the bearer token on public paths too, ignores a bad token and
+  attaches a valid `AuthUser`.
+- **Enum columns.** `users.role` is `user_role_enum`; inserting a text bind
+  fails. `DB_INSERT_USER` casts `$4::user_role_enum`, and the user SELECTs /
+  RETURNING cast `role::text`, `status::text` so `sqlx::FromRow` (which uses
+  strict decoding) works.
+- **`sqlx::FromRow` rows must be text already.** Any struct-based query has to
+  cast uuid/enum/timestamp columns to text (`id::text AS id`,
+  `CAST(created_at AS TEXT)`), because those readers are not tolerant. Fixed
+  for `users`, `user_preferences`, `chat_histories`.
+- **`text()`/`opt_text()` gained a raw-bytes fallback** so Postgres enum labels
+  decode to their text value.
+- **`UNION` type mismatches**: cast every branch's timestamp to text
+  (`a.created_at::text`) — done for `/api/dashboard/history`.
+- **Correlated subqueries** with mixed id types: cast both sides
+  (`p.business_profile_id::text = bp.id::text`) — done for `/api/business`.
+
+Verified on the host (2026-11-19): 25 public endpoints and 8 authenticated
+endpoints all return 200, including `/api/library/*` (the original report).
