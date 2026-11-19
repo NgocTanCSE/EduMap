@@ -47,7 +47,7 @@ const DB_SELECT_POIS_BY_TYPE_ID: &str = r#"
 const DB_SELECT_LOCATIONS_BY_BBOX: &str = r#"
     SELECT l.id, l.name, l.description, l.category_id, c.name AS category_name,
            l.address, l.city, CAST(l.rating_avg AS DOUBLE PRECISION) AS rating_avg,
-           l.rating_count, l.status, l.is_verified, l.coordinates,
+           l.rating_count, l.status, l.is_verified, ST_AsText(l.coordinates) AS coordinates,
            l.created_at
     FROM locations l
     LEFT JOIN location_categories c ON c.id::text = l.category_id::text
@@ -1291,16 +1291,15 @@ fn levenshtein_simple(a: &str, b: &str) -> usize {
     for j in 0..=m {
         matrix[0][j] = j;
     }
-    for j in 1..m + 1 {
-        for i in 1..n + 1 {
-            if a_bytes[i - 1] == b_bytes[j - 1] {
-                matrix[j][i] = matrix[j - 1][i - 1];
-            } else {
-                matrix[j][i] = 1 + matrix[j - 1][i].min(matrix[j][i - 1]).min(matrix[j - 1][i - 1]);
-            }
+    for i in 1..=n {
+        for j in 1..=m {
+            let cost = if a_bytes[i - 1] == b_bytes[j - 1] { 0 } else { 1 };
+            matrix[i][j] = (matrix[i - 1][j] + 1)
+                .min(matrix[i][j - 1] + 1)
+                .min(matrix[i - 1][j - 1] + cost);
         }
     }
-    matrix[m][n]
+    matrix[n][m]
 }
 
 /// Routing result (OSRM/ORS multi-provider, the haversine straight line is
