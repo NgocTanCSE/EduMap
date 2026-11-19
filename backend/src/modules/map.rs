@@ -472,7 +472,9 @@ async fn list_pois(
             .await
         {
             for row in result {
-                rows.push(location_to_poi_row(&row));
+                if let Some(poi) = location_to_poi_row(&row) {
+                    rows.push(poi);
+                }
             }
         }
     }
@@ -1247,28 +1249,44 @@ fn map_point_alias(category: &Option<String>) -> String {
 
 /// Server-side POI dedupe (mirrors the old `deduplicatePois`).
 fn deduplicate_pois(rows: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    // Spatial bucket (0.01° ≈ 1.1 km) so each row is only compared against its
+    // own cell + the 8 neighbours. The naive all-pairs loop is O(n²) and made
+    // `/map/pois` take ~20 s on the 3000+ crawled locations.
     let mut unique: Vec<serde_json::Value> = Vec::new();
+    let mut buckets: std::collections::HashMap<(i64, i64), Vec<usize>> =
+        std::collections::HashMap::new();
+
     for row in rows {
         let lat = row.get("lat").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let lng = row.get("lng").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+        let cx = (lng / 0.01).floor() as i64;
+        let cy = (lat / 0.01).floor() as i64;
+
         let mut is_dup = false;
-        for existing in unique.iter() {
-            let (ex_lat, ex_lng) = (
-                existing.get("lat").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                existing.get("lng").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            );
-            let (ex_name, _ex_key) = (
-                existing.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                format!("{}{}", (ex_lat / 0.01).floor().to_string(), (ex_lng / 0.01).floor().to_string()),
-            );
-            let dist = haversine_latlng(ex_lat, ex_lng, lat, lng);
-            if dist < 200.0 && name_similarity_simple(&ex_name, &name) >= 0.8 {
-                is_dup = true;
-                break;
+        'outer: for dy in -1..=1 {
+            for dx in -1..=1 {
+                let key = (cx + dx, cy + dy);
+                if let Some(indices) = buckets.get(&key) {
+                    for &idx in indices {
+                        let existing = &unique[idx];
+                        let ex_lat = existing.get("lat").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let ex_lng = existing.get("lng").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let ex_name = existing.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        if haversine_latlng(ex_lat, ex_lng, lat, lng) < 200.0
+                            && name_similarity_simple(ex_name, &name) >= 0.8
+                        {
+                            is_dup = true;
+                            break 'outer;
+                        }
+                    }
+                }
             }
         }
+
         if !is_dup {
+            buckets.entry((cx, cy)).or_default().push(unique.len());
             unique.push(row);
         }
     }
@@ -1389,22 +1407,52 @@ fn map_point_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
     })
 }
 
-/// Point of interest from `locations` (geometry in `coordinates`.)
-fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> serde_json::Value {
+/// Point of interest from `locations` (geometry in `coordinates`.) Returns
+/// `None` when the row falls outside the map taxonomy (the crawled OSM feed
+/// also carries hotels, bars, hairdressers, ... which are not study places).
+fn location_to_poi_row(row: &sqlx::postgres::PgRow) -> Option<serde_json::Value> {
     let location = crate::db::opt_text(&row, "coordinates");
-    serde_json::json!({
+    let description = crate::db::opt_text(&row, "description");
+    let category = crate::db::opt_text(&row, "category_name")
+        .or_else(|| os_location_category(description.as_deref()))?;
+    Some(serde_json::json!({
         "id": crate::db::text(&row, "id"),
         "name": crate::db::text(&row, "name"),
-        "category": crate::db::opt_text(&row, "category_name").unwrap_or_else(|| "other".to_string()),
+        "category": category,
         "lat": lat_of_point(location.as_deref()),
         "lng": lng_of_point(location.as_deref()),
         "address": crate::db::opt_text(&row, "address"),
-        "description": crate::db::opt_text(&row, "description"),
+        "description": description,
         "rating_avg": crate::db::opt_num(&row, "rating_avg"),
         "rating_count": crate::db::opt_int(&row, "rating_count"),
         "status": crate::db::opt_text(&row, "status"),
         "verified": crate::db::opt_flag(&row, "is_verified"),
-    })
+    }))
+}
+
+/// The crawled `locations.description` column stores the raw OSM type
+/// (`school`, `university`, `cafe`, `wifi_park`, `hotel`, ...). Map it onto
+/// the app's map taxonomy; `None` = not a place the map should render.
+fn os_location_category(description: Option<&str>) -> Option<String> {
+    let raw = description?.trim().to_lowercase();
+    if raw.is_empty() {
+        return None;
+    }
+    let mapped = match raw.as_str() {
+        "school" | "language_school" | "driving_school" | "college" | "kindergarten" => "school",
+        "university" => "university",
+        "library" => "library",
+        "bookstore" | "books" => "bookstore",
+        "cafe" | "coffee" => "cafe",
+        "restaurant" | "fast_food" | "food_court" => "restaurant",
+        "park" | "garden" | "playground" => "green",
+        "marketplace" | "supermarket" | "market" => "market",
+        "convenience" | "mall" => "convenience",
+        "lab" | "laboratory" => "lab",
+        _ if raw.starts_with("wifi") => "wifi",
+        _ => return None,
+    };
+    Some(mapped.to_string())
 }
 
 /// `coordinates;lng,lat;...` — the distance-table coordinate list

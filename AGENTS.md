@@ -2005,3 +2005,31 @@ Verified on the host after deploy: `/api/map/pois` with a wide bbox → 200 with
 items; `/api/map/locations`, `/api/map/featured-pins`, `/api/map/stats`,
 `/api/map/categories` → 200; through the Vercel BFF `/api/map/pois` → 200 with
 1222 items.
+
+### 24.3 Map taxonomy filter + O(n²) dedupe (2026-11-19)
+
+The crawled seed (`seed_crawled_data.sql`) inserts **3192** `locations` rows whose
+`description` is the raw OSM type — schools (1821) and universities (155), but
+also hotels (108), bars, hairdressers, bakeries. `location_to_poi_row` only read
+the (mostly NULL) joined `category_name`, so 3059 rows came back as `other` and
+`/api/map/pois` (and resource-optimisation demand points) were dominated by
+HCMC hotels.
+
+- `os_location_category(description)` now maps the OSM type onto the app's map
+  taxonomy (`school|language_school|driving_school|college|kindergarten` →
+  `school`, `university`, `library`, `bookstore`, `cafe`,
+  `restaurant|fast_food|food_court`, `park|garden|playground` → `green`,
+  `marketplace|supermarket`, `convenience|mall`, `lab`, `wifi*` → `wifi`).
+  `location_to_poi_row` returns `None` for anything outside the taxonomy
+  (hotel/bar/hairdresser/…), so those rows are simply not rendered as POIs.
+  **No DB row is deleted** — this is a query-time presentation filter, and the
+  rows stay reachable through `/api/wifi/locations`, `/api/share/*`, etc.
+- `deduplicate_pois` was all-pairs O(n²) (~4.8 M comparisons on 3105 rows →
+  `/api/map/locations` answered in **~20 s**). It now buckets rows in 0.01°
+  (~1.1 km) cells and only compares a row against its own cell + the 8
+  neighbours; the 200 m duplicate radius is far smaller than one cell, so the
+  result is unchanged.
+
+Verify after deploy: `/api/map/locations` should be fast (sub-second-ish) and no
+longer contain `category: "other"`; `/api/map/pois` keeps the education /
+study-space taxonomy only.
