@@ -58,11 +58,14 @@ services:
       - key: DB_DATABASE
         value: postgres
 
-      # --- Service-to-service (mạng nội bộ Render) ---
-      # Rust: AI_SERVICE_URL (FastAPI 8000), ROUTING_SERVICE_URL (OSRM/ORS)
-      # — thay thế `OSRM_URL` (NestJS cũ) bằng ROUTING_SERVICE_URL (Rust).
+      # --- Service-to-service ---
+      # Web services trên gói FREE chỉ GỬI được request qua private network,
+      # KHÔNG nhận được (Render docs: "Free web services can send private
+      # network requests, but they can't receive them"). Vì vậy
+      # AI_SERVICE_URL phải dùng public URL của edumap-ai, không dùng
+      # `http://edumap-ai:8000` (sẽ timeout 12s rồi 500/502).
       - key: AI_SERVICE_URL
-        value: http://edumap-ai:8000
+        value: https://edumap-ai-0xlt.onrender.com
       - key: ROUTING_SERVICE_URL
         value: https://router.project-osrm.org
 
