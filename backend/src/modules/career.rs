@@ -58,15 +58,15 @@ const DB_SELECT_JOBS: &str = r#"
 "#;
 
 const DB_SELECT_JOB_BY_ID: &str = r#"
-    SELECT id, title, description, company_name, location, job_type, salary_range,
-           CAST(required_skills AS TEXT) AS required_skills,
-           experience_level, CAST(application_deadline AS TEXT) AS application_deadline,
-           views, status, posted_by_user_id, career_path_id,
-           CAST(created_at AS TEXT) AS created_at, CAST(updated_at AS TEXT) AS updated_at,
+    SELECT j.id, j.title, j.description, j.company_name, j.location, j.job_type,
+           j.salary_range, CAST(j.required_skills AS TEXT) AS required_skills,
+           j.experience_level, CAST(j.application_deadline AS TEXT) AS application_deadline,
+           j.views, j.status, j.posted_by_user_id, j.career_path_id,
+           CAST(j.created_at AS TEXT) AS created_at, CAST(j.updated_at AS TEXT) AS updated_at,
            u.full_name AS posted_by_name
     FROM jobs j
     LEFT JOIN users u ON u.id::text = j.posted_by_user_id::text
-    WHERE id::text = $1
+    WHERE j.id::text = $1
 "#;
 
 const DB_SELECT_PATHS: &str = r#"
