@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
         const bres = await fetch(burl.toString(), { headers, next: { revalidate: 0 } });
         if (bres.ok) {
             const bjson = await bres.json();
-            const items = unwrapApiResponse<any[]>(bjson).filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).slice(0, 1000);
+            const payload = unwrapApiResponse<any>(bjson);
+            const list = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
+            const items = list.filter((p: any) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))).slice(0, 5000);
             if (items.length > 0)
                 return NextResponse.json({ data: items });
         }
