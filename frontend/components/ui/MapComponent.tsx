@@ -5,7 +5,8 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { MapPin, Flame, Search, X, ArrowRightLeft, RotateCcw, AlertTriangle, Clock, MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Save, History, Trash2, type LucideIcon } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { MapPin as MapPinIcon, Navigation, Wifi, ParkingCircle, Bath, Accessibility, BookOpen, Atom, Leaf, Coffee, GraduationCap, Globe, ShoppingCart, Store, Clock, type LucideIcon } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import HeatmapLayer from '@/components/map/HeatmapLayer';
 import { RoutePolyline } from '@/components/map/RoutePolyline';
@@ -279,8 +280,11 @@ interface InteractiveMapProps {
     overlay?: React.ReactNode;
     activeToolId?: string | null;
     visiblePinCategories?: Set<string>;
+    menuSlot?: HTMLElement | null;
+    menuTab?: string | null;
+    onDirectionsOpen?: () => void;
 }
-export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, }: InteractiveMapProps) {
+export default function InteractiveMap({ points = [], selectedPoint = null, onSelectPoint = () => { }, onMapClick = () => { }, showHeatmap = false, onBoundsChange, apiBaseUrl = '/api', nearbyPoints = [], geoJsonData = null, featuredPins = [], onFeaturedPinClick, overlay = null, activeToolId = null, visiblePinCategories, menuSlot = null, menuTab = null, onDirectionsOpen, }: InteractiveMapProps) {
     const defaultCenter: [
         number,
         number
@@ -724,6 +728,7 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         if (typeof window === 'undefined')
             return;
         const handler = () => {
+            onDirectionsOpen?.();
             setSafeRouteMode(true);
             if (!origin || !destination) {
                 setRoutingMode('setting_origin');
@@ -731,13 +736,14 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         };
         window.addEventListener('toggleSafeRoute', handler);
         return () => window.removeEventListener('toggleSafeRoute', handler);
-    }, [origin, destination]);
+    }, [origin, destination, onDirectionsOpen]);
     const routeToPoi = useCallback((p: any) => {
         const lat = Number(p.lat);
         const lng = Number(p.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng))
             return;
         const dest = { lat, lng };
+        onDirectionsOpen?.();
         const start = (o: {
             lat: number;
             lng: number;
@@ -753,13 +759,19 @@ export default function InteractiveMap({ points = [], selectedPoint = null, onSe
         else {
             start({ lat: defaultCenter[0], lng: defaultCenter[1] });
         }
-    }, [fetchRoute, defaultCenter]);
+    }, [fetchRoute, defaultCenter, onDirectionsOpen]);
+    const routingActive = routingMode !== 'idle' || !!origin || !!destination || !!routeGeometry;
+    const routingVisible = routingActive || menuTab === 'directions';
+    const standaloneMode = !menuSlot && menuTab === null;
+    const routingPanel = (<RoutingPanel embedded={!!menuSlot} onGetRoute={fetchRoute} onGetSafeRoute={fetchSafeRoute} onSelectSafeRoute={handleSelectSafeRoute} onClearRoute={() => { clearRoute(); setSafeRouteMode(false); setSelectedSafeRoute(null); }} routeInfo={routeInfo} safeRoutes={safeRoutes} routeExplanation={routeExplanation} isLoading={isLoadingRoute} isSafeRouteLoading={isSafeRouteLoading} origin={origin} destination={destination} onSetOrigin={setOriginPoint} onSetDestination={setDestinationPoint} onSwap={swapLocations} onSaveRoute={saveCurrentRoute} savedRoutes={savedRoutes} onLoadRoute={loadRoute} onDeleteRoute={deleteSavedRoute} defaultAvoidFlood={safeRouteMode} defaultAvoidTraffic={safeRouteMode} onSelectOnMap={(mode) => setRoutingMode(mode)}/>);
     return (<div className="w-full h-full relative">
       
-      {routingMode !== 'idle' || origin || destination || routeGeometry ? (<RoutingPanel onGetRoute={fetchRoute} onGetSafeRoute={fetchSafeRoute} onSelectSafeRoute={handleSelectSafeRoute} onClearRoute={() => { clearRoute(); setSafeRouteMode(false); setSelectedSafeRoute(null); }} routeInfo={routeInfo} safeRoutes={safeRoutes} routeExplanation={routeExplanation} isLoading={isLoadingRoute} isSafeRouteLoading={isSafeRouteLoading} origin={origin} destination={destination} onSetOrigin={setOriginPoint} onSetDestination={setDestinationPoint} onSwap={swapLocations} onSaveRoute={saveCurrentRoute} savedRoutes={savedRoutes} onLoadRoute={loadRoute} onDeleteRoute={deleteSavedRoute} defaultAvoidFlood={safeRouteMode} defaultAvoidTraffic={safeRouteMode} onSelectOnMap={(mode) => setRoutingMode(mode)}/>) : (<button onClick={() => startRouting('setting_origin')} className="fixed top-4 right-4 z-40 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg hover:bg-primary/80 transition-colors flex items-center gap-2">
+      {menuSlot && routingVisible ? createPortal(routingPanel, menuSlot) : null}
+      {standaloneMode && routingVisible ? routingPanel : null}
+      {standaloneMode && !routingVisible ? (<button onClick={() => startRouting('setting_origin')} className="fixed top-4 right-4 z-40 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg hover:bg-primary/80 transition-colors flex items-center gap-2">
           <Navigation className="w-4 h-4"/>
           Chỉ đường
-        </button>)}
+        </button>) : null}
 
       
       <MapContainer center={defaultCenter} zoom={13} zoomControl={false} style={{ height: '100%', width: '100%' }} className="z-0">

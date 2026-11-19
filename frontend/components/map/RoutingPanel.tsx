@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, MapPin, X, ArrowRightLeft, AlertTriangle, Clock, MapPin as MapPinIcon, Shield, Car, Info, Navigation, Save, History, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from "@/src/lib/toast";
 import { Input } from '@/components/ui/input';
@@ -152,7 +152,9 @@ interface RoutingPanelProps {
     defaultAvoidFlood?: boolean;
     defaultAvoidTraffic?: boolean;
 }
-export default function RoutingPanel({ onGetRoute, onGetSafeRoute, onSelectSafeRoute, onClearRoute, routeInfo, safeRoutes, routeExplanation, isLoading, isSafeRouteLoading, origin, destination, onSetOrigin, onSetDestination, onSwap, onSaveRoute, savedRoutes = [], onLoadRoute, onDeleteRoute, defaultAvoidFlood = false, defaultAvoidTraffic = false, onSelectOnMap, }: RoutingPanelProps) {
+export default function RoutingPanel({ embedded = false, onGetRoute, onGetSafeRoute, onSelectSafeRoute, onClearRoute, routeInfo, safeRoutes, routeExplanation, isLoading, isSafeRouteLoading, origin, destination, onSetOrigin, onSetDestination, onSwap, onSaveRoute, savedRoutes = [], onLoadRoute, onDeleteRoute, defaultAvoidFlood = false, defaultAvoidTraffic = false, onSelectOnMap, }: RoutingPanelProps & {
+    embedded?: boolean;
+}) {
     const [originInput, setOriginInput] = useState('');
     const [destInput, setDestInput] = useState('');
     const [avoidFlood, setAvoidFlood] = useState(defaultAvoidFlood);
@@ -257,18 +259,15 @@ export default function RoutingPanel({ onGetRoute, onGetSafeRoute, onSelectSafeR
             onGetRoute(origin, destination, { avoidFlood, avoidTraffic });
         }
     };
-    return (<div className="fixed top-[56px] lg:top-4 right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col" style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}>
-      <div className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group" onMouseDown={onResizeMouseDown} title="Kéo để thay đổi độ rộng">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors"/>
-      </div>
-      <div className="flex items-center justify-between mb-4">
+    const content = (<>
+      {!embedded && (<div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
           <Navigation className="w-5 h-5 text-primary"/> Chỉ đường
         </h3>
         <button onClick={onClearRoute} className="text-muted-foreground/65 hover:text-muted-foreground p-1 rounded-lg hover:bg-muted/30 transition-colors">
           <X className="w-5 h-5"/>
         </button>
-      </div>
+      </div>)}
 
       <div className="space-y-3">
         <div className="relative">
@@ -561,5 +560,17 @@ export default function RoutingPanel({ onGetRoute, onGetSafeRoute, onSelectSafeR
               </div>)}
           </div>)}
       </div>
+
+      {embedded && (<button onClick={onClearRoute} className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+          Xóa lộ trình
+        </button>)}
+    </>);
+    if (embedded)
+        return <div className="flex h-full flex-col overflow-y-auto scrollbar-hide p-4">{content}</div>;
+    return (<div className="fixed top-[56px] lg:top-4 right-4 z-[50] bg-card border border-border rounded-xl shadow-xl overflow-y-auto scrollbar-hide p-4 pb-4 flex flex-col" style={{ width: panelSize.width, height: 'calc(100dvh - 120px)' }}>
+      <div className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize opacity-0 hover:opacity-100 transition-opacity group" onMouseDown={onResizeMouseDown} title="Kéo để thay đổi độ rộng">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-10 bg-muted-foreground/40 rounded group-hover:bg-muted-foreground/60 transition-colors"/>
+      </div>
+      {content}
     </div>);
 }

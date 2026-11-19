@@ -1,10 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
-import { useDraggable } from "@/src/hooks/useDraggable";
-import { useResizable } from "@/src/hooks/useResizable";
-import { SIDEBAR_EXPANDED_WIDTH, } from "@/src/lib/layout-constants";
-import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Home as HomeIcon, RefreshCw, AlertCircle, Heart, ShoppingCart, } from "lucide-react";
+import MapMenu, { type MapMenuItem } from "@/components/map/MapMenu";
+import { Search, MapPin, Map as MapIcon, X, BrainCircuit, ThermometerSun, Layers, Save, Info, Flame, Maximize, Minimize, GraduationCap, BookOpen, Users, Wifi, Atom, Globe, Leaf, Coffee, Star, Shield, Mic, MicOff, Navigation, Home as HomeIcon, RefreshCw, AlertCircle, Heart, ShoppingCart, } from "lucide-react";
 import { toast } from "@/src/lib/toast";
 import { logger } from "@/src/lib/logger";
 import { authService } from "../../src/services/auth.service";
@@ -161,12 +159,12 @@ function ToolTab({ tool, isActive, onClick, count, }: {
 }) {
     const Icon = tool.icon;
     const showCount = count && count > 0 && !isActive;
-    return (<button onClick={onClick} className={`group relative flex items-center gap-2 shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${isActive
-            ? "bg-primary/15 text-primary border border-primary/30 shadow"
-            : "text-muted-foreground hover:bg-muted/50 border border-transparent"}`} title={tool.longDescription}>
-      <Icon className={`w-4 h-4 ${isActive ? "text-primary" : "group-hover:text-foreground"}`}/>
-      <span>{tool.label}</span>
-      {showCount && (<span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[8px] font-bold text-white bg-destructive rounded-full">
+    return (<button onClick={onClick} title={tool.longDescription} className={`group relative flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left text-[11px] font-medium transition-all ${isActive
+            ? "border-primary/40 bg-primary/15 text-primary shadow-sm"
+            : "border-border/60 bg-background/40 text-muted-foreground hover:border-primary/30 hover:bg-muted/40 hover:text-foreground"}`}>
+      <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground"}`}/>
+      <span className="min-w-0 flex-1 truncate">{tool.label}</span>
+      {showCount && (<span className="flex h-4 min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[8px] font-bold text-destructive-foreground">
           {count}
         </span>)}
     </button>);
@@ -195,49 +193,23 @@ export default function MapPage() {
     const [toolResults, setToolResults] = useState<Record<string, any>>({});
     const [toolLoading, setToolLoading] = useState<Record<string, boolean>>({});
     const [toolError, setToolError] = useState<Record<string, string | null>>({});
-    const sidebarRef = useRef<HTMLDivElement>(null);
-    const mapPanelRef = useRef<HTMLDivElement>(null);
-    const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
-    const [showMapPanel, setShowMapPanel] = useState(false);
+    const menuBodyRef = useRef<HTMLDivElement>(null);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [menuTab, setMenuTab] = useState<"map" | "directions">("map");
+    const [directionsSlot, setDirectionsSlot] = useState<HTMLDivElement | null>(null);
     useEffect(() => {
-        if (typeof window === 'undefined')
-            return;
-        setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-        const onResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
+        if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+            setMenuOpen(true);
+        }
     }, []);
-    const SIDEBAR_WIDTH = windowSize.width >= 1024 ? SIDEBAR_EXPANDED_WIDTH : 16;
-    const { position: mapPanelPos, onMouseDown: onMapPanelMouseDown } = useDraggable({
-        initialPosition: { x: SIDEBAR_WIDTH + 16, y: 16 },
-        bounds: {
-            minX: SIDEBAR_WIDTH,
-            minY: 0,
-            maxX: Math.max(SIDEBAR_WIDTH, windowSize.width - 320),
-            maxY: Math.max(0, windowSize.height - 40),
-        },
-    });
-    const { size: sidebarSize, onResizeMouseDown: onSidebarResizeMouseDown } = useResizable({
-        initialSize: { width: SIDEBAR_EXPANDED_WIDTH, height: 400 },
-        minWidth: 160,
-        maxWidth: 500,
-    });
-    const { size: mapPanelSize, onResizeMouseDown: onMapPanelResizeMouseDown } = useResizable({
-        initialSize: {
-            width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 480 : 340,
-            height: 560,
-        },
-        minWidth: 280,
-        minHeight: 340,
-        maxWidth: 680,
-        maxHeight: windowSize.height - 40,
-    });
     useEffect(() => {
         if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
             const toolParam = params.get("tool");
             if (toolParam && MAP_TOOL_BY_ID[toolParam]) {
                 setActiveTool(toolParam);
+                setMenuTab("map");
+                setMenuOpen(true);
             }
         }
     }, []);
@@ -261,8 +233,17 @@ export default function MapPage() {
                 url.searchParams.set("tool", toolId);
             window.history.replaceState({}, "", url);
         }
-        sidebarRef.current?.scrollTo(0, 0);
+        menuBodyRef.current?.scrollTo(0, 0);
     };
+    const handleMenuTabChange = (tab: "map" | "directions") => {
+        setMenuTab(tab);
+        setMenuOpen(true);
+        menuBodyRef.current?.scrollTo(0, 0);
+    };
+    const openDirections = useCallback(() => {
+        setMenuTab("directions");
+        setMenuOpen(true);
+    }, []);
     const handleToolResult = useCallback((toolId: string, data: any) => {
         setToolResults((prev) => ({ ...prev, [toolId]: data }));
     }, []);
@@ -695,48 +676,68 @@ export default function MapPage() {
             user,
         } as any
         : null;
+    const menuGroups: MapMenuItem[][] = [
+        [
+            { id: "map", label: "Bản đồ", icon: MapIcon, active: menuTab === "map", onClick: () => handleMenuTabChange("map") },
+            { id: "directions", label: "Chỉ đường", icon: Navigation, active: menuTab === "directions", onClick: () => handleMenuTabChange("directions") },
+        ],
+        [
+            { id: "heatmap", label: showHeatmap ? "Tắt lớp nhiệt" : "Lớp nhiệt", icon: Flame, active: showHeatmap, onClick: () => setShowHeatmap(!showHeatmap) },
+            { id: "featured-pins", label: showFeaturedPins ? "Ẩn ghim đặc trưng" : "Hiện ghim đặc trưng", icon: Star, active: showFeaturedPins, onClick: () => setShowFeaturedPins(!showFeaturedPins) },
+            { id: "pin-legend", label: showPinLegend ? "Đóng chú giải ghim" : "Chú giải ghim", icon: Layers, active: showPinLegend, onClick: () => setShowPinLegend(!showPinLegend) },
+            { id: "ai", label: "Phân tích AI", icon: BrainCircuit, active: showAiPanel, onClick: () => {
+                    handleToolChange("home");
+                    setShowAiPanel(true);
+                    void runAiAnalysis();
+                } },
+            { id: "voice", label: isRecording ? "Dừng ghi âm" : "Tìm bằng giọng nói", icon: isRecording ? MicOff : Mic, active: isRecording, onClick: () => {
+                    if (isRecording)
+                        stopVoiceSearch();
+                    else
+                        startVoiceSearch();
+                } },
+        ],
+        [
+            { id: "safe-route", label: "Lộ trình an toàn AI", icon: Shield, onClick: () => {
+                    handleMenuTabChange("directions");
+                    window.dispatchEvent(new CustomEvent("toggleSafeRoute"));
+                } },
+            { id: "fullscreen", label: fs ? "Thoát toàn màn hình" : "Toàn màn hình", icon: fs ? Minimize : Maximize, active: fs, onClick: toggleFullscreen },
+        ],
+    ];
     if (!user)
         return null;
     return (<div className="h-[calc(100dvh-3.5rem)] w-full bg-background relative lg:h-screen overflow-hidden">
       
       <main className="absolute inset-0 z-0">
-        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin)} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories}/>
+        <InteractiveMap points={hideBase ? [] : filteredLocations} selectedPoint={selectedLocation} onSelectPoint={setSelectedLocation} onMapClick={handleMapClick} showHeatmap={showHeatmap} onBoundsChange={handleBoundsChange} apiBaseUrl="/api" nearbyPoints={nearbyPois} geoJsonData={geoJsonData} featuredPins={showFeaturedPins ? featuredPins : []} onFeaturedPinClick={(pin) => setSelectedFeaturedPin(pin)} overlay={overlayNode} activeToolId={activeTool === "home" ? null : activeTool} visiblePinCategories={visiblePinCategories} menuSlot={directionsSlot} menuTab={menuTab} onDirectionsOpen={openDirections}/>
       </main>
 
       
-      {showMapPanel && (<div ref={mapPanelRef} style={{
-                top: mapPanelPos.y,
-                left: mapPanelPos.x,
-                width: mapPanelSize.width,
-                height: mapPanelSize.height,
-            }} className="fixed z-[50] max-h-[calc(100dvh-6rem)] bg-card/95 backdrop-blur-md border border-border/80 rounded-[22px] shadow-pop overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30 cursor-move select-none" onMouseDown={onMapPanelMouseDown}>
-            <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-              <HomeIcon className="w-4 h-4 text-primary"/> Bản đồ
-            </h3>
-            <button onClick={() => setShowMapPanel(false)} className="p-1 rounded hover:bg-muted/50 text-muted-foreground">
-              <X className="w-4 h-4"/>
-            </button>
-          </div>
-          <div ref={sidebarRef} className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
-            
-            <div className="border-b border-border p-3 bg-card overflow-x-auto scrollbar-hide">
-          <div className="flex flex-nowrap gap-1.5 items-center" style={{ minWidth: 'max-content' }}>
+      <MapMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuTab === "directions" ? "Chỉ đường" : activeToolDef?.label || "Bản đồ"} groups={menuGroups}>
+        <div className="flex h-full flex-col">
+          <div className={menuTab === "map" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+            <div className="shrink-0 space-y-2 border-b border-border/70 p-3">
+          <div className="grid grid-cols-2 gap-1.5">
             <ToolTab tool={{
-                id: "home", label: "Bản đồ", longLabel: "Bản đồ chính",
+                id: "home", label: "Tổng quan", longLabel: "Bản đồ chính",
                 icon: HomeIcon, description: "Duyệt POI, tìm kiếm, phân tích AI",
                 longDescription: "Duyệt địa điểm giáo dục, tìm kiếm, phân tích AI, tìm bằng giọng nói.",
                 authRequired: false, hideBaseLayers: false, tier: "core",
                 Panel: (() => null) as any, Overlay: (() => null) as any,
             } as MapTool} isActive={activeTool === "home"} onClick={() => handleToolChange("home")}/>
-            <span className="mx-1 text-[10px] text-muted-foreground/40 select-none">·</span>
-            <span className="text-[10px] font-semibold text-muted-foreground/60 whitespace-nowrap">Cơ bản</span>
             {MAP_TOOLS.filter((t) => t.tier === "core").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
-            <span className="mx-1 text-[10px] text-muted-foreground/40 select-none">·</span>
-            <span className="text-[10px] font-semibold text-muted-foreground/60 whitespace-nowrap">Phân tích</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/50">
+            <span className="h-px flex-1 bg-border/70"/>
+            <span>Phân tích</span>
+            <span className="h-px flex-1 bg-border/70"/>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
             {MAP_TOOLS.filter((t) => t.tier === "analysis").map((tool) => (<ToolTab key={tool.id} tool={tool} isActive={activeTool === tool.id} onClick={() => handleToolChange(tool.id)} count={getResultCount(tool.id, toolResults[tool.id])}/>))}
           </div>
-        </div>
+            </div>
+            <div ref={menuBodyRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto scrollbar-hide p-4">
 
         
           {showHomeControls ? (<>
@@ -821,50 +822,14 @@ export default function MapPage() {
                   Đăng nhập →
                 </button>
               </div>) : (<activeToolDef.Panel {...toolPanelProps!}/>)) : null}
+            </div>
+          </div>
+          <div ref={setDirectionsSlot} className={menuTab === "directions" ? "flex min-h-0 flex-1 flex-col" : "hidden"}/>
         </div>
-        
-        <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-primary/20 hover:bg-primary/40 rounded-br-lg select-none" onMouseDown={onMapPanelResizeMouseDown}/>
-      </div>)}
-
-      {!showMapPanel && (<button style={{
-                left: 'calc(var(--sidebar-width, 240px) + 1rem)',
-                top: 16,
-            }} className="fixed z-[50] flex items-center justify-center w-11 h-11 bg-primary text-primary-foreground rounded-xl shadow-pop hover:bg-primary/90 transition-all active:scale-95 select-none" onClick={() => setShowMapPanel(true)} title="Mở bảng bản đồ" aria-label="Mở bảng bản đồ">
-          <MapIcon className="w-5 h-5 shrink-0"/>
-        </button>)}
+      </MapMenu>
 
       
-      <div className="fixed bottom-6 right-6 z-[70] flex flex-col items-center gap-2">
-        <div className="flex flex-col gap-2 rounded-xl bg-card border border-border shadow-lg p-1.5">
-          <button onClick={isRecording ? stopVoiceSearch : startVoiceSearch} title="Tìm bằng giọng nói (Voice-to-Geo)" className={`p-2 rounded-lg transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "text-muted-foreground/60 hover:bg-muted/50"}`}>
-            {isRecording ? <MicOff className="w-4 h-4"/> : <Mic className="w-4 h-4"/>}
-          </button>
-          <button onClick={() => setShowHeatmap(!showHeatmap)} title="Bật/tắt lớp nhiệt độ" className={`p-2 rounded-lg transition-colors ${showHeatmap ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}>
-            <Flame className="w-4 h-4"/>
-          </button>
-          <button onClick={() => {
-            const event = new CustomEvent("toggleSafeRoute");
-            window.dispatchEvent(event);
-        }} title="Chỉ đường an toàn AI (SafeRoute)" className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 hover:text-accent transition-colors">
-            <Shield className="w-4 h-4"/>
-          </button>
-          {showHomeControls && (<button onClick={() => { setShowAiPanel(true); runAiAnalysis(); }} title="Phân tích AI khu vực" className={`p-2 rounded-lg transition-colors ${showAiPanel ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}>
-              <BrainCircuit className="w-4 h-4"/>
-            </button>)}
-          <button onClick={() => setShowFeaturedPins(!showFeaturedPins)} title={showFeaturedPins ? "Ẩn ghim đặc trưng" : "Hiện ghim đặc trưng"} className={`p-2 rounded-lg transition-colors ${showFeaturedPins ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}>
-            <Star className="w-4 h-4"/>
-          </button>
-          {showFeaturedPins && (<button onClick={() => setShowPinLegend(!showPinLegend)} title={showPinLegend ? "Đóng chú giải ghim" : "Mở chú giải ghim"} className={`p-2 rounded-lg transition-colors ${showPinLegend ? "bg-primary text-primary-foreground" : "text-muted-foreground/60 hover:bg-muted/50"}`}>
-              <Layers className="w-4 h-4"/>
-            </button>)}
-          <button onClick={toggleFullscreen} title={fs ? "Thoát toàn màn hình" : "Toàn màn hình"} className="p-2 rounded-lg text-muted-foreground/60 hover:bg-muted/50 transition-colors">
-            {fs ? <Minimize className="w-4 h-4"/> : <Maximize className="w-4 h-4"/>}
-          </button>
-        </div>
-      </div>
-
-      
-      {showPinLegend && (<div className="fixed bottom-24 right-6 z-[60] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
+      {showPinLegend && (<div className="absolute bottom-6 right-[4.5rem] z-[45] w-64 max-w-[calc(100vw-1.5rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom fade-in duration-200">
           <div className="p-2.5 border-b border-border flex items-center justify-between">
             <h4 className="text-xs font-semibold text-foreground">Chú giải ghim bản đồ</h4>
             <button onClick={() => setShowPinLegend(false)} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
@@ -895,7 +860,7 @@ export default function MapPage() {
         </div>)}
 
       
-      {showVoiceResults && voiceResults.length > 0 && (<div className="fixed bottom-24 right-6 z-[60] w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
+      {showVoiceResults && voiceResults.length > 0 && (<div className="absolute bottom-6 right-[4.5rem] z-[45] w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl">
           <div className="p-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mic className="w-4 h-4 text-primary"/>

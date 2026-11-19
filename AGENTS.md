@@ -689,22 +689,34 @@ inventing new values.
 - **Verify** with `cd frontend && npx tsc --noEmit && npm run build`.
   (Verified 2026-10-28: both pass, 0 TypeScript errors, clean build.)
 
-- **Map Hub floating panels (2026-10-28):**
-  - Trang `/map` (Map Hub) hiện có 2 panel trôi nổi (floating):
-    - **Bảng bản đồ** (trái): `fixed`, kéo tự do qua `useDraggable` (chỉ kéo ở header), có nút Ẩn/Hiện ("Mở bảng bản đồ"). `onMouseDown` chỉ gắn vào header để cuộn chuột trong nội dung không bị chặn.
-      - **Cỡ lớn hơn (2026-10-30):** mặc định `width: 400px`, `height: calc(100dvh - 120px)` (giống mẫu Chỉ đường routing panel); `useResizable` cho phép resize cả 2 trục.
-      - **Nút resize nổi bật (2026-10-30):** góc dưới-phải `cursor-se-resize` (`w-5 h-5`, `title="Kéo để thay đổi kích thước"`, hover `bg-primary/50`) — analog của nút resize `cursor-col-resize` ở mép trái bên Chỉ đường.
-      - **Không cắt nội dung (2026-10-30):** bỏ `max-h-48 overflow-y-auto` trong danh sách Wifi và "Gần đây"; panel body (`flex-1 overflow-y-auto`) cuộn thay thế để nội dung luôn hiện hết trong trạng thái mặc định.
-    - **Bảng chỉ đường** (phải, `RoutingPanel`): xuất hiện **sổ xuống từ nút "Chỉ đường" floating** (góc trên phải), `fixed` tại `top-[56px] right-4`, không kéo tự do nữa. `max-h-[calc(100dvh-120px)]` + `overflow-y-auto scrollbar-hide` để nội dung không bị rớt/cắt. `width: 340px` co dãn với màn hình.
-  - Bản đồ chiếm toàn bộ diện tích (`absolute inset-0`) phía sau các panel, vẫn có thể pan/zoom bình thường khi panel chỉ đường mở (không bị khóa).
-  - Nút zoom `+`/`-` trên bản đồ đã ẩn (`zoomControl={false}`); người dùng cuộn chuột để zoom.
-  - Popup khi bấm ghim/pin được rộng ra 3× (`max-w-[240px]` → `max-w-[720px]`).
-  - Form "Ghim vị trí mới" được rộng ra gấp 3 lần (`max-w-md` → `max-w-[84rem]` ≈ 1344px).
-  - `useDraggable` không bắt đầu kéo khi nhấn vào `input`/`textarea`/`select` → nhập liệu và cuộn chuột trong panel hoạt động bình thường.
-  - Bảng chỉ đường có nút **"Chọn bản đồ"** bên cạnh mỗi ô tọa độ (điểm xuất phát / điểm đến). Nhấn nút rồi click vào bản đồ sẽ chọn vị trí đó làm điểm tương ứng.
-  - Các label icon+checkbox dùng `whitespace-nowrap` để không rớt dòng.
-  - Layout dùng `flex-1` + `overflow-y-auto` để không bị rớt nội dung khi panel hẹp.
-  - Hook dùng chung: `frontend/src/hooks/useDraggable.ts`.
+- **Map Hub menu kiểu Windy (2026-11-19 — thay bảng trôi nổi 2026-10-28):**
+  - Trang `/map` chỉ còn **một** menu bên phải: `components/map/MapMenu.tsx`
+    (`absolute inset-y-0 right-0`, rail tròn `w-14` + panel `380px`).
+  - Rail tròn là nơi duy nhất chứa điều hướng: `Bản đồ`, `Chỉ đường`, rồi nhóm
+    lớp/tiện ích (`Lớp nhiệt`, `Ghim đặc trưng`, `Chú giải ghim`, `Phân tích AI`,
+    `Tìm bằng giọng nói`) và nhóm cuối (`Lộ trình an toàn AI`, `Toàn màn hình`).
+    Nhãn chữ hiện bên trái nút khi hover; nút cuối rail thu gọn/mở rộng panel.
+  - **"Chỉ đường" và "Bản đồ" nằm chung một menu**: panel có 2 tab nội dung
+    (`menuTab: "map" | "directions"`). Tab `map` giữ nguyên thanh công cụ
+    (core/analysis) + tìm kiếm + danh mục + thẻ địa điểm + thống kê + panel công
+    cụ; tab `directions` là chỗ chứa `RoutingPanel`.
+  - `RoutingPanel` nhận prop `embedded` (không còn `fixed`/`useResizable` khi
+    nhúng): `embedded` → `<div class="flex h-full flex-col overflow-y-auto p-4">`,
+    không render tiêu đề "Chỉ đường" (tiêu đề do `MapMenu` lo) và thêm nút
+    "Xóa lộ trình". Chế độ standalone (`!menuSlot && menuTab === null`, các trang
+    khác dùng `MapComponent`) → giữ panel `fixed` + nút "Chỉ đường" như cũ.
+  - `MapComponent` nhận `menuSlot` (phần tử DOM của tab `directions`) và
+    `menuTab`; khi có `menuSlot` nó `createPortal(<RoutingPanel embedded/>, menuSlot)`.
+    `onDirectionsOpen` được gọi khi bấm "Dẫn đường" trên popup POI hoặc sự kiện
+    `toggleSafeRoute`, để trang tự mở tab `Chỉ đường`.
+  - Không còn `useDraggable`/bảng "Bản đồ" trôi nổi ở `/map`; menu mặc định mở
+    trên desktop (`>= 1024px`), chỉ hiện rail trên mobile. `?tool=<id>` mở menu.
+  - Bản đồ vẫn `absolute inset-0` phía sau menu, pan/zoom bình thường; zoom
+    control vẫn ẩn (`zoomControl={false}`).
+  - Popup ghim rộng `max-w-[720px]`; form "Ghim vị trí mới" `max-w-[84rem]`.
+  - Chú giải ghim và kết quả giọng nói là thẻ `absolute bottom-6 right-[4.5rem]`
+    để không chồng lên rail.
+  - Hook `useDraggable` vẫn còn trong repo nhưng `/map` không dùng nữa.
 
 - **Sidebar `useState` build break (2026-10-28):** `components/Sidebar.tsx`
   used the bare `useState()` call on line 192 while the rest of the file
