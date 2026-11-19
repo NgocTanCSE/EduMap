@@ -6,6 +6,7 @@ from typing import Optional, List, Dict, Any
 
 from services.data_quality import data_quality_service
 from services.clustering_service import clustering_service
+from services import response_cache
 
 router = APIRouter(prefix="/api/ai/data", tags=["✅ AI Data Trust & Anomaly Detector"])
 
@@ -158,6 +159,11 @@ async def data_gaps(data: DataGapsRequest):
         cs = clustering_service
         points = data.points or []
 
+        payload = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+        cache_key = response_cache.key_for("data_gaps", payload)
+        cached = response_cache.get(cache_key)
+        if cached is not None:
+            return response_cache.mark_hit(cached)
 
         if data.bounds and points:
             b = data.bounds
@@ -187,6 +193,7 @@ async def data_gaps(data: DataGapsRequest):
         if data.top_n and len(result.get("features", [])) > data.top_n:
             result["features"] = result["features"][:data.top_n]
 
+        response_cache.set(cache_key, result)
         return result
 
     except HTTPException:

@@ -2033,3 +2033,19 @@ HCMC hotels.
 Verify after deploy: `/api/map/locations` should be fast (sub-second-ish) and no
 longer contain `category: "other"`; `/api/map/pois` keeps the education /
 study-space taxonomy only.
+
+### 24.4 Caching the two slow map AI proxies (2026-11-19)
+
+`/api/ai/data/gaps` and `/api/ai/resource/optimize` recompute a grid / MCLP over
+~2000 POIs and took **16 s** and **13.5 s** on every call (1 vCPU). Their result
+depends only on the request body, so `ai-service/services/response_cache.py`
+(a plain dict TTL cache, 24 h, 128 entries, no Redis needed) now keys on
+`sha256(payload)`:
+
+- `routers/data_quality.py::data_gaps` caches `identify_data_gaps` output;
+- `routers/resource.py::optimize_resources` caches the successful
+  `solver.optimize` result (degraded results are not cached).
+
+Cache hits return `metadata.cached = true` (the stored copy is not mutated).
+Repeat calls are now sub-second; the first call after a container restart still
+pays the full computation.

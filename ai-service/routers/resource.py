@@ -8,6 +8,8 @@ router = APIRouter(prefix="/api/ai/resource", tags=["13. AI Resource Optimizer"]
 
 
 
+from services import response_cache
+
 _solver = None
 _solver_loaded = False
 
@@ -78,11 +80,12 @@ async def optimize_resources(data: ResourceOptimizeRequest):
 
         request_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else data.dict(exclude_unset=True)
 
+        cache_key = response_cache.key_for("resource_optimize", request_data)
+        cached = response_cache.get(cache_key)
+        if cached is not None:
+            return response_cache.mark_hit(cached)
+
         result = solver.optimize(request_data)
-
-
-
-
 
         if result.get("summary", {}).get("error"):
             return {
@@ -91,10 +94,12 @@ async def optimize_resources(data: ResourceOptimizeRequest):
                 "reason": result["summary"]["error"],
             }
 
-        return {
+        response = {
             **result,
             "status": "success",
         }
+        response_cache.set(cache_key, response)
+        return response
     except HTTPException:
         raise
     except Exception as e:
