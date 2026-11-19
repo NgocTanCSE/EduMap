@@ -7,7 +7,8 @@ type FetchInput = RequestInfo | URL;
 const FLAG = '__edumapMockInstalled';
 
 function mockEnabled(): boolean {
-    return process.env.NEXT_PUBLIC_USE_MOCK_API !== 'false';
+    if (process.env.NODE_ENV === 'production') return false;
+    return process.env.NEXT_PUBLIC_USE_MOCK_API === 'true';
 }
 
 function shouldHandle(url: URL): boolean {
