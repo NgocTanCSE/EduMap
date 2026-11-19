@@ -103,10 +103,10 @@ const DB_SELECT_PROFILES: &str = r#"
     SELECT "id", "user_id", "name", "description", "industry", "website",
            "logo_url", "address", CAST("lat" AS TEXT) AS lat,
            CAST("lng" AS TEXT) AS lng, "is_verified",
-           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id" = bp."id")
+           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id"::text = bp."id"::text)
                AS products_count,
            (SELECT COUNT(*) FROM business_services s
-               WHERE s."business_profile_id" = bp."id") AS services_count,
+               WHERE s."business_profile_id"::text = bp."id"::text) AS services_count,
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
     FROM business_profiles bp
@@ -117,10 +117,10 @@ const DB_SELECT_PROFILE_BY_ID: &str = r#"
     SELECT "id", "user_id", "name", "description", "industry", "website",
            "logo_url", "address", CAST("lat" AS TEXT) AS lat,
            CAST("lng" AS TEXT) AS lng, "is_verified",
-           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id" = bp."id")
+           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id"::text = bp."id"::text)
                AS products_count,
            (SELECT COUNT(*) FROM business_services s
-               WHERE s."business_profile_id" = bp."id") AS services_count,
+               WHERE s."business_profile_id"::text = bp."id"::text) AS services_count,
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
     FROM business_profiles bp
@@ -131,10 +131,10 @@ const DB_SELECT_PROFILE_BY_USER: &str = r#"
     SELECT "id", "user_id", "name", "description", "industry", "website",
            "logo_url", "address", CAST("lat" AS TEXT) AS lat,
            CAST("lng" AS TEXT) AS lng, "is_verified",
-           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id" = bp."id")
+           (SELECT COUNT(*) FROM products p WHERE p."business_profile_id"::text = bp."id"::text)
                AS products_count,
            (SELECT COUNT(*) FROM business_services s
-               WHERE s."business_profile_id" = bp."id") AS services_count,
+               WHERE s."business_profile_id"::text = bp."id"::text) AS services_count,
            CAST("created_at" AS TEXT) AS created_at,
            CAST("updated_at" AS TEXT) AS updated_at
     FROM business_profiles bp

@@ -61,21 +61,21 @@ SELECT
 /// `GET /api/dashboard/history` — lịch sử ứng tuyển/đăng ký, gom UNION.
 const DB_DASHBOARD_HISTORY: &str = r#"
 SELECT type, title, status, CAST(created_at AS TEXT) AS created_at FROM (
-    SELECT 'application' AS type, j.title, a.status, a.created_at
+    SELECT 'application' AS type, j.title, a.status, a.created_at::text AS created_at
     FROM applications a JOIN jobs j ON j.id::text = a.job_id::text WHERE a.user_id::text = $1
     UNION ALL
-    SELECT 'registration', e.title, er.status, er.created_at
+    SELECT 'registration', e.title, er.status, er.created_at::text
     FROM event_registrations er JOIN events e ON e.id::text = er.event_id::text WHERE er.user_id::text = $1
     UNION ALL
-    SELECT 'intern_application', i.title, ia.status, ia.created_at
+    SELECT 'intern_application', i.title, ia.status, ia.created_at::text
     FROM internship_applications ia JOIN internships i ON i.id::text = ia.internship_id::text
     WHERE ia.user_id::text = $1
     UNION ALL
-    SELECT 'scholar_application', s.title, sa.status, sa.created_at
+    SELECT 'scholar_application', s.title, sa.status, sa.created_at::text
     FROM scholarship_applications sa JOIN scholarships s ON s.id::text = sa.scholarship_id::text
     WHERE sa.student_id::text = $1
     UNION ALL
-    SELECT 'summer_registration', CAST(cr.campaign_id AS TEXT), cr.status, cr.created_at
+    SELECT 'summer_registration', CAST(cr.campaign_id AS TEXT), cr.status, cr.created_at::text
     FROM summer_registrations cr WHERE cr.user_id::text = $1
 ) t ORDER BY created_at DESC
 "#;
