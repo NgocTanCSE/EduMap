@@ -268,14 +268,16 @@ pub struct UserRow {
 }
 
 const DB_GET_USER_BY_EMAIL: &str = r#"
-        SELECT id, email, password_hash, full_name, role, status,
+        SELECT id::text AS id, email, password_hash, full_name,
+               role::text AS role, status::text AS status,
                two_factor_secret, is_two_factor_enabled
         FROM users
         WHERE email = $1 AND deleted_at IS NULL
     "#;
 
 const DB_GET_USER_BY_ID: &str = r#"
-        SELECT id, email, password_hash, full_name, role, status,
+        SELECT id::text AS id, email, password_hash, full_name,
+               role::text AS role, status::text AS status,
                two_factor_secret, is_two_factor_enabled
         FROM users
         WHERE id::text = $1 AND deleted_at IS NULL
@@ -286,7 +288,8 @@ const DB_INSERT_USER: &str = r#"
         INSERT INTO users (email, password_hash, full_name, role, status,
                            email_verified, created_at, updated_at)
         VALUES ($1, $2, $3, $4::user_role_enum, 'active', false, NOW(), NOW())
-        RETURNING id, email, full_name, role, status, two_factor_secret
+        RETURNING id::text AS id, email, full_name, role::text AS role,
+                  status::text AS status, two_factor_secret
     "#;
 
 const DB_UPDATE_PASSWORD: &str = r#"
@@ -313,8 +316,9 @@ const DB_UPDATE_PROFILE: &str = r#"
     "#;
 
 const DB_SELECT_PREFERENCES: &str = r#"
-        SELECT user_id, language, theme, notifications_enabled, privacy_level,
-               notification_settings
+        SELECT user_id::text AS user_id, language, theme, notifications_enabled,
+               privacy_level::text AS privacy_level,
+               notification_settings::text AS notification_settings
         FROM user_preferences WHERE user_id::text = $1
     "#;
 

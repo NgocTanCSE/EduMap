@@ -483,7 +483,8 @@ pub async fn history(
 ) -> Result<Response, AppError> {
     let raw_rows = crate::db::query(
         r#"
-        SELECT id, user_id, message, response, context, created_at
+        SELECT id::text AS id, user_id::text AS user_id, message, response,
+               context::text AS context, CAST(created_at AS TEXT) AS created_at
         FROM chat_histories
         WHERE user_id::text = $1
         ORDER BY created_at ASC
