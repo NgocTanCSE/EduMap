@@ -566,10 +566,11 @@ pub async fn get_job_by_id(
         None => return Ok(Json(ApiResponse::ok(serde_json::json!(null)))),
     };
     crate::db::query(
-        r#"UPDATE jobs SET views = views + 1 WHERE id::text = $1 RETURNING id"#
+        r#"UPDATE jobs SET views = (COALESCE(NULLIF(views::text, ''), '0')::bigint + 1)::text
+           WHERE id::text = $1"#
     )
     .bind(&id)
-    .fetch_optional(pool.db())
+    .execute(pool.db())
     .await
     .map_err(AppError::from)?;
     Ok(Json(ApiResponse::ok(job)))
